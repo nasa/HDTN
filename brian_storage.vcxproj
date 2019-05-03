@@ -20,6 +20,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MemoryManagerTree.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MemoryManagerTree.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{52027D24-DF24-4724-B546-719BABD71AB2}</ProjectGuid>
