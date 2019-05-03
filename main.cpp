@@ -72,7 +72,7 @@ struct MemoryManagerTree {
 	void GetAndSetFirstFreeSegmentId(const int depth, void *node, boost::uint32_t * segmentId) {
 
 		InnerNode * const innerNode = (InnerNode*)node;
-		if (depth > 1) { //inner node			
+		if (depth > 1) { // this is an inner node that has children that are also inner nodes		
 			if (innerNode->m_bitMask != 0) { //bitmask not zero means space available
 				InnerNode * const childInnerNodes = (InnerNode*)innerNode->m_childNodes;
 				const unsigned int firstFreeIndex = boost::multiprecision::detail::find_lsb<boost::uint64_t>(innerNode->m_bitMask);
@@ -90,7 +90,7 @@ struct MemoryManagerTree {
 			//else return false; //full.. bitmask of zero means full
 			
 		}
-		else { //depth == 1 so check leaf node
+		else { //depth == 1 , this is an inner node that has children that are leaf nodes
 			LeafNode * const childLeafNodes = (LeafNode*)innerNode->m_childNodes;
 			const unsigned int firstFreeIndexInnerNode = boost::multiprecision::detail::find_lsb<boost::uint64_t>(innerNode->m_bitMask);
 			*segmentId += firstFreeIndexInnerNode * 64; // 64^1 where 1 is depth
@@ -112,6 +112,7 @@ struct MemoryManagerTree {
 	}
 
 	boost::uint32_t GetAndSetFirstFreeSegmentId() {
+		if (m_rootNode.m_bitMask == 0) return UINT32_MAX; //bitmask of zero means full
 		boost::uint32_t segmentId = 0;
 		GetAndSetFirstFreeSegmentId(MAX_TREE_DEPTH, &m_rootNode, &segmentId);
 		return segmentId;
@@ -131,13 +132,30 @@ int main() {
 	t.SetupTree();
 	std::cout << "done " << g_numLeaves << "\n";
 	//getchar();
-	for (int i = 0; i < 16777216; ++i) {
-		boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
+
+	//unit tests
+	boost::uint64_t prevRootBitmask = 5;
+	for (boost::uint32_t i = 0; i < 16777216*64; ++i) {
+		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
 		if (segmentId != i) {
 			std::cout << "error " << segmentId << " " << i << "\n";
 			break;
 		}
+		if (prevRootBitmask != t.m_rootNode.m_bitMask) {
+			prevRootBitmask = t.m_rootNode.m_bitMask;
+			printf("%d 0x%I64x\n", segmentId, t.m_rootNode.m_bitMask);
+			//printf("0 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[0].m_bitMask);
+			//printf("1 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[1].m_bitMask);
+			//printf("2 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[2].m_bitMask);
+		}
 		//std::cout << "sid:" << segmentId << "\n";
+	}
+	{
+		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
+		if (segmentId != UINT32_MAX) {
+			std::cout << "error " << segmentId <<  "\n";
+			printf("0x%I64x\n", t.m_rootNode.m_bitMask);
+		}
 	}
 	t.FreeTree();
 	std::cout << "done " << g_numLeaves << "\n";
