@@ -211,10 +211,28 @@ int main() {
 	}
 
 	{
-		const boost::uint32_t segmentId = 16777216 + 1234567;
-		if (t.FreeSegmentId(segmentId)) {
-			std::cout << "freed segId " << segmentId << "\n";
-			printf("0x%I64x\n", t.m_rootNode.m_bitMask);
+		const boost::uint32_t segmentIds[11] = {
+			123,
+			12345,
+			16777216 - 43,
+			16777216,			
+			16777216 + 53,
+			16777216 + 1234567,			
+			16777216 * 2 + 5,
+			16777216 * 3 + 9,
+			16777216 * 5 + 2,
+			16777216 * 9 + 6,
+			16777216 * 12 + 8
+		};
+
+		for (int i = 0; i < 11; ++i) {
+			const boost::uint32_t segmentId = segmentIds[i];
+			if (t.FreeSegmentId(segmentId)) {
+				std::cout << "freed segId " << segmentId << "\n";				
+			}
+		}
+		for (int i = 0; i < 11; ++i) {
+			const boost::uint32_t segmentId = segmentIds[i];			
 			const boost::uint32_t newSegmentId = t.GetAndSetFirstFreeSegmentId();
 			if (newSegmentId != segmentId) {
 				std::cout << "error " << segmentId << " " << newSegmentId << "\n";
@@ -222,6 +240,7 @@ int main() {
 			else {
 				std::cout << "reacquired segId " << newSegmentId << "\n";
 			}
+			
 		}
 	}
 	{
