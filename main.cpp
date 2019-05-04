@@ -11,7 +11,6 @@ int main() {
 	// 64^4 = 16,777,216
 	// 16777216 * 64 = 1,073,741,824
 	// 4e12 / 8192 = 488,281,250
-	/*
 	std::map<boost::uint64_t, boost::uint32_t> myMap;
 	MemoryManagerTree t;
 	t.SetupTree();
@@ -24,7 +23,7 @@ int main() {
 			getchar();
 		}
 	}
-	*/
-	std::cout << MemoryManagerTree::UnitTest() << "\n";
+
+	//std::cout << MemoryManagerTree::UnitTest() << "\n";
 	return 0;
 }
