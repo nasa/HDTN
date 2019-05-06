@@ -32,7 +32,7 @@ public:
 
 	void AddLink(const std::string & linkName);
 	void StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId);
-	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks);
+	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration);
 	
 	static bool UnitTest();
 

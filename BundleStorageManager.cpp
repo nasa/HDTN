@@ -24,13 +24,13 @@ void BundleStorageManager::StoreBundle(const std::string & linkName, const unsig
 	priority_vec_t & priorityVec = m_destMap[linkName];
 	expiration_map_t & expirationMap = priorityVec[priorityIndex];
 	segment_id_vec_t & segmentIdVec = expirationMap[absExpiration];
-	std::cout << "add exp=" << absExpiration << " seg=" << segmentId << " pri=" << priorityIndex << "link=" << linkName << "\n";
+	//std::cout << "add exp=" << absExpiration << " seg=" << segmentId << " pri=" << priorityIndex << "link=" << linkName << "\n";
 	segmentIdVec.push_back(segmentId);
 	////segmentIdVec.shrink_to_fit();
 #endif
 }
 
-segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & availableDestLinks) {
+segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration) {
 #ifdef USE_VECTOR_CIRCULAR_BUFFER
 
 #else
@@ -70,7 +70,11 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 			const segment_id_t segmentId = segmentIdVecPtr->back();
 			segmentIdVecPtr->pop_back();
 			//std::cout << "szaf=" << segmentIdVecPtr->size() << "\n";
-			std::cout << "remove exp=" << lowestExpiration << " seg=" << segmentId << " pri=" << i << "link=" << availableDestLinks[linkIndex] << "\n";
+			//std::cout << "remove exp=" << lowestExpiration << " seg=" << segmentId << " pri=" << i << "link=" << availableDestLinks[linkIndex] << "\n";
+			retAbsExpiration = lowestExpiration;
+			retLinkIndex = linkIndex;
+			retPriorityIndex = i;
+
 			if (segmentIdVecPtr->size() == 0) {
 				//std::cout << "sz0\n";
 				expirationMapPtr->erase(expirationMapIterator);
@@ -87,7 +91,7 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 
 bool BundleStorageManager::UnitTest() {
 	static const std::string DEST_LINKS[10] = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
-	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4"};
+	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
 	BundleStorageManager bsm;
 	MemoryManagerTreeArray mmt;
 	mmt.SetupTree();
@@ -99,8 +103,8 @@ bool BundleStorageManager::UnitTest() {
 	unsigned int priorityIndex = 0;
 	abs_expiration_t absExpiration = 0;
 
-	//for (boost::uint32_t i = 0; i < 16777216 * 2; ++i) {
-	for (boost::uint32_t i = 0; i < 100; ++i) {
+	for (boost::uint32_t i = 0; i < 16777216 * 2; ++i) {
+	//for (boost::uint32_t i = 0; i < 100; ++i) {
 		if (i % 16777216 == 0) {
 			std::cout << "about to push, i=" << i << "\n";
 			//getchar();
@@ -116,11 +120,51 @@ bool BundleStorageManager::UnitTest() {
 		absExpiration = (absExpiration + 1) % NUMBER_OF_EXPIRATIONS;
 	}
 
-	for (boost::uint32_t i = 0; i < 100; ++i) {
-		
-		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks);
+	
+	linkId = 0;
+	priorityIndex = 0;
+	absExpiration = 0;
+	for (boost::uint32_t i = 0; i < 16777216 * 2; ++i) {
+		std::size_t retLinkIndex;
+		unsigned int retPriorityIndex;
+		abs_expiration_t retAbsExpiration;
+		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration);
+
+		if (segmentId == UINT32_MAX) {
+			std::cout << "error segmentId is max, i=" << i << "\n";
+			return false;
+		}
+
+		if (retPriorityIndex < priorityIndex) {
+			std::cout << "error priority out of order\n";
+			return false;
+		}
+		else if (retPriorityIndex > priorityIndex) {
+			priorityIndex = retPriorityIndex;
+			std::cout << "priority change to " << priorityIndex << "\n";
+			absExpiration = 0;
+		}
+
+		if (retAbsExpiration < absExpiration) {
+			std::cout << "error expiration out of order " << retAbsExpiration << "<=" << absExpiration << "\n";
+			return false;
+		}
+		absExpiration = retAbsExpiration;
 		
 	}
+
+
+	{
+		std::size_t retLinkIndex;
+		unsigned int retPriorityIndex;
+		abs_expiration_t retAbsExpiration;
+		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration);
+		if (segmentId != UINT32_MAX) {
+			std::cout << "error segmentId not max\n";
+			return false;
+		}
+	}
+	
 
 	return true;
 }
