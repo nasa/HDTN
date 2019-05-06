@@ -19,11 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BundleStorageManager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MemoryManagerTree.cpp" />
     <ClCompile Include="MemoryManagerTreeArray.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BundleStorageManager.h" />
     <ClInclude Include="MemoryManagerTree.h" />
     <ClInclude Include="MemoryManagerTreeArray.h" />
   </ItemGroup>
