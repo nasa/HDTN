@@ -2,7 +2,37 @@
 #include "MemoryManagerTreeArray.h"
 #include <iostream>
 #include <string>
+#include <boost/filesystem.hpp>
 
+
+void BundleStorageManager::OpenFile() {
+	boost::iostreams::mapped_file_params  params;
+	params.path = "map.bin";
+	params.new_file_size = FILE_SIZE; //0 to read file
+	//params.mode = (std::ios_base::out | std::ios_base::in);
+	params.flags = boost::iostreams::mapped_file::mapmode::readwrite;
+	
+	m_mappedFile.open(params);
+	std::cout << "gran " << m_mappedFile.alignment() << "\n";
+	//const char * teststr = "hello this is a test";
+	//memcpy(m_mappedFile.data(), teststr, strlen(teststr));
+	//char buf[100];
+	//memcpy(buf, m_mappedFile.data(), 100);
+	//std::cout << "buf:" << buf << "\n";
+	
+}
+
+void BundleStorageManager::CloseFile() {
+	if (m_mappedFile.is_open()) {
+		m_mappedFile.close();
+	}
+	const boost::filesystem::path p("map.bin");
+
+	if (boost::filesystem::exists(p)) {
+		boost::filesystem::remove(p);
+		std::cout << "deleted " << p.string() << "\n";
+	}
+}
 
 
 void BundleStorageManager::AddLink(const std::string & linkName) {
@@ -17,7 +47,7 @@ void BundleStorageManager::AddLink(const std::string & linkName) {
 #endif
 }
 
-void BundleStorageManager::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId) {
+void BundleStorageManager::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const char * const data, std::size_t dataSize) {
 #ifdef USE_VECTOR_CIRCULAR_BUFFER
 
 #else
@@ -27,10 +57,14 @@ void BundleStorageManager::StoreBundle(const std::string & linkName, const unsig
 	//std::cout << "add exp=" << absExpiration << " seg=" << segmentId << " pri=" << priorityIndex << "link=" << linkName << "\n";
 	segmentIdVec.push_back(segmentId);
 	////segmentIdVec.shrink_to_fit();
+	if (data) {
+		const boost::uint64_t offsetBytes = segmentId * SEGMENT_SIZE;
+		memcpy(m_mappedFile.data() + offsetBytes, data, dataSize);
+	}
 #endif
 }
 
-segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration) {
+segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, char * const data, std::size_t dataSize) {
 #ifdef USE_VECTOR_CIRCULAR_BUFFER
 
 #else
@@ -42,7 +76,7 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 	}
 	
 
-	for (std::size_t i = 0; i < NUMBER_OF_PRIORITIES; ++i) {
+	for (unsigned int i = 0; i < NUMBER_OF_PRIORITIES; ++i) {
 		abs_expiration_t lowestExpiration = UINT64_MAX;
 		std::size_t linkIndex;
 		expiration_map_t * expirationMapPtr = NULL;
@@ -82,6 +116,10 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 			else {
 				////segmentIdVecPtr->shrink_to_fit();
 			}
+			if (data) {
+				const boost::uint64_t offsetBytes = segmentId * SEGMENT_SIZE;
+				memcpy(data, m_mappedFile.data() + offsetBytes, dataSize);
+			}
 			return segmentId;
 		}
 	}
@@ -92,7 +130,15 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 bool BundleStorageManager::UnitTest() {
 	static const std::string DEST_LINKS[10] = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
 	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
+	static char junkData[SEGMENT_SIZE];
+	static char junkDataReceived[SEGMENT_SIZE];
+	for (int i = 0; i < SEGMENT_SIZE; ++i) {
+		junkData[i] = 0x2;
+	}
 	BundleStorageManager bsm;
+	bsm.OpenFile();
+	//getchar();
+	
 	MemoryManagerTreeArray mmt;
 	mmt.SetupTree();
 	for (int i = 0; i < 10; ++i) {
@@ -103,8 +149,10 @@ bool BundleStorageManager::UnitTest() {
 	unsigned int priorityIndex = 0;
 	abs_expiration_t absExpiration = 0;
 
-	for (boost::uint32_t i = 0; i < 16777216 * 2; ++i) {
-	//for (boost::uint32_t i = 0; i < 100; ++i) {
+	std::cout << "storing\n";
+
+	//for (boost::uint32_t i = 0; i < 16777216 * 35; ++i) {
+	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
 		if (i % 16777216 == 0) {
 			std::cout << "about to push, i=" << i << "\n";
 			//getchar();
@@ -114,21 +162,27 @@ bool BundleStorageManager::UnitTest() {
 			std::cout << "error " << segmentId << " " << i << "\n";
 			return false;
 		}
-		bsm.StoreBundle(DEST_LINKS[linkId], priorityIndex, absExpiration + 100000, segmentId);
+		bsm.StoreBundle(DEST_LINKS[linkId], priorityIndex, absExpiration + 100000, segmentId, junkData, SEGMENT_SIZE);
+
 		linkId = (linkId + 1) % 10;
 		priorityIndex = (priorityIndex + 1) % 3;
 		absExpiration = (absExpiration + 1) % NUMBER_OF_EXPIRATIONS;
 	}
 
+	std::cout << "done storing\n";
 	
 	linkId = 0;
 	priorityIndex = 0;
 	absExpiration = 0;
-	for (boost::uint32_t i = 0; i < 16777216 * 2; ++i) {
+	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
 		std::size_t retLinkIndex;
 		unsigned int retPriorityIndex;
 		abs_expiration_t retAbsExpiration;
-		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration);
+		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration, junkDataReceived, SEGMENT_SIZE);
+		if (memcmp(junkDataReceived, junkData, SEGMENT_SIZE) != 0) {
+			std::cout << "received data doesnt match\n";
+			return false;
+		}
 
 		if (segmentId == UINT32_MAX) {
 			std::cout << "error segmentId is max, i=" << i << "\n";
@@ -152,19 +206,20 @@ bool BundleStorageManager::UnitTest() {
 		absExpiration = retAbsExpiration;
 		
 	}
-
+	std::cout << "done reading\n";
 
 	{
 		std::size_t retLinkIndex;
 		unsigned int retPriorityIndex;
 		abs_expiration_t retAbsExpiration;
-		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration);
+		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration, NULL, 0);
 		if (segmentId != UINT32_MAX) {
 			std::cout << "error segmentId not max\n";
 			return false;
 		}
 	}
-	
-
+	getchar();
+	bsm.CloseFile();
+	mmt.FreeTree();
 	return true;
 }

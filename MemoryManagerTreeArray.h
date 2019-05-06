@@ -6,6 +6,11 @@
 
 #define MAX_TREE_ARRAY_DEPTH 5
 
+//125000
+#define SEGMENT_SIZE 8192
+#define FILE_SIZE 1024000000
+#define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
+
 
 class MemoryManagerTreeArray {
 public:

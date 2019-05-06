@@ -6,6 +6,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <boost/iostreams/device/mapped_file.hpp>
 
 //#define USE_VECTOR_CIRCULAR_BUFFER 1
 #ifdef USE_VECTOR_CIRCULAR_BUFFER
@@ -29,10 +30,11 @@ typedef std::map<std::string, priority_vec_t> destination_map_t;
 
 class BundleStorageManager {
 public:
-
+	void OpenFile();
+	void CloseFile();
 	void AddLink(const std::string & linkName);
-	void StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId);
-	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration);
+	void StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const char * const data, std::size_t dataSize);
+	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, char * const data, std::size_t dataSize);
 	
 	static bool UnitTest();
 
@@ -40,7 +42,7 @@ private:
 	
 private:
 	destination_map_t m_destMap;
-	
+	boost::iostreams::mapped_file  m_mappedFile;
 };
 
 
