@@ -59,7 +59,8 @@ int main() {
 #elif 1
 	//sizeof(std::vector<int>); 24B * 65536 = 1.57MB per vector of vectors
 	//sizeof(std::vector<char>);
-	std::cout << BundleStorageManager::UnitTest() << "\n";
+	//std::cout << BundleStorageManager::UnitTest() << "\n";
+	std::cout << BundleStorageManager::TimeRandomReadsAndWrites() << "\n";
 #else
 	//std::cout << MemoryManagerTree::UnitTest() << "\n";
 	std::cout << MemoryManagerTreeArray::UnitTest() << "\n";

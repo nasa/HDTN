@@ -281,3 +281,147 @@ bool BundleStorageManager::UnitTest() {
 	//mmt.FreeTree();
 	return true;
 }
+
+bool Store(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManager & bsm, const std::string * DEST_LINKS) {
+	static boost::random::mt19937 gen(std::time(0));
+	static const boost::random::uniform_int_distribution<> distLinkId(0, 9);
+	static const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
+	static const boost::random::uniform_int_distribution<> distAbsExpiration(0, NUMBER_OF_EXPIRATIONS - 1);
+	static unsigned char junkData[SEGMENT_SIZE];
+
+	for (boost::uint32_t i = 0; i < numSegments; ++i) {
+
+		const segment_id_t segmentId = mmt.GetAndSetFirstFreeSegmentId();
+		if (segmentId == UINT32_MAX) {
+			std::cout << "error segmentId is max, i=" << i << "\n";
+			return false;
+		}
+		const unsigned int linkId = distLinkId(gen);
+		const unsigned int priorityIndex = distPriorityIndex(gen);
+		const abs_expiration_t absExpiration = distAbsExpiration(gen);
+
+		memcpy(&junkData[1000], &linkId, sizeof(linkId));
+		memcpy(&junkData[2000], &priorityIndex, sizeof(priorityIndex));
+		abs_expiration_t absExpirationcpy = absExpiration + 100000;
+		memcpy(&junkData[3000], &absExpirationcpy, sizeof(absExpirationcpy));
+		memcpy(&junkData[4000], &segmentId, sizeof(segmentId));
+		bsm.StoreBundle(DEST_LINKS[linkId], priorityIndex, absExpiration + 100000, segmentId, junkData, SEGMENT_SIZE);
+	}
+	return true;
+}
+
+bool Retrieve(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManager & bsm, const std::string * DEST_LINKS, const std::vector<std::string> & availableDestLinks) {
+
+	static unsigned char junkDataReceived[SEGMENT_SIZE];
+
+	for (boost::uint32_t i = 0; i < numSegments; ++i) {
+		std::size_t retLinkIndex;
+		unsigned int retPriorityIndex;
+		abs_expiration_t retAbsExpiration;
+		const segment_id_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration, junkDataReceived, SEGMENT_SIZE);
+		if (!mmt.FreeSegmentId(segmentId)) {
+			std::cout << "error freeing segment id " << segmentId << "\n";
+			return false;
+		}
+		
+		unsigned int linkIdCpy;
+		unsigned int priorityIndexCpy;
+		abs_expiration_t absExpirationCpy;
+		boost::uint32_t segmentIdCpy;
+		memcpy(&linkIdCpy, &junkDataReceived[1000], sizeof(linkIdCpy));
+		memcpy(&priorityIndexCpy, &junkDataReceived[2000], sizeof(priorityIndexCpy));
+		//abs_expiration_t absExpirationcpy = absExpiration + 100000;
+		memcpy(&absExpirationCpy, &junkDataReceived[3000], sizeof(absExpirationCpy));
+		memcpy(&segmentIdCpy, &junkDataReceived[4000], sizeof(segmentIdCpy));
+		bool success = true;
+		if (linkIdCpy != retLinkIndex) {
+			std::cout << "mismatch linkid " << linkIdCpy << " " << retLinkIndex << "\n";
+			success = false;
+		}
+		if (priorityIndexCpy != retPriorityIndex) {
+			std::cout << "mismatch retPriorityIndex " << priorityIndexCpy << " " << retPriorityIndex << "\n";
+			success = false;
+		}
+		if (absExpirationCpy != retAbsExpiration) {
+			std::cout << "mismatch retAbsExpiration " << absExpirationCpy << " " << retAbsExpiration << "\n";
+			success = false;
+		}
+		if (segmentIdCpy != segmentId) {
+			std::cout << "mismatch segmentId " << segmentIdCpy << " " << segmentId << "\n";
+			success = false;
+		}
+		if (!success) return false;
+		
+
+		if (segmentId == UINT32_MAX) {
+			std::cout << "error segmentId is max, i=" << i << "\n";
+			return false;
+		}
+
+
+
+	}
+	return true;
+}
+
+bool BundleStorageManager::TimeRandomReadsAndWrites() {
+	
+
+	
+	static const std::string DEST_LINKS[10] = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
+	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
+	
+	
+
+	BundleStorageManager bsm;
+	MemoryManagerTreeArray mmt;
+	
+	for (int i = 0; i < 10; ++i) {
+		bsm.AddLink(DEST_LINKS[i]);
+	}
+
+	
+	
+	std::cout << "storing\n";
+	
+
+	if (!Store(MAX_SEGMENTS, mmt, bsm, DEST_LINKS)) return false;
+
+	std::cout << "done storing\n";
+	const unsigned int numSegmentsPerTest = 100000;
+	const boost::uint64_t numBytesPerTest = static_cast<boost::uint64_t>(numSegmentsPerTest) * 8192;
+	for (unsigned int i = 0; i < 10; ++i) {
+		{
+			std::cout << "READ\n";
+			boost::timer::cpu_timer timer;
+			if (!Retrieve(numSegmentsPerTest, mmt, bsm, DEST_LINKS, availableDestLinks)) return false;
+			const boost::uint64_t nanoSecWall = timer.elapsed().wall;
+			//std::cout << "nanosec=" << nanoSecWall << "\n";
+			const double bytesPerNanoSecDouble = static_cast<double>(numBytesPerTest) / static_cast<double>(nanoSecWall);
+			const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
+			//std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
+			const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
+			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
+		}
+		{
+			std::cout << "WRITE\n";
+			boost::timer::cpu_timer timer;
+			if (!Store(numSegmentsPerTest, mmt, bsm, DEST_LINKS)) return false;
+			const boost::uint64_t nanoSecWall = timer.elapsed().wall;
+			//std::cout << "nanosec=" << nanoSecWall << "\n";
+			const double bytesPerNanoSecDouble = static_cast<double>(numBytesPerTest) / static_cast<double>(nanoSecWall);
+			const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
+			//std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
+			const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
+			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
+		}
+		
+	}
+
+	
+	
+	std::cout << "done reading\n";
+
+	
+	return true;
+}

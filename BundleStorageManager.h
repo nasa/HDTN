@@ -38,6 +38,7 @@ public:
 	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, unsigned char * const data, std::size_t dataSize);
 	
 	static bool UnitTest();
+	static bool TimeRandomReadsAndWrites();
 
 private:
 	void OpenFile();
