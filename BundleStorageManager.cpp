@@ -5,6 +5,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
+#include <boost/timer/timer.hpp>
 
 BundleStorageManager::BundleStorageManager() {
 	OpenFile();
@@ -164,6 +165,7 @@ bool BundleStorageManager::UnitTest() {
 	segment_id_t segmentId;
 
 	std::cout << "storing\n";
+	boost::timer::auto_cpu_timer timer;
 
 	//for (boost::uint32_t i = 0; i < 16777216 * 35; ++i) {
 	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
@@ -274,7 +276,7 @@ bool BundleStorageManager::UnitTest() {
 			return false;
 		}
 	}
-	getchar();
+	//getchar();
 	//bsm.CloseFile();
 	//mmt.FreeTree();
 	return true;
