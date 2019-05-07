@@ -30,16 +30,18 @@ typedef std::map<std::string, priority_vec_t> destination_map_t;
 
 class BundleStorageManager {
 public:
-	void OpenFile();
-	void CloseFile();
+	BundleStorageManager();
+	~BundleStorageManager();
+	
 	void AddLink(const std::string & linkName);
-	void StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const char * const data, std::size_t dataSize);
-	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, char * const data, std::size_t dataSize);
+	void StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const unsigned char * const data, std::size_t dataSize);
+	segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, unsigned char * const data, std::size_t dataSize);
 	
 	static bool UnitTest();
 
 private:
-	
+	void OpenFile();
+	void CloseFile();
 private:
 	destination_map_t m_destMap;
 	boost::iostreams::mapped_file  m_mappedFile;

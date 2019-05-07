@@ -3,7 +3,15 @@
 #include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 
+BundleStorageManager::BundleStorageManager() {
+	OpenFile();
+}
+BundleStorageManager::~BundleStorageManager() {
+	CloseFile();
+}
 
 void BundleStorageManager::OpenFile() {
 	boost::iostreams::mapped_file_params  params;
@@ -47,7 +55,7 @@ void BundleStorageManager::AddLink(const std::string & linkName) {
 #endif
 }
 
-void BundleStorageManager::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const char * const data, std::size_t dataSize) {
+void BundleStorageManager::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const unsigned char * const data, std::size_t dataSize) {
 #ifdef USE_VECTOR_CIRCULAR_BUFFER
 
 #else
@@ -58,13 +66,13 @@ void BundleStorageManager::StoreBundle(const std::string & linkName, const unsig
 	segmentIdVec.push_back(segmentId);
 	////segmentIdVec.shrink_to_fit();
 	if (data) {
-		const boost::uint64_t offsetBytes = segmentId * SEGMENT_SIZE;
+		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId) * SEGMENT_SIZE;
 		memcpy(m_mappedFile.data() + offsetBytes, data, dataSize);
 	}
 #endif
 }
 
-segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, char * const data, std::size_t dataSize) {
+segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & availableDestLinks, std::size_t & retLinkIndex, unsigned int & retPriorityIndex, abs_expiration_t & retAbsExpiration, unsigned char * const data, std::size_t dataSize) {
 #ifdef USE_VECTOR_CIRCULAR_BUFFER
 
 #else
@@ -117,7 +125,7 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 				////segmentIdVecPtr->shrink_to_fit();
 			}
 			if (data) {
-				const boost::uint64_t offsetBytes = segmentId * SEGMENT_SIZE;
+				const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId) * SEGMENT_SIZE;
 				memcpy(data, m_mappedFile.data() + offsetBytes, dataSize);
 			}
 			return segmentId;
@@ -127,20 +135,25 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 #endif
 }
 
+void SetJunk(char * data) {
+
+}
+
 bool BundleStorageManager::UnitTest() {
+	//boost::random::mt19937 gen(std::time(0));
+
+	//boost::random::uniform_int_distribution<> dist255(0, 255);
 	static const std::string DEST_LINKS[10] = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
 	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
-	static char junkData[SEGMENT_SIZE];
-	static char junkDataReceived[SEGMENT_SIZE];
-	for (int i = 0; i < SEGMENT_SIZE; ++i) {
-		junkData[i] = 0x2;
-	}
+	static unsigned char junkData[SEGMENT_SIZE];
+	static unsigned char junkDataReceived[SEGMENT_SIZE];
+	
 	BundleStorageManager bsm;
-	bsm.OpenFile();
+	//bsm.OpenFile();
 	//getchar();
 	
 	MemoryManagerTreeArray mmt;
-	mmt.SetupTree();
+	//mmt.SetupTree();
 	for (int i = 0; i < 10; ++i) {
 		bsm.AddLink(DEST_LINKS[i]);
 	}
@@ -148,6 +161,7 @@ bool BundleStorageManager::UnitTest() {
 	unsigned int linkId = 0;
 	unsigned int priorityIndex = 0;
 	abs_expiration_t absExpiration = 0;
+	segment_id_t segmentId;
 
 	std::cout << "storing\n";
 
@@ -157,11 +171,19 @@ bool BundleStorageManager::UnitTest() {
 			std::cout << "about to push, i=" << i << "\n";
 			//getchar();
 		}
-		const boost::uint32_t segmentId = mmt.GetAndSetFirstFreeSegmentId();
+		segmentId = mmt.GetAndSetFirstFreeSegmentId();
 		if (segmentId != i) {
 			std::cout << "error " << segmentId << " " << i << "\n";
 			return false;
 		}
+		//for (boost::uint32_t k = 0; k < SEGMENT_SIZE; ++k) {
+		//	junkData[k] = k ^ segmentId; //dist255(gen);
+		//}
+		memcpy(&junkData[1000], &linkId, sizeof(linkId));
+		memcpy(&junkData[2000], &priorityIndex, sizeof(priorityIndex));
+		abs_expiration_t absExpirationcpy = absExpiration + 100000;
+		memcpy(&junkData[3000], &absExpirationcpy, sizeof(absExpirationcpy));
+		memcpy(&junkData[4000], &segmentId, sizeof(segmentId));
 		bsm.StoreBundle(DEST_LINKS[linkId], priorityIndex, absExpiration + 100000, segmentId, junkData, SEGMENT_SIZE);
 
 		linkId = (linkId + 1) % 10;
@@ -178,10 +200,44 @@ bool BundleStorageManager::UnitTest() {
 		std::size_t retLinkIndex;
 		unsigned int retPriorityIndex;
 		abs_expiration_t retAbsExpiration;
-		const boost::uint32_t segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration, junkDataReceived, SEGMENT_SIZE);
-		if (memcmp(junkDataReceived, junkData, SEGMENT_SIZE) != 0) {
-			std::cout << "received data doesnt match\n";
-			return false;
+		segmentId = bsm.GetBundle(availableDestLinks, retLinkIndex, retPriorityIndex, retAbsExpiration, junkDataReceived, SEGMENT_SIZE);
+		//if (memcmp(junkDataReceived, junkData, SEGMENT_SIZE) != 0) {
+		//	std::cout << "received data doesnt match\n";
+		//	return false;
+		//}
+		{
+			unsigned int linkIdCpy;
+			unsigned int priorityIndexCpy;
+			abs_expiration_t absExpirationCpy;
+			boost::uint32_t segmentIdCpy;
+			memcpy(&linkIdCpy, &junkDataReceived[1000], sizeof(linkIdCpy));
+			memcpy(&priorityIndexCpy, &junkDataReceived[2000], sizeof(priorityIndexCpy));
+			//abs_expiration_t absExpirationcpy = absExpiration + 100000;
+			memcpy(&absExpirationCpy, &junkDataReceived[3000], sizeof(absExpirationCpy));
+			memcpy(&segmentIdCpy, &junkDataReceived[4000], sizeof(segmentIdCpy));
+			bool success = true;
+			//std::cout << "testing\n";
+			//std::cout << "linkid " << linkIdCpy << " " << retLinkIndex << "\n";
+			//std::cout << "retPriorityIndex " << priorityIndexCpy << " " << retPriorityIndex << "\n";
+			//std::cout << "retAbsExpiration " << absExpirationCpy << " " << retAbsExpiration << "\n";
+			//std::cout << "segmentId " << segmentIdCpy << " " << segmentId << "\n";
+			if (linkIdCpy != retLinkIndex) {
+				std::cout << "mismatch linkid " << linkIdCpy << " " << retLinkIndex << "\n";
+				success = false;
+			}
+			if (priorityIndexCpy != retPriorityIndex) {
+				std::cout << "mismatch retPriorityIndex " << priorityIndexCpy << " " << retPriorityIndex << "\n";
+				success = false;
+			}
+			if (absExpirationCpy != retAbsExpiration) {
+				std::cout << "mismatch retAbsExpiration " << absExpirationCpy << " " << retAbsExpiration << "\n";
+				success = false;
+			}
+			if (segmentIdCpy != segmentId) {
+				std::cout << "mismatch segmentId " << segmentIdCpy << " " << segmentId << "\n";
+				success = false;
+			}
+			if (!success) return false;
 		}
 
 		if (segmentId == UINT32_MAX) {
@@ -219,7 +275,7 @@ bool BundleStorageManager::UnitTest() {
 		}
 	}
 	getchar();
-	bsm.CloseFile();
-	mmt.FreeTree();
+	//bsm.CloseFile();
+	//mmt.FreeTree();
 	return true;
 }

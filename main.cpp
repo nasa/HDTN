@@ -62,7 +62,7 @@ int main() {
 	std::cout << BundleStorageManager::UnitTest() << "\n";
 #else
 	//std::cout << MemoryManagerTree::UnitTest() << "\n";
-	//std::cout << MemoryManagerTreeArray::UnitTest() << "\n";
+	std::cout << MemoryManagerTreeArray::UnitTest() << "\n";
 #endif
 	
 	return 0;

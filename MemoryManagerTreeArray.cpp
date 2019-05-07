@@ -6,6 +6,13 @@
 
 static boost::uint64_t g_numLeaves = 0;
 
+MemoryManagerTreeArray::MemoryManagerTreeArray() {
+	SetupTree();
+}
+MemoryManagerTreeArray::~MemoryManagerTreeArray() {
+	FreeTree();
+}
+
 void MemoryManagerTreeArray::SetupTree() {
 	for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
 		const boost::uint64_t arraySize64s = (((boost::uint64_t)1) << (i*6));
@@ -38,7 +45,7 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const boost::uint32_t d
 	
 	
 	if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || GetAndSetFirstFreeSegmentId(depthIndex + 1, rowIndex + firstFreeIndex * (1 << (depthIndex * 6)), segmentId)) {
-		*currentBit64Ptr &= ~mask64;
+		if (*segmentId < MAX_SEGMENTS) *currentBit64Ptr &= ~mask64;
 	}
 	/*
 	
@@ -65,6 +72,7 @@ boost::uint32_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId() {
 	if (m_bitMasks[0][0] == 0) return UINT32_MAX; //bitmask of zero means full
 	boost::uint32_t segmentId = 0;
 	GetAndSetFirstFreeSegmentId(0, 0, &segmentId);
+	if (segmentId >= MAX_SEGMENTS) return UINT32_MAX;
 	return segmentId;
 }
 
@@ -101,7 +109,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 	MemoryManagerTreeArray t;
 	//std::cout << "ready\n";
 	//getchar();
-	t.SetupTree();
+	//t.SetupTree();
 	//std::cout << "done\n";
 	//getchar();
 
@@ -110,7 +118,8 @@ bool MemoryManagerTreeArray::UnitTest() {
 
 	//unit tests
 	boost::uint64_t prevRootBitmask = 5;
-	for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
+	//for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
+	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
 		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
 		if (segmentId != i) {
 			std::cout << "error " << segmentId << " " << i << "\n";
@@ -139,15 +148,15 @@ bool MemoryManagerTreeArray::UnitTest() {
 		const boost::uint32_t segmentIds[11] = {
 		123,
 		12345,
-		16777216 - 43,
-		16777216,
-		16777216 + 53,
-		16777216 + 1234567,
-		16777216 * 2 + 5,
-		16777216 * 3 + 9,
-		16777216 * 5 + 2,
-		16777216 * 9 + 6,
-		16777216 * 12 + 8
+		16777 - 43,
+		16777,
+		16777 + 53,
+		16777 + 1234,
+		16777 * 2 + 5,
+		16777 * 3 + 9,
+		16777 * 5 + 2,
+		16777 * 9 + 6,
+		16777 * 12 + 8
 		};
 
 		for (int i = 0; i < 11; ++i) {
@@ -182,7 +191,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 		}
 	}
 	
-	t.FreeTree();
+	//t.FreeTree();
 	std::cout << "done\n";
 	//getchar();
 	return true;

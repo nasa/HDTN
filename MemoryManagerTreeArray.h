@@ -8,14 +8,14 @@
 
 //125000
 #define SEGMENT_SIZE 8192
-#define FILE_SIZE 1024000000
+#define FILE_SIZE 10240000000
 #define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
 
 
 class MemoryManagerTreeArray {
 public:
-	void SetupTree();
-	void FreeTree();
+	MemoryManagerTreeArray();
+	~MemoryManagerTreeArray();
 	boost::uint32_t GetAndSetFirstFreeSegmentId();
 	bool FreeSegmentId(boost::uint32_t segmentId);
 	static bool UnitTest();
@@ -23,7 +23,8 @@ public:
 private:
 	bool GetAndSetFirstFreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t * segmentId);
 	void FreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId, bool *success);
-
+	void SetupTree();
+	void FreeTree();
 private:
 
 	boost::uint64_t * m_bitMasks[MAX_TREE_ARRAY_DEPTH];
