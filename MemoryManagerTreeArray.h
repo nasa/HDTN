@@ -7,8 +7,8 @@
 #define MAX_TREE_ARRAY_DEPTH 5
 
 //125000
-#define SEGMENT_SIZE 8192  //with 40gb file takes 891 wall sec
-//#define SEGMENT_SIZE 65536  //with 40gb file takes 526 wall sec
+//#define SEGMENT_SIZE 8192  //with 40gb file takes 891 wall sec
+#define SEGMENT_SIZE 65536  //with 40gb file takes 526 wall sec
 #define FILE_SIZE (10240000000 * 4)
 #define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
 

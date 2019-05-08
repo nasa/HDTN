@@ -6,6 +6,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <cstdio>
 #include <boost/iostreams/device/mapped_file.hpp>
 
 //#define USE_VECTOR_CIRCULAR_BUFFER 1
@@ -27,6 +28,7 @@ typedef std::map<std::string, priority_vec_t> destination_map_t;
 //two days
 #define NUMBER_OF_EXPIRATIONS (86400*2)
 #define NUMBER_OF_PRIORITIES (3)
+//#define USE_MEMORY_MAPPED_FILES 1
 
 class BundleStorageManager {
 public:
@@ -45,7 +47,11 @@ private:
 	void CloseFile();
 private:
 	destination_map_t m_destMap;
+#ifdef USE_MEMORY_MAPPED_FILES
 	boost::iostreams::mapped_file  m_mappedFile;
+#else
+	FILE * m_fileHandle;
+#endif
 };
 
 

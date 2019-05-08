@@ -7,7 +7,11 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/timer/timer.hpp>
 
-BundleStorageManager::BundleStorageManager() {
+BundleStorageManager::BundleStorageManager()
+#ifndef USE_MEMORY_MAPPED_FILES
+	: m_fileHandle(NULL)
+#endif
+{
 	OpenFile();
 }
 BundleStorageManager::~BundleStorageManager() {
@@ -15,6 +19,7 @@ BundleStorageManager::~BundleStorageManager() {
 }
 
 void BundleStorageManager::OpenFile() {
+#ifdef USE_MEMORY_MAPPED_FILES
 	boost::iostreams::mapped_file_params  params;
 	params.path = "map.bin";
 	params.new_file_size = FILE_SIZE; //0 to read file
@@ -28,13 +33,24 @@ void BundleStorageManager::OpenFile() {
 	//char buf[100];
 	//memcpy(buf, m_mappedFile.data(), 100);
 	//std::cout << "buf:" << buf << "\n";
+#else
+	m_fileHandle = fopen("map.bin", "w+bR");
+#endif
 	
 }
 
 void BundleStorageManager::CloseFile() {
+#ifdef USE_MEMORY_MAPPED_FILES
 	if (m_mappedFile.is_open()) {
 		m_mappedFile.close();
 	}
+#else
+	if (m_fileHandle) {
+		fclose(m_fileHandle);
+		m_fileHandle = NULL;
+	}
+#endif
+	
 	const boost::filesystem::path p("map.bin");
 
 	if (boost::filesystem::exists(p)) {
@@ -67,8 +83,21 @@ void BundleStorageManager::StoreBundle(const std::string & linkName, const unsig
 	segmentIdVec.push_back(segmentId);
 	////segmentIdVec.shrink_to_fit();
 	if (data) {
-		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId) * SEGMENT_SIZE;
+		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId) * SEGMENT_SIZE;		
+#ifdef USE_MEMORY_MAPPED_FILES
 		memcpy(m_mappedFile.data() + offsetBytes, data, dataSize);
+#else
+
+#ifdef _MSC_VER 
+		_fseeki64_nolock(m_fileHandle, offsetBytes, SEEK_SET);
+#else
+		fseeko64(m_fileHandle, offsetBytes, SEEK_SET);
+#endif
+		
+		if (fwrite(data, 1, SEGMENT_SIZE, m_fileHandle) != SEGMENT_SIZE) {
+			std::cout << "error writing\n";
+		}
+#endif
 	}
 #endif
 }
@@ -127,7 +156,19 @@ segment_id_t BundleStorageManager::GetBundle(const std::vector<std::string> & av
 			}
 			if (data) {
 				const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId) * SEGMENT_SIZE;
+#ifdef USE_MEMORY_MAPPED_FILES
 				memcpy(data, m_mappedFile.data() + offsetBytes, dataSize);
+#else
+#ifdef _MSC_VER 
+				_fseeki64_nolock(m_fileHandle, offsetBytes, SEEK_SET);
+#else
+				fseeko64(m_fileHandle, offsetBytes, SEEK_SET);
+#endif
+				if (fread(data, 1, SEGMENT_SIZE, m_fileHandle) != SEGMENT_SIZE) {
+					std::cout << "error reading\n";
+				}
+#endif
+				
 			}
 			return segmentId;
 		}
@@ -283,7 +324,7 @@ bool BundleStorageManager::UnitTest() {
 }
 
 bool Store(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManager & bsm, const std::string * DEST_LINKS) {
-	static boost::random::mt19937 gen(std::time(0));
+	static boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
 	static const boost::random::uniform_int_distribution<> distLinkId(0, 9);
 	static const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
 	static const boost::random::uniform_int_distribution<> distAbsExpiration(0, NUMBER_OF_EXPIRATIONS - 1);
@@ -389,7 +430,7 @@ bool BundleStorageManager::TimeRandomReadsAndWrites() {
 
 	std::cout << "done storing\n";
 	const unsigned int numSegmentsPerTest = 100000;
-	const boost::uint64_t numBytesPerTest = static_cast<boost::uint64_t>(numSegmentsPerTest) * 8192;
+	const boost::uint64_t numBytesPerTest = static_cast<boost::uint64_t>(numSegmentsPerTest) * SEGMENT_SIZE;
 	for (unsigned int i = 0; i < 10; ++i) {
 		{
 			std::cout << "READ\n";
