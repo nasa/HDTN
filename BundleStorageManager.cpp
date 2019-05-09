@@ -431,6 +431,7 @@ bool BundleStorageManager::TimeRandomReadsAndWrites() {
 	std::cout << "done storing\n";
 	const unsigned int numSegmentsPerTest = 100000;
 	const boost::uint64_t numBytesPerTest = static_cast<boost::uint64_t>(numSegmentsPerTest) * SEGMENT_SIZE;
+	double gigaBitsPerSecReadDoubleAvg = 0.0, gigaBitsPerSecWriteDoubleAvg = 0.0;
 	for (unsigned int i = 0; i < 10; ++i) {
 		{
 			std::cout << "READ\n";
@@ -442,6 +443,7 @@ bool BundleStorageManager::TimeRandomReadsAndWrites() {
 			const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
 			//std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
 			const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
+			gigaBitsPerSecReadDoubleAvg += gigaBitsPerSecDouble;
 			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
 		}
 		{
@@ -454,11 +456,13 @@ bool BundleStorageManager::TimeRandomReadsAndWrites() {
 			const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
 			//std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
 			const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
+			gigaBitsPerSecWriteDoubleAvg += gigaBitsPerSecDouble;
 			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
 		}
 		
 	}
-
+	std::cout << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / 10.0 << "\n\n";
+	std::cout << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / 10.0 << "\n\n";
 	
 	
 	std::cout << "done reading\n";
