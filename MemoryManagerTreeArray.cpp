@@ -3,8 +3,9 @@
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <iostream>
 #include <string>
+#include <inttypes.h>
 
-static boost::uint64_t g_numLeaves = 0;
+//static boost::uint64_t g_numLeaves = 0;
 
 MemoryManagerTreeArray::MemoryManagerTreeArray() {
 	SetupTree();
@@ -127,7 +128,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 		}
 		if (prevRootBitmask != t.m_bitMasks[0][0]) {
 			prevRootBitmask = t.m_bitMasks[0][0];
-			printf("%d 0x%I64x\n", segmentId, t.m_bitMasks[0][0]);
+			printf("%d 0x%" PRIx64 "\n", segmentId, t.m_bitMasks[0][0]);
 			//printf("0 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[0].m_bitMask);
 			//printf("1 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[1].m_bitMask);
 			//printf("2 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[2].m_bitMask);
@@ -139,7 +140,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
 		if (segmentId != UINT32_MAX) {
 			std::cout << "error " << segmentId << "\n";
-			printf("0x%I64x\n", t.m_bitMasks[0][0]);
+			printf("0x%" PRIx64 "\n", t.m_bitMasks[0][0]);
 			return false;
 		}
 	}
@@ -186,7 +187,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
 		if (segmentId != UINT32_MAX) {
 			std::cout << "error " << segmentId << "\n";
-			printf("0x%I64x\n", t.m_bitMasks[0][0]);
+			printf("0x%" PRIx64 "\n", t.m_bitMasks[0][0]);
 			return false;
 		}
 	}
