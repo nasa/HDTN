@@ -6,7 +6,13 @@
 #include <vector>
 #include <boost/integer.hpp>
 #include <stdint.h>
+
+#define USE_MT_BSM 1
+#ifdef USE_MT_BSM
+#include "BundleStorageManagerMT.h"
+#else
 #include "BundleStorageManager.h"
+#endif
 
 
 int main() {
@@ -60,7 +66,12 @@ int main() {
 	//sizeof(std::vector<int>); 24B * 65536 = 1.57MB per vector of vectors
 	//sizeof(std::vector<char>);
 	//std::cout << BundleStorageManager::UnitTest() << "\n";
+#ifdef USE_MT_BSM
+	std::cout << BundleStorageManagerMT::TimeRandomReadsAndWrites() << "\n";
+#else
 	std::cout << BundleStorageManager::TimeRandomReadsAndWrites() << "\n";
+#endif
+	
 #else
 	//std::cout << MemoryManagerTree::UnitTest() << "\n";
 	std::cout << MemoryManagerTreeArray::UnitTest() << "\n";
