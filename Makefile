@@ -23,10 +23,10 @@ LFLAGS = -L/usr/lib
 # define any libraries to link into executable:
 #   if I want to link in libraries (libx.so or libx.a) I use the -llibname 
 #   option, something like (this will link in libmylib.so and libm.so:
-LIBS = -lm -lboost_system -lboost_filesystem -lboost_timer
+LIBS = -lm -lboost_system -lboost_filesystem -lboost_timer -lpthread -lboost_thread
 
 # define the C source files
-SRCS = BundleStorageManager.cpp MemoryManagerTreeArray.cpp main.cpp
+SRCS = BundleStorageManager.cpp MemoryManagerTreeArray.cpp BundleStorageManagerMT.cpp CircularIndexBufferSingleProducerSingleConsumer.cpp main.cpp
 
 # define the C object files 
 #

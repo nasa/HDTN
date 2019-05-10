@@ -158,6 +158,7 @@ void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const uns
 
 	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
 	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
+	boost::condition_variable & cv = m_conditionVariables[threadIndex];
 	unsigned int produceIndex;
 	for (produceIndex = UINT32_MAX; produceIndex == UINT32_MAX; produceIndex = cb.GetIndexForWrite()) {} //store the volatile, wait until not full
 
@@ -180,6 +181,7 @@ void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const uns
 	memcpy(dataCb, data, SEGMENT_SIZE);
 
 	cb.CommitWrite();
+	cv.notify_one();
 
 }
 
@@ -234,6 +236,7 @@ segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & 
 
 			const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
 			CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
+			boost::condition_variable & cv = m_conditionVariables[threadIndex];
 			unsigned int produceIndex;
 			for (produceIndex = UINT32_MAX; produceIndex == UINT32_MAX; produceIndex = cb.GetIndexForWrite()) {} //store the volatile, wait until not full
 
@@ -255,7 +258,7 @@ segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & 
 			memcpy(&dataCb[4000], &segmentId, sizeof(segmentId));
 
 			cb.CommitWrite();
-
+			cv.notify_one();
 			
 			return segmentId;
 		}
