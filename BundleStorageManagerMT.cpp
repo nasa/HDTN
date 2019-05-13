@@ -7,6 +7,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/timer/timer.hpp>
 #include <boost/make_shared.hpp>
+#include "SignalHandler.h"
 
 static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
 
@@ -275,6 +276,14 @@ segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & 
 
 }
 
+static volatile bool g_running = true;
+
+void MonitorExitKeypressThreadFunction() {
+	std::cout << "Keyboard Interrupt.. exiting\n";
+	g_running = false; //do this first
+}
+
+static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction));
 
 
 
@@ -286,6 +295,7 @@ static bool Store(const boost::uint32_t numSegments, MemoryManagerTreeArray & mm
 	static unsigned char junkData[SEGMENT_SIZE];
 
 	for (boost::uint32_t i = 0; i < numSegments; ++i) {
+		if (!g_running) return false;
 
 		const segment_id_t segmentId = mmt.GetAndSetFirstFreeSegmentId();
 		if (segmentId == UINT32_MAX) {
@@ -309,6 +319,8 @@ static bool Store(const boost::uint32_t numSegments, MemoryManagerTreeArray & mm
 static bool Retrieve(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManagerMT & bsm, const std::string * DEST_LINKS, const std::vector<std::string> & availableDestLinks) {
 
 	for (boost::uint32_t i = 0; i < numSegments; ++i) {
+		if (!g_running) return false;
+
 		const segment_id_t segmentId = bsm.GetBundle(availableDestLinks);
 		if (!mmt.FreeSegmentId(segmentId)) {
 			std::cout << "error freeing segment id " << segmentId << "\n";
@@ -329,7 +341,7 @@ static bool Retrieve(const boost::uint32_t numSegments, MemoryManagerTreeArray &
 
 bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
 	
-
+	g_sigHandler.Start();
 	
 	static const std::string DEST_LINKS[10] = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
 	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
@@ -360,6 +372,7 @@ bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
 	double gigaBitsPerSecReadDoubleAvg = 0.0, gigaBitsPerSecWriteDoubleAvg = 0.0;
 	for (unsigned int i = 0; i < 10; ++i) {
 		{
+			if (!g_running) return false;
 			std::cout << "READ\n";
 			boost::timer::cpu_timer timer;
 			if (!Retrieve(numSegmentsPerTest, mmt, bsm, DEST_LINKS, availableDestLinks)) return false;
@@ -373,6 +386,7 @@ bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
 			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
 		}
 		{
+			if (!g_running) return false;
 			std::cout << "WRITE\n";
 			boost::timer::cpu_timer timer;
 			if (!Store(numSegmentsPerTest, mmt, bsm, DEST_LINKS)) return false;
@@ -387,11 +401,13 @@ bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
 		}
 		
 	}
-	std::cout << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / 10.0 << "\n\n";
-	std::cout << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / 10.0 << "\n\n";
-	
-	
-	std::cout << "done reading\n";
+	if (g_running) {
+		std::cout << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / 10.0 << "\n\n";
+		std::cout << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / 10.0 << "\n\n";
+
+
+		std::cout << "done reading\n";
+	}
 
 	
 	return true;
