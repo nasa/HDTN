@@ -9,7 +9,12 @@
 #include <boost/make_shared.hpp>
 #include "SignalHandler.h"
 
+#ifdef _MSC_VER //Windows tests
 static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
+#else //Lambda Linux tests
+static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "/mnt/sda1/test/map0.bin", "/mnt/sdb1/test/map1.bin", "/mnt/sdc1/test/map2.bin", "/mnt/sdd1/test/map3.bin" };
+#endif
+
 
 
 BundleStorageManagerMT::BundleStorageManagerMT() : m_lockMainThread(m_mutexMainThread), m_running(true) {
