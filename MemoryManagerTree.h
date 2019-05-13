@@ -3,8 +3,9 @@
 
 #include <boost/integer.hpp>
 #include <stdint.h>
+#include "BundleStorageConfig.h"
 
-#define MAX_TREE_DEPTH 4
+
 struct MemoryManagerLeafNode {
 	boost::uint64_t m_bitMask;
 };

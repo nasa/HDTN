@@ -11,7 +11,7 @@
 static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
 
 
-BundleStorageManagerMT::BundleStorageManagerMT() : m_running(true) {
+BundleStorageManagerMT::BundleStorageManagerMT() : m_lockMainThread(m_mutexMainThread), m_running(true) {
 	m_circularBufferBlockDataPtr = (uint8_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * SEGMENT_SIZE * sizeof(uint8_t));
 	m_circularBufferSegmentIdsPtr = (segment_id_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * sizeof(segment_id_t));
 	m_circularBufferReadWriteBoolsPtr = (bool*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * sizeof(bool));
@@ -131,7 +131,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 		}
 
 		cb.CommitRead();
-
+		m_conditionVariableMainThread.notify_one();
 	}
 
 	if (fileHandle) {
@@ -159,8 +159,12 @@ void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const uns
 	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
 	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
 	boost::condition_variable & cv = m_conditionVariables[threadIndex];
-	unsigned int produceIndex;
-	for (produceIndex = UINT32_MAX; produceIndex == UINT32_MAX; produceIndex = cb.GetIndexForWrite()) {} //store the volatile, wait until not full
+	unsigned int produceIndex = cb.GetIndexForWrite();
+	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+		m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+		//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+		produceIndex = cb.GetIndexForWrite();
+	}
 
 
 	priority_vec_t & priorityVec = m_destMap[linkName];
@@ -237,8 +241,12 @@ segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & 
 			const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
 			CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
 			boost::condition_variable & cv = m_conditionVariables[threadIndex];
-			unsigned int produceIndex;
-			for (produceIndex = UINT32_MAX; produceIndex == UINT32_MAX; produceIndex = cb.GetIndexForWrite()) {} //store the volatile, wait until not full
+			unsigned int produceIndex = cb.GetIndexForWrite();
+			while(produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+				m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+				//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+				produceIndex = cb.GetIndexForWrite();
+			} 
 
 			boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
 			segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
@@ -343,8 +351,12 @@ bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
 	if (!Store(MAX_SEGMENTS, mmt, bsm, DEST_LINKS)) return false;
 
 	std::cout << "done storing\n";
-	const unsigned int numSegmentsPerTest = 100000;
+	const unsigned int numSegmentsPerTest = NUM_SEGMENTS_PER_TEST;
 	const boost::uint64_t numBytesPerTest = static_cast<boost::uint64_t>(numSegmentsPerTest) * SEGMENT_SIZE;
+	if (numBytesPerTest > FILE_SIZE) {
+		std::cout << "error numBytesPerTest (" << numBytesPerTest << ") is greater than FILE_SIZE (" << FILE_SIZE << ")\n";
+		return false;
+	}
 	double gigaBitsPerSecReadDoubleAvg = 0.0, gigaBitsPerSecWriteDoubleAvg = 0.0;
 	for (unsigned int i = 0; i < 10; ++i) {
 		{

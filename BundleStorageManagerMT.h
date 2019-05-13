@@ -11,7 +11,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumer.h"
-
+#include "BundleStorageConfig.h"
 
 typedef boost::uint32_t segment_id_t;
 typedef boost::uint64_t abs_expiration_t;
@@ -20,11 +20,7 @@ typedef std::map<abs_expiration_t, segment_id_vec_t> expiration_map_t;
 typedef std::vector<expiration_map_t> priority_vec_t;
 typedef std::map<std::string, priority_vec_t> destination_map_t;
 
-//two days
-#define NUMBER_OF_EXPIRATIONS (86400*2)
-#define NUMBER_OF_PRIORITIES (3)
-//#define USE_MEMORY_MAPPED_FILES 1
-#define NUM_STORAGE_THREADS 4
+
 
 class BundleStorageManagerMT {
 public:
@@ -44,6 +40,9 @@ private:
 
 private:
 	destination_map_t m_destMap;
+	boost::mutex m_mutexMainThread;
+	boost::mutex::scoped_lock m_lockMainThread;
+	boost::condition_variable m_conditionVariableMainThread;
 	boost::condition_variable m_conditionVariables[NUM_STORAGE_THREADS];
 	boost::shared_ptr<boost::thread> m_threadPtrs[NUM_STORAGE_THREADS];
 	CircularIndexBufferSingleProducerSingleConsumer m_circularIndexBuffers[NUM_STORAGE_THREADS];

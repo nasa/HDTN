@@ -3,9 +3,10 @@
 
 #include <boost/integer.hpp>
 #include <stdint.h>
+#include "BundleStorageConfig.h"
 
 
-#define CIRCULAR_INDEX_BUFFER_SIZE 30
+
 
 class CircularIndexBufferSingleProducerSingleConsumer {
 public:

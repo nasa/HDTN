@@ -3,17 +3,7 @@
 
 #include <boost/integer.hpp>
 #include <stdint.h>
-
-#define MAX_TREE_ARRAY_DEPTH 5
-
-//125000
-//#define SEGMENT_SIZE 8192  //with 40gb file takes 891 wall sec
-//#define SEGMENT_SIZE 65536  //with 40gb file takes 526 wall sec
-#define SEGMENT_SIZE 4096  
-//#define FILE_SIZE (10240000000ULL * 8) //80 GByte files
-//#define FILE_SIZE (10240000000ULL * 64) //640 GByte files
-#define FILE_SIZE (1024000000ULL * 1) //1 GByte total of files, or file_size / num_threads size per file
-#define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
+#include "BundleStorageConfig.h"
 
 
 class MemoryManagerTreeArray {

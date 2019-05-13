@@ -8,6 +8,7 @@
 #include <string>
 #include <cstdio>
 #include <boost/iostreams/device/mapped_file.hpp>
+#include "BundleStorageConfig.h"
 
 //#define USE_VECTOR_CIRCULAR_BUFFER 1
 #ifdef USE_VECTOR_CIRCULAR_BUFFER

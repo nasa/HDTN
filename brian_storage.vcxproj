@@ -27,6 +27,7 @@
     <ClCompile Include="MemoryManagerTreeArray.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BundleStorageConfig.h" />
     <ClInclude Include="BundleStorageManager.h" />
     <ClInclude Include="BundleStorageManagerMT.h" />
     <ClInclude Include="CircularIndexBufferSingleProducerSingleConsumer.h" />
@@ -152,6 +153,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>AMQP_STATIC;NDEBUG;_CONSOLE;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\boost\boost_1_69_0_build;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
