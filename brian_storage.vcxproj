@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BundleStorageManager.cpp" />
     <ClCompile Include="BundleStorageManagerMT.cpp" />
     <ClCompile Include="CircularIndexBufferSingleProducerSingleConsumer.cpp" />
     <ClCompile Include="main.cpp" />
@@ -29,7 +28,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BundleStorageConfig.h" />
-    <ClInclude Include="BundleStorageManager.h" />
     <ClInclude Include="BundleStorageManagerMT.h" />
     <ClInclude Include="CircularIndexBufferSingleProducerSingleConsumer.h" />
     <ClInclude Include="MemoryManagerTree.h" />

@@ -69,7 +69,7 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const boost::uint32_t d
 
 }
 
-boost::uint32_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId() {
+segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe() {
 	if (m_bitMasks[0][0] == 0) return UINT32_MAX; //bitmask of zero means full
 	boost::uint32_t segmentId = 0;
 	GetAndSetFirstFreeSegmentId(0, 0, &segmentId);
@@ -98,9 +98,41 @@ void MemoryManagerTreeArray::FreeSegmentId(const boost::uint32_t depthIndex, con
 
 }
 
-bool MemoryManagerTreeArray::FreeSegmentId(boost::uint32_t segmentId) {
+bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(segment_id_t segmentId) {
 	bool success = true;
 	FreeSegmentId(0, 0, segmentId, &success);
+	return success;
+}
+
+bool MemoryManagerTreeArray::AllocateSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec) { //number of segments should be the vector size
+	boost::mutex::scoped_lock lock(m_mutex);
+	const std::size_t size = segmentVec.size();
+	for (std::size_t i = 0; i < size; ++i) {
+		const segment_id_t segmentId = GetAndSetFirstFreeSegmentId_NotThreadSafe();
+		if (segmentId != UINT32_MAX) { //success
+			segmentVec[i] = segmentId;
+		}
+		else { //fail
+			for (std::size_t j = 0; j < i; ++j) {
+				FreeSegmentId_NotThreadSafe(segmentVec[j]);
+			}
+			segmentVec.resize(0);
+			return false;
+		}
+	}
+	return true;
+}
+
+bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec) {
+	boost::mutex::scoped_lock lock(m_mutex);
+	const std::size_t size = segmentVec.size();
+	bool success = true;
+	for (std::size_t i = 0; i < size; ++i) {
+		if (!FreeSegmentId_NotThreadSafe(segmentVec[i])) {
+			success = false;
+		}
+	}
+	segmentVec.resize(0);
 	return success;
 }
 
@@ -121,7 +153,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 	boost::uint64_t prevRootBitmask = 5;
 	//for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
 	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
-		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
+		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
 		if (segmentId != i) {
 			std::cout << "error " << segmentId << " " << i << "\n";
 			return false;
@@ -137,7 +169,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 	}
 	std::cout << "testing max\n";
 	{
-		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
+		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
 		if (segmentId != UINT32_MAX) {
 			std::cout << "error " << segmentId << "\n";
 			printf("0x%" PRIx64 "\n", t.m_bitMasks[0][0]);
@@ -162,7 +194,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 
 		for (int i = 0; i < 11; ++i) {
 			const boost::uint32_t segmentId = segmentIds[i];
-			if (t.FreeSegmentId(segmentId)) {
+			if (t.FreeSegmentId_NotThreadSafe(segmentId)) {
 				std::cout << "freed segId " << segmentId << "\n";
 			}
 			else {
@@ -172,7 +204,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 		}
 		for (int i = 0; i < 11; ++i) {
 			const boost::uint32_t segmentId = segmentIds[i];
-			const boost::uint32_t newSegmentId = t.GetAndSetFirstFreeSegmentId();
+			const boost::uint32_t newSegmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
 			if (newSegmentId != segmentId) {
 				std::cout << "error " << segmentId << " " << newSegmentId << "\n";
 				return false;
@@ -184,7 +216,7 @@ bool MemoryManagerTreeArray::UnitTest() {
 		}
 	}
 	{
-		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId();
+		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
 		if (segmentId != UINT32_MAX) {
 			std::cout << "error " << segmentId << "\n";
 			printf("0x%" PRIx64 "\n", t.m_bitMasks[0][0]);

@@ -67,7 +67,7 @@ int main() {
 	//sizeof(std::vector<char>);
 	//std::cout << BundleStorageManager::UnitTest() << "\n";
 #ifdef USE_MT_BSM
-	std::cout << BundleStorageManagerMT::TimeRandomReadsAndWrites() << "\n";
+	std::cout << BundleStorageManagerMT::Test() << "\n";
 #else
 	std::cout << BundleStorageManager::TimeRandomReadsAndWrites() << "\n";
 #endif

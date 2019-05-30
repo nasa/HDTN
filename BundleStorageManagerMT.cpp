@@ -1,5 +1,4 @@
 #include "BundleStorageManagerMT.h"
-#include "MemoryManagerTreeArray.h"
 #include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
@@ -20,7 +19,7 @@ static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "/mnt/sda1/test/map0.bin
 BundleStorageManagerMT::BundleStorageManagerMT() : m_lockMainThread(m_mutexMainThread), m_running(true) {
 	m_circularBufferBlockDataPtr = (uint8_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * SEGMENT_SIZE * sizeof(uint8_t));
 	m_circularBufferSegmentIdsPtr = (segment_id_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * sizeof(segment_id_t));
-	m_circularBufferReadWriteBoolsPtr = (bool*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * sizeof(bool));
+	
 
 	for (unsigned int tId = 0; tId < NUM_STORAGE_THREADS; ++tId) {		
 		m_threadPtrs[tId] = boost::make_shared<boost::thread>(
@@ -36,7 +35,7 @@ BundleStorageManagerMT::~BundleStorageManagerMT() {
 
 	free(m_circularBufferBlockDataPtr);
 	free(m_circularBufferSegmentIdsPtr);
-	free(m_circularBufferReadWriteBoolsPtr);
+	
 }
 
 void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
@@ -49,9 +48,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 	FILE * fileHandle = fopen(filePath, "w+bR");
 	boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
 	segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
-	bool * const circularBufferReadWriteBoolsPtr = &m_circularBufferReadWriteBoolsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
-	boost::uint8_t junkDataReceived[SEGMENT_SIZE];
-
+	
 	while (m_running) {
 		
 			
@@ -65,7 +62,13 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
 		boost::uint8_t * const data = &circularBufferBlockDataPtr[consumeIndex * SEGMENT_SIZE]; //expected data for testing when reading
 		const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
-		const bool isWriteToDisk = circularBufferReadWriteBoolsPtr[consumeIndex];
+		volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+		const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
+		if (segmentId == UINT32_MAX) {
+			std::cout << "error segmentId is max\n";
+			m_running = false;
+			continue;
+		}
 		
 		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / NUM_STORAGE_THREADS) * SEGMENT_SIZE;
 #ifdef _MSC_VER 
@@ -80,59 +83,8 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 			}
 		}
 		else { //read from disk
-			if (fread(junkDataReceived, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
+			if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
 				std::cout << "error reading\n";
-			}
-
-			unsigned int linkIdExpected;
-			unsigned int priorityIndexExpected;
-			abs_expiration_t absExpirationExpected;
-			boost::uint32_t segmentIdExpected;
-			memcpy(&linkIdExpected, &data[1000], sizeof(linkIdExpected));
-			memcpy(&priorityIndexExpected, &data[2000], sizeof(priorityIndexExpected));
-			//abs_expiration_t absExpirationcpy = absExpiration + 100000;
-			memcpy(&absExpirationExpected, &data[3000], sizeof(absExpirationExpected));
-			memcpy(&segmentIdExpected, &data[4000], sizeof(segmentIdExpected));
-
-			unsigned int linkIdRetrieved;
-			unsigned int priorityIndexRetrieved;
-			abs_expiration_t absExpirationRetrieved;
-			boost::uint32_t segmentIdRetrieved;
-			memcpy(&linkIdRetrieved, &junkDataReceived[1000], sizeof(linkIdRetrieved));
-			memcpy(&priorityIndexRetrieved, &junkDataReceived[2000], sizeof(priorityIndexRetrieved));
-			//abs_expiration_t absExpirationcpy = absExpiration + 100000;
-			memcpy(&absExpirationRetrieved, &junkDataReceived[3000], sizeof(absExpirationRetrieved));
-			memcpy(&segmentIdRetrieved, &junkDataReceived[4000], sizeof(segmentIdRetrieved));
-			bool success = true;
-			if (linkIdExpected != linkIdRetrieved) {
-				std::cout << "mismatch linkidExpected " << linkIdExpected << "  linkIdRetrieved " << linkIdRetrieved << "\n";
-				success = false;
-			}
-			if (priorityIndexExpected != priorityIndexRetrieved) {
-				std::cout << "mismatch retPriorityIndexExpected " << priorityIndexExpected << "  priorityIndexRetrieved " << priorityIndexRetrieved << "\n";
-				success = false;
-			}
-			if (absExpirationExpected != absExpirationRetrieved) {
-				std::cout << "mismatch retAbsExpirationExpected " << absExpirationExpected << "  absExpirationRetrieved " << absExpirationRetrieved << "\n";
-				success = false;
-			}
-			if (segmentIdExpected != segmentId) {
-				std::cout << "mismatch segmentIdExpected " << segmentIdExpected << " " << segmentId << "\n";
-				success = false;
-			}
-			if (segmentIdRetrieved != segmentId) {
-				std::cout << "mismatch segmentIdRetrieved " << segmentIdRetrieved << " " << segmentId << "\n";
-				success = false;
-			}
-			if (!success) {
-				m_running = false;
-
-			}
-
-
-			if (segmentId == UINT32_MAX) {
-				std::cout << "error segmentId is max\n";
-				m_running = false;
 			}
 		}
 
@@ -156,11 +108,79 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
 
 
-void BundleStorageManagerMT::AddLink(const std::string & linkName) {
+void BundleStorageManagerMT::AddLink(boost::uint64_t linkName) {
 	m_destMap[linkName] = priority_vec_t(NUMBER_OF_PRIORITIES);
 }
 
-void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const unsigned char * const data) {
+boost::uint64_t BundleStorageManagerMT::Push(BundleStorageManagerSession_WriteToDisk & session, bp_primary_if_base_t & bundleMetaData) {
+	chain_info_t & chainInfo = session.chainInfo;
+	segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
+	const boost::uint64_t bundleSizeBytes = bundleMetaData.length;
+	const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
+
+	chainInfo.first = bundleSizeBytes;
+	segmentIdChainVec.resize(totalSegmentsRequired);
+	session.nextLogicalSegment = 0;
+
+	session.destLinkId = bundleMetaData.dst_node;
+	//The bits in positions 8 and 7 constitute a two-bit priority field indicating the bundle's priority, with higher values
+	//being of higher priority : 00 = bulk, 01 = normal, 10 = expedited, 11 is reserved for future use.
+	unsigned int priorityIndex = (bundleMetaData.flags >> 7) & 3;
+	abs_expiration_t absExpiration = bundleMetaData.creation + bundleMetaData.lifetime;
+
+	if (m_memoryManager.AllocateSegments_ThreadSafe(segmentIdChainVec)) {
+		return totalSegmentsRequired;
+	}
+	
+	return 0;
+}
+
+int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk & session, void * buf, std::size_t size) {
+	chain_info_t & chainInfo = session.chainInfo;
+	segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
+
+	if (session.nextLogicalSegment >= segmentIdChainVec.size()) {
+		return 0;
+	}
+	const boost::uint64_t bundleSizeBytes = (session.nextLogicalSegment == 0) ? chainInfo.first : UINT64_MAX;
+	const segment_id_t segmentId = segmentIdChainVec[session.nextLogicalSegment++];
+	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
+	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
+	boost::condition_variable & cv = m_conditionVariables[threadIndex];
+	unsigned int produceIndex = cb.GetIndexForWrite();
+	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+		m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+		//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+		produceIndex = cb.GetIndexForWrite();
+	}
+
+	boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
+	segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
+	
+
+	boost::uint8_t * const dataCb = &circularBufferBlockDataPtr[produceIndex * SEGMENT_SIZE];
+	circularBufferSegmentIdsPtr[produceIndex] = segmentId;
+	m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = NULL; //isWriteToDisk = true
+
+	const segment_id_t nextSegmentId = (session.nextLogicalSegment == segmentIdChainVec.size()) ? UINT32_MAX : segmentIdChainVec[session.nextLogicalSegment];
+	memcpy(dataCb, &bundleSizeBytes, sizeof(bundleSizeBytes));
+	memcpy(dataCb + sizeof(boost::uint64_t), &nextSegmentId, sizeof(nextSegmentId));
+	memcpy(dataCb + SEGMENT_RESERVED_SPACE, buf, size);
+
+	cb.CommitWrite();
+	cv.notify_one();
+	std::cout << "writing " << size << " bytes\n";
+	if (session.nextLogicalSegment == segmentIdChainVec.size()) {		
+		priority_vec_t & priorityVec = m_destMap[session.destLinkId];
+		expiration_map_t & expirationMap = priorityVec[session.priorityIndex];
+		chain_info_vec_t & chainInfoVec = expirationMap[session.absExpiration];
+		chainInfoVec.push_back(std::move(chainInfo));
+		std::cout << "write complete\n";
+	}
+	return 1;
+}
+/*
+void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const boost::uint32_t logicalIndex, const unsigned char * const data) {
 
 	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
 	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
@@ -175,9 +195,15 @@ void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const uns
 
 	priority_vec_t & priorityVec = m_destMap[linkName];
 	expiration_map_t & expirationMap = priorityVec[priorityIndex];
-	segment_id_vec_t & segmentIdVec = expirationMap[absExpiration];
+	chains_vec_t & chainsVec = expirationMap[absExpiration];
+	if (logicalIndex == 0) {
+		chainsVec.resize(chainsVec.size() + 1);
+	}
+	chain_info_t & chainInfo = chainsVec.back();
+	boost::uint64_t & totalBundleSizeBytes = chainInfo.first;
+	segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
 	//std::cout << "add exp=" << absExpiration << " seg=" << segmentId << " pri=" << priorityIndex << "link=" << linkName << "\n";
-	segmentIdVec.push_back(segmentId);
+	segmentIdChainVec.push_back(segmentId);
 	////segmentIdVec.shrink_to_fit();
 
 	boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
@@ -193,8 +219,139 @@ void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const uns
 	cb.CommitWrite();
 	cv.notify_one();
 
-}
+}*/
 
+uint64_t BundleStorageManagerMT::Top(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks) { //0 if empty, size if entry
+	std::vector<priority_vec_t *> priorityVecPtrs(availableDestLinks.size());
+	for (std::size_t i = 0; i < availableDestLinks.size(); ++i) {
+		priorityVecPtrs[i] = &m_destMap[availableDestLinks[i]];
+	}
+	session.nextLogicalSegment = 0;
+	session.nextLogicalSegmentToCache = 0;
+	session.cacheReadIndex = 0;
+	session.cacheWriteIndex = 0;
+	
+	//memset((uint8_t*)session.readCacheIsSegmentReady, 0, READ_CACHE_NUM_SEGMENTS_PER_SESSION);
+	for (int i = NUMBER_OF_PRIORITIES-1; i >=0; --i) { //00 = bulk, 01 = normal, 10 = expedited
+		abs_expiration_t lowestExpiration = UINT64_MAX;
+		std::size_t linkIndex;
+		session.expirationMapPtr = NULL;
+		session.chainInfoVecPtr = NULL;
+		
+		for (std::size_t j = 0; j < priorityVecPtrs.size(); ++j) {
+			priority_vec_t * priorityVec = priorityVecPtrs[j];
+			//std::cout << "size " << (*priorityVec).size() << "\n";
+			expiration_map_t & expirationMap = (*priorityVec)[i];
+			expiration_map_t::iterator it = expirationMap.begin();
+			if (it != expirationMap.end()) {
+				const abs_expiration_t thisExpiration = it->first;
+				//std::cout << "thisexp " << thisExpiration << "\n";
+				if (lowestExpiration > thisExpiration) {
+					lowestExpiration = thisExpiration;
+					linkIndex = j;
+					session.expirationMapPtr = &expirationMap;
+					session.chainInfoVecPtr = &it->second;
+					session.expirationMapIterator = it;
+					return session.chainInfoVecPtr->front().first; //use the front as new writes will be pushed back
+				}
+			}
+		}
+
+
+		///
+
+	}
+	return 0;
+}
+int BundleStorageManagerMT::Pop(BundleStorageManagerSession_ReadFromDisk & session) { //remove top value
+
+	if (session.chainInfoVecPtr) {
+		session.chainInfoVecPtr->erase(session.chainInfoVecPtr->begin());
+
+
+		if (session.chainInfoVecPtr->size() == 0) {
+			session.expirationMapPtr->erase(session.expirationMapIterator);
+		}
+		else {
+			////segmentIdVecPtr->shrink_to_fit();
+		}
+		return 1;
+	}
+	return 0;
+}
+uint64_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf, std::size_t size) {
+	segment_id_chain_vec_t & segments = session.chainInfoVecPtr->front().second;
+
+	while ( ((session.nextLogicalSegmentToCache - session.nextLogicalSegment) < READ_CACHE_NUM_SEGMENTS_PER_SESSION) 
+		&& (session.nextLogicalSegmentToCache < segments.size()) )
+	{
+		const segment_id_t segmentId = segments[session.nextLogicalSegmentToCache++];
+		const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
+		CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
+		boost::condition_variable & cv = m_conditionVariables[threadIndex];
+		unsigned int produceIndex = cb.GetIndexForWrite();
+		while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+			m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+			//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+			produceIndex = cb.GetIndexForWrite();
+		}
+
+		session.readCacheIsSegmentReady[session.cacheWriteIndex] = false;
+		m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = &session.readCacheIsSegmentReady[session.cacheWriteIndex];
+		m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = &session.readCache[session.cacheWriteIndex * SEGMENT_SIZE];
+		session.cacheWriteIndex = (session.cacheWriteIndex + 1) % READ_CACHE_NUM_SEGMENTS_PER_SESSION;
+		m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = segmentId;
+
+		cb.CommitWrite();
+		cv.notify_one();
+	}
+
+	bool readIsReady = session.readCacheIsSegmentReady[session.cacheReadIndex];
+	while (!readIsReady) { //store the volatile, wait until not full				
+		m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+		//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+		readIsReady = session.readCacheIsSegmentReady[session.cacheReadIndex];
+	}
+
+	boost::uint64_t bundleSizeBytes;
+	memcpy(&bundleSizeBytes, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], sizeof(bundleSizeBytes));
+	if (session.nextLogicalSegment == 0  && bundleSizeBytes != session.chainInfo.first) {// ? chainInfo.first : UINT64_MAX;
+		std::cout << "error: read bundle size bytes = " << bundleSizeBytes << " does not match chainInfo = " << session.chainInfo.first << "\n";
+	}
+	else if (session.nextLogicalSegment != 0 && bundleSizeBytes != UINT64_MAX) {// ? chainInfo.first : UINT64_MAX;
+		std::cout << "error: read bundle size bytes = " << bundleSizeBytes << " is not UINT64_MAX\n";
+	}
+
+	segment_id_t nextSegmentId;
+	++session.nextLogicalSegment;
+	memcpy(&nextSegmentId, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + sizeof(bundleSizeBytes)], sizeof(nextSegmentId));
+	if (session.nextLogicalSegment != session.chainInfo.second.size() && nextSegmentId != session.chainInfo.first) {
+		std::cout << "error: read nextSegmentId = " << nextSegmentId << " does not match chainInfo = " << session.chainInfo.first << "\n";
+	}
+	else if (session.nextLogicalSegment == session.chainInfo.second.size() && nextSegmentId != UINT32_MAX) {
+		std::cout << "error: read nextSegmentId = " << nextSegmentId << " is not UINT32_MAX\n";
+	}
+
+	size = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
+	if (nextSegmentId == UINT32_MAX) {
+		boost::uint64_t modBytes = (session.chainInfo.first % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+		const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
+		if (modBytes != 0) {
+			size = modBytes;
+		}
+	}
+
+	memcpy(buf, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + SEGMENT_RESERVED_SPACE], size);
+	session.cacheReadIndex = (session.cacheReadIndex + 1) % READ_CACHE_NUM_SEGMENTS_PER_SESSION;
+	
+
+	return 0;
+}
+//uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {
+//	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
+//}
+
+/*
 segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & availableDestLinks) {
 
 	//std::cout << "adlsz " << availableDestLinks.size() << "\n";
@@ -280,7 +437,7 @@ segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & 
 	return UINT32_MAX;
 
 }
-
+*/
 static volatile bool g_running = true;
 
 void MonitorExitKeypressThreadFunction() {
@@ -291,13 +448,18 @@ void MonitorExitKeypressThreadFunction() {
 static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction));
 
 
-
+/*
 static bool Store(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManagerMT & bsm, const std::string * DEST_LINKS) {
 	static boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
 	static const boost::random::uniform_int_distribution<> distLinkId(0, 9);
 	static const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
 	static const boost::random::uniform_int_distribution<> distAbsExpiration(0, NUMBER_OF_EXPIRATIONS - 1);
+	static const boost::random::uniform_int_distribution<> distTotalBundleSize(1, 65536);
 	static unsigned char junkData[SEGMENT_SIZE];
+
+	const boost::uint64_t bundleSize = distTotalBundleSize(gen);
+	const boost::uint64_t totalSegmentsRequired = (bundleSize / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSize % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
+
 
 	for (boost::uint32_t i = 0; i < numSegments; ++i) {
 		if (!g_running) return false;
@@ -416,4 +578,63 @@ bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
 
 	
 	return true;
+}*/
+
+bool BundleStorageManagerMT::Test() {
+	static boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
+	static const boost::random::uniform_int_distribution<> distRandomData(0, 255);
+	static const boost::random::uniform_int_distribution<> distLinkId(0, 9);
+	static const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
+	static const boost::random::uniform_int_distribution<> distAbsExpiration(0, NUMBER_OF_EXPIRATIONS - 1);
+	static const boost::random::uniform_int_distribution<> distTotalBundleSize(1, 65536);
+
+	g_sigHandler.Start();
+
+	static const boost::uint64_t DEST_LINKS[10] = { 1,2,3,4,5,6,7,8,9,10 };
+	std::vector<boost::uint64_t> availableDestLinks = { 1,2,3,4,5,6,7,8,9,10 };
+
+
+
+	BundleStorageManagerMT bsm;
+
+
+	for (int i = 0; i < 10; ++i) {
+		bsm.AddLink(DEST_LINKS[i]);
+	}
+	const boost::uint64_t size = 2*BUNDLE_STORAGE_PER_SEGMENT_SIZE-1;
+	std::vector<boost::uint8_t> data(size);
+	for (std::size_t i = 0; i < size; ++i) {
+		data[i] = distRandomData(gen);
+	}
+	const unsigned int linkId = distLinkId(gen);
+	const unsigned int priorityIndex = distPriorityIndex(gen);
+	const abs_expiration_t absExpiration = distAbsExpiration(gen);
+
+	BundleStorageManagerSession_WriteToDisk session;
+	bp_primary_if_base_t bundleMetaData;
+	bundleMetaData.flags = (priorityIndex & 3) << 7;
+	bundleMetaData.dst_node = DEST_LINKS[linkId];
+	bundleMetaData.length = size;
+	bundleMetaData.creation = 0;
+	bundleMetaData.lifetime = absExpiration;
+
+	boost::uint64_t totalSegmentsRequired = bsm.Push(session, bundleMetaData);
+	std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
+	if (totalSegmentsRequired == 0) return false;
+
+	for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
+		std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
+		if(i == totalSegmentsRequired - 1) {
+			boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);			
+			if (modBytes != 0) {
+				bytesToCopy = modBytes;
+			}
+		}
+		bsm.PushSegment(session, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
+	}
+
+	
+
+	return true;
+
 }
