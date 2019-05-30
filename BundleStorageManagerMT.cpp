@@ -172,13 +172,13 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 
 	cb.CommitWrite();
 	cv.notify_one();
-	std::cout << "writing " << size << " bytes\n";
+	//std::cout << "writing " << size << " bytes\n";
 	if (session.nextLogicalSegment == segmentIdChainVec.size()) {		
 		priority_vec_t & priorityVec = m_destMap[session.destLinkId];
 		expiration_map_t & expirationMap = priorityVec[session.priorityIndex];
 		chain_info_vec_t & chainInfoVec = expirationMap[session.absExpiration];
 		chainInfoVec.push_back(std::move(chainInfo));
-		std::cout << "write complete\n";
+		//std::cout << "write complete\n";
 	}
 
 	return 1;
@@ -617,70 +617,95 @@ bool BundleStorageManagerMT::Test() {
 	for (int i = 0; i < 10; ++i) {
 		bsm.AddLink(DEST_LINKS[i]);
 	}
-	const boost::uint64_t size = 2*BUNDLE_STORAGE_PER_SEGMENT_SIZE-1;
-	std::vector<boost::uint8_t> data(size);
-	std::vector<boost::uint8_t> dataReadBack(size);
-	for (std::size_t i = 0; i < size; ++i) {
-		data[i] = distRandomData(gen);
-	}
-	const unsigned int linkId = distLinkId(gen);
-	const unsigned int priorityIndex = distPriorityIndex(gen);
-	const abs_expiration_t absExpiration = distAbsExpiration(gen);
 
-	BundleStorageManagerSession_WriteToDisk sessionWrite;
-	bp_primary_if_base_t bundleMetaData;
-	bundleMetaData.flags = (priorityIndex & 3) << 7;
-	bundleMetaData.dst_node = DEST_LINKS[linkId];
-	bundleMetaData.length = size;
-	bundleMetaData.creation = 0;
-	bundleMetaData.lifetime = absExpiration;
+	static const boost::uint64_t sizes[17] = {
+		1,
+		2,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 
-	boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
-	std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
-	if (totalSegmentsRequired == 0) return false;
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 
-	for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
-		std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
-		if(i == totalSegmentsRequired - 1) {
-			boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);			
-			if (modBytes != 0) {
-				bytesToCopy = modBytes;
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
+	};
+	for (unsigned int sizeI = 0; sizeI < 17; ++sizeI) {
+		const boost::uint64_t size = sizes[sizeI];
+		std::cout << "testing size " << size << "\n";
+		std::vector<boost::uint8_t> data(size);
+		std::vector<boost::uint8_t> dataReadBack(size);
+		for (std::size_t i = 0; i < size; ++i) {
+			data[i] = distRandomData(gen);
+		}
+		const unsigned int linkId = distLinkId(gen);
+		const unsigned int priorityIndex = distPriorityIndex(gen);
+		const abs_expiration_t absExpiration = distAbsExpiration(gen);
+
+		BundleStorageManagerSession_WriteToDisk sessionWrite;
+		bp_primary_if_base_t bundleMetaData;
+		bundleMetaData.flags = (priorityIndex & 3) << 7;
+		bundleMetaData.dst_node = DEST_LINKS[linkId];
+		bundleMetaData.length = size;
+		bundleMetaData.creation = 0;
+		bundleMetaData.lifetime = absExpiration;
+		std::cout << "writing\n";
+		boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
+		std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
+		if (totalSegmentsRequired == 0) return false;
+
+		for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
+			std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
+			if (i == totalSegmentsRequired - 1) {
+				boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+				if (modBytes != 0) {
+					bytesToCopy = modBytes;
+				}
 			}
+
+			bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
 		}
 
-		bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
-	}
+		std::cout << "reading\n";
+		BundleStorageManagerSession_ReadFromDisk sessionRead;
+		boost::uint64_t bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
+		std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
+		if (bytesToReadFromDisk != size) return false;
 
-	BundleStorageManagerSession_ReadFromDisk sessionRead;
-	boost::uint64_t bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
-	std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
-	if (bytesToReadFromDisk != size) return false;
+		//check if custody was taken (should be empty)
+		{
+			BundleStorageManagerSession_ReadFromDisk sessionRead2;
+			boost::uint64_t bytesToReadFromDisk2 = bsm.Top(sessionRead2, availableDestLinks);
+			std::cout << "bytesToReadFromDisk2 " << bytesToReadFromDisk2 << "\n";
+			if (bytesToReadFromDisk2 != 0) return false;
+		}
 
-	//check if custody was taken (should be empty)
-	{
-		BundleStorageManagerSession_ReadFromDisk sessionRead2;
-		boost::uint64_t bytesToReadFromDisk2 = bsm.Top(sessionRead2, availableDestLinks);
-		std::cout << "bytesToReadFromDisk2 " << bytesToReadFromDisk2 << "\n";
-		if (bytesToReadFromDisk2 != 0) return false;
-	}
+		if (dataReadBack == data) {
+			std::cout << "dataReadBack should not equal data yet\n";
+			return false;
+		}
 
-	if (dataReadBack == data) {
-		std::cout << "dataReadBack should not equal data yet\n";
-		return false;
+		const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
+		std::size_t totalBytesRead = 0;
+		for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
+			totalBytesRead += bsm.TopSegment(sessionRead, &dataReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
+		}
+		std::cout << "totalBytesRead " << totalBytesRead << "\n";
+		if (totalBytesRead != size) return false;
+		if (dataReadBack != data) {
+			std::cout << "dataReadBack does not equal data\n";
+			return false;
+		}
 	}
-
-	const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
-	std::size_t totalBytesRead = 0;
-	for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
-		totalBytesRead += bsm.TopSegment(sessionRead, &dataReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
-	}
-	std::cout << "totalBytesRead " << totalBytesRead << "\n";
-	if (totalBytesRead != size) return false;
-	if (dataReadBack != data) {
-		std::cout << "dataReadBack does not equal data\n";
-		return false;
-	}
-
 	return true;
 
 }
