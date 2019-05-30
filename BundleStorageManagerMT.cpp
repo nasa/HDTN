@@ -132,6 +132,7 @@ boost::uint64_t BundleStorageManagerMT::Push(BundleStorageManagerSession_WriteTo
 	session.absExpiration = bundleMetaData.creation + bundleMetaData.lifetime;
 
 	if (m_memoryManager.AllocateSegments_ThreadSafe(segmentIdChainVec)) {
+		std::cout << "firstseg " << segmentIdChainVec[0] << "\n";
 		return totalSegmentsRequired;
 	}
 	
@@ -362,6 +363,13 @@ std::size_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadF
 	
 
 	return size;
+}
+bool BundleStorageManagerMT::RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session) {
+	if (session.nextLogicalSegment != session.chainInfo.second.size()) {
+		std::cout << "error: bundle not yet read prior to removal\n";
+		return false;
+	}
+	return m_memoryManager.FreeSegments_ThreadSafe(session.chainInfo.second);
 }
 //uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
@@ -703,6 +711,10 @@ bool BundleStorageManagerMT::Test() {
 		if (totalBytesRead != size) return false;
 		if (dataReadBack != data) {
 			std::cout << "dataReadBack does not equal data\n";
+			return false;
+		}
+		if (!bsm.RemoveReadBundleFromDisk(sessionRead)) {
+			std::cout << "error freeing bundle from disk\n";
 			return false;
 		}
 	}

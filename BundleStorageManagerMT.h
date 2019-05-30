@@ -90,7 +90,8 @@ public:
 	//Read
 	uint64_t Top(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks); //0 if empty, size if entry
 	int Pop(BundleStorageManagerSession_ReadFromDisk & session); //remove top value
-	std::size_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
+	std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
+	bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session);
 	uint64_t TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session);
 	
 	
