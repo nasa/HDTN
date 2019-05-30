@@ -63,6 +63,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 		boost::uint8_t * const data = &circularBufferBlockDataPtr[consumeIndex * SEGMENT_SIZE]; //expected data for testing when reading
 		const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
 		volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+		volatile bool * const isReadCompletedPointer = m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
 		const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
 		if (segmentId == UINT32_MAX) {
 			std::cout << "error segmentId is max\n";
@@ -86,7 +87,9 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 			if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
 				std::cout << "error reading\n";
 			}
+			*isReadCompletedPointer = true;
 		}
+		
 
 		cb.CommitRead();
 		m_conditionVariableMainThread.notify_one();
@@ -125,8 +128,8 @@ boost::uint64_t BundleStorageManagerMT::Push(BundleStorageManagerSession_WriteTo
 	session.destLinkId = bundleMetaData.dst_node;
 	//The bits in positions 8 and 7 constitute a two-bit priority field indicating the bundle's priority, with higher values
 	//being of higher priority : 00 = bulk, 01 = normal, 10 = expedited, 11 is reserved for future use.
-	unsigned int priorityIndex = (bundleMetaData.flags >> 7) & 3;
-	abs_expiration_t absExpiration = bundleMetaData.creation + bundleMetaData.lifetime;
+	session.priorityIndex = (bundleMetaData.flags >> 7) & 3;
+	session.absExpiration = bundleMetaData.creation + bundleMetaData.lifetime;
 
 	if (m_memoryManager.AllocateSegments_ThreadSafe(segmentIdChainVec)) {
 		return totalSegmentsRequired;
@@ -177,6 +180,7 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 		chainInfoVec.push_back(std::move(chainInfo));
 		std::cout << "write complete\n";
 	}
+
 	return 1;
 }
 /*
@@ -252,17 +256,29 @@ uint64_t BundleStorageManagerMT::Top(BundleStorageManagerSession_ReadFromDisk & 
 					session.expirationMapPtr = &expirationMap;
 					session.chainInfoVecPtr = &it->second;
 					session.expirationMapIterator = it;
-					return session.chainInfoVecPtr->front().first; //use the front as new writes will be pushed back
+					
 				}
 			}
 		}
+		if (session.chainInfoVecPtr) {
+			//have session take custody of data structure
+			session.chainInfo = std::move(session.chainInfoVecPtr->front());
+			session.chainInfoVecPtr->erase(session.chainInfoVecPtr->begin());
 
-
-		///
+			if (session.chainInfoVecPtr->size() == 0) {
+				session.expirationMapPtr->erase(session.expirationMapIterator);
+			}
+			else {
+				////segmentIdVecPtr->shrink_to_fit();
+			}
+			return session.chainInfo.first; //use the front as new writes will be pushed back
+			
+		}
 
 	}
 	return 0;
 }
+/*
 int BundleStorageManagerMT::Pop(BundleStorageManagerSession_ReadFromDisk & session) { //remove top value
 
 	if (session.chainInfoVecPtr) {
@@ -279,8 +295,9 @@ int BundleStorageManagerMT::Pop(BundleStorageManagerSession_ReadFromDisk & sessi
 	}
 	return 0;
 }
-uint64_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf, std::size_t size) {
-	segment_id_chain_vec_t & segments = session.chainInfoVecPtr->front().second;
+*/
+std::size_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf) {
+	segment_id_chain_vec_t & segments = session.chainInfo.second;
 
 	while ( ((session.nextLogicalSegmentToCache - session.nextLogicalSegment) < READ_CACHE_NUM_SEGMENTS_PER_SESSION) 
 		&& (session.nextLogicalSegmentToCache < segments.size()) )
@@ -325,17 +342,16 @@ uint64_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFrom
 	segment_id_t nextSegmentId;
 	++session.nextLogicalSegment;
 	memcpy(&nextSegmentId, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + sizeof(bundleSizeBytes)], sizeof(nextSegmentId));
-	if (session.nextLogicalSegment != session.chainInfo.second.size() && nextSegmentId != session.chainInfo.first) {
-		std::cout << "error: read nextSegmentId = " << nextSegmentId << " does not match chainInfo = " << session.chainInfo.first << "\n";
+	if (session.nextLogicalSegment != session.chainInfo.second.size() && nextSegmentId != session.chainInfo.second[session.nextLogicalSegment]) {
+		std::cout << "error: read nextSegmentId = " << nextSegmentId << " does not match chainInfo = " << session.chainInfo.second[session.nextLogicalSegment] << "\n";
 	}
 	else if (session.nextLogicalSegment == session.chainInfo.second.size() && nextSegmentId != UINT32_MAX) {
 		std::cout << "error: read nextSegmentId = " << nextSegmentId << " is not UINT32_MAX\n";
 	}
 
-	size = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
+	std::size_t size = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
 	if (nextSegmentId == UINT32_MAX) {
 		boost::uint64_t modBytes = (session.chainInfo.first % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
-		const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 		if (modBytes != 0) {
 			size = modBytes;
 		}
@@ -345,7 +361,7 @@ uint64_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFrom
 	session.cacheReadIndex = (session.cacheReadIndex + 1) % READ_CACHE_NUM_SEGMENTS_PER_SESSION;
 	
 
-	return 0;
+	return size;
 }
 //uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
@@ -603,6 +619,7 @@ bool BundleStorageManagerMT::Test() {
 	}
 	const boost::uint64_t size = 2*BUNDLE_STORAGE_PER_SEGMENT_SIZE-1;
 	std::vector<boost::uint8_t> data(size);
+	std::vector<boost::uint8_t> dataReadBack(size);
 	for (std::size_t i = 0; i < size; ++i) {
 		data[i] = distRandomData(gen);
 	}
@@ -610,7 +627,7 @@ bool BundleStorageManagerMT::Test() {
 	const unsigned int priorityIndex = distPriorityIndex(gen);
 	const abs_expiration_t absExpiration = distAbsExpiration(gen);
 
-	BundleStorageManagerSession_WriteToDisk session;
+	BundleStorageManagerSession_WriteToDisk sessionWrite;
 	bp_primary_if_base_t bundleMetaData;
 	bundleMetaData.flags = (priorityIndex & 3) << 7;
 	bundleMetaData.dst_node = DEST_LINKS[linkId];
@@ -618,7 +635,7 @@ bool BundleStorageManagerMT::Test() {
 	bundleMetaData.creation = 0;
 	bundleMetaData.lifetime = absExpiration;
 
-	boost::uint64_t totalSegmentsRequired = bsm.Push(session, bundleMetaData);
+	boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
 	std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
 	if (totalSegmentsRequired == 0) return false;
 
@@ -630,10 +647,39 @@ bool BundleStorageManagerMT::Test() {
 				bytesToCopy = modBytes;
 			}
 		}
-		bsm.PushSegment(session, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
+
+		bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
 	}
 
-	
+	BundleStorageManagerSession_ReadFromDisk sessionRead;
+	boost::uint64_t bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
+	std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
+	if (bytesToReadFromDisk != size) return false;
+
+	//check if custody was taken (should be empty)
+	{
+		BundleStorageManagerSession_ReadFromDisk sessionRead2;
+		boost::uint64_t bytesToReadFromDisk2 = bsm.Top(sessionRead2, availableDestLinks);
+		std::cout << "bytesToReadFromDisk2 " << bytesToReadFromDisk2 << "\n";
+		if (bytesToReadFromDisk2 != 0) return false;
+	}
+
+	if (dataReadBack == data) {
+		std::cout << "dataReadBack should not equal data yet\n";
+		return false;
+	}
+
+	const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
+	std::size_t totalBytesRead = 0;
+	for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
+		totalBytesRead += bsm.TopSegment(sessionRead, &dataReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
+	}
+	std::cout << "totalBytesRead " << totalBytesRead << "\n";
+	if (totalBytesRead != size) return false;
+	if (dataReadBack != data) {
+		std::cout << "dataReadBack does not equal data\n";
+		return false;
+	}
 
 	return true;
 
