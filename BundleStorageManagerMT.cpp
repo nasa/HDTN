@@ -658,8 +658,8 @@ bool BundleStorageManagerMT::TestSpeed() {
 		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
 		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 
-		100 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
-		100 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
+		10000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		10000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 	};
 	std::cout << "generating test files\n";
 	std::vector<TestFile> testFiles(10);
