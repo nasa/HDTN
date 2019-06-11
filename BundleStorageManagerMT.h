@@ -101,6 +101,7 @@ public:
 	//segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks);
 	
 	//static bool TimeRandomReadsAndWrites();
+	static bool TestSpeed();
 	static bool Test();
 
 private:
