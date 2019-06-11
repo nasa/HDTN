@@ -257,7 +257,7 @@ uint64_t BundleStorageManagerMT::Top(BundleStorageManagerSession_ReadFromDisk & 
 					session.expirationMapPtr = &expirationMap;
 					session.chainInfoVecPtr = &it->second;
 					session.expirationMapIterator = it;
-					
+					session.absExpiration = it->first;
 				}
 			}
 		}
@@ -278,6 +278,11 @@ uint64_t BundleStorageManagerMT::Top(BundleStorageManagerSession_ReadFromDisk & 
 
 	}
 	return 0;
+}
+
+bool BundleStorageManagerMT::ReturnTop(BundleStorageManagerSession_ReadFromDisk & session) { //0 if empty, size if entry
+	(*session.expirationMapPtr)[session.absExpiration].push_back(std::move(session.chainInfo));	
+	return true;
 }
 /*
 int BundleStorageManagerMT::Pop(BundleStorageManagerSession_ReadFromDisk & session) { //remove top value
@@ -687,6 +692,12 @@ bool BundleStorageManagerMT::Test() {
 		BundleStorageManagerSession_ReadFromDisk sessionRead;
 		boost::uint64_t bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
 		std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
+		if (bytesToReadFromDisk != size) return false;
+
+		//return top then take out again
+		bsm.ReturnTop(sessionRead);
+		bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
+		std::cout << "bytesToReadFromDisk after returned " << bytesToReadFromDisk << "\n";
 		if (bytesToReadFromDisk != size) return false;
 
 		//check if custody was taken (should be empty)

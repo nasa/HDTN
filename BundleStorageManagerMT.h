@@ -89,6 +89,7 @@ public:
 
 	//Read
 	uint64_t Top(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks); //0 if empty, size if entry
+	bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
 	int Pop(BundleStorageManagerSession_ReadFromDisk & session); //remove top value
 	std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
 	bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session);
