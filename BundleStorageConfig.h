@@ -17,6 +17,9 @@
 ///////////////////////////
 
 #define SEGMENT_SIZE 4096  
+#define SEGMENT_RESERVED_SPACE (sizeof(boost::uint64_t) + sizeof(boost::uint32_t))
+#define BUNDLE_STORAGE_PER_SEGMENT_SIZE (SEGMENT_SIZE - SEGMENT_RESERVED_SPACE)
+#define READ_CACHE_NUM_SEGMENTS_PER_SESSION 50
 
 #ifdef _MSC_VER //Windows tests
 //#define FILE_SIZE (1024000000ULL * 1) //1 GByte total of files, or file_size / num_threads size per file

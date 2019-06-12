@@ -26,7 +26,7 @@ LFLAGS = -L/usr/lib
 LIBS = -lm -lboost_system -lboost_filesystem -lboost_timer -lpthread -lboost_thread -lboost_signals
 
 # define the C source files
-SRCS = BundleStorageManager.cpp MemoryManagerTreeArray.cpp BundleStorageManagerMT.cpp CircularIndexBufferSingleProducerSingleConsumer.cpp SignalHandler.cpp main.cpp
+SRCS = MemoryManagerTreeArray.cpp BundleStorageManagerMT.cpp CircularIndexBufferSingleProducerSingleConsumer.cpp SignalHandler.cpp main.cpp
 
 # define the C object files
 #
