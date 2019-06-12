@@ -13,7 +13,7 @@ CFLAGS = -Wall -O3
 
 # define any directories containing header files other than /usr/include
 #
-INCLUDES = -I. -I/usr/include
+INCLUDES = -I./include -I/usr/include
 
 # define library paths in addition to /usr/lib
 #   if I wanted to include libraries not in /usr/lib I'd specify
@@ -26,7 +26,7 @@ LFLAGS = -L/usr/lib
 LIBS = -lm -lboost_system -lboost_filesystem -lboost_timer -lpthread -lboost_thread -lboost_signals
 
 # define the C source files
-SRCS = MemoryManagerTreeArray.cpp BundleStorageManagerMT.cpp CircularIndexBufferSingleProducerSingleConsumer.cpp SignalHandler.cpp main.cpp
+SRCS = src/MemoryManagerTreeArray.cpp src/BundleStorageManagerMT.cpp src/CircularIndexBufferSingleProducerSingleConsumer.cpp src/SignalHandler.cpp src/main.cpp
 
 # define the C object files
 #

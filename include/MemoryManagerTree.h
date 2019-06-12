@@ -21,7 +21,6 @@ public:
 	void FreeTree();
 	boost::uint32_t GetAndSetFirstFreeSegmentId();
 	bool FreeSegmentId(boost::uint32_t segmentId);
-	static bool UnitTest();
 
 private:
 	void SetupTree(const int depth, void *node);

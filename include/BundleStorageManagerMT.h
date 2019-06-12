@@ -97,7 +97,6 @@ public:
 	void AddLink(boost::uint64_t linkName);
 	
 	static bool TestSpeed();
-	static bool Test();
 
 private:
 	void ThreadFunc(unsigned int threadIndex);

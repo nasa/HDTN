@@ -20,7 +20,6 @@ public:
 	
 	bool FreeSegmentId_NotThreadSafe(segment_id_t segmentId);
 	segment_id_t GetAndSetFirstFreeSegmentId_NotThreadSafe();
-	static bool UnitTest();
 
 private:
 	

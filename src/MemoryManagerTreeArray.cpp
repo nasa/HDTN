@@ -17,7 +17,7 @@ MemoryManagerTreeArray::~MemoryManagerTreeArray() {
 void MemoryManagerTreeArray::SetupTree() {
 	for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
 		const boost::uint64_t arraySize64s = (((boost::uint64_t)1) << (i*6));
-		std::cout << i << " " << arraySize64s << "\n";
+		//std::cout << i << " " << arraySize64s << "\n";
 		m_bitMasks[i] = (boost::uint64_t*)malloc(arraySize64s * sizeof(boost::uint64_t));
 		boost::uint64_t * const currentArrayPtr = m_bitMasks[i];
 		for (boost::uint64_t j = 0; j < arraySize64s; ++j) {
@@ -137,95 +137,3 @@ bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(segment_id_chain_vec_t & se
 }
 
 
-bool MemoryManagerTreeArray::UnitTest() {
-	
-	MemoryManagerTreeArray t;
-	//std::cout << "ready\n";
-	//getchar();
-	//t.SetupTree();
-	//std::cout << "done\n";
-	//getchar();
-
-	
-
-
-	//unit tests
-	boost::uint64_t prevRootBitmask = 5;
-	//for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
-	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
-		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-		if (segmentId != i) {
-			std::cout << "error " << segmentId << " " << i << "\n";
-			return false;
-		}
-		if (prevRootBitmask != t.m_bitMasks[0][0]) {
-			prevRootBitmask = t.m_bitMasks[0][0];
-			printf("%d 0x%" PRIx64 "\n", segmentId, t.m_bitMasks[0][0]);
-			//printf("0 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[0].m_bitMask);
-			//printf("1 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[1].m_bitMask);
-			//printf("2 0x%I64x\n", ((InnerNode*)t.m_rootNode.m_childNodes)[2].m_bitMask);
-		}
-		//std::cout << "sid:" << segmentId << "\n";
-	}
-	std::cout << "testing max\n";
-	{
-		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-		if (segmentId != UINT32_MAX) {
-			std::cout << "error " << segmentId << "\n";
-			printf("0x%" PRIx64 "\n", t.m_bitMasks[0][0]);
-			return false;
-		}
-	}
-
-	{
-		const boost::uint32_t segmentIds[11] = {
-		123,
-		12345,
-		16777 - 43,
-		16777,
-		16777 + 53,
-		16777 + 1234,
-		16777 * 2 + 5,
-		16777 * 3 + 9,
-		16777 * 5 + 2,
-		16777 * 9 + 6,
-		16777 * 12 + 8
-		};
-
-		for (int i = 0; i < 11; ++i) {
-			const boost::uint32_t segmentId = segmentIds[i];
-			if (t.FreeSegmentId_NotThreadSafe(segmentId)) {
-				std::cout << "freed segId " << segmentId << "\n";
-			}
-			else {
-				std::cout << "error FreeSegment\n";
-				return false;
-			}
-		}
-		for (int i = 0; i < 11; ++i) {
-			const boost::uint32_t segmentId = segmentIds[i];
-			const boost::uint32_t newSegmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-			if (newSegmentId != segmentId) {
-				std::cout << "error " << segmentId << " " << newSegmentId << "\n";
-				return false;
-			}
-			else {
-				std::cout << "reacquired segId " << newSegmentId << "\n";
-			}
-
-		}
-	}
-	{
-		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-		if (segmentId != UINT32_MAX) {
-			std::cout << "error " << segmentId << "\n";
-			printf("0x%" PRIx64 "\n", t.m_bitMasks[0][0]);
-			return false;
-		}
-	}
-	
-	//t.FreeTree();
-	std::cout << "done\n";
-	//getchar();
-	return true;
-}
