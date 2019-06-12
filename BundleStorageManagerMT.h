@@ -88,19 +88,14 @@ public:
 	int PushSegment(BundleStorageManagerSession_WriteToDisk & session, void * buf, std::size_t size);
 
 	//Read
-	uint64_t Top(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks); //0 if empty, size if entry
+	uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks); //0 if empty, size if entry
 	bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
-	int Pop(BundleStorageManagerSession_ReadFromDisk & session); //remove top value
 	std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
 	bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session);
-	uint64_t TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session);
 	
 	
 	void AddLink(boost::uint64_t linkName);
-	//void StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const boost::uint32_t logicalIndex, const unsigned char * const data);
-	//segment_id_t GetBundle(const std::vector<std::string> & availableDestLinks);
 	
-	//static bool TimeRandomReadsAndWrites();
 	static bool TestSpeed();
 	static bool Test();
 

@@ -184,49 +184,9 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 
 	return 1;
 }
-/*
-void BundleStorageManagerMT::StoreBundle(const std::string & linkName, const unsigned int priorityIndex, const abs_expiration_t absExpiration, const segment_id_t segmentId, const boost::uint32_t logicalIndex, const unsigned char * const data) {
-
-	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
-	boost::condition_variable & cv = m_conditionVariables[threadIndex];
-	unsigned int produceIndex = cb.GetIndexForWrite();
-	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
-		m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-		//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
-		produceIndex = cb.GetIndexForWrite();
-	}
 
 
-	priority_vec_t & priorityVec = m_destMap[linkName];
-	expiration_map_t & expirationMap = priorityVec[priorityIndex];
-	chains_vec_t & chainsVec = expirationMap[absExpiration];
-	if (logicalIndex == 0) {
-		chainsVec.resize(chainsVec.size() + 1);
-	}
-	chain_info_t & chainInfo = chainsVec.back();
-	boost::uint64_t & totalBundleSizeBytes = chainInfo.first;
-	segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
-	//std::cout << "add exp=" << absExpiration << " seg=" << segmentId << " pri=" << priorityIndex << "link=" << linkName << "\n";
-	segmentIdChainVec.push_back(segmentId);
-	////segmentIdVec.shrink_to_fit();
-
-	boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
-	segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
-	bool * const circularBufferReadWriteBoolsPtr = &m_circularBufferReadWriteBoolsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
-
-	boost::uint8_t * const dataCb = &circularBufferBlockDataPtr[produceIndex * SEGMENT_SIZE];
-	circularBufferSegmentIdsPtr[produceIndex] = segmentId;
-	circularBufferReadWriteBoolsPtr[produceIndex] = true; //isWriteToDisk
-
-	memcpy(dataCb, data, SEGMENT_SIZE);
-
-	cb.CommitWrite();
-	cv.notify_one();
-
-}*/
-
-uint64_t BundleStorageManagerMT::Top(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks) { //0 if empty, size if entry
+uint64_t BundleStorageManagerMT::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks) { //0 if empty, size if entry
 	std::vector<priority_vec_t *> priorityVecPtrs(availableDestLinks.size());
 	for (std::size_t i = 0; i < availableDestLinks.size(); ++i) {
 		priorityVecPtrs[i] = &m_destMap[availableDestLinks[i]];
@@ -284,24 +244,7 @@ bool BundleStorageManagerMT::ReturnTop(BundleStorageManagerSession_ReadFromDisk 
 	(*session.expirationMapPtr)[session.absExpiration].push_back(std::move(session.chainInfo));	
 	return true;
 }
-/*
-int BundleStorageManagerMT::Pop(BundleStorageManagerSession_ReadFromDisk & session) { //remove top value
 
-	if (session.chainInfoVecPtr) {
-		session.chainInfoVecPtr->erase(session.chainInfoVecPtr->begin());
-
-
-		if (session.chainInfoVecPtr->size() == 0) {
-			session.expirationMapPtr->erase(session.expirationMapIterator);
-		}
-		else {
-			////segmentIdVecPtr->shrink_to_fit();
-		}
-		return 1;
-	}
-	return 0;
-}
-*/
 std::size_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf) {
 	segment_id_chain_vec_t & segments = session.chainInfo.second;
 
@@ -380,93 +323,7 @@ bool BundleStorageManagerMT::RemoveReadBundleFromDisk(BundleStorageManagerSessio
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
 //}
 
-/*
-segment_id_t BundleStorageManagerMT::GetBundle(const std::vector<std::string> & availableDestLinks) {
 
-	//std::cout << "adlsz " << availableDestLinks.size() << "\n";
-	std::vector<priority_vec_t *> priorityVecPtrs(availableDestLinks.size());
-	for (std::size_t i = 0; i < availableDestLinks.size(); ++i) {
-		priorityVecPtrs[i] = &m_destMap[availableDestLinks[i]];
-		//std::cout << "pv " << priorityVecPtrs[i] << "\n";
-	}
-	
-
-	for (unsigned int i = 0; i < NUMBER_OF_PRIORITIES; ++i) {
-		abs_expiration_t lowestExpiration = UINT64_MAX;
-		std::size_t linkIndex;
-		expiration_map_t * expirationMapPtr = NULL;
-		segment_id_vec_t * segmentIdVecPtr = NULL;
-		expiration_map_t::iterator expirationMapIterator;
-		for (std::size_t j = 0; j < priorityVecPtrs.size(); ++j) {
-			priority_vec_t * priorityVec = priorityVecPtrs[j];
-			//std::cout << "size " << (*priorityVec).size() << "\n";
-			expiration_map_t & expirationMap = (*priorityVec)[i];
-			expiration_map_t::iterator it = expirationMap.begin();
-			if (it != expirationMap.end()) {
-				const abs_expiration_t thisExpiration = it->first;
-				//std::cout << "thisexp " << thisExpiration << "\n";
-				if (lowestExpiration > thisExpiration) {
-					lowestExpiration = thisExpiration;
-					linkIndex = j;
-					expirationMapPtr = &expirationMap;
-					segmentIdVecPtr = &it->second;
-					expirationMapIterator = it;
-				}
-			}
-		}
-		if (segmentIdVecPtr) {
-			//std::cout << "szb4=" << segmentIdVecPtr->size();
-			const segment_id_t segmentId = segmentIdVecPtr->back();
-			segmentIdVecPtr->pop_back();
-			//std::cout << "szaf=" << segmentIdVecPtr->size() << "\n";
-			//std::cout << "remove exp=" << lowestExpiration << " seg=" << segmentId << " pri=" << i << "link=" << availableDestLinks[linkIndex] << "\n";
-
-
-			if (segmentIdVecPtr->size() == 0) {
-				//std::cout << "sz0\n";
-				expirationMapPtr->erase(expirationMapIterator);
-			}
-			else {
-				////segmentIdVecPtr->shrink_to_fit();
-			}
-
-			const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
-			CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
-			boost::condition_variable & cv = m_conditionVariables[threadIndex];
-			unsigned int produceIndex = cb.GetIndexForWrite();
-			while(produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
-				m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-				//thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
-				produceIndex = cb.GetIndexForWrite();
-			} 
-
-			boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
-			segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
-			bool * const circularBufferReadWriteBoolsPtr = &m_circularBufferReadWriteBoolsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
-
-			boost::uint8_t * const dataCb = &circularBufferBlockDataPtr[produceIndex * SEGMENT_SIZE];
-			circularBufferSegmentIdsPtr[produceIndex] = segmentId;
-			circularBufferReadWriteBoolsPtr[produceIndex] = false; //isWriteToDisk
-
-			//copy data (expected) to dataCb for thread to run comparison
-			unsigned int linkIdCpy = static_cast<unsigned int>(linkIndex);
-			unsigned int priorityIndexCpy = i;
-			memcpy(&dataCb[1000], &linkIdCpy, sizeof(linkIdCpy));
-			memcpy(&dataCb[2000], &priorityIndexCpy, sizeof(priorityIndexCpy));
-			//abs_expiration_t absExpirationcpy = absExpiration + 100000;
-			memcpy(&dataCb[3000], &lowestExpiration, sizeof(lowestExpiration));
-			memcpy(&dataCb[4000], &segmentId, sizeof(segmentId));
-
-			cb.CommitWrite();
-			cv.notify_one();
-			
-			return segmentId;
-		}
-	}
-	return UINT32_MAX;
-
-}
-*/
 static volatile bool g_running = true;
 
 void MonitorExitKeypressThreadFunction() {
@@ -477,137 +334,7 @@ void MonitorExitKeypressThreadFunction() {
 static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction));
 
 
-/*
-static bool Store(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManagerMT & bsm, const std::string * DEST_LINKS) {
-	static boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
-	static const boost::random::uniform_int_distribution<> distLinkId(0, 9);
-	static const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
-	static const boost::random::uniform_int_distribution<> distAbsExpiration(0, NUMBER_OF_EXPIRATIONS - 1);
-	static const boost::random::uniform_int_distribution<> distTotalBundleSize(1, 65536);
-	static unsigned char junkData[SEGMENT_SIZE];
 
-	const boost::uint64_t bundleSize = distTotalBundleSize(gen);
-	const boost::uint64_t totalSegmentsRequired = (bundleSize / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSize % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
-
-
-	for (boost::uint32_t i = 0; i < numSegments; ++i) {
-		if (!g_running) return false;
-
-		const segment_id_t segmentId = mmt.GetAndSetFirstFreeSegmentId();
-		if (segmentId == UINT32_MAX) {
-			std::cout << "error segmentId is max, i=" << i << "\n";
-			return false;
-		}
-		const unsigned int linkId = distLinkId(gen);
-		const unsigned int priorityIndex = distPriorityIndex(gen);
-		const abs_expiration_t absExpiration = distAbsExpiration(gen);
-
-		memcpy(&junkData[1000], &linkId, sizeof(linkId));
-		memcpy(&junkData[2000], &priorityIndex, sizeof(priorityIndex));
-		abs_expiration_t absExpirationcpy = absExpiration + 100000;
-		memcpy(&junkData[3000], &absExpirationcpy, sizeof(absExpirationcpy));
-		memcpy(&junkData[4000], &segmentId, sizeof(segmentId));
-		bsm.StoreBundle(DEST_LINKS[linkId], priorityIndex, absExpiration + 100000, segmentId, junkData);
-	}
-	return true;
-}
-
-static bool Retrieve(const boost::uint32_t numSegments, MemoryManagerTreeArray & mmt, BundleStorageManagerMT & bsm, const std::string * DEST_LINKS, const std::vector<std::string> & availableDestLinks) {
-
-	for (boost::uint32_t i = 0; i < numSegments; ++i) {
-		if (!g_running) return false;
-
-		const segment_id_t segmentId = bsm.GetBundle(availableDestLinks);
-		if (!mmt.FreeSegmentId(segmentId)) {
-			std::cout << "error freeing segment id " << segmentId << "\n";
-			return false;
-		}
-		
-		
-		if (segmentId == UINT32_MAX) {
-			std::cout << "error segmentId is max, i=" << i << "\n";
-			return false;
-		}
-
-
-
-	}
-	return true;
-}
-
-bool BundleStorageManagerMT::TimeRandomReadsAndWrites() {
-	
-	g_sigHandler.Start();
-	
-	static const std::string DEST_LINKS[10] = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
-	std::vector<std::string> availableDestLinks = { "a1", "a2","a3", "a4", "a5", "a6", "a7", "a8", "a9", "b1" };
-	
-	
-
-	BundleStorageManagerMT bsm;
-	MemoryManagerTreeArray mmt;
-	
-	for (int i = 0; i < 10; ++i) {
-		bsm.AddLink(DEST_LINKS[i]);
-	}
-
-	
-	
-	std::cout << "storing\n";
-	
-
-	if (!Store(MAX_SEGMENTS, mmt, bsm, DEST_LINKS)) return false;
-
-	std::cout << "done storing\n";
-	const unsigned int numSegmentsPerTest = NUM_SEGMENTS_PER_TEST;
-	const boost::uint64_t numBytesPerTest = static_cast<boost::uint64_t>(numSegmentsPerTest) * SEGMENT_SIZE;
-	if (numBytesPerTest > FILE_SIZE) {
-		std::cout << "error numBytesPerTest (" << numBytesPerTest << ") is greater than FILE_SIZE (" << FILE_SIZE << ")\n";
-		return false;
-	}
-	double gigaBitsPerSecReadDoubleAvg = 0.0, gigaBitsPerSecWriteDoubleAvg = 0.0;
-	for (unsigned int i = 0; i < 10; ++i) {
-		{
-			if (!g_running) return false;
-			std::cout << "READ\n";
-			boost::timer::cpu_timer timer;
-			if (!Retrieve(numSegmentsPerTest, mmt, bsm, DEST_LINKS, availableDestLinks)) return false;
-			const boost::uint64_t nanoSecWall = timer.elapsed().wall;
-			//std::cout << "nanosec=" << nanoSecWall << "\n";
-			const double bytesPerNanoSecDouble = static_cast<double>(numBytesPerTest) / static_cast<double>(nanoSecWall);
-			const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
-			//std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
-			const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
-			gigaBitsPerSecReadDoubleAvg += gigaBitsPerSecDouble;
-			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
-		}
-		{
-			if (!g_running) return false;
-			std::cout << "WRITE\n";
-			boost::timer::cpu_timer timer;
-			if (!Store(numSegmentsPerTest, mmt, bsm, DEST_LINKS)) return false;
-			const boost::uint64_t nanoSecWall = timer.elapsed().wall;
-			//std::cout << "nanosec=" << nanoSecWall << "\n";
-			const double bytesPerNanoSecDouble = static_cast<double>(numBytesPerTest) / static_cast<double>(nanoSecWall);
-			const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
-			//std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
-			const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
-			gigaBitsPerSecWriteDoubleAvg += gigaBitsPerSecDouble;
-			std::cout << "GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
-		}
-		
-	}
-	if (g_running) {
-		std::cout << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / 10.0 << "\n\n";
-		std::cout << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / 10.0 << "\n\n";
-
-
-		std::cout << "done reading\n";
-	}
-
-	
-	return true;
-}*/
 struct TestFile {
 	TestFile() {}
 	TestFile(boost::uint64_t size) : m_data(size) {
@@ -731,7 +458,7 @@ bool BundleStorageManagerMT::TestSpeed() {
 			while (g_running) {
 
 				BundleStorageManagerSession_ReadFromDisk sessionRead;
-				boost::uint64_t bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
+				boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
 				//std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
 				std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
 				TestFile & originalFile = *fileMap[bytesToReadFromDisk];
@@ -858,20 +585,20 @@ bool BundleStorageManagerMT::Test() {
 
 		std::cout << "reading\n";
 		BundleStorageManagerSession_ReadFromDisk sessionRead;
-		boost::uint64_t bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
+		boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
 		std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
 		if (bytesToReadFromDisk != size) return false;
 
 		//return top then take out again
 		bsm.ReturnTop(sessionRead);
-		bytesToReadFromDisk = bsm.Top(sessionRead, availableDestLinks);
+		bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
 		std::cout << "bytesToReadFromDisk after returned " << bytesToReadFromDisk << "\n";
 		if (bytesToReadFromDisk != size) return false;
 
 		//check if custody was taken (should be empty)
 		{
 			BundleStorageManagerSession_ReadFromDisk sessionRead2;
-			boost::uint64_t bytesToReadFromDisk2 = bsm.Top(sessionRead2, availableDestLinks);
+			boost::uint64_t bytesToReadFromDisk2 = bsm.PopTop(sessionRead2, availableDestLinks);
 			std::cout << "bytesToReadFromDisk2 " << bytesToReadFromDisk2 << "\n";
 			if (bytesToReadFromDisk2 != 0) return false;
 		}
