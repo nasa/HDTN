@@ -81,7 +81,7 @@ class BundleStorageManagerMT {
 public:
 	BundleStorageManagerMT();
 	~BundleStorageManagerMT();
-
+	void Start(bool autoDeleteFilesOnExit = true);
 
 	//write
 	boost::uint64_t Push(BundleStorageManagerSession_WriteToDisk & session, bp_primary_if_base_t & bundleMetaData); //return totalSegmentsRequired
@@ -91,10 +91,14 @@ public:
 	uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks); //0 if empty, size if entry
 	bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
 	std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
-	bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session);
+	bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session, bool forceRemove = false);
 	
 	
 	void AddLink(boost::uint64_t linkName);
+
+	bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
+
+	const MemoryManagerTreeArray & GetMemoryManagerConstRef();
 	
 	static bool TestSpeed();
 
@@ -115,6 +119,8 @@ private:
 	segment_id_t * m_circularBufferSegmentIdsPtr;
 	volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
 	volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
+	volatile bool m_successfullyRestoredFromDisk;
+	volatile bool m_autoDeleteFilesOnExit;
 };
 
 
