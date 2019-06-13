@@ -35,6 +35,31 @@ void MemoryManagerTreeArray::FreeTree() {
 	}
 }
 
+void MemoryManagerTreeArray::BackupDataToVector(backup_memmanager_t & backup) const {
+	backup.resize(MAX_TREE_ARRAY_DEPTH);
+	for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
+		const boost::uint64_t arraySize64s = (((boost::uint64_t)1) << (i * 6));
+		std::vector<boost::uint64_t> & row = backup[i];
+		row.resize(arraySize64s);
+		const boost::uint64_t * const currentArrayPtr = m_bitMasks[i];
+		for (boost::uint64_t j = 0; j < arraySize64s; ++j) {
+			row[j] = currentArrayPtr[j];
+		}		
+	}	
+}
+
+bool MemoryManagerTreeArray::IsBackupEqual(const backup_memmanager_t & backup) const {
+	for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
+		const boost::uint64_t arraySize64s = (((boost::uint64_t)1) << (i * 6));
+		const std::vector<boost::uint64_t> & row = backup[i];
+		const boost::uint64_t * const currentArrayPtr = m_bitMasks[i];
+		for (boost::uint64_t j = 0; j < arraySize64s; ++j) {
+			if (row[j] != currentArrayPtr[j]) return false;
+		}
+	}
+	return true;
+}
+
 
 bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t * segmentId) {
 

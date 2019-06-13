@@ -96,7 +96,9 @@ public:
 	
 	void AddLink(boost::uint64_t linkName);
 
-	bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, segment_id_t * totalSegmentsRestored);
+	bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
+
+	const MemoryManagerTreeArray & GetMemoryManagerConstRef();
 	
 	static bool TestSpeed();
 

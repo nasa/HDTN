@@ -164,8 +164,8 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 	};
 
-	boost::uint64_t bytesWritten = 0;
-	segment_id_t totalSegmentsWritten = 0;;
+	boost::uint64_t bytesWritten = 0, totalSegmentsWritten = 0;
+	backup_memmanager_t backup;
 
 	{
 		BundleStorageManagerMT bsm;
@@ -218,6 +218,9 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 		boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks2);
 		BOOST_REQUIRE_EQUAL(bytesToReadFromDisk, sizes[12]);
 		BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead, true), "error force freeing bundle from disk");
+
+		bsm.GetMemoryManagerConstRef().BackupDataToVector(backup);
+		BOOST_REQUIRE(bsm.GetMemoryManagerConstRef().IsBackupEqual(backup));
 	}
 
 	std::cout << "wrote bundles but leaving files\n";
@@ -225,17 +228,21 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 	std::cout << "restoring...\n";
 	{
 		BundleStorageManagerMT bsm;
-		uint64_t totalBundlesRestored, totalBytesRestored;
-		segment_id_t totalSegmentsRestored;
+		uint64_t totalBundlesRestored, totalBytesRestored, totalSegmentsRestored;
+		BOOST_REQUIRE(!bsm.GetMemoryManagerConstRef().IsBackupEqual(backup));
 		BOOST_REQUIRE_MESSAGE(bsm.RestoreFromDisk(&totalBundlesRestored, &totalBytesRestored, &totalSegmentsRestored), "error restoring from disk");
+		BOOST_REQUIRE(bsm.GetMemoryManagerConstRef().IsBackupEqual(backup));
 		std::cout << "restored\n";
 		BOOST_REQUIRE_EQUAL(totalBundlesRestored, (15 - 1));
 		BOOST_REQUIRE_EQUAL(totalBytesRestored, bytesWritten);
 		BOOST_REQUIRE_EQUAL(totalSegmentsRestored, totalSegmentsWritten);
+
 		bsm.Start();
+
 		
-		uint64_t totalBytesReadFromRestored = 0;
-		segment_id_t totalSegmentsReadFromRestored = 0;
+		
+		
+		uint64_t totalBytesReadFromRestored = 0, totalSegmentsReadFromRestored = 0;
 		for (unsigned int sizeI = 0; sizeI < (15-1); ++sizeI) {
 			
 			
@@ -262,6 +269,8 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 
 		BOOST_REQUIRE_EQUAL(totalBytesReadFromRestored, bytesWritten);
 		BOOST_REQUIRE_EQUAL(totalSegmentsReadFromRestored, totalSegmentsWritten);
+
+		
 
 	}
 }

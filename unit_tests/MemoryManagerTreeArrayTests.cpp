@@ -9,6 +9,7 @@
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 {
 	MemoryManagerTreeArray t;
+	backup_memmanager_t backup;
 	const segment_id_t segmentId = 7777;
 
 	BOOST_REQUIRE(t.IsSegmentFree(segmentId-1));
@@ -21,7 +22,12 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 	BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
 	BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
 
+	t.BackupDataToVector(backup);
+	BOOST_REQUIRE(t.IsBackupEqual(backup));
+
 	BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));
+
+	BOOST_REQUIRE(!t.IsBackupEqual(backup));
 
 	BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
 	BOOST_REQUIRE(t.IsSegmentFree(segmentId));

@@ -118,7 +118,9 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
 }
 
-
+const MemoryManagerTreeArray & BundleStorageManagerMT::GetMemoryManagerConstRef() {
+	return m_memoryManager;
+}
 
 void BundleStorageManagerMT::AddLink(boost::uint64_t linkName) {
 	m_destMap[linkName] = priority_vec_t(NUMBER_OF_PRIORITIES);
@@ -367,7 +369,7 @@ bool BundleStorageManagerMT::RemoveReadBundleFromDisk(BundleStorageManagerSessio
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
 //}
 
-bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, segment_id_t * totalSegmentsRestored) {
+bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored) {
 	*totalBundlesRestored = 0; *totalBytesRestored = 0; *totalSegmentsRestored = 0;
 	boost::uint8_t dataReadBuf[SEGMENT_SIZE];
 	FILE * fileHandles[NUM_STORAGE_THREADS];
@@ -434,7 +436,7 @@ bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, ui
 				memcpy(&bundleMetaData, dataReadBuf + SEGMENT_RESERVED_SPACE, sizeof(bundleMetaData));
 				
 				
-				const segment_id_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
+				const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 
 				if (bundleSizeBytes != bundleMetaData.length) {
 					std::cout << "error: bundleSizeBytes != bundleMetaData.length\n";
