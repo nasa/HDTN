@@ -16,7 +16,6 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 	const boost::random::uniform_int_distribution<> distLinkId(0, 9);
 	const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
 	const boost::random::uniform_int_distribution<> distAbsExpiration(0, NUMBER_OF_EXPIRATIONS - 1);
-	const boost::random::uniform_int_distribution<> distTotalBundleSize(1, 65536);
 
 
 	static const boost::uint64_t DEST_LINKS[10] = { 1,2,3,4,5,6,7,8,9,10 };
@@ -25,7 +24,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 
 
 	BundleStorageManagerMT bsm;
-
+	bsm.Start();
 
 	for (int i = 0; i < 10; ++i) {
 		bsm.AddLink(DEST_LINKS[i]);
@@ -122,4 +121,147 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 		BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead), "error freeing bundle from disk");
 		
 	}	
+}
+
+
+
+
+
+
+
+
+BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
+{
+	boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
+	const boost::random::uniform_int_distribution<> distRandomData(0, 255);
+	const boost::random::uniform_int_distribution<> distPriorityIndex(0, 2);
+
+
+	static const boost::uint64_t DEST_LINKS[10] = { 1,2,3,4,5,6,7,8,9,10 };
+	std::vector<boost::uint64_t> availableDestLinks = { 1,2,3,4,5,6,7,8,9,10 };
+	std::vector<boost::uint64_t> availableDestLinks2 = { 2 };
+
+
+	
+
+	static const boost::uint64_t sizes[15] = {		
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
+		BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
+
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
+		2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
+
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
+		1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
+	};
+
+	boost::uint64_t bytesWritten = 0;
+	segment_id_t totalSegmentsWritten = 0;;
+
+	{
+		BundleStorageManagerMT bsm;
+		bsm.Start(false);
+		for (int i = 0; i < 10; ++i) {
+			bsm.AddLink(DEST_LINKS[i]);
+		}
+		for (unsigned int sizeI = 0; sizeI < 15; ++sizeI) {
+			const boost::uint64_t size = sizes[sizeI];
+			//std::cout << "testing size " << size << "\n";
+			std::vector<boost::uint8_t> data(size);
+			
+			for (std::size_t i = 0; i < size; ++i) {
+				data[i] = distRandomData(gen);
+			}
+			const unsigned int linkId = (sizeI == 12) ? 1 : 0;
+			if (sizeI != 12) bytesWritten += size;
+			const unsigned int priorityIndex = distPriorityIndex(gen);
+			const abs_expiration_t absExpiration = sizeI;
+
+			BundleStorageManagerSession_WriteToDisk sessionWrite;
+			bp_primary_if_base_t bundleMetaData;
+			bundleMetaData.flags = (priorityIndex & 3) << 7;
+			bundleMetaData.dst_node = DEST_LINKS[linkId];
+			bundleMetaData.length = size;
+			bundleMetaData.creation = 0;
+			bundleMetaData.lifetime = absExpiration;
+			memcpy(&data[0], &bundleMetaData, sizeof(bundleMetaData));
+			//std::cout << "writing\n";
+			boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
+			if (sizeI != 12) totalSegmentsWritten += totalSegmentsRequired;
+			//std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
+			BOOST_REQUIRE_NE(totalSegmentsRequired, 0);
+
+			for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
+				std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
+				if (i == totalSegmentsRequired - 1) {
+					boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+					if (modBytes != 0) {
+						bytesToCopy = modBytes;
+					}
+				}
+
+				BOOST_REQUIRE(bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy));
+			}
+		}
+
+		//delete a middle out
+		BundleStorageManagerSession_ReadFromDisk sessionRead;
+		boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks2);
+		BOOST_REQUIRE_EQUAL(bytesToReadFromDisk, sizes[12]);
+		BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead, true), "error force freeing bundle from disk");
+	}
+
+	std::cout << "wrote bundles but leaving files\n";
+	//boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+	std::cout << "restoring...\n";
+	{
+		BundleStorageManagerMT bsm;
+		uint64_t totalBundlesRestored, totalBytesRestored;
+		segment_id_t totalSegmentsRestored;
+		BOOST_REQUIRE_MESSAGE(bsm.RestoreFromDisk(&totalBundlesRestored, &totalBytesRestored, &totalSegmentsRestored), "error restoring from disk");
+		std::cout << "restored\n";
+		BOOST_REQUIRE_EQUAL(totalBundlesRestored, (15 - 1));
+		BOOST_REQUIRE_EQUAL(totalBytesRestored, bytesWritten);
+		BOOST_REQUIRE_EQUAL(totalSegmentsRestored, totalSegmentsWritten);
+		bsm.Start();
+		
+		uint64_t totalBytesReadFromRestored = 0;
+		segment_id_t totalSegmentsReadFromRestored = 0;
+		for (unsigned int sizeI = 0; sizeI < (15-1); ++sizeI) {
+			
+			
+			//std::cout << "reading\n";
+			BundleStorageManagerSession_ReadFromDisk sessionRead;
+			boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
+			//std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
+			BOOST_REQUIRE_NE(bytesToReadFromDisk, 0);
+			std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
+			totalBytesReadFromRestored += bytesToReadFromDisk;
+			
+			const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
+			totalSegmentsReadFromRestored += numSegmentsToRead;
+			std::size_t totalBytesRead = 0;
+			for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
+				totalBytesRead += bsm.TopSegment(sessionRead, &dataReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
+			}
+			//std::cout << "totalBytesRead " << totalBytesRead << "\n";
+			BOOST_REQUIRE_EQUAL(totalBytesRead, bytesToReadFromDisk);
+
+			BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead), "error freeing bundle from disk");
+			
+		}
+
+		BOOST_REQUIRE_EQUAL(totalBytesReadFromRestored, bytesWritten);
+		BOOST_REQUIRE_EQUAL(totalSegmentsReadFromRestored, totalSegmentsWritten);
+
+	}
 }

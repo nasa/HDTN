@@ -6,6 +6,35 @@
 #include <string>
 #include <inttypes.h>
 
+BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
+{
+	MemoryManagerTreeArray t;
+	const segment_id_t segmentId = 7777;
+
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId-1));
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId));
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId+1));
+
+	t.AllocateSegmentId_NoCheck_NotThreadSafe(segmentId);
+
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
+	BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
+
+	BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));
+
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId));
+	BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
+
+	t.AllocateSegmentId_NoCheck_NotThreadSafe(0);
+	BOOST_REQUIRE_EQUAL(t.GetAndSetFirstFreeSegmentId_NotThreadSafe(), 1);
+	BOOST_REQUIRE(!t.IsSegmentFree(0));
+	BOOST_REQUIRE(!t.IsSegmentFree(1));
+	BOOST_REQUIRE(t.IsSegmentFree(2));
+	BOOST_REQUIRE(t.IsSegmentFree(3));
+}
+
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
 {
 	
@@ -13,8 +42,10 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
 	
 	//for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
 	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
+		BOOST_REQUIRE(t.IsSegmentFree(i));
 		const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
 		BOOST_REQUIRE_EQUAL(segmentId, i);
+		BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
 	}
 	//std::cout << "testing max\n";
 	{
@@ -39,12 +70,15 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
 
 		for (int i = 0; i < 11; ++i) {
 			const boost::uint32_t segmentId = segmentIds[i];
-			BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));			
+			BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
+			BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));	
+			BOOST_REQUIRE(t.IsSegmentFree(segmentId));
 		}
 		for (int i = 0; i < 11; ++i) {
 			const boost::uint32_t segmentId = segmentIds[i];
 			const boost::uint32_t newSegmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-			BOOST_REQUIRE_EQUAL(newSegmentId, segmentId);			
+			BOOST_REQUIRE_EQUAL(newSegmentId, segmentId);		
+			BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
 		}
 	}
 

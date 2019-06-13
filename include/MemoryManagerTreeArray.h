@@ -17,6 +17,8 @@ public:
 	
 	bool AllocateSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec); //number of segments should be the vector size
 	bool FreeSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec);
+	bool IsSegmentFree(segment_id_t segmentId);
+	void AllocateSegmentId_NoCheck_NotThreadSafe(segment_id_t segmentId);
 	
 	bool FreeSegmentId_NotThreadSafe(segment_id_t segmentId);
 	segment_id_t GetAndSetFirstFreeSegmentId_NotThreadSafe();
@@ -25,7 +27,9 @@ private:
 	
 
 	bool GetAndSetFirstFreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t * segmentId);
+	bool IsSegmentFree(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId);
 	void FreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId, bool *success);
+	bool AllocateSegmentId_NoCheck(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId);
 	void SetupTree();
 	void FreeTree();
 private:
