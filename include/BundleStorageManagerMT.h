@@ -94,7 +94,7 @@ public:
 	bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & session, bool forceRemove = false);
 	
 	
-	void AddLink(boost::uint64_t linkName);
+	
 
 	bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
 
@@ -104,6 +104,7 @@ public:
 
 private:
 	void ThreadFunc(unsigned int threadIndex);
+	void AddLink(boost::uint64_t linkName);
 
 private:
 	MemoryManagerTreeArray m_memoryManager;

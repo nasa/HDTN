@@ -26,10 +26,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 	BundleStorageManagerMT bsm;
 	bsm.Start();
 
-	for (int i = 0; i < 10; ++i) {
-		bsm.AddLink(DEST_LINKS[i]);
-	}
-
+	
 	static const boost::uint64_t sizes[17] = {
 		1,
 		2,
@@ -170,9 +167,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 	{
 		BundleStorageManagerMT bsm;
 		bsm.Start(false);
-		for (int i = 0; i < 10; ++i) {
-			bsm.AddLink(DEST_LINKS[i]);
-		}
+		
 		for (unsigned int sizeI = 0; sizeI < 15; ++sizeI) {
 			const boost::uint64_t size = sizes[sizeI];
 			//std::cout << "testing size " << size << "\n";

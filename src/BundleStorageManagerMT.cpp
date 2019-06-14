@@ -185,7 +185,10 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 	cb.CommitWrite();
 	cv.notify_one();
 	//std::cout << "writing " << size << " bytes\n";
-	if (session.nextLogicalSegment == segmentIdChainVec.size()) {		
+	if (session.nextLogicalSegment == segmentIdChainVec.size()) {	
+		if (m_destMap.count(session.destLinkId) == 0) {
+			AddLink(session.destLinkId);
+		}
 		priority_vec_t & priorityVec = m_destMap[session.destLinkId];
 		expiration_map_t & expirationMap = priorityVec[session.priorityIndex];
 		chain_info_vec_t & chainInfoVec = expirationMap[session.absExpiration];
