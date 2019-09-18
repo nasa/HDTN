@@ -24,6 +24,7 @@
     <ClCompile Include="..\src\MemoryManagerTree.cpp" />
     <ClCompile Include="..\src\MemoryManagerTreeArray.cpp" />
     <ClCompile Include="..\src\SignalHandler.cpp" />
+    <ClCompile Include="BundleStorageManagerMtAsFifoTests.cpp" />
     <ClCompile Include="BundleStorageManagerMtTests.cpp" />
     <ClCompile Include="MemoryManagerTreeArrayTests.cpp" />
     <ClCompile Include="MemoryManagerTreeTests.cpp" />
