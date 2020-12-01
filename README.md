@@ -25,5 +25,5 @@ In another terminal, run:
 * ./test_script
 
 ### Run Unit Tests ###
-After building HDTN (see above), the unit tests can be run with the command:
-* ./build/tests/unit_tests/unit-tests 
+After building HDTN (see above), the unit tests can be run with the command within the build directory:
+* ./tests/unit_tests/unit-tests 
