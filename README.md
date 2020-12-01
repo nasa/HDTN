@@ -24,6 +24,6 @@ You can use tcpdump to test the HDTN ingress and egress.
 In another terminal, run:
 * ./test_script
 
-### Run Unit Tests ###
+### Run Unit Tests, example ###
 After building HDTN (see above), the unit tests can be run with the command within the build directory:
 * ./tests/unit_tests/unit-tests 
