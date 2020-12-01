@@ -26,4 +26,4 @@ In another terminal, run:
 
 ### Run Unit Tests ###
 After building HDTN (see above), the unit tests can be run with the command:
-* ./tests/unit_tests/unit-tests 
+* ./build/tests/unit_tests/unit-tests 
