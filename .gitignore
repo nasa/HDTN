@@ -1,0 +1,10 @@
+# Ignore the file used by QT
+CMakeLists.txt.user
+
+# Ignore build directory
+build/
+build/*
+
+# Ignore files built for unit tests
+tests/unit_tests/build/
+tests/unit_tests/build/*
