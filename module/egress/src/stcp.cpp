@@ -1,7 +1,7 @@
 #include <arpa/inet.h>
 #include "egress.h"
 #include <string.h>
-using namespace hdtn3;
+using namespace hdtn;
 
 void hegr_stcp_entry::init(sockaddr_in* inaddr, uint64_t flags) {
     _fd = socket(AF_INET, SOCK_STREAM, 0);

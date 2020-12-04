@@ -2,7 +2,7 @@
 #include "egress.h"
 #include <string.h>
 
-using namespace hdtn3;
+using namespace hdtn;
 
 hegr_entry* hegr_manager::_entry(int offset) {
     return (hegr_entry*) (((uint8_t*) _entries) + (offset * HEGR_ENTRY_SZ));
@@ -48,7 +48,7 @@ int hegr_manager::add(int fec, uint64_t flags, const char* dst, int port) {
         return 1;
     }
     else {
-        return -HDTN3_MSGTYPE_ENOTIMPL;
+        return -HDTN_MSGTYPE_ENOTIMPL;
     }
     
     return 0;
@@ -71,9 +71,6 @@ int hegr_manager::remove(int fec) {
 }
 **/
 int hegr_manager::forward(int fec, char* msg, int sz) {
-   // uint8_t* payload = (uint8_t*) msg;
-   // payload += sizeof(hdtn_data_msg);
-   // int payload_sz = sz - sizeof(hdtn_data_msg);
     return _entry(fec)->forward((char **)(&msg), &sz, 1);
 }
 

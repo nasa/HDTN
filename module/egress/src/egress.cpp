@@ -6,7 +6,7 @@
 #include "reg.hpp"
 #include "logging.hpp"
 #include <sys/time.h>
-using namespace hdtn3;
+using namespace hdtn;
 using namespace std;
 
 static uint64_t bundle_count = 0;
@@ -47,10 +47,10 @@ int main(int argc, char *argv[]) {
 	printf("Start: +%f\n", start);
 	catch_signals();
 	//finish registration stuff - egress should register, ingress will query
-	hdtn3::hdtn3_regsvr regsvr;
+	hdtn::hdtn_regsvr regsvr;
 	regsvr.init("tcp://127.0.0.1:10140", "egress",10149, "PULL");
 	regsvr.reg();
-	hdtn3::hdtn3_entries res = regsvr.query();
+	hdtn::hdtn_entries res = regsvr.query();
 	for(auto entry : res) {
 		std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
 	}
@@ -87,17 +87,15 @@ int main(int argc, char *argv[]) {
     	zmq::message_t message;
    		zmq_sock->recv(&hdr);
 		message_count++;
-    	//stats.in_bytes += hdr.size();
-    	//++_stats.in_msg;
 		char bundle[HMSG_MSG_MAX];
-    	if(hdr.size() < sizeof(hdtn3::common_hdr)) {
+    	if(hdr.size() < sizeof(hdtn::common_hdr)) {
        		 std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
         	return -1;
    		}
-   		hdtn3::common_hdr* common = (hdtn3::common_hdr*)hdr.data();
-    	hdtn3::block_hdr* block = (hdtn3::block_hdr *)common;
+   		hdtn::common_hdr* common = (hdtn::common_hdr*)hdr.data();
+    	hdtn::block_hdr* block = (hdtn::block_hdr *)common;
     	switch(common->type) {
-        	case HDTN3_MSGTYPE_STORE:
+        	case HDTN_MSGTYPE_STORE:
        			zmq_sock->recv(&message);
 				bundle_size=message.size();
 				memcpy(bundle,message.data(),bundle_size);

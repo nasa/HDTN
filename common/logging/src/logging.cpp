@@ -1,7 +1,7 @@
 #include "logging.hpp"
 #include <string>
 
-namespace hdtn3{
+namespace hdtn{
     std::string datetime() {
         time_t rawtime;
         struct tm * timeinfo;

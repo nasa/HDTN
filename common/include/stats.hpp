@@ -1,9 +1,9 @@
-#ifndef _HDTN3_STATS_H
-#define _HDTN3_STATS_H
+#ifndef _HDTN_STATS_H
+#define _HDTN_STATS_H
 
 #include <stdint.h>
 
-namespace hdtn3 {
+namespace hdtn {
     struct flow_stats {
         uint64_t disk_used;
         uint64_t disk_wcount;

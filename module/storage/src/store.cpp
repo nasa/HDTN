@@ -8,10 +8,10 @@
 #include "store.hpp"
 #include "cache.hpp"
 
-#define HDTN3_STORAGE_TYPE         "storage"
-#define HDTN3_STORAGE_RECV_MODE    "push"
+#define HDTN_STORAGE_TYPE         "storage"
+#define HDTN_STORAGE_RECV_MODE    "push"
 
-bool hdtn3::storage::init(storage_config config) {
+bool hdtn::storage::init(storage_config config) {
     if(config.local.find(":") == std::string::npos) {
         throw error_t();
     }
@@ -44,7 +44,7 @@ bool hdtn3::storage::init(storage_config config) {
     _egress_sock = new zmq::socket_t(*_ctx, zmq::socket_type::push);
     _egress_sock->bind(config.local);
 
-    hdtn3_entries entries = _store_reg.query("ingress");
+    hdtn_entries entries = _store_reg.query("ingress");
     while(entries.size() == 0) {
         sleep(1);
         std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
@@ -92,7 +92,7 @@ bool hdtn3::storage::init(storage_config config) {
     zmq::message_t tmsg;
     _worker_sock->recv(&tmsg);
     common_hdr* notify = (common_hdr*)tmsg.data();
-    if(notify->type != HDTN3_MSGTYPE_IOK) {
+    if(notify->type != HDTN_MSGTYPE_IOK) {
         std::cout << "[storage] Worker startup failed - aborting ..." << std::endl;
         return false;
     }
@@ -102,7 +102,7 @@ bool hdtn3::storage::init(storage_config config) {
     return true;
 }
 
-bool hdtn3::storage::ingress(std::string remote) {
+bool hdtn::storage::ingress(std::string remote) {
     _ingress_sock = new zmq::socket_t(*_ctx, zmq::socket_type::pull);
     bool success = true;
     try {
@@ -115,7 +115,7 @@ bool hdtn3::storage::ingress(std::string remote) {
     return success;
 }
 
-void hdtn3::storage::update() {
+void hdtn::storage::update() {
     zmq::pollitem_t items[] = {
         {
             _ingress_sock->handle(),
@@ -139,37 +139,37 @@ void hdtn3::storage::update() {
     }
 }
 
-void hdtn3::storage::c2telem() {
+void hdtn::storage::c2telem() {
     zmq::message_t message;
     _telemetry_sock->recv(&message);
-    if(message.size() < sizeof(hdtn3::common_hdr)) {
+    if(message.size() < sizeof(hdtn::common_hdr)) {
         std::cerr << "[c2telem] message too short: " << message.size() << std::endl;
         return;
     }
-    hdtn3::common_hdr* common = (hdtn3::common_hdr*)message.data();
+    hdtn::common_hdr* common = (hdtn::common_hdr*)message.data();
     switch(common->type) {
-        case HDTN3_MSGTYPE_CSCHED_REQ:
+        case HDTN_MSGTYPE_CSCHED_REQ:
         break;
-        case HDTN3_MSGTYPE_CTELEM_REQ:
+        case HDTN_MSGTYPE_CTELEM_REQ:
         break;
     }
 }
 
-void hdtn3::storage::dispatch() {
+void hdtn::storage::dispatch() {
     zmq::message_t hdr;
     zmq::message_t message;
     _ingress_sock->recv(&hdr);
     _stats.in_bytes += hdr.size();
     ++_stats.in_msg;
 
-    if(hdr.size() < sizeof(hdtn3::common_hdr)) {
+    if(hdr.size() < sizeof(hdtn::common_hdr)) {
         std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
         return;
     }
-    hdtn3::common_hdr* common = (hdtn3::common_hdr*)hdr.data();
-    hdtn3::block_hdr* block = (hdtn3::block_hdr *)common;
+    hdtn::common_hdr* common = (hdtn::common_hdr*)hdr.data();
+    hdtn::block_hdr* block = (hdtn::block_hdr *)common;
     switch(common->type) {
-        case HDTN3_MSGTYPE_STORE:
+        case HDTN_MSGTYPE_STORE:
         _ingress_sock->recv(&message);
         _worker_sock->send(hdr.data(), hdr.size(), ZMQ_MORE);
         _stats.in_bytes += message.size();
@@ -178,6 +178,6 @@ void hdtn3::storage::dispatch() {
     }
 }
 
-void hdtn3::storage::release(uint32_t flow, uint64_t rate, uint64_t duration) {
+void hdtn::storage::release(uint32_t flow, uint64_t rate, uint64_t duration) {
 
 }

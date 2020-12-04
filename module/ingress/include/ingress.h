@@ -18,7 +18,7 @@
 #define BP_INGRESS_TYPE_UDP       (0x01)
 #define BP_INGRESS_TYPE_STCP      (0x02)
 
-namespace hdtn3 {
+namespace hdtn {
 std::string datetime();
 
 

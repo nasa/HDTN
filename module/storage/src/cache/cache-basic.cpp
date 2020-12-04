@@ -8,15 +8,15 @@
 #include "cache.hpp"
 #include "store.hpp"
 
-namespace hdtn3 {
+namespace hdtn {
 
 flow_store::~flow_store() {
-    munmap(0, HDTN3_FLOWCOUNT_MAX * sizeof(hdtn3::flow_store_header));
+    munmap(0, HDTN_FLOWCOUNT_MAX * sizeof(hdtn::flow_store_header));
     close(_index_fd);
 }
 
 flow_store_entry flow_store::load(int flow) {
-    if(flow >= HDTN3_FLOWCOUNT_MAX || flow < 0) {
+    if(flow >= HDTN_FLOWCOUNT_MAX || flow < 0) {
         errno = EINVAL;
         return {
             -1,
@@ -143,30 +143,30 @@ bool flow_store::init(std::string root) {
     }
 
     std::stringstream tstr;
-    tstr << _root << "/hdtn3.index";
+    tstr << _root << "/hdtn.index";
     std::string ipath;
     bool build_index = false;
     _index_fd = open(tstr.str().c_str(), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP);
     if(_index_fd < 0) {
-        std::cerr << "[flow-store:basic] Failed to open hdtn3.index: " << tstr.str() << std::endl;
+        std::cerr << "[flow-store:basic] Failed to open hdtn.index: " << tstr.str() << std::endl;
         perror("[flow-store:basic] Error");
         return false;
     }
-    int res = fallocate(_index_fd, 0, 0, HDTN3_FLOWCOUNT_MAX * sizeof(hdtn3::flow_store_header));
+    int res = fallocate(_index_fd, 0, 0, HDTN_FLOWCOUNT_MAX * sizeof(hdtn::flow_store_header));
     if(res) {
-        std::cerr << "[flow-store:basic] Failed to allocate space for hdtn3.index." << std::endl;
+        std::cerr << "[flow-store:basic] Failed to allocate space for hdtn.index." << std::endl;
         perror("[flow-store:basic] Error");
         return false;
     }
 
-    _index = (flow_store_header*)mmap(0, HDTN3_FLOWCOUNT_MAX * sizeof(hdtn3::flow_store_header), 
+    _index = (flow_store_header*)mmap(0, HDTN_FLOWCOUNT_MAX * sizeof(hdtn::flow_store_header), 
                     PROT_READ | PROT_WRITE, MAP_SHARED, _index_fd, 0);
     if(NULL == _index) {
-        std::cerr << "[flow-store:basic] Failed to map hdtn3.index: " << tstr.str() << std::endl;
+        std::cerr << "[flow-store:basic] Failed to map hdtn.index: " << tstr.str() << std::endl;
         perror("[flow-store:basic] Error");
         return false;
     }
-    for(int i = 0; i < HDTN3_FLOWCOUNT_MAX; ++i) {
+    for(int i = 0; i < HDTN_FLOWCOUNT_MAX; ++i) {
         _stats.disk_used += (_index[i].end - _index[i].begin);
     }
     std::cout << "[flow-store:basic] Initialization completed." << std::endl;

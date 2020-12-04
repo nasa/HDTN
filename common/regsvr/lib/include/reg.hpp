@@ -5,9 +5,9 @@
 #include <list>
 #include <zmq.hpp>
 
-namespace hdtn3 {
+namespace hdtn {
 
-struct hdtn3_entry {
+struct hdtn_entry {
     std::string  protocol;
     std::string  address;
     std::string  type;
@@ -15,14 +15,14 @@ struct hdtn3_entry {
     std::string  mode;
 };
 
-typedef std::list<hdtn3_entry> hdtn3_entries;
+typedef std::list<hdtn_entry> hdtn_entries;
 
-class hdtn3_regsvr {
+class hdtn_regsvr {
 public:
     void                     init(std::string target, std::string svc, uint16_t port, std::string mode);
     bool                     reg();
     bool                     dereg();
-    hdtn3::hdtn3_entries     query(std::string target = "");
+    hdtn::hdtn_entries     query(std::string target = "");
 
 private:
     zmq::context_t* _zmq_ctx;

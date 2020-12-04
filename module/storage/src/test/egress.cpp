@@ -5,7 +5,7 @@
 #include "reg.hpp"
 
 int main(int argc, char* argv[]) {
-    hdtn3::hdtn3_regsvr _reg;
+    hdtn::hdtn_regsvr _reg;
     _reg.init("tcp://localhost:10140", "egress", 10148, "push");
     _reg.reg();
     zmq::context_t ctx;

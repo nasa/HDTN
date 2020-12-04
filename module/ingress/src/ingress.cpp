@@ -15,7 +15,7 @@
 #define BP_INGRESS_TELEM_FREQ  (0.10)
 #define INGRESS_PORT  (4556)
 
-using namespace hdtn3;
+using namespace hdtn;
 using namespace std;
 using namespace zmq;
 static bp_ingress ingress;
@@ -51,14 +51,13 @@ int main(int argc, char* argv[]) {
 	uint64_t last_time = 0;
 	uint64_t curr_time = 0;
 	//finish registration stuff -ingress will find out what egress services have registered
-	hdtn3_regsvr regsvr;
+	hdtn_regsvr regsvr;
 	regsvr.init("tcp://127.0.0.1:10140", "ingress", 10149, "PUSH");
 	regsvr.reg();
-	hdtn3_entries res = regsvr.query();
+	hdtn_entries res = regsvr.query();
 	for(auto entry : res) {
 		std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
 	}
-	///
 	s_catch_signals();
 	printf("Announcing presence of ingress engine ...\n");
 
@@ -75,10 +74,6 @@ int main(int argc, char* argv[]) {
 		ingress.elapsed -= start;
 		count=ingress.update();
 		ingress.process(count);
-		if(curr_time !=last_time)
-		{
-			//ingress.send_telemetry();
-		}
 		last_time = curr_time;
 	}
 

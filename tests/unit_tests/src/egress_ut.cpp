@@ -4,7 +4,7 @@
 #include <arpa/inet.h>
 
 // Create a test fixture.  This text fixture also inherits from the class being tested so it can access the protected memebers.
-class HegrUdpEntryFixture : public hdtn3::hegr_udp_entry, public testing::Test {
+class HegrUdpEntryFixture : public hdtn::hegr_udp_entry, public testing::Test {
 public:
     HegrUdpEntryFixture();
     ~HegrUdpEntryFixture();
@@ -29,7 +29,7 @@ void HegrUdpEntryFixture::TearDown() {
 }
 
 // Create a test fixture.  This text fixture also inherits from the class being tested so it can access the protected memebers.
-class HegrStcpEntryFixture : public hdtn3::hegr_stcp_entry, public testing::Test {
+class HegrStcpEntryFixture : public hdtn::hegr_stcp_entry, public testing::Test {
 public:
     HegrStcpEntryFixture();
     ~HegrStcpEntryFixture();

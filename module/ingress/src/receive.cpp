@@ -12,7 +12,7 @@
 #include "codec/bpv6.h"
 #include "codec/bpv6-ext-block.h"
 
-namespace hdtn3 {
+namespace hdtn{
 
 bp_ingress_syscall::bp_ingress_syscall() {
     _msgbuf.srcbuf = NULL;
@@ -40,7 +40,6 @@ int bp_ingress_syscall::init(uint32_t type) {
         _msgbuf.io[i].iov_len  =  BP_INGRESS_MSG_BUFSZ;
     }
     for(i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        // Don't bother scattering across more than one buffer ... might make this better later
         _msgbuf.hdr[i].msg_hdr.msg_iov = &_msgbuf.io[i];
         _msgbuf.hdr[i].msg_hdr.msg_iovlen = 1;
         _msgbuf.hdr[i].msg_hdr.msg_name = _msgbuf.srcbuf + (sizeof(struct sockaddr_in) * i);
@@ -50,9 +49,6 @@ int bp_ingress_syscall::init(uint32_t type) {
     _zmq_ingr_ctx = new zmq::context_t;
     _zmq_ingr_sock = new zmq::socket_t(*_zmq_ingr_ctx, zmq::socket_type::push);
     _zmq_ingr_sock->bind ("tcp://127.0.0.1:10149");
-    /*_zmq_telem_ctx = new zmq::context_t;
-    _zmq_telem_sock = new zmq::socket_t(*_zmq_telem_ctx, zmq::socket_type::pub);
-    _zmq_telem_sock->bind ("tcp://127.0.0.1:10461");*/
     return 0;
 }
 
@@ -104,8 +100,6 @@ int bp_ingress_syscall::process(int count) {
 	uint16_t recvlen=0;
 	uint64_t offset = 0;
 	uint32_t zframe_seq=0;
-	//char type[1];
-	//type[0]=HMSG_TYPE_DATA_RELEASE;
 	bpv6_primary_block bpv6_primary;
 	bpv6_eid dst;
 	int rc;
@@ -113,8 +107,8 @@ int bp_ingress_syscall::process(int count) {
 	memset(&bpv6_primary, 0, sizeof(bpv6_primary_block));
 	for(i = 0; i < count; ++i) {
 		char tbuf[HMSG_MSG_MAX];
-		hdtn3::block_hdr hdr;
-		memset(&hdr,0,sizeof(hdtn3::block_hdr));
+		hdtn::block_hdr hdr;
+		memset(&hdr,0,sizeof(hdtn::block_hdr));
 		timer = rdtsc();
 		recvlen=_msgbuf.hdr[i].msg_len;
 		_msgbuf.hdr[i].msg_len= 0;
@@ -124,7 +118,7 @@ int bp_ingress_syscall::process(int count) {
 		dst.node=bpv6_primary.dst_node;
 		hdr.flow=dst.node;//for now
 		hdr.base.flags=bpv6_primary.flags;
-		hdr.base.type=HDTN3_MSGTYPE_STORE;  
+		hdr.base.type=HDTN_MSGTYPE_STORE;  
 		//hdr.ts=recvlen;
 
 		int num_chunks=1;
@@ -151,7 +145,6 @@ int bp_ingress_syscall::process(int count) {
 			
 			memcpy(hdr_buf, &hdr,sizeof(block_hdr));
 			_zmq_ingr_sock->send(hdr_buf,sizeof(block_hdr),ZMQ_MORE);
-			//multipart.add(zmq::message_t(hdr_buf,sizeof(hdtn_msg_hdr)));
 			char data[bytes_to_send];
 			memcpy(data,tbuf+(CHUNK_SIZE*j),bytes_to_send);
 			_zmq_ingr_sock->send(data,bytes_to_send,0);
@@ -165,25 +158,6 @@ int bp_ingress_syscall::process(int count) {
 	return 0;
 }
 
-/*int bp_ingress_syscall::send_telemetry() {
-	ingress_telemetry telem;
-	memset(&telem,0,sizeof(ingress_telemetry));
-	telem.total_bundles=bundle_count;
-	telem.total_bytes=bundle_data;
-	telem.total_zmsgs_in=0;//for now placeholder
-	telem.total_zmsgs_out=zmsgs_out;
-	telem.bundles_sec_in=bundle_count/elapsed;
-	telem.Mbits_sec_in=8 * ((bundle_data / (double)(1024 * 1024)) / elapsed);
-	telem.zmsgs_sec_in=0;//for now placeholder
-	telem.zmsgs_sec_out=zmsgs_out/elapsed;
-	telem.elapsed=elapsed;
-	zmq::multipart_t multipart;
-	multipart.add(zmq::message_t("I",sizeof(char)));
-	multipart.add(zmq::message_t(&telem,sizeof(ingress_telemetry)));
-	multipart.send( *_zmq_telem_sock);
-
-
-}*/
 
 int bp_ingress_syscall::update() {
     int res = 0;
@@ -191,7 +165,6 @@ int bp_ingress_syscall::update() {
     res = recvmmsg(_fd, _msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, NULL);
     if(res<0){
     	ernum=errno;
-    	//fprintf(stderr,"recv failed: %s\n",strerror(ernum));
     }
     return res;
 }

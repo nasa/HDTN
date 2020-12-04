@@ -23,7 +23,7 @@
 #define HEGR_FLAG_STCPv1  (0x0020)
 #define HEGR_FLAG_LTP     (0x0040)
 
-namespace hdtn3{
+namespace hdtn{
 
 class hegr_entry {
 public:
@@ -93,11 +93,7 @@ public:
 protected:
     uint64_t         _label;
     uint64_t         _flags;
-    //uint64_t         _rate;
     sockaddr_in      _ipv4;
-    //sockaddr_in6     _ipv6;
-    //hegr_entry*      _next;
-    //char             _name[HEGR_NAME_SZ];
 };
 
 class hegr_stcp_entry : public hegr_entry {

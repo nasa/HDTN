@@ -10,12 +10,12 @@ public:
     ~CacheFixture();
     void SetUp() override;          // This is called after constructor.
     void TearDown() override;       // This is called before destructor.
-    hdtn3::flow_store * ptrFlowStore;
+    hdtn::flow_store * ptrFlowStore;
 };
 
 CacheFixture::CacheFixture() {
 //    std::cout << "Called CacheFixture::CacheFixture()" << std::endl;
-    ptrFlowStore = new hdtn3::flow_store();
+    ptrFlowStore = new hdtn::flow_store();
 }
 
 CacheFixture::~CacheFixture() {

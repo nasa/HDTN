@@ -6,7 +6,7 @@
 #include "reg.hpp"
 
 int main(int argc, char* argv[]) {
-    hdtn3::hdtn3_regsvr _reg;
+    hdtn::hdtn_regsvr _reg;
     _reg.init("tcp://127.0.0.1:10140", "ingress", 10149, "push");
     _reg.reg();
     zmq::context_t ctx;
@@ -23,12 +23,12 @@ int main(int argc, char* argv[]) {
     read(rfd, data, 8192);
     
     while(true) {
-        char ihdr[sizeof(hdtn3::block_hdr)];
-        hdtn3::block_hdr* block = (hdtn3::block_hdr*)ihdr;
-        memset(ihdr, 0, sizeof(hdtn3::block_hdr));
-        block->base.type = HDTN3_MSGTYPE_STORE;
+        char ihdr[sizeof(hdtn::block_hdr)];
+        hdtn::block_hdr* block = (hdtn::block_hdr*)ihdr;
+        memset(ihdr, 0, sizeof(hdtn::block_hdr));
+        block->base.type = HDTN_MSGTYPE_STORE;
         block->flow = rand() % 65536;
-        socket.send(ihdr, sizeof(hdtn3::block_hdr), ZMQ_MORE);
+        socket.send(ihdr, sizeof(hdtn::block_hdr), ZMQ_MORE);
         socket.send(data, 1024, 0);
     }
 

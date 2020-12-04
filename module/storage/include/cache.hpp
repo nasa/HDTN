@@ -1,14 +1,14 @@
-#ifndef _HDTN3_CACHE_H
-#define _HDTN3_CACHE_H
+#ifndef _HDTN_CACHE_H
+#define _HDTN_CACHE_H
 
 #include <string>
 #include <map>
 #include "stats.hpp"
 #include "message.hpp"
 
-#define HDTN3_RECLAIM_THRESHOLD  (1 << 28)
+#define HDTN_RECLAIM_THRESHOLD  (1 << 28)
 
-namespace hdtn3 {
+namespace hdtn {
     struct flow_store_header {
         uint64_t  begin;
         uint64_t  end;
