@@ -70,6 +70,7 @@ void bp_ingress_syscall::destroy() {
     _msgbuf.srcbuf = NULL;
     _msgbuf.io = NULL;
     _msgbuf.hdr = NULL;
+    shutdown(_fd, SHUT_RDWR);
 }
 
 int bp_ingress_syscall::netstart(uint16_t port){
@@ -88,9 +89,9 @@ int bp_ingress_syscall::netstart(uint16_t port){
     if (res < 0) {
         printf("Unable to bind to port %d (on INADDR_ANY): %s", port, strerror(res));
     }
-
-    printf("Ingress bound successfully on port %d ...", port);
-
+    else {
+    	printf("Ingress bound successfully on port %d ...", port);
+	}
     return 0;
 }
 

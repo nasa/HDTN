@@ -9,6 +9,10 @@ static void* _launch_wrapper(void* arg) {
     return worker->execute(NULL);
 }
 
+hdtn3::storage_worker::~storage_worker(){
+    free(_out_buf);
+}
+
 void hdtn3::storage_worker::init(zmq::context_t* ctx, storage_config config) {
     _ctx = ctx;
     _root = config.store_path;

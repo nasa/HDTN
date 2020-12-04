@@ -8,8 +8,12 @@ void hegr_stcp_entry::init(sockaddr_in* inaddr, uint64_t flags) {
     memcpy(&_ipv4, inaddr, sizeof(sockaddr_in));
 }
 
+void hegr_stcp_entry::shutdown() {
+    close(_fd);
+}
+
 void hegr_stcp_entry::rate(uint64_t rate) {
-    _rate = rate;
+    //_rate = rate;
 }
 
 void hegr_stcp_entry::update(uint64_t delta) {
@@ -48,6 +52,6 @@ int hegr_stcp_entry::forward(char** msg, int* sz, int count) {
 
 hegr_stcp_entry::hegr_stcp_entry() {
     _flags = HEGR_FLAG_ACTIVE | HEGR_FLAG_UDP;
-    memset(_name, 0, HEGR_NAME_SZ);
+    //memset(_name, 0, HEGR_NAME_SZ);
 
 }

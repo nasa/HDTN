@@ -61,7 +61,11 @@ int main(int argc, char *argv[]) {
 	zmq_sock = new zmq::socket_t(*zmq_ctx, zmq::socket_type::pull);
 	zmq_sock->connect("tcp://127.0.0.1:10149");
 	egress.init();
-	egress.add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
+	int entry_status;
+	entry_status = egress.add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
+	if(!entry_status){
+		return 0;  //error message prints in add function
+	}
 	printf("Announcing presence of egress ...\n");
 	for(int i = 0; i < 8; ++i) {
 		egress.up(i);

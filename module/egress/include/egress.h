@@ -3,6 +3,7 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
 #include "zmq.hpp"
 
 #include "message.hpp"
@@ -11,8 +12,8 @@
 #include <string>
 
 #define HEGR_NAME_SZ      (32)
-#define HEGR_ENTRY_SZ     (1 << 20)
-#define HEGR_PORT_SZ      (256)
+#define HEGR_ENTRY_COUNT  (1 << 20)
+#define HEGR_ENTRY_SZ     (256)
 
 #define HEGR_FLAG_ACTIVE  (0x0001)
 #define HEGR_FLAG_UP      (0x0002)
@@ -39,7 +40,7 @@ public:
     virtual void label(uint64_t label);
 
     /**
-    Sets the active name for this instance 
+    Sets the active name for this instance. char* n can be of length HEGR_NAME_SZ - 1.
     */
     virtual void name(char* n);
 
@@ -87,14 +88,16 @@ public:
     */
     virtual bool available();
 
+    void shutdown();
+
 protected:
     uint64_t         _label;
     uint64_t         _flags;
-    uint64_t         _rate;
+    //uint64_t         _rate;
     sockaddr_in      _ipv4;
-    sockaddr_in6     _ipv6;
-    hegr_entry*      _next;
-    char             _name[HEGR_NAME_SZ];
+    //sockaddr_in6     _ipv6;
+    //hegr_entry*      _next;
+    //char             _name[HEGR_NAME_SZ];
 };
 
 class hegr_stcp_entry : public hegr_entry {
@@ -151,6 +154,9 @@ public:
     @return zero on success, and nonzero on failure
     */
     int disable();
+
+    void shutdown();
+
 private:
     int _fd;    
 };
@@ -202,12 +208,17 @@ public:
     @return zero on success, and nonzero on failure
     */
     int disable();
+
+    void shutdown();
+
 private:
     int _fd;
 };
 
 class hegr_manager {
 public:
+    ~hegr_manager();
+
     /**
      
     */
