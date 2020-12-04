@@ -67,6 +67,7 @@ namespace hdtn3 {
 
     class storage_worker {
     public:
+        ~storage_worker();
         void                         init(zmq::context_t* ctx, storage_config config);
         void                         launch();
         void*                        execute(void* arg);

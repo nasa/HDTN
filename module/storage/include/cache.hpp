@@ -23,6 +23,7 @@ namespace hdtn3 {
 
     class flow_store {
     public:
+        ~flow_store();
         bool                init(std::string root);
         flow_store_entry    load(int flow);
         int                 write(int flow, void* data, int sz);

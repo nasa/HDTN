@@ -8,7 +8,14 @@
 #include "cache.hpp"
 #include "store.hpp"
 
-hdtn3::flow_store_entry hdtn3::flow_store::load(int flow) {
+namespace hdtn3 {
+
+flow_store::~flow_store() {
+    munmap(0, HDTN3_FLOWCOUNT_MAX * sizeof(hdtn3::flow_store_header));
+    close(_index_fd);
+}
+
+flow_store_entry flow_store::load(int flow) {
     if(flow >= HDTN3_FLOWCOUNT_MAX || flow < 0) {
         errno = EINVAL;
         return {
@@ -50,7 +57,7 @@ hdtn3::flow_store_entry hdtn3::flow_store::load(int flow) {
     return res;
 }
 
-int hdtn3::flow_store::read(int flow, void* data, int maxsz) {
+int flow_store::read(int flow, void* data, int maxsz) {
     flow_store_entry res = load(flow);
 
     if(res.fd < 0) {
@@ -69,10 +76,11 @@ int hdtn3::flow_store::read(int flow, void* data, int maxsz) {
     _stats.disk_rbytes += retrieved;
     _stats.disk_rcount ++;
     _stats.disk_used -= retrieved;
+    close(res.fd);
     return retrieved;
 }
 
-int hdtn3::flow_store::write(int flow, void* data, int sz) {
+int flow_store::write(int flow, void* data, int sz) {
     flow_store_entry res = load(flow);
 
     if(res.fd < 0) {
@@ -87,10 +95,11 @@ int hdtn3::flow_store::write(int flow, void* data, int sz) {
     _stats.disk_wbytes += written;
     _stats.disk_wcount ++;
     _stats.disk_used += written;
+    close(res.fd);
     return written;
 }
 
-bool hdtn3::flow_store::init(std::string root) {
+bool flow_store::init(std::string root) {
     _root = root;
     std::cout << "[flow-store:basic] Preparing cache for use (this could take some time)..." << std::endl;
     std::cout << "[flow-store:basic] Cache root directory is: " << _root << std::endl;
@@ -163,4 +172,5 @@ bool hdtn3::flow_store::init(std::string root) {
     std::cout << "[flow-store:basic] Initialization completed." << std::endl;
 
     return true;
+}
 }
