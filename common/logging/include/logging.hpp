@@ -1,8 +1,8 @@
-#ifndef _HDTN3_LOG_H
-#define _HDTN3_LOG_H
+#ifndef _HDTN_LOG_H
+#define _HDTN_LOG_H
 
 #include <string>
-namespace hdtn3 {
+namespace hdtn {
 
 std::string datetime();
 

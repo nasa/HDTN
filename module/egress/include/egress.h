@@ -1,38 +1,38 @@
 #ifndef _HDTN_EGRESS_H
 #define _HDTN_EGRESS_H
 
-#include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #include <unistd.h>
-#include "zmq.hpp"
-
-#include "message.hpp"
 
 #include <iostream>
 #include <string>
 
-#define HEGR_NAME_SZ      (32)
-#define HEGR_ENTRY_COUNT  (1 << 20)
-#define HEGR_ENTRY_SZ     (256)
+#include "message.hpp"
+#include "zmq.hpp"
 
-#define HEGR_FLAG_ACTIVE  (0x0001)
-#define HEGR_FLAG_UP      (0x0002)
-#define HEGR_HARD_IFG     (0x0004)
+#define HEGR_NAME_SZ (32)
+#define HEGR_ENTRY_COUNT (1 << 20)
+#define HEGR_ENTRY_SZ (256)
 
-#define HEGR_FLAG_UDP     (0x0010)
-#define HEGR_FLAG_STCPv1  (0x0020)
-#define HEGR_FLAG_LTP     (0x0040)
+#define HEGR_FLAG_ACTIVE (0x0001)
+#define HEGR_FLAG_UP (0x0002)
+#define HEGR_HARD_IFG (0x0004)
 
-namespace hdtn3{
+#define HEGR_FLAG_UDP (0x0010)
+#define HEGR_FLAG_STCPv1 (0x0020)
+#define HEGR_FLAG_LTP (0x0040)
+
+namespace hdtn {
 
 class hegr_entry {
-public:
+   public:
     hegr_entry();
 
     /**
     Initializes the egress port
     */
-    virtual void init(sockaddr_in* inaddr, uint64_t flags);
+    virtual void init(sockaddr_in *inaddr, uint64_t flags);
 
     /**
     Sets the active label for this instance 
@@ -42,7 +42,7 @@ public:
     /**
     Sets the active name for this instance. char* n can be of length HEGR_NAME_SZ - 1.
     */
-    virtual void name(char* n);
+    virtual void name(char *n);
 
     /**
     Sets a target data rate for an egress port - most often used in conjunction with HARD_IFG
@@ -60,7 +60,7 @@ public:
     @param count number of buffers to send
     @return number of messages forwarded
     */
-    virtual int forward(char** msg, int* sz, int count);
+    virtual int forward(char **msg, int *sz, int count);
 
     /**
     Runs housekeeping tasks for a specified egress port
@@ -90,24 +90,21 @@ public:
 
     void shutdown();
 
-protected:
-    uint64_t         _label;
-    uint64_t         _flags;
-    //uint64_t         _rate;
-    sockaddr_in      _ipv4;
-    //sockaddr_in6     _ipv6;
-    //hegr_entry*      _next;
-    //char             _name[HEGR_NAME_SZ];
+   protected:
+    a
+        uint64_t _label;
+    uint64_t _flags;
+    sockaddr_in _ipv4;
 };
 
 class hegr_stcp_entry : public hegr_entry {
-public:
+   public:
     hegr_stcp_entry();
 
     /**
     Initializes a new TCP forwarding entry
     */
-    void init(sockaddr_in* inaddr, uint64_t flags);
+    void init(sockaddr_in *inaddr, uint64_t flags);
 
     /**
     Specifies an upper data rate for this link.
@@ -126,15 +123,15 @@ public:
     #param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    int forward(char** msg, int* sz, int count);
-    
+    int forward(char **msg, int *sz, int count);
+
     /**
     Handles housekeeping associated with this link
 
     @param delta time elapsed since last update()
     */
     void update(uint64_t delta);
-    
+
     /**
     Calls connect() in a non-blocking fashion.
 
@@ -145,7 +142,7 @@ public:
     @return zero on success, and nonzero on failure
     */
     int enable();
-    
+
     /**
     Closes any active connection.  Traffic will not flow through this
     egress port until a new connection has been established (e.g. through
@@ -157,19 +154,19 @@ public:
 
     void shutdown();
 
-private:
-    int _fd;    
+   private:
+    int _fd;
 };
 
 class hegr_udp_entry : public hegr_entry {
-public:
+   public:
     hegr_udp_entry();
 
     /**
     Initializes a new UDP forwarding entry
     */
-    void init(sockaddr_in* inaddr, uint64_t flags);
-    
+    void init(sockaddr_in *inaddr, uint64_t flags);
+
     /**
     Specifies an upper data rate for this link.  
     
@@ -188,20 +185,20 @@ public:
     #param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    int forward(char** msg, int* sz, int count);
-    
+    int forward(char **msg, int *sz, int count);
+
     /**
     Essentially a no-op for this entry type
     */
     void update(uint64_t delta);
-    
+
     /**
     Essentially a no-op for this entry type
 
     @return zero on success, and nonzero on failure
     */
     int enable();
-    
+
     /**
     Essentially a no-op for this entry type
 
@@ -211,33 +208,33 @@ public:
 
     void shutdown();
 
-private:
+   private:
     int _fd;
 };
 
 class hegr_manager {
-public:
+   public:
     ~hegr_manager();
 
     /**
      
     */
     void init();
-    
-    /**
-     
-    */ 
-    int  forward(int fec, char* msg, int sz);
-    
+
     /**
      
     */
-    int  add(int fec, uint64_t flags, const char* dst, int port);
-    
+    int forward(int fec, char *msg, int sz);
+
     /**
      
     */
-    int  remove(int fec);
+    int add(int fec, uint64_t flags, const char *dst, int port);
+
+    /**
+     
+    */
+    int remove(int fec);
 
     /**
      
@@ -250,12 +247,12 @@ public:
     void down(int fec);
 
     bool test_storage = false;
-private:
-    hegr_entry* _entry(int offset);
-    void* _entries;
+
+   private:
+    hegr_entry *_entry(int offset);
+    void *_entries;
 };
 
-}
-
+}  // namespace hdtn
 
 #endif
