@@ -31,23 +31,23 @@ void CacheFixture::TearDown() {
 //    std::cout << "CacheFixture::TearDown called\n";
 }
 
-TEST_F(CacheFixture,InitTestNominal1) {
+TEST_F(CacheFixture,DISABLED_InitTestNominal1) {
     FAIL() << "Test needed for class flow_store, method init.";
 }
 
-TEST_F(CacheFixture,LoadTestNominal1) {
+TEST_F(CacheFixture,DISABLED_LoadTestNominal1) {
     FAIL() << "Test needed for class flow_store, method load.";
 }
 
-TEST_F(CacheFixture,WriteTestNominal1) {
+TEST_F(CacheFixture,DISABLED_WriteTestNominal1) {
     FAIL() << "Test needed for class flow_store, method write.";
 }
 
-TEST_F(CacheFixture,ReadTestNominal1) {
+TEST_F(CacheFixture,DISABLED_ReadTestNominal1) {
     FAIL() << "Test needed for class flow_store, method read.";
 }
 
-TEST_F(CacheFixture,StatsTestNominal1) {
+TEST_F(CacheFixture,DISABLED_StatsTestNominal1) {
     FAIL() << "Test needed for class flow_store, method stats.";
 }
 

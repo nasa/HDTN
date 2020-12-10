@@ -136,36 +136,36 @@ TEST_F(HegrUdpEntryFixture,DisableTestNominal1) {
 //    EXPECT_NE(HEGR_FLAG_UP,this->_flags & HEGR_FLAG_UP) << "Problem HegrUdpEntryFixture, DisableTestNominal1, comparison with _flags";
 //}
 
-TEST_F(HegrUdpEntryFixture,ForwardTestNominal1) {
+TEST_F(HegrUdpEntryFixture,DISABLED_ForwardTestNominal1) {
     FAIL() << "Test needed for class hegr_udp_entry, method forward.";
 }
 
-TEST_F(HegrUdpEntryFixture,UpdateTestNominal1) {
+TEST_F(HegrUdpEntryFixture,DISABLED_UpdateTestNominal1) {
     FAIL() << "Test needed for class hegr_udp_entry, method update.";
 }
 
 
-TEST_F(HegrStcpEntryFixture,InitTestNominal1) {
+TEST_F(HegrStcpEntryFixture,DISABLED_InitTestNominal1) {
     FAIL() << "Test needed for class hegr_stcp_entry, method init.";
 }
 
-TEST_F(HegrStcpEntryFixture,RateTestNominal1) {
+TEST_F(HegrStcpEntryFixture,DISABLED_RateTestNominal1) {
     FAIL() << "Test needed for class hegr_stcp_entry, method rate.";
 }
 
-TEST_F(HegrStcpEntryFixture,ForwardTestNominal1) {
+TEST_F(HegrStcpEntryFixture,DISABLED_ForwardTestNominal1) {
     FAIL() << "Test needed for class hegr_stcp_entry, method forward.";
 }
 
-TEST_F(HegrStcpEntryFixture,UpdateTestNominal1) {
+TEST_F(HegrStcpEntryFixture,DISABLED_UpdateTestNominal1) {
     FAIL() << "Test needed for class hegr_stcp_entry, method update.";
 }
 
-TEST_F(HegrStcpEntryFixture,EnableTestNominal1) {
+TEST_F(HegrStcpEntryFixture,DISABLED_EnableTestNominal1) {
     FAIL() << "Test needed for class hegr_stcp_entry, method enable.";
 }
 
-TEST_F(HegrStcpEntryFixture,DisableTestNominal1) {
+TEST_F(HegrStcpEntryFixture,DISABLED_DisableTestNominal1) {
     FAIL() << "Test needed for class hegr_stcp_entry, method disable.";
 }
 
