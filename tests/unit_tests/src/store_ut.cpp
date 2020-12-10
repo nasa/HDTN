@@ -11,16 +11,16 @@ public:
     void SetUp() override;          // This is called after constructor.
     void TearDown() override;       // This is called before destructor.
     
-    hdtn3::storage * ptrStorage;
-    hdtn3::storage_worker * ptrStorageWorker;
-    hdtn3::scheduler * ptrScheduler;
+    hdtn::storage * ptrStorage;
+    hdtn::storage_worker * ptrStorageWorker;
+    hdtn::scheduler * ptrScheduler;
 };
 
 StorageFixture::StorageFixture() {
 //    std::cout << "Called StorageFixture::StorageFixture()" << std::endl;
-    ptrStorage = new hdtn3::storage();
-    ptrStorageWorker = new hdtn3::storage_worker();
-    ptrScheduler = new hdtn3::scheduler();
+    ptrStorage = new hdtn::storage();
+    ptrStorageWorker = new hdtn::storage_worker();
+    ptrScheduler = new hdtn::scheduler();
 }
 
 StorageFixture::~StorageFixture() {
