@@ -90,12 +90,24 @@ class hegr_entry {
 
     void shutdown();
 
-   protected:
-    a
-        uint64_t _label;
-    uint64_t _flags;
-    sockaddr_in _ipv4;
+    // It looks like master was broken here -- JCF
+//   protected:
+//    a
+//        uint64_t _label;
+//    uint64_t _flags;
+//    sockaddr_in _ipv4;
+//};
+
+protected:
+    uint64_t         _label;
+    uint64_t         _flags;
+    uint64_t         _rate;
+    sockaddr_in      _ipv4;
+    sockaddr_in6     _ipv6;
+    hegr_entry*      _next;
+    char             _name[HEGR_NAME_SZ];
 };
+
 
 class hegr_stcp_entry : public hegr_entry {
    public:

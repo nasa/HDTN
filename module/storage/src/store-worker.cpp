@@ -64,7 +64,8 @@ void hdtn::storage_worker::write(hdtn::block_hdr *hdr, zmq::message_t *message) 
     uint64_t chunks = ceil(message->size() / (double)HDTN_BLOSC_MAXBLOCKSZ);
     for (int i = 0; i < chunks; ++i) {
         int res = blosc_compress_ctx(9, 0, 4, message->size(), message->data(), _out_buf, HDTN_BLOSC_MAXBLOCKSZ, "lz4", 0, 1);
-        _store.write(hdr->flow, _out_buf, res);
+        //_store.write(hdr->flow, _out_buf, res);  // JCF, this appears to be broken
+        _store.write(hdr->flow_id, _out_buf, res);
         //std::cerr << "[storage-worker] Appending block (" << rmsg.size() << " raw / " << res
         //<< " compressed / ratio=" << ((double)(res))/rmsg.size() << ")" << std::endl;
     }
