@@ -99,19 +99,19 @@ TEST_F(HegrUdpEntryFixture,RateTestNominal1) {
 //}
 
 
-//TEST_F(HegrUdpEntryFixture,EnableTestNominal1) {
-//    uint64_t flags = HEGR_FLAG_UDP;
-//    const char* dst = "127.0.0.1";
-//    int port = 4557;
-//    struct sockaddr_in saddr;
-//    saddr.sin_port = htons((uint16_t)port);
-//    saddr.sin_family = AF_INET;
-//    inet_pton(AF_INET, dst, &(saddr.sin_addr));
-//    this->init(&saddr,flags);
-//    int returnCode = this->enable();
-//    EXPECT_EQ(0,returnCode) << "Problem HegrUdpEntryFixture, EnableTestNominal1, comparison with returnCode";
-//    EXPECT_EQ(HEGR_FLAG_UP,this->_flags & HEGR_FLAG_UP) << "Problem HegrUdpEntryFixture, EnableTestNominal1, comparison with _flags";
-//}
+TEST_F(HegrUdpEntryFixture,EnableTestNominal1) {
+    uint64_t flags = HEGR_FLAG_UDP;
+    const char* dst = "127.0.0.1";
+    int port = 4557;
+    struct sockaddr_in saddr;
+    saddr.sin_port = htons((uint16_t)port);
+    saddr.sin_family = AF_INET;
+    inet_pton(AF_INET, dst, &(saddr.sin_addr));
+    this->init(&saddr,flags);
+    int returnCode = this->enable();
+    EXPECT_EQ(0,returnCode) << "Problem HegrUdpEntryFixture, EnableTestNominal1, comparison with returnCode";
+    EXPECT_EQ(HEGR_FLAG_UP,this->_flags & HEGR_FLAG_UP) << "Problem HegrUdpEntryFixture, EnableTestNominal1, comparison with _flags";
+}
 
 
 // It does not seem right that this test is valid.
