@@ -7,3 +7,4 @@ add_subdirectory(module/ingress)
 add_subdirectory(module/egress)
 
 add_subdirectory(tests/unit_tests)
+add_subdirectory(tests/integrated_tests)

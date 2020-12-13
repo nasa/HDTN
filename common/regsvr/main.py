@@ -19,6 +19,12 @@ if __name__ == '__main__':
     try:
         while True:
             message = target.recv(copy=False)
+            
+            # JCF -- Added a way to programmatically stop service
+            if (str(message) == "SHUTDOWN"):
+            	logging.info("Exiting on user command (programmatically) ...")
+            	break;
+            	
             res = registry.dispatch(message)
             if res is not None:
                 target.send_string("HDTN/1.0 200 OK | " + json.dumps(res))

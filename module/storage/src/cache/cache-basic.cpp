@@ -37,6 +37,10 @@ flow_store_entry flow_store::load(int flow) {
         int file = (flow & 0x0000FFFF);
         std::stringstream tstr;
         tstr << _root << "/" << folder << "/" << file;
+
+        // JCF
+        std::cout << "In cache-basic, flow_store::load.  tstr.str(): " << tstr.str() << std::endl;
+
         res.fd = open(tstr.str().c_str(), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP);
         if (res.fd < 0) {
             std::cerr << "[flow-store:basic] Unable to open cache: " << tstr.str() << std::endl;
