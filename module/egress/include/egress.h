@@ -91,8 +91,7 @@ class hegr_entry {
     void shutdown();
 
    protected:
-    a
-        uint64_t _label;
+    uint64_t _label;
     uint64_t _flags;
     sockaddr_in _ipv4;
 };
