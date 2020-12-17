@@ -9,9 +9,9 @@
 #include "zmq.hpp"
 
 int main(int argc, char *argv[]) {
-    hdtn::hdtn_regsvr _reg;
-    _reg.init("tcp://localhost:10140", "release", 10149, "sub");
-    _reg.reg();
+    //hdtn::hdtn_regsvr _reg;
+    //_reg.init("tcp://localhost:10140", "release", 10149, "sub");
+    //_reg.reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::sub);
     socket.connect("tcp://127.0.0.1:10149");

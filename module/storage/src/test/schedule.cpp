@@ -27,10 +27,10 @@ int main(int argc, char *argv[]) {
         releaseMsg->base.type = HDTN_MSGTYPE_IRELSTART;
         releaseMsg->flow_id = i;
         releaseMsg->rate = 0;  //go as fast as possible
-        releaseMsg->duration = 60;
+        releaseMsg->duration = 20;
         socket.send(releaseMsg, sizeof(hdtn::irelease_start_hdr), 0);
-        std::cout << "release for 60 seconds \n";
-        boost::asio::deadline_timer timer(io, boost::posix_time::seconds(60));
+        std::cout << "release for 20 seconds \n";
+        boost::asio::deadline_timer timer(io, boost::posix_time::seconds(20));
         timer.wait();
         memset(stopHdr, 0, sizeof(hdtn::irelease_stop_hdr));
         stopMsg->base.type = HDTN_MSGTYPE_IRELSTOP;
