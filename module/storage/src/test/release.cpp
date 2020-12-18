@@ -8,7 +8,14 @@
 #include "reg.hpp"
 #include "zmq.hpp"
 
+//This test code is used to receive storage release messages 
+//to enable development of the contact schedule and bundle
+//storage release mechanism.
+//schedule.cpp implements the publisher for these messages. 
+
 int main(int argc, char *argv[]) {
+    //Registration server commented out, multiple subscribers will hang otherwise
+    //Will investigate time permitting
     //hdtn::hdtn_regsvr _reg;
     //_reg.init("tcp://localhost:10140", "release", 10149, "sub");
     //_reg.reg();
