@@ -47,18 +47,14 @@ int main(int argc, char *argv[]) {
     catch_signals();
     //finish registration stuff - egress should register, ingress will query
     hdtn::hdtn_regsvr regsvr;
-    regsvr.init("tcp://127.0.0.1:10140", "egress", 10149, "PULL");
+    regsvr.init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
     regsvr.reg();
     hdtn::hdtn_entries res = regsvr.query();
     for (auto entry : res) {
         std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
     }
-    ///
-    zmq::context_t *zmq_ctx;
-    zmq::socket_t *zmq_sock;
-    zmq_ctx = new zmq::context_t;
-    zmq_sock = new zmq::socket_t(*zmq_ctx, zmq::socket_type::pull);
-    zmq_sock->connect("tcp://127.0.0.1:10149");
+    
+    
     egress.init();
     int entry_status;
     entry_status = egress.add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
@@ -83,7 +79,7 @@ int main(int argc, char *argv[]) {
         elapsed -= start;
         zmq::message_t hdr;
         zmq::message_t message;
-        zmq_sock->recv(&hdr);
+        egress.zmqCutThroughSock->recv(&hdr);
         message_count++;
         char bundle[HMSG_MSG_MAX];
         if (hdr.size() < sizeof(hdtn::common_hdr)) {
@@ -94,7 +90,7 @@ int main(int argc, char *argv[]) {
         hdtn::block_hdr *block = (hdtn::block_hdr *)common;
         switch (common->type) {
             case HDTN_MSGTYPE_STORE:
-                zmq_sock->recv(&message);
+                egress.zmqCutThroughSock->recv(&message);
                 bundle_size = message.size();
                 memcpy(bundle, message.data(), bundle_size);
                 egress.forward(1, bundle, bundle_size);

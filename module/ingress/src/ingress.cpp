@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     uint64_t curr_time = 0;
     //finish registration stuff -ingress will find out what egress services have registered
     hdtn_regsvr regsvr;
-    regsvr.init("tcp://127.0.0.1:10140", "ingress", 10149, "PUSH");
+    regsvr.init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
     regsvr.reg();
     hdtn_entries res = regsvr.query();
     for (auto entry : res) {

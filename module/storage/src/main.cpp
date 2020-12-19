@@ -13,9 +13,10 @@ int main(int argc, char *argv[]) {
     gettimeofday(&tv, NULL);
     last = (tv.tv_sec + (tv.tv_usec / 1000000.0));
     hdtn::storage_config config;
-    config.regsvr = "tcp://127.0.0.1:10140";
-    config.local = "tcp://127.0.0.1:10145";
-    config.store_path = "/var/lib/hdtn.store";
+    config.regsvr = HDTN_REG_SERVER_PATH;
+    config.local = HDTN_RELEASE_PATH;
+    //should add storage path to config file and check if it exists
+    config.store_path = "/home/hdtn/hdtn.store";
     hdtn::storage store;
     std::cout << "[store] Initializing storage manager ..." << std::endl;
     if (!store.init(config)) {
