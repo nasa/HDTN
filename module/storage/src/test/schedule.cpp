@@ -8,6 +8,7 @@
 
 #include "message.hpp"
 #include "reg.hpp"
+#include "paths.hpp"
 
 //This test code is used to send storage release messages 
 //to enable development of the contact schedule and bundle
@@ -15,11 +16,11 @@
 //release.cpp implements a subscriber for these messages. 
 int main(int argc, char *argv[]) {
     hdtn::hdtn_regsvr _reg;
-    _reg.init("tcp://localhost:10140", "scheduler", 10149, "pub");
+    _reg.init(HDTN_REG_SERVER_PATH, "scheduler", 10200, "pub");
     _reg.reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    socket.bind("tcp://127.0.0.1:10149");
+    socket.bind(HDTN_SCHEDULER_PATH);
     boost::asio::io_service io;
     char relHdr[sizeof(hdtn::irelease_start_hdr)];
     hdtn::irelease_start_hdr *releaseMsg = (hdtn::irelease_start_hdr *)relHdr;

@@ -6,14 +6,15 @@
 
 #include "message.hpp"
 #include "reg.hpp"
+#include "paths.hpp"
 
 int main(int argc, char *argv[]) {
     hdtn::hdtn_regsvr _reg;
-    _reg.init("tcp://127.0.0.1:10140", "ingress", 10149, "push");
+    _reg.init(HDTN_REG_SERVER_PATH, "ingress", 10110, "push");
     _reg.reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::push);
-    socket.bind("tcp://127.0.0.1:10149");
+    socket.bind(HDTN_STORAGE_PATH);
 
     int rfd = open("/dev/urandom", O_RDONLY);
     if (rfd < 0) {
