@@ -8,7 +8,10 @@ find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 add_executable(integrated-tests
-    src/it_main.cpp
+    src/it_test_main.cpp
+#    src/it_support.cpp
+    src/integrated_tests.cpp
+    ../../common/logging/src/logging.cpp
     ../../module/egress/src/internal.cpp
     ../../module/egress/src/stcp.cpp
     ../../module/egress/src/udp.cpp

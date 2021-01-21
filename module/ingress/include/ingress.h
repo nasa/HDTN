@@ -53,6 +53,7 @@ class bp_ingress_syscall {
     int process(int count);
     int send_telemetry();
     int update();
+    int update(double time_out_seconds);
 
     uint64_t bundle_count = 0;
     uint64_t bundle_data = 0;

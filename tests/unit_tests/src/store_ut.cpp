@@ -82,48 +82,48 @@ public:
 bool StorageFixture::staticSetupWorked = false;
 
 void StorageFixture::SetUpTestCase() {
-    staticSetupWorked = false;
-    std::cout << " >>>>> Called StorageFixture::SetUpTestCase()" << std::endl;
+//    staticSetupWorked = false;
+//    std::cout << " >>>>> Called StorageFixture::SetUpTestCase()" << std::endl;
 
-    // Clean up in case things may have been left running
-    //stopRegistrationService();
-    system("killall hdtn-egress");
-    system("killall hdtn-egress");
+//    // Clean up in case things may have been left running
+//    //stopRegistrationService();
+//    system("killall hdtn-egress");
+//    system("killall hdtn-egress");
 
 
-    std::string hdtnSourceRoot = GetEnv("HDTN_SOURCE_ROOT");
-    std::cout << " hdtnSourceHome = " << hdtnSourceRoot << std::endl;
+//    std::string hdtnSourceRoot = GetEnv("HDTN_SOURCE_ROOT");
+//    std::cout << " hdtnSourceHome = " << hdtnSourceRoot << std::endl;
 
-    std::string hdtnBuildRoot = GetEnv("HDTN_BUILD_ROOT");
-    std::cout << " hdtnBuildRoot = " << hdtnBuildRoot << std::endl;
+//    std::string hdtnBuildRoot = GetEnv("HDTN_BUILD_ROOT");
+//    std::cout << " hdtnBuildRoot = " << hdtnBuildRoot << std::endl;
 
-    // Start the registration service
-    std::string commandStartReg = "python3 " + hdtnSourceRoot + "/common/regsvr/main.py &";
-    system(commandStartReg.c_str());
-    std::cout << " >>>>> Started the registration service." << std::endl;
+//    // Start the registration service
+//    std::string commandStartReg = "python3 " + hdtnSourceRoot + "/common/regsvr/main.py &";
+//    system(commandStartReg.c_str());
+//    std::cout << " >>>>> Started the registration service." << std::endl;
 
-    // Start ingress
-    std::string commandStartIngress = hdtnBuildRoot + "/module/ingress/hdtn-ingress &";
-    system(commandStartIngress.c_str());
-    std::cout << " >>>>> Started the ingress service." << std::endl;
+//    // Start ingress
+//    std::string commandStartIngress = hdtnBuildRoot + "/module/ingress/hdtn-ingress &";
+//    system(commandStartIngress.c_str());
+//    std::cout << " >>>>> Started the ingress service." << std::endl;
 
-    // Start egress
-    std::string commandStartEgress = hdtnBuildRoot + "/module/egress/hdtn-egress &";
-    system(commandStartEgress.c_str());
-    std::cout << " >>>>> Started the egress service." << std::endl;
+//    // Start egress
+//    std::string commandStartEgress = hdtnBuildRoot + "/module/egress/hdtn-egress &";
+//    system(commandStartEgress.c_str());
+//    std::cout << " >>>>> Started the egress service." << std::endl;
 
-    staticSetupWorked = true;
+//    staticSetupWorked = true;
 }
 
 void StorageFixture::TearDownTestCase() {
 //    std::cout << " <<<<< Called StorageFixture::TearDownTestCase()" << std::endl;
 
-    // Stop the registration service
-    stopRegistrationService();
+//    // Stop the registration service
+//    stopRegistrationService();
 
-    // Clean up in case things could not be shutdown easily
-    system("killall hdtn-ingress");
-    system("killall hdtn-egress");
+//    // Clean up in case things could not be shutdown easily
+//    system("killall hdtn-ingress");
+//    system("killall hdtn-egress");
 }
 
 StorageFixture::StorageFixture() {
@@ -149,7 +149,7 @@ void StorageFixture::TearDown() {
 }
 
 
-TEST_F(StorageFixture,Init_Update_Stats) {
+TEST_F(StorageFixture,DISABLED_Init_Update_Stats) {
 
     ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
 
@@ -177,11 +177,7 @@ TEST_F(StorageFixture,Init_Update_Stats) {
     uint64_t cbytes = stats->in_bytes;
     uint64_t ccount = stats->in_msg;
     printf("[store] Received: %d msg / %0.2f MB\n", ccount, cbytes / (1024.0 * 1024.0));
-
-
     regsvr.dereg();
-
-\
 }
 
 

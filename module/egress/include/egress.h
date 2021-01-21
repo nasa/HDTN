@@ -27,6 +27,9 @@ namespace hdtn {
 
 class hegr_entry {
    public:
+    // JCF, seems to be missing virtual destructor, added below
+    virtual ~hegr_entry();
+
     hegr_entry();
 
     /**

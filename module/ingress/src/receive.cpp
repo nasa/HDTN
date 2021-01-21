@@ -4,9 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <cassert>
 #include <iostream>
+
+#include <math.h>
 
 #include "codec/bpv6-ext-block.h"
 #include "codec/bpv6.h"
@@ -160,6 +163,22 @@ int bp_ingress_syscall::update() {
     int res = 0;
     int ernum;
     res = recvmmsg(_fd, _msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, NULL);
+    if (res < 0) {
+        ernum = errno;
+    }
+    return res;
+}
+
+int bp_ingress_syscall::update(double time_out_seconds) {
+    double fractpart;
+    double intpart;
+    fractpart = modf(time_out_seconds,&intpart);
+    struct timespec time_out;
+    time_out.tv_sec = intpart;
+    time_out.tv_nsec = fractpart * 1000000000;
+    int res = 0;
+    int ernum;
+    res = recvmmsg(_fd, _msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, &time_out);
     if (res < 0) {
         ernum = errno;
     }

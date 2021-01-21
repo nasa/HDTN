@@ -12,8 +12,17 @@ hegr_entry *hegr_manager::_entry(int offset) {
 hegr_manager::~hegr_manager() {
     int shutdown_status;
     for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
+
+// JCF, debuging
+//        hegr_entry * pEntry = _entry(i);
+//        std::cout << "In hegr_manager::~hegr_manager, i = " << i << " , *entry = " << pEntry << std::endl << std::flush;
+
         _entry(i)->shutdown();
-        delete (_entry(i));
+
+// JCF, the following line seg faults.  It looks like the destructor is not implemented.  Could be related to linked list also.
+// JCF, commented out so code development could continue.
+
+//        delete (_entry(i));
     }
     free(_entries);
 }
@@ -75,6 +84,10 @@ int hegr_manager::forward(int fec, char *msg, int sz) {
 hegr_entry::hegr_entry() {
     _flags = 0;
     //_next = NULL;
+}
+
+// JCF -- Missing destructor, added below
+hegr_entry::~hegr_entry() {
 }
 
 void hegr_entry::init(sockaddr_in *inaddr, uint64_t flags) {
