@@ -31,8 +31,8 @@
 // Prototypes
 std::string GetEnv( const std::string & var );
 int runBpgen();
-int runIngress();
-int runEgress();
+int runIngress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData);
+int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData);
 bool IntegratedTest1();
 
 volatile bool RUN_BPGEN = true;
@@ -103,9 +103,14 @@ bool IntegratedTest1() {
 
 
     //sleep(1);
-    std::thread threadIngress(runIngress);
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    std::thread threadIngress(runIngress,&bundleCountIngress,&bundleDataIngress);
 //    sleep(1);
-    std::thread threadEgress(runEgress);
+
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleDataEgress = 0;
+    std::thread threadEgress(runEgress,&bundleCountEgress,&bundleDataEgress);
 
     sleep(1);
     std::thread threadBpgen(runBpgen);
@@ -131,7 +136,16 @@ bool IntegratedTest1() {
     std::cout << "End Integrated Tests. " << std::endl << std::flush;
 
     sleep(3);
-    return true;
+
+
+    std::cout << "bundleCountIngress: " << bundleCountIngress << " , bundleDataIngress: " << bundleDataIngress << std::endl << std::flush;
+    std::cout << "bundleCountEgress: " << bundleCountEgress << " , bundleDataEgress: " << bundleDataEgress << std::endl << std::flush;
+
+    if ( (bundleCountIngress == bundleCountEgress) && (bundleDataIngress == bundleDataEgress) ) {
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -291,7 +305,7 @@ int runBpgen() {
     return 0;
 }
 
-int runIngress() {
+int runIngress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
     std::cout << "Start runIngress ... " << std::endl << std::flush;
     int INGRESS_PORT = 4556;
     hdtn::bp_ingress ingress;
@@ -330,7 +344,10 @@ int runIngress() {
         last_time = curr_time;
     }
     std::cout << "End runIngress ... " << std::endl << std::flush;
-    std::cout << "In runIngress, bundle_count: " << ingress.bundle_count << " , ingress.bundle_data: " << ingress.bundle_data << std::endl << std::flush;
+//    std::cout << "In runIngress, bundle_count: " << ingress.bundle_count << " , ingress.bundle_data: " << ingress.bundle_data << std::endl << std::flush;
+
+    *ptrBundleCount = ingress.bundle_count;
+    *ptrBundleData = ingress.bundle_data;
 
     // Write summary to file
 //    std::ofstream output;
@@ -344,7 +361,7 @@ int runIngress() {
     return 0;
 }
 
-int runEgress() {
+int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
 
 
 //    char* logfile = (char*)malloc(2048);
@@ -358,8 +375,8 @@ int runEgress() {
 
 
     std::cout << "Start runEgress ... " << std::endl << std::flush;
-    uint64_t bundle_count = 0;
-    uint64_t bundle_data = 0;
+//    uint64_t bundle_count = 0;
+//    uint64_t bundle_data = 0;
     uint64_t message_count = 0;
     double elapsed = 0;
     hdtn::hegr_manager egress;
@@ -424,9 +441,7 @@ int runEgress() {
 
 
 
-        hdtn::common_hdr *common = (hdtn::common_hdr *)hdr.data();
-
-
+//        hdtn::common_hdr *common = (hdtn::common_hdr *)hdr.data();
 //        std::cout << "In runEgress, after recv. common->type = " << common->type << std::endl << std::flush;
 //        switch (common->type) {
 //            case HDTN_MSGTYPE_STORE:
@@ -443,10 +458,11 @@ int runEgress() {
         zmq_sock->recv(&message);
         bundle_size = message.size();
         memcpy(bundle, message.data(), bundle_size);
-        bundle_data += bundle_size;
-        bundle_count++;
 
-
+        //bundle_data += bundle_size;
+        //bundle_count++;
+        (*ptrBundleData) += bundle_size;
+        (*ptrBundleCount)++;
 
     }
 
@@ -463,8 +479,6 @@ int runEgress() {
     zmq_sock->close();
     delete zmq_sock;
     delete zmq_ctx;
-    std::cout << "End runEgress ... " << std::endl << std::flush;
-    std::cout << "In runEgress, bundle_count: " << bundle_count << " , bundle_data: " << bundle_data << std::endl << std::flush;
 
     return 0;
 }
