@@ -18,19 +18,71 @@ hegr_manager::~hegr_manager() {
     free(_entries);
 }
 void hegr_manager::init() {
+    bundle_count = 0;
+    bundle_data = 0;
+    message_count = 0;
+    elapsed = 0;
     _entries = malloc(HEGR_ENTRY_SZ * HEGR_ENTRY_COUNT);
     for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
         hegr_entry *tmp = new (_entry(i)) hegr_entry;
         tmp->label(i);
     }
     //socket for cut-through mode straight to egress
+    //might not actually need two sockets
     zmqCutThroughCtx = new zmq::context_t;
     zmqCutThroughSock = new zmq::socket_t(*zmqCutThroughCtx, zmq::socket_type::pull);
     zmqCutThroughSock->connect(cutThroughAddress);
-    //socket for sending bundles to storage
+    //socket for getting bundles fom storage
     zmqReleaseCtx = new zmq::context_t;
     zmqReleaseSock = new zmq::socket_t(*zmqReleaseCtx, zmq::socket_type::pull);
-    zmqReleaseSock->bind(ReleaseAddress);
+    zmqReleaseSock->connect(ReleaseAddress);
+}
+
+void hegr_manager::update() {
+    zmq::pollitem_t items[] = {
+        {zmqCutThroughSock->handle(),
+         0,
+         ZMQ_POLLIN,
+         0},
+        {zmqReleaseSock->handle(),
+         0,
+         ZMQ_POLLIN,
+         0},
+    };
+    zmq::poll(&items[0], 2, 0);
+    if (items[0].revents & ZMQ_POLLIN) {
+        dispatch(zmqCutThroughSock);
+    }
+    if (items[1].revents & ZMQ_POLLIN) {
+        dispatch(zmqReleaseSock);
+    }
+}
+
+void hegr_manager::dispatch(zmq::socket_t *zmqSock) {
+    zmq::message_t hdr;
+    zmq::message_t message;
+    zmqSock->recv(&hdr);
+    char bundle[HMSG_MSG_MAX];
+    int bundle_size = 0;
+    if (hdr.size() < sizeof(hdtn::common_hdr)) {
+        std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
+        return;
+    }
+    hdtn::common_hdr *common = (hdtn::common_hdr *)hdr.data();
+    hdtn::block_hdr *block = (hdtn::block_hdr *)common;
+    switch (common->type) {
+        case HDTN_MSGTYPE_EGRESS:
+            zmqSock->recv(&message);
+            bundle_size = message.size();
+            //need to fix problem of message header being read as the bundle
+            if (bundle_size > 100) {
+                memcpy(bundle, message.data(), bundle_size);
+                forward(1, bundle, bundle_size);
+                bundle_data += bundle_size;
+                bundle_count++;
+            }
+            break;
+    }
 }
 
 int hegr_manager::add(int fec, uint64_t flags, const char *dst, int port) {

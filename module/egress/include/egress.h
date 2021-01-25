@@ -9,8 +9,8 @@
 #include <string>
 
 #include "message.hpp"
-#include "zmq.hpp"
 #include "paths.hpp"
+#include "zmq.hpp"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -220,6 +220,12 @@ class hegr_manager {
      
     */
     void init();
+    /**
+      */
+    void update();
+    /**
+      */
+    void dispatch(zmq::socket_t *zmqSock);
 
     /**
      
@@ -247,12 +253,17 @@ class hegr_manager {
     void down(int fec);
 
     bool test_storage = false;
-    const char *cutThroughAddress=HDTN_CUT_THROUGH_PATH;
-    const char *ReleaseAddress=HDTN_RELEASE_PATH;
+    const char *cutThroughAddress = HDTN_STORAGE_PATH;
+    const char *ReleaseAddress = HDTN_RELEASE_PATH;
     zmq::context_t *zmqCutThroughCtx;
     zmq::socket_t *zmqCutThroughSock;
     zmq::context_t *zmqReleaseCtx;
     zmq::socket_t *zmqReleaseSock;
+    uint64_t bundle_count;
+    uint64_t bundle_data;
+    uint64_t message_count;
+    double elapsed;
+    uint64_t start;
 
    private:
     hegr_entry *_entry(int offset);

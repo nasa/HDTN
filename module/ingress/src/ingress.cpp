@@ -45,11 +45,11 @@ static void s_catch_signals(void) {
 
 int main(int argc, char *argv[]) {
     ingress.init(BP_INGRESS_TYPE_UDP);
-    uint64_t last_time = 0;
-    uint64_t curr_time = 0;
+  
+  
     //finish registration stuff -ingress will find out what egress services have registered
     hdtn_regsvr regsvr;
-    regsvr.init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
+    regsvr.init(HDTN_REG_SERVER_PATH, "ingress", 10110, "PUSH");
     regsvr.reg();
     hdtn_entries res = regsvr.query();
     for (auto entry : res) {
@@ -57,22 +57,55 @@ int main(int argc, char *argv[]) {
     }
     s_catch_signals();
     printf("Announcing presence of ingress engine ...\n");
-
+    
+    std::string current_date = datetime();
+    //output.open("ingress-" + current_date);
+   // output << "Elapsed, Bundle Count,Rate (Mbps), Bundle Data (MB)\n";
     ingress.netstart(INGRESS_PORT);
     int count = 0;
+    uint64_t cbytes=0;
+    uint64_t ccount=0;
+    uint64_t last_bytes=0;
+    uint64_t last_count=0;
+    double curr=0; 
+    double last_time = 0;
     struct timeval tv;
     gettimeofday(&tv, NULL);
     double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
     printf("Start: +%f\n", start);
     while (true) {
-        curr_time = time(0);
-        gettimeofday(&tv, NULL);
+         gettimeofday(&tv, NULL);
+        if(ingress.bundle_data==0)
+        {
+            
+        start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
+        }
         ingress.elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
+         
+        curr = (tv.tv_sec + (tv.tv_usec / 1000000.0));
         ingress.elapsed -= start;
         count = ingress.update();
         ingress.process(count);
-        last_time = curr_time;
+       /* if(ingress.bundle_count> 1000000)
+	{
+		std::cout <<"done\n";
+		break;
+	}*/
+
+        /*if (curr - last_time> 1) {
+            last_time = curr;
+            cbytes = ingress.bundle_data - last_bytes;
+            ccount = ingress.bundle_count  - last_count;
+            last_bytes = ingress.bundle_data ;
+            last_count = ingress.bundle_count ;
+            //double rate = 8 * (egress.bundle_data / (double)(1024 * 1024)) ;
+            /*if (curr - last_time> 10){
+            output << ingress.elapsed << ", " << ccount << ", " << cbytes*8/double(1024*1024) << ", " <<ingress.bundle_data  <<  "\n";
+            }
+          
+            }*/
+            
     }
 
-    exit(EXIT_SUCCESS);
+    //exit(EXIT_SUCCESS);
 }

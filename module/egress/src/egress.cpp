@@ -12,18 +12,15 @@
 using namespace hdtn;
 using namespace std;
 
-static uint64_t bundle_count = 0;
-static uint64_t bundle_data = 0;
-static uint64_t message_count = 0;
-static double elapsed = 0;
-static uint64_t start;
-
+ofstream output;
 static void signal_handler(int signal_value) {
-    ofstream output;
-    output.open("egress-" + datetime());
-    output << "Elapsed, Bundle Count (M), Rate (Mbps),Bundles/sec,Message Count (M)\n";
-    double rate = 8 * ((bundle_data / (double)(1024 * 1024)) / elapsed);
-    output << elapsed << ", " << bundle_count / 1000000.0f << ", " << rate << ", " << bundle_count / elapsed << "," << message_count / 1000000.0f << "\n";
+    //changed from calculating stats this way. If bundles aren't received the time is
+    //still counted in elapsed, with will make the rate seem lower that it actually is
+    // ofstream output;
+    // output.open("egress-" + datetime());
+    // output << "Elapsed, Bundle Count (M), Rate (Mbps),Bundles/sec,Message Count (M)\n";
+    //double rate = 8 * ((egress.bundle_data / (double)(1024 * 1024)) / egress.elapsed);
+    // output << egress.elapsed << ", " << egress.bundle_count / 1000000.0f << ", " << rate << ", " << egress.bundle_count / egress.elapsed <<  "\n";
     output.close();
     exit(EXIT_SUCCESS);
 }
@@ -38,23 +35,26 @@ static void catch_signals(void) {
 }
 
 int main(int argc, char *argv[]) {
-    hegr_manager egress;
-    bool ok = true;
-    struct timeval tv;
+    double last = 0.0;
+    timeval tv;
     gettimeofday(&tv, NULL);
+
+    output.open("egress-" + datetime());
+    last = (tv.tv_sec + (tv.tv_usec / 1000000.0));
     double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
+    output << "Elapsed, Bundle Count, Rate (Mbps),Total Bytes\n";
     printf("Start: +%f\n", start);
     catch_signals();
+
     //finish registration stuff - egress should register, ingress will query
     hdtn::hdtn_regsvr regsvr;
-    regsvr.init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
+    regsvr.init(HDTN_REG_SERVER_PATH, "egress", 10120, "PULL");
     regsvr.reg();
     hdtn::hdtn_entries res = regsvr.query();
     for (auto entry : res) {
         std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
     }
-    
-    
+    hegr_manager egress;
     egress.init();
     int entry_status;
     entry_status = egress.add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
@@ -65,40 +65,25 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 8; ++i) {
         egress.up(i);
     }
-    char bundle[HMSG_MSG_MAX];
-    int bundle_size = 0;
-    int num_frames = 0;
-    int frame_index = 0;
-    int max_frames = 0;
-
-    char *type;
-    size_t payload_size;
+    uint64_t last_bytes = 0;
+    uint64_t last_count = 0;
+    uint64_t cbytes = 0;
+    uint64_t ccount = 0;
     while (true) {
+        egress.update();
         gettimeofday(&tv, NULL);
-        elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-        elapsed -= start;
-        zmq::message_t hdr;
-        zmq::message_t message;
-        egress.zmqCutThroughSock->recv(&hdr);
-        message_count++;
-        char bundle[HMSG_MSG_MAX];
-        if (hdr.size() < sizeof(hdtn::common_hdr)) {
-            std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
-            return -1;
-        }
-        hdtn::common_hdr *common = (hdtn::common_hdr *)hdr.data();
-        hdtn::block_hdr *block = (hdtn::block_hdr *)common;
-        switch (common->type) {
-            case HDTN_MSGTYPE_STORE:
-                egress.zmqCutThroughSock->recv(&message);
-                bundle_size = message.size();
-                memcpy(bundle, message.data(), bundle_size);
-                egress.forward(1, bundle, bundle_size);
-                bundle_data += bundle_size;
-                bundle_count++;
-                break;
+        double curr = (tv.tv_sec + (tv.tv_usec / 1000000.0));
+        if (curr - last > 1) {
+            last = curr;
+            cbytes = egress.bundle_data - last_bytes;
+            ccount = egress.bundle_count - last_count;
+            last_bytes = egress.bundle_data;
+            last_count = egress.bundle_count;
+            //only writes to file if data was received
+            if (ccount > 0) {
+                output << egress.elapsed << ", " << ccount << ", " << (cbytes * 8) / double(1024 * 1024) << ", " << egress.bundle_data << "\n";
+            }
         }
     }
-
     return 0;
 }

@@ -47,9 +47,9 @@ int bp_ingress_syscall::init(uint32_t type) {
         msgbuf.hdr[i].msg_hdr.msg_namelen = sizeof(struct sockaddr_in);
     }
     //socket for cut-through mode straight to egress
-    zmqCutThroughCtx = new zmq::context_t;
+    /*zmqCutThroughCtx = new zmq::context_t;
     zmqCutThroughSock = new zmq::socket_t(*zmqCutThroughCtx, zmq::socket_type::push);
-    zmqCutThroughSock->bind(cutThroughAddress);
+    zmqCutThroughSock->bind(cutThroughAddress);*/
     //socket for sending bundles to storage
     zmqStorageCtx = new zmq::context_t;
     zmqStorageSock = new zmq::socket_t(*zmqStorageCtx, zmq::socket_type::push);
@@ -106,22 +106,25 @@ int bp_ingress_syscall::process(int count) {
     bpv6_primary_block bpv6_primary;
     bpv6_eid dst;
     int rc;
-    char hdr_buf[sizeof(block_hdr)];
+    //char hdr_buf[sizeof(block_hdr)];
     memset(&bpv6_primary, 0, sizeof(bpv6_primary_block));
     for (i = 0; i < count; ++i) {
-        char tbuf[HMSG_MSG_MAX];
-        hdtn::block_hdr hdr;
-        memset(&hdr, 0, sizeof(hdtn::block_hdr));
+        //char tbuf[HMSG_MSG_MAX];
+        char ihdr[sizeof(hdtn::block_hdr)];
+        hdtn::block_hdr *hdr = (hdtn::block_hdr *)ihdr;
+        memset(ihdr, 0, sizeof(hdtn::block_hdr));
         timer = rdtsc();
         recvlen = msgbuf.hdr[i].msg_len;
         msgbuf.hdr[i].msg_len = 0;
-        memcpy(tbuf, bufs[i], recvlen);
-        hdr.ts = timer;
+        //memcpy(tbuf, bufs[i], recvlen);
+        hdr->ts = timer;
         offset = bpv6_primary_block_decode(&bpv6_primary, bufs[i], offset, recvlen);
         dst.node = bpv6_primary.dst_node;
-        hdr.flow_id = dst.node;  //for now
-        hdr.base.flags = bpv6_primary.flags;
-        hdr.base.type = HDTN_MSGTYPE_STORE;
+        //hdr.flow_id = dst.node << 16;  //for cache folder, this is the format is looks like cache.cpp expects
+        //hdr.flow_id = hdr.flow_id +1; //file number 1
+        hdr->flow_id = 1;
+        hdr->base.flags = bpv6_primary.flags;
+        hdr->base.type = HDTN_MSGTYPE_EGRESS;
         //hdr.ts=recvlen;
 
         int num_chunks = 1;
@@ -129,30 +132,12 @@ int bp_ingress_syscall::process(int count) {
         int remainder = 0;
         int j = 0;
         zframe_seq = 0;
-        if (recvlen > CHUNK_SIZE)  //the bundle is bigger than internal message size limit
-        {
-            num_chunks = recvlen / CHUNK_SIZE;
-            bytes_to_send = CHUNK_SIZE;
-            remainder = recvlen % CHUNK_SIZE;
-            if (remainder != 0)
-                num_chunks++;
-        }
-        for (j = 0; j < num_chunks; j++) {
-            if ((j == num_chunks - 1) && (remainder != 0))
-                bytes_to_send = remainder;
-            hdr.bundle_seq = ing_sequence_num;
-            ing_sequence_num++;
-            hdr.zframe = zframe_seq;
-            zframe_seq++;
 
-            memcpy(hdr_buf, &hdr, sizeof(block_hdr));
-            zmqCutThroughSock->send(hdr_buf, sizeof(block_hdr), ZMQ_MORE);
-            char data[bytes_to_send];
-            memcpy(data, tbuf + (CHUNK_SIZE * j), bytes_to_send);
-            zmqCutThroughSock->send(data, bytes_to_send, 0);
-            ++zmsgs_out;
-        }
-
+        zmqStorageSock->send(ihdr, sizeof(block_hdr), ZMQ_MORE);
+        char data[bytes_to_send];
+        // memcpy(data, tbuf + (CHUNK_SIZE * j), recvlen);
+        zmqStorageSock->send(bufs[i], recvlen, 0);
+        ++zmsgs_out;
         ++bundle_count;
         bundle_data += recvlen;
         timer = rdtsc() - timer;

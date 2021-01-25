@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-storage)
-set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.67.0 REQUIRED system)
+find_package(Boost 1.40.0 REQUIRED system)
 
 add_executable(hdtn-storage
     src/main.cpp
@@ -13,6 +12,7 @@ add_executable(hdtn-storage
 target_link_libraries(hdtn-storage pthread zmq hdtn_reg blosc bpcodec)
 target_link_directories(hdtn-storage PUBLIC lib)
 target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
+
 
 add_executable(hdtn-test-ingress
     src/test/ingress.cpp
@@ -35,10 +35,9 @@ target_link_libraries(hdtn-test-schedule pthread zmq hdtn_reg bpcodec ${Boost_LI
 target_link_directories(hdtn-test-schedule PUBLIC lib)
 target_include_directories(hdtn-test-schedule PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
 
-add_executable(hdtn-test-release
-    src/test/release.cpp
+add_executable(hdtn-test-bundle
+    src/test/bundle_test.cpp
 )
-target_link_libraries(hdtn-test-release pthread zmq hdtn_reg bpcodec)
-target_link_directories(hdtn-test-release PUBLIC lib)
-target_include_directories(hdtn-test-release PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
-
+target_link_libraries(hdtn-test-bundle pthread zmq hdtn_reg bpcodec ${Boost_LIBRARIES})
+target_link_directories(hdtn-test-bundle PUBLIC lib)
+target_include_directories(hdtn-test-bundle PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)

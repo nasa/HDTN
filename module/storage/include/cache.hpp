@@ -6,10 +6,13 @@
 
 #include "message.hpp"
 #include "stats.hpp"
+#include "queue.hpp"
 
 #define HDTN_RECLAIM_THRESHOLD (1 << 28)
 
 namespace hdtn {
+
+
 struct flow_store_header {
     uint64_t begin;
     uint64_t end;
@@ -18,6 +21,7 @@ struct flow_store_header {
 struct flow_store_entry {
     int fd;
     flow_store_header *header;  // mapped from the first N bytes of the corresponding file
+   
 };
 
 typedef std::map<int, flow_store_entry> flow_map;
@@ -37,6 +41,7 @@ class flow_store {
     flow_store_header *_index;
     int _index_fd;
     flow_stats _stats;
+    queue flowQueue;
 };
 }  // namespace hdtn
 

@@ -31,7 +31,18 @@ flow_store_entry flow_store::load(int flow) {
             NULL};
     }
     flow_store_entry res = _flow[flow];
-
+    if (res.fd >= 0) {
+        int folder = (flow & 0x00FF0000) >> 16;
+        int file = (flow & 0x0000FFFF);
+        std::stringstream tstr;
+        tstr << _root << "/" << folder << "/" << file;
+        res.fd = open(tstr.str().c_str(), O_RDWR, S_IWUSR | S_IRUSR | S_IRGRP);
+        if (res.fd < 0) {
+            std::cerr << "[flow-store:basic] Unable to open cache: " << tstr.str() << std::endl;
+            perror("[flow-store:basic] Error");
+            return res;
+        }
+    }
     if (res.fd < 0) {
         int folder = (flow & 0x00FF0000) >> 16;
         int file = (flow & 0x0000FFFF);
@@ -59,23 +70,34 @@ flow_store_entry flow_store::load(int flow) {
 
 int flow_store::read(int flow, void *data, int maxsz) {
     flow_store_entry res = load(flow);
-
+    uint64_t to_read = 0;
+    int retrieved = -1;
     if (res.fd < 0) {
         errno = EINVAL;
         return -1;
     }
+    if (!(flowQueue.front == NULL)) {
+       to_read = (flowQueue.front)->data;
+        flowQueue.deQueue();
 
-    uint64_t to_read = res.header->end - res.header->begin;
+        /*uint64_t to_read = res.header->end - res.header->begin;
     if (to_read > maxsz) {
         to_read = maxsz;
+    }*/
+        retrieved = pread(res.fd, data, to_read, res.header->begin);
+        if (retrieved >= 0) {
+            res.header->begin += retrieved;
+        }
+        if (retrieved > 0) {
+            _stats.disk_rcount++;
+            _stats.disk_rbytes += retrieved;
+            _stats.disk_used -= retrieved;
+        }
+        if(retrieved <to_read){
+            std::cout<<"retrieved less bytes"<< std::endl;
+        }
     }
-    int retrieved = pread(res.fd, data, to_read, res.header->begin);
-    if (retrieved >= 0) {
-        res.header->begin += retrieved;
-    }
-    _stats.disk_rbytes += retrieved;
-    _stats.disk_rcount++;
-    _stats.disk_used -= retrieved;
+
     close(res.fd);
     return retrieved;
 }
@@ -91,10 +113,12 @@ int flow_store::write(int flow, void *data, int sz) {
     int written = pwrite(res.fd, data, sz, res.header->end);
     if (written >= 0) {
         res.header->end += written;
+        _stats.disk_wcount++;
+        _stats.disk_wbytes += written;
+        _stats.disk_used += written;
+        flowQueue.enQueue(written);
     }
-    _stats.disk_wbytes += written;
-    _stats.disk_wcount++;
-    _stats.disk_used += written;
+
     close(res.fd);
     return written;
 }
@@ -125,7 +149,7 @@ bool flow_store::init(std::string root) {
             }
         }
 
-        /*
+        /* was commented out in orginal version
         for(int j = 0; j < 65536; ++j) {
             tstr = std::stringstream();
             tstr << _root << "/" << i << "/" << j;

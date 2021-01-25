@@ -5,11 +5,17 @@
 
 namespace hdtn {
 struct flow_stats {
+     flow_stats()
+        : disk_used(0), disk_wcount(0), disk_wbytes(0), disk_rcount(0), disk_rbytes(0),read_rate(0),write_rate(0), read_ts(0), write_ts(0) {}
     uint64_t disk_used;
     uint64_t disk_wcount;
     uint64_t disk_wbytes;
     uint64_t disk_rcount;
     uint64_t disk_rbytes;
+    double read_rate;
+    double write_rate;
+    double read_ts;//time taken to complete read
+    double write_ts;//time taken to complete write
 } __attribute__((packed));
 
 struct worker_stats {
@@ -42,6 +48,7 @@ struct storage_flow_stats {
          */
     uint64_t start;
 } __attribute__((packed));
+
 
 struct storage_stats {
     storage_stats()
