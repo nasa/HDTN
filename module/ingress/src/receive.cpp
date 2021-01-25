@@ -19,40 +19,44 @@
 namespace hdtn {
 
 bp_ingress_syscall::bp_ingress_syscall() {
-    _msgbuf.srcbuf = NULL;
-    _msgbuf.io = NULL;
-    _msgbuf.hdr = NULL;
+    msgbuf.srcbuf = NULL;
+    msgbuf.io = NULL;
+    msgbuf.hdr = NULL;
 }
 
 bp_ingress_syscall::~bp_ingress_syscall() {
-    if (_msgbuf.srcbuf != NULL) {
+    if (msgbuf.srcbuf != NULL) {
         destroy();
     }
 }
 
 int bp_ingress_syscall::init(uint32_t type) {
     int i = 0;
-    _msgbuf.bufsz = BP_INGRESS_MSG_BUFSZ;
-    _msgbuf.nbuf = BP_INGRESS_MSG_NBUF;
-    _msgbuf.srcbuf = (char *)malloc(sizeof(struct sockaddr_in) * BP_INGRESS_MSG_NBUF);
-    _msgbuf.io = (iovec *)malloc(sizeof(struct iovec) * BP_INGRESS_MSG_NBUF);
-    _msgbuf.hdr = (mmsghdr *)malloc(sizeof(struct mmsghdr) * BP_INGRESS_MSG_NBUF);
+    msgbuf.bufsz = BP_INGRESS_MSG_BUFSZ;
+    msgbuf.nbuf = BP_INGRESS_MSG_NBUF;
+    msgbuf.srcbuf = (char *)malloc(sizeof(struct sockaddr_in) * BP_INGRESS_MSG_NBUF);
+    msgbuf.io = (iovec *)malloc(sizeof(struct iovec) * BP_INGRESS_MSG_NBUF);
+    msgbuf.hdr = (mmsghdr *)malloc(sizeof(struct mmsghdr) * BP_INGRESS_MSG_NBUF);
     for (i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        _bufs[i] = (char *)malloc(BP_INGRESS_MSG_BUFSZ);
+        bufs[i] = (char *)malloc(BP_INGRESS_MSG_BUFSZ);
         //_msgbuf.io[i].iov_base = malloc(BP_INGRESS_MSG_BUFSZ);
-        _msgbuf.io[i].iov_base = _bufs[i];
-        _msgbuf.io[i].iov_len = BP_INGRESS_MSG_BUFSZ;
+        msgbuf.io[i].iov_base = bufs[i];
+        msgbuf.io[i].iov_len = BP_INGRESS_MSG_BUFSZ;
     }
     for (i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        _msgbuf.hdr[i].msg_hdr.msg_iov = &_msgbuf.io[i];
-        _msgbuf.hdr[i].msg_hdr.msg_iovlen = 1;
-        _msgbuf.hdr[i].msg_hdr.msg_name = _msgbuf.srcbuf + (sizeof(struct sockaddr_in) * i);
-        _msgbuf.hdr[i].msg_hdr.msg_namelen = sizeof(struct sockaddr_in);
+        msgbuf.hdr[i].msg_hdr.msg_iov = &msgbuf.io[i];
+        msgbuf.hdr[i].msg_hdr.msg_iovlen = 1;
+        msgbuf.hdr[i].msg_hdr.msg_name = msgbuf.srcbuf + (sizeof(struct sockaddr_in) * i);
+        msgbuf.hdr[i].msg_hdr.msg_namelen = sizeof(struct sockaddr_in);
     }
-
-    _zmq_ingr_ctx = new zmq::context_t;
-    _zmq_ingr_sock = new zmq::socket_t(*_zmq_ingr_ctx, zmq::socket_type::push);
-    _zmq_ingr_sock->bind("tcp://127.0.0.1:10149");
+    //socket for cut-through mode straight to egress
+    zmqCutThroughCtx = new zmq::context_t;
+    zmqCutThroughSock = new zmq::socket_t(*zmqCutThroughCtx, zmq::socket_type::push);
+    zmqCutThroughSock->bind(cutThroughAddress);
+    //socket for sending bundles to storage
+    zmqStorageCtx = new zmq::context_t;
+    zmqStorageSock = new zmq::socket_t(*zmqStorageCtx, zmq::socket_type::push);
+    zmqStorageSock->bind(StorageAddress);
     return 0;
 }
 
@@ -60,17 +64,17 @@ void bp_ingress_syscall::destroy() {
     int i = 0;
 
     for (i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        free(_msgbuf.io[i].iov_base);
-        _msgbuf.io[i].iov_base = NULL;
+        free(msgbuf.io[i].iov_base);
+        msgbuf.io[i].iov_base = NULL;
     }
 
-    free(_msgbuf.srcbuf);
-    free(_msgbuf.io);
-    free(_msgbuf.hdr);
-    _msgbuf.srcbuf = NULL;
-    _msgbuf.io = NULL;
-    _msgbuf.hdr = NULL;
-    shutdown(_fd, SHUT_RDWR);
+    free(msgbuf.srcbuf);
+    free(msgbuf.io);
+    free(msgbuf.hdr);
+    msgbuf.srcbuf = NULL;
+    msgbuf.io = NULL;
+    msgbuf.hdr = NULL;
+    shutdown(fd, SHUT_RDWR);
 }
 
 int bp_ingress_syscall::netstart(uint16_t port) {
@@ -78,13 +82,13 @@ int bp_ingress_syscall::netstart(uint16_t port) {
     int res = 0;
     printf("Starting ingress channel ...\n");
 
-    _fd = socket(AF_INET, SOCK_DGRAM, 0);
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
 
     bind_addr.sin_family = AF_INET;
     bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     bind_addr.sin_port = htons(port);
 
-    res = bind(_fd, (struct sockaddr *)&bind_addr, sizeof(bind_addr));
+    res = bind(fd, (struct sockaddr *)&bind_addr, sizeof(bind_addr));
 
     if (res < 0) {
         printf("Unable to bind to port %d (on INADDR_ANY): %s", port, strerror(res));
@@ -112,11 +116,11 @@ int bp_ingress_syscall::process(int count) {
         hdtn::block_hdr hdr;
         memset(&hdr, 0, sizeof(hdtn::block_hdr));
         timer = rdtsc();
-        recvlen = _msgbuf.hdr[i].msg_len;
-        _msgbuf.hdr[i].msg_len = 0;
-        memcpy(tbuf, _bufs[i], recvlen);
+        recvlen = msgbuf.hdr[i].msg_len;
+        msgbuf.hdr[i].msg_len = 0;
+        memcpy(tbuf, bufs[i], recvlen);
         hdr.ts = timer;
-        offset = bpv6_primary_block_decode(&bpv6_primary, _bufs[i], offset, recvlen);
+        offset = bpv6_primary_block_decode(&bpv6_primary, bufs[i], offset, recvlen);
         dst.node = bpv6_primary.dst_node;
         hdr.flow_id = dst.node;  //for now
         hdr.base.flags = bpv6_primary.flags;
@@ -145,10 +149,10 @@ int bp_ingress_syscall::process(int count) {
             zframe_seq++;
 
             memcpy(hdr_buf, &hdr, sizeof(block_hdr));
-            _zmq_ingr_sock->send(hdr_buf, sizeof(block_hdr), ZMQ_MORE);
+            zmqCutThroughSock->send(hdr_buf, sizeof(block_hdr), ZMQ_MORE);
             char data[bytes_to_send];
             memcpy(data, tbuf + (CHUNK_SIZE * j), bytes_to_send);
-            _zmq_ingr_sock->send(data, bytes_to_send, 0);
+            zmqCutThroughSock->send(data, bytes_to_send, 0);
             ++zmsgs_out;
         }
 
@@ -162,7 +166,7 @@ int bp_ingress_syscall::process(int count) {
 int bp_ingress_syscall::update() {
     int res = 0;
     int ernum;
-    res = recvmmsg(_fd, _msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, NULL);
+    res = recvmmsg(fd, msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, NULL);
     if (res < 0) {
         ernum = errno;
     }

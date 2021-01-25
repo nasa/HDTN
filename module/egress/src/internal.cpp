@@ -32,6 +32,14 @@ void hegr_manager::init() {
         hegr_entry *tmp = new (_entry(i)) hegr_entry;
         tmp->label(i);
     }
+    //socket for cut-through mode straight to egress
+    zmqCutThroughCtx = new zmq::context_t;
+    zmqCutThroughSock = new zmq::socket_t(*zmqCutThroughCtx, zmq::socket_type::pull);
+    zmqCutThroughSock->connect(cutThroughAddress);
+    //socket for sending bundles to storage
+    zmqReleaseCtx = new zmq::context_t;
+    zmqReleaseSock = new zmq::socket_t(*zmqReleaseCtx, zmq::socket_type::pull);
+    zmqReleaseSock->bind(ReleaseAddress);
 }
 
 int hegr_manager::add(int fec, uint64_t flags, const char *dst, int port) {

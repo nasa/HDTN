@@ -9,11 +9,10 @@
 #include "reg.hpp"
 #include "stats.hpp"
 #include "zmq.hpp"
+#include "paths.hpp"
 
 #define HDTN_STORAGE_TELEM_FLOWCOUNT (4)
 #define HDTN_STORAGE_PORT_DEFAULT (10425)
-#define HDTN_STORAGE_TELEM_PATH "tcp://0.0.0.0:10460"
-#define HDTN_STORAGE_WORKER_PATH "inproc://hdtn3.storage.worker"
 #define HDTN_BLOSC_MAXBLOCKSZ (1 << 26)
 #define HDTN_FLOWCOUNT_MAX (16777216)
 

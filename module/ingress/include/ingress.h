@@ -6,6 +6,7 @@
 #include <sys/time.h>
 
 #include "message.hpp"
+#include "paths.hpp"
 #include "util/tsc.h"
 #include "zmq.hpp"
 
@@ -62,16 +63,20 @@ class bp_ingress_syscall {
     uint64_t ing_sequence_num = 0;
     double elapsed = 0;
     bool force_storage = false;
+    const char *cutThroughAddress=HDTN_CUT_THROUGH_PATH;
+    const char *StorageAddress=HDTN_STORAGE_PATH;
 
    private:
-    bp_mmsgbuf _msgbuf;
-    zmq::context_t *_zmq_ingr_ctx;
-    zmq::socket_t *_zmq_ingr_sock;
-    zmq::context_t *_zmq_telem_ctx;
-    zmq::socket_t *_zmq_telem_sock;
-    int _fd;
-    int _type;
-    char *_bufs[BP_INGRESS_MSG_NBUF];
+    bp_mmsgbuf msgbuf;
+    zmq::context_t *zmqCutThroughCtx;
+    zmq::socket_t *zmqCutThroughSock;
+    zmq::context_t *zmqStorageCtx;
+    zmq::socket_t *zmqStorageSock;
+    zmq::context_t *zmqTelemCtx;
+    zmq::socket_t *zmqTelemSock;
+    int fd;
+    int type;
+    char *bufs[BP_INGRESS_MSG_NBUF];
 };
 
 // use an explicit typedef to avoid runtime vcall overhead

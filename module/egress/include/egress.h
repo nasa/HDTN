@@ -10,6 +10,7 @@
 
 #include "message.hpp"
 #include "zmq.hpp"
+#include "paths.hpp"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -93,24 +94,11 @@ class hegr_entry {
 
     void shutdown();
 
-    // It looks like master was broken here -- JCF
-//   protected:
-//    a
-//        uint64_t _label;
-//    uint64_t _flags;
-//    sockaddr_in _ipv4;
-//};
-
-protected:
-    uint64_t         _label;
-    uint64_t         _flags;
-    uint64_t         _rate;
-    sockaddr_in      _ipv4;
-    sockaddr_in6     _ipv6;
-    hegr_entry*      _next;
-    char             _name[HEGR_NAME_SZ];
+   protected:
+    uint64_t _label;
+    uint64_t _flags;
+    sockaddr_in _ipv4;
 };
-
 
 class hegr_stcp_entry : public hegr_entry {
    public:
@@ -262,6 +250,12 @@ class hegr_manager {
     void down(int fec);
 
     bool test_storage = false;
+    const char *cutThroughAddress=HDTN_CUT_THROUGH_PATH;
+    const char *ReleaseAddress=HDTN_RELEASE_PATH;
+    zmq::context_t *zmqCutThroughCtx;
+    zmq::socket_t *zmqCutThroughSock;
+    zmq::context_t *zmqReleaseCtx;
+    zmq::socket_t *zmqReleaseSock;
 
    private:
     hegr_entry *_entry(int offset);
