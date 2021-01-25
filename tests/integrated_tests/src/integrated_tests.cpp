@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-
 // Used for forking python process
 #include <stdlib.h>
 #include <stdio.h>
@@ -27,36 +26,19 @@
 #include <sys/wait.h>  /* for waitpid          */
 #include <signal.h>    /* for SIGTERM, SIGKILL */
 
-
 // Prototypes
 std::string GetEnv( const std::string & var );
 int runBpgen();
 int runIngress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData);
 int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData);
 bool IntegratedTest1();
+pid_t spawnPythonServer(void);
+int killProcess(pid_t processId);
 
 volatile bool RUN_BPGEN = true;
 volatile bool RUN_INGRESS = true;
 volatile bool RUN_EGRESS = true;
 volatile bool RUN_STORAGE = true;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // Create a test fixture.  
 class IntegratedTestsFixture : public testing::Test {
@@ -65,7 +47,6 @@ public:
     ~IntegratedTestsFixture();
     void SetUp() override;          // This is called after constructor.
     void TearDown() override;       // This is called before destructor.
-    
 };
 
 IntegratedTestsFixture::IntegratedTestsFixture() {
@@ -100,31 +81,25 @@ bool IntegratedTest1() {
 //    }
 //    printf("Spawned python server with pid %d\n", pidPythonServer);
 //    fflush(stdout);
+//    sleep(1);
 
-
-    //sleep(1);
     uint64_t bundleCountIngress = 0;
     uint64_t bundleDataIngress = 0;
     std::thread threadIngress(runIngress,&bundleCountIngress,&bundleDataIngress);
 //    sleep(1);
-
     uint64_t bundleCountEgress = 0;
     uint64_t bundleDataEgress = 0;
     std::thread threadEgress(runEgress,&bundleCountEgress,&bundleDataEgress);
-
     sleep(1);
     std::thread threadBpgen(runBpgen);
-
     sleep(3);
-
     RUN_BPGEN = false;
     threadBpgen.join();
-
     sleep(2);
-
     RUN_INGRESS = false;
+    std::cout << "Before threadIngress.join(). " << std::endl << std::flush;
     threadIngress.join();
-
+    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
     sleep(1);
     RUN_EGRESS = false;
     std::cout << "Before threadEgress.join(). " << std::endl << std::flush;
@@ -134,21 +109,14 @@ bool IntegratedTest1() {
 //    killProcess(pidPythonServer);
 
     std::cout << "End Integrated Tests. " << std::endl << std::flush;
-
     sleep(3);
-
-
     std::cout << "bundleCountIngress: " << bundleCountIngress << " , bundleDataIngress: " << bundleDataIngress << std::endl << std::flush;
     std::cout << "bundleCountEgress: " << bundleCountEgress << " , bundleDataEgress: " << bundleDataEgress << std::endl << std::flush;
-
     if ( (bundleCountIngress == bundleCountEgress) && (bundleDataIngress == bundleDataEgress) ) {
         return true;
     }
-
     return false;
 }
-
-
 
 int runBpgen() {
     std::cout << "Start runBpgen ... " << std::endl << std::flush;
@@ -172,15 +140,6 @@ int runBpgen() {
     int port = 4556;
     size_t gen_sz = 1500;
     ssize_t res;
-//    char* logfile = (char*)malloc(2048);
-//    snprintf(logfile, 2048,"bpgen.%lu.csv", time(0));
-//    snprintf(logfile, 2048,"bpgen.test1.csv");
-//    FILE* log = NULL;
-//    log = fopen(logfile, "w+");
-//    if(NULL == log) {
-//        perror("fopen()");
-//        return -5;
-//    }
     printf("Generating bundles of size %d\n", (int)gen_sz);
     if(rate) {
         printf("Generating up to %d bundles / second.\n", (int)rate);
@@ -244,8 +203,6 @@ int runBpgen() {
                 double elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
                 elapsed -= start;
                 start = start + elapsed;
-//                fprintf(log, "%0.6f, %lu, %lu, %lu, %lu\n", elapsed, bundle_count, raw_data, bundle_data, tsc_total);
-//                fflush(log);
                 bundle_count = 0;
                 bundle_data = 0;
                 raw_data = 0;
@@ -285,9 +242,6 @@ int runBpgen() {
             bundle_data += gen_sz;     // payload data
             raw_data += bundle_length; // bundle overhead + payload data
         } // End for(idx = 0; idx < BP_MSG_NBUF; ++idx) {
-
-
-
         res = sendmmsg(fd, msgbuf, BP_MSG_NBUF, 0);
         if(res < 0) {
             perror("cannot send message");
@@ -334,49 +288,21 @@ int runIngress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
         gettimeofday(&tv, NULL);
         ingress.elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
         ingress.elapsed -= start;
-//        std::cout << "Before ingress.update" << std::endl << std::flush;
         //count = ingress.update();
         count = ingress.update(0.5); // Use timeout so call does not indefinitely block.  Units are seconds
-//        std::cout << "After ingress.update, count = " << count << std::endl << std::flush;
         if (count > 0) {
             ingress.process(count);
         }
         last_time = curr_time;
     }
     std::cout << "End runIngress ... " << std::endl << std::flush;
-//    std::cout << "In runIngress, bundle_count: " << ingress.bundle_count << " , ingress.bundle_data: " << ingress.bundle_data << std::endl << std::flush;
-
     *ptrBundleCount = ingress.bundle_count;
     *ptrBundleData = ingress.bundle_data;
-
-    // Write summary to file
-//    std::ofstream output;
-//    //std::string current_date = hdtn::datetime();
-//    output.open("ingress-test1.txt");
-//    output << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data (MB)\n";
-//    double rate = 8 * ((ingress.bundle_data / (double)(1024 * 1024)) / ingress.elapsed);
-//    output << ingress.elapsed << "," << ingress.bundle_count / 1000000.0f << "," << rate << "," << ingress.bundle_count / ingress.elapsed << ", " << ingress.bundle_data / (double)(1024 * 1024) << "\n";
-//    output.close();
-
     return 0;
 }
 
 int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
-
-
-//    char* logfile = (char*)malloc(2048);
-//    snprintf(logfile, 2048,"egress.%lu.csv", time(0));
-//    FILE* log = NULL;
-//    log = fopen(logfile, "w+");
-//    if(NULL == log) {
-//        perror("fopen()");
-//        return -5;
-//    }
-
-
     std::cout << "Start runEgress ... " << std::endl << std::flush;
-//    uint64_t bundle_count = 0;
-//    uint64_t bundle_data = 0;
     uint64_t message_count = 0;
     double elapsed = 0;
     hdtn::hegr_manager egress;
@@ -410,19 +336,16 @@ int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
         egress.up(i);
     }
     int bundle_size = 0;
-
     // JCF, set timeout
     // Use a form of receive that times out so we can terminate cleanly.
     int timeout = 250; // milliseconds
     zmq_sock->setsockopt(ZMQ_RCVTIMEO,&timeout,sizeof(int));
-
     while (RUN_EGRESS) {
         gettimeofday(&tv, NULL);
         elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
         elapsed -= start;
         zmq::message_t hdr;
         zmq::message_t message;
-
         // JCF
         // Use a form of receive that times out so we can terminate cleanly.  If no message was received after timeout go back to top of loop
         //std::cout << "In runEgress, before recv. " << std::endl << std::flush;
@@ -431,58 +354,86 @@ int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
         if (!retValue) {
             continue;
         }
-
         message_count++;
         char bundle[HMSG_MSG_MAX];
         if (hdr.size() < sizeof(hdtn::common_hdr)) {
             std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl << std::flush;
             return -1;
         }
-
-
-
-//        hdtn::common_hdr *common = (hdtn::common_hdr *)hdr.data();
-//        std::cout << "In runEgress, after recv. common->type = " << common->type << std::endl << std::flush;
-//        switch (common->type) {
-//            case HDTN_MSGTYPE_STORE:
-//                zmq_sock->recv(&message);
-//                bundle_size = message.size();
-//                memcpy(bundle, message.data(), bundle_size);
-//                egress.forward(1, bundle, bundle_size);
-//                bundle_data += bundle_size;
-//                bundle_count++;
-//                break;
-//        }
-
-
         zmq_sock->recv(&message);
         bundle_size = message.size();
         memcpy(bundle, message.data(), bundle_size);
-
-        //bundle_data += bundle_size;
-        //bundle_count++;
         (*ptrBundleData) += bundle_size;
         (*ptrBundleCount)++;
-
     }
-
-
-
-    // Write summary to file
-//    std::ofstream output;
-//    output.open("egress-test1.txt");
-//    output << "Elapsed, Bundle Count (M), Rate (Mbps),Bundles/sec,Message Count (M)\n";
-//    double rate = 8 * ((bundle_data / (double)(1024 * 1024)) / elapsed);
-//    output << elapsed << ", " << bundle_count / 1000000.0f << ", " << rate << ", " << bundle_count / elapsed << "," << message_count / 1000000.0f << "\n";
-//    output.close();
     // Clean up resources
     zmq_sock->close();
     delete zmq_sock;
     delete zmq_ctx;
-
     return 0;
 }
 
 
+pid_t spawnPythonServer(void) {
 
+
+    int outfd = open("1.txt", O_CREAT|O_WRONLY|O_TRUNC, 0644);
+    if (!outfd)
+    {
+        perror("open");
+        return EXIT_FAILURE;
+    }
+
+
+    // fork a child process, execute vlc, and return it's pid. Returns -1 if fork failed.
+    pid_t pid = fork();
+    if (pid == -1) {
+        perror("fork");
+        return -1;
+    }
+    // when you call fork(), it creates two copies of your program: a parent, and a child. You can tell them apart by the return
+    // value from fork().  If fork() returns 0, this is is the child process.  If fork() returns non-zero, we are the parent and the
+    // return value is the PID of the child process. */
+    if (pid == 0) {
+        // this is the child process.  now we can call one of the exec family of functions to execute VLC.  When you call exec,
+        // it replaces the currently running process (the child process) with whatever we pass to exec.  So our child process will now
+        // be running VLC.  exec() will never return except in an error case, since it is now running the VLC code and not our code.
+        std::string commandArg = GetEnv("HDTN_SOURCE_ROOT") + "/common/regsvr/main.py";
+        std::cout << "Running python3 " << commandArg << std::endl << std::flush;
+        execlp("python3", commandArg.c_str(), (char*)NULL);
+        std::cerr << "ERROR Running python3 " << commandArg << std::endl << std::flush;
+        perror("python3");
+        abort();
+
+    } else {
+        // parent, return the child's PID
+        return pid;
+    }
+}
+
+int killProcess(pid_t processId) {
+    // kill will send the specified signal to the specified process. Send a TERM signal to VLC, requesting that it terminate.
+    // If that doesn't work, we send a KILL signal.  If that doesn't work, we give up.
+    if (kill(processId, SIGTERM) < 0) {
+        perror("kill with SIGTERM");
+        if (kill(processId, SIGKILL) < 0) {
+            perror("kill with SIGKILL");
+        }
+    }
+    // This shows how we can get the exit status of our child process.  It will wait for the the VLC process to exit, then grab it's return value
+    int status = 0;
+    waitpid(processId, &status, 0);
+    return status;
+}
+
+
+std::string GetEnv( const std::string & var ) {
+     const char * val = std::getenv( var.c_str() );
+     if ( val == nullptr ) { // invalid to assign nullptr to std::string
+         return "";
+     }
+     else {
+         return val;
+     }
+}
 
