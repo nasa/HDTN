@@ -3,17 +3,17 @@
 #include "reg.hpp"
 
 int main(int argc, char* argv[]) {
-    hdtn::hdtn_regsvr regsvr;
-    regsvr.init("tcp://127.0.0.1:10140", "test", 10141, "PUSH");
-    regsvr.reg();
-    hdtn::hdtn_regsvr regsvr2;
-    regsvr2.init("tcp://127.0.0.1:10140", "test", 10142, "PUSH");
-    regsvr2.reg();
-    hdtn::hdtn_entries res = regsvr.query();
+    hdtn::HdtnRegsvr regsvr;
+    regsvr.Init("tcp://127.0.0.1:10140", "test", 10141, "PUSH");
+    regsvr.Reg();
+    hdtn::HdtnRegsvr regsvr2;
+    regsvr2.Init("tcp://127.0.0.1:10140", "test", 10142, "PUSH");
+    regsvr2.Reg();
+    hdtn::hdtn_entries res = regsvr.Query();
     for (auto entry : res) {
         std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
     }
-    regsvr.dereg();
-    regsvr2.dereg();
+    regsvr.Dereg();
+    regsvr2.Dereg();
     return 0;
 }

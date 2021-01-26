@@ -263,20 +263,20 @@ int runIngress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
     std::cout << "Start runIngress ... " << std::endl << std::flush;
     int INGRESS_PORT = 4556;
     hdtn::bp_ingress ingress;
-    ingress.init(BP_INGRESS_TYPE_UDP);
+    ingress.Init(BP_INGRESS_TYPE_UDP);
     uint64_t last_time = 0;
     uint64_t curr_time = 0;
     //finish registration stuff -ingress will find out what egress services have registered
-    hdtn::hdtn_regsvr regsvr;
-    regsvr.init("tcp://127.0.0.1:10140", "ingress", 10149, "PUSH");
-    regsvr.reg();
-    hdtn::hdtn_entries res = regsvr.query();
+    hdtn::HdtnRegsvr regsvr;
+    regsvr.Init("tcp://127.0.0.1:10140", "ingress", 10149, "PUSH");
+    regsvr.Reg();
+    hdtn::hdtn_entries res = regsvr.Query();
     for (auto entry : res) {
         std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
     }
     printf("Announcing presence of ingress engine ...\n");
     fflush(stdout);
-    ingress.netstart(INGRESS_PORT);
+    ingress.Netstart(INGRESS_PORT);
     int count = 0;
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -286,18 +286,18 @@ int runIngress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
     while (RUN_INGRESS) {
         curr_time = time(0);
         gettimeofday(&tv, NULL);
-        ingress.elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-        ingress.elapsed -= start;
+        ingress.elapsed_ = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
+        ingress.elapsed_ -= start;
         //count = ingress.update();
-        count = ingress.update(0.5); // Use timeout so call does not indefinitely block.  Units are seconds
+        count = ingress.Update(0.5); // Use timeout so call does not indefinitely block.  Units are seconds
         if (count > 0) {
-            ingress.process(count);
+            ingress.Process(count);
         }
         last_time = curr_time;
     }
     std::cout << "End runIngress ... " << std::endl << std::flush;
-    *ptrBundleCount = ingress.bundle_count;
-    *ptrBundleData = ingress.bundle_data;
+    *ptrBundleCount = ingress.bundle_count_;
+    *ptrBundleData = ingress.bundle_data_;
     return 0;
 }
 
@@ -305,17 +305,17 @@ int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
     std::cout << "Start runEgress ... " << std::endl << std::flush;
     uint64_t message_count = 0;
     double elapsed = 0;
-    hdtn::hegr_manager egress;
+    hdtn::HegrManager egress;
     struct timeval tv;
     gettimeofday(&tv, NULL);
     double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
     printf("Start Egress: +%f\n", start);
     fflush(stdout);
     //finish registration stuff - egress should register, ingress will query
-    hdtn::hdtn_regsvr regsvr;
-    regsvr.init("tcp://127.0.0.1:10140", "egress", 10149, "PULL");
-    regsvr.reg();
-    hdtn::hdtn_entries res = regsvr.query();
+    hdtn::HdtnRegsvr regsvr;
+    regsvr.Init("tcp://127.0.0.1:10140", "egress", 10149, "PULL");
+    regsvr.Reg();
+    hdtn::hdtn_entries res = regsvr.Query();
     for (auto entry : res) {
         std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl << std::flush;
     }
@@ -324,16 +324,16 @@ int runEgress(uint64_t * ptrBundleCount, uint64_t * ptrBundleData) {
     zmq_ctx = new zmq::context_t;
     zmq_sock = new zmq::socket_t(*zmq_ctx, zmq::socket_type::pull);
     zmq_sock->connect("tcp://127.0.0.1:10149");
-    egress.init();
+    egress.Init();
     int entry_status;
-    entry_status = egress.add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
+    entry_status = egress.Add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
     if (!entry_status) {
         return 0;  //error message prints in add function
     }
     printf("Announcing presence of egress ...\n");
     fflush(stdout);
     for (int i = 0; i < 8; ++i) {
-        egress.up(i);
+        egress.Up(i);
     }
     int bundle_size = 0;
     // JCF, set timeout

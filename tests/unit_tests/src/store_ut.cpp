@@ -75,8 +75,8 @@ public:
     static bool staticSetupWorked;
     
     hdtn::storage * ptrStorage;
-    hdtn::storage_worker * ptrStorageWorker;
-    hdtn::scheduler * ptrScheduler;
+    hdtn::StorageWorker * ptrStorageWorker;
+    hdtn::Scheduler * ptrScheduler;
 };
 
 bool StorageFixture::staticSetupWorked = false;
@@ -129,8 +129,8 @@ void StorageFixture::TearDownTestCase() {
 StorageFixture::StorageFixture() {
 //    std::cout << "Called StorageFixture::StorageFixture()" << std::endl;
     ptrStorage = new hdtn::storage();
-    ptrStorageWorker = new hdtn::storage_worker();
-    ptrScheduler = new hdtn::scheduler();
+    ptrStorageWorker = new hdtn::StorageWorker();
+    ptrScheduler = new hdtn::Scheduler();
 }
 
 StorageFixture::~StorageFixture() {
@@ -153,9 +153,9 @@ TEST_F(StorageFixture,DISABLED_Init_Update_Stats) {
 
     ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
 
-    hdtn::hdtn_regsvr regsvr;
-    regsvr.init("tcp://127.0.0.1:10140", "test", 10141, "PUSH");
-    regsvr.reg();
+    hdtn::HdtnRegsvr regsvr;
+    regsvr.Init("tcp://127.0.0.1:10140", "test", 10141, "PUSH");
+    regsvr.Reg();
 
     double last = 0.0;
     timeval tv;
@@ -177,7 +177,7 @@ TEST_F(StorageFixture,DISABLED_Init_Update_Stats) {
     uint64_t cbytes = stats->in_bytes;
     uint64_t ccount = stats->in_msg;
     printf("[store] Received: %d msg / %0.2f MB\n", ccount, cbytes / (1024.0 * 1024.0));
-    regsvr.dereg();
+    regsvr.Dereg();
 }
 
 

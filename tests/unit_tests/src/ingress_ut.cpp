@@ -11,12 +11,12 @@ public:
     void SetUp() override;          // This is called after constructor.
     void TearDown() override;       // This is called before destructor.
     
-    hdtn::bp_ingress_syscall * ptrBpIngressSyscall;
+    hdtn::BpIngressSyscall * ptrBpIngressSyscall;
 };
 
 BpIngressSyscallFixture::BpIngressSyscallFixture() {
 //    std::cout << "Called BpIngressSyscallFixture::BpIngressSyscallFixture()" << std::endl;
-	ptrBpIngressSyscall = new hdtn::bp_ingress_syscall();
+	ptrBpIngressSyscall = new hdtn::BpIngressSyscall();
 }
 
 BpIngressSyscallFixture::~BpIngressSyscallFixture() {

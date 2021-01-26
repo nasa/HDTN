@@ -9,9 +9,9 @@
 #include "paths.hpp"
 
 int main(int argc, char *argv[]) {
-    hdtn::hdtn_regsvr _reg;
-    _reg.init(HDTN_REG_SERVER_PATH, "ingress", 10110, "push");
-    _reg.reg();
+    hdtn::HdtnRegsvr _reg;
+    _reg.Init(HDTN_REG_SERVER_PATH, "ingress", 10110, "push");
+    _reg.Reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::push);
     socket.bind(HDTN_STORAGE_PATH);

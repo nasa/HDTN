@@ -1,27 +1,25 @@
 #include <math.h>
-
 #include <iostream>
-
 #include "blosc.h"
 #include "message.hpp"
 #include "store.hpp"
 
 static void *_launch_wrapper(void *arg) {
-    hdtn::storage_worker *worker = (hdtn::storage_worker *)arg;
-    return worker->execute(NULL);
+    hdtn::StorageWorker *worker = (hdtn::StorageWorker *)arg;
+    return worker->Execute(NULL);
 }
 
-hdtn::storage_worker::~storage_worker() {
+hdtn::StorageWorker::~StorageWorker() {
     free(_out_buf);
 }
 
-void hdtn::storage_worker::init(zmq::context_t *ctx, storage_config config) {
+void hdtn::StorageWorker::Init(zmq::context_t *ctx, storage_config config) {
     _ctx = ctx;
     _root = config.store_path;
-    _queue = config.worker;
+    ctx_ue = config.worker;
 }
 
-void *hdtn::storage_worker::execute(void *arg) {
+void *hdtn::StorageWorker::Execute(void *arg) {
     zmq::message_t rhdr;
     zmq::message_t rmsg;
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
@@ -29,7 +27,7 @@ void *hdtn::storage_worker::execute(void *arg) {
 
     zmq::socket_t _worker_sock(*_ctx, zmq::socket_type::pair);
     _worker_sock.connect(_queue.c_str());
-    std::cout << "[storage-worker] Initializing flow store ... " << std::endl;
+    std::cout << "[storage-workectx_nitializing flow store ... " << std::endl;
     common_hdr startup_notify = {
         HDTN_MSGTYPE_IOK,
         0};
@@ -53,13 +51,13 @@ void *hdtn::storage_worker::execute(void *arg) {
             if (rhdr.size() != sizeof(hdtn::block_hdr)) {
                 std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
             }
-            write(block, &rmsg);
+            Write(block, &rmsg);
         }
     }
     return NULL;
 }
 
-void hdtn::storage_worker::write(hdtn::block_hdr *hdr, zmq::message_t *message) {
+void hdtn::StorageWorker::Write(hdtn::block_hdr *hdr, zmq::message_t *message) {
     // std::cerr << "[storage-worker] Received chunk of size " << rmsg.size() << std::endl;
     uint64_t chunks = ceil(message->size() / (double)HDTN_BLOSC_MAXBLOCKSZ);
     for (int i = 0; i < chunks; ++i) {
@@ -70,7 +68,7 @@ void hdtn::storage_worker::write(hdtn::block_hdr *hdr, zmq::message_t *message) 
     }
 }
 
-void hdtn::storage_worker::launch() {
+void hdtn::StorageWorker::Launch() {
     std::cout << "[storage-worker] Launching worker thread ..." << std::endl;
     pthread_create(&_thread, NULL, _launch_wrapper, this);
 }

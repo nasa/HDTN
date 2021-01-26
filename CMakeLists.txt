@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
+project(HDTN VERSION 1.0)
+
 add_subdirectory(common/bpcodec)
 add_subdirectory(common/regsvr/lib)
 add_subdirectory(module/storage)

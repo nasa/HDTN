@@ -32,10 +32,10 @@ bool hdtn::storage::init(storage_config config) {
     int telem_port = atoi(telem_path.substr(telem_path.find(":") + 1).c_str());
 
     std::cout << "[storage] Executing registration ..." << std::endl;
-    _store_reg.init(config.regsvr, "storage", port, "push");
-    _telem_reg.init(config.regsvr, "c2/telem", telem_port, "rep");
-    _store_reg.reg();
-    _telem_reg.reg();
+    _store_reg.Init(config.regsvr, "storage", port, "push");
+    _telem_reg.Init(config.regsvr, "c2/telem", telem_port, "rep");
+    _store_reg.Reg();
+    _telem_reg.Reg();
     std::cout << "[storage] Registration completed." << std::endl;
 
     _ctx = new zmq::context_t;
@@ -46,11 +46,11 @@ bool hdtn::storage::init(storage_config config) {
     _egress_sock = new zmq::socket_t(*_ctx, zmq::socket_type::push);
     _egress_sock->bind(config.local);
 
-    hdtn_entries entries = _store_reg.query("ingress");
+    hdtn_entries entries = _store_reg.Query("ingress");
     while (entries.size() == 0) {
         sleep(1);
         std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
-        entries = _store_reg.query("ingress");
+        entries = _store_reg.Query("ingress");
     }
 
     std::string remote = entries.front().protocol + "://" + entries.front().address + ":" + std::to_string(entries.front().port);
@@ -89,8 +89,8 @@ bool hdtn::storage::init(storage_config config) {
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
     _worker_sock = new zmq::socket_t(*_ctx, zmq::socket_type::pair);
     _worker_sock->bind(config.worker);
-    _worker.init(_ctx, config);
-    _worker.launch();
+    _worker.Init(_ctx, config);
+    _worker.Launch();
     zmq::message_t tmsg;
     _worker_sock->recv(&tmsg);
     common_hdr *notify = (common_hdr *)tmsg.data();

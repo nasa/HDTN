@@ -1,137 +1,115 @@
 #include <arpa/inet.h>
 #include <string.h>
-
 #include "egress.h"
 
 using namespace hdtn;
 
-hegr_entry *hegr_manager::_entry(int offset) {
-    return (hegr_entry *)(((uint8_t *)_entries) + (offset * HEGR_ENTRY_SZ));
+HegrEntry *HegrManager::entry_(int offset) {
+  return (HegrEntry *)(((uint8_t *)entries_) + (offset * HEGR_ENTRY_SZ));
 }
 
-hegr_manager::~hegr_manager() {
-    int shutdown_status;
-    for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
-
-// JCF, debuging
-//        hegr_entry * pEntry = _entry(i);
-//        std::cout << "In hegr_manager::~hegr_manager, i = " << i << " , *entry = " << pEntry << std::endl << std::flush;
-
-        _entry(i)->shutdown();
-
-// JCF, the following line seg faults.  It looks like the destructor is not implemented.  Could be related to linked list also.
-// JCF, commented out so code development could continue.
-
-//        delete (_entry(i));
-    }
-    free(_entries);
-}
-void hegr_manager::init() {
-    _entries = malloc(HEGR_ENTRY_SZ * HEGR_ENTRY_COUNT);
-    for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
-        hegr_entry *tmp = new (_entry(i)) hegr_entry;
-        tmp->label(i);
-    }
-    //socket for cut-through mode straight to egress
-    zmqCutThroughCtx = new zmq::context_t;
-    zmqCutThroughSock = new zmq::socket_t(*zmqCutThroughCtx, zmq::socket_type::pull);
-    zmqCutThroughSock->connect(cutThroughAddress);
-    //socket for sending bundles to storage
-    zmqReleaseCtx = new zmq::context_t;
-    zmqReleaseSock = new zmq::socket_t(*zmqReleaseCtx, zmq::socket_type::pull);
-    zmqReleaseSock->bind(ReleaseAddress);
+HegrManager::~HegrManager() {
+  for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
+    // JCF, debuging
+    //        HegrEntry * pEntry = entry_(i);
+    //        std::cout << "In HegrManager::~HegrManager, i = " << i << " ,
+    //        *entry = " << pEntry << std::endl << std::flush;
+    entry_(i)->Shutdown();
+    // JCF, the following line seg faults.  It looks like the destructor is not
+    // implemented.  Could be related to linked list also. JCF, commented out so
+    // code development could continue. delete (entry_(i));
+  }
+  free(entries_);
 }
 
-int hegr_manager::add(int fec, uint64_t flags, const char *dst, int port) {
-    struct sockaddr_in saddr;
-    saddr.sin_port = htons((uint16_t)port);
-    saddr.sin_family = AF_INET;
-    int conversion_status;
-    conversion_status = inet_pton(AF_INET, dst, &(saddr.sin_addr));
-    if (conversion_status != 1) {
-        printf("Failure to convert IP address from text to binary");
-        return 0;
-    }
-    if (flags & HEGR_FLAG_STCPv1) {
-        hegr_stcp_entry *tcp = new (_entry(fec)) hegr_stcp_entry;
-        tcp->init(&saddr, flags);
-        tcp->disable();
-        return 1;
-    } else if (flags & HEGR_FLAG_UDP) {
-        hegr_udp_entry *udp = new (_entry(fec)) hegr_udp_entry;
-        udp->init(&saddr, flags);
-        udp->disable();
-        return 1;
-    } else {
-        return -HDTN_MSGTYPE_ENOTIMPL;
-    }
+void HegrManager::Init() {
+  entries_ = malloc(HEGR_ENTRY_SZ * HEGR_ENTRY_COUNT);
+  for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
+    HegrEntry *tmp = new (entry_(i)) HegrEntry;
+    tmp->Label(i);
+  }
+  // socket for cut-through mode straight to egress
+  zmq_cut_through_address_ = new zmq::context_t;
+  zmq_cut_through_sock_ =
+      new zmq::socket_t(*zmq_cut_through_address_, zmq::socket_type::pull);
+  zmq_cut_through_sock_->connect(cut_through_address_);
+  // socket for sending bundles to storage
+  zmq_release_ctx_ = new zmq::context_t;
+  zmq_release_sock_ =
+      new zmq::socket_t(*zmq_release_ctx_, zmq::socket_type::pull);
+  zmq_release_sock_->bind(release_address_);
+}
 
+int HegrManager::Add(int fec, uint64_t flags, const char *dst, int port) {
+  struct sockaddr_in saddr;
+  saddr.sin_port = htons((uint16_t)port);
+  saddr.sin_family = AF_INET;
+  int conversion_status;
+  conversion_status = inet_pton(AF_INET, dst, &(saddr.sin_addr));
+  if (conversion_status != 1) {
+    printf("Failure to convert IP address from text to binary");
     return 0;
+  }
+  if (flags & HEGR_FLAG_STCPv1) {
+    HegrStcpEntry *tcp = new (entry_(fec)) HegrStcpEntry;
+    tcp->Init(&saddr, flags);
+    tcp->Disable();
+    return 1;
+  } else if (flags & HEGR_FLAG_UDP) {
+    HegrStcpEntry *udp = new (entry_(fec)) HegrStcpEntry;
+    udp->Init(&saddr, flags);
+    udp->Disable();
+    return 1;
+  } else {
+    return -HDTN_MSGTYPE_ENOTIMPL;
+  }
+  return 0;
 }
 
-void hegr_manager::down(int fec) {
-    _entry(fec)->disable();
-}
+void HegrManager::Down(int fec) { entry_(fec)->Disable(); }
 
-void hegr_manager::up(int fec) {
-    _entry(fec)->enable();
-}
+void HegrManager::Up(int fec) { entry_(fec)->Enable(); }
 
-/** Leaving function for now. Need to know if these sockets will be removed throughout running the code.
-int hegr_manager::remove(int fec) {
-    int shutdown_status;
-    shutdown_status = _entry(fec)->shutdown();
-    delete _entry(fec);
+/** Leaving function for now. Need to know if these sockets will be removed
+throughout running the code. int HegrManager::remove(int fec) { int
+shutdown_status; shutdown_status = entry_(fec)->shutdown(); delete entry_(fec);
     return 0;
 }
 **/
-int hegr_manager::forward(int fec, char *msg, int sz) {
-    return _entry(fec)->forward((char **)(&msg), &sz, 1);
+int HegrManager::Forward(int fec, char *msg, int sz) {
+  return entry_(fec)->Forward((char **)(&msg), &sz, 1);
 }
 
-hegr_entry::hegr_entry() {
-    _flags = 0;
-    //_next = NULL;
+HegrEntry::HegrEntry() {
+  flags_ = 0;
+  //_next = NULL;
 }
 
 // JCF -- Missing destructor, added below
-hegr_entry::~hegr_entry() {
+HegrEntry::~HegrEntry() {}
+
+void HegrEntry::Init(sockaddr_in *inaddr, uint64_t flags) {}
+
+bool HegrEntry::Available() {
+  return (flags_ & HEGR_FLAG_ACTIVE) && (flags_ & HEGR_FLAG_UP);
 }
 
-void hegr_entry::init(sockaddr_in *inaddr, uint64_t flags) {
+int HegrEntry::Disable() { return -1; }
+
+void HegrEntry::Rate(uint64_t rate) {
+  //_rate = rate;
 }
 
-bool hegr_entry::available() {
-    return (_flags & HEGR_FLAG_ACTIVE) && (_flags & HEGR_FLAG_UP);
+void HegrEntry::Label(uint64_t label) { label_ = label; }
+
+void HegrEntry::Name(char *n) {
+  // strncpy(_name, n, HEGR_NAME_SZ);
 }
 
-int hegr_entry::disable() {
-    return -1;
-}
+int HegrEntry::Enable() { return -1; }
 
-void hegr_entry::rate(uint64_t rate) {
-    //_rate = rate;
-}
+void HegrEntry::Update(uint64_t delta) { return; }
 
-void hegr_entry::label(uint64_t label) {
-    _label = label;
-}
+int HegrEntry::Forward(char **msg, int *sz, int count) { return 0; }
 
-void hegr_entry::name(char *n) {
-    //strncpy(_name, n, HEGR_NAME_SZ);
-}
-
-int hegr_entry::enable() {
-    return -1;
-}
-
-void hegr_entry::update(uint64_t delta) {
-    return;
-}
-
-int hegr_entry::forward(char **msg, int *sz, int count) {
-    return 0;
-}
-
-void hegr_entry::shutdown() {
-}
+void HegrEntry::Shutdown() {}

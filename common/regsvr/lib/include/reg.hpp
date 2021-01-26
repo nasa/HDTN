@@ -8,28 +8,29 @@
 namespace hdtn {
 
 struct hdtn_entry {
-    std::string protocol;
-    std::string address;
-    std::string type;
-    uint16_t port;
-    std::string mode;
+  std::string protocol;
+  std::string address;
+  std::string type;
+  uint16_t port;
+  std::string mode;
 };
 
 typedef std::list<hdtn_entry> hdtn_entries;
 
-class hdtn_regsvr {
-   public:
-    void init(std::string target, std::string svc, uint16_t port, std::string mode);
-    bool reg();
-    bool dereg();
-    hdtn::hdtn_entries query(std::string target = "");
+class HdtnRegsvr {
+ public:
+  void Init(std::string target, std::string svc, uint16_t port,
+            std::string mode);
+  bool Reg();
+  bool Dereg();
+  hdtn::hdtn_entries Query(std::string target = "");
 
-   private:
-    zmq::context_t *_zmq_ctx;
-    zmq::socket_t *_zmq_sock;
-    std::string _type;
-    std::string _mode;
-    uint16_t _port;
+ private:
+  zmq::context_t *zmq_ctx_;
+  zmq::socket_t *zmq_sock_;
+  std::string type_;
+  std::string mode_;
+  uint16_t port_;
 };
 
 };  // namespace hdtn
