@@ -4,7 +4,8 @@
 #include <stdint.h>
 
 namespace hdtn {
-struct flow_stats {
+
+struct FlowStats {
     uint64_t disk_used;
     uint64_t disk_wcount;
     uint64_t disk_wbytes;
@@ -12,14 +13,14 @@ struct flow_stats {
     uint64_t disk_rbytes;
 } __attribute__((packed));
 
-struct worker_stats {
+struct WorkerStats {
     uint64_t imsg_sent;
     uint64_t imsg_received;
-    flow_stats flow;
+    FlowStats flow;
 } __attribute__((packed));
 
-struct storage_flow_stats {
-    storage_flow_stats()
+struct StorageFlowStats {
+    StorageFlowStats()
         : src(0), dst(0), rate(0), duration(0), start(0) {}
     /**
          * Source flow label
@@ -43,8 +44,8 @@ struct storage_flow_stats {
     uint64_t start;
 } __attribute__((packed));
 
-struct storage_stats {
-    storage_stats()
+struct StorageStats {
+    StorageStats()
         : in_msg(0), in_bytes(0), out_msg(0), out_bytes(0), bytes_used(0), bytes_available(0), rate(0) {}
     /**
          * Time at which stats were sent.  Only used during transmit - ignored otherwise
@@ -89,7 +90,7 @@ struct storage_stats {
     /**
          * Contains information about worker thread and disk utilization
          */
-    worker_stats worker;
+    WorkerStats worker;
 } __attribute__((packed));
 }  // namespace hdtn
 

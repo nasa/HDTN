@@ -18,7 +18,7 @@ static uint64_t start;
 
 static void signal_handler(int signal_value) {
   ofstream output;
-  output.open("egress-" + datetime());
+  output.open("egress-" + Datetime());
   output << "Elapsed, Bundle Count (M), Rate (Mbps),Bundles/sec,Message Count "
             "(M)\n";
   double rate = 8 * ((bundle_data / (double)(1024 * 1024)) / elapsed);
@@ -82,12 +82,12 @@ int main(int argc, char *argv[]) {
     egress.zmq_cut_through_sock_->recv(&hdr);
     message_count++;
     char bundle[HMSG_MSG_MAX];
-    if (hdr.size() < sizeof(hdtn::common_hdr)) {
+    if (hdr.size() < sizeof(hdtn::CommonHdr)) {
       std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
       return -1;
     }
-    hdtn::common_hdr *common = (hdtn::common_hdr *)hdr.data();
-    hdtn::block_hdr *block = (hdtn::block_hdr *)common;
+    hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
+    hdtn::BlockHdr *block = (hdtn::BlockHdr *)common;
     switch (common->type) {
       case HDTN_MSGTYPE_STORE:
         egress.zmq_cut_through_sock_->recv(&message);

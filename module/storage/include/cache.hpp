@@ -3,40 +3,40 @@
 
 #include <map>
 #include <string>
-
 #include "message.hpp"
 #include "stats.hpp"
 
 #define HDTN_RECLAIM_THRESHOLD (1 << 28)
 
 namespace hdtn {
-struct flow_store_header {
-    uint64_t begin;
-    uint64_t end;
+struct FlowStoreHeader {
+  uint64_t begin;
+  uint64_t end;
 };
 
-struct flow_store_entry {
-    int fd;
-    flow_store_header *header;  // mapped from the first N bytes of the corresponding file
+struct FlowStoreEntry {
+  int fd;
+  FlowStoreHeader
+      *header;  // mapped from the first N bytes of the corresponding file
 };
 
-typedef std::map<int, flow_store_entry> flow_map;
+typedef std::map<int, FlowStoreEntry> FlowMap;
 
-class flow_store {
-   public:
-    ~flow_store();
-    bool init(std::string root);
-    flow_store_entry load(int flow);
-    int write(int flow, void *data, int sz);
-    int read(int flow, void *data, int maxsz);
-    flow_stats stats() { return _stats; }
+class FlowStore {
+ public:
+  ~FlowStore();
+  bool Init(std::string root);
+  FlowStoreEntry Load(int flow);
+  int Write(int flow, void *data, int sz);
+  int Read(int flow, void *data, int maxsz);
+  FlowStats Stats() { return stats_; }
 
-   private:
-    flow_map _flow;
-    std::string _root;
-    flow_store_header *_index;
-    int _index_fd;
-    flow_stats _stats;
+ private:
+  FlowMap flow_;
+  std::string root_;
+  FlowStoreHeader *index_;
+  int index_fd_;
+  FlowStats stats_;
 };
 }  // namespace hdtn
 

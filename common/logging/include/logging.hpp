@@ -4,7 +4,7 @@
 #include <string>
 namespace hdtn {
 
-std::string datetime();
+std::string Datetime();
 
 }
 

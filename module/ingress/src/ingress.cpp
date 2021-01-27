@@ -17,12 +17,12 @@
 using namespace hdtn;
 using namespace std;
 using namespace zmq;
-static bp_ingress ingress;
+static BpIngress ingress;
 
 static void s_signal_handler(int signal_value) {
   // s_interrupted = 1;
   ofstream output;
-  std::string current_date = datetime();
+  std::string current_date = Datetime();
   output.open("ingress-" + current_date);
   output << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
             "(MB)\n";

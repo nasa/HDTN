@@ -98,12 +98,12 @@ int BpIngressSyscall::Process(int count) {
   uint32_t zframe_seq = 0;
   bpv6_primary_block bpv6_primary;
   bpv6_eid dst;
-  char hdr_buf[sizeof(block_hdr)];
+  char hdr_buf[sizeof(BlockHdr)];
   memset(&bpv6_primary, 0, sizeof(bpv6_primary_block));
   for (i = 0; i < count; ++i) {
     char tbuf[HMSG_MSG_MAX];
-    hdtn::block_hdr hdr;
-    memset(&hdr, 0, sizeof(hdtn::block_hdr));
+    hdtn::BlockHdr hdr;
+    memset(&hdr, 0, sizeof(hdtn::BlockHdr));
     timer = rdtsc();
     recvlen = msgbuf_.hdr[i].msg_len;
     msgbuf_.hdr[i].msg_len = 0;
@@ -134,8 +134,8 @@ int BpIngressSyscall::Process(int count) {
       ing_sequence_num_++;
       hdr.zframe = zframe_seq;
       zframe_seq++;
-      memcpy(hdr_buf, &hdr, sizeof(block_hdr));
-      zmq_cut_through_sock_->send(hdr_buf, sizeof(block_hdr), ZMQ_MORE);
+      memcpy(hdr_buf, &hdr, sizeof(BlockHdr));
+      zmq_cut_through_sock_->send(hdr_buf, sizeof(BlockHdr), ZMQ_MORE);
       char data[bytes_to_send];
       memcpy(data, tbuf + (CHUNK_SIZE * j), bytes_to_send);
       zmq_cut_through_sock_->send(data, bytes_to_send, 0);

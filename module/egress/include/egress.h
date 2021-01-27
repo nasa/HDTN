@@ -258,7 +258,7 @@ class HegrManager {
   zmq::socket_t *zmq_release_sock_;
 
  private:
-  HegrEntry *entry_(int offset);
+  HegrEntry *Entry(int offset);
   void *entries_;
 };
 

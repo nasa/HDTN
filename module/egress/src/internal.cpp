@@ -4,7 +4,7 @@
 
 using namespace hdtn;
 
-HegrEntry *HegrManager::entry_(int offset) {
+HegrEntry *HegrManager::Entry(int offset) {
   return (HegrEntry *)(((uint8_t *)entries_) + (offset * HEGR_ENTRY_SZ));
 }
 
@@ -14,7 +14,7 @@ HegrManager::~HegrManager() {
     //        HegrEntry * pEntry = entry_(i);
     //        std::cout << "In HegrManager::~HegrManager, i = " << i << " ,
     //        *entry = " << pEntry << std::endl << std::flush;
-    entry_(i)->Shutdown();
+    Entry(i)->Shutdown();
     // JCF, the following line seg faults.  It looks like the destructor is not
     // implemented.  Could be related to linked list also. JCF, commented out so
     // code development could continue. delete (entry_(i));
@@ -25,7 +25,7 @@ HegrManager::~HegrManager() {
 void HegrManager::Init() {
   entries_ = malloc(HEGR_ENTRY_SZ * HEGR_ENTRY_COUNT);
   for (int i = 0; i < HEGR_ENTRY_COUNT; ++i) {
-    HegrEntry *tmp = new (entry_(i)) HegrEntry;
+    HegrEntry *tmp = new (Entry(i)) HegrEntry;
     tmp->Label(i);
   }
   // socket for cut-through mode straight to egress
@@ -51,12 +51,12 @@ int HegrManager::Add(int fec, uint64_t flags, const char *dst, int port) {
     return 0;
   }
   if (flags & HEGR_FLAG_STCPv1) {
-    HegrStcpEntry *tcp = new (entry_(fec)) HegrStcpEntry;
+    HegrStcpEntry *tcp = new (Entry(fec)) HegrStcpEntry;
     tcp->Init(&saddr, flags);
     tcp->Disable();
     return 1;
   } else if (flags & HEGR_FLAG_UDP) {
-    HegrStcpEntry *udp = new (entry_(fec)) HegrStcpEntry;
+    HegrStcpEntry *udp = new (Entry(fec)) HegrStcpEntry;
     udp->Init(&saddr, flags);
     udp->Disable();
     return 1;
@@ -66,9 +66,9 @@ int HegrManager::Add(int fec, uint64_t flags, const char *dst, int port) {
   return 0;
 }
 
-void HegrManager::Down(int fec) { entry_(fec)->Disable(); }
+void HegrManager::Down(int fec) { Entry(fec)->Disable(); }
 
-void HegrManager::Up(int fec) { entry_(fec)->Enable(); }
+void HegrManager::Up(int fec) { Entry(fec)->Enable(); }
 
 /** Leaving function for now. Need to know if these sockets will be removed
 throughout running the code. int HegrManager::remove(int fec) { int
@@ -77,7 +77,7 @@ shutdown_status; shutdown_status = entry_(fec)->shutdown(); delete entry_(fec);
 }
 **/
 int HegrManager::Forward(int fec, char *msg, int sz) {
-  return entry_(fec)->Forward((char **)(&msg), &sz, 1);
+  return Entry(fec)->Forward((char **)(&msg), &sz, 1);
 }
 
 HegrEntry::HegrEntry() {

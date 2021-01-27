@@ -18,17 +18,17 @@
 #define BP_INGRESS_TYPE_STCP (0x02)
 
 namespace hdtn {
-std::string datetime();
+std::string Datetime();
 
-typedef struct bp_mmsgbuf {
+typedef struct BpMmsgbuf {
   uint32_t nbuf;
   uint32_t bufsz;
   struct mmsghdr *hdr;
   struct iovec *io;
   char *srcbuf;
-} bp_mmsgbuf;
+} BpMmsgbuf;
 
-typedef struct ingress_telemetry {
+typedef struct IngressTelemetry {
   uint64_t total_bundles;
   uint64_t total_bytes;
   uint64_t total_zmsgs_in;
@@ -38,7 +38,7 @@ typedef struct ingress_telemetry {
   uint64_t zmsgs_sec_in;
   uint64_t zmsgs_sec_out;
   double elapsed;
-} ingress_telemetry;
+} IngressTelemetry;
 
 class BpIngressSyscall {
  public:
@@ -63,7 +63,7 @@ class BpIngressSyscall {
   const char *storage_address_ = HDTN_STORAGE_PATH;
 
  private:
-  bp_mmsgbuf msgbuf_;
+  BpMmsgbuf msgbuf_;
   zmq::context_t *zmq_cut_through_ctx_;
   zmq::socket_t *zmq_cut_through_sock_;
   zmq::context_t *zmq_storage_ctx_;
@@ -77,7 +77,7 @@ class BpIngressSyscall {
 
 // use an explicit typedef to avoid runtime vcall overhead
 #ifdef BP_INGRESS_USE_SYSCALL
-typedef BpIngressSyscall bp_ingress;
+typedef BpIngressSyscall BpIngress;
 #endif
 
 }  // namespace hdtn

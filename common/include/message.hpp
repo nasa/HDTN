@@ -2,7 +2,6 @@
 #define _HDTN_MSG_H
 
 #include <stdint.h>
-
 #include "stats.hpp"
 
 #define HMSG_MSG_MAX (65536)
@@ -39,13 +38,13 @@
 
 namespace hdtn {
 
-struct common_hdr {
+struct CommonHdr {
     uint16_t type;
     uint16_t flags;
 } __attribute__((packed));
 
-struct block_hdr {
-    common_hdr base;
+struct BlockHdr {
+    CommonHdr base;
     uint32_t flow_id;
     uint64_t ts;
     uint32_t ttl;
@@ -53,32 +52,32 @@ struct block_hdr {
     uint64_t bundle_seq;
 } __attribute__((packed));
 
-struct store_hdr {
-    block_hdr base;
+struct StoreHdr {
+    BlockHdr base;
 } __attribute__((packed));
 
-struct telem_storage_hdr {
-    common_hdr base;
-    storage_stats stats;
+struct TelemStorageHdr {
+    CommonHdr base;
+    StorageStats stats;
 } __attribute__((packed));
 
-struct cschedule_hdr {
-    common_hdr base;
+struct CscheduleHdr {
+    CommonHdr base;
     uint32_t flow_id;   // flow ID
     uint64_t rate;      // bytes / sec
     uint64_t offset;    // msec
     uint64_t duration;  // msec
 } __attribute__((packed));
 
-struct irelease_start_hdr {
-    common_hdr base;
+struct IreleaseStartHdr {
+    CommonHdr base;
     uint32_t flow_id;   // flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
 } __attribute__((packed));
 
-struct irelease_stop_hdr {
-    common_hdr base;
+struct IreleaseStopHdr {
+    CommonHdr base;
     uint32_t flow_id;
 } __attribute__((packed));
 };  // namespace hdtn
