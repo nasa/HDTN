@@ -27,8 +27,11 @@
 #define NUM_SEGMENTS_PER_TEST 100000
 #else //Lambda Linux tests
 //#define FILE_SIZE (10240000000ULL * 64) //640 GByte files
-#define FILE_SIZE (10240000000ULL * 300) //3 TByte files
-#define NUM_SEGMENTS_PER_TEST 10000000
+////#define FILE_SIZE (10240000000ULL * 300) //3 TByte files
+////#define NUM_SEGMENTS_PER_TEST 10000000
+#define FILE_SIZE (1024000000ULL * 1) //1 GByte total of files, or file_size / num_threads size per file
+//#define FILE_SIZE (1024000000ULL * 8) //8 GByte total of files, or file_size / num_threads size per file
+#define NUM_SEGMENTS_PER_TEST 100000
 #endif
 
 #define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
