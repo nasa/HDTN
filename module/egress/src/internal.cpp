@@ -56,7 +56,8 @@ int HegrManager::Add(int fec, uint64_t flags, const char *dst, int port) {
     tcp->Disable();
     return 1;
   } else if (flags & HEGR_FLAG_UDP) {
-    HegrStcpEntry *udp = new (Entry(fec)) HegrStcpEntry;
+//    HegrStcpEntry *udp = new (Entry(fec)) HegrStcpEntry;
+    HegrUdpEntry *udp = new (Entry(fec)) HegrUdpEntry;
     udp->Init(&saddr, flags);
     udp->Disable();
     return 1;
