@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     double curr = 0;
     uint64_t total_bytes = 0;
     uint64_t total_msg = 0;
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 100000; i++) {
         char ihdr[sizeof(hdtn::block_hdr)];
         hdtn::block_hdr *block = (hdtn::block_hdr *)ihdr;
         memset(ihdr, 0, sizeof(hdtn::block_hdr));

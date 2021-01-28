@@ -6,6 +6,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
 
 #include "cache.hpp"
 #include "paths.hpp"
@@ -54,7 +56,30 @@ struct storageConfig {
     std::string worker;
     std::string releaseWorker;
 };
+#ifdef USE_BRIAN_STORAGE
+class ZmqStorageInterface {
+   public:
+    ZmqStorageInterface();
+    ~ZmqStorageInterface();
+    void init(zmq::context_t *ctx, const storageConfig & config);
+    void launch();
+    //pthread_t *thread() { return &storageThread; }
 
+    hdtn::worker_stats stats() { return m_workerStats; }
+private:
+    void ThreadFunc();
+    //void Write(hdtn::block_hdr *hdr, zmq::message_t *message);
+    //void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock);
+
+   private:
+    zmq::context_t *m_zmqContextPtr;
+    boost::shared_ptr<boost::thread> m_threadPtr;
+    std::string m_root;
+    std::string m_queue;
+    volatile bool m_running;
+    hdtn::worker_stats m_workerStats;
+};
+#else
 class storage_worker {
    public:
     ~storage_worker();
@@ -75,6 +100,8 @@ class storage_worker {
     hdtn::flow_store storeFlow;
     hdtn::worker_stats workerStats;
 };
+#endif
+
 
 class storage {
    public:
@@ -95,7 +122,11 @@ class storage {
     uint16_t port;
     zmq::socket_t *workerSock;
     zmq::socket_t *telemetrySock;
+#ifdef USE_BRIAN_STORAGE
+    ZmqStorageInterface worker;
+#else
     storage_worker worker;
+#endif
 
     storage_stats storageStats;
 };

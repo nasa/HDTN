@@ -1,18 +1,37 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-storage)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.40.0 REQUIRED system)
+find_package(Boost 1.40.0 REQUIRED system filesystem timer thread)
 
-add_executable(hdtn-storage
-    src/main.cpp
-    src/store.cpp
-    src/store-worker.cpp
-    src/cache/cache-basic.cpp
-)
-target_link_libraries(hdtn-storage pthread zmq hdtn_reg blosc bpcodec)
-target_link_directories(hdtn-storage PUBLIC lib)
-target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
+OPTION(USE_BRIAN_STORAGE "use brian's storage solution" ON)
+if(USE_BRIAN_STORAGE)
+    add_compile_definitions(USE_BRIAN_STORAGE)
+    add_executable(hdtn-storage
+        src/main.cpp
+        src/store.cpp
+        #src/store-worker.cpp
+        #src/cache/cache-basic.cpp
+        storage-brian/src/MemoryManagerTreeArray.cpp
+        storage-brian/src/BundleStorageManagerMT.cpp
+        storage-brian/src/CircularIndexBufferSingleProducerSingleConsumer.cpp
+        storage-brian/src/SignalHandler.cpp
+        storage-brian/src/ZmqStorageInterface.cpp
+    )
+    target_link_libraries(hdtn-storage pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread)
+    target_link_directories(hdtn-storage PUBLIC lib)
+    target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include storage-brian/include)
 
+else()
+    add_executable(hdtn-storage
+        src/main.cpp
+        src/store.cpp
+        src/store-worker.cpp
+        src/cache/cache-basic.cpp
+    )
+    target_link_libraries(hdtn-storage pthread zmq hdtn_reg blosc bpcodec)
+    target_link_directories(hdtn-storage PUBLIC lib)
+    target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
+endif()
 
 add_executable(hdtn-test-ingress
     src/test/ingress.cpp
