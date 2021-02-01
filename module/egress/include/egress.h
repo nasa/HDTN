@@ -4,8 +4,10 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
 #include <iostream>
 #include <string>
+
 #include "message.hpp"
 #include "paths.hpp"
 #include "zmq.hpp"
@@ -23,243 +25,243 @@
 namespace hdtn {
 
 class HegrEntry {
- public:
-  // JCF, seems to be missing virtual destructor, added below
-  virtual ~HegrEntry();
+public:
+    // JCF, seems to be missing virtual destructor, added below
+    virtual ~HegrEntry();
 
-  HegrEntry();
+    HegrEntry();
 
-  /**
-  Initializes the egress port
-  */
-  virtual void Init(sockaddr_in *inaddr, uint64_t flags);
+    /**
+    Initializes the egress port
+    */
+    virtual void Init(sockaddr_in *inaddr, uint64_t flags);
 
-  /**
-  Sets the active label for this instance
-  */
-  virtual void Label(uint64_t label);
+    /**
+    Sets the active label for this instance
+    */
+    virtual void Label(uint64_t label);
 
-  /**
-  Sets the active name for this instance. char* n can be of length HEGR_NAME_SZ
-  - 1.
-  */
-  virtual void Name(char *n);
+    /**
+    Sets the active name for this instance. char* n can be of length HEGR_NAME_SZ
+    - 1.
+    */
+    virtual void Name(char *n);
 
-  /**
-  Sets a target data rate for an egress port - most often used in conjunction
-  with HARD_IFG
+    /**
+    Sets a target data rate for an egress port - most often used in conjunction
+    with HARD_IFG
 
-  This is really only useful when one wants the egress to perform its own rate
-  control - elements internal to the cluster perform their own rate limiting
-  through an object specific to that.
-  */
-  virtual void Rate(uint64_t rate);
+    This is really only useful when one wants the egress to perform its own rate
+    control - elements internal to the cluster perform their own rate limiting
+    through an object specific to that.
+    */
+    virtual void Rate(uint64_t rate);
 
-  /**
-  Pure virtual method - handles forwarding a batch of messages to a specific
-  receiver
+    /**
+    Pure virtual method - handles forwarding a batch of messages to a specific
+    receiver
 
-  @param msg list of buffers to send
-  @param sz list of the size of each buffer
-  @param count number of buffers to send
-  @return number of messages forwarded
-  */
-  virtual int Forward(char **msg, int *sz, int count);
+    @param msg list of buffers to send
+    @param sz list of the size of each buffer
+    @param count number of buffers to send
+    @return number of messages forwarded
+    */
+    virtual int Forward(char **msg, int *sz, int count);
 
-  /**
-  Runs housekeeping tasks for a specified egress port
-  */
-  virtual void Update(uint64_t delta);
+    /**
+    Runs housekeeping tasks for a specified egress port
+    */
+    virtual void Update(uint64_t delta);
 
-  /**
-  Administratively enables this link
+    /**
+    Administratively enables this link
 
-  @return zero on success, or nonzero on failure
-  */
-  virtual int Enable();
+    @return zero on success, or nonzero on failure
+    */
+    virtual int Enable();
 
-  /**
-  Administratively disables this link
+    /**
+    Administratively disables this link
 
-  @return zero on success, or nonzero on failure
-  */
-  virtual int Disable();
+    @return zero on success, or nonzero on failure
+    */
+    virtual int Disable();
 
-  /**
-  Checks to see if the port is currently available for use
+    /**
+    Checks to see if the port is currently available for use
 
-  @return true if the port is available (ACTIVE & UP), and false otherwise
-  */
-  virtual bool Available();
+    @return true if the port is available (ACTIVE & UP), and false otherwise
+    */
+    virtual bool Available();
 
-  void Shutdown();
+    void Shutdown();
 
- protected:
-  uint64_t label_;
-  uint64_t flags_;
-  sockaddr_in ipv4_;
+protected:
+    uint64_t m_label;
+    uint64_t m_flags;
+    sockaddr_in m_ipv4;
 };
 
 class HegrStcpEntry : public HegrEntry {
- public:
-  HegrStcpEntry();
+public:
+    HegrStcpEntry();
 
-  /**
-  Initializes a new TCP forwarding entry
-  */
-  void Init(sockaddr_in *inaddr, uint64_t flags);
+    /**
+    Initializes a new TCP forwarding entry
+    */
+    void Init(sockaddr_in *inaddr, uint64_t flags);
 
-  /**
-  Specifies an upper data rate for this link.
+    /**
+    Specifies an upper data rate for this link.
 
-  At the moment, HARD_IFG is not supported for TCP applications.
+    At the moment, HARD_IFG is not supported for TCP applications.
 
-  @param rate Rate at which traffic may flow through this link
-  */
-  void Rate(uint64_t rate);
+    @param rate Rate at which traffic may flow through this link
+    */
+    void Rate(uint64_t rate);
 
-  /**
-  Forwards a collection of UDP packets through this path and to a receiver
+    /**
+    Forwards a collection of UDP packets through this path and to a receiver
 
-  @param msg List of messages to forward
-  @param sz Size of each individual message
-  @param count Total number of messages
-  @return number of bytes forwarded on success, or an error code on failure
-  */
-  int Forward(char **msg, int *sz, int count);
+    @param msg List of messages to forward
+    @param sz Size of each individual message
+    @param count Total number of messages
+    @return number of bytes forwarded on success, or an error code on failure
+    */
+    int Forward(char **msg, int *sz, int count);
 
-  /**
-  Handles housekeeping associated with this link
+    /**
+    Handles housekeeping associated with this link
 
-  @param delta time elapsed since last update()
-  */
-  void Update(uint64_t delta);
+    @param delta time elapsed since last update()
+    */
+    void Update(uint64_t delta);
 
-  /**
-  Calls connect() in a non-blocking fashion.
+    /**
+    Calls connect() in a non-blocking fashion.
 
-  Note that success here *does not* indicate that a connection was
-  successfully completed - only that the egress agent began the
-  connection process.
+    Note that success here *does not* indicate that a connection was
+    successfully completed - only that the egress agent began the
+    connection process.
 
-  @return zero on success, and nonzero on failure
-  */
-  int Enable();
+    @return zero on success, and nonzero on failure
+    */
+    int Enable();
 
-  /**
-  Closes any active connection.  Traffic will not flow through this
-  egress port until a new connection has been established (e.g. through
-  "enable")
+    /**
+    Closes any active connection.  Traffic will not flow through this
+    egress port until a new connection has been established (e.g. through
+    "enable")
 
-  @return zero on success, and nonzero on failure
-  */
-  int Disable();
+    @return zero on success, and nonzero on failure
+    */
+    int Disable();
 
-  void Shutdown();
+    void Shutdown();
 
- private:
-  int fd_;
+private:
+    int m_fd;
 };
 
 class HegrUdpEntry : public HegrEntry {
- public:
-  HegrUdpEntry();
+public:
+    HegrUdpEntry();
 
-  /**
-  Initializes a new UDP forwarding entry
-  */
-  void Init(sockaddr_in *inaddr, uint64_t flags);
+    /**
+    Initializes a new UDP forwarding entry
+    */
+    void Init(sockaddr_in *inaddr, uint64_t flags);
 
-  /**
-  Specifies an upper data rate for this link.
+    /**
+    Specifies an upper data rate for this link.
 
-  If HARD_IFG is set, setting a target data rate will disable the use of
-  sendmmsg() and related methods.  This will often yield reduced performance.
+    If HARD_IFG is set, setting a target data rate will disable the use of
+    sendmmsg() and related methods.  This will often yield reduced performance.
 
-  @param rate Rate at which traffic may flow through this link
-  */
-  void Rate(uint64_t rate);
+    @param rate Rate at which traffic may flow through this link
+    */
+    void Rate(uint64_t rate);
 
-  /**
-  Forwards a collection of UDP packets through this path and to a receiver
+    /**
+    Forwards a collection of UDP packets through this path and to a receiver
 
-  @param msg List of messages to forward
-  @param sz Size of each individual message
-  @param count Total number of messages
-  @return number of bytes forwarded on success, or an error code on failure
-  */
-  int Forward(char **msg, int *sz, int count);
+    @param msg List of messages to forward
+    @param sz Size of each individual message
+    @param count Total number of messages
+    @return number of bytes forwarded on success, or an error code on failure
+    */
+    int Forward(char **msg, int *sz, int count);
 
-  /**
-  Essentially a no-op for this entry type
-  */
-  void Update(uint64_t delta);
+    /**
+    Essentially a no-op for this entry type
+    */
+    void Update(uint64_t delta);
 
-  /**
-  Essentially a no-op for this entry type
+    /**
+    Essentially a no-op for this entry type
 
-  @return zero on success, and nonzero on failure
-  */
-  int Enable();
+    @return zero on success, and nonzero on failure
+    */
+    int Enable();
 
-  /**
-  Essentially a no-op for this entry type
+    /**
+    Essentially a no-op for this entry type
 
-  @return zero on success, and nonzero on failure
-  */
-  int Disable();
+    @return zero on success, and nonzero on failure
+    */
+    int Disable();
 
-  void Shutdown();
+    void Shutdown();
 
- private:
-  int fd_;
+private:
+    int m_fd;
 };
 
 class HegrManager {
- public:
-  ~HegrManager();
+public:
+    ~HegrManager();
 
-  /**
+    /**
 
-  */
-  void Init();
+    */
+    void Init();
 
-  /**
+    /**
 
-  */
-  int Forward(int fec, char *msg, int sz);
+    */
+    int Forward(int fec, char *msg, int sz);
 
-  /**
+    /**
 
-  */
-  int Add(int fec, uint64_t flags, const char *dst, int port);
+    */
+    int Add(int fec, uint64_t flags, const char *dst, int port);
 
-  /**
+    /**
 
-  */
-  int Remove(int fec);
+    */
+    int Remove(int fec);
 
-  /**
+    /**
 
-  */
-  void Up(int fec);
+    */
+    void Up(int fec);
 
-  /**
+    /**
 
-  */
-  void Down(int fec);
+    */
+    void Down(int fec);
 
-  bool test_storage_ = false;
-  const char *cut_through_address_ = HDTN_CUT_THROUGH_PATH;
-  const char *release_address_ = HDTN_RELEASE_PATH;
-  zmq::context_t *zmq_cut_through_address_;
-  zmq::socket_t *zmq_cut_through_sock_;
-  zmq::context_t *zmq_release_ctx_;
-  zmq::socket_t *zmq_release_sock_;
+    bool m_testStorage = false;
+    const char *m_cutThroughAddress = HDTN_CUT_THROUGH_PATH;
+    const char *m_releaseAddress = HDTN_RELEASE_PATH;
+    zmq::context_t *m_zmqCutThroughAddress;
+    zmq::socket_t *m_zmqCutThroughSock;
+    zmq::context_t *m_zmqReleaseCtx;
+    zmq::socket_t *m_zmqReleaseSock;
 
- private:
-  HegrEntry *Entry(int offset);
-  void *entries_;
+private:
+    HegrEntry *Entry(int offset);
+    void *m_entries;
 };
 
 }  // namespace hdtn

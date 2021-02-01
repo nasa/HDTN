@@ -1,17 +1,18 @@
 #include "logging.hpp"
+
 #include <string>
 
 namespace hdtn {
 
 std::string Datetime() {
-  time_t rawtime;
-  struct tm* timeinfo;
-  char buffer[80];
+    time_t rawtime;
+    struct tm* timeinfo;
+    char buffer[80];
 
-  time(&rawtime);
-  timeinfo = localtime(&rawtime);
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
 
-  strftime(buffer, 80, "%d-%m-%Y-%H:%M:%S", timeinfo);
-  return std::string(buffer);
+    strftime(buffer, 80, "%d-%m-%Y-%H:%M:%S", timeinfo);
+    return std::string(buffer);
 }
 }  // namespace hdtn

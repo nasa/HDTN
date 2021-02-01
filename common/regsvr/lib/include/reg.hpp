@@ -7,7 +7,7 @@
 
 namespace hdtn {
 
-struct hdtn_entry {
+struct HdtnEntry {
   std::string protocol;
   std::string address;
   std::string type;
@@ -15,7 +15,7 @@ struct hdtn_entry {
   std::string mode;
 };
 
-typedef std::list<hdtn_entry> hdtn_entries;
+typedef std::list<HdtnEntry> HdtnEntries;
 
 class HdtnRegsvr {
  public:
@@ -23,14 +23,14 @@ class HdtnRegsvr {
             std::string mode);
   bool Reg();
   bool Dereg();
-  hdtn::hdtn_entries Query(std::string target = "");
+  hdtn::HdtnEntries Query(std::string target = "");
 
  private:
-  zmq::context_t *zmq_ctx_;
-  zmq::socket_t *zmq_sock_;
-  std::string type_;
-  std::string mode_;
-  uint16_t port_;
+  zmq::context_t *m_zmqCtx;
+  zmq::socket_t *m_zmqSock;
+  std::string m_type;
+  std::string m_mode;
+  uint16_t m_port;
 };
 
 };  // namespace hdtn
