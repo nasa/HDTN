@@ -23,7 +23,7 @@
 
 #ifdef _MSC_VER //Windows tests
 //#define FILE_SIZE (1024000000ULL * 1) //1 GByte total of files, or file_size / num_threads size per file
-#define FILE_SIZE (1024000000ULL * 8) //8 GByte total of files, or file_size / num_threads size per file
+////#define FILE_SIZE (1024000000ULL * 8) //8 GByte total of files, or file_size / num_threads size per file
 #define NUM_SEGMENTS_PER_TEST 100000
 #else //Lambda Linux tests
 //#define FILE_SIZE (10240000000ULL * 64) //640 GByte files
@@ -34,17 +34,18 @@
 #define NUM_SEGMENTS_PER_TEST 100000
 #endif
 
-#define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
+////#define MAX_SEGMENTS (FILE_SIZE/SEGMENT_SIZE)
 
-#if MAX_SEGMENTS > MAX_MEMORY_MANAGER_SEGMENTS
-#error "MAX SEGMENTS GREATER THAN WHAT MEMORY MANAGER CAN HANDLE"
-#endif
+////#if MAX_SEGMENTS > MAX_MEMORY_MANAGER_SEGMENTS
+////#error "MAX SEGMENTS GREATER THAN WHAT MEMORY MANAGER CAN HANDLE"
+////#endif
 
 //two days
 #define NUMBER_OF_EXPIRATIONS (86400*2)
 #define NUMBER_OF_PRIORITIES (3)
 //#define USE_MEMORY_MAPPED_FILES 1
-#define NUM_STORAGE_THREADS 4
+////#define NUM_STORAGE_THREADS 4
+#define MAX_NUM_STORAGE_THREADS 10
 
 ///////////////////////////
 //CIRCULAR INDEX BUFFER

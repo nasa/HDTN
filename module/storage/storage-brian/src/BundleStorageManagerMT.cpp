@@ -8,28 +8,52 @@
 #include <boost/make_shared.hpp>
 #include "SignalHandler.h"
 
-#ifdef _MSC_VER //Windows tests
-static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
-#else //Lambda Linux tests
+//#ifdef _MSC_VER //Windows tests
+//static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
+//#else //Lambda Linux tests
 //static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "/mnt/sda1/test/map0.bin", "/mnt/sdb1/test/map1.bin", "/mnt/sdc1/test/map2.bin", "/mnt/sdd1/test/map3.bin" };
-static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "/home/hdtn/hdtn.store/map0.bin", "/home/hdtn/hdtn.store/map1.bin", "/home/hdtn/hdtn.store/map2.bin", "/home/hdtn/hdtn.store/map3.bin" };
-#endif
+//#endif
 
 
 
-BundleStorageManagerMT::BundleStorageManagerMT() : m_lockMainThread(m_mutexMainThread), m_running(false), m_successfullyRestoredFromDisk(false), m_autoDeleteFilesOnExit(true) {
+BundleStorageManagerMT::BundleStorageManagerMT() : 
+	m_storageConfigPtr(StorageConfig::CreateFromJsonFile("storageConfig.json")),
+	M_NUM_STORAGE_THREADS((m_storageConfigPtr) ? static_cast<unsigned int>(m_storageConfigPtr->m_storageDiskConfigVector.size()) : 1),
+	M_TOTAL_STORAGE_CAPACITY_BYTES((m_storageConfigPtr) ? m_storageConfigPtr->m_totalStorageCapacityBytes : 1),
+	M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
+	m_memoryManager(M_MAX_SEGMENTS),
+	m_lockMainThread(m_mutexMainThread),
+	m_conditionVariablesVec(M_NUM_STORAGE_THREADS),
+	m_threadPtrsVec(M_NUM_STORAGE_THREADS),
+	m_circularIndexBuffersVec(M_NUM_STORAGE_THREADS),
+	m_running(false),
+	m_successfullyRestoredFromDisk(false),
+	m_autoDeleteFilesOnExit(true)	
+{
+	if (!m_storageConfigPtr) {
+		std::cerr << "cannot open storageConfig.json\n";
+		return;
+	}
 
-	m_circularBufferBlockDataPtr = (uint8_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * SEGMENT_SIZE * sizeof(uint8_t));
-	m_circularBufferSegmentIdsPtr = (segment_id_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS * sizeof(segment_id_t));
+
+	if (M_MAX_SEGMENTS > MAX_MEMORY_MANAGER_SEGMENTS) {
+		std::cerr << "MAX SEGMENTS GREATER THAN WHAT MEMORY MANAGER CAN HANDLE\n";
+		return;
+	}
+
+	m_circularBufferBlockDataPtr = (uint8_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * M_NUM_STORAGE_THREADS * SEGMENT_SIZE * sizeof(uint8_t));
+	m_circularBufferSegmentIdsPtr = (segment_id_t*) malloc(CIRCULAR_INDEX_BUFFER_SIZE * M_NUM_STORAGE_THREADS * sizeof(segment_id_t));
+
+	
 }
 
 BundleStorageManagerMT::~BundleStorageManagerMT() {
 	m_running = false; //thread stopping criteria
-	for (unsigned int tId = 0; tId < NUM_STORAGE_THREADS; ++tId) {
-		if (m_threadPtrs[tId]) {
-			m_threadPtrs[tId]->join();
+	for (unsigned int tId = 0; tId < M_NUM_STORAGE_THREADS; ++tId) {
+		if (m_threadPtrsVec[tId]) {
+			m_threadPtrsVec[tId]->join();
 		}
-		m_threadPtrs[tId] = boost::shared_ptr<boost::thread>();
+		m_threadPtrsVec[tId] = boost::shared_ptr<boost::thread>();
 	}
 
 	free(m_circularBufferBlockDataPtr);
@@ -38,11 +62,11 @@ BundleStorageManagerMT::~BundleStorageManagerMT() {
 }
 
 void BundleStorageManagerMT::Start(bool autoDeleteFilesOnExit) {
-	if (!m_running) {
+	if ((!m_running) && (m_storageConfigPtr)) {
 		m_autoDeleteFilesOnExit = autoDeleteFilesOnExit;
-		m_running = true;
-		for (unsigned int tId = 0; tId < NUM_STORAGE_THREADS; ++tId) {
-			m_threadPtrs[tId] = boost::make_shared<boost::thread>(
+		m_running = true;		
+		for (unsigned int tId = 0; tId < M_NUM_STORAGE_THREADS; ++tId) {
+			m_threadPtrsVec[tId] = boost::make_shared<boost::thread>(
 				boost::bind(&BundleStorageManagerMT::ThreadFunc, this, tId)); //create and start the worker thread
 		}
 	}
@@ -52,9 +76,10 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
 	boost::mutex localMutex;
 	boost::mutex::scoped_lock lock(localMutex);
-	boost::condition_variable & cv = m_conditionVariables[threadIndex];
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
-	const char * const filePath = FILE_PATHS[threadIndex];
+	boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
+	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+	const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
+	std::cout << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath << "\n";
 	FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
 	boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
 	segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
@@ -81,7 +106,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 			continue;
 		}
 		
-		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / NUM_STORAGE_THREADS) * SEGMENT_SIZE;
+		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_THREADS) * SEGMENT_SIZE;
 #ifdef _MSC_VER 
 		_fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
 #else
@@ -160,9 +185,9 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 	}
 	const boost::uint64_t bundleSizeBytes = (session.nextLogicalSegment == 0) ? chainInfo.first : UINT64_MAX;
 	const segment_id_t segmentId = segmentIdChainVec[session.nextLogicalSegment++];
-	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
-	boost::condition_variable & cv = m_conditionVariables[threadIndex];
+	const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
+	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+	boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
 	unsigned int produceIndex = cb.GetIndexForWrite();
 	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
 		m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
@@ -269,9 +294,9 @@ std::size_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadF
 		&& (session.nextLogicalSegmentToCache < segments.size()) )
 	{
 		const segment_id_t segmentId = segments[session.nextLogicalSegmentToCache++];
-		const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
-		CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
-		boost::condition_variable & cv = m_conditionVariables[threadIndex];
+		const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
+		CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+		boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
 		unsigned int produceIndex = cb.GetIndexForWrite();
 		while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
 			m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
@@ -343,9 +368,9 @@ bool BundleStorageManagerMT::RemoveReadBundleFromDisk(BundleStorageManagerSessio
 		
 	const boost::uint64_t bundleSizeBytes = UINT64_MAX;
 	const segment_id_t segmentId = segmentIdChainVec[0];
-	const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffers[threadIndex];
-	boost::condition_variable & cv = m_conditionVariables[threadIndex];
+	const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
+	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+	boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
 	unsigned int produceIndex = cb.GetIndexForWrite();
 	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
 		m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
@@ -376,21 +401,21 @@ bool BundleStorageManagerMT::RemoveReadBundleFromDisk(BundleStorageManagerSessio
 bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored) {
 	*totalBundlesRestored = 0; *totalBytesRestored = 0; *totalSegmentsRestored = 0;
 	boost::uint8_t dataReadBuf[SEGMENT_SIZE];
-	FILE * fileHandles[NUM_STORAGE_THREADS];
-	boost::uint64_t fileSizes[NUM_STORAGE_THREADS];
-	for (unsigned int tId = 0; tId < NUM_STORAGE_THREADS; ++tId) {
-		const char * const filePath = FILE_PATHS[tId];
+	std::vector<FILE *> fileHandlesVec(M_NUM_STORAGE_THREADS);
+	std::vector <boost::uint64_t> fileSizesVec(M_NUM_STORAGE_THREADS);
+	for (unsigned int tId = 0; tId < M_NUM_STORAGE_THREADS; ++tId) {
+		const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[tId].storeFilePath.c_str();
 		const boost::filesystem::path p(filePath);
 		if (boost::filesystem::exists(p)) {
-			fileSizes[tId] = boost::filesystem::file_size(p);
-			std::cout << "thread " << tId << " has file size of " << fileSizes[tId] << "\n";
+			fileSizesVec[tId] = boost::filesystem::file_size(p);
+			std::cout << "thread " << tId << " has file size of " << fileSizesVec[tId] << "\n";
 		}
 		else {
 			std::cout << "error: " << filePath << " does not exist\n";
 			return false;
 		}
-		fileHandles[tId] = fopen(filePath, "rbR");
-		if (fileHandles[tId] == NULL) {
+		fileHandlesVec[tId] = fopen(filePath, "rbR");
+		if (fileHandlesVec[tId] == NULL) {
 			std::cout << "error opening file " << filePath << " for reading and restoring\n";
 			return false;
 		}
@@ -405,10 +430,10 @@ bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, ui
 		segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
 		bool headSegmentFound = false;
 		for (session.nextLogicalSegment = 0; ; ++session.nextLogicalSegment) {
-			const unsigned int threadIndex = segmentId % NUM_STORAGE_THREADS;
-			FILE * const fileHandle = fileHandles[threadIndex];
-			const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / NUM_STORAGE_THREADS) * SEGMENT_SIZE;
-			const boost::uint64_t fileSize = fileSizes[threadIndex];
+			const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
+			FILE * const fileHandle = fileHandlesVec[threadIndex];
+			const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_THREADS) * SEGMENT_SIZE;
+			const boost::uint64_t fileSize = fileSizesVec[threadIndex];
 			if ((session.nextLogicalSegment == 0) && ((offsetBytes + SEGMENT_SIZE) > fileSize)) {
 				std::cout << "end of restore\n";
 				restoreInProgress = false;
@@ -501,8 +526,8 @@ bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, ui
 	}
 
 
-	for (unsigned int tId = 0; tId < NUM_STORAGE_THREADS; ++tId) {
-		fclose(fileHandles[tId]);
+	for (unsigned int tId = 0; tId < M_NUM_STORAGE_THREADS; ++tId) {
+		fclose(fileHandlesVec[tId]);
 	}
 
 	m_successfullyRestoredFromDisk = true;
@@ -667,7 +692,7 @@ bool BundleStorageManagerMT::TestSpeed() {
 				}
 
 				totalSegmentsStoredOnDisk -= numSegmentsToRead;
-				if (totalSegmentsStoredOnDisk < (MAX_SEGMENTS / 2)) {
+				if (totalSegmentsStoredOnDisk < (bsm.M_MAX_SEGMENTS / 2)) {
 					break;
 				}
 			}

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-storage)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.40.0 REQUIRED system filesystem timer thread)
+find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
 OPTION(USE_BRIAN_STORAGE "use brian's storage solution" ON)
 if(USE_BRIAN_STORAGE)
@@ -16,8 +16,10 @@ if(USE_BRIAN_STORAGE)
         storage-brian/src/CircularIndexBufferSingleProducerSingleConsumer.cpp
         storage-brian/src/SignalHandler.cpp
         storage-brian/src/ZmqStorageInterface.cpp
+        storage-brian/src/JsonSerializable.cpp
+        storage-brian/src/StorageConfig.cpp
     )
-    target_link_libraries(hdtn-storage pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread)
+    target_link_libraries(hdtn-storage pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
     target_link_directories(hdtn-storage PUBLIC lib)
     target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include storage-brian/include)
 

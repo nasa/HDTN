@@ -7,7 +7,7 @@
 
 //static boost::uint64_t g_numLeaves = 0;
 
-MemoryManagerTreeArray::MemoryManagerTreeArray() {
+MemoryManagerTreeArray::MemoryManagerTreeArray(const boost::uint64_t maxSegments) : M_MAX_SEGMENTS(maxSegments) {
 	SetupTree();
 }
 MemoryManagerTreeArray::~MemoryManagerTreeArray() {
@@ -71,7 +71,7 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const boost::uint32_t d
 	
 	
 	if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || GetAndSetFirstFreeSegmentId(depthIndex + 1, rowIndex + firstFreeIndex * (1 << (depthIndex * 6)), segmentId)) {
-		if (*segmentId < MAX_SEGMENTS) *currentBit64Ptr &= ~mask64;
+		if (*segmentId < M_MAX_SEGMENTS) *currentBit64Ptr &= ~mask64;
 	}
 	/*
 	
@@ -98,7 +98,7 @@ segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe()
 	if (m_bitMasks[0][0] == 0) return UINT32_MAX; //bitmask of zero means full
 	boost::uint32_t segmentId = 0;
 	GetAndSetFirstFreeSegmentId(0, 0, &segmentId);
-	if (segmentId >= MAX_SEGMENTS) return UINT32_MAX;
+	if (segmentId >= M_MAX_SEGMENTS) return UINT32_MAX;
 	return segmentId;
 }
 
@@ -150,7 +150,7 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NoCheck(const boost::uint32_t dep
 
 
 	if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || AllocateSegmentId_NoCheck(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId)) {
-		if (segmentId < MAX_SEGMENTS) *currentBit64Ptr &= ~mask64;
+		if (segmentId < M_MAX_SEGMENTS) *currentBit64Ptr &= ~mask64;
 	}
 	
 	

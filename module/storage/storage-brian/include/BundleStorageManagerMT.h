@@ -14,7 +14,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumer.h"
 #include "BundleStorageConfig.h"
 #include "MemoryManagerTreeArray.h"
-
+#include "StorageConfig.h"
 
 
 typedef boost::uint64_t abs_expiration_t;
@@ -107,21 +107,32 @@ private:
 	void AddLink(boost::uint64_t linkName);
 
 private:
+	StorageConfig_ptr m_storageConfigPtr;
+	const unsigned int M_NUM_STORAGE_THREADS;
+	const boost::uint64_t M_TOTAL_STORAGE_CAPACITY_BYTES; //old FILE_SIZE
+	const boost::uint64_t M_MAX_SEGMENTS;
 	MemoryManagerTreeArray m_memoryManager;
 	destination_map_t m_destMap;
 	boost::mutex m_mutexMainThread;
 	boost::mutex::scoped_lock m_lockMainThread;
 	boost::condition_variable m_conditionVariableMainThread;
-	boost::condition_variable m_conditionVariables[NUM_STORAGE_THREADS];
-	boost::shared_ptr<boost::thread> m_threadPtrs[NUM_STORAGE_THREADS];
-	CircularIndexBufferSingleProducerSingleConsumer m_circularIndexBuffers[NUM_STORAGE_THREADS];
+	//boost::condition_variable m_conditionVariables[NUM_STORAGE_THREADS];
+	//boost::shared_ptr<boost::thread> m_threadPtrs[NUM_STORAGE_THREADS];
+	//CircularIndexBufferSingleProducerSingleConsumer m_circularIndexBuffers[NUM_STORAGE_THREADS];
+	std::vector<boost::condition_variable> m_conditionVariablesVec;
+	std::vector<boost::shared_ptr<boost::thread> > m_threadPtrsVec;
+	std::vector<CircularIndexBufferSingleProducerSingleConsumer> m_circularIndexBuffersVec;
+	
 	volatile bool m_running;
 	boost::uint8_t * m_circularBufferBlockDataPtr;
 	segment_id_t * m_circularBufferSegmentIdsPtr;
-	volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
-	volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
+	//volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
+	//volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
+	volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
+	volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
 	volatile bool m_successfullyRestoredFromDisk;
 	volatile bool m_autoDeleteFilesOnExit;
+	
 };
 
 
