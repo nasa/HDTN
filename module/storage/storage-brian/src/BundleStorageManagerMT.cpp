@@ -537,7 +537,7 @@ bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, ui
 
 static volatile bool g_running = true;
 
-void MonitorExitKeypressThreadFunction() {
+static void MonitorExitKeypressThreadFunction() {
 	std::cout << "Keyboard Interrupt.. exiting\n";
 	g_running = false; //do this first
 }
