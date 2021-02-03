@@ -7,6 +7,10 @@ set(GMOCK_LIBRARIES /usr/local/lib/libgmock.a  /usr/local/lib/libgmock_main.a)
 find_package(GTest REQUIRED)
 include_directories(${GTEST_INCLUDE_DIRS})
 
+#find_package(Boost 1.71.0 REQUIRED system filesystem timer thread)
+find_package(Boost 1.71.0 REQUIRED filesystem)
+
+
 add_executable(integrated-tests
     src/it_test_main.cpp
 #    src/it_support.cpp
@@ -32,4 +36,5 @@ target_include_directories(integrated-tests PUBLIC include
         ../../common/bpcodec/include
 )
 
-target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec)
+#target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec system filesystem timer thread)
+target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec boost_filesystem )

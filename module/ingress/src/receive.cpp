@@ -18,35 +18,35 @@
 namespace hdtn {
 
 BpIngressSyscall::BpIngressSyscall() {
-    msgbuf_.srcbuf = NULL;
-    msgbuf_.io = NULL;
-    msgbuf_.hdr = NULL;
+    m_msgbuf.srcbuf = NULL;
+    m_msgbuf.io = NULL;
+    m_msgbuf.hdr = NULL;
 }
 
 BpIngressSyscall::~BpIngressSyscall() {
-    if (msgbuf_.srcbuf != NULL) {
+    if (m_msgbuf.srcbuf != NULL) {
         Destroy();
     }
 }
 
 int BpIngressSyscall::Init(uint32_t type) {
     int i = 0;
-    msgbuf_.bufsz = BP_INGRESS_MSG_BUFSZ;
-    msgbuf_.nbuf = BP_INGRESS_MSG_NBUF;
-    msgbuf_.srcbuf = (char *)malloc(sizeof(struct sockaddr_in) * BP_INGRESS_MSG_NBUF);
-    msgbuf_.io = (iovec *)malloc(sizeof(struct iovec) * BP_INGRESS_MSG_NBUF);
-    msgbuf_.hdr = (mmsghdr *)malloc(sizeof(struct mmsghdr) * BP_INGRESS_MSG_NBUF);
+    m_msgbuf.bufsz = BP_INGRESS_MSG_BUFSZ;
+    m_msgbuf.nbuf = BP_INGRESS_MSG_NBUF;
+    m_msgbuf.srcbuf = (char *)malloc(sizeof(struct sockaddr_in) * BP_INGRESS_MSG_NBUF);
+    m_msgbuf.io = (iovec *)malloc(sizeof(struct iovec) * BP_INGRESS_MSG_NBUF);
+    m_msgbuf.hdr = (mmsghdr *)malloc(sizeof(struct mmsghdr) * BP_INGRESS_MSG_NBUF);
     for (i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
         m_bufs[i] = (char *)malloc(BP_INGRESS_MSG_BUFSZ);
         //_msgbuf.io[i].iov_base = malloc(BP_INGRESS_MSG_BUFSZ);
-        msgbuf_.io[i].iov_base = m_bufs[i];
-        msgbuf_.io[i].iov_len = BP_INGRESS_MSG_BUFSZ;
+        m_msgbuf.io[i].iov_base = m_bufs[i];
+        m_msgbuf.io[i].iov_len = BP_INGRESS_MSG_BUFSZ;
     }
     for (i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        msgbuf_.hdr[i].msg_hdr.msg_iov = &msgbuf_.io[i];
-        msgbuf_.hdr[i].msg_hdr.msg_iovlen = 1;
-        msgbuf_.hdr[i].msg_hdr.msg_name = msgbuf_.srcbuf + (sizeof(struct sockaddr_in) * i);
-        msgbuf_.hdr[i].msg_hdr.msg_namelen = sizeof(struct sockaddr_in);
+        m_msgbuf.hdr[i].msg_hdr.msg_iov = &m_msgbuf.io[i];
+        m_msgbuf.hdr[i].msg_hdr.msg_iovlen = 1;
+        m_msgbuf.hdr[i].msg_hdr.msg_name = m_msgbuf.srcbuf + (sizeof(struct sockaddr_in) * i);
+        m_msgbuf.hdr[i].msg_hdr.msg_namelen = sizeof(struct sockaddr_in);
     }
     // socket for cut-through mode straight to egress
     m_zmqCutThroughCtx = new zmq::context_t;
@@ -61,15 +61,15 @@ int BpIngressSyscall::Init(uint32_t type) {
 
 void BpIngressSyscall::Destroy() {
     for (int i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        free(msgbuf_.io[i].iov_base);
-        msgbuf_.io[i].iov_base = NULL;
+        free(m_msgbuf.io[i].iov_base);
+        m_msgbuf.io[i].iov_base = NULL;
     }
-    free(msgbuf_.srcbuf);
-    free(msgbuf_.io);
-    free(msgbuf_.hdr);
-    msgbuf_.srcbuf = NULL;
-    msgbuf_.io = NULL;
-    msgbuf_.hdr = NULL;
+    free(m_msgbuf.srcbuf);
+    free(m_msgbuf.io);
+    free(m_msgbuf.hdr);
+    m_msgbuf.srcbuf = NULL;
+    m_msgbuf.io = NULL;
+    m_msgbuf.hdr = NULL;
     shutdown(m_fd, SHUT_RDWR);
 }
 
@@ -108,8 +108,8 @@ int BpIngressSyscall::Process(int count) {
         hdtn::BlockHdr hdr;
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         timer = rdtsc();
-        recvlen = msgbuf_.hdr[i].msg_len;
-        msgbuf_.hdr[i].msg_len = 0;
+        recvlen = m_msgbuf.hdr[i].msg_len;
+        m_msgbuf.hdr[i].msg_len = 0;
         memcpy(tbuf, m_bufs[i], recvlen);
         hdr.ts = timer;
         offset = bpv6_primary_block_decode(&bpv6Primary, m_bufs[i], offset, recvlen);
@@ -153,7 +153,7 @@ int BpIngressSyscall::Process(int count) {
 int BpIngressSyscall::Update() {
     int res = 0;
     int ernum;
-    res = recvmmsg(m_fd, msgbuf_.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, NULL);
+    res = recvmmsg(m_fd, m_msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, NULL);
     if (res < 0) {
         ernum = errno;
     }
@@ -165,13 +165,20 @@ int BpIngressSyscall::Update(double time_out_seconds) {
     double intpart;
     fractpart = modf(time_out_seconds, &intpart);
     struct timespec time_out;
-    time_out.tv_sec = intpart;
-    time_out.tv_nsec = fractpart * 1000000000;
+//    time_out.tv_sec = intpart;
+//    time_out.tv_nsec = fractpart * 1000000000;
+    time_out.tv_sec = 1;
+    time_out.tv_nsec = 0;
     int res = 0;
     int ernum;
-    res = recvmmsg(m_fd, msgbuf_.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, &time_out);
+    std::cout << "In BpIngressSyscall::Update.  m_fd: " << m_fd << " , time_out.tv_nsec: " << time_out.tv_nsec << std::endl << std::flush;
+    std::cout << "In BpIngressSyscall::Update. BEFORE recvmmsg " << std::endl << std::flush;
+//    res = recvmmsg(m_fd, msgbuf_.hdr, BP_INGRESS_MSG_NBUF, MSG_DONTWAIT, &time_out);
+    res = recvmmsg(m_fd, m_msgbuf.hdr, BP_INGRESS_MSG_NBUF, MSG_WAITALL, &time_out);
+    std::cout << "In BpIngressSyscall::Update. AFTER recvmmsg " << std::endl << std::flush;
     if (res < 0) {
         ernum = errno;
+        perror("BpIngressSyscall::Update Error: ");
     }
     return res;
 }

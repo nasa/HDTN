@@ -64,7 +64,7 @@ public:
     const char *m_storageAddress = HDTN_STORAGE_PATH;
 
 private:
-    BpMmsgbuf msgbuf_;
+    BpMmsgbuf m_msgbuf;
     zmq::context_t *m_zmqCutThroughCtx;
     zmq::socket_t *m_zmqCutThroughSock;
     zmq::context_t *m_zmqStorageCtx;

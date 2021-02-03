@@ -23,12 +23,19 @@
 #include <sys/wait.h>  /* for waitpid          */
 #include <unistd.h>    /* for fork, exec, kill */
 
+#include <boost/process.hpp>
+#include <boost/thread.hpp>
+#include <boost/assign/list_of.hpp>
+#include <string>
+#include <vector>
+
 // Prototypes
 std::string GetEnv(const std::string& var);
 int RunBpgen();
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 bool IntegratedTest1();
+bool IntegratedTest2();
 pid_t SpawnPythonServer(void);
 int KillProcess(pid_t processId);
 
@@ -44,24 +51,57 @@ public:
     ~IntegratedTestsFixture();
     void SetUp() override;     // This is called after constructor.
     void TearDown() override;  // This is called before destructor.
+    bool m_runningPythonServer;
+private:
+    void StartPythonServer();
+    void StopPythonServer();
+    boost::process::child * m_ptrChild;
+    std::thread * m_ptrThreadPython;
 };
 
+void IntegratedTestsFixture::StopPythonServer() {
+    std::cout << "StopPythonServer started." << std::endl << std::flush;
+    m_runningPythonServer = false;
+    if (m_ptrChild) {
+        m_ptrChild->terminate();
+        m_ptrChild->wait();
+        int result = m_ptrChild->exit_code();
+        std::cout << "StopPythonServer ended with result = " << result << std::endl << std::flush;
+    }
+    std::cout << "StopPythonServer ended." << std::endl << std::flush;
+}
+
+void IntegratedTestsFixture::StartPythonServer() {
+    std::cout << "StartPythonServer started." << std::endl << std::flush;
+    m_runningPythonServer = true;
+    std::string commandArg = GetEnv("HDTN_SOURCE_ROOT") + "/common/regsvr/main.py";
+    std::cout << "Running python3 " << commandArg << std::endl << std::flush;
+    m_ptrChild = new boost::process::child(boost::process::search_path("python3"),commandArg);
+    while(m_ptrChild->running()) {
+        while(m_runningPythonServer) {
+            usleep(250000);  // 0.25 seconds
+            //std::cout << "StartPythonServer is running. " << std::endl << std::flush;
+        }
+    }
+    std::cout << "StartPythonServer ended." << std::endl << std::flush;
+}
+
 IntegratedTestsFixture::IntegratedTestsFixture() {
-    //    std::cout << "Called IntegratedTests1Fixture::IntegratedTests1Fixture()"
-    //    << std::endl;
+    //    std::cout << "Called IntegratedTests1Fixture::IntegratedTests1Fixture()" << std::endl;
 }
 
 IntegratedTestsFixture::~IntegratedTestsFixture() {
-    //    std::cout << "Called
-    //    IntegratedTests1Fixture::~IntegratedTests1Fixture()" << std::endl;
+    //    std::cout << "Called IntegratedTests1Fixture::~IntegratedTests1Fixture()" << std::endl;
 }
 
 void IntegratedTestsFixture::SetUp() {
-    //    std::cout << "IntegratedTests1Fixture::SetUp called\n";
+    std::cout << "IntegratedTests1Fixture::SetUp called\n";
+    m_ptrThreadPython = new std::thread(&IntegratedTestsFixture::StartPythonServer,this);
 }
 
 void IntegratedTestsFixture::TearDown() {
-    //    std::cout << "IntegratedTests1Fixture::TearDown called\n";
+    std::cout << "IntegratedTests1Fixture::TearDown called\n";
+    this->StopPythonServer();
 }
 
 TEST_F(IntegratedTestsFixture, IntegratedTest1) {
@@ -69,22 +109,25 @@ TEST_F(IntegratedTestsFixture, IntegratedTest1) {
     EXPECT_EQ(true, result);
 }
 
-bool IntegratedTest1() {
-    std::cout << "Running Integrated Tests. " << std::endl << std::flush;
+TEST_F(IntegratedTestsFixture, DISABLED_IntegratedTest2) {
+    bool result = IntegratedTest2();
+    EXPECT_EQ(true, result);
+}
 
-    //    pid_t pidPythonServer = spawnPythonServer();
-    //    if (pidPythonServer == -1) {
-    //        fprintf(stderr, "failed to fork child process\n");
-    //        return -1;
-    //    }
-    //    printf("Spawned python server with pid %d\n", pidPythonServer);
-    //    fflush(stdout);
-    //    sleep(1);
+bool IntegratedTest2() {
+    std::cout << "Running Integrated Test 2. " << std::endl << std::flush;
+    sleep(5);
+    return true;
+}
+
+bool IntegratedTest1() {
+    std::cout << "Running Integrated Test 1. " << std::endl << std::flush;
 
     uint64_t bundleCountIngress = 0;
     uint64_t bundleDataIngress = 0;
+    sleep(1);
     std::thread threadIngress(RunIngress, &bundleCountIngress, &bundleDataIngress);
-    //    sleep(1);
+    sleep(1);
     uint64_t bundleCountEgress = 0;
     uint64_t bundleDataEgress = 0;
     std::thread threadEgress(RunEgress, &bundleCountEgress, &bundleDataEgress);
@@ -92,11 +135,11 @@ bool IntegratedTest1() {
     std::thread threadBpgen(RunBpgen);
     sleep(3);
     RUN_BPGEN = false;
-    threadBpgen.join();
-    sleep(2);
+//    sleep(2);
     RUN_INGRESS = false;
     std::cout << "Before threadIngress.join(). " << std::endl << std::flush;
     threadIngress.join();
+    threadBpgen.join();
     std::cout << "After threadIngress.join(). " << std::endl << std::flush;
     sleep(1);
     RUN_EGRESS = false;
@@ -260,6 +303,7 @@ int RunBpgen() {
             usleep((uint64_t)sval);
         }
     }
+    sleep(3);
     close(fd);
     std::cout << "End runBpgen ... " << std::endl << std::flush;
     return 0;
@@ -296,10 +340,14 @@ int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
         ingress.m_elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
         ingress.m_elapsed -= start;
         // count = ingress.update();
+        std::cout << "In RunIngress BEFORE Update " << std::endl << std::flush;
         count = ingress.Update(0.5);  // Use timeout so call does not indefinitely
                                       // block.  Units are seconds
+        std::cout << "In RunIngress AFTER Update " << std::endl << std::flush;
         if (count > 0) {
             ingress.Process(count);
+            std::cout << "In RunIngress.  count = " << count << " , ingress.m_bundleCount = " << ingress.m_bundleCount
+                      << " , ingress.m_bundleData = " << ingress.m_bundleData << std::endl << std::flush;
         }
         lastTime = currTime;
     }
