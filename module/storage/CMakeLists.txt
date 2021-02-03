@@ -29,6 +29,7 @@ else()
         src/store.cpp
         src/store-worker.cpp
         src/cache/cache-basic.cpp
+        storage-brian/src/SignalHandler.cpp
     )
     target_link_libraries(hdtn-storage pthread zmq hdtn_reg blosc bpcodec)
     target_link_directories(hdtn-storage PUBLIC lib)

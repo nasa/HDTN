@@ -154,6 +154,11 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     workerSock.connect(m_queue.c_str());
     zmq::socket_t egressSock(*m_zmqContextPtr, zmq::socket_type::push);
     egressSock.bind(HDTN_RELEASE_PATH);
+
+    // Use a form of receive that times out so we can terminate cleanly.
+    int timeout = 250;  // milliseconds
+    workerSock.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+
     std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... " << std::endl;
     common_hdr startupNotify = {
         HDTN_MSGTYPE_IOK,
@@ -168,7 +173,13 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     workerSock.send(&startupNotify, sizeof(common_hdr));
     std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
     while (m_running) {
-        workerSock.recv(&rhdr);
+        // Use a form of receive that times out so we can terminate cleanly.  If no
+        // message was received after timeout go back to top of loop
+        const bool retValue = workerSock.recv(&rhdr);
+        if (!retValue) {
+            continue;
+        }
+
         /*hdtn::flow_stats stats = m_storeFlow.stats();
         m_workerStats.flow.disk_wbytes = stats.disk_wbytes;
         m_workerStats.flow.disk_wcount = stats.disk_wcount;
