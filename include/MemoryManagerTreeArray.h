@@ -13,8 +13,10 @@ typedef std::vector<segment_id_t> segment_id_chain_vec_t;
 typedef std::vector< std::vector<boost::uint64_t> > backup_memmanager_t;
 
 class MemoryManagerTreeArray {
-public:
+private:
 	MemoryManagerTreeArray();
+public:
+	MemoryManagerTreeArray(const boost::uint64_t maxSegments);
 	~MemoryManagerTreeArray();
 	
 	bool AllocateSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec); //number of segments should be the vector size
@@ -37,7 +39,7 @@ private:
 	void SetupTree();
 	void FreeTree();
 private:
-
+	const boost::uint64_t M_MAX_SEGMENTS;
 	boost::uint64_t * m_bitMasks[MAX_TREE_ARRAY_DEPTH];
 	boost::mutex m_mutex;
 };

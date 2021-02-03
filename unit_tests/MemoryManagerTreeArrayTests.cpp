@@ -8,7 +8,7 @@
 
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 {
-	MemoryManagerTreeArray t;
+	MemoryManagerTreeArray t(MAX_MEMORY_MANAGER_SEGMENTS - 100);
 	backup_memmanager_t backup;
 	const segment_id_t segmentId = 7777;
 
@@ -43,8 +43,8 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
 {
-	
-	MemoryManagerTreeArray t;
+	const boost::uint64_t MAX_SEGMENTS = (1024000000ULL * 8)/SEGMENT_SIZE;
+	MemoryManagerTreeArray t(MAX_SEGMENTS);
 	
 	//for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
 	for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
