@@ -12,7 +12,11 @@ public:
 	~SignalHandler();
 	
 
-	void Start();
+	void Start(bool useDedicatedThread = true);
+
+	//use when useDedicatedThread is set to false
+	//return true if signal handler called
+	bool PollOnce(); 
 
 private:
 	

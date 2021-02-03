@@ -22,9 +22,15 @@ SignalHandler::~SignalHandler() {
 	}
 }
 
-void SignalHandler::Start() {
+void SignalHandler::Start(bool useDedicatedThread) {
 	m_signals.async_wait(boost::bind(&SignalHandler::HandleSignal, this));
-	m_ioServiceThread = new boost::thread(boost::bind(&boost::asio::io_service::run, &m_ioService));
+	if (useDedicatedThread) {
+		m_ioServiceThread = new boost::thread(boost::bind(&boost::asio::io_service::run, &m_ioService));
+	}
+}
+
+bool SignalHandler::PollOnce() {
+	return (m_ioService.poll_one() > 0);
 }
 
 void SignalHandler::HandleSignal() {
