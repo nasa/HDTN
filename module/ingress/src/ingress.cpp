@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 
         std::cout<< "Ingress main.cpp: exiting cleanly..\n";
     }
-    std::cout<< "Storage main.cpp: exited cleanly\n";
+    std::cout<< "Ingress main.cpp: exited cleanly\n";
     return 0;
 
 }

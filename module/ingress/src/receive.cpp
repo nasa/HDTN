@@ -29,13 +29,28 @@ BpIngressSyscall::BpIngressSyscall() :
 }
 
 BpIngressSyscall::~BpIngressSyscall() {
+    //stop the socket before stopping the io service
+    if (m_udpSocket.is_open()) {
+        try {
+            m_udpSocket.close();
+        } catch (const boost::system::system_error & e) {
+            std::cerr << "Error closing UDP socket in BpIngressSyscall::~BpIngressSyscall():  " << e.what() << std::endl;
+        }
+    }
+    //m_ioService.stop(); //ioservice should not require stopping as socket.close will result in it running out of work
+
+    if(m_ioServiceThreadPtr) {
+        m_ioServiceThreadPtr->join();
+        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+    }
+
+
     m_running = false; //thread stopping criteria
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
+        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
     }
-    m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
-
 }
 
 int BpIngressSyscall::Init(uint32_t type) {
@@ -61,6 +76,10 @@ int BpIngressSyscall::Init(uint32_t type) {
 
 
 int BpIngressSyscall::Netstart(uint16_t port) {
+    if(m_ioServiceThreadPtr) {
+        std::cerr << "Error in BpIngressSyscall::Netstart: already running" << std::endl;
+        return 1;
+    }
     printf("Starting ingress channel ...\n");
     //Receiver UDP
     try {
@@ -74,6 +93,8 @@ int BpIngressSyscall::Netstart(uint16_t port) {
         return 0;
     }
     printf("Ingress bound successfully on port %d ...", port);
+    StartUdpReceive(); //call before creating io_service thread so that it has "work"
+    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     return 0;
 }
@@ -149,6 +170,7 @@ void BpIngressSyscall::StartUdpReceive() {
 }
 
 void BpIngressSyscall::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
+    //std::cout << "1" << std::endl;
     if (!error) {
         m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
@@ -176,7 +198,7 @@ void BpIngressSyscall::PopCbThreadFunc() {
             continue;
         }
         Process(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
-
+        //std::cout << "2" << std::endl;
         m_circularIndexBuffer.CommitRead();
     }
 

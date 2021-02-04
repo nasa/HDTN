@@ -86,6 +86,7 @@ private:
     std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
     volatile bool m_running;
 };
 
