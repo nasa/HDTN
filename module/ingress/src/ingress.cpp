@@ -20,62 +20,66 @@
 //using namespace hdtn;
 //using namespace std;
 //using namespace zmq;
-static hdtn::BpIngress ingress;
+#include "SignalHandler.h"
 
-static void SSignalHandler(int signalValue) {
-    // s_interrupted = 1;
-    std::ofstream output;
-    std::string currentDate = hdtn::Datetime();
-    output.open("ingress-" + currentDate);
-    output << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
-              "(MB)\n";
-    double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
-    output << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
-           << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024) << "\n";
-    output.close();
-    exit(EXIT_SUCCESS);
+static volatile bool g_running = true;
+
+static void MonitorExitKeypressThreadFunction() {
+    std::cout << "Keyboard Interrupt.. exiting\n";
+    g_running = false; //do this first
 }
 
-static void SCatchSignals(void) {
-    struct sigaction action;
-    action.sa_handler = SSignalHandler;
-    action.sa_flags = 0;
-    sigemptyset(&action.sa_mask);
-    sigaction(SIGINT, &action, NULL);
-    sigaction(SIGTERM, &action, NULL);
-}
+static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction));
+
+
 
 int main(int argc, char *argv[]) {
-    ingress.Init(BP_INGRESS_TYPE_UDP);
-    uint64_t lastTime = 0;
-    uint64_t currTime = 0;
-    // finish registration stuff -ingress will find out what egress services have
-    // registered
-    hdtn::HdtnRegsvr regsvr;
-    regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
-    regsvr.Reg();
-    hdtn::HdtnEntries res = regsvr.Query();
-    for (auto entry : res) {
-        std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-    }
-    SCatchSignals();
-    printf("Announcing presence of ingress engine ...\n");
 
-    ingress.Netstart(INGRESS_PORT);
-    int count = 0;
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-    printf("Start: +%f\n", start);
-    while (true) {
-        currTime = time(0);
-        gettimeofday(&tv, NULL);
-        ingress.m_elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-        ingress.m_elapsed -= start;
-        count = ingress.Update();
-        ingress.Process(count);
-        lastTime = currTime;
-    }
+    //scope to ensure clean exit before return 0
+    {
+        std::cout << "starting ingress.." << std::endl;
+        hdtn::BpIngress ingress;
+        ingress.Init(BP_INGRESS_TYPE_UDP);
 
-    exit(EXIT_SUCCESS);
+        // finish registration stuff -ingress will find out what egress services have
+        // registered
+        hdtn::HdtnRegsvr regsvr;
+        regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
+        regsvr.Reg();
+        hdtn::HdtnEntries res = regsvr.Query();
+        for (auto entry : res) {
+            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+        }
+
+        printf("Announcing presence of ingress engine ...\n");
+
+        ingress.Netstart(INGRESS_PORT);
+
+        g_sigHandler.Start(false);
+        std::cout << "ingress up and running" << std::endl;
+        while (g_running) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            g_sigHandler.PollOnce();
+        }
+
+        std::string currentDate = hdtn::Datetime();
+        std::ofstream output;
+        output.open("ingress-" + currentDate);
+
+        std::ostringstream oss;
+        oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
+                  "(MB)\n";
+        double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
+        oss << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
+               << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024) << "\n";
+
+        std::cout << oss.str();
+        output << oss.str();
+        output.close();
+
+        std::cout<< "Ingress main.cpp: exiting cleanly..\n";
+    }
+    std::cout<< "Storage main.cpp: exited cleanly\n";
+    return 0;
+
 }

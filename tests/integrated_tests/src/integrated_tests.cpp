@@ -341,11 +341,11 @@ int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
         ingress.m_elapsed -= start;
         // count = ingress.update();
         std::cout << "In RunIngress BEFORE Update " << std::endl << std::flush;
-        count = ingress.Update(0.5);  // Use timeout so call does not indefinitely
+        ////////count = ingress.Update(0.5);  // Use timeout so call does not indefinitely
                                       // block.  Units are seconds
         std::cout << "In RunIngress AFTER Update " << std::endl << std::flush;
         if (count > 0) {
-            ingress.Process(count);
+            ///////ingress.Process(count);
             std::cout << "In RunIngress.  count = " << count << " , ingress.m_bundleCount = " << ingress.m_bundleCount
                       << " , ingress.m_bundleData = " << ingress.m_bundleData << std::endl << std::flush;
         }

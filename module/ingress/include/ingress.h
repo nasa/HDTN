@@ -10,6 +10,10 @@
 #include "util/tsc.h"
 #include "zmq.hpp"
 
+#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
+
 // Used to receive multiple datagrams (e.g. recvmmsg)
 #define BP_INGRESS_STRBUF_SZ (8192)
 #define BP_INGRESS_MSG_NBUF (32)
@@ -45,13 +49,16 @@ class BpIngressSyscall {
 public:
     BpIngressSyscall();  // initialize message buffers
     ~BpIngressSyscall();
-    void Destroy();
     int Init(uint32_t type);
     int Netstart(uint16_t port);
-    int Process(int count);
     int send_telemetry();
-    int Update();
-    int Update(double time_out_seconds);
+private:
+    int Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
+    void StartUdpReceive();
+    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    void PopCbThreadFunc();
+
+public:
 
     uint64_t m_bundleCount = 0;
     uint64_t m_bundleData = 0;
@@ -64,16 +71,22 @@ public:
     const char *m_storageAddress = HDTN_STORAGE_PATH;
 
 private:
-    BpMmsgbuf m_msgbuf;
-    zmq::context_t *m_zmqCutThroughCtx;
-    zmq::socket_t *m_zmqCutThroughSock;
-    zmq::context_t *m_zmqStorageCtx;
-    zmq::socket_t *m_zmqStorageSock;
-    zmq::context_t *m_zmqTelemCtx;
-    zmq::socket_t *m_zmqTelemSock;
-    int m_fd;
+    boost::shared_ptr<zmq::context_t> m_zmqCutThroughCtx;
+    boost::shared_ptr<zmq::socket_t> m_zmqCutThroughSock;
+    boost::shared_ptr<zmq::context_t> m_zmqStorageCtx;
+    boost::shared_ptr<zmq::socket_t> m_zmqStorageSock;
+    boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
+    boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
     int m_type;
-    char *m_bufs[BP_INGRESS_MSG_NBUF];
+    boost::asio::io_service m_ioService;
+    boost::asio::ip::udp::socket m_udpSocket;
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
+    std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
+    std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
+    std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
+    boost::condition_variable m_conditionVariableCb;
+    boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    volatile bool m_running;
 };
 
 // use an explicit typedef to avoid runtime vcall overhead

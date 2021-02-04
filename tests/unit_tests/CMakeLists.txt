@@ -3,8 +3,10 @@ project(unit-tests)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
 
+
 set(GMOCK_LIBRARIES /usr/local/lib/libgmock.a  /usr/local/lib/libgmock_main.a)
 find_package(GTest REQUIRED)
+find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 add_executable(unit-tests
@@ -17,6 +19,8 @@ add_executable(unit-tests
     ../../module/egress/src/stcp.cpp 
     ../../module/egress/src/udp.cpp
     ../../module/ingress/src/receive.cpp
+    ../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+    ../../module/ingress/src/SignalHandler.cpp
     ../../module/storage/src/store.cpp
     ../../module/storage/src/store-worker.cpp
     ../../module/storage/src/cache/cache-basic.cpp
@@ -33,5 +37,5 @@ target_include_directories(unit-tests PUBLIC include
         ../../common/bpcodec/include
 )
 
-target_link_libraries(unit-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec)
+target_link_libraries(unit-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
 
