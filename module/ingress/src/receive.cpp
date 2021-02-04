@@ -140,9 +140,10 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             zframeSeq++;
             memcpy(hdrBuf, &hdr, sizeof(BlockHdr));
             m_zmqCutThroughSock->send(hdrBuf, sizeof(BlockHdr), ZMQ_MORE);
-            char data[bytesToSend];
-            memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
-            m_zmqCutThroughSock->send(data, bytesToSend, 0);
+            //char data[bytesToSend];
+            //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
+            //m_zmqCutThroughSock->send(data, bytesToSend, 0);
+            m_zmqCutThroughSock->send(&tbuf[CHUNK_SIZE * j], bytesToSend, 0);
             ++m_zmsgsOut;
         }
         ++m_bundleCount;
