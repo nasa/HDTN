@@ -29,7 +29,7 @@ struct mmsghdr {
 
 #else             // If we're on a different platform, then we can use sendmmsg / recvmmsg
 
-#define BP_MSG_NBUF   (32)
+#define BP_MSG_NBUF   (32/8)
 
 #endif
 

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(bpcodec_perf)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
+find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
 add_executable(encode-benchmark
     encode-benchmark/encoding.cpp
@@ -37,6 +38,16 @@ add_executable(bpsink
 
 target_include_directories(bpsink PUBLIC ../include)
 target_link_libraries(bpsink PUBLIC bpcodec)
+
+add_executable(bpsink-async
+    bpsink/BpSinkAsync.cpp
+    bpsink/BpSinkAsyncMain.cpp
+    ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+    ../../../module/ingress/src/SignalHandler.cpp
+)
+
+target_include_directories(bpsink-async PUBLIC ../include bpsink/include ../../../module/ingress/include)
+target_link_libraries(bpsink-async PUBLIC bpcodec pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
 
 add_executable(bpreflect
     bpreflect/bpreflect.cpp
