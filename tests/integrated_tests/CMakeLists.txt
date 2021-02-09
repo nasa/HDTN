@@ -21,6 +21,7 @@ add_executable(integrated-tests
     ../../module/egress/src/internal.cpp
     ../../module/egress/src/stcp.cpp
     ../../module/egress/src/udp.cpp
+    ../../module/egress/src/EgressAsync.cpp
     ../../module/ingress/src/receive.cpp
     ../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../module/ingress/src/SignalHandler.cpp

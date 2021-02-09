@@ -30,6 +30,7 @@
 
 #define BP_MSG_NBUF   (32)
 
+
 namespace hdtn {
 
 struct bpgen_hdr {
