@@ -69,21 +69,20 @@ struct bpgen_hdr {
 
 // Prototypes
 std::string GetEnv(const std::string& var);
-int RunBpgen();
-int RunBpsink();
+int RunBpgen(uint64_t* ptrTotalBytesSent);
+int RunBpsink(uint64_t* ptrTotalBytesReceived);
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
-bool IntegratedTest1();
-bool IntegratedTest2();
-bool IntegratedTest3();
-//pid_t SpawnPythonServer(void);
-//int KillProcess(pid_t processId);
+bool TestBpgenIngressEgressBpsink();
+
 
 volatile bool RUN_BPGEN = true;
 volatile bool RUN_BPSINK = true;
 volatile bool RUN_INGRESS = true;
 volatile bool RUN_EGRESS = true;
 volatile bool RUN_STORAGE = true;
+
+std::string ERROR_MESSAGE = "";
 
 // Create a test fixture.
 class IntegratedTestsFixture : public testing::Test {
@@ -101,22 +100,22 @@ private:
 };
 
 void IntegratedTestsFixture::StopPythonServer() {
-    std::cout << "StopPythonServer started." << std::endl << std::flush;
+//    std::cout << "StopPythonServer started." << std::endl << std::flush;
     m_runningPythonServer = false;
     if (m_ptrChild) {
         m_ptrChild->terminate();
         m_ptrChild->wait();
         int result = m_ptrChild->exit_code();
-        std::cout << "StopPythonServer ended with result = " << result << std::endl << std::flush;
+//        std::cout << "StopPythonServer ended with result = " << result << std::endl << std::flush;
     }
-    std::cout << "StopPythonServer ended." << std::endl << std::flush;
+//    std::cout << "StopPythonServer ended." << std::endl << std::flush;
 }
 
 void IntegratedTestsFixture::StartPythonServer() {
-    std::cout << "StartPythonServer started." << std::endl << std::flush;
+//    std::cout << "StartPythonServer started." << std::endl << std::flush;
     m_runningPythonServer = true;
     std::string commandArg = GetEnv("HDTN_SOURCE_ROOT") + "/common/regsvr/main.py";
-    std::cout << "Running python3 " << commandArg << std::endl << std::flush;
+//    std::cout << "Running python3 " << commandArg << std::endl << std::flush;
     m_ptrChild = new boost::process::child(boost::process::search_path("python3"),commandArg);
     while(m_ptrChild->running()) {
         while(m_runningPythonServer) {
@@ -124,7 +123,7 @@ void IntegratedTestsFixture::StartPythonServer() {
             //std::cout << "StartPythonServer is running. " << std::endl << std::flush;
         }
     }
-    std::cout << "StartPythonServer ended." << std::endl << std::flush;
+//    std::cout << "StartPythonServer ended." << std::endl << std::flush;
 }
 
 IntegratedTestsFixture::IntegratedTestsFixture() {
@@ -136,89 +135,33 @@ IntegratedTestsFixture::~IntegratedTestsFixture() {
 }
 
 void IntegratedTestsFixture::SetUp() {
-    std::cout << "IntegratedTests1Fixture::SetUp called\n";
+//    std::cout << "IntegratedTests1Fixture::SetUp called\n";
     m_ptrThreadPython = new std::thread(&IntegratedTestsFixture::StartPythonServer,this);
 }
 
 void IntegratedTestsFixture::TearDown() {
-    std::cout << "IntegratedTests1Fixture::TearDown called\n";
+//    std::cout << "IntegratedTests1Fixture::TearDown called\n";
     this->StopPythonServer();
 }
 
-TEST_F(IntegratedTestsFixture, DISABLED_IntegratedTest1) {
-    bool result = IntegratedTest1();
-    EXPECT_EQ(true, result);
+TEST_F(IntegratedTestsFixture, IntegratedTest1) {
+    bool result = TestBpgenIngressEgressBpsink();
+    EXPECT_EQ(true, result) << ERROR_MESSAGE;
 }
 
-TEST_F(IntegratedTestsFixture, DISABLED_IntegratedTest2) {
-    bool result = IntegratedTest2();
-    EXPECT_EQ(true, result);
-}
+bool TestBpgenIngressEgressBpsink() {
+    ERROR_MESSAGE = "";
+//    std::cout << "Running Integrated Test 1. " << std::endl << std::flush;
 
-TEST_F(IntegratedTestsFixture, IntegratedTest3) {
-    bool result = IntegratedTest3();
-    EXPECT_EQ(true, result);
-}
-
-bool IntegratedTest1() {
-    std::cout << "Running Integrated Test 1. " << std::endl << std::flush;
-
-    uint64_t bundleCountIngress = 0;
-    uint64_t bundleDataIngress = 0;
-    sleep(1);
-    std::thread threadIngress(RunIngress, &bundleCountIngress, &bundleDataIngress);
-    sleep(1);
-    uint64_t bundleCountEgress = 0;
-    uint64_t bundleDataEgress = 0;
-    std::thread threadEgress(RunEgress, &bundleCountEgress, &bundleDataEgress);
-    sleep(1);
-    std::thread threadBpgen(RunBpgen);
-    sleep(3);
-    RUN_BPGEN = false;
-//    sleep(2);
-    RUN_INGRESS = false;
-    std::cout << "Before threadIngress.join(). " << std::endl << std::flush;
-    threadIngress.join();
-    threadBpgen.join();
-    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
-    sleep(1);
-    RUN_EGRESS = false;
-    std::cout << "Before threadEgress.join(). " << std::endl << std::flush;
-    threadEgress.join();
-    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
-
-    //    killProcess(pidPythonServer);
-
-    std::cout << "End Integrated Tests. " << std::endl << std::flush;
-    sleep(3);
-    std::cout << "bundleCountIngress: " << bundleCountEgress << " , bundleDataIngress: " << bundleDataIngress
-              << std::endl
-              << std::flush;
-    std::cout << "bundleCountEgress: " << bundleCountEgress << " , bundleDataEgress: " << bundleDataEgress
-              << std::endl
-              << std::flush;
-    if ((bundleCountIngress == bundleCountEgress) && (bundleDataIngress == bundleDataEgress)) {
-        return true;
-    }
-    return false;
-}
-
-bool IntegratedTest2() {
-    std::cout << "Running Integrated Test 2. " << std::endl << std::flush;
-    sleep(5);
-    return true;
-}
-
-bool IntegratedTest3() {
-    std::cout << "Running Integrated Test 3. " << std::endl << std::flush;
-
+    uint64_t totalBytesSent = 0;
     uint64_t bundleCountIngress = 0;
     uint64_t bundleDataIngress = 0;
     uint64_t bundleCountEgress = 0;
     uint64_t bundleDataEgress = 0;
+    uint64_t totalBytesReceived = 0;
 
     sleep(1);
-    std::thread threadBpsink(RunBpsink);
+    std::thread threadBpsink(RunBpsink,&totalBytesReceived);
 
     sleep(1);
     std::thread threadEgress(RunEgress, &bundleCountEgress, &bundleDataEgress);
@@ -227,47 +170,64 @@ bool IntegratedTest3() {
     std::thread threadIngress(RunIngress, &bundleCountIngress, &bundleDataIngress);
 
     sleep(1);
-    std::thread threadBpgen(RunBpgen);
+    std::thread threadBpgen(RunBpgen,&totalBytesSent);
 
     sleep(3);
 
 
     RUN_BPGEN = false;
     threadBpgen.join();
-    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
 
 
     RUN_INGRESS = false;
     threadIngress.join();
-    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
 
     RUN_EGRESS = false;
     threadEgress.join();
-    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
 
     RUN_BPSINK = false;
     threadBpsink.join();
-    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
 
 
-    std::cout << "End Integrated Test 3. " << std::endl << std::flush;
-    std::cout << "bundleCountIngress: " << bundleCountEgress << " , bundleDataIngress: " << bundleDataIngress
-              << std::endl
-              << std::flush;
-    std::cout << "bundleCountEgress: " << bundleCountEgress << " , bundleDataEgress: " << bundleDataEgress
-              << std::endl
-              << std::flush;
-    if ((bundleCountIngress == bundleCountEgress) && (bundleDataIngress == bundleDataEgress)) {
-        return true;
+//    std::cout << "End Integrated Test 3. " << std::endl << std::flush;
+//    std::cout << "bundleCountIngress: " << bundleCountEgress << " , bundleDataIngress: " << bundleDataIngress
+//              << std::endl
+//              << std::flush;
+//    std::cout << "bundleCountEgress: " << bundleCountEgress << " , bundleDataEgress: " << bundleDataEgress
+//              << std::endl
+//              << std::flush;
+
+//    if ((bundleCountIngress == bundleCountEgress) && (bundleDataIngress == bundleDataEgress)) {
+//        return true;
+//    }
+    if (totalBytesSent != bundleDataIngress) {
+        ERROR_MESSAGE = "Bytes sent by BPGEN (" + std::to_string(totalBytesSent) + ") != bytes received by ingress "
+                + std::to_string(bundleDataIngress) + ").";
+        return false;
     }
-    return false;
+    if (totalBytesSent != bundleDataEgress) {
+        ERROR_MESSAGE = "Bytes sent by BPGEN (" + std::to_string(totalBytesSent) + ") != bytes received by egress "
+                + std::to_string(bundleDataEgress) + ").";
+        return false;
+    }
+    if (totalBytesSent != totalBytesReceived) {
+        ERROR_MESSAGE = "Bytes sent by BPGEN (" + std::to_string(totalBytesSent) + ") != bytes received by BPSINK "
+                + std::to_string(totalBytesReceived) + ").";
+        return false;
+    }
+    return true;
 }
 
 
 
 
-int RunBpgen() {
-    std::cout << "Start runBpgen ... " << std::endl << std::flush;
+int RunBpgen(uint64_t* ptrTotalBytesSent) {
+     *ptrTotalBytesSent = 0;
+//    std::cout << "Start runBpgen ... " << std::endl << std::flush;
     struct BpgenHdr {
         uint64_t seq;
         uint64_t tsc;
@@ -290,12 +250,12 @@ int RunBpgen() {
     int port = 4556;
     size_t genSz = 1500;
     ssize_t res;
-    printf("Generating bundles of size %d\n", (int)genSz);
-    if (rate) {
-        printf("Generating up to %d bundles / second.\n", (int)rate);
-    }
-    printf("Bundles will be destinated for %s:%d\n", target.c_str(), port);
-    fflush(stdout);
+//    printf("Generating bundles of size %d\n", (int)genSz);
+//    if (rate) {
+//        printf("Generating up to %d bundles / second.\n", (int)rate);
+//    }
+//  printf("Bundles will be destinated for %s:%d\n", target.c_str(), port);
+//    fflush(stdout);
     char* dataBuffer[genSz];
     memset(dataBuffer, 0, genSz);
     BpgenHdr* hdr = (BpgenHdr*)dataBuffer;
@@ -324,18 +284,18 @@ int RunBpgen() {
         msgbuf[i].msg_hdr.msg_name = (void*)&servaddr;
         msgbuf[i].msg_hdr.msg_namelen = sizeof(struct sockaddr_in);
     }
-    printf("Entering run state ...\n");
+//    printf("Entering run state ...\n");
     struct timeval tv;
     gettimeofday(&tv, NULL);
     double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-    printf("Start: +%f\n", start);
+//    printf("Start: +%f\n", start);
     fflush(stdout);
     uint64_t tscTotal = 0;
     double sval = 0.0;
     if (rate) {
         sval = 1000000.0 / rate;  // sleep val in usec
         sval *= bpMsgNbuf;
-        printf("Sleeping for %f usec between bursts\n", sval);
+//        printf("Sleeping for %f usec between bursts\n", sval);
         fflush(stdout);
     }
     uint64_t bseq = 0;
@@ -398,7 +358,7 @@ int RunBpgen() {
             perror("cannot send message");
         }
         else {
-            totalSize += msgbuf->msg_len;
+            totalSize += msgbuf->msg_len * bpMsgNbuf;
             totalBundleCount += bundleCount;
 //            std::cout << "In BPGEN, totalBundleCount: " << totalBundleCount << " , totalSize: " << totalSize
 //                      << std::endl
@@ -408,67 +368,21 @@ int RunBpgen() {
             usleep((uint64_t)sval);
         }
     }
-    sleep(3);
+    *ptrTotalBytesSent = totalSize;
+//    std::cout << "In BPGEN, totalBundleCount: " << totalBundleCount << " , totalSize: " << totalSize
+//              << std::endl
+//              << std::flush;
     close(fd);
-    std::cout << "End runBpgen ... " << std::endl << std::flush;
+//    std::cout << "End runBpgen ... " << std::endl << std::flush;
     return 0;
 }
 
-
-
-int RunIngressOld(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
-    std::cout << "Start runIngress ... " << std::endl << std::flush;
-    int ingressPort = 4556;
-    hdtn::BpIngress ingress;
-    ingress.Init(BP_INGRESS_TYPE_UDP);
-    uint64_t lastTime = 0;
-    uint64_t currTime = 0;
-    // finish registration stuff -ingress will find out what egress services have
-    // registered
-    hdtn::HdtnRegsvr regsvr;
-    regsvr.Init("tcp://127.0.0.1:10140", "ingress", 10149, "PUSH");
-    regsvr.Reg();
-    hdtn::HdtnEntries res = regsvr.Query();
-    for (auto entry : res) {
-        std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-    }
-    printf("Announcing presence of ingress engine ...\n");
-    fflush(stdout);
-    ingress.Netstart(ingressPort);
-    int count = 0;
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-    printf("Start: +%f\n", start);
-    fflush(stdout);
-    while (RUN_INGRESS) {
-        currTime = time(0);
-        gettimeofday(&tv, NULL);
-        ingress.m_elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-        ingress.m_elapsed -= start;
-        // count = ingress.update();
-        std::cout << "In RunIngress BEFORE Update " << std::endl << std::flush;
-        ////////count = ingress.Update(0.5);  // Use timeout so call does not indefinitely
-                                      // block.  Units are seconds
-        std::cout << "In RunIngress AFTER Update " << std::endl << std::flush;
-        if (count > 0) {
-            ///////ingress.Process(count);
-            std::cout << "In RunIngress.  count = " << count << " , ingress.m_bundleCount = " << ingress.m_bundleCount
-                      << " , ingress.m_bundleData = " << ingress.m_bundleData << std::endl << std::flush;
-        }
-        lastTime = currTime;
-    }
-    std::cout << "End runIngress ... " << std::endl << std::flush;
-    *ptrBundleCount = ingress.m_bundleCount;
-    *ptrBundleData = ingress.m_bundleData;
-    return 0;
-}
 
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
 
     //scope to ensure clean exit before return 0
     {
-        std::cout << "Start runIngress ... " << std::endl << std::flush;
+//        std::cout << "Start runIngress ... " << std::endl << std::flush;
         int ingressPort = 4556;
 
         hdtn::BpIngress ingress;
@@ -479,26 +393,24 @@ int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
         regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
         regsvr.Reg();
         hdtn::HdtnEntries res = regsvr.Query();
-        for (auto entry : res) {
-            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-        }
+//        for (auto entry : res) {
+//            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+//        }
 
-        printf("Announcing presence of ingress engine ...\n");
+//        printf("Announcing presence of ingress engine ...\n");
 
         ingress.Netstart(ingressPort);
 
-        std::cout << "ingress up and running.  RUN_INGRESS = " << RUN_INGRESS << std::endl << std::flush;
+//        std::cout << "ingress up and running.  RUN_INGRESS = " << RUN_INGRESS << std::endl << std::flush;
         while (RUN_INGRESS) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
         }
 
-        std::cout << ">> End runIngress ... " << std::endl << std::flush;
+//        std::cout << ">> End runIngress ... " << std::endl << std::flush;
         *ptrBundleCount = ingress.m_bundleCount;
         *ptrBundleData = ingress.m_bundleData;
-
     }
-
-    std::cout<< "RunIngress: exited cleanly\n";
+//    std::cout<< "RunIngress: exited cleanly\n";
     return 0;
 
 }
@@ -507,15 +419,15 @@ int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
 
     //scope to ensure clean exit before return 0
     {
-        std::cout << "Start runEgress ... " << std::endl << std::flush;
+//        std::cout << "Start runEgress ... " << std::endl << std::flush;
         uint16_t port = 4557;
         hdtn::HdtnRegsvr regsvr;
         regsvr.Init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
         regsvr.Reg();
         hdtn::HdtnEntries res = regsvr.Query();
-        for (auto entry : res) {
-            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-        }
+//        for (auto entry : res) {
+//            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+//        }
         hdtn::HegrManagerAsync egress;
         egress.Init();
         int entryStatus;
@@ -523,96 +435,20 @@ int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
         if (!entryStatus) {
             return 0;  // error message prints in add function
         }
-        printf("Announcing presence of egress ...\n");
+//        printf("Announcing presence of egress ...\n");
         for (int i = 0; i < 8; ++i) {
             egress.Up(i);
         }
-        std::cout << "egress up and running" << std::endl;
+//        std::cout << "egress up and running" << std::endl;
         while (RUN_EGRESS) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
         }
-        std::cout << "Msg Count, Bundle Count, Bundle data bytes\n";
-        std::cout << egress.m_messageCount << "," << egress.m_bundleCount << "," << egress.m_bundleData << "\n";
+//        std::cout << "Msg Count, Bundle Count, Bundle data bytes\n";
+//        std::cout << egress.m_messageCount << "," << egress.m_bundleCount << "," << egress.m_bundleData << "\n";
+        *ptrBundleCount = egress.m_bundleCount;
+        *ptrBundleData = egress.m_bundleData;
     }
-    std::cout<< "RunEgress: exited cleanly\n";
-    return 0;
-}
-
-
-int RunEgressOld(uint64_t* ptBundleCount, uint64_t* ptrBundleData) {
-    std::cout << "Start runEgress ... " << std::endl << std::flush;
-    uint64_t messageCount = 0;
-    double elapsed = 0;
-    hdtn::HegrManager egress;
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-    printf("Start Egress: +%f\n", start);
-    fflush(stdout);
-    // finish registration stuff - egress should register, ingress will query
-    hdtn::HdtnRegsvr regsvr;
-    regsvr.Init("tcp://127.0.0.1:10140", "egress", 10149, "PULL");
-    regsvr.Reg();
-    hdtn::HdtnEntries res = regsvr.Query();
-    for (auto entry : res) {
-        std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl << std::flush;
-    }
-    zmq::context_t* zmqCtx;
-    zmq::socket_t* zmqSock;
-    zmqCtx = new zmq::context_t;
-    zmqSock = new zmq::socket_t(*zmqCtx, zmq::socket_type::pull);
-    zmqSock->connect("tcp://127.0.0.1:10149");
-    egress.Init();
-    int entryStatus;
-    entryStatus = egress.Add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
-    if (!entryStatus) {
-        return 0;  // error message prints in add function
-    }
-    printf("Announcing presence of egress ...\n");
-    fflush(stdout);
-    for (int i = 0; i < 8; ++i) {
-        egress.Up(i);
-    }
-    int bundleSize = 0;
-    // JCF, set timeout
-    // Use a form of receive that times out so we can terminate cleanly.
-    int timeout = 250;  // milliseconds
-    zmqSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
-    while (RUN_EGRESS) {
-        gettimeofday(&tv, NULL);
-        elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-        elapsed -= start;
-        zmq::message_t hdr;
-        zmq::message_t message;
-        // JCF
-        // Use a form of receive that times out so we can terminate cleanly.  If no
-        // message was received after timeout go back to top of loop
-        // std::cout << "In runEgress, before recv. " << std::endl << std::flush;
-        bool retValue = zmqSock->recv(&hdr);
-        // std::cout << "In runEgress, after recv. retValue = " << retValue << " ,
-        // hdr.size() = " << hdr.size() << std::endl << std::flush;
-        if (!retValue) {
-            continue;
-        }
-        messageCount++;
-        char bundle[HMSG_MSG_MAX];
-        if (hdr.size() < sizeof(hdtn::CommonHdr)) {
-            std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl << std::flush;
-            return -1;
-        }
-        zmqSock->recv(&message);
-        bundleSize = message.size();
-        memcpy(bundle, message.data(), bundleSize);
-
-        egress.Forward(1, bundle, bundleSize);
-
-        (*ptrBundleData) += bundleSize;
-        (*ptBundleCount)++;
-    }
-    // Clean up resources
-    zmqSock->close();
-    delete zmqSock;
-    delete zmqCtx;
+//    std::cout<< "RunEgress: exited cleanly\n";
     return 0;
 }
 
@@ -626,22 +462,25 @@ std::string GetEnv(const std::string& var) {
     }
 }
 
-int RunBpsink() {
+int RunBpsink(uint64_t* ptrTotalBytesReceived) {
+    *ptrTotalBytesReceived = 0;
     //scope to ensure clean exit before return 0
     {
         uint16_t port = 4557;
         bool useTcp = false;
-        std::cout << "starting BpSink.." << std::endl;
+//        std::cout << "starting BpSink.." << std::endl;
         hdtn::BpSinkAsync bpSink(port, useTcp);
         bpSink.Init(0);
         bpSink.Netstart();
-        std::cout << "ingress up and running" << std::endl;
+//        std::cout << "ingress up and running" << std::endl;
         while (RUN_BPSINK) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
         }
-       std::cout << "Rx Count, Duplicate Count, Total bytes Rx\n";
-       std::cout << bpSink.m_receivedCount << "," << bpSink.m_duplicateCount << "," << bpSink.m_totalBytesRx << "\n";
-   }
-   std::cout<< "RunBpsink: exited cleanly\n";
-   return 0;
+//        std::cout << "BPSINK\n";
+//        std::cout << "Rx Count, Duplicate Count, Total bytes Rx\n";
+//        std::cout << bpSink.m_receivedCount << "," << bpSink.m_duplicateCount << "," << bpSink.m_totalBytesRx << "\n";
+        *ptrTotalBytesReceived = bpSink.m_totalBytesRx;
+    }
+//    std::cout<< "RunBpsink: exited cleanly\n";
+    return 0;
 }
