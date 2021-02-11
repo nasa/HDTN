@@ -12,6 +12,8 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <map>
+#include <queue>
+#include "Tcpcl.h"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -22,6 +24,7 @@
 #define HEGR_FLAG_UDP (0x0010)
 #define HEGR_FLAG_STCPv1 (0x0020)
 #define HEGR_FLAG_LTP (0x0040)
+#define HEGR_FLAG_TCPCLv3 (0x0080)
 
 namespace hdtn {
 
@@ -161,6 +164,112 @@ private:
 
     const boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
     boost::asio::ip::udp::socket * const m_udpSocketPtr;
+};
+
+
+//tcpcl
+class HegrTcpclEntryAsync : public HegrEntryAsync {
+private:
+
+public:
+    HegrTcpclEntryAsync();
+    //HegrTcpclEntryAsync(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint, boost::asio::ip::udp::socket * const udpSocketPtr);
+    virtual ~HegrTcpclEntryAsync();
+
+    /**
+    Initializes a new UDP forwarding entry
+    */
+    virtual void Init(uint64_t flags);
+
+    /**
+    Specifies an upper data rate for this link.
+
+    If HARD_IFG is set, setting a target data rate will disable the use of
+    sendmmsg() and related methods.  This will often yield reduced performance.
+
+    @param rate Rate at which traffic may flow through this link
+    */
+    void Rate(uint64_t rate);
+
+    /**
+    Forwards a collection of UDP packets through this path and to a receiver
+
+    @param msg List of messages to forward
+    @param sz Size of each individual message
+    @param count Total number of messages
+    @return number of bytes forwarded on success, or an error code on failure
+    */
+    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+
+    /**
+    Essentially a no-op for this entry type
+    */
+    void Update(uint64_t delta);
+
+    /**
+    Essentially a no-op for this entry type
+
+    @return zero on success, and nonzero on failure
+    */
+    int Enable();
+
+    /**
+    Essentially a no-op for this entry type
+
+    @return zero on success, and nonzero on failure
+    */
+    int Disable();
+
+    void Shutdown();
+
+
+    void Connect(const std::string & hostname, const std::string & port);
+private:
+    void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
+    void OnConnect(const boost::system::error_code & ec);
+    void ShutdownAndCloseTcpSocket();
+    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred, bool closeSocket);
+    void StartTcpReceive();
+    void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
+    void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
+    void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
+
+    //tcpcl received data callback functions
+    void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
+    void DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag);
+    void AckCallback(uint32_t totalBytesAcknowledged);
+    void BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
+    void NextBundleLengthCallback(uint32_t nextBundleLength);
+    void KeepAliveCallback();
+    void ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
+                                             bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds);
+
+
+
+    Tcpcl m_tcpcl;
+    boost::asio::io_service m_ioService;
+    boost::asio::io_service::work m_work;
+    boost::asio::ip::tcp::resolver m_resolver;
+    boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
+    boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
+    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+
+    //tcpcl vars
+    CONTACT_HEADER_FLAGS m_contactHeaderFlags;
+    std::string m_localEid;
+    uint16_t m_keepAliveIntervalSeconds;
+    std::queue<uint32_t> m_bytesToAckQueue;
+    bool m_readyToForward;
+
+    uint8_t m_tcpReadSomeBuffer[2000];
+
+public:
+    //tcpcl stats
+    std::size_t m_totalDataSegmentsAcked;
+    std::size_t m_totalBytesAcked;
+    std::size_t m_totalDataSegmentsSent;
+    std::size_t m_totalBundleBytesSent;
 };
 
 class HegrManagerAsync {

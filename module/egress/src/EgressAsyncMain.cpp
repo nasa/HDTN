@@ -19,15 +19,15 @@ static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction
 int main(int argc, char* argv[]) {
     //scope to ensure clean exit before return 0
     {
-        //uint16_t port;
-        //bool useTcp = false;
+        uint16_t port;
+        bool useTcpcl = false;
 
         boost::program_options::options_description desc("Allowed options");
         try {
                 desc.add_options()
                         ("help", "Produce help message.")
-                        //("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
-                        //("use-tcp", "Use TCP instead of UDP.")
+                        ("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
+                        ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ;
 
                 boost::program_options::variables_map vm;
@@ -39,11 +39,11 @@ int main(int argc, char* argv[]) {
                         return 1;
                 }
 
-                //if (vm.count("use-tcp")) {
-                //        useTcp = true;
-                //}
+                if (vm.count("use-tcpcl")) {
+                        useTcpcl = true;
+                }
 
-                //port = vm["port"].as<boost::uint16_t>();
+                port = vm["port"].as<boost::uint16_t>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
         hdtn::HegrManagerAsync egress;
         egress.Init();
         int entryStatus;
-        entryStatus = egress.Add(1, HEGR_FLAG_UDP, "127.0.0.1", 4557);
+        entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : HEGR_FLAG_UDP, "127.0.0.1", port);
         if (!entryStatus) {
             return 0;  // error message prints in add function
         }

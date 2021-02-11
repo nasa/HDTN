@@ -126,6 +126,13 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         m_entryMap[fec]->Disable();
         return 1;
     }
+    else if (flags & HEGR_FLAG_TCPCLv3) {
+        boost::shared_ptr<HegrTcpclEntryAsync> tcpclEntry = boost::make_shared<HegrTcpclEntryAsync>();
+        tcpclEntry->Connect(dst, boost::lexical_cast<std::string>(port));
+        m_entryMap[fec] = tcpclEntry;
+        m_entryMap[fec]->Disable();
+        return 1;
+    }
     else {
         return -HDTN_MSGTYPE_ENOTIMPL;
     }

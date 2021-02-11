@@ -72,7 +72,8 @@ BpSinkAsync::~BpSinkAsync() {
             std::cerr << "Error closing UDP socket in BpSinkAsync::~BpSinkAsync():  " << e.what() << std::endl;
         }
     }
-    //m_ioService.stop(); //ioservice should not require stopping as socket.close will result in it running out of work
+    ShutdownAndCloseTcpSocket();
+    m_ioService.stop(); //stop may not be needed
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
@@ -342,7 +343,11 @@ void BpSinkAsync::PopCbThreadFunc() {
 }
 
 void BpSinkAsync::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred, bool closeSocket) {
-    if(closeSocket) {
+    if(error) {
+        std::cerr << "error in BpSinkAsync::HandleTcpSend: " << error.message() << std::endl;
+        ShutdownAndCloseTcpSocket();
+    }
+    else if(closeSocket) {
         ShutdownAndCloseTcpSocket();
     }
 }
@@ -427,7 +432,7 @@ void BpSinkAsync::NextBundleLengthCallback(uint32_t nextBundleLength) {
 }
 
 void BpSinkAsync::KeepAliveCallback() {
-    std::cout << "received keepalive packet\n";
+    std::cout << "received keepalive packet" << std::endl;
     // * 2 =>
     //If no message (KEEPALIVE or other) has been received for at least
     //twice the keepalive_interval, then either party MAY terminate the

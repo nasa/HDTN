@@ -19,14 +19,14 @@ int main(int argc, char* argv[]) {
     //scope to ensure clean exit before return 0
     {
         uint16_t port;
-        bool useTcp = false;
+        bool useTcpcl = false;
 
         boost::program_options::options_description desc("Allowed options");
         try {
                 desc.add_options()
                         ("help", "Produce help message.")
                         ("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
-                        ("use-tcp", "Use TCP instead of UDP.")
+                        ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ;
 
                 boost::program_options::variables_map vm;
@@ -38,8 +38,8 @@ int main(int argc, char* argv[]) {
                         return 1;
                 }
 
-                if (vm.count("use-tcp")) {
-                        useTcp = true;
+                if (vm.count("use-tcpcl")) {
+                        useTcpcl = true;
                 }
 
                 port = vm["port"].as<boost::uint16_t>();
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 
 
         std::cout << "starting BpSink.." << std::endl;
-        hdtn::BpSinkAsync bpSink(port, useTcp);
+        hdtn::BpSinkAsync bpSink(port, useTcpcl);
         bpSink.Init(0);
 
 
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
         bpSink.Netstart();
 
         g_sigHandler.Start(false);
-        std::cout << "ingress up and running" << std::endl;
+        std::cout << "BpSink up and running" << std::endl;
         while (g_running) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             g_sigHandler.PollOnce();
