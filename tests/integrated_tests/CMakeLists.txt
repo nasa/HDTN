@@ -18,6 +18,8 @@ add_executable(integrated-tests
     src/integrated_tests.cpp
     ../../common/logging/src/logging.cpp
     ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
+    ../../common/tcpcl/src/Tcpcl.cpp
+    ../../common/tcpcl/src/sdnv.c
     ../../module/egress/src/internal.cpp
     ../../module/egress/src/stcp.cpp
     ../../module/egress/src/udp.cpp
@@ -40,6 +42,7 @@ target_include_directories(integrated-tests PUBLIC include
         ../../common/regsvr/lib/include
         ../../common/bpcodec/include
         ../../common/bpcodec/apps/bpsink/include
+        ../../common/tcpcl/include
 )
 
 #target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec system filesystem timer thread)
