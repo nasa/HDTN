@@ -43,6 +43,7 @@ add_executable(bpsink-async
     bpsink/BpSinkAsync.cpp
     bpsink/BpSinkAsyncMain.cpp
     ../../tcpcl/src/Tcpcl.cpp
+    ../../tcpcl/src/TcpclBundleSink.cpp
     ../../tcpcl/src/sdnv.c
     ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../../module/ingress/src/SignalHandler.cpp

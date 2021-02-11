@@ -19,6 +19,7 @@ add_executable(integrated-tests
     ../../common/logging/src/logging.cpp
     ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
     ../../common/tcpcl/src/Tcpcl.cpp
+    ../../common/tcpcl/src/TcpclBundleSink.cpp
     ../../common/tcpcl/src/sdnv.c
     ../../module/egress/src/internal.cpp
     ../../module/egress/src/stcp.cpp
