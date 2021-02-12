@@ -19,6 +19,10 @@ add_executable(unit-tests
     ../../module/egress/src/stcp.cpp 
     ../../module/egress/src/udp.cpp
     ../../module/ingress/src/receive.cpp
+    ../../common/tcpcl/src/Tcpcl.cpp
+    ../../common/tcpcl/src/TcpclBundleSink.cpp
+    ../../common/tcpcl/src/TcpclBundleSource.cpp
+    ../../common/tcpcl/src/sdnv.c
     ../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../module/ingress/src/SignalHandler.cpp
     ../../module/storage/src/store.cpp
@@ -35,6 +39,7 @@ target_include_directories(unit-tests PUBLIC include
 	../../common/logging/include
 	../../common/regsvr/lib/include
         ../../common/bpcodec/include
+        ../../common/tcpcl/include
 )
 
 target_link_libraries(unit-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)

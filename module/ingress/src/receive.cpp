@@ -37,7 +37,10 @@ BpIngressSyscall::~BpIngressSyscall() {
             std::cerr << "Error closing UDP socket in BpIngressSyscall::~BpIngressSyscall():  " << e.what() << std::endl;
         }
     }
-    //m_ioService.stop(); //ioservice should not require stopping as socket.close will result in it running out of work
+    m_tcpAcceptorPtr->close();
+    m_tcpAcceptorPtr = boost::shared_ptr<boost::asio::ip::tcp::acceptor>();
+    m_listTcpclBundleSinkPtrs.clear();
+    m_ioService.stop(); //ioservice doesn't need stopped at this point but just in case
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
@@ -94,6 +97,8 @@ int BpIngressSyscall::Netstart(uint16_t port) {
     }
     printf("Ingress bound successfully on port %d ...", port);
     StartUdpReceive(); //call before creating io_service thread so that it has "work"
+    m_tcpAcceptorPtr = boost::make_shared<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
+    StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     return 0;
@@ -205,6 +210,48 @@ void BpIngressSyscall::PopCbThreadFunc() {
 
     std::cout << "Ingress Circular buffer reader thread exiting\n";
 
+}
+
+
+void BpIngressSyscall::TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr) {
+    //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
+    //its own processing thread that calls this callback
+    Process(*wholeBundleSharedPtr, wholeBundleSharedPtr->size());
+}
+
+void BpIngressSyscall::StartTcpAccept() {
+    std::cout << "waiting for tcp connections\n";
+    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_tcpAcceptorPtr->get_executor()); //get_io_service() is deprecated: Use get_executor()
+
+    m_tcpAcceptorPtr->async_accept(*newTcpSocketPtr,
+        boost::bind(&BpIngressSyscall::HandleTcpAccept, this, newTcpSocketPtr,
+            boost::asio::placeholders::error));
+}
+
+void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error) {
+    if (!error) {
+        std::cout << "tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << "\n";
+        //boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,)
+        //std::list<boost::shared_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
+        //if((m_tcpclBundleSinkPtr) && !m_tcpclBundleSinkPtr->ReadyToBeDeleted() ) {
+        //    std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
+        //}
+        boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
+                                                                   boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                   50, 2000);
+        m_listTcpclBundleSinkPtrs.push_back(bundleSinkPtr);
+
+        StartTcpAccept(); //only accept if there was no error
+    }
+    else if (error != boost::asio::error::operation_aborted) {
+        std::cout << "tcp accept error: " << error.message() << "\n";
+    }
+
+
+}
+
+void BpIngressSyscall::RemoveInactiveTcpConnections() {
+    m_listTcpclBundleSinkPtrs.remove_if([](const boost::shared_ptr<TcpclBundleSink> & ptr){ return ptr->ReadyToBeDeleted();});
 }
 
 }  // namespace hdtn

@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
         std::cout << "ingress up and running" << std::endl;
         while (g_running) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
+            ingress.RemoveInactiveTcpConnections();
             g_sigHandler.PollOnce();
         }
 

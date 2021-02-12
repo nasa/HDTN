@@ -13,6 +13,8 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include "TcpclBundleSink.h"
+#include <list>
 
 // Used to receive multiple datagrams (e.g. recvmmsg)
 #define BP_INGRESS_STRBUF_SZ (8192)
@@ -52,11 +54,16 @@ public:
     int Init(uint32_t type);
     int Netstart(uint16_t port);
     int send_telemetry();
+    void RemoveInactiveTcpConnections();
 private:
     int Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
     void StartUdpReceive();
     void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void PopCbThreadFunc();
+
+    void TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr);
+    void StartTcpAccept();
+    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error);
 
 public:
 
@@ -71,6 +78,7 @@ public:
     const char *m_storageAddress = HDTN_STORAGE_PATH;
 
 private:
+
     boost::shared_ptr<zmq::context_t> m_zmqCutThroughCtx;
     boost::shared_ptr<zmq::socket_t> m_zmqCutThroughSock;
     boost::shared_ptr<zmq::context_t> m_zmqStorageCtx;
@@ -80,6 +88,9 @@ private:
     int m_type;
     boost::asio::io_service m_ioService;
     boost::asio::ip::udp::socket m_udpSocket;
+    boost::shared_ptr<boost::asio::ip::tcp::acceptor> m_tcpAcceptorPtr;
+
+    std::list<boost::shared_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;

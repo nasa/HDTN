@@ -15,9 +15,12 @@ add_executable(hdtn-ingress
     ../../common/bpcodec/src/codec/bpv7.cpp
     ../../common/bpcodec/src/codec/sdnv/cgoto/decode.cpp
     ../../common/bpcodec/src/codec/sdnv/cgoto/encode.cpp
-    ../../common/bpcodec/src/codec/sdnv/loop/codec.cpp)
+    ../../common/bpcodec/src/codec/sdnv/loop/codec.cpp
+    ../../common/tcpcl/src/Tcpcl.cpp
+    ../../common/tcpcl/src/TcpclBundleSink.cpp
+    ../../common/tcpcl/src/sdnv.c)
 
 target_link_libraries(hdtn-ingress pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
-target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
+target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include)
 
 

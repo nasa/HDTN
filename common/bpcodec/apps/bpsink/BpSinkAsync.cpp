@@ -62,7 +62,7 @@ BpSinkAsync::~BpSinkAsync() {
             std::cerr << "Error closing UDP socket in BpSinkAsync::~BpSinkAsync():  " << e.what() << std::endl;
         }
     }
-
+    m_tcpAcceptor.close();
     m_tcpclBundleSinkPtr = boost::shared_ptr<TcpclBundleSink>();
     m_ioService.stop(); //stop may not be needed
 
@@ -277,12 +277,12 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
         m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
                                                                    boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                    50, 2000);
+
+        StartTcpAccept(); //only accept if there was no error
     }
-    else {
+    else if (error != boost::asio::error::operation_aborted) {
         std::cout << "tcp accept error: " << error.message() << "\n";
     }
-
-    StartTcpAccept();
 }
 
 void BpSinkAsync::PopCbThreadFunc() {
