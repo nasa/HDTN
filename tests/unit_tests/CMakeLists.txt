@@ -50,6 +50,7 @@ target_link_libraries(unit-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread 
 add_executable(boost-unit-tests
     src/boost_test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
+    ../../common/tcpcl/test/TestSdnv.cpp
 
     ../../module/egress/src/internal.cpp
     ../../module/egress/src/stcp.cpp
