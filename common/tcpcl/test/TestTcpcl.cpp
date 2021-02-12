@@ -1,5 +1,5 @@
 #include <boost/test/unit_test.hpp>
-#include "../dev/Tcpcl.h"
+#include "Tcpcl.h"
 #include <boost/bind.hpp>
 
 
@@ -334,3 +334,117 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 	BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
 }
 
+
+
+BOOST_AUTO_TEST_CASE(TcpclMagicHeaderStatesTestCase)
+{
+
+	Tcpcl m_tcpcl;
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+	m_tcpcl.HandleReceivedChar('c'); //not d.. remain in 1
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+	m_tcpcl.HandleReceivedChar('d'); //first d.. advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('d'); //second d.. ddtn!.. remain
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('d'); //wrong but go to state 2 
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('v'); //wrong , back to 1
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+
+	m_tcpcl.HandleReceivedChar('d'); //advance to 2
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('n'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_4);
+	m_tcpcl.HandleReceivedChar('d'); //wrong not !but go to state 2 
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('n'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_4);
+	m_tcpcl.HandleReceivedChar('v'); //wrong not !, back to 1
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+
+	m_tcpcl.HandleReceivedChar('d'); //advance to 2
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('n'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_4);
+	m_tcpcl.HandleReceivedChar('!'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_VERSION);
+	m_tcpcl.HandleReceivedChar('d'); //wrong version.. back to 2
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('v'); //wrong , back to 1
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+
+	m_tcpcl.HandleReceivedChar('d'); //advance to 2
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('n'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_4);
+	m_tcpcl.HandleReceivedChar('!'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_VERSION);
+	m_tcpcl.HandleReceivedChar(2); //wrong version.. back to 1
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+
+	m_tcpcl.HandleReceivedChar('d'); //advance to 2
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_2);
+	m_tcpcl.HandleReceivedChar('t'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_3);
+	m_tcpcl.HandleReceivedChar('n'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_4);
+	m_tcpcl.HandleReceivedChar('!'); //advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_VERSION);
+	m_tcpcl.HandleReceivedChar(3); //right version.. advance
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_FLAGS);
+
+	m_tcpcl.InitRx();
+	BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+	BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1);
+
+	{
+		const std::string bytesIn = "rrrrrrrrrrrrrdtyyyyyydtn!";
+		m_tcpcl.HandleReceivedChars((const uint8_t *)bytesIn.c_str(), bytesIn.size());
+		BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER);
+		BOOST_REQUIRE(m_tcpcl.m_contactHeaderRxState == TCPCL_CONTACT_HEADER_RX_STATE::READ_VERSION);
+	}
+}
