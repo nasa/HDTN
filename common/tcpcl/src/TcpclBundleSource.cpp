@@ -296,3 +296,6 @@ void TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::s
     }
 }
 
+bool TcpclBundleSource::ReadyToForward() {
+    return m_readyToForward;
+}

@@ -19,6 +19,7 @@ public:
     ~TcpclBundleSource();
     bool Forward(const uint8_t* bundleData, const std::size_t size);
     void Connect(const std::string & hostname, const std::string & port);
+    bool ReadyToForward();
 private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);

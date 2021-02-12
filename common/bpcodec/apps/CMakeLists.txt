@@ -32,6 +32,19 @@ add_executable(bpgen
 target_include_directories(bpgen PUBLIC ../include)
 target_link_libraries(bpgen PUBLIC bpcodec)
 
+add_executable(bpgen-async
+    bpgen/src/BpGenAsync.cpp
+    bpgen/src/BpGenAsyncMain.cpp
+    ../../tcpcl/src/Tcpcl.cpp
+    ../../tcpcl/src/TcpclBundleSource.cpp
+    ../../tcpcl/src/sdnv.c
+    ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+    ../../../module/ingress/src/SignalHandler.cpp
+)
+
+target_include_directories(bpgen-async PUBLIC ../include bpgen/include ../../../module/ingress/include ../../tcpcl/include)
+target_link_libraries(bpgen-async PUBLIC bpcodec pthread boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
+
 add_executable(bpsink
     bpsink/bpsink.cpp
 )
