@@ -32,6 +32,7 @@ add_executable(hdtn-egress-async
     ../../common/bpcodec/src/codec/sdnv/cgoto/encode.cpp
     ../../common/bpcodec/src/codec/sdnv/loop/codec.cpp
     ../../common/tcpcl/src/Tcpcl.cpp
+    ../../common/tcpcl/src/TcpclBundleSource.cpp
     ../../common/tcpcl/src/sdnv.c)
 
 target_link_libraries(hdtn-egress-async pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
