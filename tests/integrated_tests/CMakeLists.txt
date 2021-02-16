@@ -5,11 +5,9 @@ set(CMAKE_CXX_STANDARD 11)
 
 set(GMOCK_LIBRARIES /usr/local/lib/libgmock.a  /usr/local/lib/libgmock_main.a)
 find_package(GTest REQUIRED)
-find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options)
+find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 include_directories(${GTEST_INCLUDE_DIRS})
 
-#find_package(Boost 1.71.0 REQUIRED system filesystem timer thread)
-find_package(Boost 1.71.0 REQUIRED filesystem)
 
 
 add_executable(integrated-tests
@@ -46,7 +44,7 @@ target_include_directories(integrated-tests PUBLIC include
         ../../common/bpcodec/include
         ../../common/bpcodec/apps/bpsink/include
         ../../common/tcpcl/include
+        ${Boost_INCLUDE_DIRS}
 )
 
-#target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec system filesystem timer thread)
-target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options )
+target_link_libraries(integrated-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec ${Boost_LIBRARIES} )

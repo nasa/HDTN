@@ -46,10 +46,19 @@ int main(int argc, char *argv[]) {
         hdtn::HdtnRegsvr regsvr;
         regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
         regsvr.Reg();
-        hdtn::HdtnEntries res = regsvr.Query();
-        for (auto entry : res) {
-            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+
+        if(hdtn::HdtnEntries_ptr res = regsvr.Query()) {
+            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
+            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
+                const hdtn::HdtnEntry & entry = *it;
+                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+            }
         }
+        else {
+            std::cerr << "error: null registration query" << std::endl;
+            return 1;
+        }
+
 
         printf("Announcing presence of ingress engine ...\n");
 

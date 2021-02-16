@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(hdtn-ingress)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options)
+find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
 
 add_executable(hdtn-ingress 
@@ -20,7 +20,7 @@ add_executable(hdtn-ingress
     ../../common/tcpcl/src/TcpclBundleSink.cpp
     ../../common/tcpcl/src/sdnv.c)
 
-target_link_libraries(hdtn-ingress pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
-target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include)
+target_link_libraries(hdtn-ingress pthread zmq hdtn_reg bpcodec ${Boost_LIBRARIES})
+target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include ${Boost_INCLUDE_DIRS})
 
 

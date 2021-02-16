@@ -392,7 +392,17 @@ int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
         hdtn::HdtnRegsvr regsvr;
         regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
         regsvr.Reg();
-        hdtn::HdtnEntries res = regsvr.Query();
+        if(hdtn::HdtnEntries_ptr res = regsvr.Query()) {
+            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
+            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
+                const hdtn::HdtnEntry & entry = *it;
+                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+            }
+        }
+        else {
+            std::cerr << "error: null registration query" << std::endl;
+            //return 1;
+        }
 //        for (auto entry : res) {
 //            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
 //        }
@@ -424,7 +434,17 @@ int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
         hdtn::HdtnRegsvr regsvr;
         regsvr.Init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
         regsvr.Reg();
-        hdtn::HdtnEntries res = regsvr.Query();
+        if(hdtn::HdtnEntries_ptr res = regsvr.Query()) {
+            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
+            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
+                const hdtn::HdtnEntry & entry = *it;
+                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+            }
+        }
+        else {
+            std::cerr << "error: null registration query" << std::endl;
+            //return 1;
+        }
 //        for (auto entry : res) {
 //            std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
 //        }

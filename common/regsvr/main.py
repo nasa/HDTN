@@ -27,7 +27,7 @@ if __name__ == '__main__':
             	
             res = registry.dispatch(message)
             if res is not None:
-                target.send_string("HDTN/1.0 200 OK | " + json.dumps(res))
+                target.send_string("HDTN/1.0 200 OK | " + json.dumps({"hdtnEntryList" : res}))
             else:
                 target.send_string("HDTN/1.0 400 FAIL | ")
     except KeyboardInterrupt:

@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 set(GMOCK_LIBRARIES /usr/local/lib/libgmock.a  /usr/local/lib/libgmock_main.a)
 find_package(GTest REQUIRED)
-find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework)
+find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework)
 include_directories(${GTEST_INCLUDE_DIRS})
 
 add_executable(unit-tests
@@ -40,9 +40,10 @@ target_include_directories(unit-tests PUBLIC include
 	../../common/regsvr/lib/include
         ../../common/bpcodec/include
         ../../common/tcpcl/include
+        ${Boost_INCLUDE_DIRS}
 )
 
-target_link_libraries(unit-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
+target_link_libraries(unit-tests ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES}  pthread zmq hdtn_reg blosc bpcodec ${Boost_LIBRARIES})
 
 
 
@@ -51,6 +52,7 @@ add_executable(boost-unit-tests
     src/boost_test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
     ../../common/tcpcl/test/TestSdnv.cpp
+    ../../common/regsvr/lib/test/TestHdtnEntries.cpp
 
     ../../module/egress/src/internal.cpp
     ../../module/egress/src/stcp.cpp
@@ -77,7 +79,8 @@ target_include_directories(boost-unit-tests PUBLIC include
         ../../common/regsvr/lib/include
         ../../common/bpcodec/include
         ../../common/tcpcl/include
+        ${Boost_INCLUDE_DIRS}
 )
 
-target_link_libraries(boost-unit-tests pthread zmq hdtn_reg blosc bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options boost_unit_test_framework)
+target_link_libraries(boost-unit-tests pthread zmq hdtn_reg blosc bpcodec ${Boost_LIBRARIES})
 

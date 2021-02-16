@@ -46,15 +46,16 @@ bool hdtn::Storage::Init(StorageConfig config) {
     m_egressSock = new zmq::socket_t(*m_ctx, zmq::socket_type::push);
     m_egressSock->bind(config.local);
 
-    HdtnEntries entries = m_storeReg.Query("ingress");
-    while (entries.size() == 0) {
+    hdtn::HdtnEntries_ptr entries = m_storeReg.Query("ingress");
+    while (!entries) {
         sleep(1);
         std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
         entries = m_storeReg.Query("ingress");
     }
+    const hdtn::HdtnEntryList_t & entryList = entries->m_hdtnEntryList;
 
     std::string remote =
-        entries.front().protocol + "://" + entries.front().address + ":" + std::to_string(entries.front().port);
+        entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
     std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
     int res = static_cast<int>(Ingress(remote));
     if (!res) {
