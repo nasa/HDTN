@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(bpcodec)
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
+find_package(Boost 1.40.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
 add_library(bpcodec 
         src/codec/bpv7.cpp
@@ -25,7 +26,7 @@ add_compile_definitions(BPV6_SDNV_LOOP)
 add_compile_definitions(BPV7_CBOR_STD)
 #add_compile_definitions(BPV7_CBOR_MEMOIZE)
 
-target_include_directories(bpcodec PUBLIC /opt/local/include include)
+target_include_directories(bpcodec PUBLIC /opt/local/include include ${Boost_INCLUDE_DIRS})
 
 add_subdirectory(apps)
 

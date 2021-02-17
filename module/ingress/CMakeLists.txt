@@ -20,7 +20,11 @@ add_executable(hdtn-ingress
     ../../common/tcpcl/src/TcpclBundleSink.cpp
     ../../common/tcpcl/src/sdnv.c)
 
+if (WIN32)
+    set(zmq_win_path "C:/libzmq_msvc_x64/include")
+endif()
+
 target_link_libraries(hdtn-ingress pthread zmq hdtn_reg bpcodec boost_system boost_filesystem boost_timer boost_thread boost_regex boost_filesystem boost_program_options)
-target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include)
+target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include ${zmq_win_path} ${Boost_INCLUDE_DIRS})
 
 
