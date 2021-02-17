@@ -444,7 +444,7 @@ void Tcpcl::GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
 	
 	shutdownMessage.resize(totalMessageSizeBytes);
 	shutdownMessage[0] = shutdownHeader;
-	uint8_t * ptr = &shutdownMessage[1];
+	uint8_t * ptr = (totalMessageSizeBytes > 1) ? &shutdownMessage[1] : NULL;
 	if (includeReasonCode) {
 		*ptr++ = static_cast<uint8_t>(shutdownReasonCode);
 	}
