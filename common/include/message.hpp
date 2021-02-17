@@ -39,11 +39,11 @@
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
 namespace hdtn {
-
+#pragma pack (push, 1)
 struct CommonHdr {
     uint16_t type;
     uint16_t flags;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct BlockHdr {
     CommonHdr base;
@@ -52,16 +52,16 @@ struct BlockHdr {
     uint32_t ttl;
     uint32_t zframe;
     uint64_t bundleSeq;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct StoreHdr {
     BlockHdr base;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct TelemStorageHdr {
     CommonHdr base;
     StorageStats stats;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct CscheduleHdr {
     CommonHdr base;
@@ -69,19 +69,19 @@ struct CscheduleHdr {
     uint64_t rate;      // bytes / sec
     uint64_t offset;    // msec
     uint64_t duration;  // msec
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct IreleaseStartHdr {
     CommonHdr base;
     uint32_t flowId;   // flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct IreleaseStopHdr {
     CommonHdr base;
     uint32_t flowId;
-} __attribute__((packed));
+};// __attribute__((packed));
 };  // namespace hdtn
-
+#pragma pack (pop)
 #endif

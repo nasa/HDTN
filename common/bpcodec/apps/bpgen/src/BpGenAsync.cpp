@@ -5,9 +5,8 @@
 #include <boost/make_shared.hpp>
 
 #include <time.h>
-#include <sys/time.h>
 #include "codec/bpv6.h"
-#include "util/tsc.h"
+//#include "util/tsc.h"
 
 #define BP_GEN_SRC_NODE_DEFAULT  (1)
 #define BP_GEN_DST_NODE_DEFAULT  (2)
@@ -200,17 +199,19 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             primary.dst_svc = 1;
             primary.creation = (uint64_t)bpv6_unix_to_5050(curr_time);
             primary.sequence = seq;
-            uint64_t tsc_start = rdtsc();
+            ////uint64_t tsc_start = rdtsc();
             bundle_length = bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);
             ////tsc_total += rdtsc() - tsc_start;
             block.type = BPV6_BLOCKTYPE_PAYLOAD;
             block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
             block.length = bundleSizeBytes;
-            tsc_start = rdtsc();
+            ////tsc_start = rdtsc();
             bundle_length += bpv6_canonical_block_encode(&block, curr_buf, bundle_length, BP_MSG_BUFSZ);
             ////tsc_total += rdtsc() - tsc_start;
+#ifndef _WIN32
             hdr->tsc = rdtsc();
             clock_gettime(CLOCK_REALTIME, &hdr->abstime);
+#endif // !_WIN32
             hdr->seq = bseq++;
             memcpy(curr_buf + bundle_length, data_buffer.data(), bundleSizeBytes);
             bundle_length += bundleSizeBytes;

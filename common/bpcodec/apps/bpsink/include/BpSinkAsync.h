@@ -2,7 +2,6 @@
 #define _BP_SINK_ASYNC_H
 
 #include <stdint.h>
-#include <sys/time.h>
 
 //#include "message.hpp"
 //#include "paths.hpp"

@@ -1,11 +1,9 @@
 ﻿#include <errno.h>
 #include <math.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 #include <cassert>
 #include <iostream>
@@ -13,7 +11,7 @@
 #include "codec/bpv6-ext-block.h"
 #include "codec/bpv6.h"
 //#include "message.hpp"
-#include "util/tsc.h"
+//#include "util/tsc.h"
 #include "BpSinkAsync.h"
 #include <boost/bind.hpp>
 
@@ -177,6 +175,7 @@ int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t m
         else {
             ++m_duplicateCount;
         }
+#ifndef _WIN32
         timespec tp;
         clock_gettime(CLOCK_REALTIME, &tp);
         int64_t one_way = 1000000 * (((int64_t)tp.tv_sec) - ((int64_t)data->abstime.tv_sec));
@@ -184,6 +183,7 @@ int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t m
 
         m_rtTotal += one_way;
         m_tscTotal += rdtsc() - data->tsc;
+#endif // !_WIN32
     }
     //gettimeofday(&tv, NULL);
     //double curr_time = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);

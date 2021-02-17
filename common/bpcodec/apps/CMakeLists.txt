@@ -41,9 +41,12 @@ add_executable(bpgen-async
     ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../../module/ingress/src/SignalHandler.cpp
 )
+if (NOT WIN32)	
+	target_link_libraries(bpgen-async PUBLIC pthread)
+endif()
 
 target_include_directories(bpgen-async PUBLIC ../include bpgen/include ../../../module/ingress/include ../../tcpcl/include ${Boost_INCLUDE_DIRS})
-target_link_libraries(bpgen-async PUBLIC bpcodec pthread ${Boost_LIBRARIES})
+target_link_libraries(bpgen-async PUBLIC bpcodec ${Boost_LIBRARIES})
 
 add_executable(bpsink
     bpsink/bpsink.cpp
@@ -61,9 +64,12 @@ add_executable(bpsink-async
     ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../../module/ingress/src/SignalHandler.cpp
 )
+if (NOT WIN32)	
+	target_link_libraries(bpsink-async PUBLIC pthread)
+endif()
 
 target_include_directories(bpsink-async PUBLIC ../include bpsink/include ../../../module/ingress/include ../../tcpcl/include ${Boost_INCLUDE_DIRS})
-target_link_libraries(bpsink-async PUBLIC bpcodec pthread zmq hdtn_reg bpcodec ${Boost_LIBRARIES})
+target_link_libraries(bpsink-async PUBLIC bpcodec ${Boost_LIBRARIES})
 
 add_executable(bpreflect
     bpreflect/bpreflect.cpp

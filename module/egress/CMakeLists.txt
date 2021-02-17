@@ -35,7 +35,16 @@ add_executable(hdtn-egress-async
     ../../common/tcpcl/src/TcpclBundleSource.cpp
     ../../common/tcpcl/src/sdnv.c)
 
-target_link_libraries(hdtn-egress-async pthread zmq hdtn_reg bpcodec ${Boost_LIBRARIES})
+if (WIN32)
+	#add_compile_definitions(ZMQ_STATIC)
+	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
+	set(libzmq_LIB "C:/libzmq_msvc_x64/lib/libzmq-v141-mt-4_3_4.lib" CACHE FILEPATH "Libzmq library")
+	target_link_libraries(hdtn-egress-async ${libzmq_LIB})
+	target_include_directories(hdtn-egress-async PUBLIC ${libzmq_INCLUDE})
+else()
+	target_link_libraries(hdtn-egress-async pthread zmq)
+endif()
+target_link_libraries(hdtn-egress-async hdtn_reg bpcodec ${Boost_LIBRARIES})
 target_include_directories(hdtn-egress-async PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../ingress/include ../../common/tcpcl/include ${Boost_INCLUDE_DIRS})
 
 

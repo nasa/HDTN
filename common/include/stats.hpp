@@ -11,13 +11,13 @@ struct FlowStats {
     uint64_t diskWbytes;
     uint64_t diskRcount;
     uint64_t diskRbytes;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct WorkerStats {
     uint64_t imsgSent;
     uint64_t imsgReceived;
     FlowStats flow;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct StorageFlowStats {
     StorageFlowStats() : src(0), dst(0), rate(0), duration(0), start(0) {}
@@ -41,7 +41,7 @@ struct StorageFlowStats {
      * Time offset at which release is scheduled to begin
      */
     uint64_t start;
-} __attribute__((packed));
+};// __attribute__((packed));
 
 struct StorageStats {
     StorageStats() : inMsg(0), inBytes(0), outMsg(0), outBytes(0), bytesUsed(0), bytesAvailable(0), rate(0) {}
@@ -89,7 +89,7 @@ struct StorageStats {
      * Contains information about worker thread and disk utilization
      */
     WorkerStats worker;
-} __attribute__((packed));
+};// __attribute__((packed));
 }  // namespace hdtn
 
 #endif

@@ -1,7 +1,6 @@
 #ifndef _HDTN_EGRESS_ASYNC_H
 #define _HDTN_EGRESS_ASYNC_H
 
-#include <unistd.h>
 
 #include <iostream>
 #include <string>

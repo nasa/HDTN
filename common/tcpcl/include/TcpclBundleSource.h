@@ -2,7 +2,6 @@
 #define _TCPCL_BUNDLE_SOURCE_H 1
 
 #include <string>
-#include "zmq.hpp"
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <map>

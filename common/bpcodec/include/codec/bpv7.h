@@ -56,6 +56,7 @@ extern "C" {
 #define BPV7_CBOR_TYPE_ARRAY          (4)
 
 namespace hdtn {
+#pragma pack(push, 1)
     typedef struct bpv7_hdr {
         union {
             uint8_t   bytes[4];
@@ -64,7 +65,7 @@ namespace hdtn {
 
         uint16_t flags;     // bundle flags go here
         uint8_t  crc;       // CRC type
-    } __attribute__((packed)) bpv7_hdr;
+    } /*__attribute__((packed))*/ bpv7_hdr;
 
     typedef struct bpv7_eid {
         uint8_t  type;
@@ -72,7 +73,7 @@ namespace hdtn {
         uint64_t node;
         uint64_t service;
         char     path[BPV7_MAX_PATHLEN];
-    } __attribute__((packed)) bpv7_ipn_eid;
+    } /*__attribute__((packed))*/ bpv7_ipn_eid;
 
     typedef struct bpv7_primary_block {
         uint8_t        version;
@@ -88,7 +89,7 @@ namespace hdtn {
         bpv7_eid       dst;            // +256 + 64
         bpv7_eid       src;            // +512 + 64
         bpv7_eid       report;         // +768 + 64
-    } __attribute__((packed)) __attribute__(( aligned(64) )) bpv7_primary_block;
+    } /*__attribute__((packed)) __attribute__(( aligned(64) ))*/ bpv7_primary_block;
 
     /**
      * Reads a bpbis primary block from a buffer and decodes it into 'primary'
@@ -132,8 +133,8 @@ namespace hdtn {
         uint64_t       len;
         uint8_t        crc_data[4];
         uint8_t        padding2[4];
-    } __attribute__((packed)) __attribute__(( aligned(64) )) bpv7_canonical_block;
-
+    } /*__attribute__((packed)) __attribute__(( aligned(64) ))*/ bpv7_canonical_block;
+#pragma pack(pop)
     /**
      * Reads a bundle canonical block from a buffer and decodes it as 'block'
      *

@@ -1,7 +1,8 @@
 #include "codec/bpv7.h"
 #include <cstdio>
 #include <cstring>
-#include <netinet/in.h> //for htons not declared
+//#include <netinet/in.h> //for htons not declared
+#include <boost/endian/conversion.hpp>
 
 // BPBIS_10 enables compatibility for version 10 of the bpbis draft.  This was required to achieve interoperability testing.
 #define BPV7_BPBIS_10     (1)
@@ -117,7 +118,7 @@ namespace hdtn {
             return 0;  // something is wrong in the beginning of our primary block header.
         }
         primary->version = base->hdr.bytes[BPV7_VERSION_OFFSET];
-        primary->flags = ntohs(base->flags);
+		primary->flags = boost::endian::big_to_native(base->flags);//ntohs(base->flags);
         primary->crc_type = base->crc;
         index += sizeof(bpv7_hdr);
         res = _bpv7_eid_decode(&primary->dst, buffer, index, bufsz);

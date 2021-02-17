@@ -2,12 +2,10 @@
 #define _HDTN_INGRESS_H
 
 #include <stdint.h>
-#include <sys/socket.h>
-#include <sys/time.h>
 
 #include "message.hpp"
 #include "paths.hpp"
-#include "util/tsc.h"
+//#include "util/tsc.h"
 #include "zmq.hpp"
 
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"

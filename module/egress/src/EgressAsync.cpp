@@ -4,7 +4,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 
-hdtn::HegrManagerAsync::HegrManagerAsync() : m_udpSocket(m_ioService), m_work(m_ioService) {
+hdtn::HegrManagerAsync::HegrManagerAsync() : m_udpSocket(m_ioService), m_work(m_ioService), m_running(false) {
     //m_flags = 0;
     //_next = NULL;
 }
@@ -70,7 +70,6 @@ void hdtn::HegrManagerAsync::Init() {
 }
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
-
     // Use a form of receive that times out so we can terminate cleanly.
     int timeout = 250;  // milliseconds
     m_zmqCutThroughSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
@@ -80,6 +79,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         if(!m_zmqCutThroughSock->recv(&hdr)) {
             continue; //timeout
         }
+
         ++m_messageCount;
         //char bundle[HMSG_MSG_MAX];
         if (hdr.size() < sizeof(hdtn::CommonHdr)) {

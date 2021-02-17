@@ -1,11 +1,9 @@
 ﻿#include <errno.h>
 #include <math.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 #include <cassert>
 #include <iostream>
@@ -105,7 +103,7 @@ int BpIngressSyscall::Netstart(uint16_t port) {
 }
 
 int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
-    uint64_t timer;    
+	uint64_t timer = 0;
     uint64_t offset = 0;
     uint32_t zframeSeq = 0;
     bpv6_primary_block bpv6Primary;
@@ -116,7 +114,7 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         const char * const tbuf = (const char*)rxBuf.data(); //char tbuf[HMSG_MSG_MAX];
         hdtn::BlockHdr hdr;
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
-        timer = rdtsc();
+        ////timer = rdtsc();
         //memcpy(tbuf, m_bufs[i], recvlen);
         hdr.ts = timer;
         offset = bpv6_primary_block_decode(&bpv6Primary, (const char*)rxBuf.data(), offset, messageSize);
@@ -143,17 +141,17 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             m_ingSequenceNum++;
             hdr.zframe = zframeSeq;
             zframeSeq++;
-            memcpy(hdrBuf, &hdr, sizeof(BlockHdr));
-            m_zmqCutThroughSock->send(hdrBuf, sizeof(BlockHdr), ZMQ_MORE);
+			memcpy(hdrBuf, &hdr, sizeof(BlockHdr));
+			m_zmqCutThroughSock->send(hdrBuf, sizeof(BlockHdr), /*ZMQ_MORE*/0);
             //char data[bytesToSend];
             //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
             //m_zmqCutThroughSock->send(data, bytesToSend, 0);
-            m_zmqCutThroughSock->send(&tbuf[CHUNK_SIZE * j], bytesToSend, 0);
+			m_zmqCutThroughSock->send(&tbuf[CHUNK_SIZE * j], bytesToSend, 0);
             ++m_zmsgsOut;
         }
         ++m_bundleCount;
         m_bundleData += messageSize;
-        timer = rdtsc() - timer;
+        ////timer = rdtsc() - timer;
     }
     return 0;
 }
