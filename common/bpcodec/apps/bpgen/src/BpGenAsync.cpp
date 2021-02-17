@@ -6,7 +6,9 @@
 
 #include <time.h>
 #include "codec/bpv6.h"
-//#include "util/tsc.h"
+#ifndef _WIN32
+#include "util/tsc.h"
+#endif
 
 #define BP_GEN_SRC_NODE_DEFAULT  (1)
 #define BP_GEN_DST_NODE_DEFAULT  (2)

@@ -35,7 +35,7 @@ if (WIN32)
 	target_link_libraries(hdtn_regtest ${libzmq_LIB})
 	target_include_directories(hdtn_regtest PUBLIC ${libzmq_INCLUDE})
 else()
-	target_link_libraries(hdtn_reg pthread zmq)
+        target_link_libraries(hdtn_regtest pthread zmq)
 endif()
 
 target_link_libraries(hdtn_regtest ${Boost_LIBRARIES})

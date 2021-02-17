@@ -11,7 +11,9 @@
 #include "codec/bpv6-ext-block.h"
 #include "codec/bpv6.h"
 //#include "message.hpp"
-//#include "util/tsc.h"
+#ifndef _WIN32
+#include "util/tsc.h"
+#endif
 #include "BpSinkAsync.h"
 #include <boost/bind.hpp>
 

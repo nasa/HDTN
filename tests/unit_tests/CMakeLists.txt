@@ -74,8 +74,8 @@ target_include_directories(boost-unit-tests PUBLIC include
         ${Boost_INCLUDE_DIRS}
 )
 
-if (NOT WIN32)	
-	target_link_libraries(boost-unit-tests PUBLIC pthread)
+if (NOT WIN32)
+        target_link_libraries(boost-unit-tests pthread)
 endif()
 
 target_link_libraries(boost-unit-tests hdtn_reg bpcodec ${Boost_LIBRARIES})
