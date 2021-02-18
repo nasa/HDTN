@@ -6,13 +6,14 @@
 #include "stats.hpp"
 
 #define HMSG_MSG_MAX (65536)
-#define CHUNK_SIZE (32800)
+#define CHUNK_SIZE (65536)
 
 #define HDTN_FLAG_CUSTODY_REQ (0x01)
 #define HDTN_FLAG_CUSTODY_OK (0x02)
 #define HDTN_FLAG_CUSTODY_FAIL (0x04)
 
 // Common message types shared by all components
+#define HDTN_MSGTYPE_EGRESS (0x0004)
 #define HDTN_MSGTYPE_STORE (0x0005)
 
 // Egress Messages range is 0xE000 to 0xEAFF

@@ -1,8 +1,5 @@
-#include <fcntl.h>
-#include <unistd.h>
-
 #include <boost/asio.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread.hpp>
 #include <cstdlib>
 #include <iostream>
 
@@ -10,10 +7,11 @@
 #include "paths.hpp"
 #include "reg.hpp"
 
-// This test code is used to send storage release messages
-// to enable development of the contact schedule and bundle
-// storage release mechanism.
-// release.cpp implements a subscriber for these messages.
+
+//This test code is used to send storage release messages
+//to enable development of the contact schedule and bundle
+//storage release mechanism.
+
 
 int main(int argc, char *argv[]) {
     hdtn::HdtnRegsvr reg;
@@ -22,28 +20,58 @@ int main(int argc, char *argv[]) {
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
     socket.bind(HDTN_SCHEDULER_PATH);
-    boost::asio::io_service io;
-    char relHdr[sizeof(hdtn::IreleaseStartHdr)];
-    hdtn::IreleaseStartHdr *release_msg = (hdtn::IreleaseStartHdr *)relHdr;
-    char stopHdr[sizeof(hdtn::IreleaseStopHdr)];
-    hdtn::IreleaseStopHdr *stopMsg = (hdtn::IreleaseStopHdr *)stopHdr;
+    reg.Init(HDTN_REG_SERVER_PATH, "ingress", 10110, "push");
+    reg.Reg();
+    zmq::socket_t storesocket(ctx, zmq::socket_type::push);
+    storesocket.bind(HDTN_STORAGE_PATH);
 
-    for (uint32_t i = 0; i < 100; i++) {
-        memset(relHdr, 0, sizeof(hdtn::IreleaseStartHdr));
-        release_msg->base.type = HDTN_MSGTYPE_IRELSTART;
-        release_msg->flowId = i;
-        release_msg->rate = 0;  // go as fast as possible
-        release_msg->duration = 20;
-        socket.send(release_msg, sizeof(hdtn::IreleaseStartHdr), 0);
-        std::cout << "release for 20 seconds \n";
-        boost::asio::deadline_timer timer(io, boost::posix_time::seconds(20));
-        timer.wait();
-        memset(stopHdr, 0, sizeof(hdtn::IreleaseStopHdr));
-        stopMsg->base.type = HDTN_MSGTYPE_IRELSTOP;
-        stopMsg->flowId = i;
-        socket.send(stopMsg, sizeof(hdtn::IreleaseStopHdr), 0);
-        std::cout << "stop release \n";
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+
+    const int bufferSize = 1000;
+    char data[bufferSize];
+    char alpha = 'A';
+    int j = 1;
+    for (int i = 0; i < bufferSize; i++) {
+        data[i] = alpha;
+        alpha++;
+        if (alpha == '[') {
+            alpha = 'A';
+        }
     }
+    
+    uint64_t total_bytes = 0;
+    uint64_t total_msg = 0;
+    for (int i = 0; i < 100000; i++) {        
+        hdtn::BlockHdr block;
+        memset(&block, 0, sizeof(hdtn::BlockHdr));
+        block.base.type = HDTN_MSGTYPE_STORE;
+        block.flowId = 1;
+        block.bundleSeq = i;
+        storesocket.send(&block, sizeof(hdtn::BlockHdr), 0/*ZMQ_MORE*/);
+        storesocket.send(data, bufferSize, 0);
+        j++;
+        total_msg++;
+        total_bytes = total_bytes + bufferSize;
+    }
+
+    
+    std::cout << "Bytes sent: " << total_bytes << ", messages sent:" << total_msg << std::endl;
+    //std::cout << "Mbps: " << (double)(total_bytes * 8) / (1024 * 1024) / (curr - start) << ", messages per sec " << (double)total_msg / (curr - start) << std::endl;
+
+    std::cout << "sleep 30 before sending release message\n";
+    hdtn::IreleaseStartHdr releaseMsg;
+    hdtn::IreleaseStopHdr stopMsg;
+    boost::this_thread::sleep(boost::posix_time::seconds(30));
+
+    memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+    releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
+    releaseMsg.flowId = 1;
+    releaseMsg.rate = 0;  //not implemented
+    releaseMsg.duration = 20;//not implemented
+    socket.send(&releaseMsg, sizeof(hdtn::IreleaseStartHdr), 0);
+    std::cout << "Release message sent \n";
+ 
+   
 
     return 0;
 }

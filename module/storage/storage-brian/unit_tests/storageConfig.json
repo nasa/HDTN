@@ -1,0 +1,13 @@
+{
+    "totalStorageCapacityBytes": 8192000000,
+    "storageDiskConfigVector": [
+        {
+            "name": "d1",
+            "storeFilePath": "C:\\hdtn_tmp\\store1.bin"
+        },
+        {
+            "name": "d2",
+            "storeFilePath": "C:\\hdtn_tmp\\store2.bin"
+        }
+    ]
+}

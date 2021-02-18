@@ -47,6 +47,7 @@ bool HdtnEntry::operator==(const HdtnEntry & o) const {
 }
 
 void HdtnRegsvr::Init(std::string target, std::string svc, uint16_t port, std::string mode) {
+    m_zmqSock = boost::shared_ptr<zmq::socket_t>(); //delete any existing
     m_zmqCtx = boost::make_shared<zmq::context_t>();
     m_zmqSock = boost::make_shared<zmq::socket_t>(*m_zmqCtx, zmq::socket_type::req);
     char tbuf[255];
