@@ -169,6 +169,7 @@ int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t m
         if(m_seqBase == 0) {
             m_seqBase = data->seq;
             m_seqHval = m_seqBase;
+            ++m_receivedCount; //brian added
         }
         else if(data->seq > m_seqHval) {
             m_seqHval = data->seq;
