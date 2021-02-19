@@ -41,7 +41,7 @@ bool hdtn::storage::init(storageConfig config) {
     m_telemetrySockPtr->bind(config.telem);
 
     hdtn::HdtnEntries_ptr entries = storeReg.Query("ingress");
-    while (!entries) {
+    while (!entries || entries->m_hdtnEntryList.empty()) {
         boost::this_thread::sleep(boost::posix_time::seconds(1));
         std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
         entries = storeReg.Query("ingress");
@@ -54,7 +54,8 @@ bool hdtn::storage::init(storageConfig config) {
 
     m_ingressSockPtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
     try {
-        m_ingressSockPtr->connect(remote);
+        //m_ingressSockPtr->connect(remote);
+        m_ingressSockPtr->connect(HDTN_STORAGE_PATH);
     }
     catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect ingress socket: " << ex.what() << std::endl;
@@ -92,6 +93,7 @@ bool hdtn::storage::init(storageConfig config) {
     try {
         m_releaseSockPtr->connect(config.releaseWorker);
         m_releaseSockPtr->setsockopt(ZMQ_SUBSCRIBE, "", 0);
+        std::cout << "release sock connected to " << config.releaseWorker << std::endl;
     } catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect release socket: " << ex.what() << std::endl;
         return false;
@@ -118,24 +120,16 @@ bool hdtn::storage::init(storageConfig config) {
 
 void hdtn::storage::update() {
     zmq::pollitem_t items[] = {
-        {m_ingressSockPtr->handle(),
-         0,
-         ZMQ_POLLIN,
-         0},
-        {m_releaseSockPtr->handle(),
-         0,
-         ZMQ_POLLIN,
-         0},
-        {m_telemetrySockPtr->handle(),
-         0,
-         ZMQ_POLLIN,
-         0},
+        {m_ingressSockPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_releaseSockPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_telemetrySockPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     if (zmq::poll(&items[0], 3, 250) > 0) {
         if (items[0].revents & ZMQ_POLLIN) {
             dispatch();
         }
         if (items[1].revents & ZMQ_POLLIN) {
+            std::cout << "release" << std::endl;
             scheduleRelease();
         }
         if (items[2].revents & ZMQ_POLLIN) {

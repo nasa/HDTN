@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
         hdtn::storageConfig config;
         config.regsvr = HDTN_REG_SERVER_PATH;
         config.local = HDTN_RELEASE_PATH;
+        config.releaseWorker = HDTN_SCHEDULER_PATH;
         config.storePath = "/home/hdtn/hdtn.store";
         hdtn::storage store;
         std::cout << "[store] Initializing storage manager ..." << std::endl;

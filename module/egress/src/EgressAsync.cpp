@@ -71,40 +71,55 @@ void hdtn::HegrManagerAsync::Init() {
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     // Use a form of receive that times out so we can terminate cleanly.
-    int timeout = 250;  // milliseconds
+    const int timeout = 250;  // milliseconds
+    static const unsigned int NUM_SOCKETS = 2;
     m_zmqCutThroughSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    m_zmqReleaseSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    zmq::pollitem_t items[NUM_SOCKETS] = {
+        {m_zmqCutThroughSock->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqReleaseSock->handle(), 0, ZMQ_POLLIN, 0}
+    };
+    zmq::socket_t * const sockets[NUM_SOCKETS] = { m_zmqCutThroughSock.get(), m_zmqReleaseSock.get() };
 
     while (m_running) { //keep thread alive if running
-        zmq::message_t hdr;
-        if(!m_zmqCutThroughSock->recv(&hdr)) {
+        zmq::message_t hdr;        
+        if (zmq::poll(&items[0], NUM_SOCKETS, timeout) <= 0) {
             continue; //timeout
         }
 
-        ++m_messageCount;
-        //char bundle[HMSG_MSG_MAX];
-        if (hdr.size() < sizeof(hdtn::CommonHdr)) {
-            std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
-            continue; //return -1;
-        }
-        hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
-        switch (common->type) {
-            case HDTN_MSGTYPE_STORE:
-                boost::shared_ptr<zmq::message_t> zmqMessagePtr = boost::make_shared<zmq::message_t>();
-                // Use a form of receive that times out so we can terminate cleanly.  If no
-                // message was received after timeout go back to top of loop
-                // std::cout << "In runEgress, before recv. " << std::endl << std::flush;
-                while (m_running) {
-                    if (!m_zmqCutThroughSock->recv(zmqMessagePtr.get())) {
-                        continue;
+        for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
+            if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
+                continue;
+            }
+            if (!sockets[itemIndex]->recv(&hdr)) {
+                continue;
+            }
+            ++m_messageCount;
+            //char bundle[HMSG_MSG_MAX];
+            if (hdr.size() < sizeof(hdtn::CommonHdr)) {
+                std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
+                continue; //return -1;
+            }
+            hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
+            switch (common->type) {
+                case HDTN_MSGTYPE_STORE:
+                case HDTN_MSGTYPE_EGRESS: //todo
+                    boost::shared_ptr<zmq::message_t> zmqMessagePtr = boost::make_shared<zmq::message_t>();
+                    // Use a form of receive that times out so we can terminate cleanly.  If no
+                    // message was received after timeout go back to top of loop
+                    // std::cout << "In runEgress, before recv. " << std::endl << std::flush;
+                    while (m_running) {
+                        if (!sockets[itemIndex]->recv(zmqMessagePtr.get())) {
+                            continue;
+                        }
+                        Forward(1, zmqMessagePtr);
+                        m_bundleData += zmqMessagePtr->size();
+                        ++m_bundleCount;
+                        break;
                     }
-                    Forward(1, zmqMessagePtr);
-                    m_bundleData += zmqMessagePtr->size();
-                    ++m_bundleCount;
                     break;
-                }
-                break;
+            }
         }
-
     }
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";

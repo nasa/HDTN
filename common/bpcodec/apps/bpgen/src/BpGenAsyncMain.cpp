@@ -11,6 +11,16 @@ static void MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
     g_running = false; //do this first
 }
+static void DurationEndedThreadFunction(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "BpGen reached duration.. exiting\n";
+    }
+    else {
+        std::cout << "Unknown error occurred in DurationEndedThreadFunction " << e.message() << std::endl;
+    }
+    g_running = false;
+}
 
 static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction));
 
@@ -24,6 +34,7 @@ int main(int argc, char* argv[]) {
         uint32_t bundleSizeBytes;
         uint32_t bundleRate;
         uint32_t tcpclFragmentSize;
+        uint32_t durationSeconds;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -33,6 +44,7 @@ int main(int argc, char* argv[]) {
                         ("port", boost::program_options::value<boost::uint16_t>()->default_value(4556), "Send bundles to this TCP or UDP destination port.")
                         ("bundle-size", boost::program_options::value<boost::uint32_t>()->default_value(100), "Bundle size bytes.")
                         ("bundle-rate", boost::program_options::value<boost::uint32_t>()->default_value(1500), "Bundle rate.")
+                        ("duration", boost::program_options::value<boost::uint32_t>()->default_value(0), "Seconds to send bundles for (0=>infinity).")
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ("tcpcl-fragment-size", boost::program_options::value<boost::uint32_t>()->default_value(0), "Max fragment size bytes of Tcpcl bundles (0->disabled).")
                         ;
@@ -54,6 +66,7 @@ int main(int argc, char* argv[]) {
                 bundleSizeBytes = vm["bundle-size"].as<boost::uint32_t>();
                 bundleRate = vm["bundle-rate"].as<boost::uint32_t>();
                 tcpclFragmentSize = vm["tcpcl-fragment-size"].as<boost::uint32_t>();
+                durationSeconds = vm["duration"].as<boost::uint32_t>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -75,11 +88,20 @@ int main(int argc, char* argv[]) {
         BpGenAsync bpGen;
         bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, bundleSizeBytes, bundleRate, tcpclFragmentSize);
 
+        boost::asio::io_service ioService;
+        boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::seconds(durationSeconds));
+        if (durationSeconds) {
+            deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error));
+        }
+
         g_sigHandler.Start(false);
         std::cout << "BpGenAsync up and running" << std::endl;
         while (g_running) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             g_sigHandler.PollOnce();
+            if (durationSeconds) {
+                ioService.poll_one();
+            }
         }
 
        //std::cout << "Msg Count, Bundle Count, Bundle data bytes\n";

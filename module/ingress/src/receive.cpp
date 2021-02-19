@@ -108,7 +108,6 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
     uint32_t zframeSeq = 0;
     bpv6_primary_block bpv6Primary;
     bpv6_eid dst;
-    char hdrBuf[sizeof(BlockHdr)];
     memset(&bpv6Primary, 0, sizeof(bpv6_primary_block));
     {
         const char * const tbuf = (const char*)rxBuf.data(); //char tbuf[HMSG_MSG_MAX];
@@ -141,12 +140,13 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             m_ingSequenceNum++;
             hdr.zframe = zframeSeq;
             zframeSeq++;
-			memcpy(hdrBuf, &hdr, sizeof(BlockHdr));
-			m_zmqCutThroughSock->send(hdrBuf, sizeof(BlockHdr), /*ZMQ_MORE*/0);
+            const bool useCutThrough = false;
+            zmq::socket_t * socket = (useCutThrough) ? m_zmqCutThroughSock.get() : m_zmqStorageSock.get();
+            socket->send(&hdr, sizeof(BlockHdr), /*ZMQ_MORE*/0);
             //char data[bytesToSend];
             //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
             //m_zmqCutThroughSock->send(data, bytesToSend, 0);
-			m_zmqCutThroughSock->send(&tbuf[CHUNK_SIZE * j], bytesToSend, 0);
+            socket->send(&tbuf[CHUNK_SIZE * j], bytesToSend, 0);
             ++m_zmsgsOut;
         }
         ++m_bundleCount;

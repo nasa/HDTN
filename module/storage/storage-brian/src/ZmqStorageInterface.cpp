@@ -31,7 +31,7 @@ static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageMan
     boost::uint8_t * data = (boost::uint8_t *) message->data();
 
 
-    const unsigned int linkId = hdr->flowId;
+    const unsigned int linkId = hdr->flowId; std::cout << "linkIdWrite: " << linkId << " sz " << size << std::endl;
     const unsigned int priorityIndex = 0; //could be 0, 1, or 2, but keep 0 for fifo mode
     static abs_expiration_t bundleI = 0;
     const abs_expiration_t absExpiration = bundleI++; //increment this every time for fifo mode
@@ -86,10 +86,10 @@ static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::so
             std::vector<boost::uint64_t> availableDestLinks = { flow }; //fifo mode, only put in the one link you want to read (could be more tho)
 
 
-            //std::cout << "reading\n";
+            std::cout << "reading\n";
             BundleStorageManagerSession_ReadFromDisk sessionRead;
             boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
-            //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
+            std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
             if (bytesToReadFromDisk == 0) { //no more of these links to read
                     break;
             }
@@ -152,7 +152,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     zmq::socket_t workerSock(*m_zmqContextPtr, zmq::socket_type::pair);
     workerSock.connect(m_queue.c_str());
     zmq::socket_t egressSock(*m_zmqContextPtr, zmq::socket_type::push);
-    egressSock.bind(HDTN_RELEASE_PATH);
+    egressSock.connect(HDTN_RELEASE_PATH); // egress should bind
 
     // Use a form of receive that times out so we can terminate cleanly.
     int timeout = 250;  // milliseconds

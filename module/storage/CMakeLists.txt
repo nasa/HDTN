@@ -96,3 +96,14 @@ else()
 	target_link_libraries(hdtn-test-schedule pthread zmq)
 endif()
 	
+add_executable(hdtn-release-message-sender
+	src/test/release_message_sender.cpp
+)
+target_link_libraries(hdtn-release-message-sender hdtn_reg bpcodec ${Boost_LIBRARIES}) 
+target_include_directories(hdtn-release-message-sender PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ${Boost_INCLUDE_DIRS})
+if (WIN32)
+	target_link_libraries(hdtn-release-message-sender ${libzmq_LIB})
+	target_include_directories(hdtn-release-message-sender PUBLIC ${libzmq_INCLUDE})
+else()
+	target_link_libraries(hdtn-release-message-sender pthread zmq)
+endif()
