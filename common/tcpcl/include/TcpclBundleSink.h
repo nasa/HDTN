@@ -20,18 +20,22 @@ public:
                     WholeBundleReadyCallback_t wholeBundleReadyCallback,
                     //ConnectionClosedCallback_t connectionClosedCallback,
                     const unsigned int numCircularBufferVectors,
-                    const unsigned int circularBufferBytesPerVector);
+                    const unsigned int circularBufferBytesPerVector,
+                    const std::string & thisEid);
     ~TcpclBundleSink();
     bool ReadyToBeDeleted();
 private:
 
     void StartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred, bool closeSocket);
+    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    void ShutdownAndCloseTcpSocket();
+    void OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e);
+    void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void PopCbThreadFunc();
+    void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
 
     //tcpcl received data callback functions
     void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
@@ -47,7 +51,8 @@ private:
     Tcpcl m_tcpcl;
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;
     uint16_t m_keepAliveIntervalSeconds;
-    std::string m_localEid;
+    std::string m_remoteEid;
+    const std::string M_THIS_EID;
     std::vector<uint8_t> m_fragmentedBundleRxConcat;
 
     WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
@@ -56,6 +61,8 @@ private:
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
+    boost::asio::deadline_timer m_handleSocketShutdownCancelOnlyTimer;
+    boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const unsigned int M_CIRCULAR_BUFFER_BYTES_PER_VECTOR;
@@ -64,6 +71,8 @@ private:
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    volatile bool m_sendShutdownMessage;
+    volatile bool m_reasonWasTimeOut;
     volatile bool m_running;
     volatile bool m_safeToDelete;
 };

@@ -8,17 +8,23 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
                                  WholeBundleReadyCallback_t wholeBundleReadyCallback,
                                  //ConnectionClosedCallback_t connectionClosedCallback,
                                  const unsigned int numCircularBufferVectors,
-                                 const unsigned int circularBufferBytesPerVector) :
+                                 const unsigned int circularBufferBytesPerVector,
+                                 const std::string & thisEid) :
+    M_THIS_EID(thisEid),
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
     //m_connectionClosedCallback(connectionClosedCallback),
     m_tcpSocketPtr(tcpSocketPtr),
     m_noKeepAlivePacketReceivedTimer(tcpSocketPtr->get_executor()),
     m_needToSendKeepAliveMessageTimer(tcpSocketPtr->get_executor()),
+    m_handleSocketShutdownCancelOnlyTimer(tcpSocketPtr->get_executor()),
+    m_sendShutdownMessageTimeoutTimer(tcpSocketPtr->get_executor()),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
     M_CIRCULAR_BUFFER_BYTES_PER_VECTOR(circularBufferBytesPerVector),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
+    m_sendShutdownMessage(false),
+    m_reasonWasTimeOut(false),
     m_running(false),
     m_safeToDelete(false)
 {
@@ -39,13 +45,18 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_threadCbReaderPtr = boost::make_shared<boost::thread>(
         boost::bind(&TcpclBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
 
+    m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
+    m_handleSocketShutdownCancelOnlyTimer.async_wait(boost::bind(&TcpclBundleSink::OnHandleSocketShutdown_TimerCancelled, this, boost::asio::placeholders::error));
 
     StartTcpReceive();
 }
 
 TcpclBundleSink::~TcpclBundleSink() {
 
-    ShutdownAndCloseTcpSocket();
+    DoTcpclShutdown(true, false);
+    while (!m_safeToDelete) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+    }
 
     m_running = false; //thread stopping criteria
 
@@ -62,6 +73,7 @@ void TcpclBundleSink::StartTcpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
         std::cerr << "critical error in TcpclBundleSink::StartTcpReceive(): buffers full.. TCP receiving on TcpclBundleSink will now stop!\n";
+        DoTcpclShutdown(true, false);
         return;
     }
     if(m_tcpSocketPtr) {
@@ -82,7 +94,7 @@ void TcpclBundleSink::HandleTcpReceiveSome(const boost::system::error_code & err
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "Tcp connection closed cleanly by peer" << std::endl;
-        ShutdownAndCloseTcpSocket();
+        DoTcpclShutdown(false, false);
     }
     else if (error != boost::asio::error::operation_aborted) {
         std::cerr << "Error in BpSinkAsync::HandleTcpReceiveSome: " << error.message() << std::endl;
@@ -114,13 +126,19 @@ void TcpclBundleSink::PopCbThreadFunc() {
 
 }
 
-void TcpclBundleSink::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred, bool closeSocket) {
+void TcpclBundleSink::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if(error) {
         std::cerr << "error in TcpclBundleSink::HandleTcpSend: " << error.message() << std::endl;
-        ShutdownAndCloseTcpSocket();
+        DoTcpclShutdown(true, false);
     }
-    else if(closeSocket) {
-        ShutdownAndCloseTcpSocket();
+}
+
+void TcpclBundleSink::HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    if (error) {
+        std::cerr << "error in TcpclBundleSink::HandleTcpSendShutdown: " << error.message() << std::endl;
+    }
+    else {
+        m_sendShutdownMessageTimeoutTimer.cancel();
     }
 }
 
@@ -131,18 +149,18 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
     //value zero, then the keepalive feature (described in Section 5.6)
     //is disabled.
     m_keepAliveIntervalSeconds = keepAliveIntervalSeconds;
-    m_localEid = localEid;
-    std::cout << "received contact header from " << m_localEid << std::endl;
+    m_remoteEid = localEid;
+    std::cout << "received contact header from " << m_remoteEid << std::endl;
 
     //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header
     //use the same keepalive interval
     if(m_tcpSocketPtr) {
         boost::shared_ptr<std::vector<uint8_t> > contactHeaderPtr = boost::make_shared<std::vector<uint8_t> >();
-        Tcpcl::GenerateContactHeader(*contactHeaderPtr, static_cast<CONTACT_HEADER_FLAGS>(0), keepAliveIntervalSeconds, "bpsink");
+        Tcpcl::GenerateContactHeader(*contactHeaderPtr, static_cast<CONTACT_HEADER_FLAGS>(0), keepAliveIntervalSeconds, M_THIS_EID);
         boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*contactHeaderPtr),
                                          boost::bind(&TcpclBundleSink::HandleTcpSend, this, contactHeaderPtr,
                                                      boost::asio::placeholders::error,
-                                                     boost::asio::placeholders::bytes_transferred, false));
+                                                     boost::asio::placeholders::bytes_transferred));
         if(m_keepAliveIntervalSeconds) { //non-zero
             std::cout << "using " << keepAliveIntervalSeconds << " seconds for keepalive\n";
 
@@ -187,7 +205,7 @@ void TcpclBundleSink::DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t>
             boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*ackPtr),
                                              boost::bind(&TcpclBundleSink::HandleTcpSend, this, ackPtr,
                                                          boost::asio::placeholders::error,
-                                                         boost::asio::placeholders::bytes_transferred, false));
+                                                         boost::asio::placeholders::bytes_transferred));
         }
     }
 }
@@ -228,27 +246,19 @@ void TcpclBundleSink::ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES
     if(hasReconnectionDelay) {
         std::cout << "requested reconnection delay: " << reconnectionDelaySeconds << " seconds" << std::endl;
     }
-    ShutdownAndCloseTcpSocket();
+    DoTcpclShutdown(false, false);
 }
 
 void TcpclBundleSink::OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        if(m_tcpSocketPtr) {
-            std::cout << "error: tcp keepalive timed out.. closing socket\n";
-            boost::shared_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_shared<std::vector<uint8_t> >();
-            Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, false, 0);
-            boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*shutdownPtr),
-                                             boost::bind(&TcpclBundleSink::HandleTcpSend, this, shutdownPtr,
-                                                         boost::asio::placeholders::error,
-                                                         boost::asio::placeholders::bytes_transferred, true)); //true => shutdown after data sent
-        }
-
+        DoTcpclShutdown(true, true);
     }
     else {
         //std::cout << "timer cancelled\n";
     }
 }
+
 
 void TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
@@ -260,7 +270,7 @@ void TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sys
             boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*keepAlivePtr),
                                              boost::bind(&TcpclBundleSink::HandleTcpSend, this, keepAlivePtr,
                                                          boost::asio::placeholders::error,
-                                                         boost::asio::placeholders::bytes_transferred, false));
+                                                         boost::asio::placeholders::bytes_transferred));
 
             m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_keepAliveIntervalSeconds));
             m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
@@ -271,9 +281,66 @@ void TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sys
     }
 }
 
-void TcpclBundleSink::ShutdownAndCloseTcpSocket() {
-    if(m_tcpSocketPtr) {
-        std::cout << "shutting down connection\n";
+void TcpclBundleSink::DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
+    m_sendShutdownMessage = sendShutdownMessage;
+    m_reasonWasTimeOut = reasonWasTimeOut;
+    m_handleSocketShutdownCancelOnlyTimer.cancel();
+}
+
+void TcpclBundleSink::OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e) {
+    if (e == boost::asio::error::operation_aborted) {
+        // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
+
+       
+        if (m_sendShutdownMessage) {
+            std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
+            boost::shared_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_shared<std::vector<uint8_t> >();
+            if (m_reasonWasTimeOut) {
+                Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, false, 0);
+            }
+            else {
+                Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, false, 0);
+            }
+            
+            boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*shutdownPtr),
+                                     boost::bind(&TcpclBundleSink::HandleTcpSendShutdown, this, shutdownPtr,
+                                                 boost::asio::placeholders::error,
+                                                 boost::asio::placeholders::bytes_transferred));
+
+            m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(3));
+        }
+        else {
+            m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(0));
+        }
+        m_sendShutdownMessageTimeoutTimer.async_wait(boost::bind(&TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired, this, boost::asio::placeholders::error));
+    }
+    else {
+        std::cerr << "Critical error in OnHandleSocketShutdown_TimerCancelled: timer was not cancelled" << std::endl;
+    }
+}
+
+void TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Notice: No TCPCL shutdown message was sent (not required)." << std::endl;
+    }
+    else {
+        //std::cout << "timer cancelled\n";
+        std::cout << "TCPCL shutdown message was sent." << std::endl;
+    }
+
+    //final code to shut down tcp sockets
+    if (m_tcpSocketPtr) {
+        try {
+            std::cout << "shutting down tcp socket.." << std::endl;
+            m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+            std::cout << "closing tcp socket.." << std::endl;
+            m_tcpSocketPtr->close();
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+        }
+        std::cout << "deleting tcp socket" << std::endl;
         m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();
@@ -281,6 +348,7 @@ void TcpclBundleSink::ShutdownAndCloseTcpSocket() {
     m_tcpcl.InitRx(); //reset states
     m_safeToDelete = true;
 }
+
 
 bool TcpclBundleSink::ReadyToBeDeleted() {
     return m_safeToDelete;

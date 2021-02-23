@@ -13,7 +13,7 @@ public:
     BpGenAsync();
     ~BpGenAsync();
     void Stop();
-    void Start(const std::string & hostname, const std::string & port, bool useTcpcl, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize);
+    void Start(const std::string & hostname, const std::string & port, bool useTcpcl, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString);
 private:
     void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize);
     void HandleUdpSendBundle(boost::shared_ptr<std::vector<uint8_t> > vecPtr, const boost::system::error_code& error, std::size_t bytes_transferred);

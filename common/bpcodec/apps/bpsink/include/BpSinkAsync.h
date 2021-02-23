@@ -20,7 +20,7 @@ class BpSinkAsync {
 private:
     BpSinkAsync();
 public:
-    BpSinkAsync(uint16_t port, bool useTcp);  // initialize message buffers
+    BpSinkAsync(uint16_t port, bool useTcp, const std::string & thisLocalEidString);  // initialize message buffers
     ~BpSinkAsync();
     int Init(uint32_t type);
     int Netstart();
@@ -51,6 +51,7 @@ public:
 private:
     const uint16_t m_rxPortUdpOrTcp;
     const bool m_useTcp;
+    const std::string M_THIS_EID_STRING;
 
     int m_type;
     boost::asio::io_service m_ioService;

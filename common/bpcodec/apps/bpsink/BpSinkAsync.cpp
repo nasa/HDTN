@@ -39,9 +39,10 @@ struct bpgen_hdr {
     timespec abstime;
 };
 
-BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcp) :
+BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcp, const std::string & thisLocalEidString) :
     m_rxPortUdpOrTcp(port),
     m_useTcp(useTcp),
+    M_THIS_EID_STRING(thisLocalEidString),
     m_udpSocket(m_ioService),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
     m_circularIndexBuffer(BP_MSG_NBUF),
@@ -279,7 +280,7 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
         }
         m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
                                                                    boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                   50, 2000);
+                                                                   50, 2000, M_THIS_EID_STRING);
 
         StartTcpAccept(); //only accept if there was no error
     }

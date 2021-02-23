@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
     //scope to ensure clean exit before return 0
     {
         std::string destinationAddress;
+        std::string thisLocalEidString;
         uint16_t port;
         bool useTcpcl = false;
         uint32_t bundleSizeBytes;
@@ -35,6 +36,7 @@ int main(int argc, char* argv[]) {
                         ("bundle-rate", boost::program_options::value<boost::uint32_t>()->default_value(1500), "Bundle rate.")
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ("tcpcl-fragment-size", boost::program_options::value<boost::uint32_t>()->default_value(0), "Max fragment size bytes of Tcpcl bundles (0->disabled).")
+                        ("tcpcl-eid", boost::program_options::value<std::string>()->default_value("BpGen"), "Local EID string for this program.")
                         ;
 
                 boost::program_options::variables_map vm;
@@ -54,6 +56,7 @@ int main(int argc, char* argv[]) {
                 bundleSizeBytes = vm["bundle-size"].as<boost::uint32_t>();
                 bundleRate = vm["bundle-rate"].as<boost::uint32_t>();
                 tcpclFragmentSize = vm["tcpcl-fragment-size"].as<boost::uint32_t>();
+                thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -73,7 +76,7 @@ int main(int argc, char* argv[]) {
         std::cout << "starting BpGenAsync.." << std::endl;
 
         BpGenAsync bpGen;
-        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, bundleSizeBytes, bundleRate, tcpclFragmentSize);
+        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString);
 
         g_sigHandler.Start(false);
         std::cout << "BpGenAsync up and running" << std::endl;

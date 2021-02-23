@@ -52,7 +52,7 @@ void BpGenAsync::Stop() {
     }
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize) {
+void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
@@ -63,7 +63,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
     }
 
     if(useTcpcl) {
-        m_tcpclBundleSourcePtr = boost::make_shared<TcpclBundleSource>(30, "BPGEN");
+        m_tcpclBundleSourcePtr = boost::make_shared<TcpclBundleSource>(30, thisLocalEidString);
         m_tcpclBundleSourcePtr->Connect(hostname, port);
         for(unsigned int i = 0; i<10; ++i) {
             std::cout << "Waiting for TCPCL to become ready to forward..." << std::endl;
@@ -229,7 +229,9 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
         //send message
         if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
-            m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size());
+            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
+                m_running = false;
+            }
         }
         else if (m_udpSocket.is_open()) { //udp
             m_udpSocket.async_send_to(boost::asio::buffer(*bundleToSend), m_udpDestinationEndpoint,

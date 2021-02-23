@@ -236,7 +236,7 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
         //}
         boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
                                                                    boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                   50, 2000);
+                                                                   50, 2000, "ingress");
         m_listTcpclBundleSinkPtrs.push_back(bundleSinkPtr);
 
         StartTcpAccept(); //only accept if there was no error
