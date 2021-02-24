@@ -312,11 +312,13 @@ void TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled(const boost::syste
         if (m_sendShutdownMessage) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
             boost::shared_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_shared<std::vector<uint8_t> >();
+            //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
+            //i.e., that the connecting node MUST NOT re - establish the connection.
             if (m_reasonWasTimeOut) {
-                Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, false, 0);
+                Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 0);
             }
             else {
-                Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, false, 0);
+                Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 0);
             }
 
             boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*shutdownPtr),
