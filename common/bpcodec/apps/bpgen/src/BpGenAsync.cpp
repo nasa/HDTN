@@ -43,6 +43,7 @@ void BpGenAsync::Stop() {
         }
     }
     m_tcpclBundleSourcePtr = boost::shared_ptr<TcpclBundleSource>(); //delete it
+    m_stcpBundleSourcePtr = boost::shared_ptr<StcpBundleSource>(); //delete it
     if (!m_ioService.stopped()) {
         m_ioService.stop();
     }
@@ -52,7 +53,7 @@ void BpGenAsync::Stop() {
     }
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString) {
+void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
@@ -70,6 +71,18 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
             if(m_tcpclBundleSourcePtr->ReadyToForward()) {
                 std::cout << "TCPCL ready to forward" << std::endl;
+                break;
+            }
+        }
+    }
+    else if (useStcp) {
+        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15);
+        m_stcpBundleSourcePtr->Connect(hostname, port);
+        for (unsigned int i = 0; i < 10; ++i) {
+            std::cout << "Waiting for STCP to become ready to forward..." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            if (m_stcpBundleSourcePtr->ReadyToForward()) {
+                std::cout << "STCP ready to forward" << std::endl;
                 break;
             }
         }
@@ -230,6 +243,11 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         //send message
         if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
             if (!m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
+                m_running = false;
+            }
+        }
+        else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
+            if (!m_stcpBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
                 m_running = false;
             }
         }

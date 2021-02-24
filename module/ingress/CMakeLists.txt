@@ -16,6 +16,7 @@ add_executable(hdtn-ingress
     ../../common/bpcodec/src/codec/sdnv/cgoto/decode.cpp
     ../../common/bpcodec/src/codec/sdnv/cgoto/encode.cpp
     ../../common/bpcodec/src/codec/sdnv/loop/codec.cpp
+	../../common/stcp/src/StcpBundleSink.cpp
     ../../common/tcpcl/src/Tcpcl.cpp
     ../../common/tcpcl/src/TcpclBundleSink.cpp
     ../../common/tcpcl/src/sdnv.c)
@@ -31,7 +32,7 @@ else()
 endif()
 
 target_link_libraries(hdtn-ingress hdtn_reg bpcodec ${Boost_LIBRARIES})
-target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include ${Boost_INCLUDE_DIRS})
+target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include ../../common/stcp/include ${Boost_INCLUDE_DIRS})
 
 
 
