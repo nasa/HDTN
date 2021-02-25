@@ -1,11 +1,5 @@
-#include <gtest/gtest.h>
+#define BOOST_TEST_MODULE HtdnTestsModule
 
-#include <fstream>
-#include <iostream>
+#include <boost/test/unit_test.hpp>
 
-int main(int ac, char* av[]) {
-    std::cout << "Running Integrated Tests. " << std::endl << std::flush;
-    testing::InitGoogleTest(&ac, av);
-    int valIntegratedTest = RUN_ALL_TESTS();
-    return valIntegratedTest;
-}
+

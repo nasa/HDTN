@@ -1,10 +1,9 @@
 #include <arpa/inet.h>
-#include <gtest/gtest.h>
 #include <sys/time.h>
-
 #include <iostream>
 #include <store.hpp>
 #include <zmq.hpp>
+#include <boost/test/unit_test.hpp>
 
 std::string GetEnv(const std::string &var) {
     const char *val = std::getenv(var.c_str());
@@ -24,22 +23,22 @@ std::string GetEnv(const std::string &var) {
  *           0 if dir does not exist OR exists but not a dir,
  *          <0 if an error occurred (errno is also set)
  *****************************************************************************/
-int DirExists(const char *const path) {
-    struct stat info;
+//int DirExists(const char *const path) {
+//    struct stat info;
 
-    int statRC = stat(path, &info);
-    if (statRC != 0) {
-        if (errno == ENOENT) {
-            return 0;
-        }  // something along the path does not exist
-        if (errno == ENOTDIR) {
-            return 0;
-        }  // something in path prefix is not a dir
-        return -1;
-    }
+//    int statRC = stat(path, &info);
+//    if (statRC != 0) {
+//        if (errno == ENOENT) {
+//            return 0;
+//        }  // something along the path does not exist
+//        if (errno == ENOTDIR) {
+//            return 0;
+//        }  // something in path prefix is not a dir
+//        return -1;
+//    }
 
-    return (info.st_mode & S_IFDIR) ? 1 : 0;
-}
+//    return (info.st_mode & S_IFDIR) ? 1 : 0;
+//}
 
 void stopRegistrationService() {
     // Stop the registration service
@@ -62,19 +61,15 @@ void stopRegistrationService() {
 }
 
 // Create a test fixture
-class StorageFixture : public testing::Test {
+class StorageFixture  {
 public:
     StorageFixture();
     ~StorageFixture();
-    void SetUp() override;     // This is called after constructor.
-    void TearDown() override;  // This is called before destructor.
-
     static void SetUpTestCase();     // This is called once before all test cases start.
     static void TearDownTestCase();  // This is called once after all test cases
                                      // have completed.
-
     static bool staticSetupWorked;
-
+private:
     hdtn::Storage *ptrStorage;
     hdtn::StorageWorker *ptrStorageWorker;
     hdtn::Scheduler *ptrScheduler;
@@ -142,77 +137,74 @@ StorageFixture::~StorageFixture() {
     delete ptrScheduler;
 }
 
-void StorageFixture::SetUp() { std::cout << "StorageFixture::SetUp called\n"; }
+//TEST_F(StorageFixture, DISABLED_Init_Update_Stats) {
+//    ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
 
-void StorageFixture::TearDown() {
-    //    std::cout << "StorageFixture::TearDown called\n";
-}
+//    hdtn::HdtnRegsvr regsvr;
+//    regsvr.Init("tcp://127.0.0.1:10140", "test", 10141, "PUSH");
+//    regsvr.Reg();
 
-TEST_F(StorageFixture, DISABLED_Init_Update_Stats) {
-    ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
+//    double last = 0.0;
+//    timeval tv;
+//    gettimeofday(&tv, NULL);
+//    last = (tv.tv_sec + (tv.tv_usec / 1000000.0));
+//    hdtn::StorageConfig config;
+//    config.regsvr = "tcp://127.0.0.1:10140";
+//    config.local = "tcp://127.0.0.1:10145";
+//    config.storePath = "/tmp/hdtn.store";
+//    hdtn::Storage store;
 
-    hdtn::HdtnRegsvr regsvr;
-    regsvr.Init("tcp://127.0.0.1:10140", "test", 10141, "PUSH");
-    regsvr.Reg();
+//    std::cout << "[store] Initializing storage manager ..." << std::endl;
+//    bool returnValue = store.Init(config);
+//    ASSERT_EQ(true, returnValue);
 
-    double last = 0.0;
-    timeval tv;
-    gettimeofday(&tv, NULL);
-    last = (tv.tv_sec + (tv.tv_usec / 1000000.0));
-    hdtn::StorageConfig config;
-    config.regsvr = "tcp://127.0.0.1:10140";
-    config.local = "tcp://127.0.0.1:10145";
-    config.storePath = "/tmp/hdtn.store";
-    hdtn::Storage store;
+//    store.Update();
+//    hdtn::StorageStats *stats = store.Stats();
+//    uint64_t cbytes = stats->inBytes;
+//    uint64_t ccount = stats->inMsg;
+//    printf("[store] Received: %d msg / %0.2f MB\n", ccount, cbytes / (1024.0 * 1024.0));
+//    regsvr.Dereg();
+//}
 
-    std::cout << "[store] Initializing storage manager ..." << std::endl;
-    bool returnValue = store.Init(config);
-    ASSERT_EQ(true, returnValue);
+//TEST_F(StorageFixture, DISABLED_DispatchTestNominal1) {
+//    ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
+//    FAIL() << "Test needed for class storage, method dispatch.";
+//}
 
-    store.Update();
-    hdtn::StorageStats *stats = store.Stats();
-    uint64_t cbytes = stats->inBytes;
-    uint64_t ccount = stats->inMsg;
-    printf("[store] Received: %d msg / %0.2f MB\n", ccount, cbytes / (1024.0 * 1024.0));
-    regsvr.Dereg();
-}
+//TEST_F(StorageFixture, DISABLED_C2TelemTestNominal1) {
+//    ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
+//    FAIL() << "Test needed for class storage, method c2telem.";
+//}
 
-TEST_F(StorageFixture, DISABLED_DispatchTestNominal1) {
-    ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
-    FAIL() << "Test needed for class storage, method dispatch.";
-}
+//TEST_F(StorageFixture, DISABLED_ReleaseTestNominal1) { FAIL() << "Test needed for class storage, method release."; }
 
-TEST_F(StorageFixture, DISABLED_C2TelemTestNominal1) {
-    ASSERT_TRUE(staticSetupWorked) << "Error setting up test suite.";
-    FAIL() << "Test needed for class storage, method c2telem.";
-}
+//TEST_F(StorageFixture, DISABLED_IngressTestNominal1) { FAIL() << "Test needed for class storage, method ingress."; }
 
-TEST_F(StorageFixture, DISABLED_ReleaseTestNominal1) { FAIL() << "Test needed for class storage, method release."; }
+//TEST_F(StorageFixture, DISABLED_InitWorkerTestNominal1) {
+//    FAIL() << "Test needed for class storage_worker, method init.";
+//}
 
-TEST_F(StorageFixture, DISABLED_IngressTestNominal1) { FAIL() << "Test needed for class storage, method ingress."; }
+//TEST_F(StorageFixture, DISABLED_LaunchTestNominal1) {
+//    FAIL() << "Test needed for class storage_worker, method launch.";
+//}
 
-TEST_F(StorageFixture, DISABLED_InitWorkerTestNominal1) {
-    FAIL() << "Test needed for class storage_worker, method init.";
-}
+//TEST_F(StorageFixture, DISABLED_ExecuteTestNominal1) {
+//    FAIL() << "Test needed for class storage_worker, method execute.";
+//}
 
-TEST_F(StorageFixture, DISABLED_LaunchTestNominal1) {
-    FAIL() << "Test needed for class storage_worker, method launch.";
-}
+//TEST_F(StorageFixture, DISABLED_ThreadTestNominal1) {
+//    FAIL() << "Test needed for class storage_worker, method thread.";
+//}
 
-TEST_F(StorageFixture, DISABLED_ExecuteTestNominal1) {
-    FAIL() << "Test needed for class storage_worker, method execute.";
-}
+//TEST_F(StorageFixture, DISABLED_WriteTestNominal1) { FAIL() << "Test needed for class storage_worker, method write."; }
 
-TEST_F(StorageFixture, DISABLED_ThreadTestNominal1) {
-    FAIL() << "Test needed for class storage_worker, method thread.";
-}
+//TEST_F(StorageFixture, DISABLED_InitSchedulerTestNominal1) {
+//    FAIL() << "Test needed for class scheduler, method init.";
+//}
 
-TEST_F(StorageFixture, DISABLED_WriteTestNominal1) { FAIL() << "Test needed for class storage_worker, method write."; }
+//TEST_F(StorageFixture, DISABLED_AddTestNominal1) { FAIL() << "Test needed for class scheduler, method add."; }
 
-TEST_F(StorageFixture, DISABLED_InitSchedulerTestNominal1) {
-    FAIL() << "Test needed for class scheduler, method init.";
-}
+//TEST_F(StorageFixture, DISABLED_NextTestNominal1) { FAIL() << "Test needed for class scheduler, method next."; }
 
-TEST_F(StorageFixture, DISABLED_AddTestNominal1) { FAIL() << "Test needed for class scheduler, method add."; }
 
-TEST_F(StorageFixture, DISABLED_NextTestNominal1) { FAIL() << "Test needed for class scheduler, method next."; }
+

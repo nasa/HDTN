@@ -1,12 +1,5 @@
-#include <gtest/gtest.h>
+#define BOOST_TEST_MODULE HtdnUnitTestsModule
 
-#include <fstream>
-#include <iostream>
+#include <boost/test/unit_test.hpp>
 
-int main(int ac, char* av[]) {
-    std::cout << "Running Unit Tests. " << std::endl << std::flush;
 
-    testing::InitGoogleTest(&ac, av);
-    int valUnitTests = RUN_ALL_TESTS();
-    return valUnitTests;
-}
