@@ -12,6 +12,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include "TcpclBundleSink.h"
+#include "StcpBundleSink.h"
 #include <list>
 
 // Used to receive multiple datagrams (e.g. recvmmsg)
@@ -50,7 +51,7 @@ public:
     BpIngressSyscall();  // initialize message buffers
     ~BpIngressSyscall();
     int Init(uint32_t type);
-    int Netstart(uint16_t port);
+    int Netstart(uint16_t port, bool useTcpcl, bool useStcp);
     int send_telemetry();
     void RemoveInactiveTcpConnections();
 private:
@@ -89,6 +90,7 @@ private:
     boost::shared_ptr<boost::asio::ip::tcp::acceptor> m_tcpAcceptorPtr;
 
     std::list<boost::shared_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
+    std::list<boost::shared_ptr<StcpBundleSink> > m_listStcpBundleSinkPtrs;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
@@ -97,6 +99,8 @@ private:
     boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
     volatile bool m_running;
+    bool m_useTcpcl;
+    bool m_useStcp;
 };
 
 // use an explicit typedef to avoid runtime vcall overhead

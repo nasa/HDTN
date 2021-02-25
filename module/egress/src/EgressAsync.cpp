@@ -113,9 +113,10 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int port) {
 
     if (flags & HEGR_FLAG_STCPv1) {
-        //HegrStcpEntry *tcp = new (Entry(fec)) HegrStcpEntry;
-        //tcp->Init(&saddr, flags);
-        //tcp->Disable();
+        boost::shared_ptr<HegrStcpEntryAsync> stcpEntry = boost::make_shared<HegrStcpEntryAsync>();
+        stcpEntry->Connect(dst, boost::lexical_cast<std::string>(port));
+        m_entryMap[fec] = stcpEntry;
+        m_entryMap[fec]->Disable();
         return 1;
     }
     else if (flags & HEGR_FLAG_UDP) {

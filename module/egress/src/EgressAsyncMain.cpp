@@ -21,12 +21,14 @@ int main(int argc, char* argv[]) {
     {
         uint16_t port;
         bool useTcpcl = false;
+        bool useStcp = false;
 
         boost::program_options::options_description desc("Allowed options");
         try {
                 desc.add_options()
                         ("help", "Produce help message.")
                         ("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
+                        ("use-stcp", "Use STCP instead of UDP.")
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ;
 
@@ -40,7 +42,14 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (vm.count("use-tcpcl")) {
-                        useTcpcl = true;
+                    useTcpcl = true;
+                }
+                if (vm.count("use-stcp")) {
+                    useStcp = true;
+                }
+                if (useTcpcl && useStcp) {
+                    std::cerr << "ERROR: cannot use both tcpcl and stcp" << std::endl;
+                    return 1;
                 }
 
                 port = vm["port"].as<boost::uint16_t>();
@@ -78,7 +87,7 @@ int main(int argc, char* argv[]) {
         hdtn::HegrManagerAsync egress;
         egress.Init();
         int entryStatus;
-        entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : HEGR_FLAG_UDP, "127.0.0.1", port);
+        entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", port);
         if (!entryStatus) {
             return 0;  // error message prints in add function
         }

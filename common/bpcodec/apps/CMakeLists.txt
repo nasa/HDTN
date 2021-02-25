@@ -39,6 +39,7 @@ add_executable(bpgen-async
     bpgen/src/BpGenAsyncMain.cpp
     ../../tcpcl/src/Tcpcl.cpp
     ../../tcpcl/src/TcpclBundleSource.cpp
+    ../../stcp/src/StcpBundleSource.cpp
     ../../tcpcl/src/sdnv.c
     ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../../module/ingress/src/SignalHandler.cpp
@@ -47,7 +48,7 @@ if (NOT WIN32)
 	target_link_libraries(bpgen-async PUBLIC pthread)
 endif()
 
-target_include_directories(bpgen-async PUBLIC ../include bpgen/include ../../../module/ingress/include ../../tcpcl/include ${Boost_INCLUDE_DIRS})
+target_include_directories(bpgen-async PUBLIC ../include bpgen/include ../../../module/ingress/include ../../tcpcl/include ../../stcp/include ${Boost_INCLUDE_DIRS})
 target_link_libraries(bpgen-async PUBLIC bpcodec ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
@@ -65,6 +66,7 @@ add_executable(bpsink-async
     ../../tcpcl/src/Tcpcl.cpp
     ../../tcpcl/src/TcpclBundleSink.cpp
     ../../tcpcl/src/sdnv.c
+	../../stcp/src/StcpBundleSink.cpp
     ../../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     ../../../module/ingress/src/SignalHandler.cpp
 )
@@ -72,7 +74,7 @@ if (NOT WIN32)
 	target_link_libraries(bpsink-async PUBLIC pthread)
 endif()
 
-target_include_directories(bpsink-async PUBLIC ../include bpsink/include ../../../module/ingress/include ../../tcpcl/include ${Boost_INCLUDE_DIRS})
+target_include_directories(bpsink-async PUBLIC ../include bpsink/include ../../../module/ingress/include ../../tcpcl/include ../../stcp/include ${Boost_INCLUDE_DIRS})
 target_link_libraries(bpsink-async PUBLIC bpcodec ${Boost_LIBRARIES})
 
 if (NOT WIN32)	

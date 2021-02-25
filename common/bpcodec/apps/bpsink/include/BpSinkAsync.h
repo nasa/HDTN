@@ -12,6 +12,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include "TcpclBundleSink.h"
+#include "StcpBundleSink.h"
 
 namespace hdtn {
 
@@ -20,7 +21,7 @@ class BpSinkAsync {
 private:
     BpSinkAsync();
 public:
-    BpSinkAsync(uint16_t port, bool useTcp, const std::string & thisLocalEidString);  // initialize message buffers
+    BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString);  // initialize message buffers
     ~BpSinkAsync();
     int Init(uint32_t type);
     int Netstart();
@@ -50,7 +51,8 @@ public:
 
 private:
     const uint16_t m_rxPortUdpOrTcp;
-    const bool m_useTcp;
+    const bool m_useTcpcl;
+    const bool m_useStcp;
     const std::string M_THIS_EID_STRING;
 
     int m_type;
@@ -59,6 +61,7 @@ private:
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
 
     boost::shared_ptr<TcpclBundleSink> m_tcpclBundleSinkPtr;
+    boost::shared_ptr<StcpBundleSink> m_stcpBundleSinkPtr;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;

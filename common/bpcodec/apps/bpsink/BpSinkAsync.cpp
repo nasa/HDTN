@@ -39,9 +39,10 @@ struct bpgen_hdr {
     timespec abstime;
 };
 
-BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcp, const std::string & thisLocalEidString) :
+BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString) :
     m_rxPortUdpOrTcp(port),
-    m_useTcp(useTcp),
+    m_useTcpcl(useTcpcl),
+    m_useStcp(useStcp),
     M_THIS_EID_STRING(thisLocalEidString),
     m_udpSocket(m_ioService),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
@@ -65,6 +66,7 @@ BpSinkAsync::~BpSinkAsync() {
     }
     m_tcpAcceptor.close();
     m_tcpclBundleSinkPtr = boost::shared_ptr<TcpclBundleSink>();
+    m_stcpBundleSinkPtr = boost::shared_ptr<StcpBundleSink>();
     m_ioService.stop(); //stop may not be needed
 
     if(m_ioServiceThreadPtr) {
@@ -93,7 +95,7 @@ int BpSinkAsync::Init(uint32_t type) {
     m_duplicateCount = 0;
     m_seqHval = 0;
     m_seqBase = 0;
-    if(!m_useTcp) { //udp only stuff
+    if((!m_useTcpcl) && (!m_useStcp)) { //udp only stuff
         for (unsigned int i = 0; i < BP_MSG_NBUF; ++i) {
             m_udpReceiveBuffersCbVec[i].resize(BP_MSG_BUFSZ);
         }
@@ -115,7 +117,7 @@ int BpSinkAsync::Netstart() {
         return 1;
     }
     printf("Starting BpSinkAsync channel ...\n");
-    if(m_useTcp) {
+    if(m_useTcpcl || m_useStcp) {
         StartTcpAccept();
     }
     else {
@@ -275,12 +277,24 @@ void BpSinkAsync::StartTcpAccept() {
 void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         std::cout << "tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << "\n";
-        if((m_tcpclBundleSinkPtr) && !m_tcpclBundleSinkPtr->ReadyToBeDeleted() ) {
-            std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
+        if (m_useTcpcl) {
+            if ((m_tcpclBundleSinkPtr) && !m_tcpclBundleSinkPtr->ReadyToBeDeleted()) {
+                std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
+            }
+
+            m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
+                                                                       boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                       50, 2000, M_THIS_EID_STRING);
         }
-        m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
-                                                                   boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                   50, 2000, M_THIS_EID_STRING);
+        else if (m_useStcp) {
+            if ((m_stcpBundleSinkPtr) && !m_stcpBundleSinkPtr->ReadyToBeDeleted()) {
+                std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
+            }
+
+            m_stcpBundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
+                                                                       boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                       50);
+        }
 
         StartTcpAccept(); //only accept if there was no error
     }
