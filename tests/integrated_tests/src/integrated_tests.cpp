@@ -2,7 +2,7 @@
 #include <codec/bpv6.h>
 #include <egress.h>
 #include <fcntl.h>
-#include <gtest/gtest.h>
+//#include <gtest/gtest.h>
 #include <ingress.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -32,6 +32,8 @@
 #include <BpSinkAsync.h>
 #include <EgressAsync.h>
 
+#include <boost/test/unit_test.hpp>
+
 
 #define BP_MSG_BUFSZ             (65536)
 #define BP_BUNDLE_DEFAULT_SZ     (100)
@@ -60,6 +62,8 @@ struct mmsghdr {
 
 #endif
 
+
+
 struct bpgen_hdr {
     uint64_t seq;
     uint64_t tsc;
@@ -85,12 +89,10 @@ volatile bool RUN_STORAGE = true;
 std::string ERROR_MESSAGE = "";
 
 // Create a test fixture.
-class IntegratedTestsFixture : public testing::Test {
+class BoostIntegratedTestsFixture {
 public:
-    IntegratedTestsFixture();
-    ~IntegratedTestsFixture();
-    void SetUp() override;     // This is called after constructor.
-    void TearDown() override;  // This is called before destructor.
+    BoostIntegratedTestsFixture();
+    ~BoostIntegratedTestsFixture();
     bool m_runningPythonServer;
 private:
     void StartPythonServer();
@@ -99,23 +101,33 @@ private:
     std::thread * m_ptrThreadPython;
 };
 
-void IntegratedTestsFixture::StopPythonServer() {
-//    std::cout << "StopPythonServer started." << std::endl << std::flush;
+BoostIntegratedTestsFixture::BoostIntegratedTestsFixture() {
+    std::cout << "Called BoostIntegratedTestsFixture::BoostIntegratedTestsFixture()" << std::endl;
+    m_ptrThreadPython = new std::thread(&BoostIntegratedTestsFixture::StartPythonServer,this);
+}
+
+BoostIntegratedTestsFixture::~BoostIntegratedTestsFixture() {
+    std::cout << "Called BoostIntegratedTestsFixture::~BoostIntegratedTestsFixture()" << std::endl;
+    this->StopPythonServer();
+}
+
+void BoostIntegratedTestsFixture::StopPythonServer() {
+    std::cout << "StopPythonServer started." << std::endl << std::flush;
     m_runningPythonServer = false;
     if (m_ptrChild) {
         m_ptrChild->terminate();
         m_ptrChild->wait();
         int result = m_ptrChild->exit_code();
-//        std::cout << "StopPythonServer ended with result = " << result << std::endl << std::flush;
+        std::cout << "StopPythonServer ended with result = " << result << std::endl << std::flush;
     }
-//    std::cout << "StopPythonServer ended." << std::endl << std::flush;
+    std::cout << "StopPythonServer ended." << std::endl << std::flush;
 }
 
-void IntegratedTestsFixture::StartPythonServer() {
-//    std::cout << "StartPythonServer started." << std::endl << std::flush;
+void BoostIntegratedTestsFixture::StartPythonServer() {
+    std::cout << "StartPythonServer started." << std::endl << std::flush;
     m_runningPythonServer = true;
     std::string commandArg = GetEnv("HDTN_SOURCE_ROOT") + "/common/regsvr/main.py";
-//    std::cout << "Running python3 " << commandArg << std::endl << std::flush;
+    std::cout << "Running python3 " << commandArg << std::endl << std::flush;
     m_ptrChild = new boost::process::child(boost::process::search_path("python3"),commandArg);
     while(m_ptrChild->running()) {
         while(m_runningPythonServer) {
@@ -123,30 +135,7 @@ void IntegratedTestsFixture::StartPythonServer() {
             //std::cout << "StartPythonServer is running. " << std::endl << std::flush;
         }
     }
-//    std::cout << "StartPythonServer ended." << std::endl << std::flush;
-}
-
-IntegratedTestsFixture::IntegratedTestsFixture() {
-    //    std::cout << "Called IntegratedTests1Fixture::IntegratedTests1Fixture()" << std::endl;
-}
-
-IntegratedTestsFixture::~IntegratedTestsFixture() {
-    //    std::cout << "Called IntegratedTests1Fixture::~IntegratedTests1Fixture()" << std::endl;
-}
-
-void IntegratedTestsFixture::SetUp() {
-//    std::cout << "IntegratedTests1Fixture::SetUp called\n";
-    m_ptrThreadPython = new std::thread(&IntegratedTestsFixture::StartPythonServer,this);
-}
-
-void IntegratedTestsFixture::TearDown() {
-//    std::cout << "IntegratedTests1Fixture::TearDown called\n";
-    this->StopPythonServer();
-}
-
-TEST_F(IntegratedTestsFixture, IntegratedTest1) {
-    bool result = TestBpgenIngressEgressBpsink();
-    EXPECT_EQ(true, result) << ERROR_MESSAGE;
+    std::cout << "StartPythonServer ended." << std::endl << std::flush;
 }
 
 bool TestBpgenIngressEgressBpsink() {
@@ -221,9 +210,6 @@ bool TestBpgenIngressEgressBpsink() {
 //    }
     return true;
 }
-
-
-
 
 int RunBpgen(uint64_t* ptrTotalBytesSent) {
      *ptrTotalBytesSent = 0;
@@ -409,7 +395,7 @@ int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
 
 //        printf("Announcing presence of ingress engine ...\n");
 
-        ingress.Netstart(ingressPort);
+        ingress.Netstart(ingressPort,true,false);
 
 //        std::cout << "ingress up and running.  RUN_INGRESS = " << RUN_INGRESS << std::endl << std::flush;
         while (RUN_INGRESS) {
@@ -489,7 +475,7 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived) {
         uint16_t port = 4557;
         bool useTcp = false;
 //        std::cout << "starting BpSink.." << std::endl;
-        hdtn::BpSinkAsync bpSink(port, useTcp, "BpSink");
+        hdtn::BpSinkAsync bpSink(port, useTcp,false,"");
         bpSink.Init(0);
         bpSink.Netstart();
 //        std::cout << "ingress up and running" << std::endl;
@@ -504,3 +490,12 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived) {
 //    std::cout<< "RunBpsink: exited cleanly\n";
     return 0;
 }
+
+BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
+
+BOOST_AUTO_TEST_CASE(test_BpgenIngressEgressBpsink) {
+    bool result = TestBpgenIngressEgressBpsink();
+    BOOST_CHECK(result == true);
+}
+
+
