@@ -29,8 +29,9 @@
 #define HDTN_MSGTYPE_TSTORAGE (0xFB00)  // response that indicates telemetry is of type "storage"
 
 // Internal messages used only by the storage component - types start at 0xFC00
-#define HDTN_MSGTYPE_IOK (0xFC00)         // indicates successful worker startup
-#define HDTN_MSGTYPE_IABORT (0xFC01)      // indicates that the worker encountered a critical failure and will                                     // immediately terminate
+#define HDTN_MSGTYPE_IOK (0xFC00)  // indicates successful worker startup
+#define HDTN_MSGTYPE_IABORT \
+    (0xFC01)  // indicates that the worker encountered a critical failure and will // immediately terminate
 #define HDTN_MSGTYPE_ISHUTDOWN (0xFC02)   // tells the worker to shut down
 #define HDTN_MSGTYPE_IRELSTART (0xFC03)   // tells the worker to begin releasing data for forwarding
 #define HDTN_MSGTYPE_IRELSTOP (0xFC04)    // tells the worker to stop releasing data
@@ -38,49 +39,49 @@
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
 namespace hdtn {
-
-struct common_hdr {
+#pragma pack (push, 1)
+struct CommonHdr {
     uint16_t type;
     uint16_t flags;
-} __attribute__((packed));
+};// __attribute__((packed));
 
-struct block_hdr {
-    common_hdr base;
-    uint32_t flow_id;
+struct BlockHdr {
+    CommonHdr base;
+    uint32_t flowId;
     uint64_t ts;
     uint32_t ttl;
     uint32_t zframe;
-    uint64_t bundle_seq;
-} __attribute__((packed));
+    uint64_t bundleSeq;
+};// __attribute__((packed));
 
-struct store_hdr {
-    block_hdr base;
-} __attribute__((packed));
+struct StoreHdr {
+    BlockHdr base;
+};// __attribute__((packed));
 
-struct telem_storage_hdr {
-    common_hdr base;
-    storage_stats stats;
-} __attribute__((packed));
+struct TelemStorageHdr {
+    CommonHdr base;
+    StorageStats stats;
+};// __attribute__((packed));
 
-struct cschedule_hdr {
-    common_hdr base;
-    uint32_t flow_id;   // flow ID
+struct CscheduleHdr {
+    CommonHdr base;
+    uint32_t flowId;   // flow ID
     uint64_t rate;      // bytes / sec
     uint64_t offset;    // msec
     uint64_t duration;  // msec
-} __attribute__((packed));
+};// __attribute__((packed));
 
-struct irelease_start_hdr {
-    common_hdr base;
-    uint32_t flow_id;   // flow ID
+struct IreleaseStartHdr {
+    CommonHdr base;
+    uint32_t flowId;   // flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
-} __attribute__((packed));
+};// __attribute__((packed));
 
-struct irelease_stop_hdr {
-    common_hdr base;
-    uint32_t flow_id;
-} __attribute__((packed));
+struct IreleaseStopHdr {
+    CommonHdr base;
+    uint32_t flowId;
+};// __attribute__((packed));
 };  // namespace hdtn
-
+#pragma pack (pop)
 #endif

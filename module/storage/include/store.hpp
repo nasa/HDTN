@@ -6,10 +6,10 @@
 #include <vector>
 
 #include "cache.hpp"
+#include "paths.hpp"
 #include "reg.hpp"
 #include "stats.hpp"
 #include "zmq.hpp"
-#include "paths.hpp"
 
 #define HDTN_STORAGE_TELEM_FLOWCOUNT (4)
 #define HDTN_STORAGE_PORT_DEFAULT (10425)
@@ -18,7 +18,7 @@
 
 namespace hdtn {
 
-struct schedule_event {
+struct ScheduleEvent {
     double ts;  // time at which this event will trigger
     uint32_t type;
     uint32_t flow;
@@ -26,84 +26,82 @@ struct schedule_event {
     uint64_t duration;  //  msec
 };
 
-typedef std::vector<schedule_event> release_list;
+typedef std::vector<ScheduleEvent> ReleaseList;
 
-class scheduler {
-   public:
-    void init();
-    void add(cschedule_hdr *hdr);
-    schedule_event *next();
+class Scheduler {
+public:
+    void Init();
+    void Add(CscheduleHdr *hdr);
+    ScheduleEvent *Next();
 
-   private:
-    release_list _schedule;
+private:
+    ReleaseList m_schedule;
 };
 
-struct storage_config {
-    storage_config()
-        : telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH) {}
+struct StorageConfig {
+    StorageConfig() : telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH) {}
 
     /**
-         * 0mq endpoint for registration server
-         */
+     * 0mq endpoint for registration server
+     */
     std::string regsvr;
     /**
-         * 0mq endpoint for storage service
-         */
+     * 0mq endpoint for storage service
+     */
     std::string local;
     /**
-         * Filesystem location for flow / data storage
-         */
-    std::string store_path;
+     * Filesystem location for flow / data storage
+     */
+    std::string storePath;
     /**
-         * 0mq endpoint for local telemetry service
-         */
+     * 0mq endpoint for local telemetry service
+     */
     std::string telem;
     /**
-         * 0mq inproc endpoint for worker's use
-         */
+     * 0mq inproc endpoint for worker's use
+     */
     std::string worker;
 };
 
-class storage_worker {
-   public:
-    ~storage_worker();
-    void init(zmq::context_t *ctx, storage_config config);
-    void launch();
-    void *execute(void *arg);
-    pthread_t *thread() { return &_thread; }
-    void write(hdtn::block_hdr *hdr, zmq::message_t *message);
+class StorageWorker {
+public:
+    ~StorageWorker();
+    void Init(zmq::context_t *ctx, StorageConfig config);
+    void Launch();
+    void *Execute(void *arg);
+    pthread_t *Thread() { return &m_thread; }
+    void Write(hdtn::BlockHdr *hdr, zmq::message_t *message);
 
-   private:
-    zmq::context_t *_ctx;
-    pthread_t _thread;
-    std::string _root;
-    std::string _queue;
-    char *_out_buf;
-    hdtn::flow_store _store;
+private:
+    zmq::context_t *m_ctx;
+    pthread_t m_thread;
+    std::string m_root;
+    std::string m_queue;
+    char *m_outBuf;
+    hdtn::FlowStore m_store;
 };
 
-class storage {
-   public:
-    bool init(storage_config config);
-    void update();
-    void dispatch();
-    void c2telem();
-    void release(uint32_t flow, uint64_t rate, uint64_t duration);
-    bool ingress(std::string remote);
-    storage_stats *stats() { return &_stats; }
+class Storage {
+public:
+    bool Init(StorageConfig config);
+    void Update();
+    void Dispatch();
+    void C2telem();
+    void Release(uint32_t flow, uint64_t rate, uint64_t duration);
+    bool Ingress(std::string remote);
+    StorageStats *Stats() { return &m_stats; }
 
-   private:
-    zmq::context_t *_ctx;
-    zmq::socket_t *_ingress_sock;
-    hdtn_regsvr _store_reg;
-    hdtn_regsvr _telem_reg;
-    uint16_t _port;
-    zmq::socket_t *_egress_sock;
-    zmq::socket_t *_worker_sock;
-    zmq::socket_t *_telemetry_sock;
-    storage_worker _worker;
-
-    storage_stats _stats;
+private:
+    zmq::context_t *m_ctx;
+    zmq::socket_t *m_ingressSock;
+    HdtnRegsvr m_storeReg;
+    HdtnRegsvr m_telemReg;
+    uint16_t m_port;
+    zmq::socket_t *m_egressSock;
+    zmq::socket_t *m_workerSock;
+    zmq::socket_t *m_telemetrySock;
+    StorageWorker m_worker;
+    StorageStats m_stats;
 };
 }  // namespace hdtn
 

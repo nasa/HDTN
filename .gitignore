@@ -8,3 +8,7 @@ build/*
 # Ignore files built for unit tests
 tests/unit_tests/build/
 tests/unit_tests/build/*
+
+#
+common/regsvr/hdtn/__pycache__/
+common/regsvr/hdtn/__pycache__/*

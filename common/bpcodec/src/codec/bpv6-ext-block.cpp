@@ -105,8 +105,9 @@ uint8_t bpv6_bib_decode(bpv6_bplib_bib_block* block, const char* buffer,const si
 	index += incr;
 	incr = bpv6_sdnv_decode(&block->security_result_len, buffer, index, bufsz);
 	index += incr;
-	uint8_t valptr[block->security_result_len];
-	memcpy(&valptr, buffer+index,block->security_result_len);
+	//uint8_t valptr[block->security_result_len];
+	//memcpy(&valptr, buffer+index,block->security_result_len);
+	const uint8_t * const valptr = (const uint8_t *)&buffer[index];
      //crc is big endian, not encoded as sdnv
 	if (block->cipher_suite_id == BPLIB_BIB_CRC16_X25 && block->security_result_len == 2)
 	{

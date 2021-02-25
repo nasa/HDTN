@@ -1,16 +1,16 @@
 #include "codec/crc.h"
 
 static crc_parameters_t crc16_x25 = {
-    .name                            = "CRC-16 X25",
-    .length                          = 16,
-    .should_reflect_input            = true,
-    .should_reflect_output           = true,
-    .n_bit_params = {
-        .crc16 = {
-            .generator_polynomial    = 0x1021,
-            .initial_value           = 0xFFFF,
-            .final_xor               = 0xF0B8,
-            .check_value             = 0x906E
+    /*.name                            =*/ "CRC-16 X25",
+    /*.length                          =*/ 16,
+    /*.should_reflect_input            =*/ true,
+    /*.should_reflect_output           =*/ true,
+    /*.n_bit_params =*/ {
+        /*.crc16 =*/ {
+            /*.generator_polynomial    =*/ 0x1021,
+            /*.initial_value           =*/ 0xFFFF,
+            /*.final_xor               =*/ 0xF0B8,
+            /*.check_value             =*/ 0x906E
         }
     }
 };

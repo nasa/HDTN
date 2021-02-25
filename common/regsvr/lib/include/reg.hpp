@@ -4,32 +4,79 @@
 #include <list>
 #include <string>
 #include <zmq.hpp>
+#include <boost/shared_ptr.hpp>
+#include "JsonSerializable.h"
 
 namespace hdtn {
 
-struct hdtn_entry {
-    std::string protocol;
-    std::string address;
-    std::string type;
-    uint16_t port;
-    std::string mode;
+struct HdtnEntry {
+  std::string protocol;
+  std::string address;
+  std::string type;
+  uint16_t port;
+  std::string mode;
+
+  //a default constructor: X()
+  HdtnEntry();
+
+  //a destructor: ~X()
+  ~HdtnEntry();
+
+  //a copy constructor: X(const X&)
+  HdtnEntry(const HdtnEntry& o);
+
+  //a move constructor: X(X&&)
+  HdtnEntry(HdtnEntry&& o);
+
+  //a copy assignment: operator=(const X&)
+  HdtnEntry& operator=(const HdtnEntry& o);
+
+  //a move assignment: operator=(X&&)
+  HdtnEntry& operator=(HdtnEntry&& o);
+
+  bool operator==(const HdtnEntry & o) const;
 };
 
-typedef std::list<hdtn_entry> hdtn_entries;
+typedef std::list<HdtnEntry> HdtnEntryList_t;
 
-class hdtn_regsvr {
-   public:
-    void init(std::string target, std::string svc, uint16_t port, std::string mode);
-    bool reg();
-    bool dereg();
-    hdtn::hdtn_entries query(std::string target = "");
+class HdtnEntries;
+typedef boost::shared_ptr<HdtnEntries> HdtnEntries_ptr;
 
-   private:
-    zmq::context_t *_zmq_ctx;
-    zmq::socket_t *_zmq_sock;
-    std::string _type;
-    std::string _mode;
-    uint16_t _port;
+class HdtnEntries : public JsonSerializable {
+
+
+public:
+    HdtnEntries();
+    ~HdtnEntries();
+
+    bool operator==(const HdtnEntries & other) const;
+
+    static HdtnEntries_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
+    static HdtnEntries_ptr CreateFromJson(const std::string & jsonString);
+    static HdtnEntries_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    virtual boost::property_tree::ptree GetNewPropertyTree() const;
+    virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+
+    void AddEntry(const std::string & protocol, const std::string & address, const std::string & type, uint16_t port, const std::string & mode);
+public:
+
+    HdtnEntryList_t m_hdtnEntryList;
+};
+
+class HdtnRegsvr {
+ public:
+  void Init(std::string target, std::string svc, uint16_t port,
+            std::string mode);
+  bool Reg();
+  bool Dereg();
+  HdtnEntries_ptr Query(const std::string & type = "");
+
+ private:
+  boost::shared_ptr<zmq::context_t> m_zmqCtx;
+  boost::shared_ptr<zmq::socket_t> m_zmqSock;
+  std::string m_type;
+  std::string m_mode;
+  uint16_t m_port;
 };
 
 };  // namespace hdtn

@@ -2,85 +2,106 @@
 #define _HDTN_INGRESS_H
 
 #include <stdint.h>
-#include <sys/socket.h>
-#include <sys/time.h>
 
 #include "message.hpp"
 #include "paths.hpp"
-#include "util/tsc.h"
+//#include "util/tsc.h"
 #include "zmq.hpp"
+
+#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
+#include "TcpclBundleSink.h"
+#include <list>
 
 // Used to receive multiple datagrams (e.g. recvmmsg)
 #define BP_INGRESS_STRBUF_SZ (8192)
 #define BP_INGRESS_MSG_NBUF (32)
 #define BP_INGRESS_MSG_BUFSZ (65536)
-
 #define BP_INGRESS_USE_SYSCALL (1)
-
 #define BP_INGRESS_TYPE_UDP (0x01)
 #define BP_INGRESS_TYPE_STCP (0x02)
 
 namespace hdtn {
-std::string datetime();
+std::string Datetime();
 
-typedef struct bp_mmsgbuf {
+typedef struct BpMmsgbuf {
     uint32_t nbuf;
     uint32_t bufsz;
     struct mmsghdr *hdr;
     struct iovec *io;
     char *srcbuf;
-} bp_mmsgbuf;
+} BpMmsgbuf;
 
-typedef struct ingress_telemetry {
-    uint64_t total_bundles;
-    uint64_t total_bytes;
-    uint64_t total_zmsgs_in;
-    uint64_t total_zmsgs_out;
-    uint64_t bundles_sec_in;
-    uint64_t Mbits_sec_in;
-    uint64_t zmsgs_sec_in;
-    uint64_t zmsgs_sec_out;
+typedef struct IngressTelemetry {
+    uint64_t totalBundles;
+    uint64_t totalBytes;
+    uint64_t totalZmsgsIn;
+    uint64_t totalZmsgsOut;
+    uint64_t bundlesSecIn;
+    uint64_t mBitsSecIn;
+    uint64_t zmsgsSecIn;
+    uint64_t zmsgsSecOut;
     double elapsed;
+} IngressTelemetry;
 
-} ingress_telemetry;
-
-class bp_ingress_syscall {
-   public:
-    bp_ingress_syscall();  // initialize message buffers
-    ~bp_ingress_syscall();
-    void destroy();
-    int init(uint32_t type);
-    int netstart(uint16_t port);
-    int process(int count);
+class BpIngressSyscall {
+public:
+    BpIngressSyscall();  // initialize message buffers
+    ~BpIngressSyscall();
+    int Init(uint32_t type);
+    int Netstart(uint16_t port);
     int send_telemetry();
-    int update();
+    void RemoveInactiveTcpConnections();
+private:
+    int Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
+    void StartUdpReceive();
+    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    void PopCbThreadFunc();
 
-    uint64_t bundle_count = 0;
-    uint64_t bundle_data = 0;
-    uint64_t zmsgs_in = 0;
-    uint64_t zmsgs_out = 0;
-    uint64_t ing_sequence_num = 0;
-    double elapsed = 0;
-    bool force_storage = false;
-    const char *cutThroughAddress=HDTN_CUT_THROUGH_PATH;
-    const char *StorageAddress=HDTN_STORAGE_PATH;
+    void TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr);
+    void StartTcpAccept();
+    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error);
 
-   private:
-    bp_mmsgbuf msgbuf;
-    zmq::context_t *zmqCutThroughCtx;
-    zmq::socket_t *zmqCutThroughSock;
-    zmq::context_t *zmqStorageCtx;
-    zmq::socket_t *zmqStorageSock;
-    zmq::context_t *zmqTelemCtx;
-    zmq::socket_t *zmqTelemSock;
-    int fd;
-    int type;
-    char *bufs[BP_INGRESS_MSG_NBUF];
+public:
+
+    uint64_t m_bundleCount = 0;
+    uint64_t m_bundleData = 0;
+    uint64_t m_zmsgsIn = 0;
+    uint64_t m_zmsgsOut = 0;
+    uint64_t m_ingSequenceNum = 0;
+    double m_elapsed = 0;
+    bool m_forceStorage = false;
+    const char *m_cutThroughAddress = HDTN_CUT_THROUGH_PATH;
+    const char *m_storageAddress = HDTN_STORAGE_PATH;
+
+private:
+
+    boost::shared_ptr<zmq::context_t> m_zmqCutThroughCtx;
+    boost::shared_ptr<zmq::socket_t> m_zmqCutThroughSock;
+    boost::shared_ptr<zmq::context_t> m_zmqStorageCtx;
+    boost::shared_ptr<zmq::socket_t> m_zmqStorageSock;
+    boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
+    boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
+    int m_type;
+    boost::asio::io_service m_ioService;
+    boost::asio::ip::udp::socket m_udpSocket;
+    boost::shared_ptr<boost::asio::ip::tcp::acceptor> m_tcpAcceptorPtr;
+
+    std::list<boost::shared_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
+    std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
+    std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
+    std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
+    boost::condition_variable m_conditionVariableCb;
+    boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    volatile bool m_running;
 };
 
 // use an explicit typedef to avoid runtime vcall overhead
 #ifdef BP_INGRESS_USE_SYSCALL
-typedef bp_ingress_syscall bp_ingress;
+typedef BpIngressSyscall BpIngress;
 #endif
 
 }  // namespace hdtn

@@ -5,7 +5,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 
 #include <fstream>
 #include <iostream>
@@ -17,62 +16,79 @@
 #define BP_INGRESS_TELEM_FREQ (0.10)
 #define INGRESS_PORT (4556)
 
-using namespace hdtn;
-using namespace std;
-using namespace zmq;
-static bp_ingress ingress;
+//using namespace hdtn;
+//using namespace std;
+//using namespace zmq;
+#include "SignalHandler.h"
 
-static void s_signal_handler(int signal_value) {
-    //s_interrupted = 1;
-    ofstream output;
-    std::string current_date = datetime();
-    output.open("ingress-" + current_date);
-    output << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data (MB)\n";
-    double rate = 8 * ((ingress.bundle_data / (double)(1024 * 1024)) / ingress.elapsed);
-    output << ingress.elapsed << "," << ingress.bundle_count / 1000000.0f << "," << rate << "," << ingress.bundle_count / ingress.elapsed << ", " << ingress.bundle_data / (double)(1024 * 1024) << "\n";
-    output.close();
-    exit(EXIT_SUCCESS);
+static volatile bool g_running = true;
+
+static void MonitorExitKeypressThreadFunction() {
+    std::cout << "Keyboard Interrupt.. exiting\n";
+    g_running = false; //do this first
 }
 
-static void s_catch_signals(void) {
-    struct sigaction action;
-    action.sa_handler = s_signal_handler;
-    action.sa_flags = 0;
-    sigemptyset(&action.sa_mask);
-    sigaction(SIGINT, &action, NULL);
-    sigaction(SIGTERM, &action, NULL);
-}
+static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction));
+
+
 
 int main(int argc, char *argv[]) {
-    ingress.init(BP_INGRESS_TYPE_UDP);
-    uint64_t last_time = 0;
-    uint64_t curr_time = 0;
-    //finish registration stuff -ingress will find out what egress services have registered
-    hdtn_regsvr regsvr;
-    regsvr.init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
-    regsvr.reg();
-    hdtn_entries res = regsvr.query();
-    for (auto entry : res) {
-        std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-    }
-    s_catch_signals();
-    printf("Announcing presence of ingress engine ...\n");
 
-    ingress.netstart(INGRESS_PORT);
-    int count = 0;
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    double start = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-    printf("Start: +%f\n", start);
-    while (true) {
-        curr_time = time(0);
-        gettimeofday(&tv, NULL);
-        ingress.elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-        ingress.elapsed -= start;
-        count = ingress.update();
-        ingress.process(count);
-        last_time = curr_time;
-    }
+    //scope to ensure clean exit before return 0
+    {
+        std::cout << "starting ingress.." << std::endl;
+        hdtn::BpIngress ingress;
+        ingress.Init(BP_INGRESS_TYPE_UDP);
 
-    exit(EXIT_SUCCESS);
+        // finish registration stuff -ingress will find out what egress services have
+        // registered
+        hdtn::HdtnRegsvr regsvr;
+        regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
+        regsvr.Reg();
+
+        if(hdtn::HdtnEntries_ptr res = regsvr.Query()) {
+            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
+            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
+                const hdtn::HdtnEntry & entry = *it;
+                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+            }
+        }
+        else {
+            std::cerr << "error: null registration query" << std::endl;
+            return 1;
+        }
+
+
+        printf("Announcing presence of ingress engine ...\n");
+
+        ingress.Netstart(INGRESS_PORT);
+
+        g_sigHandler.Start(false);
+        std::cout << "ingress up and running" << std::endl;
+        while (g_running) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            ingress.RemoveInactiveTcpConnections();
+            g_sigHandler.PollOnce();
+        }
+
+        std::string currentDate = hdtn::Datetime();
+        std::ofstream output;
+        output.open("ingress-" + currentDate);
+
+        std::ostringstream oss;
+        oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
+                  "(MB)\n";
+        double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
+        oss << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
+               << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024) << "\n";
+
+        std::cout << oss.str();
+        output << oss.str();
+        output.close();
+
+        std::cout<< "Ingress main.cpp: exiting cleanly..\n";
+    }
+    std::cout<< "Ingress main.cpp: exited cleanly\n";
+    return 0;
+
 }
