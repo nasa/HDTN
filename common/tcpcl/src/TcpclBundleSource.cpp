@@ -10,8 +10,13 @@ m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
+m_handleSocketShutdownCancelOnlyTimer(m_ioService),
+m_sendShutdownMessageTimeoutTimer(m_ioService),
 m_keepAliveIntervalSeconds(desiredKeeAliveIntervlSeconds),
 m_readyToForward(false),
+m_tcpclShutdownComplete(true),
+m_sendShutdownMessage(false),
+m_reasonWasTimeOut(false),
 M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 M_THIS_EID_STRING(thisEidString),
 
@@ -21,6 +26,9 @@ m_totalDataSegmentsSent(0),
 m_totalBundleBytesSent(0)
 {
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+
+    m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
+    m_handleSocketShutdownCancelOnlyTimer.async_wait(boost::bind(&TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled, this, boost::asio::placeholders::error));
 
 
     m_tcpcl.SetContactHeaderReadCallback(boost::bind(&TcpclBundleSource::ContactHeaderCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
@@ -34,7 +42,11 @@ m_totalBundleBytesSent(0)
 }
 
 TcpclBundleSource::~TcpclBundleSource() {
-    ShutdownAndCloseTcpSocket();
+    
+    DoTcpclShutdown(true, false);
+    while (!m_tcpclShutdownComplete) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+    }
     m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
 
     if(m_ioServiceThreadPtr) {
@@ -58,7 +70,7 @@ bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t siz
     }
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += size;
-    m_bytesToAckQueue.push(size);
+    m_bytesToAckQueue.push(static_cast<uint32_t>(size));
 
     boost::shared_ptr<std::vector<uint8_t> > bundleSegmentPtr = boost::make_shared<std::vector<uint8_t> >();
     Tcpcl::GenerateDataSegment(*bundleSegmentPtr, true, true, bundleData, static_cast<uint32_t>(size));
@@ -66,7 +78,7 @@ bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t siz
     boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*bundleSegmentPtr),
                                      boost::bind(&TcpclBundleSource::HandleTcpSend, this, bundleSegmentPtr,
                                                  boost::asio::placeholders::error,
-                                                 boost::asio::placeholders::bytes_transferred, false));
+                                                 boost::asio::placeholders::bytes_transferred));
     return true;
 }
 
@@ -107,7 +119,7 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
     }
 
     std::cout << "connected.. sending contact header..\n";
-
+    m_tcpclShutdownComplete = false;
 
     if(m_tcpSocketPtr) {
         boost::shared_ptr<std::vector<uint8_t> > contactHeaderPtr = boost::make_shared<std::vector<uint8_t> >();
@@ -115,29 +127,27 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
         boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*contactHeaderPtr),
                                          boost::bind(&TcpclBundleSource::HandleTcpSend, this, contactHeaderPtr,
                                                      boost::asio::placeholders::error,
-                                                     boost::asio::placeholders::bytes_transferred, false));
+                                                     boost::asio::placeholders::bytes_transferred));
 
         StartTcpReceive();
     }
 }
 
-void TcpclBundleSource::ShutdownAndCloseTcpSocket() {
-    if(m_tcpSocketPtr) {
-        std::cout << "deleting tcp socket\n";
-        m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+
+
+void TcpclBundleSource::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    if (error) {
+        std::cerr << "error in TcpclBundleSource::HandleTcpSend: " << error.message() << std::endl;
+        DoTcpclShutdown(true, false);
     }
-    m_needToSendKeepAliveMessageTimer.cancel();
-    m_noKeepAlivePacketReceivedTimer.cancel();
-    m_tcpcl.InitRx(); //reset states
 }
 
-void TcpclBundleSource::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred, bool closeSocket) {
-    if(error) {
-        std::cerr << "error in HegrTcpclEntryAsync::HandleTcpSend: " << error.message() << std::endl;
-        ShutdownAndCloseTcpSocket();
+void TcpclBundleSource::HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    if (error) {
+        std::cerr << "error in TcpclBundleSource::HandleTcpSendShutdown: " << error.message() << std::endl;
     }
-    else if(closeSocket) {
-        ShutdownAndCloseTcpSocket();
+    else {
+        m_sendShutdownMessageTimeoutTimer.cancel();
     }
 }
 
@@ -160,6 +170,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        DoTcpclShutdown(false, false);
     }
     else if (error != boost::asio::error::operation_aborted) {
         std::cerr << "Error in UartMcu::HandleTcpReceiveSome: " << error.message() << std::endl;
@@ -253,22 +264,13 @@ void TcpclBundleSource::ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_COD
     if(hasReconnectionDelay) {
         std::cout << "requested reconnection delay: " << reconnectionDelaySeconds << " seconds" << std::endl;
     }
-    ShutdownAndCloseTcpSocket();
+    DoTcpclShutdown(false, false);
 }
 
 void TcpclBundleSource::OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        if(m_tcpSocketPtr) {
-            std::cout << "error: tcp keepalive timed out.. closing socket\n";
-            boost::shared_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_shared<std::vector<uint8_t> >();
-            Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, false, 0);
-            boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*shutdownPtr),
-                                             boost::bind(&TcpclBundleSource::HandleTcpSend, this, shutdownPtr,
-                                                         boost::asio::placeholders::error,
-                                                         boost::asio::placeholders::bytes_transferred, true)); //true => shutdown after data sent
-        }
-
+        DoTcpclShutdown(true, true);
     }
     else {
         //std::cout << "timer cancelled\n";
@@ -285,7 +287,7 @@ void TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::s
             boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*keepAlivePtr),
                                              boost::bind(&TcpclBundleSource::HandleTcpSend, this, keepAlivePtr,
                                                          boost::asio::placeholders::error,
-                                                         boost::asio::placeholders::bytes_transferred, false));
+                                                         boost::asio::placeholders::bytes_transferred));
 
             m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_keepAliveIntervalSeconds));
             m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
@@ -294,6 +296,76 @@ void TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::s
     else {
         //std::cout << "timer cancelled\n";
     }
+}
+
+void TcpclBundleSource::DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
+    m_sendShutdownMessage = sendShutdownMessage;
+    m_reasonWasTimeOut = reasonWasTimeOut;
+    m_handleSocketShutdownCancelOnlyTimer.cancel();
+}
+
+void TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e) {
+    if (e == boost::asio::error::operation_aborted) {
+        // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
+
+        m_readyToForward = false;
+        if (m_sendShutdownMessage) {
+            std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
+            boost::shared_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_shared<std::vector<uint8_t> >();
+            if (m_reasonWasTimeOut) {
+                Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, false, 0);
+            }
+            else {
+                Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, false, 0);
+            }
+
+            boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*shutdownPtr),
+                                     boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, shutdownPtr,
+                                                 boost::asio::placeholders::error,
+                                                 boost::asio::placeholders::bytes_transferred));
+
+            m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(3));
+        }
+        else {
+            m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(0));
+        }
+        m_sendShutdownMessageTimeoutTimer.async_wait(boost::bind(&TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired, this, boost::asio::placeholders::error));
+    }
+    else {
+        std::cerr << "Critical error in OnHandleSocketShutdown_TimerCancelled: timer was not cancelled" << std::endl;
+    }
+}
+
+void TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Notice: No TCPCL shutdown message was sent (not required)." << std::endl;
+    }
+    else {
+        //std::cout << "timer cancelled\n";
+        std::cout << "TCPCL shutdown message was sent." << std::endl;
+    }
+
+    //final code to shut down tcp sockets
+    if (m_tcpSocketPtr) {
+        try {
+            std::cout << "shutting down tcp socket.." << std::endl;
+            m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+            std::cout << "closing tcp socket.." << std::endl;
+            m_tcpSocketPtr->close();
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+        }
+        //don't delete the tcp socket because the Forward function is multi-threaded without a mutex to
+        //increase speed, so prevent a race condition that would cause a null pointer exception
+        //std::cout << "deleting tcp socket" << std::endl;
+        //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+    }
+    m_needToSendKeepAliveMessageTimer.cancel();
+    m_noKeepAlivePacketReceivedTimer.cancel();
+    m_tcpcl.InitRx(); //reset states
+    m_tcpclShutdownComplete = true;
 }
 
 bool TcpclBundleSource::ReadyToForward() {

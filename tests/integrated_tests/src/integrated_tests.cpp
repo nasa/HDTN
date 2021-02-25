@@ -489,7 +489,7 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived) {
         uint16_t port = 4557;
         bool useTcp = false;
 //        std::cout << "starting BpSink.." << std::endl;
-        hdtn::BpSinkAsync bpSink(port, useTcp);
+        hdtn::BpSinkAsync bpSink(port, useTcp, "BpSink");
         bpSink.Init(0);
         bpSink.Netstart();
 //        std::cout << "ingress up and running" << std::endl;

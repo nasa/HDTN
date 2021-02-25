@@ -22,12 +22,15 @@ public:
 private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
-    void ShutdownAndCloseTcpSocket();
-    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred, bool closeSocket);
+    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
+    void OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e);
+    void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
+    void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
 
     //tcpcl received data callback functions
     void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
@@ -47,6 +50,8 @@ private:
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
+    boost::asio::deadline_timer m_handleSocketShutdownCancelOnlyTimer;
+    boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
 
@@ -55,7 +60,10 @@ private:
     std::string m_localEid;
     uint16_t m_keepAliveIntervalSeconds;
     std::queue<uint32_t> m_bytesToAckQueue;
-    bool m_readyToForward;
+    volatile bool m_readyToForward;
+    volatile bool m_tcpclShutdownComplete;
+    volatile bool m_sendShutdownMessage;
+    volatile bool m_reasonWasTimeOut;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;
 
