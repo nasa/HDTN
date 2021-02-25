@@ -152,11 +152,14 @@ void Tcpcl::HandleReceivedChar(const uint8_t rxVal) {
 		}
 	}
 	else if (mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE) {
-		m_messageTypeByte = static_cast<MESSAGE_TYPE_BYTE_CODES>(rxVal & 0x0f);
-		m_messageTypeFlags = rxVal & 0xf0;
+        //the ietf is confusing.. please ignore the bit numbering in the ietf
+		//m_messageTypeByte = static_cast<MESSAGE_TYPE_BYTE_CODES>(rxVal & 0x0f);
+		//m_messageTypeFlags = rxVal & 0xf0;
+        m_messageTypeByte = static_cast<MESSAGE_TYPE_BYTE_CODES>((rxVal >> 4) & 0x0f);
+        m_messageTypeFlags = rxVal & 0x0f;
 		if (m_messageTypeByte == MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT) {
-			m_dataSegmentStartFlag = ((m_messageTypeFlags & (1U << 6)) != 0);
-			m_dataSegmentEndFlag = ((m_messageTypeFlags & (1U << 7)) != 0);
+			m_dataSegmentStartFlag = ((m_messageTypeFlags & (1U << 1)) != 0);
+			m_dataSegmentEndFlag = ((m_messageTypeFlags & (1U << 0)) != 0);
 			m_sdnvTempVec.resize(0);
 			m_dataSegmentLength = 0;
 			m_dataSegmentRxState = TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENT_LENGTH_SDNV;
@@ -168,7 +171,7 @@ void Tcpcl::HandleReceivedChar(const uint8_t rxVal) {
 			m_mainRxState = TCPCL_MAIN_RX_STATE::READ_ACK_SEGMENT;
 		}
 		else if (m_messageTypeByte == MESSAGE_TYPE_BYTE_CODES::REFUSE_BUNDLE) {
-			m_bundleRefusalCode = (m_messageTypeFlags >> 4);
+            m_bundleRefusalCode = m_messageTypeFlags;// (m_messageTypeFlags >> 4);
 			if (m_bundleRefusalCallback) {
 				m_bundleRefusalCallback(static_cast<BUNDLE_REFUSAL_CODES>(m_bundleRefusalCode));
 			}
@@ -186,8 +189,8 @@ void Tcpcl::HandleReceivedChar(const uint8_t rxVal) {
 			//remain in state TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE
 		}
 		else if (m_messageTypeByte == MESSAGE_TYPE_BYTE_CODES::SHUTDOWN) {
-			m_shutdownHasReasonFlag = ((m_messageTypeFlags & (1U << 6)) != 0);
-			m_shutdownHasReconnectionDelayFlag = ((m_messageTypeFlags & (1U << 7)) != 0);
+			m_shutdownHasReasonFlag = ((m_messageTypeFlags & (1U << 1)) != 0);
+			m_shutdownHasReconnectionDelayFlag = ((m_messageTypeFlags & (1U << 0)) != 0);
 			m_sdnvTempVec.resize(0);
 			m_shutdownReconnectionDelay = 0;
 			if (m_shutdownHasReasonFlag) {
@@ -375,12 +378,12 @@ void Tcpcl::GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLA
 }
 
 void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint32_t sizeContents) {
-	uint8_t dataSegmentHeader = static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT);
+	uint8_t dataSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT)) << 4;
 	if (isStartSegment) {		
-		dataSegmentHeader |= (1U << 6);
+		dataSegmentHeader |= (1U << 1);
 	}
 	if (isEndSegment) {
-		dataSegmentHeader |= (1U << 7);
+		dataSegmentHeader |= (1U << 0);
 	}
 	uint8_t contentLengthSdnv[10];
 	const unsigned int sdnvSize = SdnvEncodeU32(contentLengthSdnv, sizeContents);
@@ -394,7 +397,7 @@ void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStart
 }
 
 void Tcpcl::GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint32_t totalBytesAcknowledged) {
-	const uint8_t ackSegmentHeader = static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::ACK_SEGMENT);	
+	const uint8_t ackSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::ACK_SEGMENT)) << 4;	
 	uint8_t totalBytesAcknowledgedSdnv[10];
 	const unsigned int sdnvSize = SdnvEncodeU32(totalBytesAcknowledgedSdnv, totalBytesAcknowledged);
 	ackSegment.resize(1 + sdnvSize);
@@ -403,14 +406,14 @@ void Tcpcl::GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint32_t total
 }
 
 void Tcpcl::GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode) {
-	uint8_t refusalHeader = static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::REFUSE_BUNDLE);
-	refusalHeader |= (static_cast<uint8_t>(refusalCode) << 4);
+	uint8_t refusalHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::REFUSE_BUNDLE)) << 4;
+	refusalHeader |= static_cast<uint8_t>(refusalCode);
 	refusalMessage.resize(1);
 	refusalMessage[0] = refusalHeader;
 }
 
 void Tcpcl::GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint32_t nextBundleLength) {
-	const uint8_t bundleLengthHeader = static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::LENGTH);
+	const uint8_t bundleLengthHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::LENGTH)) << 4;
 	uint8_t nextBundleLengthSdnv[10];
 	const unsigned int sdnvSize = SdnvEncodeU32(nextBundleLengthSdnv, nextBundleLength);
 	bundleLengthMessage.resize(1 + sdnvSize);
@@ -420,7 +423,7 @@ void Tcpcl::GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uin
 
 void Tcpcl::GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage) {
 	keepAliveMessage.resize(1);
-	keepAliveMessage[0] = static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::KEEPALIVE);
+	keepAliveMessage[0] = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::KEEPALIVE)) << 4;
 }
 
 void Tcpcl::GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage, 
@@ -428,16 +431,16 @@ void Tcpcl::GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
 									bool includeReconnectionDelay, uint32_t reconnectionDelaySeconds)
 {
 	
-	uint8_t shutdownHeader = static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::SHUTDOWN);
+	uint8_t shutdownHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::SHUTDOWN)) << 4;
 	uint8_t reconnectionDelaySecondsSdnv[10];
 	unsigned int sdnvSize = 0;
 	std::size_t totalMessageSizeBytes = 1;
 	if (includeReasonCode) {
-		shutdownHeader |= (1U << 6);
+		shutdownHeader |= (1U << 1);
 		totalMessageSizeBytes += 1;
 	}
 	if (includeReconnectionDelay) {
-		shutdownHeader |= (1U << 7);
+		shutdownHeader |= (1U << 0);
 		sdnvSize = SdnvEncodeU32(reconnectionDelaySecondsSdnv, reconnectionDelaySeconds);
 		totalMessageSizeBytes += sdnvSize;
 	}
