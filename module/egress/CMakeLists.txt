@@ -25,6 +25,7 @@ add_executable(hdtn-egress-async
     src/EgressAsync.cpp
     src/EgressAsyncMain.cpp
     src/EgressAsyncTcpcl.cpp
+	src/EgressAsyncStcp.cpp
     ../ingress/src/SignalHandler.cpp
     ../../common/logging/src/logging.cpp
     ../../common/bpcodec/src/codec/bpv6.cpp
@@ -32,6 +33,7 @@ add_executable(hdtn-egress-async
     ../../common/bpcodec/src/codec/sdnv/cgoto/decode.cpp
     ../../common/bpcodec/src/codec/sdnv/cgoto/encode.cpp
     ../../common/bpcodec/src/codec/sdnv/loop/codec.cpp
+	../../common/stcp/src/StcpBundleSource.cpp
     ../../common/tcpcl/src/Tcpcl.cpp
     ../../common/tcpcl/src/TcpclBundleSource.cpp
     ../../common/tcpcl/src/sdnv.c)
@@ -46,6 +48,6 @@ else()
 	target_link_libraries(hdtn-egress-async pthread zmq)
 endif()
 target_link_libraries(hdtn-egress-async hdtn_reg bpcodec ${Boost_LIBRARIES})
-target_include_directories(hdtn-egress-async PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../ingress/include ../../common/tcpcl/include ${Boost_INCLUDE_DIRS})
+target_include_directories(hdtn-egress-async PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../ingress/include ../../common/tcpcl/include ../../common/stcp/include ${Boost_INCLUDE_DIRS})
 
 

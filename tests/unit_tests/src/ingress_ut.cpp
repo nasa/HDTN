@@ -1,17 +1,14 @@
 #include <arpa/inet.h>
-#include <gtest/gtest.h>
 #include <ingress.h>
-
 #include <iostream>
+#include <boost/test/unit_test.hpp>
 
 // Create a test fixture.
-class BpIngressSyscallFixture : public testing::Test {
+class BpIngressSyscallFixture  {
 public:
     BpIngressSyscallFixture();
     ~BpIngressSyscallFixture();
-    void SetUp() override;     // This is called after constructor.
-    void TearDown() override;  // This is called before destructor.
-
+private:
     hdtn::BpIngressSyscall* ptrBpIngressSyscall;
 };
 
@@ -27,34 +24,28 @@ BpIngressSyscallFixture::~BpIngressSyscallFixture() {
     delete ptrBpIngressSyscall;
 }
 
-void BpIngressSyscallFixture::SetUp() {
-    //    std::cout << "BpIngressSyscallFixture::SetUp called\n";
-}
+//TEST_F(BpIngressSyscallFixture, DISABLED_DestroyTestNominal1) {
+//    FAIL() << "Test needed for class bp_ingress_syscall, method destroy.";
+//}
 
-void BpIngressSyscallFixture::TearDown() {
-    //    std::cout << "BpIngressSyscallFixture::TearDown called\n";
-}
+//TEST_F(BpIngressSyscallFixture, DISABLED_InitTestNominal1) {
+//    FAIL() << "Test needed for class bp_ingress_syscall, method init.";
+//}
 
-TEST_F(BpIngressSyscallFixture, DISABLED_DestroyTestNominal1) {
-    FAIL() << "Test needed for class bp_ingress_syscall, method destroy.";
-}
+//TEST_F(BpIngressSyscallFixture, DISABLED_NetstartTestNominal1) {
+//    FAIL() << "Test needed for class bp_ingress_syscall, method netstart.";
+//}
 
-TEST_F(BpIngressSyscallFixture, DISABLED_InitTestNominal1) {
-    FAIL() << "Test needed for class bp_ingress_syscall, method init.";
-}
+//TEST_F(BpIngressSyscallFixture, DISABLED_ProcessTestNominal1) {
+//    FAIL() << "Test needed for class bp_ingress_syscall, method process.";
+//}
 
-TEST_F(BpIngressSyscallFixture, DISABLED_NetstartTestNominal1) {
-    FAIL() << "Test needed for class bp_ingress_syscall, method netstart.";
-}
+//TEST_F(BpIngressSyscallFixture, DISABLED_SendTelemetryTestNominal1) {
+//    FAIL() << "Test needed for class bp_ingress_syscall, method send_telemetry.";
+//}
 
-TEST_F(BpIngressSyscallFixture, DISABLED_ProcessTestNominal1) {
-    FAIL() << "Test needed for class bp_ingress_syscall, method process.";
-}
+//TEST_F(BpIngressSyscallFixture, DISABLED_UpdateTestNominal1) {
+//    FAIL() << "Test needed for class bp_ingress_syscall, method update.";
+//}
 
-TEST_F(BpIngressSyscallFixture, DISABLED_SendTelemetryTestNominal1) {
-    FAIL() << "Test needed for class bp_ingress_syscall, method send_telemetry.";
-}
 
-TEST_F(BpIngressSyscallFixture, DISABLED_UpdateTestNominal1) {
-    FAIL() << "Test needed for class bp_ingress_syscall, method update.";
-}

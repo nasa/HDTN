@@ -38,6 +38,7 @@ BpIngressSyscall::~BpIngressSyscall() {
     m_tcpAcceptorPtr->close();
     m_tcpAcceptorPtr = boost::shared_ptr<boost::asio::ip::tcp::acceptor>();
     m_listTcpclBundleSinkPtrs.clear();
+    m_listStcpBundleSinkPtrs.clear();
     m_ioService.stop(); //ioservice doesn't need stopped at this point but just in case
 
     if(m_ioServiceThreadPtr) {
@@ -76,7 +77,9 @@ int BpIngressSyscall::Init(uint32_t type) {
 }
 
 
-int BpIngressSyscall::Netstart(uint16_t port) {
+int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp) {
+    m_useTcpcl = useTcpcl;
+    m_useStcp = useStcp;
     if(m_ioServiceThreadPtr) {
         std::cerr << "Error in BpIngressSyscall::Netstart: already running" << std::endl;
         return 1;
@@ -234,10 +237,19 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
         //if((m_tcpclBundleSinkPtr) && !m_tcpclBundleSinkPtr->ReadyToBeDeleted() ) {
         //    std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
         //}
-        boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
-                                                                   boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                   50, 2000);
-        m_listTcpclBundleSinkPtrs.push_back(bundleSinkPtr);
+        if (m_useTcpcl) {
+            boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
+                                                                                                   boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                                                   50, 2000, "ingress");
+            m_listTcpclBundleSinkPtrs.push_back(bundleSinkPtr);
+        }
+        else if (m_useStcp) {
+            boost::shared_ptr<StcpBundleSink> bundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
+                                                                                                   boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                                                   50);
+            m_listStcpBundleSinkPtrs.push_back(bundleSinkPtr);
+        }
+        
 
         StartTcpAccept(); //only accept if there was no error
     }
@@ -250,6 +262,7 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
 
 void BpIngressSyscall::RemoveInactiveTcpConnections() {
     m_listTcpclBundleSinkPtrs.remove_if([](const boost::shared_ptr<TcpclBundleSink> & ptr){ return ptr->ReadyToBeDeleted();});
+    m_listStcpBundleSinkPtrs.remove_if([](const boost::shared_ptr<StcpBundleSink> & ptr) { return ptr->ReadyToBeDeleted(); });
 }
 
 }  // namespace hdtn

@@ -13,6 +13,7 @@
 #include <map>
 #include <queue>
 #include "TcpclBundleSource.h"
+#include "StcpBundleSource.h"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -225,6 +226,68 @@ public:
     void Connect(const std::string & hostname, const std::string & port);
 private:
     boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
+
+};
+
+//stcp
+class HegrStcpEntryAsync : public HegrEntryAsync {
+private:
+
+public:
+    HegrStcpEntryAsync();
+    //HegrTcpclEntryAsync(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint, boost::asio::ip::udp::socket * const udpSocketPtr);
+    virtual ~HegrStcpEntryAsync();
+
+    /**
+    Initializes a new UDP forwarding entry
+    */
+    virtual void Init(uint64_t flags);
+
+    /**
+    Specifies an upper data rate for this link.
+
+    If HARD_IFG is set, setting a target data rate will disable the use of
+    sendmmsg() and related methods.  This will often yield reduced performance.
+
+    @param rate Rate at which traffic may flow through this link
+    */
+    void Rate(uint64_t rate);
+
+    /**
+    Forwards a collection of UDP packets through this path and to a receiver
+
+    @param msg List of messages to forward
+    @param sz Size of each individual message
+    @param count Total number of messages
+    @return number of bytes forwarded on success, or an error code on failure
+    */
+    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+
+    /**
+    Essentially a no-op for this entry type
+    */
+    void Update(uint64_t delta);
+
+    /**
+    Essentially a no-op for this entry type
+
+    @return zero on success, and nonzero on failure
+    */
+    int Enable();
+
+    /**
+    Essentially a no-op for this entry type
+
+    @return zero on success, and nonzero on failure
+    */
+    int Disable();
+
+    void Shutdown();
+
+
+    void Connect(const std::string & hostname, const std::string & port);
+private:
+    boost::shared_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
 
 };
 

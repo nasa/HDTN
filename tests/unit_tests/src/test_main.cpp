@@ -1,12 +1,14 @@
-#include <gtest/gtest.h>
+#define BOOST_TEST_MODULE HtdnUnitTestsModule
 
-#include <fstream>
-#include <iostream>
+//todo: better cmake solution to detect if we are using boost static or shared libs... assume for now
+//      that shared libs will be used on linux and static libs will be used on windows.
+#ifndef _WIN32
+#define BOOST_TEST_DYN_LINK
+#endif
 
-int main(int ac, char* av[]) {
-    std::cout << "Running Unit Tests. " << std::endl << std::flush;
+//#define BOOST_TEST_NO_MAIN 1
 
-    testing::InitGoogleTest(&ac, av);
-    int valUnitTests = RUN_ALL_TESTS();
-    return valUnitTests;
-}
+
+#include <boost/test/unit_test.hpp>
+
+

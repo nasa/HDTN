@@ -20,13 +20,17 @@ int main(int argc, char* argv[]) {
     {
         uint16_t port;
         bool useTcpcl = false;
+        bool useStcp = false;
+        std::string thisLocalEidString;
 
         boost::program_options::options_description desc("Allowed options");
         try {
                 desc.add_options()
                         ("help", "Produce help message.")
                         ("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
+                        ("use-stcp", "Use STCP instead of UDP.")
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
+                        ("tcpcl-eid", boost::program_options::value<std::string>()->default_value("BpSink"), "Local EID string for this program.")
                         ;
 
                 boost::program_options::variables_map vm;
@@ -39,10 +43,18 @@ int main(int argc, char* argv[]) {
                 }
 
                 if (vm.count("use-tcpcl")) {
-                        useTcpcl = true;
+                    useTcpcl = true;
+                }
+                if (vm.count("use-stcp")) {
+                    useStcp = true;
+                }
+                if (useTcpcl && useStcp) {
+                    std::cerr << "ERROR: cannot use both tcpcl and stcp" << std::endl;
+                    return 1;
                 }
 
                 port = vm["port"].as<boost::uint16_t>();
+                thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -60,7 +72,7 @@ int main(int argc, char* argv[]) {
 
 
         std::cout << "starting BpSink.." << std::endl;
-        hdtn::BpSinkAsync bpSink(port, useTcpcl);
+        hdtn::BpSinkAsync bpSink(port, useTcpcl, useStcp, thisLocalEidString);
         bpSink.Init(0);
 
 
