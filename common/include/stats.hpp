@@ -5,6 +5,7 @@
 
 namespace hdtn {
 
+
 struct FlowStats {
     uint64_t diskUsed;
     uint64_t diskWcount;
@@ -43,8 +44,10 @@ struct StorageFlowStats {
     uint64_t start;
 };// __attribute__((packed));
 
+
 struct StorageStats {
     StorageStats() : inMsg(0), inBytes(0), outMsg(0), outBytes(0), bytesUsed(0), bytesAvailable(0), rate(0) {}
+
     /**
      * Time at which stats were sent.  Only used during transmit - ignored otherwise
      */

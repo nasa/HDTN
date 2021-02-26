@@ -331,12 +331,10 @@ public:
     uint64_t m_messageCount;
 
     bool m_testStorage = false;
-    const char *m_cutThroughAddress = HDTN_CUT_THROUGH_PATH;
-    const char *m_releaseAddress = HDTN_RELEASE_PATH;
-    boost::shared_ptr<zmq::context_t> m_zmqCutThroughCtx;
-    boost::shared_ptr<zmq::socket_t> m_zmqCutThroughSock;
-    boost::shared_ptr<zmq::context_t> m_zmqReleaseCtx;
-    boost::shared_ptr<zmq::socket_t> m_zmqReleaseSock;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingEgressPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_connectingStorageToBoundEgressPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
 
 private:
     void ReadZmqThreadFunc();

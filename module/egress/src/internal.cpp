@@ -28,13 +28,13 @@ void hdtn::HegrManager::Init() {
         tmp->Label(i);
     }
     // socket for cut-through mode straight to egress
-    m_zmqCutThroughAddress = new zmq::context_t;
-    m_zmqCutThroughSock = new zmq::socket_t(*m_zmqCutThroughAddress, zmq::socket_type::pull);
-    m_zmqCutThroughSock->connect(m_cutThroughAddress);
+    m_zmqCutThroughCtx = new zmq::context_t;
+    m_zmqCutThroughSock = new zmq::socket_t(*m_zmqCutThroughCtx, zmq::socket_type::pull);
+    m_zmqCutThroughSock->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
     // socket for sending bundles to storage
     m_zmqReleaseCtx = new zmq::context_t;
     m_zmqReleaseSock = new zmq::socket_t(*m_zmqReleaseCtx, zmq::socket_type::pull);
-    m_zmqReleaseSock->bind(m_releaseAddress);
+    m_zmqReleaseSock->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH);
 }
 
 int hdtn::HegrManager::Add(int fec, uint64_t flags, const char *dst, int port) {

@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     //_reg.reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::sub);
-    socket.connect(HDTN_SCHEDULER_PATH);
+    socket.connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
     socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
     zmq::message_t message;

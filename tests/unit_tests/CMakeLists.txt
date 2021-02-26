@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 project(unit-tests)
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
 
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework)
+find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options iostreams unit_test_framework)
 
 if (WIN32)
 	#add_compile_definitions(ZMQ_STATIC)
@@ -30,7 +30,6 @@ else()
 		../../common/tcpcl/src/TcpclBundleSource.cpp
 		../../common/stcp/src/StcpBundleSink.cpp
 		../../common/stcp/src/StcpBundleSource.cpp
-		../../module/ingress/src/SignalHandler.cpp
 		../../module/storage/src/store.cpp
 		../../module/storage/src/store-worker.cpp
 		../../module/storage/src/cache/cache-basic.cpp
@@ -46,7 +45,18 @@ add_executable(unit-tests
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
     ../../common/tcpcl/src/Tcpcl.cpp
     ../../common/tcpcl/src/sdnv.c
-    ../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+    ../../common/util/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+	../../module/storage/storage-brian/unit_tests/StorageConfigTests.cpp
+	../../module/storage/storage-brian/unit_tests/MemoryManagerTreeTests.cpp
+	../../module/storage/storage-brian/unit_tests/MemoryManagerTreeArrayTests.cpp
+	../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtTests.cpp
+	../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
+	../../module/storage/storage-brian/src/BundleStorageManagerMT.cpp
+	../../module/storage/storage-brian/src/CircularIndexBufferSingleProducerSingleConsumer.cpp
+	../../module/storage/storage-brian/src/MemoryManagerTree.cpp
+	../../module/storage/storage-brian/src/MemoryManagerTreeArray.cpp
+	../../module/storage/storage-brian/src/StorageConfig.cpp
+	../../common/util/src/SignalHandler.cpp
     ${LINUX_ONLY_UNIT_TEST_SRCS}
     
 
@@ -63,6 +73,8 @@ target_include_directories(unit-tests PUBLIC include
     ../../common/bpcodec/include
     ../../common/tcpcl/include
     ../../common/stcp/include
+	../../common/util/include
+	../../module/storage/storage-brian/include
     ${Boost_INCLUDE_DIRS}
 	${libzmq_INCLUDE}
 )

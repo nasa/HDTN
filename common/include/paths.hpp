@@ -8,18 +8,18 @@
 
 //push-pull from ingress to egress 
 //#define HDTN_CUT_THROUGH_PATH "tcp://0.0.0.0:10100"
-#define HDTN_CUT_THROUGH_PATH "tcp://127.0.0.1:10100"
+#define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
 //push-pull from ingress to storage 
 //#define HDTN_STORAGE_PATH "tcp://0.0.0.0:10110"
-#define HDTN_STORAGE_PATH "tcp://127.0.0.1:10110"
+#define HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH "tcp://127.0.0.1:10110"
 //push-pull from storage to release 
 //#define HDTN_RELEASE_PATH "tcp://0.0.0.0:10120"
-#define HDTN_RELEASE_PATH "tcp://127.0.0.1:10120"
+#define HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH "tcp://127.0.0.1:10120"
 //req-reply to reg server
 #define HDTN_REG_SERVER_PATH "tcp://127.0.0.1:10140"
 //pub-sub from scheduler to modules
 //#define HDTN_SCHEDULER_PATH "tcp://0.0.0.0:10200"
-#define HDTN_SCHEDULER_PATH "tcp://127.0.0.1:10200"
+#define HDTN_BOUND_SCHEDULER_PUBSUB_PATH "tcp://127.0.0.1:10200"
 
 //addresses for ZMQ IPC transport
 #define HDTN_STORAGE_WORKER_PATH "inproc://hdtn3.storage.worker"
