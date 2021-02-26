@@ -9,6 +9,28 @@ storage_disk_config_t::~storage_disk_config_t() {}
 storage_disk_config_t::storage_disk_config_t(const std::string & paramName, const std::string & paramStoreFilePath) :
 name(paramName), storeFilePath(paramStoreFilePath) {}
 
+//a copy constructor: X(const X&)
+storage_disk_config_t::storage_disk_config_t(const storage_disk_config_t& o) :
+    name(o.name), storeFilePath(o.storeFilePath) { }
+
+//a move constructor: X(X&&)
+storage_disk_config_t::storage_disk_config_t(storage_disk_config_t&& o) :
+    name(std::move(o.name)), storeFilePath(std::move(o.storeFilePath)) { }
+
+//a copy assignment: operator=(const X&)
+storage_disk_config_t& storage_disk_config_t::operator=(const storage_disk_config_t& o) {
+    name = o.name;
+    storeFilePath = o.storeFilePath;
+    return *this;
+}
+
+//a move assignment: operator=(X&&)
+storage_disk_config_t& storage_disk_config_t::operator=(storage_disk_config_t&& o) {
+    name = std::move(o.name);
+    storeFilePath = std::move(o.storeFilePath);
+    return *this;
+}
+
 bool storage_disk_config_t::operator==(const storage_disk_config_t & other) const {
 	return (name == other.name) && (storeFilePath == other.storeFilePath);
 }
@@ -17,6 +39,28 @@ StorageConfig::StorageConfig() {
 }
 
 StorageConfig::~StorageConfig() {
+}
+
+//a copy constructor: X(const X&)
+StorageConfig::StorageConfig(const StorageConfig& o) :
+    m_totalStorageCapacityBytes(o.m_totalStorageCapacityBytes), m_storageDiskConfigVector(o.m_storageDiskConfigVector) { }
+
+//a move constructor: X(X&&)
+StorageConfig::StorageConfig(StorageConfig&& o) :
+    m_totalStorageCapacityBytes(o.m_totalStorageCapacityBytes), m_storageDiskConfigVector(std::move(o.m_storageDiskConfigVector)) { }
+
+//a copy assignment: operator=(const X&)
+StorageConfig& StorageConfig::operator=(const StorageConfig& o) {
+    m_totalStorageCapacityBytes = o.m_totalStorageCapacityBytes;
+    m_storageDiskConfigVector = o.m_storageDiskConfigVector;
+    return *this;
+}
+
+//a move assignment: operator=(X&&)
+StorageConfig& StorageConfig::operator=(StorageConfig&& o) {
+    m_totalStorageCapacityBytes = o.m_totalStorageCapacityBytes;
+    m_storageDiskConfigVector = std::move(o.m_storageDiskConfigVector);
+    return *this;
 }
 
 bool StorageConfig::operator==(const StorageConfig & other) const {

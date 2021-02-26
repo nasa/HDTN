@@ -20,9 +20,15 @@ BOOST_AUTO_TEST_CASE(StorageConfigTestCase)
 	sc2->AddDisk("d0", "/mnt/d0/d0.bin");
 	sc2->AddDisk("d1", "/mnt/d0/d0.bin");
 
-	//1, 2, 3 all combinations
+    StorageConfig sc2StackCopy = *sc2; //copy assignment
+
+
 	BOOST_REQUIRE(*sc1 == *sc1_copy);
 	BOOST_REQUIRE(!(*sc1 == *sc2));
+    BOOST_REQUIRE(*sc2 == sc2StackCopy);
+    StorageConfig sc2Moved = std::move(sc2StackCopy); //move assignment
+    BOOST_REQUIRE(!(*sc2 == sc2StackCopy)); //sc2StackCopy should be changed from move
+    BOOST_REQUIRE(*sc2 == sc2Moved);
 
 	std::string sc1Json = sc1->ToJson();
 	//std::cout << sc1Json << "\n";

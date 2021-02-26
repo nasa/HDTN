@@ -14,14 +14,27 @@
 	
 
 struct storage_disk_config_t {
-	storage_disk_config_t();
-	~storage_disk_config_t();
-
-	std::string name;
+    std::string name;
 	std::string storeFilePath;
+
+	storage_disk_config_t();
+	~storage_disk_config_t();	
 
 	storage_disk_config_t(const std::string & paramName, const std::string & paramStoreFilePath);
 	bool operator==(const storage_disk_config_t & other) const;
+
+    
+    //a copy constructor: X(const X&)
+    storage_disk_config_t(const storage_disk_config_t& o);
+
+    //a move constructor: X(X&&)
+    storage_disk_config_t(storage_disk_config_t&& o);
+
+    //a copy assignment: operator=(const X&)
+    storage_disk_config_t& operator=(const storage_disk_config_t& o);
+
+    //a move assignment: operator=(X&&)
+    storage_disk_config_t& operator=(storage_disk_config_t&& o);
 };
 
 typedef std::vector<storage_disk_config_t> storage_disk_config_vector_t;
@@ -37,6 +50,18 @@ class StorageConfig : public JsonSerializable {
 public:
 	StorageConfig();
 	~StorageConfig();
+
+    //a copy constructor: X(const X&)
+    StorageConfig(const StorageConfig& o);
+
+    //a move constructor: X(X&&)
+    StorageConfig(StorageConfig&& o);
+
+    //a copy assignment: operator=(const X&)
+    StorageConfig& operator=(const StorageConfig& o);
+
+    //a move assignment: operator=(X&&)
+    StorageConfig& operator=(StorageConfig&& o);
 
 	bool operator==(const StorageConfig & other) const;
 	
