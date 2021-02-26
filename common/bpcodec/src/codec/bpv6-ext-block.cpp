@@ -46,7 +46,7 @@ void bpv6_prev_hop_print(bpv6_prev_hop_ext_block* block){
 	{
 		printf("\nPrevious Hop Extension Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
+		printf("Block length: %llu bytes\n", block->length);
 		printf("Scheme: %s\n",block->scheme);
 		printf("Scheme Specific Node Name: %s\n",block->scheme_specific_eid);
 	}
@@ -76,8 +76,8 @@ void bpv6_cteb_print(bpv6_cust_transfer_ext_block* block){
 	{
 		printf("\nCustody Transfer Extension Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
-		printf("Custody Id: %lu\n",block->cust_id);
+		printf("Block length: %llu bytes\n", block->length);
+		printf("Custody Id: %llu\n",block->cust_id);
 		printf("CTEB creator custodian EID: ipn:%d.%d\n",(int)block->cteb_creator_node,(int)block->cteb_creator_service);
 	}
 	else{
@@ -124,15 +124,15 @@ void bpv6_bib_print(bpv6_bplib_bib_block* block){
 	{
 		printf("\nBplib Bundle Integrity Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
-		printf("Number of security targets: %lu\n",block->num_targets);
-		printf("Security target type: %lu\n",block->target_type);
-		printf("Security target sequence: %lu\n",block->target_sequence);
-		printf("Cipher suite id: %lu\n",block->cipher_suite_id);
-		printf("Cipher suite flags: %lu\n",block->cipher_suite_flags);
-		printf("Number of security results: %lu\n",block->num_security_results);
-		printf("Security result type: %lu\n",block->security_result_type);
-		printf("Security result length: %lu\n",block->security_result_len);
+		printf("Block length: %llu bytes\n", block->length);
+		printf("Number of security targets: %llu\n",block->num_targets);
+		printf("Security target type: %llu\n",block->target_type);
+		printf("Security target sequence: %llu\n",block->target_sequence);
+		printf("Cipher suite id: %llu\n",block->cipher_suite_id);
+		printf("Cipher suite flags: %llu\n",block->cipher_suite_flags);
+		printf("Number of security results: %llu\n",block->num_security_results);
+		printf("Security result type: %llu\n",block->security_result_type);
+		printf("Security result length: %llu\n",block->security_result_len);
 		printf("Security result : %lu\n\n",block->security_result);
 
 	}
@@ -155,8 +155,8 @@ void bpv6_bundle_age_print(bpv6_bundle_age_ext_block* block){
 	{
 		printf("\n Bundle Age Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
-		printf("Bundle Age: %lu\n\n",block->bundle_age);
+		printf("Block length: %llu bytes\n", block->length);
+		printf("Bundle Age: %llu\n\n",block->bundle_age);
 	}
 	else{
 		printf("Block is not bundle age block\n\n");
@@ -168,10 +168,10 @@ uint8_t char_to_bpv6_eid(bpv6_eid* eid, const char* buffer, const size_t offset,
 	char * pch;
 	char* endpch;
 	char eid_str[45];
-	uint8_t node_len;
+	//uint8_t node_len;
 	if(bufsz<offset+eid_len)
 	{
-		printf("Bad string length: %lu\n", eid_len);
+		printf("Bad string length: %llu\n", eid_len);
 		return 0;  
 	}
 	if(buffer[offset] != 'i' || buffer[offset+1]!= 'p' ||  buffer[offset+2] != 'n' ||  buffer[offset+3] != ':' )

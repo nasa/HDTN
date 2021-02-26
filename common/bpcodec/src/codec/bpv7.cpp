@@ -32,7 +32,7 @@ namespace hdtn {
             else {
                 eid->path[0] = 0;  // dtn:none is the empty string in this case.
             }
-            index += len;
+            index += static_cast<uint8_t>(len);
             return index;
         }
         else if(type == BPV7_EID_SCHEME_IPN) {
@@ -58,25 +58,25 @@ namespace hdtn {
         if(0 == res) {
             return 0;
         }
-        block->block_type = tmp;
+        block->block_type = static_cast<uint8_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
             return 0;
         }
-        block->block_id = tmp;
+        block->block_id = static_cast<uint32_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
             return 0;
         }
-        block->flags = tmp;
+        block->flags = static_cast<uint8_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
             return 0;
         }
-        block->crc_type = tmp;
+        block->crc_type = static_cast<uint8_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
@@ -84,7 +84,7 @@ namespace hdtn {
         }
         block->len = tmp;
         block->offset = offset + index;
-        index += block->len;
+        index += static_cast<uint32_t>(block->len);
         if(block->crc_type) {
             res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
             index += res;
@@ -92,7 +92,7 @@ namespace hdtn {
                 return 0;
             }
             memcpy(block->crc_data, buffer + offset + index, tmp);
-            index += tmp;
+            index += static_cast<uint32_t>(tmp);
         }
         return index;
     }
@@ -149,7 +149,7 @@ namespace hdtn {
         }
         index += cbor_decode_uint(&crclen, (uint8_t *)buffer, index, bufsz);
         memcpy(primary->crc_data, buffer + index, crclen);
-        index += crclen;
+        index += static_cast<uint32_t>(crclen);
 
         return index;
     }

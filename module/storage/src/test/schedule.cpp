@@ -47,8 +47,8 @@ int main(int argc, char *argv[]) {
         block.base.type = HDTN_MSGTYPE_STORE;
         block.flowId = 1;
         block.bundleSeq = i;
-        storesocket.send(&block, sizeof(hdtn::BlockHdr), 0/*ZMQ_MORE*/);
-        storesocket.send(data, bufferSize, 0);
+        storesocket.send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::none);// ZMQ_MORE
+        storesocket.send(zmq::const_buffer(data, bufferSize), zmq::send_flags::none);
         j++;
         total_msg++;
         total_bytes = total_bytes + bufferSize;
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "sleep 30 before sending release message\n";
     hdtn::IreleaseStartHdr releaseMsg;
-    hdtn::IreleaseStopHdr stopMsg;
+    //hdtn::IreleaseStopHdr stopMsg;
     boost::this_thread::sleep(boost::posix_time::seconds(30));
 
     memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     releaseMsg.flowId = 1;
     releaseMsg.rate = 0;  //not implemented
     releaseMsg.duration = 20;//not implemented
-    socket.send(&releaseMsg, sizeof(hdtn::IreleaseStartHdr), 0);
+    socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
     std::cout << "Release message sent \n";
  
    

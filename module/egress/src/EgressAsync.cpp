@@ -71,10 +71,10 @@ void hdtn::HegrManagerAsync::Init() {
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     // Use a form of receive that times out so we can terminate cleanly.
-    const int timeout = 250;  // milliseconds
+    static const int timeout = 250;  // milliseconds
     static const unsigned int NUM_SOCKETS = 2;
-    m_zmqPullSock_boundIngressToConnectingEgressPtr->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
-    m_zmqPullSock_connectingStorageToBoundEgressPtr->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+    m_zmqPullSock_connectingStorageToBoundEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
@@ -94,7 +94,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
             if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                 continue;
             }
-            if (!sockets[itemIndex]->recv(&hdr)) {
+            if (!sockets[itemIndex]->recv(hdr, zmq::recv_flags::none)) {
                 continue;
             }
             ++m_messageCount;
@@ -112,7 +112,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     // message was received after timeout go back to top of loop
                     // std::cout << "In runEgress, before recv. " << std::endl << std::flush;
                     while (m_running) {
-                        if (!sockets[itemIndex]->recv(zmqMessagePtr.get())) {
+                        if (!sockets[itemIndex]->recv(*zmqMessagePtr, zmq::recv_flags::none)) {
                             continue;
                         }
                         Forward(1, zmqMessagePtr);
