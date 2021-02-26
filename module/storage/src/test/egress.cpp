@@ -41,12 +41,12 @@ static void catch_signals(void) {
 
 int main(int argc, char *argv[]) {
     catch_signals();
-    hdtn::hdtn_regsvr _reg;
-    _reg.init(HDTN_REG_SERVER_PATH, "egress", 10120, "pull");
-    _reg.reg();
+    hdtn::HdtnRegsvr reg;
+    reg.Init(HDTN_REG_SERVER_PATH, "egress", 10120, "pull");
+    reg.Reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pull);
-    socket.connect(HDTN_RELEASE_PATH);
+    socket.connect(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH); //TODO: this only does cut-through
     gettimeofday(&tv, NULL);
     start = (tv.tv_sec + (tv.tv_usec / 1000000.0));
 
@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     zmq::message_t message;
     while (true) {
         socket.recv(&message);
-        hdtn::common_hdr *common = (hdtn::common_hdr *)message.data();
+        hdtn::CommonHdr *common = (hdtn::CommonHdr *)message.data();
         switch (common->type) {
             case HDTN_MSGTYPE_EGRESS: {
                 //start timing once we actually start receiving messages

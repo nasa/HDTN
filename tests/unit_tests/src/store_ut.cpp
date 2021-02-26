@@ -70,9 +70,9 @@ public:
                                      // have completed.
     static bool staticSetupWorked;
 private:
-    hdtn::Storage *ptrStorage;
-    hdtn::StorageWorker *ptrStorageWorker;
-    hdtn::Scheduler *ptrScheduler;
+    hdtn::storage *ptrStorage;
+    hdtn::storage_worker *ptrStorageWorker;
+    //hdtn::Scheduler *ptrScheduler;
 };
 
 bool StorageFixture::staticSetupWorked = false;
@@ -125,16 +125,16 @@ void StorageFixture::TearDownTestCase() {
 
 StorageFixture::StorageFixture() {
     //    std::cout << "Called StorageFixture::StorageFixture()" << std::endl;
-    ptrStorage = new hdtn::Storage();
-    ptrStorageWorker = new hdtn::StorageWorker();
-    ptrScheduler = new hdtn::Scheduler();
+    ptrStorage = new hdtn::storage();
+    ptrStorageWorker = new hdtn::storage_worker();
+    //ptrScheduler = new hdtn::Scheduler();
 }
 
 StorageFixture::~StorageFixture() {
     //    std::cout << "Called StorageFixture::~StorageFixture()" << std::endl;
     delete ptrStorage;
     delete ptrStorageWorker;
-    delete ptrScheduler;
+    //delete ptrScheduler;
 }
 
 //TEST_F(StorageFixture, DISABLED_Init_Update_Stats) {

@@ -85,9 +85,9 @@ class storage_worker {
     void launch();
     void *execute(void *arg);
     pthread_t *thread() { return &storageThread; }
-    void write(hdtn::block_hdr *hdr, zmq::message_t *message);
+    void write(hdtn::BlockHdr *hdr, zmq::message_t *message);
     void releaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock);
-    hdtn::worker_stats stats() { return workerStats; }
+    hdtn::WorkerStats stats() { return workerStats; }
 
    private:
     zmq::context_t *zmqContext;
@@ -96,7 +96,7 @@ class storage_worker {
     std::string queue;
     char *outBuf;
     hdtn::flow_store storeFlow;
-    hdtn::worker_stats workerStats;
+    hdtn::WorkerStats workerStats;
 };
 #endif
 

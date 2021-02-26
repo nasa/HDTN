@@ -7,7 +7,8 @@
 #include <unistd.h>
 
 #include <boost/asio.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread.hpp>
+#include <iostream>
 
 #include "codec/bpv6.h"
 #include "message.hpp"
@@ -287,24 +288,20 @@ int main(int argc, char* argv[]) {
     }
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    socket.bind(HDTN_SCHEDULER_PATH);
+    socket.bind(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
     std::cout << "sleep 30\n";
-    boost::asio::io_service io_serv;
-    char relHdr[sizeof(hdtn::irelease_start_hdr)];
-    hdtn::irelease_start_hdr* releaseMsg = (hdtn::irelease_start_hdr*)relHdr;
-    char stopHdr[sizeof(hdtn::irelease_stop_hdr)];
-    hdtn::irelease_stop_hdr* stopMsg = (hdtn::irelease_stop_hdr*)stopHdr;
-    boost::asio::deadline_timer timer(io_serv, boost::posix_time::seconds(30));
-    timer.wait();
+    hdtn::IreleaseStartHdr releaseMsg;
+    hdtn::IreleaseStopHdr stopMsg;
+    boost::this_thread::sleep(boost::posix_time::seconds(30));
   
-    memset(relHdr, 0, sizeof(hdtn::irelease_start_hdr));
-    releaseMsg->base.type = HDTN_MSGTYPE_IRELSTART;
-    releaseMsg->flow_id = 1;
-    releaseMsg->rate = 0;         //go as fast as possible
-    releaseMsg->duration = 20;
-    socket.send(releaseMsg, sizeof(hdtn::irelease_start_hdr), 0);
+    memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+    releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
+    releaseMsg.flowId = 1;
+    releaseMsg.rate = 0;         //go as fast as possible
+    releaseMsg.duration = 20;
+    socket.send(&releaseMsg, sizeof(hdtn::IreleaseStartHdr), 0);
     std::cout << "release for 20 seconds \n";
-    timer.wait();
+    boost::this_thread::sleep(boost::posix_time::seconds(20));
     close(fd);
     return 0;
 }

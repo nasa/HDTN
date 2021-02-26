@@ -4,6 +4,12 @@
 #include "cache.hpp"
 #include "message.hpp"
 
+#ifndef USE_BRIAN_STORAGE
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 #define HDTN_STORAGE_TYPE "storage"
 #define HDTN_STORAGE_RECV_MODE "push"
 
@@ -65,7 +71,7 @@ bool hdtn::storage::init(const storageConfig & config) {
 #ifndef USE_BRIAN_STORAGE
     std::cout << "[storage] Preparing flow cache ... " << std::endl;
     struct stat cache_info;
-    res = stat(config.storePath.c_str(), &cache_info);
+    int res = stat(config.storePath.c_str(), &cache_info);
     if (res) {
         switch (errno) {
             case ENOENT:

@@ -89,9 +89,9 @@ int flow_store::read(int flow, void *data, int maxsz) {
             res.header->begin += retrieved;
         }
         if (retrieved > 0) {
-            _stats.disk_rcount++;
-            _stats.disk_rbytes += retrieved;
-            _stats.disk_used -= retrieved;
+            _stats.diskRcount++;
+            _stats.diskRbytes += retrieved;
+            _stats.diskUsed -= retrieved;
         }
         if(retrieved <to_read){
             std::cout<<"retrieved less bytes"<< std::endl;
@@ -113,9 +113,9 @@ int flow_store::write(int flow, void *data, int sz) {
     int written = pwrite(res.fd, data, sz, res.header->end);
     if (written >= 0) {
         res.header->end += written;
-        _stats.disk_wcount++;
-        _stats.disk_wbytes += written;
-        _stats.disk_used += written;
+        _stats.diskWcount++;
+        _stats.diskWbytes += written;
+        _stats.diskUsed += written;
         flowQueue.enQueue(written);
     }
 
@@ -190,7 +190,7 @@ bool flow_store::init(std::string root) {
         return false;
     }
     for (int i = 0; i < HDTN_FLOWCOUNT_MAX; ++i) {
-        _stats.disk_used += (_index[i].end - _index[i].begin);
+        _stats.diskUsed += (_index[i].end - _index[i].begin);
     }
     std::cout << "[flow-store:basic] Initialization completed." << std::endl;
 

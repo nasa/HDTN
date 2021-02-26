@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
     reg.Reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::push);
-    socket.bind(HDTN_STORAGE_PATH);
+    socket.bind(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH); //TODO: this only supports cut-through
 
     int rfd = open("/dev/urandom", O_RDONLY);
     if (rfd < 0) {
@@ -26,12 +26,11 @@ int main(int argc, char *argv[]) {
     read(rfd, data, 8192);
 
     while (true) {
-        char ihdr[sizeof(hdtn::BlockHdr)];
-        hdtn::BlockHdr *block = (hdtn::BlockHdr *)ihdr;
-        memset(ihdr, 0, sizeof(hdtn::BlockHdr));
-        block->base.type = HDTN_MSGTYPE_STORE;
-        block->flowId = rand() % 65536;
-        socket.send(ihdr, sizeof(hdtn::BlockHdr), ZMQ_MORE);
+        hdtn::BlockHdr block;
+        memset(&block, 0, sizeof(hdtn::BlockHdr));
+        block.base.type = HDTN_MSGTYPE_STORE;
+        block.flowId = rand() % 65536;
+        socket.send(&block, sizeof(hdtn::BlockHdr), ZMQ_MORE); //TODO: ZMQ_MORE probably wrong
         socket.send(data, 1024, 0);
     }
 
