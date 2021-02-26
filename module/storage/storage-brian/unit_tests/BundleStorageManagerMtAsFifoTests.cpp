@@ -9,7 +9,7 @@
 BOOST_AUTO_TEST_CASE(BundleStorageManagerMtAsFifoTestCase)
 {
 
-	BundleStorageManagerMT bsm;
+	BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
 	bsm.Start();
 
 
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtAsFifo_RestoreFromDisk_TestCase)
 	static const uint64_t BUNDLE_SIZES[BUNDLES_TO_SEND] = { 10000000,11000000,12000000,13000000,14000000,15000000,16000000,17000000,18000000,19000000 }; //10MB to 19MB bundles
 	
 	{ //scope this bsm instance (deleted when going out of scope)
-		BundleStorageManagerMT bsm;
+        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
 		bsm.Start(false); //false => disable autodelete files on exit
 		//SEND 10 BUNDLES
 		for (unsigned int bundleI = 0; bundleI < BUNDLES_TO_SEND; ++bundleI) {
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtAsFifo_RestoreFromDisk_TestCase)
 	std::cout << "restoring (fifo)...\n";
 
 	{
-		BundleStorageManagerMT bsm;
+        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
 		uint64_t totalBundlesRestored, totalBytesRestored, totalSegmentsRestored;
 		BOOST_REQUIRE_MESSAGE(bsm.RestoreFromDisk(&totalBundlesRestored, &totalBytesRestored, &totalSegmentsRestored), "error restoring from disk");
 		
