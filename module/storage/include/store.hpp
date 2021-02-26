@@ -72,7 +72,7 @@ private:
    private:
     zmq::context_t *m_zmqContextPtr;
     boost::shared_ptr<boost::thread> m_threadPtr;
-    std::string m_root;
+    std::string m_storageConfigFilePath;
     std::string m_queue;
     volatile bool m_running;
     WorkerStats m_workerStats;
@@ -103,7 +103,7 @@ class storage_worker {
 
 class storage {
    public:
-    bool init(storageConfig config);
+    bool init(const storageConfig & config);
     void update();
     void dispatch();
     void scheduleRelease();

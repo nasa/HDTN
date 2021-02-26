@@ -7,7 +7,7 @@
 #define HDTN_STORAGE_TYPE "storage"
 #define HDTN_STORAGE_RECV_MODE "push"
 
-bool hdtn::storage::init(storageConfig config) {
+bool hdtn::storage::init(const storageConfig & config) {
     if (config.local.find(":") == std::string::npos) {
         return false;// throw error_t();
     }

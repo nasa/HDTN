@@ -80,6 +80,7 @@ struct BundleStorageManagerSession_ReadFromDisk {
 class BundleStorageManagerMT {
 public:
 	BundleStorageManagerMT();
+    BundleStorageManagerMT(const std::string & jsonConfigFileName);
 	~BundleStorageManagerMT();
 	void Start(bool autoDeleteFilesOnExit = true);
 

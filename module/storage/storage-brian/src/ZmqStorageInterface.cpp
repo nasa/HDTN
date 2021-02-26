@@ -19,7 +19,7 @@ hdtn::ZmqStorageInterface::~ZmqStorageInterface() {
 
 void hdtn::ZmqStorageInterface::init(zmq::context_t *ctx, const storageConfig & config) {
     m_zmqContextPtr = ctx;
-    m_root = config.storePath;
+    m_storageConfigFilePath = config.storePath;
     m_queue = config.worker;
 }
 
@@ -162,7 +162,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     CommonHdr startupNotify = {
         HDTN_MSGTYPE_IOK,
         0};
-    BundleStorageManagerMT bsm;
+    BundleStorageManagerMT bsm(m_storageConfigFilePath);
     bsm.Start();
     //if (!m_storeFlow.init(m_root)) {
     //    startupNotify.type = HDTN_MSGTYPE_IABORT;

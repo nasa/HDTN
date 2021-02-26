@@ -14,10 +14,10 @@
 //static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "/mnt/sda1/test/map0.bin", "/mnt/sdb1/test/map1.bin", "/mnt/sdc1/test/map2.bin", "/mnt/sdd1/test/map3.bin" };
 //#endif
 
+BundleStorageManagerMT::BundleStorageManagerMT() : BundleStorageManagerMT("storageConfig.json") {}
 
-
-BundleStorageManagerMT::BundleStorageManagerMT() : 
-	m_storageConfigPtr(StorageConfig::CreateFromJsonFile("storageConfig.json")),
+BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFileName) :
+	m_storageConfigPtr(StorageConfig::CreateFromJsonFile(jsonConfigFileName)),
 	M_NUM_STORAGE_THREADS((m_storageConfigPtr) ? static_cast<unsigned int>(m_storageConfigPtr->m_storageDiskConfigVector.size()) : 1),
 	M_TOTAL_STORAGE_CAPACITY_BYTES((m_storageConfigPtr) ? m_storageConfigPtr->m_totalStorageCapacityBytes : 1),
 	M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
@@ -31,7 +31,7 @@ BundleStorageManagerMT::BundleStorageManagerMT() :
 	m_autoDeleteFilesOnExit(true)	
 {
 	if (!m_storageConfigPtr) {
-		std::cerr << "cannot open storageConfig.json\n";
+        std::cerr << "cannot open storage json config file: " << jsonConfigFileName << std::endl;
 		return;
 	}
 
