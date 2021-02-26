@@ -396,7 +396,7 @@ int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
 
 //        printf("Announcing presence of ingress engine ...\n");
 
-        ingress.Netstart(ingressPort,true,false);
+        ingress.Netstart(ingressPort,true,false,false);
 
 //        std::cout << "ingress up and running.  RUN_INGRESS = " << RUN_INGRESS << std::endl << std::flush;
         while (RUN_INGRESS) {

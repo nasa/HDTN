@@ -10,12 +10,12 @@ public:
     CacheFixture();
     ~CacheFixture();
 private:
-    hdtn::FlowStore* ptrFlowStore;
+    hdtn::flow_store* ptrFlowStore;
 };
 
 CacheFixture::CacheFixture() {
     std::cout << "Called CacheFixture::CacheFixture()" << std::endl;
-    ptrFlowStore = new hdtn::FlowStore();
+    ptrFlowStore = new hdtn::flow_store();
 }
 
 CacheFixture::~CacheFixture() {

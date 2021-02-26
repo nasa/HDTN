@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn_reg)
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_CONFIGURATION_TYPES "Debug;Release;MinSizeRel;RelWithDebInfo" CACHE STRING "" FORCE)
 set(CMAKE_CXX_STANDARD 11)
 find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
+message("CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+message("CMAKE_CONFIGURATION_TYPES=${CMAKE_CONFIGURATION_TYPES}")
 
 
 add_library(hdtn_reg STATIC

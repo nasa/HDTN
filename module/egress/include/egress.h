@@ -252,9 +252,7 @@ public:
     void Down(int fec);
 
     bool m_testStorage = false;
-    const char *m_cutThroughAddress = HDTN_CUT_THROUGH_PATH;
-    const char *m_releaseAddress = HDTN_RELEASE_PATH;
-    zmq::context_t *m_zmqCutThroughAddress;
+    zmq::context_t *m_zmqCutThroughCtx;
     zmq::socket_t *m_zmqCutThroughSock;
     zmq::context_t *m_zmqReleaseCtx;
     zmq::socket_t *m_zmqReleaseSock;

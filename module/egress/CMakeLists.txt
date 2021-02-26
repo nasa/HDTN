@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-egress)
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
 find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
@@ -26,7 +26,7 @@ add_executable(hdtn-egress-async
     src/EgressAsyncMain.cpp
     src/EgressAsyncTcpcl.cpp
 	src/EgressAsyncStcp.cpp
-    ../ingress/src/SignalHandler.cpp
+    ../../common/util/src/SignalHandler.cpp
     ../../common/logging/src/logging.cpp
     ../../common/bpcodec/src/codec/bpv6.cpp
     ../../common/bpcodec/src/codec/bpv7.cpp
@@ -48,6 +48,6 @@ else()
 	target_link_libraries(hdtn-egress-async pthread zmq)
 endif()
 target_link_libraries(hdtn-egress-async hdtn_reg bpcodec ${Boost_LIBRARIES})
-target_include_directories(hdtn-egress-async PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../ingress/include ../../common/tcpcl/include ../../common/stcp/include ${Boost_INCLUDE_DIRS})
+target_include_directories(hdtn-egress-async PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/util/include ../../common/tcpcl/include ../../common/stcp/include ${Boost_INCLUDE_DIRS})
 
 

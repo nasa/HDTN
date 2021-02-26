@@ -51,7 +51,7 @@ public:
     BpIngressSyscall();  // initialize message buffers
     ~BpIngressSyscall();
     int Init(uint32_t type);
-    int Netstart(uint16_t port, bool useTcpcl, bool useStcp);
+    int Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool alwaysSendToStorage);
     int send_telemetry();
     void RemoveInactiveTcpConnections();
 private:
@@ -73,17 +73,15 @@ public:
     uint64_t m_ingSequenceNum = 0;
     double m_elapsed = 0;
     bool m_forceStorage = false;
-    const char *m_cutThroughAddress = HDTN_CUT_THROUGH_PATH;
-    const char *m_storageAddress = HDTN_STORAGE_PATH;
 
 private:
 
-    boost::shared_ptr<zmq::context_t> m_zmqCutThroughCtx;
-    boost::shared_ptr<zmq::socket_t> m_zmqCutThroughSock;
-    boost::shared_ptr<zmq::context_t> m_zmqStorageCtx;
-    boost::shared_ptr<zmq::socket_t> m_zmqStorageSock;
-    boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
-    boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingEgressPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingStoragePtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
+    //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
+    //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
     int m_type;
     boost::asio::io_service m_ioService;
     boost::asio::ip::udp::socket m_udpSocket;
@@ -101,6 +99,7 @@ private:
     volatile bool m_running;
     bool m_useTcpcl;
     bool m_useStcp;
+    bool m_alwaysSendToStorage;
 };
 
 // use an explicit typedef to avoid runtime vcall overhead
