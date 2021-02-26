@@ -78,6 +78,7 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived);
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 bool TestBpgenIngressEgressBpsink();
+bool TestCutThroughTcpcl();
 
 
 volatile bool RUN_BPGEN = true;
@@ -491,10 +492,109 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived) {
     return 0;
 }
 
+
+int RunBpsinkAsync(bool useTcpcl, bool useStcp, uint64_t* ptrTotalBundlesBpsink, uint64_t* ptrDuplicateBundlesBpsink,
+                   uint64_t* ptrTotalBytesBpsink) {
+    *ptrTotalBundlesBpsink = 0;
+    //scope to ensure clean exit before return 0
+    {
+        uint16_t port = 4557;
+        std::string thisLocalEidString = "";
+        hdtn::BpSinkAsync bpSink(port, useTcpcl, useStcp, thisLocalEidString);
+        bpSink.Init(0);
+        bpSink.Netstart();
+        while (RUN_BPSINK) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+        }
+        *ptrTotalBundlesBpsink = bpSink.m_receivedCount;
+        *ptrDuplicateBundlesBpsink = bpSink.m_duplicateCount;
+        *ptrTotalBytesBpsink = bpSink.m_totalBytesRx;
+    }
+    return 0;
+}
+
+
+
+
+bool TestCutThroughTcpcl() {
+
+    std::cout << "Running Integrated TestCutThroughTcpcl. " << std::endl << std::flush;
+
+    RUN_BPGEN = true;
+    RUN_BPSINK = true;
+    RUN_INGRESS = true;
+    RUN_EGRESS = true;
+    RUN_STORAGE = true;
+    std::string ERROR_MESSAGE = "";
+
+    uint64_t totalBytesSent = 0;
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleDataEgress = 0;
+
+
+
+    sleep(1);
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t duplicateBundlesBpsink = 0;
+    uint64_t totalBytesBpsink = 0;
+    std::thread threadBpsink(RunBpsinkAsync,true,false,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
+
+    sleep(1);
+    std::thread threadEgress(RunEgress, &bundleCountEgress, &bundleDataEgress);
+
+    sleep(1);
+    std::thread threadIngress(RunIngress, &bundleCountIngress, &bundleDataIngress);
+
+    sleep(1);
+    std::thread threadBpgen(RunBpgen,&totalBytesSent);
+
+    sleep(3);
+
+
+    RUN_BPGEN = false;
+    threadBpgen.join();
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+    RUN_INGRESS = false;
+    threadIngress.join();
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+    RUN_EGRESS = false;
+    threadEgress.join();
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+    RUN_BPSINK = false;
+    threadBpsink.join();
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+
+
+
+    if (totalBytesSent != bundleDataIngress) {
+        ERROR_MESSAGE = "Bytes sent by BPGEN (" + std::to_string(totalBytesSent) + ") != bytes received by ingress "
+                + std::to_string(bundleDataIngress) + ").";
+        return false;
+    }
+    if (totalBytesSent != bundleDataEgress) {
+        ERROR_MESSAGE = "Bytes sent by BPGEN (" + std::to_string(totalBytesSent) + ") != bytes received by egress "
+                + std::to_string(bundleDataEgress) + ").";
+        return false;
+    }
+//    if (totalBytesSent != totalBytesReceived) {
+//        ERROR_MESSAGE = "Bytes sent by BPGEN (" + std::to_string(totalBytesSent) + ") != bytes received by BPSINK "
+//                + std::to_string(totalBytesReceived) + ").";
+//        return false;
+//    }
+    return true;
+}
+
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-BOOST_AUTO_TEST_CASE(test_BpgenIngressEgressBpsink) {
+BOOST_AUTO_TEST_CASE(it_BpgenIngressEgressBpsink) {
     bool result = TestBpgenIngressEgressBpsink();
+    BOOST_CHECK(result == true);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
+    bool result = TestCutThroughTcpcl();
     BOOST_CHECK(result == true);
 }
 
