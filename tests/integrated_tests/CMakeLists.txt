@@ -26,8 +26,8 @@ if(NOT WIN32)
 		../../module/egress/src/EgressAsyncTcpcl.cpp
 		../../module/egress/src/EgressAsyncStcp.cpp
 		../../module/ingress/src/receive.cpp
-		../../module/ingress/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
-		../../module/ingress/src/SignalHandler.cpp
+		../../common/util/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+		../../common/util/src/SignalHandler.cpp
 		../../module/storage/src/store.cpp
 		../../module/storage/src/store-worker.cpp
 		../../module/storage/src/cache/cache-basic.cpp
@@ -45,6 +45,7 @@ if(NOT WIN32)
 		../../common/bpcodec/apps/bpsink/include
 		../../common/tcpcl/include
 		../../common/stcp/include
+		../../common/util/include
 		${Boost_INCLUDE_DIRS}
 	)
 

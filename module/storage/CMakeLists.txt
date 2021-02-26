@@ -22,14 +22,14 @@ if(USE_BRIAN_STORAGE)
         storage-brian/src/MemoryManagerTreeArray.cpp
         storage-brian/src/BundleStorageManagerMT.cpp
         storage-brian/src/CircularIndexBufferSingleProducerSingleConsumer.cpp
-        storage-brian/src/SignalHandler.cpp
+        ../../common/util/src/SignalHandler.cpp
         storage-brian/src/ZmqStorageInterface.cpp
-        storage-brian/src/JsonSerializable.cpp
+        ../../common/util/src/JsonSerializable.cpp
         storage-brian/src/StorageConfig.cpp
     )
     target_link_libraries(hdtn-storage hdtn_reg bpcodec ${Boost_LIBRARIES})
     #target_link_directories(hdtn-storage PUBLIC lib)
-    target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include storage-brian/include ${Boost_INCLUDE_DIRS})
+    target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/util/include ../../common/include storage-brian/include ${Boost_INCLUDE_DIRS})
 	
 else()
     add_executable(hdtn-storage
@@ -37,11 +37,11 @@ else()
         src/store.cpp
         src/store-worker.cpp
         src/cache/cache-basic.cpp
-        storage-brian/src/SignalHandler.cpp
+        ../../common/util/src/SignalHandler.cpp
     )
     target_link_libraries(hdtn-storage hdtn_reg blosc bpcodec)
     #target_link_directories(hdtn-storage PUBLIC lib)
-    target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
+    target_include_directories(hdtn-storage PUBLIC include lib/include ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/util/include)
 endif()
 if (WIN32)
 	target_link_libraries(hdtn-storage ${libzmq_LIB})

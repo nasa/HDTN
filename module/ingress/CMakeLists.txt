@@ -8,8 +8,8 @@ find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesyst
 add_executable(hdtn-ingress 
     src/ingress.cpp
     src/receive.cpp
-    src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
-    src/SignalHandler.cpp
+    ../../common/util/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
+    ../../common/util/src/SignalHandler.cpp
     ../../common/logging/src/logging.cpp
     ../../common/bpcodec/src/codec/bpv6.cpp
     ../../common/bpcodec/src/codec/bpv7.cpp
@@ -32,7 +32,7 @@ else()
 endif()
 
 target_link_libraries(hdtn-ingress hdtn_reg bpcodec ${Boost_LIBRARIES})
-target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include ../../common/stcp/include ${Boost_INCLUDE_DIRS})
+target_include_directories(hdtn-ingress PUBLIC include ../../common/logging/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/tcpcl/include ../../common/stcp/include ../../common/util/include ${Boost_INCLUDE_DIRS})
 
 
 

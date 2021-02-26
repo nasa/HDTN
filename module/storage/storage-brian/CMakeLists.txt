@@ -9,15 +9,15 @@ add_executable(storage-brian-speedtest
     src/MemoryManagerTreeArray.cpp
     src/BundleStorageManagerMT.cpp
     src/CircularIndexBufferSingleProducerSingleConsumer.cpp
-    src/SignalHandler.cpp
+    ../../../common/util/src/SignalHandler.cpp
     src/StorageConfig.cpp
-    src/JsonSerializable.cpp
+    ../../../common/util/src/JsonSerializable.cpp
     src/ZmqStorageInterface.cpp #not needed but for compile verification
     src/main.cpp
 )
 target_link_libraries(storage-brian-speedtest hdtn_reg bpcodec ${Boost_LIBRARIES})
 #target_link_directories(storage-brian-speedtest PUBLIC lib)
-target_include_directories(storage-brian-speedtest PUBLIC include lib/include ../../../common/bpcodec/include ../../../common/regsvr/lib/include ../../../common/include ../include ${Boost_INCLUDE_DIRS})
+target_include_directories(storage-brian-speedtest PUBLIC include lib/include ../../../common/bpcodec/include ../../../common/util/include ../../../common/regsvr/lib/include ../../../common/include ../include ${Boost_INCLUDE_DIRS})
 if (NOT WIN32)
 	target_link_libraries(storage-brian-speedtest pthread)
 endif()
