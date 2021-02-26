@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
     //scope to ensure clean exit before return 0
     {
         bool useStcp = false;
+        bool alwaysSendToStorage = false;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
                 ("help", "Produce help message.")
                 //("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
                 ("use-stcp", "Use STCP instead of TCPCL.")
+                ("always-send-to-storage", "Don't send straight to egress (for testing).")
                 ;
 
             boost::program_options::variables_map vm;
@@ -61,6 +63,10 @@ int main(int argc, char *argv[]) {
             
             if (vm.count("use-stcp")) {
                 useStcp = true;
+            }
+
+            if (vm.count("always-send-to-storage")) {
+                alwaysSendToStorage = true;
             }
 
             //port = vm["port"].as<boost::uint16_t>();
@@ -105,7 +111,7 @@ int main(int argc, char *argv[]) {
 
         printf("Announcing presence of ingress engine ...\n");
 
-        ingress.Netstart(INGRESS_PORT, !useStcp, useStcp);
+        ingress.Netstart(INGRESS_PORT, !useStcp, useStcp, alwaysSendToStorage);
 
         g_sigHandler.Start(false);
         std::cout << "ingress up and running" << std::endl;

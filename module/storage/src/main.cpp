@@ -29,8 +29,8 @@ int main(int argc, char *argv[]) {
         //last = (tv.tv_sec + (tv.tv_usec / 1000000.0));
         hdtn::storageConfig config;
         config.regsvr = HDTN_REG_SERVER_PATH;
-        config.local = HDTN_RELEASE_PATH;
-        config.releaseWorker = HDTN_SCHEDULER_PATH;
+        config.local = HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH;
+        config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
         config.storePath = "/home/hdtn/hdtn.store";
         hdtn::storage store;
         std::cout << "[store] Initializing storage manager ..." << std::endl;

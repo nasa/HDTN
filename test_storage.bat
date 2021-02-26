@@ -8,7 +8,7 @@ START "BpSink" /D "%BUILD_DIR%" "cmd /k" "%BUILD_DIR%\common\bpcodec\apps\bpsink
 timeout /t 3
 START "Egress" /D "%BUILD_DIR%" "cmd /k" "%BUILD_DIR%\module\egress\hdtn-egress-async.exe" "--use-tcpcl"
 timeout /t 3
-START "Ingress" /D "%BUILD_DIR%" "cmd /k" "%BUILD_DIR%\module\ingress\hdtn-ingress.exe"
+START "Ingress" /D "%BUILD_DIR%" "cmd /k" "%BUILD_DIR%\module\ingress\hdtn-ingress.exe" "--always-send-to-storage"
 timeout /t 3
 START "Send Release" /D "%BUILD_DIR%" "cmd /k" "%BUILD_DIR%\module\storage\hdtn-release-message-sender.exe" "--release-message-type=start" "--flow-id=2" "--delay-before-send=14"
 timeout /t 1

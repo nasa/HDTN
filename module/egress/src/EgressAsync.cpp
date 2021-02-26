@@ -39,13 +39,13 @@ void hdtn::HegrManagerAsync::Init() {
     m_bundleData = 0;
     m_messageCount = 0;
     // socket for cut-through mode straight to egress
-    m_zmqCutThroughCtx = boost::make_shared<zmq::context_t>();
-    m_zmqCutThroughSock = boost::make_shared<zmq::socket_t>(*m_zmqCutThroughCtx, zmq::socket_type::pull);
-    m_zmqCutThroughSock->connect(m_cutThroughAddress);
+    m_zmqCtx_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::context_t>();
+    m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingEgressPtr, zmq::socket_type::pull);
+    m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
     // socket for sending bundles to storage
-    m_zmqReleaseCtx = boost::make_shared<zmq::context_t>();
-    m_zmqReleaseSock = boost::make_shared<zmq::socket_t>(*m_zmqReleaseCtx, zmq::socket_type::pull);
-    m_zmqReleaseSock->bind(m_releaseAddress);
+    m_zmqCtx_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::context_t>();
+    m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_connectingStorageToBoundEgressPtr, zmq::socket_type::pull);
+    m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH);
 
     try {
         m_udpSocket.open(boost::asio::ip::udp::v4());
@@ -73,13 +73,16 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     // Use a form of receive that times out so we can terminate cleanly.
     const int timeout = 250;  // milliseconds
     static const unsigned int NUM_SOCKETS = 2;
-    m_zmqCutThroughSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
-    m_zmqReleaseSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    m_zmqPullSock_boundIngressToConnectingEgressPtr->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    m_zmqPullSock_connectingStorageToBoundEgressPtr->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
     zmq::pollitem_t items[NUM_SOCKETS] = {
-        {m_zmqCutThroughSock->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqReleaseSock->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
-    zmq::socket_t * const sockets[NUM_SOCKETS] = { m_zmqCutThroughSock.get(), m_zmqReleaseSock.get() };
+    zmq::socket_t * const sockets[NUM_SOCKETS] = {
+        m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
+        m_zmqPullSock_connectingStorageToBoundEgressPtr.get()
+    };
 
     while (m_running) { //keep thread alive if running
         zmq::message_t hdr;        

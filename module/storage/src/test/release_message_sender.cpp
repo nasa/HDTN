@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
    
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    socket.bind(HDTN_SCHEDULER_PATH);
+    socket.bind(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
 
     std::cout << "waiting " << delayBeforeSendSeconds << " seconds..." << std::endl;
     boost::this_thread::sleep(boost::posix_time::seconds(delayBeforeSendSeconds));

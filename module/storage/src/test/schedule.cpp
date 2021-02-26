@@ -19,11 +19,11 @@ int main(int argc, char *argv[]) {
     reg.Reg();
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    socket.bind(HDTN_SCHEDULER_PATH);
+    socket.bind(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
     reg.Init(HDTN_REG_SERVER_PATH, "ingress", 10110, "push");
     reg.Reg();
     zmq::socket_t storesocket(ctx, zmq::socket_type::push);
-    storesocket.bind(HDTN_STORAGE_PATH);
+    storesocket.bind(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
 
     boost::this_thread::sleep(boost::posix_time::seconds(10));
 

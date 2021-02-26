@@ -52,10 +52,10 @@ bool hdtn::storage::init(storageConfig config) {
     std::string remote = entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
     std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
 
-    m_ingressSockPtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
+    m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
     try {
         //m_ingressSockPtr->connect(remote);
-        m_ingressSockPtr->connect(HDTN_STORAGE_PATH);
+        m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
     }
     catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect ingress socket: " << ex.what() << std::endl;
@@ -89,10 +89,10 @@ bool hdtn::storage::init(storageConfig config) {
         }
     }
 #endif //not using USE_BRIAN_STORAGE
-    m_releaseSockPtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
+    m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
     try {
-        m_releaseSockPtr->connect(config.releaseWorker);
-        m_releaseSockPtr->setsockopt(ZMQ_SUBSCRIBE, "", 0);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);// config.releaseWorker);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->setsockopt(ZMQ_SUBSCRIBE, "", 0);
         std::cout << "release sock connected to " << config.releaseWorker << std::endl;
     } catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect release socket: " << ex.what() << std::endl;
@@ -120,8 +120,8 @@ bool hdtn::storage::init(storageConfig config) {
 
 void hdtn::storage::update() {
     zmq::pollitem_t items[] = {
-        {m_ingressSockPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_releaseSockPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_telemetrySockPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     if (zmq::poll(&items[0], 3, 250) > 0) {
@@ -157,7 +157,7 @@ void hdtn::storage::scheduleRelease() {
     //  storageStats.in_bytes += hdr.size();
     //++storageStats.in_msg;
     zmq::message_t message;
-    m_releaseSockPtr->recv(&message);
+    m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(&message);
     if (message.size() < sizeof(CommonHdr)) {
         std::cerr << "[dispatch] message too short: " << message.size() << std::endl;
         return;
@@ -178,7 +178,7 @@ void hdtn::storage::scheduleRelease() {
 void hdtn::storage::dispatch() {
     zmq::message_t hdr;
     zmq::message_t message;
-    m_ingressSockPtr->recv(&hdr);
+    m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(&hdr);
     storageStats.inBytes += hdr.size();
     ++storageStats.inMsg;
 
@@ -190,7 +190,7 @@ void hdtn::storage::dispatch() {
     BlockHdr *block = (BlockHdr *)common;
     switch (common->type) {
         case HDTN_MSGTYPE_STORE:
-            m_ingressSockPtr->recv(&message);
+            m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(&message);
             /*if(message.size() < 7000){
                 std::cout<<"ingress sent less than 7000, type "<< common->type << "size " <<  message.size()<<"\n";
             }*/

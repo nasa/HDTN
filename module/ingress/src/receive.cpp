@@ -65,21 +65,22 @@ int BpIngressSyscall::Init(uint32_t type) {
             boost::bind(&BpIngressSyscall::PopCbThreadFunc, this)); //create and start the worker thread
 
         // socket for cut-through mode straight to egress
-        m_zmqCutThroughCtx = boost::make_shared<zmq::context_t>();
-        m_zmqCutThroughSock = boost::make_shared<zmq::socket_t>(*m_zmqCutThroughCtx, zmq::socket_type::push);
-        m_zmqCutThroughSock->bind(m_cutThroughAddress);
+        m_zmqCtx_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::context_t>();
+        m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingEgressPtr, zmq::socket_type::push);
+        m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
         // socket for sending bundles to storage
-        m_zmqStorageCtx = boost::make_shared<zmq::context_t>();
-        m_zmqStorageSock = boost::make_shared<zmq::socket_t>(*m_zmqStorageCtx, zmq::socket_type::push);
-        m_zmqStorageSock->bind(m_storageAddress);
+        m_zmqCtx_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::context_t>();
+        m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingStoragePtr, zmq::socket_type::push);
+        m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
     }
     return 0;
 }
 
 
-int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp) {
+int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool alwaysSendToStorage) {
     m_useTcpcl = useTcpcl;
     m_useStcp = useStcp;
+    m_alwaysSendToStorage = alwaysSendToStorage;
     if(m_ioServiceThreadPtr) {
         std::cerr << "Error in BpIngressSyscall::Netstart: already running" << std::endl;
         return 1;
@@ -123,7 +124,7 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         dst.node = bpv6Primary.dst_node;
         hdr.flowId = dst.node;  // for now
         hdr.base.flags = bpv6Primary.flags;
-        hdr.base.type = HDTN_MSGTYPE_STORE;
+        hdr.base.type = (m_alwaysSendToStorage) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
         // hdr.ts=recvlen;
         int numChunks = 1;
         std::size_t bytesToSend = messageSize;
@@ -143,8 +144,9 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             m_ingSequenceNum++;
             hdr.zframe = zframeSeq;
             zframeSeq++;
-            const bool useCutThrough = false;
-            zmq::socket_t * socket = (useCutThrough) ? m_zmqCutThroughSock.get() : m_zmqStorageSock.get();
+            zmq::socket_t * const socket = (hdr.base.type == HDTN_MSGTYPE_EGRESS) ? 
+                m_zmqPushSock_boundIngressToConnectingEgressPtr.get() :
+                m_zmqPushSock_boundIngressToConnectingStoragePtr.get();
             socket->send(&hdr, sizeof(BlockHdr), /*ZMQ_MORE*/0);
             //char data[bytesToSend];
             //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);

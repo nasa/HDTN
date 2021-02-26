@@ -30,7 +30,7 @@ struct schedule_event {
 
 struct storageConfig {
     storageConfig()
-        : telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_SCHEDULER_PATH) {}
+        : telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
 
     /**
          * 0mq endpoint for registration server
@@ -112,8 +112,8 @@ class storage {
 
    private:
     boost::shared_ptr<zmq::context_t> m_zmqContextPtr;
-    boost::shared_ptr<zmq::socket_t> m_ingressSockPtr;
-    boost::shared_ptr<zmq::socket_t> m_releaseSockPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
     uint16_t port;
     boost::shared_ptr<zmq::socket_t> m_workerSockPtr;
     boost::shared_ptr<zmq::socket_t> m_telemetrySockPtr;
