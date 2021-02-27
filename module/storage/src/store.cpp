@@ -113,6 +113,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     zmq::message_t tmsg;
     if (!m_workerSockPtr->recv(tmsg, zmq::recv_flags::none)) {
         std::cerr << "[storage] Worker startup failed (no receive) - aborting ..." << std::endl;
+        return false;
     }
     CommonHdr *notify = (CommonHdr *)tmsg.data();
     if (notify->type != HDTN_MSGTYPE_IOK) {
