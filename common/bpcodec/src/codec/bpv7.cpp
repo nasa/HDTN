@@ -3,6 +3,7 @@
 #include <cstring>
 //#include <netinet/in.h> //for htons not declared
 #include <boost/endian/conversion.hpp>
+#include <inttypes.h>
 
 // BPBIS_10 enables compatibility for version 10 of the bpbis draft.  This was required to achieve interoperability testing.
 #define BPV7_BPBIS_10     (1)
@@ -22,7 +23,7 @@ namespace hdtn {
             index ++;
             index += cbor_decode_uint(&len, (uint8_t *)(&buffer[index]), 0, bufsz - index);
             if(len > (bufsz - index)) {
-                printf("Bad string length: %llu\n", len);
+                printf("Bad string length: %" PRIu64 "\n", len);
                 return 0;  // make sure we're not reading off the end of our assigned buffer here ...
             }
             else if(len > 0) {

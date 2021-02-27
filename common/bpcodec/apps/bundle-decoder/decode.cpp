@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
     uint64_t offset = 0;
     uint64_t block_start=0;
     uint8_t bpv6_buf[BUNDLE_SZ_MAX];
-    char * filename="../test/ion_bundle";
+    const char * filename= "../test/ion_bundle";
     memset(bpv6_buf, 0x42, BUNDLE_SZ_MAX);
     if(argc >1)
     {

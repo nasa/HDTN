@@ -15,6 +15,8 @@
 // schedule.cpp implements the publisher for these messages.
 
 int main(int argc, char *argv[]) {
+    (void) argc;
+    (void) argv;
     // Registration server commented out, multiple subscribers will hang otherwise
     // Will investigate time permitting
     // hdtn::hdtn_regsvr _reg;
@@ -23,11 +25,11 @@ int main(int argc, char *argv[]) {
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::sub);
     socket.connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
-    socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+    socket.set(zmq::sockopt::subscribe, "");
 
     zmq::message_t message;
     while (true) {
-        socket.recv(&message);
+        socket.recv(message, zmq::recv_flags::none);
         std::cout << "message received\n";
         hdtn::CommonHdr *common = (hdtn::CommonHdr *)message.data();
         switch (common->type) {

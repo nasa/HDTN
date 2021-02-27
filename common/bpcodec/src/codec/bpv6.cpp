@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <string.h>
 #include "codec/bpv6.h"
+#include <inttypes.h>
 
 uint32_t bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buffer, const size_t offset, const size_t bufsz) {
     primary->version = buffer[offset];
@@ -172,7 +173,7 @@ uint32_t bpv6_canonical_block_encode(const bpv6_canonical_block* block, char* bu
 
 void bpv6_primary_block_print(bpv6_primary_block* primary) {
     printf("BPv%d / Primary block (%d bytes)\n", (int)primary->version, (int)primary->block_length);
-    printf("Flags: 0x%llx\n", primary->flags);
+    printf("Flags: 0x%" PRIx64 "\n", primary->flags);
     uint32_t flags = bpv6_bundle_get_gflags(primary->flags);
     if(flags & BPV6_BUNDLEFLAG_NOFRAGMENT) {
         printf("* No fragmentation allowed\n");
@@ -207,7 +208,7 @@ void bpv6_primary_block_print(bpv6_primary_block* primary) {
     }
     flags = bpv6_bundle_get_priority(primary->flags);
     printf("Priority: %u\n", flags);
-    printf("");
+
     printf("Destination: ipn:%d.%d\n", (int)primary->dst_node, (int)primary->dst_svc);
     if(primary->src_node != 0) {
         printf("Source: ipn:%d.%d\n", (int)primary->src_node, (int)primary->src_svc);
@@ -221,8 +222,8 @@ void bpv6_primary_block_print(bpv6_primary_block* primary) {
     if(primary->report_node != 0) {
         printf("Report-to: ipn:%d.%d\n", (int)primary->report_node, (int)primary->report_svc);
     }
-    printf("Creation: %llu / %llu\n", primary->creation, primary->sequence);
-    printf("Lifetime: %llu\n", primary->lifetime);
+    printf("Creation: %" PRIu64 " / %" PRIu64 "\n", primary->creation, primary->sequence);
+    printf("Lifetime: %" PRIu64 "\n", primary->lifetime);
 }
 
 void bpv6_canonical_block_print(bpv6_canonical_block* block) {
@@ -262,7 +263,7 @@ void bpv6_canonical_block_print(bpv6_canonical_block* block) {
             printf("> Unknown block type\n");
             break;
     }
-    printf("Flags: 0x%llx\n", block->flags);
+    printf("Flags: 0x%" PRIx64 "\n", block->flags);
     if(block->flags & BPV6_BLOCKFLAG_LAST_BLOCK) {
         printf("* Last block in this bundle.\n");
     }
@@ -278,5 +279,5 @@ void bpv6_canonical_block_print(bpv6_canonical_block* block) {
     if(block->flags & BPV6_BLOCKFLAG_FORWARD_NOPROCESS) {
         printf("* This block was forwarded without being processed.\n");
     }
-    printf("Block length: %llu bytes\n", block->length);
+    printf("Block length: %" PRIu64 " bytes\n", block->length);
 }

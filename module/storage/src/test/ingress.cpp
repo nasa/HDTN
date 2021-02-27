@@ -9,6 +9,8 @@
 #include "reg.hpp"
 
 int main(int argc, char *argv[]) {
+    (void) argc;
+    (void) argv;
     hdtn::HdtnRegsvr reg;
     reg.Init(HDTN_REG_SERVER_PATH, "ingress", 10110, "push");
     reg.Reg();
@@ -23,15 +25,16 @@ int main(int argc, char *argv[]) {
     }
 
     char data[8192];
-    read(rfd, data, 8192);
+    ssize_t bytesRead = read(rfd, data, 8192);
+    (void) bytesRead;
 
     while (true) {
         hdtn::BlockHdr block;
         memset(&block, 0, sizeof(hdtn::BlockHdr));
         block.base.type = HDTN_MSGTYPE_STORE;
         block.flowId = rand() % 65536;
-        socket.send(&block, sizeof(hdtn::BlockHdr), ZMQ_MORE); //TODO: ZMQ_MORE probably wrong
-        socket.send(data, 1024, 0);
+        socket.send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::sndmore); //TODO: ZMQ_MORE probably wrong
+        socket.send(zmq::const_buffer(data, 1024), zmq::send_flags::none);
     }
 
     return 0;
