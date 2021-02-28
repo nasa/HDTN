@@ -139,7 +139,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
 
     //stats?
-    uint64_t bundle_count = 0;
+    //uint64_t bundle_count = 0;
+    m_bundleCount = 0;
     uint64_t bundle_data = 0;
     uint64_t raw_data = 0;
 
@@ -231,7 +232,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             memcpy(curr_buf + bundle_length, data_buffer.data(), bundleSizeBytes);
             bundle_length += bundleSizeBytes;
             //msgbuf[idx].msg_hdr.msg_iov[0].iov_len = bundle_length;
-            ++bundle_count;
+            //++bundle_count;
+            ++m_bundleCount;
             bundle_data += bundleSizeBytes;     // payload data
             raw_data += bundle_length; // bundle overhead + payload data
 
@@ -260,7 +262,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
     }
 
-    std::cout << "bundle_count: " << bundle_count << std::endl;
+//    std::cout << "bundle_count: " << bundle_count << std::endl;
+    std::cout << "bundle_count: " << m_bundleCount << std::endl;
     std::cout << "bundle_data (payload data): " << bundle_data << " bytes" << std::endl;
     std::cout << "raw_data (bundle overhead + payload data): " << raw_data << " bytes" << std::endl;
 

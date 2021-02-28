@@ -10,8 +10,9 @@ if(NOT WIN32)
 		src/it_test_main.cpp
 		src/integrated_tests.cpp
 		../../common/logging/src/logging.cpp
-		../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
-		../../common/tcpcl/src/Tcpcl.cpp
+        ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
+        ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
+        ../../common/tcpcl/src/Tcpcl.cpp
 		../../common/tcpcl/src/TcpclBundleSink.cpp
 		../../common/tcpcl/src/TcpclBundleSource.cpp
 
@@ -42,8 +43,9 @@ if(NOT WIN32)
 		../../common/logging/include
 		../../common/regsvr/lib/include
 		../../common/bpcodec/include
-		../../common/bpcodec/apps/bpsink/include
-		../../common/tcpcl/include
+        ../../common/bpcodec/apps/bpgen/include
+        ../../common/bpcodec/apps/bpsink/include
+        ../../common/tcpcl/include
 		../../common/stcp/include
 		../../common/util/include
 		${Boost_INCLUDE_DIRS}
