@@ -693,14 +693,14 @@ bool TestCutThroughTcpcl() {
     std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
 
 
-    if (bundlesSentBpgen != bundleDataIngress) {
+    if (bundlesSentBpgen != bundleCountIngress) {
         ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
-                + std::to_string(bundleDataIngress) + ").";
+                + std::to_string(bundleCountIngress) + ").";
         return false;
     }
-    if (bundlesSentBpgen != bundleDataEgress) {
+    if (bundlesSentBpgen != bundleCountEgress) {
         ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
-                + std::to_string(bundleDataEgress) + ").";
+                + std::to_string(bundleCountEgress) + ").";
         return false;
     }
     if (bundlesSentBpgen != totalBundlesBpsink) {
@@ -767,14 +767,14 @@ bool TestCutThroughUdp() {
     std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
 
 
-    if (bundlesSentBpgen != bundleDataIngress) {
+    if (bundlesSentBpgen != bundleCountIngress) {
         ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
-                + std::to_string(bundleDataIngress) + ").";
+                + std::to_string(bundleCountIngress) + ").";
         return false;
     }
-    if (bundlesSentBpgen != bundleDataEgress) {
+    if (bundlesSentBpgen != bundleCountEgress) {
         ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
-                + std::to_string(bundleDataEgress) + ").";
+                + std::to_string(bundleCountEgress) + ").";
         return false;
     }
     if (bundlesSentBpgen != totalBundlesBpsink) {
@@ -841,14 +841,14 @@ bool TestCutThroughStcp() {
     std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
 
 
-    if (bundlesSentBpgen != bundleDataIngress) {
+    if (bundlesSentBpgen != bundleCountIngress) {
         ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
-                + std::to_string(bundleDataIngress) + ").";
+                + std::to_string(bundleCountIngress) + ").";
         return false;
     }
-    if (bundlesSentBpgen != bundleDataEgress) {
+    if (bundlesSentBpgen != bundleCountEgress) {
         ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
-                + std::to_string(bundleDataEgress) + ").";
+                + std::to_string(bundleCountEgress) + ").";
         return false;
     }
     if (bundlesSentBpgen != totalBundlesBpsink) {
@@ -869,19 +869,19 @@ BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 //    BOOST_CHECK(result == true);
 //}
 
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
-//    bool result = TestCutThroughTcpcl();
-//    BOOST_CHECK(result == true);
-//}
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
+    bool result = TestCutThroughTcpcl();
+    BOOST_CHECK(result == true);
+}
 
 BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
     bool result = TestCutThroughUdp();
     BOOST_CHECK(result == true);
 }
 
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
-//    bool result = TestCutThroughStcp();
-//    BOOST_CHECK(result == true);
-//}
+BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
+    bool result = TestCutThroughStcp();
+    BOOST_CHECK(result == true);
+}
 
 
