@@ -510,7 +510,7 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived) {
 int RunBpgenAsync(bool useTcpcl, bool useStcp, uint64_t* ptrBundleCount) {
     //scope to ensure clean exit before return 0
     {
-        std::string destinationAddress;
+        std::string destinationAddress = "localhost";
         std::string thisLocalEidString = "BpGen";
         uint16_t port = 4556;
         uint32_t bundleSizeBytes = 100;
@@ -532,7 +532,8 @@ int RunBpgenAsync(bool useTcpcl, bool useStcp, uint64_t* ptrBundleCount) {
         std::cout << "BpGenAsync up and running" << std::endl;
         while (RUN_BPGEN) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
-        }        
+        }
+        bpGen.Stop();
         *ptrBundleCount = bpGen.m_bundleCount;
     }
     return 0;
@@ -624,7 +625,7 @@ int RunBpsinkAsync(bool useTcpcl, bool useStcp, uint64_t* ptrTotalBundlesBpsink,
     //scope to ensure clean exit before return 0
     {
         uint16_t port = 4557;
-        std::string thisLocalEidString = "";
+        std::string thisLocalEidString = "BpSink";
         hdtn::BpSinkAsync bpSink(port, useTcpcl, useStcp, thisLocalEidString);
         bpSink.Init(0);
         bpSink.Netstart();
@@ -662,13 +663,13 @@ bool TestCutThroughTcpcl() {
     sleep(1);
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
-    sleep(1);
+    sleep(3);
     std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
 
-    sleep(1);
+    sleep(3);
     std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
 
-    sleep(1);
+    sleep(3);
     std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
 
     sleep(10);
@@ -710,6 +711,157 @@ bool TestCutThroughTcpcl() {
     return true;
 }
 
+
+
+bool TestCutThroughUdp() {
+
+    std::cout << "Running Integrated TestCutThroughUdp. " << std::endl << std::flush;
+
+    RUN_BPGEN = true;
+    RUN_BPSINK = true;
+    RUN_INGRESS = true;
+    RUN_EGRESS = true;
+    std::string ERROR_MESSAGE = "";
+    uint64_t bundlesSentBpgen = 0;
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t duplicateBundlesBpsink = 0;
+    uint64_t totalBytesBpsink = 0;
+    uint64_t bundleDataEgress = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    bool alwaysSendToStorage = false;
+    bool useTcpcl = false;
+    bool useStcp = false;
+
+    sleep(1);
+    std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
+
+    sleep(3);
+    std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
+
+    sleep(3);
+    std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
+
+    sleep(3);
+    std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
+
+    sleep(10);
+
+    RUN_BPGEN = false;
+    threadBpgen.join();
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+    RUN_INGRESS = false;
+    threadIngress.join();
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+    RUN_EGRESS = false;
+    threadEgress.join();
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+    RUN_BPSINK = false;
+    threadBpsink.join();
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+
+    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
+    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
+    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
+    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
+
+
+    if (bundlesSentBpgen != bundleDataIngress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleDataIngress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != bundleDataEgress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleDataEgress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != totalBundlesBpsink) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").";
+        return false;
+    }
+    return true;
+}
+
+
+
+bool TestCutThroughStcp() {
+
+    std::cout << "Running Integrated TestCutThroughStcp. " << std::endl << std::flush;
+
+    RUN_BPGEN = true;
+    RUN_BPSINK = true;
+    RUN_INGRESS = true;
+    RUN_EGRESS = true;
+    std::string ERROR_MESSAGE = "";
+    uint64_t bundlesSentBpgen = 0;
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t duplicateBundlesBpsink = 0;
+    uint64_t totalBytesBpsink = 0;
+    uint64_t bundleDataEgress = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    bool alwaysSendToStorage = false;
+    bool useTcpcl = false;
+    bool useStcp = true;
+
+    sleep(1);
+    std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
+
+    sleep(3);
+    std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
+
+    sleep(3);
+    std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
+
+    sleep(3);
+    std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
+
+    sleep(10);
+
+    RUN_BPGEN = false;
+    threadBpgen.join();
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+    RUN_INGRESS = false;
+    threadIngress.join();
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+    RUN_EGRESS = false;
+    threadEgress.join();
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+    RUN_BPSINK = false;
+    threadBpsink.join();
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+
+    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
+    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
+    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
+    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
+
+
+    if (bundlesSentBpgen != bundleDataIngress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleDataIngress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != bundleDataEgress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleDataEgress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != totalBundlesBpsink) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").";
+        return false;
+    }
+    return true;
+}
+
+
+
+
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
 //BOOST_AUTO_TEST_CASE(it_BpgenIngressEgressBpsink) {
@@ -717,9 +869,19 @@ BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 //    BOOST_CHECK(result == true);
 //}
 
-BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
-    bool result = TestCutThroughTcpcl();
+//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
+//    bool result = TestCutThroughTcpcl();
+//    BOOST_CHECK(result == true);
+//}
+
+BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
+    bool result = TestCutThroughUdp();
     BOOST_CHECK(result == true);
 }
+
+//BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
+//    bool result = TestCutThroughStcp();
+//    BOOST_CHECK(result == true);
+//}
 
 

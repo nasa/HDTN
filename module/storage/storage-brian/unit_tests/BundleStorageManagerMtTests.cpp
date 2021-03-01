@@ -8,6 +8,7 @@
 #include <boost/timer/timer.hpp>
 #include <boost/make_shared.hpp>
 #include "SignalHandler.h"
+#include "Environment.h"
 
 BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 {
@@ -23,7 +24,11 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 
 
 
-    BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
+//    BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
+    BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
+      "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string());
+    
+    
 	bsm.Start();
 
 	
@@ -165,8 +170,10 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 	backup_memmanager_t backup;
 
 	{
-        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-		bsm.Start(false);
+//        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
+        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
+          "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string());
+        bsm.Start(false);
 		
 		for (unsigned int sizeI = 0; sizeI < 15; ++sizeI) {
 			const boost::uint64_t size = sizes[sizeI];
@@ -222,8 +229,10 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 	//boost::this_thread::sleep(boost::posix_time::milliseconds(500));
 	std::cout << "restoring...\n";
 	{
-        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-		uint64_t totalBundlesRestored, totalBytesRestored, totalSegmentsRestored;
+//        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
+        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
+          "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string());
+        uint64_t totalBundlesRestored, totalBytesRestored, totalSegmentsRestored;
 		BOOST_REQUIRE(!bsm.GetMemoryManagerConstRef().IsBackupEqual(backup));
 		BOOST_REQUIRE_MESSAGE(bsm.RestoreFromDisk(&totalBundlesRestored, &totalBytesRestored, &totalSegmentsRestored), "error restoring from disk");
 		BOOST_REQUIRE(bsm.GetMemoryManagerConstRef().IsBackupEqual(backup));
