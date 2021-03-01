@@ -53,23 +53,24 @@ void HdtnRegsvr::Init(std::string target, std::string svc, uint16_t port, std::s
     char tbuf[255];
     memset(tbuf, 0, 255);
     snprintf(tbuf, 255, "%s:%d:%s", svc.c_str(), port, mode.c_str());
-    m_zmqSock->setsockopt(ZMQ_IDENTITY, (void *)tbuf, target.size());
+    //m_zmqSock->setsockopt(ZMQ_IDENTITY, (void *)tbuf, target.size());
+    m_zmqSock->set(zmq::sockopt::routing_id, tbuf);
     // Use a form of receive that times out so we can terminate cleanly.
-    int timeout = 2000;  // milliseconds
-    m_zmqSock->setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    static const int timeout = 2000;  // milliseconds
+    m_zmqSock->set(zmq::sockopt::rcvtimeo, timeout);
     m_zmqSock->connect(target);
 }
 
 bool HdtnRegsvr::Reg() {
-    m_zmqSock->send(HDTN_REGSTR, strlen(HDTN_REGSTR), 0);
+    m_zmqSock->send(zmq::const_buffer(HDTN_REGSTR, strlen(HDTN_REGSTR)), zmq::send_flags::none);
     zmq::message_t msg;
-    return m_zmqSock->recv(&msg, 0); //false if timeout
+    return m_zmqSock->recv(msg, zmq::recv_flags::none).has_value(); //false if timeout
 }
 
 bool HdtnRegsvr::Dereg() {
-    m_zmqSock->send(HDTN_DEREGSTR, strlen(HDTN_DEREGSTR), 0);
+    m_zmqSock->send(zmq::const_buffer(HDTN_DEREGSTR, strlen(HDTN_DEREGSTR)), zmq::send_flags::none);
     zmq::message_t msg;
-    return m_zmqSock->recv(&msg, 0); //false if timeout
+    return m_zmqSock->recv(msg, zmq::recv_flags::none).has_value(); //false if timeout
 }
 
 HdtnEntries_ptr HdtnRegsvr::Query(const std::string & type) {
@@ -77,10 +78,10 @@ HdtnEntries_ptr HdtnRegsvr::Query(const std::string & type) {
     if ("" != type) {
         q_str += " " + type;
     }
-    m_zmqSock->send(q_str.c_str(), strlen(q_str.c_str()), 0);
+    m_zmqSock->send(zmq::const_buffer(q_str.c_str(), strlen(q_str.c_str())), zmq::send_flags::none);
     hdtn::HdtnEntries result;
     zmq::message_t msg;
-    if(!m_zmqSock->recv(&msg, 0)) { //timeout
+    if(!m_zmqSock->recv(msg, zmq::recv_flags::none)) { //false if timeout) { //timeout
         return HdtnEntries_ptr(); //null shared_ptr
     }
     size_t sz = msg.size();

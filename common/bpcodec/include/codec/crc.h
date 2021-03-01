@@ -65,7 +65,7 @@ typedef struct crc32_parameters
 /* Standard parameters for calculating a CRC. */
 typedef struct crc_parameters
 {
-    char* name;                 /* Name of the CRC. */
+    const char* name;                 /* Name of the CRC. */
     int length;                 /* The number of bits in the CRC. */
     bool should_reflect_input;  /* Whether to reflect the bits of the input bytes. */
     bool should_reflect_output; /* Whether to reflect the bits of the output crc. */

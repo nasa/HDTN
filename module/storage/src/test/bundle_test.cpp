@@ -291,7 +291,7 @@ int main(int argc, char* argv[]) {
     socket.bind(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
     std::cout << "sleep 30\n";
     hdtn::IreleaseStartHdr releaseMsg;
-    hdtn::IreleaseStopHdr stopMsg;
+    //hdtn::IreleaseStopHdr stopMsg;
     boost::this_thread::sleep(boost::posix_time::seconds(30));
   
     memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -299,7 +299,7 @@ int main(int argc, char* argv[]) {
     releaseMsg.flowId = 1;
     releaseMsg.rate = 0;         //go as fast as possible
     releaseMsg.duration = 20;
-    socket.send(&releaseMsg, sizeof(hdtn::IreleaseStartHdr), 0);
+    socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
     std::cout << "release for 20 seconds \n";
     boost::this_thread::sleep(boost::posix_time::seconds(20));
     close(fd);

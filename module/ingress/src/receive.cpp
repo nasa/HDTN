@@ -122,13 +122,13 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         hdr.ts = timer;
         offset = bpv6_primary_block_decode(&bpv6Primary, (const char*)rxBuf.data(), offset, messageSize);
         dst.node = bpv6Primary.dst_node;
-        hdr.flowId = dst.node;  // for now
-        hdr.base.flags = bpv6Primary.flags;
+        hdr.flowId = static_cast<uint32_t>(dst.node);  // for now
+        hdr.base.flags = static_cast<uint16_t>(bpv6Primary.flags);
         hdr.base.type = (m_alwaysSendToStorage) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
         // hdr.ts=recvlen;
-        int numChunks = 1;
+        std::size_t numChunks = 1;
         std::size_t bytesToSend = messageSize;
-        int remainder = 0;
+        std::size_t remainder = 0;
 
         zframeSeq = 0;
         if (messageSize > CHUNK_SIZE)  // the bundle is bigger than internal message size limit
@@ -138,7 +138,7 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             remainder = messageSize % CHUNK_SIZE;
             if (remainder != 0) numChunks++;
         }
-        for (int j = 0; j < numChunks; j++) {
+        for (std::size_t j = 0; j < numChunks; ++j) {
             if ((j == numChunks - 1) && (remainder != 0)) bytesToSend = remainder;
             hdr.bundleSeq = m_ingSequenceNum;
             m_ingSequenceNum++;
@@ -147,11 +147,11 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             zmq::socket_t * const socket = (hdr.base.type == HDTN_MSGTYPE_EGRESS) ? 
                 m_zmqPushSock_boundIngressToConnectingEgressPtr.get() :
                 m_zmqPushSock_boundIngressToConnectingStoragePtr.get();
-            socket->send(&hdr, sizeof(BlockHdr), /*ZMQ_MORE*/0);
+            socket->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::none);/*ZMQ_MORE*/
             //char data[bytesToSend];
             //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
             //m_zmqCutThroughSock->send(data, bytesToSend, 0);
-            socket->send(&tbuf[CHUNK_SIZE * j], bytesToSend, 0);
+            socket->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::none);
             ++m_zmsgsOut;
         }
         ++m_bundleCount;

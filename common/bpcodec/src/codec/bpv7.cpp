@@ -3,6 +3,7 @@
 #include <cstring>
 //#include <netinet/in.h> //for htons not declared
 #include <boost/endian/conversion.hpp>
+#include <inttypes.h>
 
 // BPBIS_10 enables compatibility for version 10 of the bpbis draft.  This was required to achieve interoperability testing.
 #define BPV7_BPBIS_10     (1)
@@ -22,7 +23,7 @@ namespace hdtn {
             index ++;
             index += cbor_decode_uint(&len, (uint8_t *)(&buffer[index]), 0, bufsz - index);
             if(len > (bufsz - index)) {
-                printf("Bad string length: %llu\n", len);
+                printf("Bad string length: %" PRIu64 "\n", len);
                 return 0;  // make sure we're not reading off the end of our assigned buffer here ...
             }
             else if(len > 0) {
@@ -32,7 +33,7 @@ namespace hdtn {
             else {
                 eid->path[0] = 0;  // dtn:none is the empty string in this case.
             }
-            index += len;
+            index += static_cast<uint8_t>(len);
             return index;
         }
         else if(type == BPV7_EID_SCHEME_IPN) {
@@ -58,25 +59,25 @@ namespace hdtn {
         if(0 == res) {
             return 0;
         }
-        block->block_type = tmp;
+        block->block_type = static_cast<uint8_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
             return 0;
         }
-        block->block_id = tmp;
+        block->block_id = static_cast<uint32_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
             return 0;
         }
-        block->flags = tmp;
+        block->flags = static_cast<uint8_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
             return 0;
         }
-        block->crc_type = tmp;
+        block->crc_type = static_cast<uint8_t>(tmp);
         res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
         index += res;
         if(0 == res) {
@@ -84,7 +85,7 @@ namespace hdtn {
         }
         block->len = tmp;
         block->offset = offset + index;
-        index += block->len;
+        index += static_cast<uint32_t>(block->len);
         if(block->crc_type) {
             res = cbor_decode_uint(&tmp, (uint8_t *)buffer, offset + index, bufsz);
             index += res;
@@ -92,7 +93,7 @@ namespace hdtn {
                 return 0;
             }
             memcpy(block->crc_data, buffer + offset + index, tmp);
-            index += tmp;
+            index += static_cast<uint32_t>(tmp);
         }
         return index;
     }
@@ -149,7 +150,7 @@ namespace hdtn {
         }
         index += cbor_decode_uint(&crclen, (uint8_t *)buffer, index, bufsz);
         memcpy(primary->crc_data, buffer + index, crclen);
-        index += crclen;
+        index += static_cast<uint32_t>(crclen);
 
         return index;
     }

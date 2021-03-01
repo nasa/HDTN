@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
         }
     }
     if(NULL == dst) {
-        printf("");
+        //printf("");
         return -1;
     }
 

@@ -8,6 +8,7 @@
 #include "codec/bpv7.h"
 #include "codec/bpv6.h"
 #include "util/tsc.h"
+#include <inttypes.h>
 
 using namespace hdtn;
 using namespace std;
@@ -141,7 +142,7 @@ int main(int argc, char* argv[]) {
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<uint64_t> rand64(0, range);
     std::cout << "Generating values to encode ..." << std::endl;
-    auto to_encode = new uint64_t[count];
+    uint64_t * to_encode = new uint64_t[count];
     for(uint64_t i = 0; i < count; ++i) {
         to_encode[i] = rand64(generator);
     }
@@ -158,7 +159,7 @@ int main(int argc, char* argv[]) {
             cbor_bytes_total += adv;
             adv = cbor_decode_uint(&dst, src, 0, 16);
             if(dst != to_encode[i]) {
-                printf("[sanity] encode / decode for value `%d` failed (got %d).\n", to_encode[i], dst);
+                printf("[sanity] encode / decode for value `%" PRIu64 "` failed (got %" PRIu64 ").\n", to_encode[i], dst);
             }
             assert(dst == to_encode[i]);
         }

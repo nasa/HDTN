@@ -98,7 +98,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
     try {
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);// config.releaseWorker);
-        m_zmqSubSock_boundReleaseToConnectingStoragePtr->setsockopt(ZMQ_SUBSCRIBE, "", 0);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "");
         std::cout << "release sock connected to " << config.releaseWorker << std::endl;
     } catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect release socket: " << ex.what() << std::endl;
@@ -111,7 +111,10 @@ bool hdtn::storage::init(const storageConfig & config) {
     worker.init(m_zmqContextPtr.get(), config);
     worker.launch();
     zmq::message_t tmsg;
-    m_workerSockPtr->recv(&tmsg);
+    if (!m_workerSockPtr->recv(tmsg, zmq::recv_flags::none)) {
+        std::cerr << "[storage] Worker startup failed (no receive) - aborting ..." << std::endl;
+        return false;
+    }
     CommonHdr *notify = (CommonHdr *)tmsg.data();
     if (notify->type != HDTN_MSGTYPE_IOK) {
         std::cout << "[storage] Worker startup failed - aborting ..." << std::endl;
@@ -146,7 +149,10 @@ void hdtn::storage::update() {
 
 void hdtn::storage::c2telem() {
     zmq::message_t message;
-    m_telemetrySockPtr->recv(&message);
+    if (!m_telemetrySockPtr->recv(message, zmq::recv_flags::none)) {
+        std::cerr << "[c2telem] message not received" << std::endl;
+        return;
+    }
     if (message.size() < sizeof(CommonHdr)) {
         std::cerr << "[c2telem] message too short: " << message.size() << std::endl;
         return;
@@ -163,9 +169,12 @@ void hdtn::storage::scheduleRelease() {
     //  storageStats.in_bytes += hdr.size();
     //++storageStats.in_msg;
     zmq::message_t message;
-    m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(&message);
+    if (!m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
+        std::cerr << "[schedule release] message not received" << std::endl;
+        return;
+    }
     if (message.size() < sizeof(CommonHdr)) {
-        std::cerr << "[dispatch] message too short: " << message.size() << std::endl;
+        std::cerr << "[schedule release] message too short: " << message.size() << std::endl;
         return;
     }
     std::cout << "message received\n";
@@ -173,7 +182,7 @@ void hdtn::storage::scheduleRelease() {
     switch (common->type) {
         case HDTN_MSGTYPE_IRELSTART:
             std::cout << "release data\n";
-            m_workerSockPtr->send(message.data(), message.size(), 0);
+            m_workerSockPtr->send(message, zmq::send_flags::none); //VERIFY this works over const_buffer message.data(), message.size(), 0); (tested and apparently it does)
             storageStats.worker = worker.stats();
             break;
         case HDTN_MSGTYPE_IRELSTOP:
@@ -184,7 +193,10 @@ void hdtn::storage::scheduleRelease() {
 void hdtn::storage::dispatch() {
     zmq::message_t hdr;
     zmq::message_t message;
-    m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(&hdr);
+    if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(hdr, zmq::recv_flags::none)) {
+        std::cerr << "[dispatch] message hdr not received" << std::endl;
+        return;
+    }
     storageStats.inBytes += hdr.size();
     ++storageStats.inMsg;
 
@@ -196,13 +208,16 @@ void hdtn::storage::dispatch() {
     BlockHdr *block = (BlockHdr *)common;
     switch (common->type) {
         case HDTN_MSGTYPE_STORE:
-            m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(&message);
+            if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
+                std::cerr << "[dispatch] message not received" << std::endl;
+                return;
+            }
             /*if(message.size() < 7000){
                 std::cout<<"ingress sent less than 7000, type "<< common->type << "size " <<  message.size()<<"\n";
             }*/
-            m_workerSockPtr->send(hdr.data(), hdr.size(), ZMQ_MORE);
+            m_workerSockPtr->send(hdr, zmq::send_flags::none);//m_workerSockPtr->send(hdr.data(), hdr.size(), ZMQ_MORE);
             storageStats.inBytes += message.size();
-            m_workerSockPtr->send(message.data(), message.size(), 0);
+            m_workerSockPtr->send(message, zmq::send_flags::none);//m_workerSockPtr->send(message.data(), message.size(), 0);
             break;
     }
 }

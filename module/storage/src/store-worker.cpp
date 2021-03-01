@@ -22,6 +22,7 @@ void hdtn::storage_worker::init(zmq::context_t *ctx, storageConfig config) {
 }
 
 void *hdtn::storage_worker::execute(void *arg) {
+    (void) arg; //unused parameter
     zmq::message_t rhdr;
     zmq::message_t rmsg;
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
@@ -38,13 +39,13 @@ void *hdtn::storage_worker::execute(void *arg) {
         0};
     if (!storeFlow.init(root)) {
         startup_notify.type = HDTN_MSGTYPE_IABORT;
-        _worker_sock.send(&startup_notify, sizeof(hdtn::CommonHdr));
+        _worker_sock.send(zmq::const_buffer(&startup_notify, sizeof(hdtn::CommonHdr)), zmq::send_flags::none);
         return NULL;
     }
-    _worker_sock.send(&startup_notify, sizeof(hdtn::CommonHdr));
+    _worker_sock.send(zmq::const_buffer(&startup_notify, sizeof(hdtn::CommonHdr)), zmq::send_flags::none);
     std::cout << "[storage-worker] Notified parent that startup is complete." << std::endl;
     while (true) {
-        _worker_sock.recv(&rhdr);
+        _worker_sock.recv(rhdr, zmq::recv_flags::none);
         hdtn::FlowStats stats = storeFlow.stats();
         workerStats.flow.diskWbytes = stats.diskWbytes;
         workerStats.flow.diskWcount = stats.diskWcount;
@@ -58,7 +59,7 @@ void *hdtn::storage_worker::execute(void *arg) {
         hdtn::CommonHdr *common = (hdtn::CommonHdr *)rhdr.data();
         switch (common->type) {
             case HDTN_MSGTYPE_STORE: {
-                _worker_sock.recv(&rmsg);
+                _worker_sock.recv(rmsg, zmq::recv_flags::none);
                 hdtn::BlockHdr *block = (hdtn::BlockHdr *)rhdr.data();
                 if (rhdr.size() != sizeof(hdtn::BlockHdr)) {
                     std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
@@ -86,7 +87,7 @@ void *hdtn::storage_worker::execute(void *arg) {
 void hdtn::storage_worker::write(hdtn::BlockHdr *hdr, zmq::message_t *message) {
     int res;
     uint64_t chunks = ceil(message->size() / (double)HDTN_BLOSC_MAXBLOCKSZ);
-    for (int i = 0; i < chunks; ++i) {
+    for (uint64_t i = 0; i < chunks; ++i) {
         res = blosc_compress_ctx(9, 0, 4, message->size(), message->data(), outBuf, HDTN_BLOSC_MAXBLOCKSZ, "lz4", 0, 1);
         storeFlow.write(hdr->flowId, outBuf, res);
         // std::cerr << "[storage-worker] Appending block (" << rmsg.size() << " raw / " << res
@@ -95,36 +96,37 @@ void hdtn::storage_worker::write(hdtn::BlockHdr *hdr, zmq::message_t *message) {
     }
 }
 void hdtn::storage_worker::releaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock) {
+    (void) rate; //unused parameter
+    (void) duration; //unused parameter
     std::cout << "release worker triggered." << std::endl;
     int dataReturned = 0;
     uint64_t totalReturned = 0;
-    char ihdr[sizeof(hdtn::BlockHdr)];
-    hdtn::BlockHdr *block = (hdtn::BlockHdr *)ihdr;
-    memset(ihdr, 0, sizeof(hdtn::BlockHdr));
+    hdtn::BlockHdr block;
+    memset(&block, 0, sizeof(hdtn::BlockHdr));
     memset(outBuf, 0, HDTN_BLOSC_MAXBLOCKSZ);
 
     timeval tv;
     gettimeofday(&tv, NULL);
-    double start = (tv.tv_sec + (tv.tv_usec / 1000000.0));
+    //double start = (tv.tv_sec + (tv.tv_usec / 1000000.0));
 
     dataReturned = storeFlow.read(flow, outBuf, HDTN_BLOSC_MAXBLOCKSZ);
     int messageSize = 0;
-    int offset = 0;
+    //int offset = 0;
     while (dataReturned > 0) {
         totalReturned += messageSize;
         char decompressed[HDTN_BLOSC_MAXBLOCKSZ];
         messageSize = blosc_decompress_ctx(outBuf, decompressed, HDTN_BLOSC_MAXBLOCKSZ, 1);
 
         if (messageSize > 0) {
-            block->base.type = HDTN_MSGTYPE_EGRESS;
-            block->flowId = flow;
-            egressSock->send(ihdr, sizeof(hdtn::BlockHdr), ZMQ_MORE);
-            egressSock->send(decompressed, messageSize, 0);
+            block.base.type = HDTN_MSGTYPE_EGRESS;
+            block.flowId = flow;
+            egressSock->send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::sndmore); //TODO: more is probably wrong here
+            egressSock->send(zmq::const_buffer(decompressed, messageSize), zmq::send_flags::none);
         }
         dataReturned = storeFlow.read(flow, outBuf, HDTN_BLOSC_MAXBLOCKSZ);
     }
     gettimeofday(&tv, NULL);
-    double end = (tv.tv_sec + (tv.tv_usec / 1000000.0));
+    ////double end = (tv.tv_sec + (tv.tv_usec / 1000000.0));
     ////workerStats.flow.read_rate = ((totalReturned * 8.0) / (1024.0 * 1024)) / (end - start);
     ////workerStats.flow.read_ts = end - start;
     std::cout << "Total bytes returned: " << totalReturned << std::endl;// ", Mbps released: " << workerStats.flow.read_rate << " in " << workerStats.flow.read_ts << " sec" << std::endl;

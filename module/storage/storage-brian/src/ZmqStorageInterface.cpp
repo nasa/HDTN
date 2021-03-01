@@ -14,7 +14,7 @@ hdtn::ZmqStorageInterface::~ZmqStorageInterface() {
             m_threadPtr->join();
     }
     m_threadPtr = boost::shared_ptr<boost::thread>();
-
+    
 }
 
 void hdtn::ZmqStorageInterface::init(zmq::context_t *ctx, const storageConfig & config) {
@@ -123,8 +123,8 @@ static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::so
                     ++numBundlesReadBack;
                     block.base.type = HDTN_MSGTYPE_EGRESS;
                     block.flowId = flow;
-                    egressSock->send(&block, sizeof(hdtn::BlockHdr), 0/*ZMQ_MORE*/);
-                    egressSock->send(bundleReadBack.data(), bytesToReadFromDisk, 0);
+                    egressSock->send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::none);// 0 ZMQ_MORE
+                    egressSock->send(zmq::const_buffer(bundleReadBack.data(), bytesToReadFromDisk), zmq::send_flags::none);
             }
 
 
@@ -155,8 +155,8 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     egressSock.connect(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH); // egress should bind
 
     // Use a form of receive that times out so we can terminate cleanly.
-    int timeout = 250;  // milliseconds
-    workerSock.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(int));
+    static const int timeout = 250;  // milliseconds
+    workerSock.set(zmq::sockopt::rcvtimeo, timeout);
 
     std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... " << std::endl;
     CommonHdr startupNotify = {
@@ -169,13 +169,12 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     //    workerSock.send(&startupNotify, sizeof(common_hdr));
     //    return;
     //}
-    workerSock.send(&startupNotify, sizeof(CommonHdr));
+    workerSock.send(zmq::const_buffer(&startupNotify, sizeof(CommonHdr)), zmq::send_flags::none);
     std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
     while (m_running) {
         // Use a form of receive that times out so we can terminate cleanly.  If no
         // message was received after timeout go back to top of loop
-        const bool retValue = workerSock.recv(&rhdr);
-        if (!retValue) {
+        if (!workerSock.recv(rhdr, zmq::recv_flags::none)) {
             continue;
         }
 
@@ -193,7 +192,18 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
         memcpy(&commonHdr, rhdr.data(), sizeof(hdtn::CommonHdr));
         switch (commonHdr.type) {
             case HDTN_MSGTYPE_STORE: {
-                workerSock.recv(&rmsg);
+                for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+                    if(workerSock.recv(rmsg, zmq::recv_flags::none)) {
+                        break;
+                    }
+                    else {
+                        std::cerr << "error: timeout in ZmqStorageInterface::ThreadFunc() at workerSock.recv(rmsg)" << std::endl;
+                        if (attempt == 9) {
+                            m_running = false;
+                        }
+                    }
+                }
+                
                 hdtn::BlockHdr *block = (hdtn::BlockHdr *)rhdr.data();
                 if (rhdr.size() != sizeof(hdtn::BlockHdr)) {
                     std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
