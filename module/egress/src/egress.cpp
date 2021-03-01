@@ -20,6 +20,7 @@ static double elapsed = 0;
 static uint64_t start;
 
 static void SignalHandler(int signalValue) {
+    (void) signalValue; //unused parameter
     std::ofstream output;
     output.open("egress-" + hdtn::Datetime());
     output << "Elapsed, Bundle Count (M), Rate (Mbps),Bundles/sec,Message Count "
@@ -88,7 +89,7 @@ int main(int argc, char *argv[]) {
         elapsed -= start;
         zmq::message_t hdr;
         zmq::message_t message;
-        egress.m_zmqCutThroughSock->recv(&hdr);
+        egress.m_zmqCutThroughSock->recv(hdr, zmq::recv_flags::none);
         messageCount++;
         char bundle[HMSG_MSG_MAX];
         if (hdr.size() < sizeof(hdtn::CommonHdr)) {
@@ -96,10 +97,10 @@ int main(int argc, char *argv[]) {
             return -1;
         }
         hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
-        hdtn::BlockHdr *block = (hdtn::BlockHdr *)common;
+        //hdtn::BlockHdr *block = (hdtn::BlockHdr *)common;
         switch (common->type) {
             case HDTN_MSGTYPE_STORE:
-                egress.m_zmqCutThroughSock->recv(&message);
+                egress.m_zmqCutThroughSock->recv(message, zmq::recv_flags::none);
                 bundleSize = message.size();
                 memcpy(bundle, message.data(), bundleSize);
                 egress.Forward(1, bundle, bundleSize);

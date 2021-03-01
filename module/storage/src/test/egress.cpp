@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     int recv = 0;
     zmq::message_t message;
     while (true) {
-        socket.recv(&message);
+        socket.recv(message, zmq::recv_flags::none);
         hdtn::CommonHdr *common = (hdtn::CommonHdr *)message.data();
         switch (common->type) {
             case HDTN_MSGTYPE_EGRESS: {
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
                     recv = 1;
                 }
 
-                socket.recv(&message);
+                socket.recv(message, zmq::recv_flags::none);
                 if (message.size() > 0) {
                     std::string res = std::string((char *)message.data(), message.size());
                     total_bytes = total_bytes + message.size();

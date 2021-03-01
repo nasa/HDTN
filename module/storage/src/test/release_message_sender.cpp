@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
         releaseMsg.flowId = flowId;
         releaseMsg.rate = 0;  //not implemented
         releaseMsg.duration = 20;//not implemented
-        socket.send(&releaseMsg, sizeof(hdtn::IreleaseStartHdr), 0);
+        socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
         std::cout << "Start Release message sent \n";
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
         stopMsg.base.type = HDTN_MSGTYPE_IRELSTOP;
         stopMsg.flowId = flowId;
-        socket.send(&stopMsg, sizeof(hdtn::IreleaseStopHdr), 0);
+        socket.send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
         std::cout << "Stop Release message sent \n";
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }

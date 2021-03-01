@@ -5,10 +5,10 @@
 #include "codec/bpv6.h"
 #include "codec/crc.h"
 #include "codec/bpv6-ext-block.h"
-
+#include <inttypes.h>
 
 void bpv6_block_flags_print(bpv6_canonical_block* block){
-	printf("Flags: 0x%llx\n", block->flags);
+    printf("Flags: 0x%" PRIx64 "\n", block->flags);
 	if(block->flags & BPV6_BLOCKFLAG_LAST_BLOCK) {
 		printf("* Last block in this bundle.\n");
 	}
@@ -28,11 +28,12 @@ void bpv6_block_flags_print(bpv6_canonical_block* block){
 }
 
 uint8_t bpv6_prev_hop_decode(bpv6_prev_hop_ext_block* block, const char* buffer,const size_t block_start,const size_t offset, const size_t bufsz) {
+   (void) bufsz; //unused parameter
    uint64_t index = offset;
    uint64_t data_len = 0;
    char data[46];//using ipn scheme the max number of ascii characters in an eid would be 4+20+1+20 = "ipn:"+2^64+"." + 2^64
    memset(&data, 0, sizeof(data));
-   uint8_t  incr  = 0;
+   //uint8_t  incr  = 0;
    data_len=block->length-index+block_start;//calculate the length of the custodian eid string
    memcpy(&data, buffer+index,data_len);
    strncpy(block->scheme,data, data_len);//assuming "ipn" or "dtn " + NULL
@@ -46,7 +47,7 @@ void bpv6_prev_hop_print(bpv6_prev_hop_ext_block* block){
 	{
 		printf("\nPrevious Hop Extension Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
+        printf("Block length: %" PRIu64 " bytes\n", block->length);
 		printf("Scheme: %s\n",block->scheme);
 		printf("Scheme Specific Node Name: %s\n",block->scheme_specific_eid);
 	}
@@ -76,9 +77,9 @@ void bpv6_cteb_print(bpv6_cust_transfer_ext_block* block){
 	{
 		printf("\nCustody Transfer Extension Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
-		printf("Custody Id: %lu\n",block->cust_id);
-		printf("CTEB creator custodian EID: ipn:%d.%d\n",(int)block->cteb_creator_node,(int)block->cteb_creator_service);
+        printf("Block length: %" PRIu64 " bytes\n", block->length);
+        printf("Custody Id: %" PRIu64 "\n",block->cust_id);
+        printf("CTEB creator custodian EID: ipn:%" PRIu64 ".%" PRIu64 "\n", block->cteb_creator_node, block->cteb_creator_service);
 	}
 	else{
 		printf("Block is not Custody Transfer Extension Block\n");
@@ -124,16 +125,16 @@ void bpv6_bib_print(bpv6_bplib_bib_block* block){
 	{
 		printf("\nBplib Bundle Integrity Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
-		printf("Number of security targets: %lu\n",block->num_targets);
-		printf("Security target type: %lu\n",block->target_type);
-		printf("Security target sequence: %lu\n",block->target_sequence);
-		printf("Cipher suite id: %lu\n",block->cipher_suite_id);
-		printf("Cipher suite flags: %lu\n",block->cipher_suite_flags);
-		printf("Number of security results: %lu\n",block->num_security_results);
-		printf("Security result type: %lu\n",block->security_result_type);
-		printf("Security result length: %lu\n",block->security_result_len);
-		printf("Security result : %lu\n\n",block->security_result);
+        printf("Block length: %" PRIu64 " bytes\n", block->length);
+        printf("Number of security targets: %" PRIu64 "\n",block->num_targets);
+        printf("Security target type: %" PRIu64 "\n",block->target_type);
+        printf("Security target sequence: %" PRIu64 "\n",block->target_sequence);
+        printf("Cipher suite id: %" PRIu64 "\n",block->cipher_suite_id);
+        printf("Cipher suite flags: %" PRIu64 "\n",block->cipher_suite_flags);
+        printf("Number of security results: %" PRIu64 "\n",block->num_security_results);
+        printf("Security result type: %" PRIu64 "\n",block->security_result_type);
+        printf("Security result length: %" PRIu64 "\n",block->security_result_len);
+        printf("Security result : %" PRIu16 "\n\n",block->security_result);
 
 	}
 	else{
@@ -155,8 +156,8 @@ void bpv6_bundle_age_print(bpv6_bundle_age_ext_block* block){
 	{
 		printf("\n Bundle Age Block [type %u]\n", block->type);
 		bpv6_block_flags_print(block);
-		printf("Block length: %lu bytes\n", block->length);
-		printf("Bundle Age: %lu\n\n",block->bundle_age);
+        printf("Block length: %" PRIu64 " bytes\n", block->length);
+        printf("Bundle Age: %" PRIu64 "\n\n",block->bundle_age);
 	}
 	else{
 		printf("Block is not bundle age block\n\n");
@@ -168,10 +169,10 @@ uint8_t char_to_bpv6_eid(bpv6_eid* eid, const char* buffer, const size_t offset,
 	char * pch;
 	char* endpch;
 	char eid_str[45];
-	uint8_t node_len;
+	//uint8_t node_len;
 	if(bufsz<offset+eid_len)
 	{
-		printf("Bad string length: %lu\n", eid_len);
+        printf("Bad string length: %" PRIu64 "\n", static_cast<uint64_t>(eid_len));
 		return 0;  
 	}
 	if(buffer[offset] != 'i' || buffer[offset+1]!= 'p' ||  buffer[offset+2] != 'n' ||  buffer[offset+3] != ':' )

@@ -51,9 +51,9 @@ void stopRegistrationService() {
     char tbuf[255];
     memset(tbuf, 0, 255);
     snprintf(tbuf, 255, "%s:%d:%s", svc.c_str(), port, mode.c_str());
-    _zmq_sock->setsockopt(ZMQ_IDENTITY, (void *)tbuf, target.size());
+    _zmq_sock->set(zmq::sockopt::routing_id, tbuf);
     _zmq_sock->connect(target);
-    _zmq_sock->send("SHUTDOWN", strlen("SHUTDOWN"), 0);
+    _zmq_sock->send(zmq::const_buffer("SHUTDOWN", strlen("SHUTDOWN")), zmq::send_flags::none);
     _zmq_sock->close();
     delete _zmq_sock;
     delete _zmq_ctx;
