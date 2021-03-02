@@ -16,6 +16,7 @@ add_executable(storage-brian-speedtest
     src/BundleStorageManagerMT.cpp
     src/CircularIndexBufferSingleProducerSingleConsumer.cpp
     ../../../common/util/src/SignalHandler.cpp
+    ../../../common/util/src/Environment.cpp
     src/StorageConfig.cpp
     ../../../common/util/src/JsonSerializable.cpp
     src/ZmqStorageInterface.cpp #not needed but for compile verification

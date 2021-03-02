@@ -62,7 +62,8 @@ add_executable(unit-tests
 	../../module/storage/storage-brian/src/MemoryManagerTree.cpp
 	../../module/storage/storage-brian/src/MemoryManagerTreeArray.cpp
 	../../module/storage/storage-brian/src/StorageConfig.cpp
-	../../common/util/src/SignalHandler.cpp
+    ../../common/util/src/SignalHandler.cpp
+    ../../common/util/src/Environment.cpp
     ${LINUX_ONLY_UNIT_TEST_SRCS}
     
 

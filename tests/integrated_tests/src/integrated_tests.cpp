@@ -1,12 +1,22 @@
+#ifndef _WIN32
 #include <arpa/inet.h>
-#include <codec/bpv6.h>
-#include <egress.h>
-#include <fcntl.h>
-//#include <gtest/gtest.h>
-#include <ingress.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <util/tsc.h>
+#include <fcntl.h>
+#include <signal.h> /* for SIGTERM, SIGKILL */
+#include <sys/types.h> /* for pid_t            */
+#include <sys/wait.h>  /* for waitpid          */
+#include <unistd.h>    /* for fork, exec, kill */
+#include <egress.h>
+#endif // !_WIN32
+
+
+#include <codec/bpv6.h>
+
+
+#include <ingress.h>
+
 
 #include <fstream>
 #include <iostream>
@@ -16,23 +26,25 @@
 #include <zmq.hpp>
 
 // Used for forking python process
-#include <signal.h> /* for SIGTERM, SIGKILL */
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h> /* for pid_t            */
-#include <sys/wait.h>  /* for waitpid          */
-#include <unistd.h>    /* for fork, exec, kill */
+
 
 #include <boost/process.hpp>
 #include <boost/thread.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/lexical_cast.hpp>
+
 #include <string>
 #include <vector>
 
+#include <BpGenAsync.h>
 #include <BpSinkAsync.h>
 #include <EgressAsync.h>
 
 #include <boost/test/unit_test.hpp>
+
 
 
 #define BP_MSG_BUFSZ             (65536)
@@ -78,6 +90,7 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived);
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 int RunEgress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData);
 bool TestBpgenIngressEgressBpsink();
+bool TestCutThroughTcpcl();
 
 
 volatile bool RUN_BPGEN = true;
@@ -126,18 +139,35 @@ void BoostIntegratedTestsFixture::StopPythonServer() {
 void BoostIntegratedTestsFixture::StartPythonServer() {
     std::cout << "StartPythonServer started." << std::endl << std::flush;
     m_runningPythonServer = true;
-    std::string commandArg = GetEnv("HDTN_SOURCE_ROOT") + "/common/regsvr/main.py";
+    const boost::filesystem::path commandArg = boost::filesystem::path(GetEnv("HDTN_SOURCE_ROOT")) / "common" / "regsvr" / "main.py";
+#ifdef _WIN32
+    const std::string pythonExe = "python";
+#else
+    const std::string pythonExe = "python3";
+#endif
     std::cout << "Running python3 " << commandArg << std::endl << std::flush;
-    m_ptrChild = new boost::process::child(boost::process::search_path("python3"),commandArg);
+    m_ptrChild = new boost::process::child(boost::process::search_path(pythonExe),commandArg);
     while(m_ptrChild->running()) {
         while(m_runningPythonServer) {
-            usleep(250000);  // 0.25 seconds
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
             //std::cout << "StartPythonServer is running. " << std::endl << std::flush;
         }
     }
     std::cout << "StartPythonServer ended." << std::endl << std::flush;
 }
 
+static void DurationEndedThreadFunction(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "BpGen reached duration.. exiting\n";
+    }
+    else {
+        std::cout << "Unknown error occurred in DurationEndedThreadFunction " << e.message() << std::endl;
+    }
+    RUN_BPGEN = false;
+}
+
+#ifndef _WIN32
 bool TestBpgenIngressEgressBpsink() {
     ERROR_MESSAGE = "";
 //    std::cout << "Running Integrated Test 1. " << std::endl << std::flush;
@@ -362,7 +392,7 @@ int RunBpgen(uint64_t* ptrTotalBytesSent) {
 //    std::cout << "End runBpgen ... " << std::endl << std::flush;
     return 0;
 }
-
+#endif // !_WIN32
 
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
 
@@ -491,10 +521,380 @@ int RunBpsink(uint64_t* ptrTotalBytesReceived) {
     return 0;
 }
 
+int RunBpgenAsync(bool useTcpcl, bool useStcp, uint64_t* ptrBundleCount) {
+    //scope to ensure clean exit before return 0
+    {
+        std::string destinationAddress = "localhost";
+        std::string thisLocalEidString = "BpGen";
+        uint16_t port = 4556;
+        uint32_t bundleSizeBytes = 100;
+        uint32_t bundleRate = 1500;
+        uint32_t tcpclFragmentSize = 0;
+        uint32_t durationSeconds = 0;
+
+        std::cout << "starting BpGenAsync.." << std::endl;
+
+        BpGenAsync bpGen;
+        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString);
+
+        boost::asio::io_service ioService;
+        boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::seconds(durationSeconds));
+        if (durationSeconds) {
+            deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error));
+        }
+
+        std::cout << "BpGenAsync up and running" << std::endl;
+        while (RUN_BPGEN) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+        }
+        bpGen.Stop();
+        *ptrBundleCount = bpGen.m_bundleCount;
+    }
+    return 0;
+}
+
+
+
+int RunIngress2(bool useStcp, bool alwaysSendToStorage, uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
+
+    //scope to ensure clean exit before return 0
+    {
+        int ingressPort = 4556;
+        hdtn::BpIngress ingress;
+        ingress.Init(BP_INGRESS_TYPE_UDP);
+        // finish registration stuff -ingress will find out what egress services have registered
+        hdtn::HdtnRegsvr regsvr;
+        regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
+        regsvr.Reg();
+        if(hdtn::HdtnEntries_ptr res = regsvr.Query()) {
+            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
+            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
+                const hdtn::HdtnEntry & entry = *it;
+                //std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+            }
+        }
+        else {
+            std::cerr << "error: null registration query" << std::endl;
+            //return 1;
+        }
+//        ingress.Netstart(ingressPort,true,false,false);
+        ingress.Netstart(ingressPort, !useStcp, useStcp,alwaysSendToStorage);
+        while (RUN_INGRESS) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            ingress.RemoveInactiveTcpConnections();
+        }
+        *ptrBundleCount = ingress.m_bundleCount;
+        *ptrBundleData = ingress.m_bundleData;
+    }
+    return 0;
+
+}
+
+
+
+int RunEgressAsync(bool useTcpcl, bool useStcp, uint64_t* ptrBundleCountEgress, uint64_t* ptrBundleDataEgress) {
+
+    //scope to ensure clean exit before return 0
+    {
+        uint16_t port = 4557;
+        hdtn::HdtnRegsvr regsvr;
+        regsvr.Init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
+        regsvr.Reg();
+        if(hdtn::HdtnEntries_ptr res = regsvr.Query()) {
+            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
+            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
+                const hdtn::HdtnEntry & entry = *it;
+                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+            }
+        }
+        else {
+            std::cerr << "error: null registration query" << std::endl;
+            //return 1;
+        }
+        hdtn::HegrManagerAsync egress;
+        egress.Init();
+        int entryStatus;
+        entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP,
+                                 "127.0.0.1", port);
+
+        if (!entryStatus) {
+            return 0;  // error message prints in add function
+        }
+        for (int i = 0; i < 8; ++i) {
+            egress.Up(i);
+        }
+        while (RUN_EGRESS) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+        }
+        *ptrBundleCountEgress = egress.m_bundleCount;
+        *ptrBundleDataEgress = egress.m_bundleData;
+    }
+    return 0;
+}
+
+
+int RunBpsinkAsync(bool useTcpcl, bool useStcp, uint64_t* ptrTotalBundlesBpsink, uint64_t* ptrDuplicateBundlesBpsink,
+                   uint64_t* ptrTotalBytesBpsink) {
+    *ptrTotalBundlesBpsink = 0;
+    //scope to ensure clean exit before return 0
+    {
+        uint16_t port = 4557;
+        std::string thisLocalEidString = "BpSink";
+        hdtn::BpSinkAsync bpSink(port, useTcpcl, useStcp, thisLocalEidString);
+        bpSink.Init(0);
+        bpSink.Netstart();
+        while (RUN_BPSINK) {
+            boost::this_thread::sleep(boost::posix_time::millisec(250));
+        }
+        *ptrTotalBundlesBpsink = bpSink.m_receivedCount;
+        *ptrDuplicateBundlesBpsink = bpSink.m_duplicateCount;
+        *ptrTotalBytesBpsink = bpSink.m_totalBytesRx;
+    }
+    return 0;
+}
+
+bool TestCutThroughTcpcl() {
+
+    std::cout << "Running Integrated TestCutThroughTcpcl. " << std::endl << std::flush;
+
+    RUN_BPGEN = true;
+    RUN_BPSINK = true;
+    RUN_INGRESS = true;
+    RUN_EGRESS = true;
+    std::string ERROR_MESSAGE = "";
+    uint64_t bundlesSentBpgen = 0;
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t duplicateBundlesBpsink = 0;
+    uint64_t totalBytesBpsink = 0;
+    uint64_t bundleDataEgress = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    bool alwaysSendToStorage = false;
+    bool useTcpcl = true;
+    bool useStcp = false;
+
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+
+    RUN_BPGEN = false;
+    threadBpgen.join();
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+    RUN_INGRESS = false;
+    threadIngress.join();
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+    RUN_EGRESS = false;
+    threadEgress.join();
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+    RUN_BPSINK = false;
+    threadBpsink.join();
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+
+    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
+    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
+    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
+    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
+
+
+    if (bundlesSentBpgen != bundleCountIngress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != bundleCountEgress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != totalBundlesBpsink) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").";
+        return false;
+    }
+    return true;
+}
+
+
+
+bool TestCutThroughUdp() {
+
+    std::cout << "Running Integrated TestCutThroughUdp. " << std::endl << std::flush;
+
+    RUN_BPGEN = true;
+    RUN_BPSINK = true;
+    RUN_INGRESS = true;
+    RUN_EGRESS = true;
+    std::string ERROR_MESSAGE = "";
+    uint64_t bundlesSentBpgen = 0;
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t duplicateBundlesBpsink = 0;
+    uint64_t totalBytesBpsink = 0;
+    uint64_t bundleDataEgress = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    bool alwaysSendToStorage = false;
+    bool useTcpcl = false;
+    bool useStcp = false;
+
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+
+    RUN_BPGEN = false;
+    threadBpgen.join();
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+    RUN_INGRESS = false;
+    threadIngress.join();
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+    RUN_EGRESS = false;
+    threadEgress.join();
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+    RUN_BPSINK = false;
+    threadBpsink.join();
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+
+    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
+    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
+    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
+    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
+
+
+    if (bundlesSentBpgen != bundleCountIngress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != bundleCountEgress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != totalBundlesBpsink) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").";
+        return false;
+    }
+    return true;
+}
+
+
+
+bool TestCutThroughStcp() {
+
+    std::cout << "Running Integrated TestCutThroughStcp. " << std::endl << std::flush;
+
+    RUN_BPGEN = true;
+    RUN_BPSINK = true;
+    RUN_INGRESS = true;
+    RUN_EGRESS = true;
+    std::string ERROR_MESSAGE = "";
+    uint64_t bundlesSentBpgen = 0;
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t duplicateBundlesBpsink = 0;
+    uint64_t totalBytesBpsink = 0;
+    uint64_t bundleDataEgress = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+    uint64_t bundleDataIngress = 0;
+    bool alwaysSendToStorage = false;
+    bool useTcpcl = false;
+    bool useStcp = true;
+
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+
+    RUN_BPGEN = false;
+    threadBpgen.join();
+//    std::cout << "After threadBpgen.join(). " << std::endl << std::flush;
+    RUN_INGRESS = false;
+    threadIngress.join();
+//    std::cout << "After threadIngress.join(). " << std::endl << std::flush;
+    RUN_EGRESS = false;
+    threadEgress.join();
+//    std::cout << "After threadEgress.join(). " << std::endl << std::flush;
+    RUN_BPSINK = false;
+    threadBpsink.join();
+//    std::cout << "After threadBpsink.join(). " << std::endl << std::flush;
+
+    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
+    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
+    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
+    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
+
+
+    if (bundlesSentBpgen != bundleCountIngress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != bundleCountEgress) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").";
+        return false;
+    }
+    if (bundlesSentBpgen != totalBundlesBpsink) {
+        ERROR_MESSAGE = "Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").";
+        return false;
+    }
+    return true;
+}
+
+
+
+
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-BOOST_AUTO_TEST_CASE(test_BpgenIngressEgressBpsink) {
-    bool result = TestBpgenIngressEgressBpsink();
+//BOOST_AUTO_TEST_CASE(it_BpgenIngressEgressBpsink) {
+//    bool result = TestBpgenIngressEgressBpsink();
+//    BOOST_CHECK(result == true);
+//}
+
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
+    bool result = TestCutThroughTcpcl();
+    BOOST_CHECK(result == true);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
+    bool result = TestCutThroughUdp();
+    BOOST_CHECK(result == false);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
+    bool result = TestCutThroughStcp();
     BOOST_CHECK(result == true);
 }
 
