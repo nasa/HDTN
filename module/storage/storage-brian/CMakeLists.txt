@@ -1,30 +1,31 @@
 cmake_minimum_required(VERSION 3.0)
-project(storage-brian-speedtest)
+project(storage-brian)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options iostreams)
 
-# define _WIN32_WINNT to use Windows 10 for boost
-if(WIN32)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-    add_compile_definitions(_WIN32_WINNT=0x0A00)
-endif()
 
-add_compile_definitions(USE_BRIAN_STORAGE)
+	
+
+add_library(storage_brian_lib STATIC
+	src/MemoryManagerTreeArray.cpp
+	src/BundleStorageManagerMT.cpp
+	src/StorageConfig.cpp
+	src/ZmqStorageInterface.cpp
+)
+
+target_link_libraries(storage_brian_lib hdtn_util hdtn_reg bpcodec ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
+target_include_directories(storage_brian_lib PUBLIC
+	include
+	../../../common/include
+	../include
+	${Boost_INCLUDE_DIRS}
+	${libzmq_INCLUDE}
+)
+
+
+
 
 add_executable(storage-brian-speedtest
-    src/MemoryManagerTreeArray.cpp
-    src/BundleStorageManagerMT.cpp
-    src/CircularIndexBufferSingleProducerSingleConsumer.cpp
-    ../../../common/util/src/SignalHandler.cpp
-    ../../../common/util/src/Environment.cpp
-    src/StorageConfig.cpp
-    ../../../common/util/src/JsonSerializable.cpp
-    src/ZmqStorageInterface.cpp #not needed but for compile verification
-    src/main.cpp
+	src/main.cpp
 )
-target_link_libraries(storage-brian-speedtest hdtn_reg bpcodec ${Boost_LIBRARIES})
-#target_link_directories(storage-brian-speedtest PUBLIC lib)
-target_include_directories(storage-brian-speedtest PUBLIC include lib/include ../../../common/bpcodec/include ../../../common/util/include ../../../common/regsvr/lib/include ../../../common/include ../include ${Boost_INCLUDE_DIRS})
-if (NOT WIN32)
-	target_link_libraries(storage-brian-speedtest pthread)
-endif()
+target_link_libraries(storage-brian-speedtest hdtn_reg bpcodec hdtn_util storage_brian_lib ${Boost_LIBRARIES} ${pthread_LIB})
+target_include_directories(storage-brian-speedtest PUBLIC ${Boost_INCLUDE_DIRS})
