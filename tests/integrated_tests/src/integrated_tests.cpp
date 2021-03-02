@@ -1,12 +1,22 @@
+#ifndef _WIN32
 #include <arpa/inet.h>
-#include <codec/bpv6.h>
-#include <egress.h>
-#include <fcntl.h>
-//#include <gtest/gtest.h>
-#include <ingress.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <util/tsc.h>
+#include <fcntl.h>
+#include <signal.h> /* for SIGTERM, SIGKILL */
+#include <sys/types.h> /* for pid_t            */
+#include <sys/wait.h>  /* for waitpid          */
+#include <unistd.h>    /* for fork, exec, kill */
+#include <egress.h>
+#endif // !_WIN32
+
+
+#include <codec/bpv6.h>
+
+
+#include <ingress.h>
+
 
 #include <fstream>
 #include <iostream>
@@ -16,12 +26,10 @@
 #include <zmq.hpp>
 
 // Used for forking python process
-#include <signal.h> /* for SIGTERM, SIGKILL */
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h> /* for pid_t            */
-#include <sys/wait.h>  /* for waitpid          */
-#include <unistd.h>    /* for fork, exec, kill */
+
 
 #include <boost/process.hpp>
 #include <boost/thread.hpp>
@@ -36,6 +44,7 @@
 #include <EgressAsync.h>
 
 #include <boost/test/unit_test.hpp>
+
 
 
 #define BP_MSG_BUFSZ             (65536)
@@ -130,12 +139,17 @@ void BoostIntegratedTestsFixture::StopPythonServer() {
 void BoostIntegratedTestsFixture::StartPythonServer() {
     std::cout << "StartPythonServer started." << std::endl << std::flush;
     m_runningPythonServer = true;
-    std::string commandArg = GetEnv("HDTN_SOURCE_ROOT") + "/common/regsvr/main.py";
+    const boost::filesystem::path commandArg = boost::filesystem::path(GetEnv("HDTN_SOURCE_ROOT")) / "common" / "regsvr" / "main.py";
+#ifdef _WIN32
+    const std::string pythonExe = "python";
+#else
+    const std::string pythonExe = "python3";
+#endif
     std::cout << "Running python3 " << commandArg << std::endl << std::flush;
-    m_ptrChild = new boost::process::child(boost::process::search_path("python3"),commandArg);
+    m_ptrChild = new boost::process::child(boost::process::search_path(pythonExe),commandArg);
     while(m_ptrChild->running()) {
         while(m_runningPythonServer) {
-            usleep(250000);  // 0.25 seconds
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
             //std::cout << "StartPythonServer is running. " << std::endl << std::flush;
         }
     }
@@ -153,7 +167,7 @@ static void DurationEndedThreadFunction(const boost::system::error_code& e) {
     RUN_BPGEN = false;
 }
 
-
+#ifndef _WIN32
 bool TestBpgenIngressEgressBpsink() {
     ERROR_MESSAGE = "";
 //    std::cout << "Running Integrated Test 1. " << std::endl << std::flush;
@@ -378,7 +392,7 @@ int RunBpgen(uint64_t* ptrTotalBytesSent) {
 //    std::cout << "End runBpgen ... " << std::endl << std::flush;
     return 0;
 }
-
+#endif // !_WIN32
 
 int RunIngress(uint64_t* ptrBundleCount, uint64_t* ptrBundleData) {
 
@@ -660,19 +674,19 @@ bool TestCutThroughTcpcl() {
     bool useTcpcl = true;
     bool useStcp = false;
 
-    sleep(1);
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
 
-    sleep(10);
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
 
     RUN_BPGEN = false;
     threadBpgen.join();
@@ -734,19 +748,19 @@ bool TestCutThroughUdp() {
     bool useTcpcl = false;
     bool useStcp = false;
 
-    sleep(1);
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
 
-    sleep(10);
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
 
     RUN_BPGEN = false;
     threadBpgen.join();
@@ -808,19 +822,19 @@ bool TestCutThroughStcp() {
     bool useTcpcl = false;
     bool useStcp = true;
 
-    sleep(1);
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadEgress(RunEgressAsync,useTcpcl,useStcp,&bundleCountEgress, &bundleDataEgress);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadIngress(RunIngress2,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
 
-    sleep(3);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,&bundlesSentBpgen);
 
-    sleep(10);
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
 
     RUN_BPGEN = false;
     threadBpgen.join();
