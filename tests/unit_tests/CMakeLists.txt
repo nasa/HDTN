@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 if (WIN32)
 	SET(LINUX_ONLY_UNIT_TEST_SRCS "")
 else()
+    remove_definitions(-DUSE_BRIAN_STORAGE)
 	SET(LINUX_ONLY_UNIT_TEST_SRCS
 		src/egress_ut.cpp
 		src/ingress_ut.cpp
@@ -58,6 +59,7 @@ target_link_libraries(unit-tests
 	tcpcl_lib
 	stcp_lib
 	storage_brian_lib
+        ingress_async_lib
 	${blosc_LIB}
 	bpcodec
 	${Boost_LIBRARIES}

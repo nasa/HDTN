@@ -10,7 +10,7 @@ add_library(hdtn_util STATIC
 	src/JsonSerializable.cpp
 	src/SignalHandler.cpp
 )
-
+target_link_libraries(hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(hdtn_util PUBLIC include ${Boost_INCLUDE_DIRS})
 
 
