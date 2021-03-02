@@ -890,7 +890,7 @@ BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
 
 BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
     bool result = TestCutThroughUdp();
-    BOOST_CHECK(result == true);
+    BOOST_CHECK(result == false);
 }
 
 BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {

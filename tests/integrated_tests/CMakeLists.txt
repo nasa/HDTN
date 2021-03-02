@@ -33,8 +33,12 @@ else()
 		../../module/egress/src/stcp.cpp
 		../../module/egress/src/udp.cpp
 		../../module/storage/src/cache/cache-basic.cpp
-		../../module/storage/src/store-worker.cpp
 	)
+endif()
+
+if( NOT USE_BRIAN_STORAGE)
+	SET(LINUX_ONLY_INTEGRATED_TEST_SRCS ${LINUX_ONLY_INTEGRATED_TEST_SRCS} 
+	../../module/storage/src/store-worker.cpp)
 endif()
 
 add_executable(integrated-tests
