@@ -381,9 +381,9 @@ bool TestCutThroughTcpcl() {
     bool alwaysSendToStorage = false;
     bool useTcpcl = true;
     bool useStcp = false;
-    uint32_t bundleRate = 1500;
+    uint32_t bundleRate = 200;
 
-    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -454,9 +454,9 @@ bool TestCutThroughUdp() {
     bool alwaysSendToStorage = false;
     bool useTcpcl = false;
     bool useStcp = false;
-    uint32_t bundleRate = 1500;
+    uint32_t bundleRate = 200;
 
-    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -527,9 +527,9 @@ bool TestCutThroughStcp() {
     bool alwaysSendToStorage = false;
     bool useTcpcl = false;
     bool useStcp = true;
-    uint32_t bundleRate = 1500;
+    uint32_t bundleRate = 200;
 
-    boost::this_thread::sleep(boost::posix_time::seconds(1));
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -603,7 +603,7 @@ bool TestStorage() {
     bool alwaysSendToStorage = true;
     bool useTcpcl = true;
     bool useStcp = false;
-    uint32_t bundleRate = 300;
+    uint32_t bundleRate = 200;
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
@@ -671,20 +671,20 @@ bool TestStorage() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
-//    bool result = TestCutThroughTcpcl();
-//    BOOST_CHECK(result == true);
-//}
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
+    bool result = TestCutThroughTcpcl();
+    BOOST_CHECK(result == true);
+}
 
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
-//    bool result = TestCutThroughUdp();
-//    BOOST_CHECK(result == true);
-//}
+BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
+    bool result = TestCutThroughUdp();
+    BOOST_CHECK(result == true);
+}
 
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
-//    bool result = TestCutThroughStcp();
-//    BOOST_CHECK(result == true);
-//}
+BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
+    bool result = TestCutThroughStcp();
+    BOOST_CHECK(result == true);
+}
 
 BOOST_AUTO_TEST_CASE(it_TestStorage) {
     bool result = TestStorage();
