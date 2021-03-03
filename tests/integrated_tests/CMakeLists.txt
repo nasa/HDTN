@@ -70,7 +70,8 @@ add_executable(integrated-tests
 	../../module/storage/storage-brian/src/StorageConfig.cpp
 	../../module/storage/storage-brian/src/ZmqStorageInterface.cpp
     ../../common/util/src/JsonSerializable.cpp
-	${LINUX_ONLY_INTEGRATED_TEST_SRCS}
+    ../../common/util/src/Environment.cpp
+    ${LINUX_ONLY_INTEGRATED_TEST_SRCS}
 )
 
 target_include_directories(integrated-tests PUBLIC include
