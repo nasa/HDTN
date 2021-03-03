@@ -223,7 +223,7 @@ void TcpclBundleSink::NextBundleLengthCallback(uint32_t nextBundleLength) {
 }
 
 void TcpclBundleSink::KeepAliveCallback() {
-    std::cout << "received keepalive packet" << std::endl;
+    std::cout << "In TcpclBundleSink::KeepAliveCallback, received keepalive packet" << std::endl;
     // * 2 =>
     //If no message (KEEPALIVE or other) has been received for at least
     //twice the keepalive_interval, then either party MAY terminate the
