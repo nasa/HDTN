@@ -1,14 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(bpcodec_perf)
-#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
-
-# define _WIN32_WINNT to use Windows 10 for boost
-if(WIN32)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-    add_compile_definitions(_WIN32_WINNT=0x0A00)
-endif()
 
 if(NOT WIN32)
 	add_executable(encode-benchmark
@@ -43,19 +35,14 @@ endif()
 add_executable(bpgen-async
     bpgen/src/BpGenAsync.cpp
     bpgen/src/BpGenAsyncMain.cpp
-    ../../tcpcl/src/Tcpcl.cpp
-    ../../tcpcl/src/TcpclBundleSource.cpp
-    ../../stcp/src/StcpBundleSource.cpp
-    ../../tcpcl/src/sdnv.c
-    ../../../common/util/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
-    ../../../common/util/src/SignalHandler.cpp
 )
-if (NOT WIN32)	
-	target_link_libraries(bpgen-async PUBLIC pthread)
-endif()
 
-target_include_directories(bpgen-async PUBLIC ../include bpgen/include ../../../common/util/include ../../tcpcl/include ../../stcp/include ${Boost_INCLUDE_DIRS})
-target_link_libraries(bpgen-async PUBLIC bpcodec ${Boost_LIBRARIES})
+target_include_directories(bpgen-async PUBLIC 
+	../include
+	bpgen/include
+	${Boost_INCLUDE_DIRS}
+)
+target_link_libraries(bpgen-async PUBLIC tcpcl_lib stcp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
 	add_executable(bpsink
@@ -69,19 +56,14 @@ endif()
 add_executable(bpsink-async
     bpsink/BpSinkAsync.cpp
     bpsink/BpSinkAsyncMain.cpp
-    ../../tcpcl/src/Tcpcl.cpp
-    ../../tcpcl/src/TcpclBundleSink.cpp
-    ../../tcpcl/src/sdnv.c
-	../../stcp/src/StcpBundleSink.cpp
-    ../../../common/util/src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
-    ../../../common/util/src/SignalHandler.cpp
 )
-if (NOT WIN32)	
-	target_link_libraries(bpsink-async PUBLIC pthread)
-endif()
 
-target_include_directories(bpsink-async PUBLIC ../include bpsink/include ../../../common/util/include ../../tcpcl/include ../../stcp/include ${Boost_INCLUDE_DIRS})
-target_link_libraries(bpsink-async PUBLIC bpcodec ${Boost_LIBRARIES})
+target_include_directories(bpsink-async PUBLIC
+	../include 
+	bpsink/include
+	${Boost_INCLUDE_DIRS}
+)
+target_link_libraries(bpsink-async PUBLIC tcpcl_lib stcp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
 	add_executable(bpreflect

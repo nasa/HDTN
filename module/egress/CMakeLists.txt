@@ -2,13 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 project(hdtn-egress)
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
-# define _WIN32_WINNT to use Windows 10 for boost
-if(WIN32)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-    add_compile_definitions(_WIN32_WINNT=0x0A00)
-endif()
 
 if (NOT WIN32)	
 	add_executable(hdtn-egress 
@@ -17,43 +11,42 @@ if (NOT WIN32)
 		src/udp.cpp
 		src/stcp.cpp
 		../../common/logging/src/logging.cpp
-		../../common/bpcodec/src/codec/bpv6.cpp
-		../../common/bpcodec/src/codec/bpv7.cpp
-		../../common/bpcodec/src/codec/sdnv/cgoto/decode.cpp
-		../../common/bpcodec/src/codec/sdnv/cgoto/encode.cpp
-		../../common/bpcodec/src/codec/sdnv/loop/codec.cpp)
+)
 
 	target_link_libraries(hdtn-egress pthread zmq hdtn_reg bpcodec)
 	target_include_directories(hdtn-egress PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include)
 endif()
 
-add_executable(hdtn-egress-async
-    src/EgressAsync.cpp
-    src/EgressAsyncMain.cpp
+add_library(egress_async_lib STATIC
+	src/EgressAsync.cpp
     src/EgressAsyncTcpcl.cpp
 	src/EgressAsyncStcp.cpp
-    ../../common/util/src/SignalHandler.cpp
-    ../../common/logging/src/logging.cpp
-    ../../common/bpcodec/src/codec/bpv6.cpp
-    ../../common/bpcodec/src/codec/bpv7.cpp
-    ../../common/bpcodec/src/codec/sdnv/cgoto/decode.cpp
-    ../../common/bpcodec/src/codec/sdnv/cgoto/encode.cpp
-    ../../common/bpcodec/src/codec/sdnv/loop/codec.cpp
-	../../common/stcp/src/StcpBundleSource.cpp
-    ../../common/tcpcl/src/Tcpcl.cpp
-    ../../common/tcpcl/src/TcpclBundleSource.cpp
-    ../../common/tcpcl/src/sdnv.c)
+)
 
-if (WIN32)
-	#add_compile_definitions(ZMQ_STATIC)
-	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
-	set(libzmq_LIB "C:/libzmq_msvc_x64/lib/libzmq-v141-mt-4_3_4.lib" CACHE FILEPATH "Libzmq library")
-	target_link_libraries(hdtn-egress-async ${libzmq_LIB})
-	target_include_directories(hdtn-egress-async PUBLIC ${libzmq_INCLUDE})
-else()
-	target_link_libraries(hdtn-egress-async pthread zmq)
-endif()
-target_link_libraries(hdtn-egress-async hdtn_reg bpcodec ${Boost_LIBRARIES})
-target_include_directories(hdtn-egress-async PUBLIC include ../../common/logging/include ../../common/pool/include  ../../common/bpcodec/include ../../common/regsvr/lib/include ../../common/include ../../common/util/include ../../common/tcpcl/include ../../common/stcp/include ${Boost_INCLUDE_DIRS})
+target_link_libraries(egress_async_lib hdtn_reg hdtn_util tcpcl_lib stcp_lib ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} bpcodec ${Boost_LIBRARIES})
+target_include_directories(egress_async_lib PUBLIC
+	include
+	../../common/logging/include
+	../../common/pool/include
+	../../common/include
+	${Boost_INCLUDE_DIRS} 
+	${libzmq_INCLUDE}
+)
+
+add_executable(hdtn-egress-async
+    ../../common/logging/src/logging.cpp
+	src/EgressAsyncMain.cpp
+)
+
+
+
+target_link_libraries(hdtn-egress-async hdtn_reg hdtn_util tcpcl_lib stcp_lib egress_async_lib ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} bpcodec ${Boost_LIBRARIES})
+target_include_directories(hdtn-egress-async PUBLIC 
+	../../common/logging/include
+	../../common/pool/include
+	../../common/include
+	${Boost_INCLUDE_DIRS} 
+	${libzmq_INCLUDE}
+)
 
 
