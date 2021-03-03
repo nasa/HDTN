@@ -355,7 +355,7 @@ int RunStorage() {
             return -1;
         }
         while (RUN_STORAGE) {
-            boost::this_thread::sleep(boost::posix_time::millisec(250));
+            store.update(); // also delays 250 milli
         }
     }
     return 0;
@@ -630,7 +630,7 @@ bool TestStorage() {
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     RUN_RELEASE_MESSAGE_SENDER = false;
     threadRunReleaseMessageSender.join();
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
     RUN_STORAGE = false;
     threadRunStorage.join();
     RUN_INGRESS = false;
