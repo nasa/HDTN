@@ -22,6 +22,7 @@ public:
 private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
+    void HandleTcpSendDataSegment(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const uint32_t bundleSizeBytesToAck, const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
