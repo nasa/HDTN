@@ -11,7 +11,7 @@
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
-#include "CircularIndexBufferSingleProducerSingleConsumer.h"
+#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BundleStorageConfig.h"
 #include "MemoryManagerTreeArray.h"
 #include "StorageConfig.h"
@@ -122,7 +122,7 @@ private:
 	//CircularIndexBufferSingleProducerSingleConsumer m_circularIndexBuffers[NUM_STORAGE_THREADS];
 	std::vector<boost::condition_variable> m_conditionVariablesVec;
 	std::vector<boost::shared_ptr<boost::thread> > m_threadPtrsVec;
-	std::vector<CircularIndexBufferSingleProducerSingleConsumer> m_circularIndexBuffersVec;
+	std::vector<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_circularIndexBuffersVec;
 	
 	volatile bool m_running;
 	boost::uint8_t * m_circularBufferBlockDataPtr;

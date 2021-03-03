@@ -2,13 +2,8 @@ cmake_minimum_required(VERSION 3.0)
 project(bpcodec)
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options)
 
-# define _WIN32_WINNT to use Windows 10 for boost
-if(WIN32)
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-    add_compile_definitions(_WIN32_WINNT=0x0A00)
-endif()
+
 
 add_library(bpcodec 
         src/codec/bpv7.cpp

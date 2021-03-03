@@ -25,7 +25,7 @@ BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFil
 	m_lockMainThread(m_mutexMainThread),
 	m_conditionVariablesVec(M_NUM_STORAGE_THREADS),
 	m_threadPtrsVec(M_NUM_STORAGE_THREADS),
-	m_circularIndexBuffersVec(M_NUM_STORAGE_THREADS),
+	m_circularIndexBuffersVec(M_NUM_STORAGE_THREADS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
 	m_running(false),
 	m_successfullyRestoredFromDisk(false),
 	m_autoDeleteFilesOnExit(true)	
@@ -77,7 +77,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 	boost::mutex localMutex;
 	boost::mutex::scoped_lock lock(localMutex);
 	boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+	CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
 	const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
 	std::cout << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath << "\n";
 	FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
@@ -186,7 +186,7 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 	const boost::uint64_t bundleSizeBytes = (session.nextLogicalSegment == 0) ? chainInfo.first : UINT64_MAX;
 	const segment_id_t segmentId = segmentIdChainVec[session.nextLogicalSegment++];
 	const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+	CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
 	boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
 	unsigned int produceIndex = cb.GetIndexForWrite();
 	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
@@ -295,7 +295,7 @@ std::size_t BundleStorageManagerMT::TopSegment(BundleStorageManagerSession_ReadF
 	{
 		const segment_id_t segmentId = segments[session.nextLogicalSegmentToCache++];
 		const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
-		CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+		CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
 		boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
 		unsigned int produceIndex = cb.GetIndexForWrite();
 		while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
@@ -369,7 +369,7 @@ bool BundleStorageManagerMT::RemoveReadBundleFromDisk(BundleStorageManagerSessio
 	const boost::uint64_t bundleSizeBytes = UINT64_MAX;
 	const segment_id_t segmentId = segmentIdChainVec[0];
 	const unsigned int threadIndex = segmentId % M_NUM_STORAGE_THREADS;
-	CircularIndexBufferSingleProducerSingleConsumer & cb = m_circularIndexBuffersVec[threadIndex];
+	CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
 	boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
 	unsigned int produceIndex = cb.GetIndexForWrite();
 	while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
