@@ -70,7 +70,7 @@ public:
     @param count number of buffers to send
     @return number of messages forwarded
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr) = 0;
+    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) = 0;
 
     /**
     Runs housekeeping tasks for a specified egress port
@@ -136,7 +136,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles);
 
     /**
     Essentially a no-op for this entry type
@@ -199,7 +199,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles);
 
     /**
     Essentially a no-op for this entry type
@@ -224,6 +224,9 @@ public:
 
 
     void Connect(const std::string & hostname, const std::string & port);
+
+    std::size_t GetTotalBundlesAcked();
+    std::size_t GetTotalBundlesSent();
 private:
     boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
 
@@ -261,7 +264,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles);
 
     /**
     Essentially a no-op for this entry type
@@ -304,7 +307,7 @@ public:
     /**
 
     */
-    int Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    int Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles);
 
     /**
 
@@ -335,6 +338,7 @@ public:
     boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
     boost::shared_ptr<zmq::context_t> m_zmqCtx_connectingStorageToBoundEgressPtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
 
 private:
     void ReadZmqThreadFunc();

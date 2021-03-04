@@ -15,7 +15,7 @@ public:
     StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds);
 
     ~StcpBundleSource();
-    bool Forward(const uint8_t* bundleData, const std::size_t size);
+    bool Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles);
     void Connect(const std::string & hostname, const std::string & port);
     bool ReadyToForward();
 private:

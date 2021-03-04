@@ -5,24 +5,26 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <map>
-#include <queue>
+#include <vector>
 #include "Tcpcl.h"
+#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 
 //tcpcl
 class TcpclBundleSource {
 private:
     TcpclBundleSource();
 public:
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString);
+    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100);
 
     ~TcpclBundleSource();
-    bool Forward(const uint8_t* bundleData, const std::size_t size);
+    bool Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles);
+    std::size_t GetTotalDataSegmentsAcked();
+    std::size_t GetTotalDataSegmentsSent();
     void Connect(const std::string & hostname, const std::string & port);
     bool ReadyToForward();
 private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
-    void HandleTcpSendDataSegment(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const uint32_t bundleSizeBytesToAck, const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
@@ -60,7 +62,9 @@ private:
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;
     std::string m_localEid;
     uint16_t m_keepAliveIntervalSeconds;
-    std::queue<uint32_t> m_bytesToAckQueue;
+    const unsigned int MAX_UNACKED;
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
+    std::vector<uint32_t> m_bytesToAckCbVec;
     volatile bool m_readyToForward;
     volatile bool m_tcpclShutdownComplete;
     volatile bool m_sendShutdownMessage;

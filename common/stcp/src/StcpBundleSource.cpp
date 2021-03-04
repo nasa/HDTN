@@ -54,12 +54,13 @@ void StcpBundleSource::GenerateDataUnit(std::vector<uint8_t> & dataUnit, const u
     }
 }
 
-bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
 
     if(!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
     }
+    numUnackedBundles = 0; //TODO
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += size;
     

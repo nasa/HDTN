@@ -46,6 +46,8 @@ void hdtn::HegrManagerAsync::Init() {
     m_zmqCtx_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::context_t>();
     m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_connectingStorageToBoundEgressPtr, zmq::socket_type::pull);
     m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH);
+    m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_connectingStorageToBoundEgressPtr, zmq::socket_type::push);
+    m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH);
 
     try {
         m_udpSocket.open(boost::asio::ip::udp::v4());
@@ -70,6 +72,15 @@ void hdtn::HegrManagerAsync::Init() {
 }
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
+
+    typedef std::queue<uint32_t> segid_queue_t;
+    typedef std::map<uint64_t, segid_queue_t> flowid_needacksqueue_map_t;
+
+    flowid_needacksqueue_map_t flowIdToNeedAcksQueueMap;
+
+    std::size_t totalCustodyTransfersSentToStorage = 0;    
+    std::size_t totalEventsQueueNotEmpty = 0;
+
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
     static const unsigned int NUM_SOCKETS = 2;
@@ -84,27 +95,29 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         m_zmqPullSock_connectingStorageToBoundEgressPtr.get()
     };
 
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+    long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
+
     while (m_running) { //keep thread alive if running
         zmq::message_t hdr;        
-        if (zmq::poll(&items[0], NUM_SOCKETS, timeout) <= 0) {
-            continue; //timeout
-        }
+        if (zmq::poll(&items[0], NUM_SOCKETS, timeoutPoll) > 0) {
 
-        for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
-            if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
-                continue;
-            }
-            if (!sockets[itemIndex]->recv(hdr, zmq::recv_flags::none)) {
-                continue;
-            }
-            ++m_messageCount;
-            //char bundle[HMSG_MSG_MAX];
-            if (hdr.size() < sizeof(hdtn::CommonHdr)) {
-                std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
-                continue; //return -1;
-            }
-            hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
-            switch (common->type) {
+
+            for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
+                if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
+                    continue;
+                }
+                if (!sockets[itemIndex]->recv(hdr, zmq::recv_flags::none)) {
+                    continue;
+                }
+                ++m_messageCount;
+                //char bundle[HMSG_MSG_MAX];
+                if (hdr.size() < sizeof(hdtn::CommonHdr)) {
+                    std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
+                    continue; //return -1;
+                }
+                hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
+                switch (common->type) {
                 case HDTN_MSGTYPE_STORE:
                 case HDTN_MSGTYPE_EGRESS: //todo
                     boost::shared_ptr<zmq::message_t> zmqMessagePtr = boost::make_shared<zmq::message_t>();
@@ -115,15 +128,68 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                         if (!sockets[itemIndex]->recv(*zmqMessagePtr, zmq::recv_flags::none)) {
                             continue;
                         }
-                        Forward(1, zmqMessagePtr);
+                        if (itemIndex == 1) { //reply to storage
+                            hdtn::BlockHdr *block = (hdtn::BlockHdr *)hdr.data();
+                            flowIdToNeedAcksQueueMap[block->flowId].push(block->zframe);
+                        }
+                        unsigned int numUnackedBundles = 0;
+                        Forward(1, zmqMessagePtr, numUnackedBundles);  //TODO: FIX 1 WHICH SHOULD BE FLOW ID
+                        if (numUnackedBundles > 10) {
+                            std::cout << numUnackedBundles << std::endl;
+                        }
+
                         m_bundleData += zmqMessagePtr->size();
                         ++m_bundleCount;
+
                         break;
                     }
                     break;
+                }
             }
         }
+        
+        timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
+        for (flowid_needacksqueue_map_t::iterator it = flowIdToNeedAcksQueueMap.begin(); it != flowIdToNeedAcksQueueMap.end(); ++it) {
+            const uint64_t flowId = it->first;
+            const unsigned int fec = 1; //TODO
+            segid_queue_t & q = it->second;
+            
+            
+            std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(fec);
+            if (entryIt != m_entryMap.end()) {
+                //std::cout << "h0" << std::endl;
+                //std::cout << entry.get() << std::endl;
+                if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
+                    //std::cout << entryTcpcl.get() << std::endl;
+                    //std::cout << "h1" << std::endl;
+                    const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
+                    //std::cout << "h2 " << numAckedRemaining << " " << q.size() <<  std::endl;
+                    while (q.size() > numAckedRemaining) {
+                        hdtn::BlockHdr blockHdr;
+                        blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
+                        blockHdr.flowId = static_cast<uint32_t>(flowId);
+                        blockHdr.zframe = q.front();
+                        if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(zmq::const_buffer(&blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                            std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                            break;
+                        }
+                        ++totalCustodyTransfersSentToStorage;
+                        q.pop();
+                    }
+                        
+                }
+                    
+            }
+            
+            if (!q.empty()) {
+                timeoutPoll = 1; //shortest timeout 1ms as we wait for acks
+                ++totalEventsQueueNotEmpty;
+            }
+            
+        }
     }
+    std::cout << "totalCustodyTransfersSentToStorage: " << totalCustodyTransfersSentToStorage << std::endl;
+    std::cout << "totalEventsQueueNotEmpty: " << totalEventsQueueNotEmpty << std::endl;
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
 }
@@ -181,10 +247,10 @@ void hdtn::HegrManagerAsync::Up(int fec) {
 }
 
 
-int hdtn::HegrManagerAsync::Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr) {
+int hdtn::HegrManagerAsync::Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
     try {
         if(boost::shared_ptr<HegrEntryAsync> entry = m_entryMap.at(fec)) {
-            return entry->Forward(zmqMessagePtr);
+            return entry->Forward(zmqMessagePtr, numUnackedBundles);
         }
     }
     catch (const std::out_of_range &) {
@@ -271,10 +337,11 @@ int hdtn::HegrUdpEntryAsync::Disable() {
     return 0;
 }
 
-int hdtn::HegrUdpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr) {
+int hdtn::HegrUdpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }
+    numUnackedBundles = 0; //TODO
     const std::size_t bundleSize = zmqMessagePtr->size();
     m_udpSocketPtr->async_send_to(boost::asio::buffer(zmqMessagePtr->data(), bundleSize), m_udpDestinationEndpoint,
                                   boost::bind(&HegrUdpEntryAsync::HandleUdpSendBundle, this, zmqMessagePtr,

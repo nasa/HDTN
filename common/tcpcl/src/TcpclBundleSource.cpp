@@ -5,7 +5,7 @@
 #include <boost/make_shared.hpp>
 
 
-TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString) :
+TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
@@ -13,6 +13,9 @@ m_needToSendKeepAliveMessageTimer(m_ioService),
 m_handleSocketShutdownCancelOnlyTimer(m_ioService),
 m_sendShutdownMessageTimeoutTimer(m_ioService),
 m_keepAliveIntervalSeconds(desiredKeeAliveIntervlSeconds),
+MAX_UNACKED(maxUnacked),
+m_bytesToAckCb(MAX_UNACKED),
+m_bytesToAckCbVec(MAX_UNACKED),
 m_readyToForward(false),
 m_tcpclShutdownComplete(true),
 m_sendShutdownMessage(false),
@@ -61,20 +64,40 @@ TcpclBundleSource::~TcpclBundleSource() {
     std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
 }
 
+std::size_t TcpclBundleSource::GetTotalDataSegmentsAcked() {
+    return m_totalDataSegmentsAcked;
+}
 
-bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+std::size_t TcpclBundleSource::GetTotalDataSegmentsSent() {
+    return m_totalDataSegmentsSent;
+}
+
+bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
 
     if(!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
     }
     
+    
+    const unsigned int writeIndex = m_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndex == UINT32_MAX) { //push check
+        std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
+        return false;
+    }
+    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(size);
+    m_bytesToAckCb.CommitWrite(); //pushed
+
+    ++m_totalDataSegmentsSent;
+    m_totalBundleBytesSent += static_cast<uint32_t>(size);
+
+    numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     boost::shared_ptr<std::vector<uint8_t> > bundleSegmentPtr = boost::make_shared<std::vector<uint8_t> >();
     Tcpcl::GenerateDataSegment(*bundleSegmentPtr, true, true, bundleData, static_cast<uint32_t>(size));
 
     boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*bundleSegmentPtr),
-                                     boost::bind(&TcpclBundleSource::HandleTcpSendDataSegment, this, bundleSegmentPtr, static_cast<uint32_t>(size),
+                                     boost::bind(&TcpclBundleSource::HandleTcpSend, this, bundleSegmentPtr,
                                                  boost::asio::placeholders::error,
                                                  boost::asio::placeholders::bytes_transferred));
     return true;
@@ -131,17 +154,6 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
     }
 }
 
-void TcpclBundleSource::HandleTcpSendDataSegment(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const uint32_t bundleSizeBytesToAck, const boost::system::error_code& error, std::size_t bytes_transferred) {
-    if (error) {
-        std::cerr << "error in TcpclBundleSource::HandleTcpSend: " << error.message() << std::endl;
-        DoTcpclShutdown(true, false);
-    }
-    else {
-        ++m_totalDataSegmentsSent;
-        m_totalBundleBytesSent += bundleSizeBytesToAck;
-        m_bytesToAckQueue.push(bundleSizeBytesToAck);
-    }
-}
 
 void TcpclBundleSource::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
@@ -227,17 +239,19 @@ void TcpclBundleSource::DataSegmentCallback(boost::shared_ptr<std::vector<uint8_
 }
 
 void TcpclBundleSource::AckCallback(uint32_t totalBytesAcknowledged) {
-    if(m_bytesToAckQueue.empty()) {
+    const unsigned int readIndex = m_bytesToAckCb.GetIndexForRead();
+    if(readIndex == UINT32_MAX) { //empty
         std::cerr << "error: AckCallback called with empty queue" << std::endl;
     }
-    else if(m_bytesToAckQueue.front() == totalBytesAcknowledged) {
+    else if (m_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
         ++m_totalDataSegmentsAcked;
-        m_totalBytesAcked += m_bytesToAckQueue.front();
-        m_bytesToAckQueue.pop();
+        m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
+        m_bytesToAckCb.CommitRead();
     }
     else {
-        std::cerr << "error: wrong bytes acked: expected " << m_bytesToAckQueue.front() << " but got " << totalBytesAcknowledged << std::endl;
+        std::cerr << "error: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
     }
+    
 }
 
 void TcpclBundleSource::BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) {

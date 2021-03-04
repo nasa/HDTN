@@ -15,6 +15,14 @@ HegrTcpclEntryAsync::~HegrTcpclEntryAsync() {
 
 }
 
+std::size_t HegrTcpclEntryAsync::GetTotalBundlesAcked() {
+    return m_tcpclBundleSourcePtr->GetTotalDataSegmentsAcked();
+}
+
+std::size_t HegrTcpclEntryAsync::GetTotalBundlesSent() {
+    return m_tcpclBundleSourcePtr->GetTotalDataSegmentsSent();
+}
+
 void HegrTcpclEntryAsync::Init(uint64_t flags) {
     //m_fd = socket(AF_INET, SOCK_DGRAM, 0);
     //memcpy(&m_ipv4, inaddr, sizeof(sockaddr_in));
@@ -45,11 +53,11 @@ int HegrTcpclEntryAsync::Disable() {
     return 0;
 }
 
-int HegrTcpclEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr) {
+int HegrTcpclEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }
-    if(m_tcpclBundleSourcePtr && m_tcpclBundleSourcePtr->Forward((const uint8_t *)zmqMessagePtr->data(), zmqMessagePtr->size())) {
+    if(m_tcpclBundleSourcePtr && m_tcpclBundleSourcePtr->Forward((const uint8_t *)zmqMessagePtr->data(), zmqMessagePtr->size(), numUnackedBundles)) {
         return 1;
 
     }

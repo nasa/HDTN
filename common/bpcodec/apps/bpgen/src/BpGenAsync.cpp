@@ -156,7 +156,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     uint64_t seq = 0;
     uint64_t bseq = 0;
 
-
+    unsigned int numUnackedBundles = 0;
 
     boost::asio::deadline_timer deadlineTimer(m_ioService, boost::posix_time::microseconds(sValU64));
     boost::shared_ptr<std::vector<uint8_t> > bundleToSend = boost::make_shared<std::vector<uint8_t> >(BP_MSG_BUFSZ);
@@ -244,12 +244,12 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
         //send message
         if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
-            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
+            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size(), numUnackedBundles)) {
                 m_running = false;
             }
         }
         else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
-            if (!m_stcpBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
+            if (!m_stcpBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size(), numUnackedBundles)) {
                 m_running = false;
             }
         }

@@ -39,6 +39,8 @@
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
+#define HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (0x5555)
+
 namespace hdtn {
 #pragma pack (push, 1)
 struct CommonHdr {
