@@ -20,7 +20,6 @@
 #include <store.hpp>
 #include <thread>
 #include <zmq.hpp>
-// Used for forking python process
 #include <stdio.h>
 #include <stdlib.h>
 #include <boost/process.hpp>
@@ -37,38 +36,7 @@
 #include <boost/test/unit_test_parameters.hpp>
 #include "Environment.h"
 
-#define BP_MSG_BUFSZ             (65536)
-#define BP_BUNDLE_DEFAULT_SZ     (100)
-#define BP_GEN_BUNDLE_MAXSZ      (64000)
-#define BP_GEN_RATE_MAX          (1 << 30)
-#define BP_GEN_TARGET_DEFAULT    "127.0.0.1"
-#define BP_GEN_PORT_DEFAULT      (4556)
-#define BP_GEN_SRC_NODE_DEFAULT  (1)
-#define BP_GEN_DST_NODE_DEFAULT  (2)
-#define BP_GEN_BATCH_DEFAULT     (1 << 18)  // write out one entry per this many bundles.
-#define BP_GEN_LOGFILE           "bpsink.%lu.csv"
-
-#ifdef __APPLE__  // If we're on an apple platform, we can really only send one bundle at once
-
-#define BP_MSG_NBUF   (1)
-
-struct mmsghdr {
-    struct msghdr msg_hdr;
-    unsigned int  msg_len;
-};
-
-#else             // If we're on a different platform, then we can use sendmmsg / recvmmsg
-//#define BP_MSG_NBUF   (32)
-//#define BP_MSG_NBUF   (4)
-#endif
-
 enum Protocol { Tcpcl, Stcp, Udp};
-
-struct bpgen_hdr {
-    uint64_t seq;
-    uint64_t tsc;
-    timespec abstime;
-};
 
 // Prototypes
 static void DurationEndedThreadFunction(const boost::system::error_code& e);
@@ -81,6 +49,7 @@ int RunReleaseMessageSender();
 bool TestStorage();
 bool TestCutThrough(Protocol protocol);
 
+// Global flags used to control thread execution
 volatile bool RUN_BPGEN = true;
 volatile bool RUN_BPSINK = true;
 volatile bool RUN_INGRESS = true;
@@ -88,7 +57,7 @@ volatile bool RUN_EGRESS = true;
 volatile bool RUN_RELEASE_MESSAGE_SENDER = true;
 volatile bool RUN_STORAGE = true;
 
-// Create a test fixture.
+// Global Test Fixture.  Used to setup Python Registration server.
 class BoostIntegratedTestsFixture {
 public:
     BoostIntegratedTestsFixture();
@@ -102,15 +71,12 @@ private:
 };
 
 BoostIntegratedTestsFixture::BoostIntegratedTestsFixture() {
-//    std::cout << "Called BoostIntegratedTestsFixture::BoostIntegratedTestsFixture()" << std::endl;
     boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
     boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
-
     m_ptrThreadPython = new std::thread(&BoostIntegratedTestsFixture::StartPythonServer,this);
 }
 
 BoostIntegratedTestsFixture::~BoostIntegratedTestsFixture() {
-//    std::cout << "Called BoostIntegratedTestsFixture::~BoostIntegratedTestsFixture()" << std::endl;
     this->StopPythonServer();
 }
 
@@ -161,7 +127,8 @@ int RunBpgenAsync(bool useTcpcl, bool useStcp, uint32_t bundleRate, uint64_t* pt
         uint32_t tcpclFragmentSize = 0;
         uint32_t durationSeconds = 0;
         BpGenAsync bpGen;
-        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString);
+        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes,
+                    bundleRate, tcpclFragmentSize, thisLocalEidString);
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::seconds(durationSeconds));
         if (durationSeconds) {
@@ -304,7 +271,7 @@ int RunStorage() {
             return -1;
         }
         while (RUN_STORAGE) {
-            store.update(); // also delays 250 milli
+            store.update(); // also delays 250 milliseconds
         }
     }
     return 0;
@@ -343,7 +310,7 @@ bool TestCutThrough(Protocol protocol) {
         std::cerr << "Unsupported protocol (" << protocol << ") passed to TestCutThrough." << std::endl << std::flush;
         return false;
     }
-
+    // Start threads
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -352,8 +319,9 @@ bool TestCutThrough(Protocol protocol) {
     std::thread threadIngress(RunIngress,useStcp,alwaysSendToStorage,&bundleCountIngress, &bundleDataIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,bundleRate,&bundlesSentBpgen);
+    // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
-
+    // Stop threads
     RUN_BPGEN = false;
     threadBpgen.join();
     RUN_INGRESS = false;
@@ -362,12 +330,7 @@ bool TestCutThrough(Protocol protocol) {
     threadEgress.join();
     RUN_BPSINK = false;
     threadBpsink.join();
-
-//    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
-//    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
-//    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
-//    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
-
+    // Verify results
     if (bundlesSentBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
                 + std::to_string(bundleCountIngress) + ").");
@@ -406,7 +369,7 @@ bool TestStorage() {
     bool useTcpcl = true;
     bool useStcp = false;
     uint32_t bundleRate = 200;
-
+    // Start threads
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -419,14 +382,19 @@ bool TestStorage() {
     std::thread threadRunStorage(RunStorage);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen(RunBpgenAsync,useTcpcl,useStcp,bundleRate,&bundlesSentBpgen);
+    // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
-
+    // Stop generating bundles
     RUN_BPGEN = false;
     threadBpgen.join();
+    // Allow time for storage to process bundles
     boost::this_thread::sleep(boost::posix_time::seconds(3));
+    // Send message to allow data to flow
     RUN_RELEASE_MESSAGE_SENDER = false;
     threadRunReleaseMessageSender.join();
+    // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
+    // Stop threads
     RUN_STORAGE = false;
     threadRunStorage.join();
     RUN_INGRESS = false;
@@ -435,12 +403,7 @@ bool TestStorage() {
     threadEgress.join();
     RUN_BPSINK = false;
     threadBpsink.join();
-
-//    std::cout << "bundlesSentBpgen: " << bundlesSentBpgen << std::endl << std::flush;
-//    std::cout << "bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
-//    std::cout << "bundleCountEgress: " << bundleCountEgress << std::endl << std::flush;
-//    std::cout << "totalBundlesBpsink: " << totalBundlesBpsink << std::endl << std::flush;
-
+    // Verify results
     if (bundlesSentBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
                 + std::to_string(bundleCountIngress) + ").");
@@ -451,7 +414,7 @@ bool TestStorage() {
                 + std::to_string(bundleCountEgress) + ").");
         return false;
     }
-    if (bundlesSentBpgen == totalBundlesBpsink) {
+    if (bundlesSentBpgen != totalBundlesBpsink) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
