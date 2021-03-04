@@ -4,6 +4,9 @@
 #include "egress.h"
 
 //using namespace hdtn;
+#ifdef __APPLE__ 
+#define MSG_CONFIRM 0
+#endif
 
 void hdtn::HegrUdpEntry::Init(sockaddr_in *inaddr, uint64_t flags) {
     m_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -44,7 +47,6 @@ int hdtn::HegrUdpEntry::Forward(char **msg, int *sz, int count) {
             return errno;
         }
     }
-    return count;
 }
 
 hdtn::HegrUdpEntry::HegrUdpEntry() {
