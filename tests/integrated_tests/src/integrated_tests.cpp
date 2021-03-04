@@ -291,7 +291,7 @@ bool TestCutThrough(Protocol protocol) {
     uint64_t bundleCountIngress = 0;
     uint64_t bundleDataIngress = 0;
     bool alwaysSendToStorage = false;
-    uint32_t bundleRate = 200;
+    uint32_t bundleRate = 50;
     bool useTcpcl = false;
     bool useStcp = false;
     if (protocol == Tcpcl) {
@@ -368,7 +368,7 @@ bool TestStorage() {
     bool alwaysSendToStorage = true;
     bool useTcpcl = true;
     bool useStcp = false;
-    uint32_t bundleRate = 200;
+    uint32_t bundleRate = 50;
     // Start threads
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync,useTcpcl,useStcp,&totalBundlesBpsink,&duplicateBundlesBpsink,&totalBytesBpsink);
