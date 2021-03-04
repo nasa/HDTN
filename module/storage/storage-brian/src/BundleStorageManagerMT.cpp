@@ -109,6 +109,8 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 		const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_THREADS) * SEGMENT_SIZE;
 #ifdef _MSC_VER 
 		_fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
+#elif __APPLE__ 
+		fseeko(fileHandle, offsetBytes, SEEK_SET);
 #else
 		fseeko64(fileHandle, offsetBytes, SEEK_SET);
 #endif
@@ -441,6 +443,8 @@ bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, ui
 			}
 #ifdef _MSC_VER 
 			_fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
+#elif __APPLE__ 
+			fseeko(fileHandle, offsetBytes, SEEK_SET);
 #else
 			fseeko64(fileHandle, offsetBytes, SEEK_SET);
 #endif

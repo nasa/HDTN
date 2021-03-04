@@ -197,7 +197,16 @@ int main(int argc, char* argv[]) {
     uint64_t seq_base = 0;
 
     while(true) {
+        #ifdef __APPLE__
+        int res = recvmsg(fd, &msgbuf->msg_hdr, 0);
+        if(res > 0) //recvmsg returns number of bytes, recvmmsg returns number of messages
+        {
+            msgbuf->msg_len = res;
+            res = 1;
+        }
+        #else
         int res = recvmmsg(fd, msgbuf, BP_MSG_NBUF, 0, NULL);
+        #endif
         if(res == 0) {
             continue;
         }
