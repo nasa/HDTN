@@ -90,3 +90,18 @@ target_include_directories(hdtn-release-message-sender PUBLIC
 	${Boost_INCLUDE_DIRS}
 	${libzmq_INCLUDE}
 )
+
+
+add_executable(hdtn-multiple-release-message-sender
+    src/test/multiple_release_message_sender.cpp
+)
+target_link_libraries(hdtn-multiple-release-message-sender hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})
+target_include_directories(hdtn-multiple-release-message-sender PUBLIC
+    include
+    lib/include
+    ../../common/bpcodec/include
+    ../../common/regsvr/lib/include
+    ../../common/include
+    ${Boost_INCLUDE_DIRS}
+    ${libzmq_INCLUDE}
+)
