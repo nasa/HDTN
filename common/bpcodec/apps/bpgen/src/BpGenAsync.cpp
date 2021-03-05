@@ -5,6 +5,7 @@
 #include <boost/make_shared.hpp>
 
 #include <time.h>
+#include "TimestampUtil.h"
 #include "codec/bpv6.h"
 #ifndef _WIN32
 #include "util/tsc.h"
@@ -151,8 +152,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     memset(data_buffer.data(), 0, bundleSizeBytes);
     bpgen_hdr* hdr = (bpgen_hdr*)data_buffer.data();
 
-    uint64_t last_time = 0;
-    uint64_t curr_time = 0;
+    uint64_t lastTimeRfc5050 = 0;
+    uint64_t currentTimeRfc5050 = 0;
     uint64_t seq = 0;
     uint64_t bseq = 0;
 
@@ -183,12 +184,13 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         {
 
             char* curr_buf = (char*)bundleToSend->data(); //(msgbuf[idx].msg_hdr.msg_iov->iov_base);
-            /*curr_time = time(0);
-            if(curr_time == last_time) {
+            currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
+            
+            if(currentTimeRfc5050 == lastTimeRfc5050) {
                 ++seq;
             }
             else {
-                gettimeofday(&tv, NULL);
+                /*gettimeofday(&tv, NULL);
                 double elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
                 elapsed -= start;
                 start = start + elapsed;
@@ -197,11 +199,11 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
                 bundle_count = 0;
                 bundle_data = 0;
                 raw_data = 0;
-                tsc_total = 0;
+                tsc_total = 0;*/
                 seq = 0;
             }
-            last_time = curr_time;
-            */
+            lastTimeRfc5050 = currentTimeRfc5050;
+            
             bpv6_primary_block primary;
             memset(&primary, 0, sizeof(bpv6_primary_block));
             primary.version = 6;
@@ -213,7 +215,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             primary.src_svc = 1;
             primary.dst_node = dest_node;
             primary.dst_svc = 1;
-            primary.creation = (uint64_t)bpv6_unix_to_5050(curr_time);
+            primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
+            primary.lifetime = 1000;
             primary.sequence = seq;
             ////uint64_t tsc_start = rdtsc();
             bundle_length = bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);

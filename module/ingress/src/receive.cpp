@@ -106,8 +106,8 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
     return 0;
 }
 
-int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
-	uint64_t timer = 0;
+int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {  //TODO: make buffer zmq message to reduce copy
+	//uint64_t timer = 0;
     uint64_t offset = 0;
     uint32_t zframeSeq = 0;
     bpv6_primary_block bpv6Primary;
@@ -119,12 +119,17 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         ////timer = rdtsc();
         //memcpy(tbuf, m_bufs[i], recvlen);
-        hdr.ts = timer;
+        //hdr.ts = timer;
         offset = bpv6_primary_block_decode(&bpv6Primary, (const char*)rxBuf.data(), offset, messageSize);
+        const uint64_t absExpirationUsec = (bpv6Primary.creation * 1000000) + bpv6Primary.sequence + bpv6Primary.lifetime;
+        const uint32_t priority = bpv6_bundle_get_priority(bpv6Primary.flags);
+        //std::cout << "p: " << priority << " lt " << bpv6Primary.lifetime << " c " << bpv6Primary.creation << ":" << bpv6Primary.sequence << " a: " << absExpirationUsec <<  std::endl;
         dst.node = bpv6Primary.dst_node;
         hdr.flowId = static_cast<uint32_t>(dst.node);  // for now
         hdr.base.flags = static_cast<uint16_t>(bpv6Primary.flags);
         hdr.base.type = (m_alwaysSendToStorage) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
+        hdr.ts = absExpirationUsec; //use ts for now
+        hdr.ttl = priority; //use ttl for now
         // hdr.ts=recvlen;
         std::size_t numChunks = 1;
         std::size_t bytesToSend = messageSize;
@@ -147,7 +152,7 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             zmq::socket_t * const socket = (hdr.base.type == HDTN_MSGTYPE_EGRESS) ? 
                 m_zmqPushSock_boundIngressToConnectingEgressPtr.get() :
                 m_zmqPushSock_boundIngressToConnectingStoragePtr.get();
-            socket->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::none);/*ZMQ_MORE*/
+            socket->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore);
             //char data[bytesToSend];
             //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
             //m_zmqCutThroughSock->send(data, bytesToSend, 0);

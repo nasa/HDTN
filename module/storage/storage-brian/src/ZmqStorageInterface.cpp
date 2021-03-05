@@ -34,9 +34,10 @@ static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageMan
 
 
     const unsigned int linkId = hdr->flowId; //std::cout << "linkIdWrite: " << linkId << " sz " << size << std::endl;
-    const unsigned int priorityIndex = 0; //could be 0, 1, or 2, but keep 0 for fifo mode
-    static abs_expiration_t bundleI = 0;
-    const abs_expiration_t absExpiration = bundleI++; //increment this every time for fifo mode
+    const unsigned int priorityIndex = hdr->ttl; //use ttl for now.. could be 0, 1, or 2, but keep constant for fifo mode
+    //static abs_expiration_t bundleI = 0;
+    //const abs_expiration_t absExpiration = bundleI++; //increment this every time for fifo mode
+    const uint64_t absExpirationUsec = hdr->ts; //use ts for now
 
     BundleStorageManagerSession_WriteToDisk sessionWrite;
     bp_primary_if_base_t bundleMetaData;
@@ -44,7 +45,7 @@ static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageMan
     bundleMetaData.dst_node = linkId;
     bundleMetaData.length = size;
     bundleMetaData.creation = 0;
-    bundleMetaData.lifetime = absExpiration;
+    bundleMetaData.lifetime = absExpirationUsec;
 
     boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
     //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
@@ -67,7 +68,7 @@ static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageMan
         bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
     }
 }
-
+/*
 static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock, BundleStorageManagerMT & bsm) {
     std::cout << "release worker triggered." << std::endl;
     //int dataReturned = 0;
@@ -140,12 +141,12 @@ static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::so
     //workerStats.flow.read_rate = ((totalReturned * 8.0) / (1024.0 * 1024)) / (end - start);
     //workerStats.flow.read_ts = end - start;
     //std::cout << "Total bytes returned: " << totalReturned << ", Mbps released: " << workerStats.flow.read_rate << " in " << workerStats.flow.read_ts << " sec" << std::endl;
-    /*hdtn::flow_stats stats = storeFlow.stats();
-    workerStats.flow.disk_rbytes=stats.disk_rbytes;
-    workerStats.flow.disk_rcount=stats.disk_rcount;
-    std::cout << "[storage-worker] " <<  stats.disk_wcount << " w count " << stats.disk_wbytes << " w bytes " << stats.disk_rcount << " r count " << stats.disk_rbytes << " r bytes \n";*/
+    //hdtn::flow_stats stats = storeFlow.stats();
+    //workerStats.flow.disk_rbytes=stats.disk_rbytes;
+    //workerStats.flow.disk_rcount=stats.disk_rcount;
+    //std::cout << "[storage-worker] " <<  stats.disk_wcount << " w count " << stats.disk_wbytes << " w bytes " << stats.disk_rcount << " r count " << stats.disk_rbytes << " r bytes \n";
 }
-
+*/
 //return number of bytes to read for specified links
 static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks, BundleStorageManagerMT & bsm) {
     BundleStorageManagerSession_ReadFromDisk  sessionRead;
