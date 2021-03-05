@@ -46,6 +46,10 @@ namespace hdtn {
 struct CommonHdr {
     uint16_t type;
     uint16_t flags;
+
+    bool operator==(const CommonHdr & o) const {
+        return (type == o.type) && (flags == o.flags);
+    }
 };// __attribute__((packed));
 
 struct BlockHdr {
@@ -55,6 +59,10 @@ struct BlockHdr {
     uint32_t ttl;
     uint32_t zframe;
     uint64_t bundleSeq;
+
+    bool operator==(const BlockHdr & o) const {
+        return (base == o.base) && (flowId == o.flowId) && (ts == o.ts) && (ttl == o.ttl) && (zframe == o.zframe) && (bundleSeq == o.bundleSeq);
+    }
 };// __attribute__((packed));
 
 struct StoreHdr {

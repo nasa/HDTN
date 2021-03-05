@@ -248,6 +248,8 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     egressSock.connect(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH); // egress should bind
     zmq::socket_t fromEgressSock(*m_zmqContextPtr, zmq::socket_type::pull);
     fromEgressSock.connect(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH); // egress should bind
+    zmq::socket_t toIngressSock(*m_zmqContextPtr, zmq::socket_type::push);
+    toIngressSock.connect(HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH);
 
     zmq::pollitem_t pollItems[2] = {
         {fromEgressSock.handle(), 0, ZMQ_POLLIN, 0},
@@ -352,6 +354,10 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     }
                     if (rmsg.size() > 100) { //need to fix problem of writing message header as bundles
                         Write(block, &rmsg, bsm);
+                        //send ack message by echoing back the block
+                        if (!toIngressSock.send(zmq::const_buffer(block, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                            std::cout << "error: zmq could not send ingress an ack from storage" << std::endl;
+                        }
                     }
                 }
                 else if(type == HDTN_MSGTYPE_IRELSTART) {

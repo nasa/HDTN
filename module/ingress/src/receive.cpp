@@ -22,6 +22,7 @@ BpIngressSyscall::BpIngressSyscall() :
     m_udpReceiveBuffersCbVec(BP_INGRESS_MSG_NBUF),
     m_remoteEndpointsCbVec(BP_INGRESS_MSG_NBUF),
     m_udpReceiveBytesTransferredCbVec(BP_INGRESS_MSG_NBUF),
+    m_eventsTooManyInStorageQueue(0),
     m_running(false)
 {
 }
@@ -53,6 +54,8 @@ BpIngressSyscall::~BpIngressSyscall() {
         m_threadCbReaderPtr->join();
         m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
     }
+
+    std::cout << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue << std::endl;
 }
 
 int BpIngressSyscall::Init(uint32_t type) {
@@ -72,6 +75,11 @@ int BpIngressSyscall::Init(uint32_t type) {
         m_zmqCtx_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::context_t>();
         m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingStoragePtr, zmq::socket_type::push);
         m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
+        // socket for receiving acks from storage
+        m_zmqPullSock_connectingStorageToboundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingStoragePtr, zmq::socket_type::pull);
+        m_zmqPullSock_connectingStorageToboundIngressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH);
+        static const int timeout = 1;  // milliseconds
+        m_zmqPullSock_connectingStorageToboundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
     }
     return 0;
 }
@@ -115,8 +123,7 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
     memset(&bpv6Primary, 0, sizeof(bpv6_primary_block));
     {
         const char * const tbuf = (const char*)rxBuf.data(); //char tbuf[HMSG_MSG_MAX];
-        hdtn::BlockHdr hdr;
-        memset(&hdr, 0, sizeof(hdtn::BlockHdr));
+        
         ////timer = rdtsc();
         //memcpy(tbuf, m_bufs[i], recvlen);
         //hdr.ts = timer;
@@ -125,6 +132,16 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         const uint32_t priority = bpv6_bundle_get_priority(bpv6Primary.flags);
         //std::cout << "p: " << priority << " lt " << bpv6Primary.lifetime << " c " << bpv6Primary.creation << ":" << bpv6Primary.sequence << " a: " << absExpirationUsec <<  std::endl;
         dst.node = bpv6Primary.dst_node;
+
+        
+        
+        //m_storageAckQueueMutex.lock();
+        //m_storageAckQueue.
+        //
+        //m_storageAckQueueMutex.unlock();
+        std::unique_ptr<BlockHdr> hdrUptr = std::make_unique<BlockHdr>();
+        hdtn::BlockHdr & hdr = *hdrUptr;
+        memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         hdr.flowId = static_cast<uint32_t>(dst.node);  // for now
         hdr.base.flags = static_cast<uint16_t>(bpv6Primary.flags);
         hdr.base.type = (m_alwaysSendToStorage) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
@@ -145,21 +162,66 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         }
         for (std::size_t j = 0; j < numChunks; ++j) {
             if ((j == numChunks - 1) && (remainder != 0)) bytesToSend = remainder;
-            hdr.bundleSeq = m_ingSequenceNum;
+            hdr.bundleSeq = m_ingSequenceNum;  //TODO make thread safe
             m_ingSequenceNum++;
             hdr.zframe = zframeSeq;
             zframeSeq++;
-            zmq::socket_t * const socket = (hdr.base.type == HDTN_MSGTYPE_EGRESS) ? 
-                m_zmqPushSock_boundIngressToConnectingEgressPtr.get() :
-                m_zmqPushSock_boundIngressToConnectingStoragePtr.get();
-            socket->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore);
-            //char data[bytesToSend];
-            //memcpy(data, tbuf + (CHUNK_SIZE * j), bytesToSend);
-            //m_zmqCutThroughSock->send(data, bytesToSend, 0);
-            socket->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::none);
+            if (hdr.base.type == HDTN_MSGTYPE_EGRESS) {
+                m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore);                
+                m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::none);
+            }
+            else { //storage
+
+                //first use this thread to do the work of emptying any storage acks
+                zmq::message_t rhdr;
+                boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
+                zmq::recv_flags rflags = zmq::recv_flags::dontwait; //first attempt don't wait
+                for(unsigned int attempt = 0; attempt < 2000; ++attempt) { //2000 ms timeout
+                    while (m_zmqPullSock_connectingStorageToboundIngressPtr->recv(rhdr, rflags)) { //socket already has 1ms timeout
+                        if (rhdr.size() == sizeof(BlockHdr)) {
+                            BlockHdr rblk;
+                            memcpy(&rblk, rhdr.data(), sizeof(BlockHdr));
+                            //std::cout << "ack: " << m_storageAckQueue.size() << std::endl;
+                            if (m_storageAckQueue.empty()) {
+                                std::cerr << "error m_storageAckQueue is empty" << std::endl;
+                            }
+                            else if (!m_storageAckQueue.front()) {
+                                std::cerr << "error q element is null" << std::endl;
+                            }
+                            else if (*m_storageAckQueue.front() == rblk) {
+                                m_storageAckQueue.pop();
+                            }
+                            else {
+                                std::cerr << "error didn't receive expected ack" << std::endl;
+                            }
+                            //std::cout << "done ack: " << m_storageAckQueue.size() << std::endl;
+                        }
+                    }
+                    if (m_storageAckQueue.size() > 5) {
+                        rflags = zmq::recv_flags::none; //second and subsequent attempts wait up to 1 ms
+                        ++m_eventsTooManyInStorageQueue;
+                    }
+
+                    if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                        std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
+                    }
+                    else {                        
+                        if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
+                            std::cerr << "ingress can't send bundle to storage" << std::endl;
+                        }
+                        else {
+                            //success
+                            m_storageAckQueue.push(std::move(hdrUptr));
+                        }
+                    }
+                    break;
+                    
+                }
+            }
+            
             ++m_zmsgsOut;
         }
-        ++m_bundleCount;
+        ++m_bundleCount;  //todo thread safe
         m_bundleData += messageSize;
         ////timer = rdtsc() - timer;
     }

@@ -14,6 +14,7 @@
 #include "TcpclBundleSink.h"
 #include "StcpBundleSink.h"
 #include <list>
+#include <queue>
 
 // Used to receive multiple datagrams (e.g. recvmmsg)
 #define BP_INGRESS_STRBUF_SZ (8192)
@@ -80,6 +81,7 @@ private:
     boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
     boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingStoragePtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToboundIngressPtr;
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
     int m_type;
@@ -96,6 +98,9 @@ private:
     boost::condition_variable m_conditionVariableCb;
     boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;
+    boost::mutex m_storageAckQueueMutex;
+    std::size_t m_eventsTooManyInStorageQueue;
     volatile bool m_running;
     bool m_useTcpcl;
     bool m_useStcp;
