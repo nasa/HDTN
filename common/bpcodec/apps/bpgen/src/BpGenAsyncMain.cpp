@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) {
         uint32_t bundleRate;
         uint32_t tcpclFragmentSize;
         uint32_t durationSeconds;
+        uint64_t flowId;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -51,6 +52,7 @@ int main(int argc, char* argv[]) {
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ("tcpcl-fragment-size", boost::program_options::value<boost::uint32_t>()->default_value(0), "Max fragment size bytes of Tcpcl bundles (0->disabled).")
                         ("tcpcl-eid", boost::program_options::value<std::string>()->default_value("BpGen"), "Local EID string for this program.")
+                        ("flow-id", boost::program_options::value<uint64_t>()->default_value(2), "Destination flow id.")
                         ;
 
                 boost::program_options::variables_map vm;
@@ -79,6 +81,7 @@ int main(int argc, char* argv[]) {
                 tcpclFragmentSize = vm["tcpcl-fragment-size"].as<boost::uint32_t>();
                 durationSeconds = vm["duration"].as<boost::uint32_t>();
                 thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
+                flowId = vm["flow-id"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -98,7 +101,7 @@ int main(int argc, char* argv[]) {
         std::cout << "starting BpGenAsync.." << std::endl;
 
         BpGenAsync bpGen;
-        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString);
+        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString, flowId);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::seconds(durationSeconds));

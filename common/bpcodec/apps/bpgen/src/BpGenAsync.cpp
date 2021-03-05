@@ -54,7 +54,7 @@ void BpGenAsync::Stop() {
     }
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString) {
+void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
@@ -112,13 +112,13 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
 
     m_running = true;
     m_bpGenThreadPtr = boost::make_shared<boost::thread>(
-        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, tcpclFragmentSize)); //create and start the worker thread
+        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, tcpclFragmentSize, destFlowId)); //create and start the worker thread
 
 
 
 }
 
-void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize) {
+void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, uint64_t destFlowId) {
 
 
 
@@ -146,7 +146,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     uint64_t raw_data = 0;
 
     int source_node = BP_GEN_SRC_NODE_DEFAULT;
-    int dest_node = BP_GEN_DST_NODE_DEFAULT;
+    //int dest_node = BP_GEN_DST_NODE_DEFAULT;
 
     std::vector<uint8_t> data_buffer(bundleSizeBytes);
     memset(data_buffer.data(), 0, bundleSizeBytes);
@@ -213,7 +213,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
             primary.src_node = source_node;
             primary.src_svc = 1;
-            primary.dst_node = dest_node;
+            primary.dst_node = destFlowId;
             primary.dst_svc = 1;
             primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
             primary.lifetime = 1000;

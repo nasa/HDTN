@@ -77,14 +77,16 @@ int main(int argc, char *argv[]) {
     boost::this_thread::sleep(boost::posix_time::seconds(delayBeforeSendSeconds));
 
     if (isStartMessage) {
-        hdtn::IreleaseStartHdr releaseMsg;
-        memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-        releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
-        releaseMsg.flowId = flowId;
-        releaseMsg.rate = 0;  //not implemented
-        releaseMsg.duration = 20;//not implemented
-        socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-        std::cout << "Start Release message sent \n";
+        for (int i = 0; i < 2; ++i) {
+            hdtn::IreleaseStartHdr releaseMsg;
+            memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+            releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
+            releaseMsg.flowId = i + 1;//flowId;
+            releaseMsg.rate = 0;  //not implemented
+            releaseMsg.duration = 20;//not implemented
+            socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
+            std::cout << "Start Release message sent \n";
+        }
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
     else {

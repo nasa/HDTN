@@ -128,12 +128,12 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                         if (!sockets[itemIndex]->recv(*zmqMessagePtr, zmq::recv_flags::none)) {
                             continue;
                         }
+                        hdtn::BlockHdr *block = (hdtn::BlockHdr *)hdr.data();
                         if (itemIndex == 1) { //reply to storage
-                            hdtn::BlockHdr *block = (hdtn::BlockHdr *)hdr.data();
                             flowIdToNeedAcksQueueMap[block->flowId].push(block->zframe);
                         }
                         unsigned int numUnackedBundles = 0;
-                        Forward(1, zmqMessagePtr, numUnackedBundles);  //TODO: FIX 1 WHICH SHOULD BE FLOW ID
+                        Forward(block->flowId, zmqMessagePtr, numUnackedBundles); 
                         if (numUnackedBundles > 10) {
                             std::cout << numUnackedBundles << std::endl;
                         }
@@ -156,11 +156,11 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         for (flowid_needacksqueue_map_t::iterator it = flowIdToNeedAcksQueueMap.begin(); it != flowIdToNeedAcksQueueMap.end(); ++it) {
             const uint64_t flowId = it->first;
-            const unsigned int fec = 1; //TODO
+            //const unsigned int fec = 1; //TODO
             segid_queue_t & q = it->second;
             
             
-            std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(fec);
+            std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(static_cast<unsigned int>(flowId));
             if (entryIt != m_entryMap.end()) {
                 if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
                     const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
