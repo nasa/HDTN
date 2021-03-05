@@ -39,11 +39,12 @@ struct bpgen_hdr {
     timespec abstime;
 };
 
-BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString) :
+BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString, const uint32_t extraProcessingTimeMs) :
     m_rxPortUdpOrTcp(port),
     m_useTcpcl(useTcpcl),
     m_useStcp(useStcp),
     M_THIS_EID_STRING(thisLocalEidString),
+    M_EXTRA_PROCESSING_TIME_MS(extraProcessingTimeMs),
     m_udpSocket(m_ioService),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
     m_circularIndexBuffer(BP_MSG_NBUF),
@@ -141,6 +142,9 @@ int BpSinkAsync::Netstart() {
 }
 
 int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
+    if (M_EXTRA_PROCESSING_TIME_MS) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(M_EXTRA_PROCESSING_TIME_MS));
+    }
 
     {
         bpv6_primary_block primary;

@@ -228,10 +228,13 @@ int BundleStorageManagerMT::PushSegment(BundleStorageManagerSession_WriteToDisk 
 
 uint64_t BundleStorageManagerMT::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks) { //0 if empty, size if entry
 	std::vector<priority_vec_t *> priorityVecPtrs;
+    std::vector<uint64_t> priorityIndexToLinkIdVec;
 	priorityVecPtrs.reserve(availableDestLinks.size());
+    priorityIndexToLinkIdVec.reserve(availableDestLinks.size());
 	for (std::size_t i = 0; i < availableDestLinks.size(); ++i) {
 		if (m_destMap.count(availableDestLinks[i]) > 0) {
 			priorityVecPtrs.push_back(&m_destMap[availableDestLinks[i]]);
+            priorityIndexToLinkIdVec.push_back(availableDestLinks[i]);
 		}
 	}
 	session.nextLogicalSegment = 0;
@@ -260,6 +263,7 @@ uint64_t BundleStorageManagerMT::PopTop(BundleStorageManagerSession_ReadFromDisk
 					session.chainInfoVecPtr = &it->second;
 					session.expirationMapIterator = it;
 					session.absExpiration = it->first;
+                    session.destLinkId = priorityIndexToLinkIdVec[j];
 				}
 			}
 		}
@@ -463,7 +467,7 @@ bool BundleStorageManagerMT::RestoreFromDisk(uint64_t * totalBundlesRestored, ui
 				//copy bundle header and store to maps, push segmentId to chain vec
 				bp_primary_if_base_t bundleMetaData;
 				memcpy(&bundleMetaData, dataReadBuf + SEGMENT_RESERVED_SPACE, sizeof(bundleMetaData));
-				
+				//////////////fix this
 				
 				const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 

@@ -148,6 +148,11 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
             }
         }
         
+        //Check for tcpcl acks from a bpsink-like program.
+        //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
+        //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
+        // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
+        // order of the acks.
         timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         for (flowid_needacksqueue_map_t::iterator it = flowIdToNeedAcksQueueMap.begin(); it != flowIdToNeedAcksQueueMap.end(); ++it) {
             const uint64_t flowId = it->first;
@@ -157,13 +162,8 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
             
             std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(fec);
             if (entryIt != m_entryMap.end()) {
-                //std::cout << "h0" << std::endl;
-                //std::cout << entry.get() << std::endl;
                 if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
-                    //std::cout << entryTcpcl.get() << std::endl;
-                    //std::cout << "h1" << std::endl;
                     const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
-                    //std::cout << "h2 " << numAckedRemaining << " " << q.size() <<  std::endl;
                     while (q.size() > numAckedRemaining) {
                         hdtn::BlockHdr blockHdr;
                         blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;

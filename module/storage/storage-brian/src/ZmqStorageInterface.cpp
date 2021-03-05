@@ -281,20 +281,13 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::size_t totalEventsAllLinksClogged = 0;
     std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
     std::size_t totalEventsDataInStorageForCloggedLinks = 0;
-    //uint16_t egressBufferSize = 2;
-    //std::vector<uint64_t> availableDestLinksVec;
+
     std::set<uint64_t> availableDestLinksSet;
     flowid_opensessions_map_t flowIdToOpenSessionsMap;
-    //bool storageStillHasData = true;
+
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
-    while (m_running) {
-        // Use a form of receive that times out so we can terminate cleanly.  If no
-        // message was received after timeout go back to top of loop
-        
-        //const bool doSendToEgress = (egressBufferSize > 0) && (availableDestLinksVec.size() > 0) && (storageStillHasData);
-        //const long timeoutPoll = (doSendToEgress) ? 0 : 250; //0 => no blocking
-        //storageStillHasData = true; //try again after a delay
+    while (m_running) {        
         if (zmq::poll(pollItems, 2, timeoutPoll) > 0) {            
             if (pollItems[0].revents & ZMQ_POLLIN) { //from egress sock
                 if (!fromEgressSock.recv(rhdr, zmq::recv_flags::none)) {
@@ -316,12 +309,13 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                         memcpy(&blockHdr, rhdr.data(), sizeof(hdtn::BlockHdr));
                         segid_session_map_t & segIdToSessionMap = flowIdToOpenSessionsMap[blockHdr.flowId];
                         segid_session_map_t::iterator it = segIdToSessionMap.find(blockHdr.zframe);
-                        if (it != segIdToSessionMap.end()) {
+                        if (it != segIdToSessionMap.end()) {                            
                             bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(*(it->second));
                             if (!successRemoveBundle) {
                                 std::cout << "error freeing bundle from disk\n";
                             }
                             segIdToSessionMap.erase(it);
+                            //std::cout << "remove flow " << blockHdr.flowId << " sz " << flowIdToOpenSessionsMap[blockHdr.flowId].size() << std::endl;
                             ++totalBundlesErasedFromStorage;
                         }
                     }
@@ -395,10 +389,9 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
             }            
         }
         
-        //if (doSendToEgress) {
+        //Send and maintain a maximum of 5 unacked bundles (per flow id) to Egress.
+        //When a bundle is acked from egress using the head segment Id, the bundle is deleted from disk and a new bundle can be sent.
         static const uint64_t maxBundleSizeToRead = 65535 * 10;
-        //static const bool deleteFromDiskNow = true;
-        //storageStillHasData = ReleaseOne_NoBlock(availableDestLinksVec, &egressSock, bsm, maxBundleSizeToRead, deleteFromDiskNow);
         if (availableDestLinksSet.empty()) {
             timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         }
@@ -407,6 +400,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
             std::vector<uint64_t> availableDestLinksCloggedVec;
             for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
                 const uint64_t flowId = *it;
+                //std::cout << "flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
                 if (flowIdToOpenSessionsMap[flowId].size() < 5) {
                     availableDestLinksNotCloggedVec.push_back(flowId);
                 }
@@ -422,6 +416,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     const segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
                     const segment_id_t segmentId = segmentIdChainVec[0];
                     flowIdToOpenSessionsMap[flowId][segmentId] = sessionPtr;
+                    //std::cout << "add flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
                     timeoutPoll = 0; //no timeout as we need to keep feeding to egress
                     ++totalBundlesSentToEgressFromStorage;
                 }
