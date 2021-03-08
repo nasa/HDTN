@@ -118,6 +118,10 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
 
 }
 
+void BpGenAsync::OnSuccessfulBundleAck() {
+    m_conditionVariableAckReceived.notify_one();
+}
+
 void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, uint64_t destFlowId) {
 
 
@@ -134,11 +138,11 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "Sleeping for " << sValU64 << " usec between bursts" << std::endl;
     }
     else {
-        std::cout << "bundle rate must be non-zero.. exiting"  << std::endl;;
-        return;
+        std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to 5 unacked bundles"  << std::endl;
+        m_tcpclBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
     }
 
-
+    std::size_t numEventsTooManyUnackedBundles = 0;
     //stats?
     //uint64_t bundle_count = 0;
     m_bundleCount = 0;
@@ -159,11 +163,18 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
     unsigned int numUnackedBundles = 0;
 
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+
     boost::asio::deadline_timer deadlineTimer(m_ioService, boost::posix_time::microseconds(sValU64));
     boost::shared_ptr<std::vector<uint8_t> > bundleToSend = boost::make_shared<std::vector<uint8_t> >(BP_MSG_BUFSZ);
     while (m_running) { //keep thread alive if running
-
-        {
+        /*
+        if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
+                    const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
+                    while (q.size() > numAckedRemaining) {*/
+        
+        if(bundleRate) {
             boost::system::error_code ec;
             deadlineTimer.wait(ec);
             if(ec) {
@@ -171,6 +182,15 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
                 return;
             }
             deadlineTimer.expires_at(deadlineTimer.expires_at() + boost::posix_time::microseconds(sValU64));
+        }
+        else {
+            const std::size_t numAckedRemaining = m_tcpclBundleSourcePtr->GetTotalDataSegmentsSent() - m_tcpclBundleSourcePtr->GetTotalDataSegmentsAcked();
+            if (numAckedRemaining > 5) {
+                ++numEventsTooManyUnackedBundles;
+                m_conditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
         }
         //boost::this_thread::sleep(boost::posix_time::microseconds(sValU64));
 
@@ -269,6 +289,9 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     std::cout << "bundle_count: " << m_bundleCount << std::endl;
     std::cout << "bundle_data (payload data): " << bundle_data << " bytes" << std::endl;
     std::cout << "raw_data (bundle overhead + payload data): " << raw_data << " bytes" << std::endl;
+    if (bundleRate == 0) {
+        std::cout << "numEventsTooManyUnackedBundles: " << numEventsTooManyUnackedBundles << std::endl;
+    }
 
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
 }

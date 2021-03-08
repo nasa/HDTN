@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) {
                         ("dest", boost::program_options::value<std::string>()->default_value("localhost"), "Send bundles to this TCP or UDP destination address.")
                         ("port", boost::program_options::value<boost::uint16_t>()->default_value(4556), "Send bundles to this TCP or UDP destination port.")
                         ("bundle-size", boost::program_options::value<boost::uint32_t>()->default_value(100), "Bundle size bytes.")
-                        ("bundle-rate", boost::program_options::value<boost::uint32_t>()->default_value(1500), "Bundle rate.")
+                        ("bundle-rate", boost::program_options::value<boost::uint32_t>()->default_value(1500), "Bundle rate. (0=>as fast as possible)")
                         ("duration", boost::program_options::value<boost::uint32_t>()->default_value(0), "Seconds to send bundles for (0=>infinity).")
                         ("use-stcp", "Use STCP instead of UDP.")
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
@@ -82,6 +82,11 @@ int main(int argc, char* argv[]) {
                 durationSeconds = vm["duration"].as<boost::uint32_t>();
                 thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
                 flowId = vm["flow-id"].as<uint64_t>();
+
+                if ((!useTcpcl) && (bundleRate == 0)) {
+                    std::cerr << "ERROR: bundle rate of 0 set (fastest possible with 5 acks) but tcpcl not selected" << std::endl;
+                    return 1;
+                }
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";

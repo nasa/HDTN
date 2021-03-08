@@ -18,7 +18,7 @@ public:
 private:
     void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, uint64_t destFlowId);
     void HandleUdpSendBundle(boost::shared_ptr<std::vector<uint8_t> > vecPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-
+    void OnSuccessfulBundleAck();
 
 
 
@@ -30,6 +30,7 @@ private:
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::shared_ptr<boost::thread> m_bpGenThreadPtr;
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
+    boost::condition_variable m_conditionVariableAckReceived;
     volatile bool m_running;
 };
 

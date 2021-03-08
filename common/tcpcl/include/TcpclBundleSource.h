@@ -14,6 +14,7 @@ class TcpclBundleSource {
 private:
     TcpclBundleSource();
 public:
+    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100);
 
     ~TcpclBundleSource();
@@ -22,6 +23,7 @@ public:
     std::size_t GetTotalDataSegmentsSent();
     void Connect(const std::string & hostname, const std::string & port);
     bool ReadyToForward();
+    void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
@@ -71,6 +73,7 @@ private:
     volatile bool m_reasonWasTimeOut;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;
+    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
 
     uint8_t m_tcpReadSomeBuffer[2000];
 

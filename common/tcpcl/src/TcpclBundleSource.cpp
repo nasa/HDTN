@@ -247,6 +247,9 @@ void TcpclBundleSource::AckCallback(uint32_t totalBytesAcknowledged) {
         ++m_totalDataSegmentsAcked;
         m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
         m_bytesToAckCb.CommitRead();
+        if (m_onSuccessfulAckCallback) {
+            m_onSuccessfulAckCallback();
+        }
     }
     else {
         std::cerr << "error: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
@@ -394,4 +397,8 @@ void TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired(const boost::s
 
 bool TcpclBundleSource::ReadyToForward() {
     return m_readyToForward;
+}
+
+void TcpclBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
+    m_onSuccessfulAckCallback = callback;
 }

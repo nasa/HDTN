@@ -259,10 +259,10 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             zframeSeq++;
             if (hdr.base.type == HDTN_MSGTYPE_EGRESS) {
                 boost::mutex::scoped_lock lock(m_egressAckMapQueueMutex);
-                for (unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
+                for (unsigned int attempt = 0; attempt < 16; ++attempt) { //4000 ms timeout
                     std::map<uint64_t, std::queue<std::unique_ptr<BlockHdr> > >::iterator myQIt = m_egressAckMapQueue.find(hdr.flowId);
                     if ((myQIt != m_egressAckMapQueue.end()) && (myQIt->second.size() > 5)) {
-                        if (attempt == 7) {
+                        if (attempt == 15) {
                             std::cerr << "error: too many pending egress acks in the queue for flow id " << hdr.flowId << std::endl;
                         }
                         m_conditionVariableEgressAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
