@@ -1,0 +1,24 @@
+{
+    "releaseMessageEvents": [
+    {
+        "id": 22,
+        "delay": 2,
+        "message": "stop"
+    },
+    {
+        "id": 33,
+        "delay": 3,
+        "message": "start"
+    },
+    {
+        "id": 66,
+        "delay": 6,
+        "message": "start"
+    },
+    {
+        "id": 44,
+        "delay": -1,
+        "message": "start"
+    }
+    ]
+}

@@ -6,9 +6,27 @@
 #define BOOST_TEST_DYN_LINK
 #endif
 
-//#define BOOST_TEST_NO_MAIN 1
-
-
 #include <boost/test/unit_test.hpp>
+#include <boost/test/results_reporter.hpp>
+#include <boost/test/unit_test_parameters.hpp>
+
+// Global Test Fixture. Used to setup report options for all unit tests.
+class BoostUnitTestsFixture {
+public:
+    BoostUnitTestsFixture();
+    ~BoostUnitTestsFixture();
+};
+
+BoostUnitTestsFixture::BoostUnitTestsFixture() {
+    boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
+    boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
+}
+
+BoostUnitTestsFixture::~BoostUnitTestsFixture() {
+}
+
+BOOST_GLOBAL_FIXTURE(BoostUnitTestsFixture);
+
+
 
 

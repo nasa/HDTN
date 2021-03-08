@@ -1,4 +1,3 @@
-
 #include <arpa/inet.h>
 #include <egress.h>
 #include <iostream>
@@ -42,7 +41,7 @@ HegrStcpEntryFixture::~HegrStcpEntryFixture() {
 }
 
 BOOST_FIXTURE_TEST_CASE( InitTestNominal1, HegrStcpEntryFixture ) {
-    std::cout << "Running test case InitTestNominal1" << std::endl << std::flush;
+//    std::cout << "Running test case InitTestNominal1" << std::endl << std::flush;
     uint64_t flags = HEGR_FLAG_UDP;
     const char* dst = "127.0.0.1";
     int port = 4557;
@@ -57,13 +56,13 @@ BOOST_FIXTURE_TEST_CASE( InitTestNominal1, HegrStcpEntryFixture ) {
 }
 
 BOOST_FIXTURE_TEST_CASE(LabelTestNominal1, HegrUdpEntryFixture) {
-    std::cout << "Running test case LabelTestNominal1" << std::endl << std::flush;
+//    std::cout << "Running test case LabelTestNominal1" << std::endl << std::flush;
     this->Label(1);
     BOOST_CHECK_EQUAL(1, this->m_label);
 }
 
 BOOST_FIXTURE_TEST_CASE(EnableTestNominal1, HegrUdpEntryFixture) {
-    std::cout << "Running test case EnableTestNominal1" << std::endl << std::flush;
+//    std::cout << "Running test case EnableTestNominal1" << std::endl << std::flush;
     uint64_t flags = HEGR_FLAG_UDP;
     const char* dst = "127.0.0.1";
     int port = 4557;
@@ -79,7 +78,7 @@ BOOST_FIXTURE_TEST_CASE(EnableTestNominal1, HegrUdpEntryFixture) {
 
 // It does not seem right that this test is valid.
 BOOST_FIXTURE_TEST_CASE(EnableTestOffNominal1,HegrUdpEntryFixture) {
-    std::cout << "Running test case EnableTestOffNominal1" << std::endl << std::flush;
+//    std::cout << "Running test case EnableTestOffNominal1" << std::endl << std::flush;
     // Calling enable without first calling init
     int returnCode = this->Enable();
     BOOST_CHECK_EQUAL(0, returnCode);
@@ -87,7 +86,7 @@ BOOST_FIXTURE_TEST_CASE(EnableTestOffNominal1,HegrUdpEntryFixture) {
 }
 
 BOOST_FIXTURE_TEST_CASE(DisableTestNominal1, HegrUdpEntryFixture) {
-    std::cout << "Running test case DisableTestNominal1" << std::endl << std::flush;
+//    std::cout << "Running test case DisableTestNominal1" << std::endl << std::flush;
     this->Enable();
     int returnCode = this->Disable();
     BOOST_CHECK_EQUAL(0, returnCode);

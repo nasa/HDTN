@@ -175,7 +175,13 @@ bool flow_store::init(std::string root) {
         perror("[flow-store:basic] Error");
         return false;
     }
+
+    #ifdef __APPLE__
+    int res = ftruncate(_index_fd, HDTN_FLOWCOUNT_MAX * sizeof(hdtn::flow_store_header));
+    #else 
     int res = fallocate(_index_fd, 0, 0, HDTN_FLOWCOUNT_MAX * sizeof(hdtn::flow_store_header));
+    #endif
+
     if (res) {
         std::cerr << "[flow-store:basic] Failed to allocate space for hdtn.index." << std::endl;
         perror("[flow-store:basic] Error");
