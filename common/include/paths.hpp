@@ -9,6 +9,7 @@
 //push-pull from ingress to egress 
 //#define HDTN_CUT_THROUGH_PATH "tcp://0.0.0.0:10100"
 #define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
+#define HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH "tcp://127.0.0.1:10160"
 //push-pull from ingress to storage 
 //#define HDTN_STORAGE_PATH "tcp://0.0.0.0:10110"
 #define HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH "tcp://127.0.0.1:10110"

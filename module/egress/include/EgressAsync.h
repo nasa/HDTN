@@ -334,9 +334,10 @@ public:
     uint64_t m_messageCount;
 
     bool m_testStorage = false;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingEgressPtr;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_connectingStorageToBoundEgressPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_storageEgressPtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
 

@@ -60,13 +60,15 @@ private:
     void StartUdpReceive();
     void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void PopCbThreadFunc();
+    void ReadZmqAcksThreadFunc();
 
     void TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr);
     void StartTcpAccept();
     void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error);
 
 public:
-
+    uint64_t m_bundleCountStorage = 0;
+    uint64_t m_bundleCountEgress = 0;
     uint64_t m_bundleCount = 0;
     uint64_t m_bundleData = 0;
     uint64_t m_zmsgsIn = 0;
@@ -77,11 +79,12 @@ public:
 
 private:
 
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingEgressPtr;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingStoragePtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingEgressToBoundIngressPtr;
+    boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressStoragePtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToboundIngressPtr;
+    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
     int m_type;
@@ -97,10 +100,16 @@ private:
     std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    boost::shared_ptr<boost::thread> m_threadZmqAckReaderPtr;
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
     std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
+    boost::condition_variable m_conditionVariableStorageAckReceived;
+    std::map<uint64_t, std::queue<std::unique_ptr<BlockHdr> > > m_egressAckMapQueue; //flow id to queue
+    boost::mutex m_egressAckMapQueueMutex;
+    boost::condition_variable m_conditionVariableEgressAckReceived;
     std::size_t m_eventsTooManyInStorageQueue;
+    std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
     bool m_useTcpcl;
     bool m_useStcp;

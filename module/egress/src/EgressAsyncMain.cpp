@@ -19,7 +19,7 @@ static SignalHandler g_sigHandler(boost::bind(&MonitorExitKeypressThreadFunction
 int main(int argc, char* argv[]) {
     //scope to ensure clean exit before return 0
     {
-        uint16_t port, port2;
+        uint16_t portLink1, portLink2;
         bool useTcpcl = false;
         bool useStcp = false;
 
@@ -27,8 +27,8 @@ int main(int argc, char* argv[]) {
         try {
                 desc.add_options()
                         ("help", "Produce help message.")
-                        ("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Connect to this TCP or UDP port.")
-                        ("port2", boost::program_options::value<boost::uint16_t>()->default_value(4558), "Connect to this TCP or UDP port.")
+                        ("port1", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Connect FlowId 1 to this TCP or UDP port (0=>disabled).")
+                        ("port2", boost::program_options::value<boost::uint16_t>()->default_value(4558), "Connect FlowId 2 to this TCP or UDP port (0=>disabled).")
                         ("use-stcp", "Use STCP instead of UDP.")
                         ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
                         ;
@@ -53,8 +53,8 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
 
-                port = vm["port"].as<boost::uint16_t>();
-                port2 = vm["port2"].as<boost::uint16_t>();
+                portLink1 = vm["port1"].as<boost::uint16_t>();
+                portLink2 = vm["port2"].as<boost::uint16_t>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -89,8 +89,12 @@ int main(int argc, char* argv[]) {
         hdtn::HegrManagerAsync egress;
         egress.Init();
         int entryStatus;
-        entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", port);
-        entryStatus = egress.Add(2, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", port2);
+        if (portLink1) {
+            entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", portLink1);
+        }
+        if (portLink2) {
+            entryStatus = egress.Add(2, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", portLink2);
+        }
         if (!entryStatus) {
             return 0;  // error message prints in add function
         }

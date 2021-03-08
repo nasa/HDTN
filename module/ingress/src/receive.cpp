@@ -23,6 +23,7 @@ BpIngressSyscall::BpIngressSyscall() :
     m_remoteEndpointsCbVec(BP_INGRESS_MSG_NBUF),
     m_udpReceiveBytesTransferredCbVec(BP_INGRESS_MSG_NBUF),
     m_eventsTooManyInStorageQueue(0),
+    m_eventsTooManyInEgressQueue(0),
     m_running(false)
 {
 }
@@ -55,6 +56,14 @@ BpIngressSyscall::~BpIngressSyscall() {
         m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
     }
 
+    if (m_threadZmqAckReaderPtr) {
+        m_threadZmqAckReaderPtr->join();
+        m_threadZmqAckReaderPtr = boost::shared_ptr<boost::thread>();
+    }
+
+    
+    std::cout << "m_bundleCountStorage: " << m_bundleCountStorage << std::endl;
+    std::cout << "m_bundleCountEgress: " << m_bundleCountEgress << std::endl;
     std::cout << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue << std::endl;
 }
 
@@ -68,18 +77,25 @@ int BpIngressSyscall::Init(uint32_t type) {
             boost::bind(&BpIngressSyscall::PopCbThreadFunc, this)); //create and start the worker thread
 
         // socket for cut-through mode straight to egress
-        m_zmqCtx_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::context_t>();
-        m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingEgressPtr, zmq::socket_type::push);
+        m_zmqCtx_ingressEgressPtr = boost::make_shared<zmq::context_t>();
+        m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
         m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
         // socket for sending bundles to storage
-        m_zmqCtx_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::context_t>();
-        m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingStoragePtr, zmq::socket_type::push);
+        m_zmqCtx_ingressStoragePtr = boost::make_shared<zmq::context_t>();
+        m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressStoragePtr, zmq::socket_type::push);
         m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
         // socket for receiving acks from storage
-        m_zmqPullSock_connectingStorageToboundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingStoragePtr, zmq::socket_type::pull);
-        m_zmqPullSock_connectingStorageToboundIngressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH);
-        static const int timeout = 1;  // milliseconds
-        m_zmqPullSock_connectingStorageToboundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+        m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressStoragePtr, zmq::socket_type::pull);
+        m_zmqPullSock_connectingStorageToBoundIngressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH);
+        // socket for receiving acks from egress
+        m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
+        m_zmqPullSock_connectingEgressToBoundIngressPtr->bind(HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH);
+        static const int timeout = 250;  // milliseconds
+        m_zmqPullSock_connectingStorageToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+        m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+
+        m_threadZmqAckReaderPtr = boost::make_shared<boost::thread>(
+            boost::bind(&BpIngressSyscall::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
     }
     return 0;
 }
@@ -112,6 +128,81 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     return 0;
+}
+
+void BpIngressSyscall::ReadZmqAcksThreadFunc() {
+
+    static const unsigned int NUM_SOCKETS = 2;
+
+    zmq::pollitem_t items[NUM_SOCKETS] = {
+        {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+    };
+    std::size_t totalAcksFromEgress = 0;
+    std::size_t totalAcksFromStorage = 0;
+
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+    BlockHdr rblk;
+    zmq::message_t rhdr;
+    while (m_running) { //keep thread alive if running
+        if (zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL) > 0) {
+            if (items[0].revents & ZMQ_POLLIN) { //ack from egress
+                if (m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(rhdr, zmq::recv_flags::dontwait)) {
+                    if (rhdr.size() == sizeof(BlockHdr)) {
+                        memcpy(&rblk, rhdr.data(), sizeof(BlockHdr));
+                        boost::mutex::scoped_lock lock(m_egressAckMapQueueMutex);
+                        std::map<uint64_t, std::queue<std::unique_ptr<BlockHdr> > >::iterator qIt = m_egressAckMapQueue.find(rblk.flowId);
+                        if (qIt == m_egressAckMapQueue.end()) {
+                            std::cerr << "error egress ack queue for flow id " << rblk.flowId << " does not exist in map" << std::endl;
+                        }
+                        else if (qIt->second.empty()) {
+                            std::cerr << "error egress q is empty" << std::endl;
+                        }
+                        else if (!qIt->second.front()) {
+                            std::cerr << "error egress q element is null" << std::endl;
+                        }
+                        else if (*qIt->second.front() == rblk) {
+                            qIt->second.pop();
+                            m_conditionVariableEgressAckReceived.notify_all();
+                            ++totalAcksFromEgress;
+                        }
+                        else {
+                            std::cerr << "error didn't receive expected egress ack" << std::endl;
+                        }
+                    }
+                }
+            }
+            if (items[1].revents & ZMQ_POLLIN) { //ack from storage
+                if (m_zmqPullSock_connectingStorageToBoundIngressPtr->recv(rhdr, zmq::recv_flags::dontwait)) {
+                    if (rhdr.size() == sizeof(BlockHdr)) {
+                        memcpy(&rblk, rhdr.data(), sizeof(BlockHdr));
+                        boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
+                        if (m_storageAckQueue.empty()) {
+                            std::cerr << "error m_storageAckQueue is empty" << std::endl;
+                        }
+                        else if (!m_storageAckQueue.front()) {
+                            std::cerr << "error q element is null" << std::endl;
+                        }
+                        else if (*m_storageAckQueue.front() == rblk) {
+                            m_storageAckQueue.pop();
+                            m_conditionVariableStorageAckReceived.notify_all();
+                            ++totalAcksFromStorage;
+                        }
+                        else {
+                            std::cerr << "error didn't receive expected storage ack" << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    std::cout << "totalAcksFromEgress: " << totalAcksFromEgress << std::endl;
+    std::cout << "totalAcksFromStorage: " << totalAcksFromStorage << std::endl;
+    std::cout << "m_bundleCountStorage: " << m_bundleCountStorage << std::endl;
+    std::cout << "m_bundleCountEgress: " << m_bundleCountEgress << std::endl;
+    m_bundleCount = m_bundleCountStorage + m_bundleCountEgress;
+    std::cout << "m_bundleCount: " << m_bundleCount << std::endl;
+    std::cout << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting\n";
 }
 
 int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {  //TODO: make buffer zmq message to reduce copy
@@ -167,51 +258,61 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             hdr.zframe = zframeSeq;
             zframeSeq++;
             if (hdr.base.type == HDTN_MSGTYPE_EGRESS) {
-                m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore);                
-                m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::none);
-            }
-            else { //storage
-
-                //first use this thread to do the work of emptying any storage acks
-                zmq::message_t rhdr;
-                boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
-                zmq::recv_flags rflags = zmq::recv_flags::dontwait; //first attempt don't wait
-                for(unsigned int attempt = 0; attempt < 2000; ++attempt) { //2000 ms timeout
-                    while (m_zmqPullSock_connectingStorageToboundIngressPtr->recv(rhdr, rflags)) { //socket already has 1ms timeout
-                        if (rhdr.size() == sizeof(BlockHdr)) {
-                            BlockHdr rblk;
-                            memcpy(&rblk, rhdr.data(), sizeof(BlockHdr));
-                            //std::cout << "ack: " << m_storageAckQueue.size() << std::endl;
-                            if (m_storageAckQueue.empty()) {
-                                std::cerr << "error m_storageAckQueue is empty" << std::endl;
-                            }
-                            else if (!m_storageAckQueue.front()) {
-                                std::cerr << "error q element is null" << std::endl;
-                            }
-                            else if (*m_storageAckQueue.front() == rblk) {
-                                m_storageAckQueue.pop();
-                            }
-                            else {
-                                std::cerr << "error didn't receive expected ack" << std::endl;
-                            }
-                            //std::cout << "done ack: " << m_storageAckQueue.size() << std::endl;
+                boost::mutex::scoped_lock lock(m_egressAckMapQueueMutex);
+                for (unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
+                    std::map<uint64_t, std::queue<std::unique_ptr<BlockHdr> > >::iterator myQIt = m_egressAckMapQueue.find(hdr.flowId);
+                    if ((myQIt != m_egressAckMapQueue.end()) && (myQIt->second.size() > 5)) {
+                        if (attempt == 7) {
+                            std::cerr << "error: too many pending egress acks in the queue for flow id " << hdr.flowId << std::endl;
+                        }
+                        m_conditionVariableEgressAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                        //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                        ++m_eventsTooManyInEgressQueue;
+                        continue; //next attempt
+                    }
+                    
+                    if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                        std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
+                    }
+                    else {
+                        m_egressAckMapQueue[hdr.flowId].push(std::move(hdrUptr));
+                        if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
+                            std::cerr << "ingress can't send bundle to storage" << std::endl;
+                        }
+                        else {
+                            //success                            
+                            ++m_bundleCountEgress;
                         }
                     }
+                    break;
+
+                }
+            }
+            else { //storage
+                boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
+                for(unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
                     if (m_storageAckQueue.size() > 5) {
-                        rflags = zmq::recv_flags::none; //second and subsequent attempts wait up to 1 ms
+                        if (attempt == 7) {
+                            std::cerr << "error: too many pending storage acks in the queue" << std::endl;
+                        }
+                        m_conditionVariableStorageAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                        //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
                         ++m_eventsTooManyInStorageQueue;
+                        continue; //next attempt
                     }
 
+                    //zmq threads not thread safe but protected by mutex above
                     if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                         std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
                     }
-                    else {                        
+                    else {
+                        m_storageAckQueue.push(std::move(hdrUptr));
                         if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
                             std::cerr << "ingress can't send bundle to storage" << std::endl;
                         }
                         else {
                             //success
-                            m_storageAckQueue.push(std::move(hdrUptr));
+                            ++m_bundleCountStorage;
                         }
                     }
                     break;
@@ -221,7 +322,7 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
             
             ++m_zmsgsOut;
         }
-        ++m_bundleCount;  //todo thread safe
+        
         m_bundleData += messageSize;
         ////timer = rdtsc() - timer;
     }

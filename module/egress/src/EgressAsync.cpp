@@ -39,14 +39,16 @@ void hdtn::HegrManagerAsync::Init() {
     m_bundleData = 0;
     m_messageCount = 0;
     // socket for cut-through mode straight to egress
-    m_zmqCtx_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::context_t>();
-    m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_boundIngressToConnectingEgressPtr, zmq::socket_type::pull);
+    m_zmqCtx_ingressEgressPtr = boost::make_shared<zmq::context_t>();
+    m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
     m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
+    m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
+    m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH);
     // socket for sending bundles to storage
-    m_zmqCtx_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::context_t>();
-    m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_connectingStorageToBoundEgressPtr, zmq::socket_type::pull);
+    m_zmqCtx_storageEgressPtr = boost::make_shared<zmq::context_t>();
+    m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::pull);
     m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH);
-    m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_connectingStorageToBoundEgressPtr, zmq::socket_type::push);
+    m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::push);
     m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH);
 
     try {
@@ -73,12 +75,20 @@ void hdtn::HegrManagerAsync::Init() {
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
-    typedef std::queue<uint32_t> segid_queue_t;
-    typedef std::map<uint64_t, segid_queue_t> flowid_needacksqueue_map_t;
+    struct QueueItem {
+        QueueItem(uint32_t segmentId) : m_segmentId(segmentId), m_isStorageAck(true) {}
+        QueueItem(const BlockHdr & blockHdr) : m_blockHdr(blockHdr), m_isStorageAck(false) {}
+        uint32_t m_segmentId; //for storage acks
+        BlockHdr m_blockHdr; //for ingress acks
+        bool m_isStorageAck;
+    };
+    typedef std::queue<QueueItem> queue_t;
+    typedef std::map<uint64_t, queue_t> flowid_needacksqueue_map_t;
 
     flowid_needacksqueue_map_t flowIdToNeedAcksQueueMap;
 
-    std::size_t totalCustodyTransfersSentToStorage = 0;    
+    std::size_t totalCustodyTransfersSentToStorage = 0;   
+    std::size_t totalCustodyTransfersSentToIngress = 0;
     std::size_t totalEventsQueueNotEmpty = 0;
 
     // Use a form of receive that times out so we can terminate cleanly.
@@ -129,8 +139,11 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                             continue;
                         }
                         hdtn::BlockHdr *block = (hdtn::BlockHdr *)hdr.data();
-                        if (itemIndex == 1) { //reply to storage
-                            flowIdToNeedAcksQueueMap[block->flowId].push(block->zframe);
+                        if (itemIndex == 0) { //reply to ingress
+                            flowIdToNeedAcksQueueMap[block->flowId].push(QueueItem(*block));
+                        }
+                        else if (itemIndex == 1) { //reply to storage
+                            flowIdToNeedAcksQueueMap[block->flowId].push(QueueItem(block->zframe));
                         }
                         unsigned int numUnackedBundles = 0;
                         Forward(block->flowId, zmqMessagePtr, numUnackedBundles); 
@@ -157,7 +170,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         for (flowid_needacksqueue_map_t::iterator it = flowIdToNeedAcksQueueMap.begin(); it != flowIdToNeedAcksQueueMap.end(); ++it) {
             const uint64_t flowId = it->first;
             //const unsigned int fec = 1; //TODO
-            segid_queue_t & q = it->second;
+            queue_t & q = it->second;
             
             
             std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(static_cast<unsigned int>(flowId));
@@ -165,15 +178,26 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
                     const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
                     while (q.size() > numAckedRemaining) {
-                        hdtn::BlockHdr blockHdr;
-                        blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
-                        blockHdr.flowId = static_cast<uint32_t>(flowId);
-                        blockHdr.zframe = q.front();
-                        if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(zmq::const_buffer(&blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
-                            std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
-                            break;
+                        const QueueItem & qItem = q.front();
+                        if (qItem.m_isStorageAck) {
+                            hdtn::BlockHdr blockHdr;
+                            blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
+                            blockHdr.flowId = static_cast<uint32_t>(flowId);
+                            blockHdr.zframe = qItem.m_segmentId;
+                            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(zmq::const_buffer(&blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                                std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                                break;
+                            }
+                            ++totalCustodyTransfersSentToStorage;
                         }
-                        ++totalCustodyTransfersSentToStorage;
+                        else {
+                            //send ack message by echoing back the block
+                            if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(zmq::const_buffer(&qItem.m_blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                                std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
+                                break;
+                            }
+                            ++totalCustodyTransfersSentToIngress;
+                        }
                         q.pop();
                     }
                         
@@ -189,6 +213,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         }
     }
     std::cout << "totalCustodyTransfersSentToStorage: " << totalCustodyTransfersSentToStorage << std::endl;
+    std::cout << "totalCustodyTransfersSentToIngress: " << totalCustodyTransfersSentToIngress << std::endl;
     std::cout << "totalEventsQueueNotEmpty: " << totalEventsQueueNotEmpty << std::endl;
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
