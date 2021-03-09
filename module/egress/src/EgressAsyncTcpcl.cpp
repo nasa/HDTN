@@ -72,5 +72,8 @@ void HegrTcpclEntryAsync::Connect(const std::string & hostname, const std::strin
     m_tcpclBundleSourcePtr->Connect(hostname, port);
 }
 
+TcpclBundleSource * HegrTcpclEntryAsync::GetTcpclBundleSourcePtr() {
+    return (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr.get() : NULL;
+}
 
 }; //end namespace hdtn
