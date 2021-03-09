@@ -29,6 +29,10 @@ BpIngressSyscall::BpIngressSyscall() :
 }
 
 BpIngressSyscall::~BpIngressSyscall() {
+    Stop();
+}
+
+void BpIngressSyscall::Stop() {
     //stop the socket before stopping the io service
     if (m_udpSocket.is_open()) {
         try {
@@ -37,11 +41,22 @@ BpIngressSyscall::~BpIngressSyscall() {
             std::cerr << "Error closing UDP socket in BpIngressSyscall::~BpIngressSyscall():  " << e.what() << std::endl;
         }
     }
-    m_tcpAcceptorPtr->close();
-    m_tcpAcceptorPtr = boost::shared_ptr<boost::asio::ip::tcp::acceptor>();
+    if (m_tcpAcceptorPtr) {
+        if (m_tcpAcceptorPtr->is_open()) {
+            try {
+                m_tcpAcceptorPtr->close();
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "Error closing TCP Acceptor in BpIngressSyscall::Stop():  " << e.what() << std::endl;
+            }
+        }        
+        m_tcpAcceptorPtr = boost::shared_ptr<boost::asio::ip::tcp::acceptor>();
+    }
     m_listTcpclBundleSinkPtrs.clear();
     m_listStcpBundleSinkPtrs.clear();
-    m_ioService.stop(); //ioservice doesn't need stopped at this point but just in case
+    if (!m_ioService.stopped()) {
+        m_ioService.stop(); //ioservice doesn't need stopped at this point but just in case
+    }
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
@@ -62,8 +77,7 @@ BpIngressSyscall::~BpIngressSyscall() {
     }
 
     
-    std::cout << "m_bundleCountStorage: " << m_bundleCountStorage << std::endl;
-    std::cout << "m_bundleCountEgress: " << m_bundleCountEgress << std::endl;
+    
     std::cout << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue << std::endl;
 }
 

@@ -51,6 +51,7 @@ class BpIngressSyscall {
 public:
     BpIngressSyscall();  // initialize message buffers
     ~BpIngressSyscall();
+    void Stop();
     int Init(uint32_t type);
     int Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool alwaysSendToStorage);
     int send_telemetry();

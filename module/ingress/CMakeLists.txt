@@ -4,6 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_library(ingress_async_lib STATIC
 	src/receive.cpp
+	src/IngressAsyncRunner.cpp
 )
 
 target_link_libraries(ingress_async_lib hdtn_reg hdtn_util tcpcl_lib stcp_lib ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} bpcodec ${Boost_LIBRARIES})
