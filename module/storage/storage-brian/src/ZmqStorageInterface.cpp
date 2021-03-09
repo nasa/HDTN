@@ -11,6 +11,10 @@
 hdtn::ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
 hdtn::ZmqStorageInterface::~ZmqStorageInterface() {
+    Stop();
+}
+
+void hdtn::ZmqStorageInterface::Stop() {
     m_running = false; //thread stopping criteria
     if (m_threadPtr) {
             m_threadPtr->join();
@@ -279,8 +283,8 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     typedef std::map<segment_id_t, session_read_ptr> segid_session_map_t;
     typedef std::map<uint64_t, segid_session_map_t> flowid_opensessions_map_t;
     
-    std::size_t totalBundlesErasedFromStorage = 0;
-    std::size_t totalBundlesSentToEgressFromStorage = 0;
+    m_totalBundlesErasedFromStorage = 0;
+    m_totalBundlesSentToEgressFromStorage = 0;
     std::size_t totalEventsAllLinksClogged = 0;
     std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
     std::size_t totalEventsDataInStorageForCloggedLinks = 0;
@@ -319,7 +323,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                             }
                             segIdToSessionMap.erase(it);
                             //std::cout << "remove flow " << blockHdr.flowId << " sz " << flowIdToOpenSessionsMap[blockHdr.flowId].size() << std::endl;
-                            ++totalBundlesErasedFromStorage;
+                            ++m_totalBundlesErasedFromStorage;
                         }
                     }
                 }
@@ -425,7 +429,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     flowIdToOpenSessionsMap[flowId][segmentId] = sessionPtr;
                     //std::cout << "add flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
                     timeoutPoll = 0; //no timeout as we need to keep feeding to egress
-                    ++totalBundlesSentToEgressFromStorage;
+                    ++m_totalBundlesSentToEgressFromStorage;
                 }
                 else if (PeekOne(availableDestLinksCloggedVec, bsm) > 0) { //data available in storage for clogged links
                     timeoutPoll = 1; //shortest timeout 1ms as we wait for acks
@@ -452,8 +456,6 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
         m_workerStats.flow.disk_rcount = stats.disk_rcount;*/
         
     }
-    std::cout << "totalBundlesErasedFromStorage: " << totalBundlesErasedFromStorage << std::endl;
-    std::cout << "totalBundlesSentToEgressFromStorage: " << totalBundlesSentToEgressFromStorage << std::endl;
     std::cout << "totalEventsAllLinksClogged: " << totalEventsAllLinksClogged << std::endl;
     std::cout << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks << std::endl;
     std::cout << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks << std::endl;

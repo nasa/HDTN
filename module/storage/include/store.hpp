@@ -59,11 +59,16 @@ class ZmqStorageInterface {
    public:
     ZmqStorageInterface();
     ~ZmqStorageInterface();
+    void Stop();
     void init(zmq::context_t *ctx, const storageConfig & config);
     void launch();
     //pthread_t *thread() { return &storageThread; }
 
     WorkerStats stats() { return m_workerStats; }
+
+    std::size_t m_totalBundlesErasedFromStorage = 0;
+    std::size_t m_totalBundlesSentToEgressFromStorage = 0;
+
 private:
     void ThreadFunc();
     //void Write(hdtn::block_hdr *hdr, zmq::message_t *message);
@@ -102,13 +107,19 @@ class storage_worker {
 
 
 class storage {
-   public:
+public:
+    storage();
+    ~storage();
+    void Stop();
     bool init(const storageConfig & config);
     void update();
     void dispatch();
     void scheduleRelease();
     void c2telem();
     StorageStats *stats() { return &storageStats; }
+
+    std::size_t m_totalBundlesErasedFromStorage = 0;
+    std::size_t m_totalBundlesSentToEgressFromStorage = 0;
 
    private:
     boost::shared_ptr<zmq::context_t> m_zmqContextPtr;

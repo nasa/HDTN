@@ -13,6 +13,20 @@
 #define HDTN_STORAGE_TYPE "storage"
 #define HDTN_STORAGE_RECV_MODE "push"
 
+hdtn::storage::storage() {
+
+}
+hdtn::storage::~storage() {
+    Stop();
+}
+void hdtn::storage::Stop() {
+#ifdef USE_BRIAN_STORAGE
+    worker.Stop();
+    m_totalBundlesErasedFromStorage = worker.m_totalBundlesErasedFromStorage;
+    m_totalBundlesSentToEgressFromStorage = worker.m_totalBundlesSentToEgressFromStorage;
+#endif
+}
+
 bool hdtn::storage::init(const storageConfig & config) {
     if (config.local.find(":") == std::string::npos) {
         return false;// throw error_t();
