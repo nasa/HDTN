@@ -22,6 +22,7 @@ private:
     BpSinkAsync();
 public:
     BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString, const uint32_t extraProcessingTimeMs = 0);  // initialize message buffers
+    void Stop();
     ~BpSinkAsync();
     int Init(uint32_t type);
     int Netstart();

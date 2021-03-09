@@ -57,6 +57,10 @@ BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::
 }
 
 BpSinkAsync::~BpSinkAsync() {
+    Stop();
+}
+
+void BpSinkAsync::Stop() {
     //stop the socket before stopping the io service
     if (m_udpSocket.is_open()) {
         try {
@@ -65,10 +69,20 @@ BpSinkAsync::~BpSinkAsync() {
             std::cerr << "Error closing UDP socket in BpSinkAsync::~BpSinkAsync():  " << e.what() << std::endl;
         }
     }
-    m_tcpAcceptor.close();
+    if (m_tcpAcceptor.is_open()) {
+        try {
+            m_tcpAcceptor.close();
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "Error closing TCP Acceptor in BpSinkAsync::Stop():  " << e.what() << std::endl;
+        }
+    }
+   
     m_tcpclBundleSinkPtr = boost::shared_ptr<TcpclBundleSink>();
     m_stcpBundleSinkPtr = boost::shared_ptr<StcpBundleSink>();
-    m_ioService.stop(); //stop may not be needed
+    if (!m_ioService.stopped()) {
+        m_ioService.stop(); //stop may not be needed
+    } 
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();

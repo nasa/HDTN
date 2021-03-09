@@ -35,6 +35,7 @@ endif()
 add_executable(bpgen-async
     bpgen/src/BpGenAsync.cpp
     bpgen/src/BpGenAsyncMain.cpp
+	bpgen/src/BpGenAsyncRunner.cpp
 )
 
 target_include_directories(bpgen-async PUBLIC 
@@ -56,6 +57,7 @@ endif()
 add_executable(bpsink-async
     bpsink/BpSinkAsync.cpp
     bpsink/BpSinkAsyncMain.cpp
+	bpsink/BpSinkAsyncRunner.cpp
 )
 
 target_include_directories(bpsink-async PUBLIC
