@@ -298,6 +298,7 @@ class HegrManagerAsync {
 public:
     HegrManagerAsync();
     ~HegrManagerAsync();
+    void Stop();
 
     /**
 

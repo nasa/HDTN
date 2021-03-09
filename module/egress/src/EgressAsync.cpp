@@ -10,6 +10,10 @@ hdtn::HegrManagerAsync::HegrManagerAsync() : m_udpSocket(m_ioService), m_work(m_
 }
 
 hdtn::HegrManagerAsync::~HegrManagerAsync() {
+    Stop();
+}
+
+void hdtn::HegrManagerAsync::Stop() {
     m_running = false;
     if(m_threadZmqReaderPtr) {
         m_threadZmqReaderPtr->join();

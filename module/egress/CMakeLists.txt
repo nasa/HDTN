@@ -19,6 +19,7 @@ endif()
 
 add_library(egress_async_lib STATIC
 	src/EgressAsync.cpp
+	src/EgressAsyncRunner.cpp
     src/EgressAsyncTcpcl.cpp
 	src/EgressAsyncStcp.cpp
 )
