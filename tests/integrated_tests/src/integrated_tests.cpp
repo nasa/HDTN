@@ -424,9 +424,9 @@ bool TestCutThrough3() {
                                                 "--duration=10", NULL },5,
                              std::ref(runningBpgen),&bundlesSentBpgen);
     // Allow time for data to flow
-    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    //boost::this_thread::sleep(boost::posix_time::seconds(10));  // Probably not needed due to duration parameter
     // Stop threads
-    runningBpgen = false;
+    //runningBpgen = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen.join();
     runningIngress = false;
     threadIngress.join();
