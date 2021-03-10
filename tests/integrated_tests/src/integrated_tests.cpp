@@ -349,15 +349,15 @@ bool TestCutThrough2() {
     // Start threads
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpsink(RunBpsinkAsync2,
-                             (const char * []){ "--use-tcpcl", "--port=4558", NULL },2,
+                             (const char * []){ "bpsink", "--use-tcpcl", "--port=4558", NULL }, 3,
                              std::ref(runningBpsink),&totalBundlesBpsink);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadEgress(RunEgressAsync2,
-                             (const char * []){ "--use-tcpcl", "--port1=0", "--port2=4558", NULL },3,
+                             (const char * []){ "egress", "--use-tcpcl", "--port1=0", "--port2=4558", NULL }, 4,
                              std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadIngress(RunIngress2,
-                              (const char * []){  NULL },0,
+                              (const char * []){ "ingress", NULL }, 1,
                               std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen(RunBpgenAsync2,
