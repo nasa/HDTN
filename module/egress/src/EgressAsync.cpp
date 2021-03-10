@@ -77,13 +77,24 @@ void hdtn::HegrManagerAsync::Init() {
     }
 }
 
-void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
+void hdtn::HegrManagerAsync::OnSuccessfulBundleAck() {
+    m_conditionVariableProcessZmqMessages.notify_one();
+}
 
+void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
+    std::vector<hdtn::BlockHdr> & headerMessages,
+    std::vector<bool> & isFromStorage,
+    std::vector<zmq::message_t> & payloadMessages)
+{
+    std::cout << "starting ProcessZmqMessagesThreadFunc with cb size " << headerMessages.size() << std::endl;
+    std::size_t totalCustodyTransfersSentToStorage = 0;
+    std::size_t totalCustodyTransfersSentToIngress = 0;
     struct QueueItem {
         QueueItem(uint32_t segmentId) : m_segmentId(segmentId), m_isStorageAck(true) {}
-        QueueItem(const BlockHdr & blockHdr) : m_blockHdr(blockHdr), m_isStorageAck(false) {}
+        QueueItem(const hdtn::BlockHdr & blockHdr) : m_blockHdr(blockHdr), m_isStorageAck(false) {}
         uint32_t m_segmentId; //for storage acks
-        BlockHdr m_blockHdr; //for ingress acks
+        hdtn::BlockHdr m_blockHdr; //for ingress acks
         bool m_isStorageAck;
     };
     typedef std::queue<QueueItem> queue_t;
@@ -91,9 +102,100 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
     flowid_needacksqueue_map_t flowIdToNeedAcksQueueMap;
 
-    std::size_t totalCustodyTransfersSentToStorage = 0;   
-    std::size_t totalCustodyTransfersSentToIngress = 0;
-    std::size_t totalEventsQueueNotEmpty = 0;
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+
+    while (m_running || (cb.GetIndexForRead() != UINT32_MAX)) { //keep thread alive if running or cb not empty
+
+
+        const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
+
+        if (consumeIndex != UINT32_MAX) { //if not empty
+            hdtn::BlockHdr & blockHdr = headerMessages[consumeIndex];
+            zmq::message_t & zmqMessage = payloadMessages[consumeIndex];
+            const uint16_t type = blockHdr.base.type;
+            if ((type == HDTN_MSGTYPE_STORE) || (type == HDTN_MSGTYPE_EGRESS)) {
+                if (isFromStorage[consumeIndex]) { //reply to storage
+                    flowIdToNeedAcksQueueMap[blockHdr.flowId].push(QueueItem(blockHdr.zframe));
+                }
+                else { //reply to ingress
+                    flowIdToNeedAcksQueueMap[blockHdr.flowId].push(QueueItem(blockHdr));
+                }
+                unsigned int numUnackedBundles = 0;
+                Forward(blockHdr.flowId, boost::make_shared<zmq::message_t>(std::move(zmqMessage)), numUnackedBundles);
+                if (numUnackedBundles > 10) {
+                    std::cout << numUnackedBundles << std::endl;
+                }
+            }
+            cb.CommitRead();
+        }
+        else {
+            //Check for tcpcl acks from a bpsink-like program.
+            //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
+            //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
+            // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
+            // order of the acks.
+            for (flowid_needacksqueue_map_t::iterator it = flowIdToNeedAcksQueueMap.begin(); it != flowIdToNeedAcksQueueMap.end(); ++it) {
+                const uint64_t flowId = it->first;
+                //const unsigned int fec = 1; //TODO
+                queue_t & q = it->second;
+                std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(static_cast<unsigned int>(flowId));
+                if (entryIt != m_entryMap.end()) {
+                    if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
+                        const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
+                        while (q.size() > numAckedRemaining) {
+                            const QueueItem & qItem = q.front();
+                            if (qItem.m_isStorageAck) {
+                                hdtn::BlockHdr blockHdr;
+                                blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
+                                blockHdr.flowId = static_cast<uint32_t>(flowId);
+                                blockHdr.zframe = qItem.m_segmentId;
+                                if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(zmq::const_buffer(&blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                                    std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                                    break;
+                                }
+                                ++totalCustodyTransfersSentToStorage;
+                            }
+                            else {
+                                //send ack message by echoing back the block
+                                if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(zmq::const_buffer(&qItem.m_blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                                    std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
+                                    break;
+                                }
+                                ++totalCustodyTransfersSentToIngress;
+                            }
+                            q.pop();
+                        }
+
+                    }
+
+                }
+            }
+            m_conditionVariableProcessZmqMessages.timed_wait(lock, boost::posix_time::milliseconds(100)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+        }
+
+    }
+
+    std::cout << "ProcessZmqMessagesThreadFunc thread exiting\n";
+    std::cout << "totalCustodyTransfersSentToStorage: " << totalCustodyTransfersSentToStorage << std::endl;
+    std::cout << "totalCustodyTransfersSentToIngress: " << totalCustodyTransfersSentToIngress << std::endl;
+}
+
+void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
+
+    static const unsigned int NUM_ZMQ_MESSAGES_CB = 40;
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable cb(NUM_ZMQ_MESSAGES_CB);
+    std::vector<hdtn::BlockHdr> headerMessages(NUM_ZMQ_MESSAGES_CB);
+    std::vector<bool> isFromStorage(NUM_ZMQ_MESSAGES_CB);
+    std::vector<zmq::message_t> payloadMessages(NUM_ZMQ_MESSAGES_CB);
+    boost::thread processZmqMessagesThread(boost::bind(
+        &hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc,
+        this,
+        boost::ref(cb),
+        boost::ref(headerMessages),
+        boost::ref(isFromStorage),
+        boost::ref(payloadMessages)));
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
@@ -110,13 +212,9 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     };
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-    long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
-
     while (m_running) { //keep thread alive if running
         zmq::message_t hdr;        
-        if (zmq::poll(&items[0], NUM_SOCKETS, timeoutPoll) > 0) {
-
-
+        if (zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL) > 0) {
             for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
                 if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                     continue;
@@ -126,99 +224,41 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 ++m_messageCount;
                 //char bundle[HMSG_MSG_MAX];
-                if (hdr.size() < sizeof(hdtn::CommonHdr)) {
-                    std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
+                if (hdr.size() != sizeof(hdtn::BlockHdr)) {
+                    std::cerr << "egress blockhdr message mismatch: " << hdr.size() << std::endl;
                     continue; //return -1;
                 }
-                hdtn::CommonHdr *common = (hdtn::CommonHdr *)hdr.data();
-                switch (common->type) {
-                case HDTN_MSGTYPE_STORE:
-                case HDTN_MSGTYPE_EGRESS: //todo
-                    boost::shared_ptr<zmq::message_t> zmqMessagePtr = boost::make_shared<zmq::message_t>();
+                const unsigned int writeIndex = cb.GetIndexForWrite();
+                if (writeIndex == UINT32_MAX) {
+                    std::cerr << "error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full" << std::endl;
+                    continue;
+                }
+                hdtn::BlockHdr & blockHdr = headerMessages[writeIndex];
+                memcpy(&blockHdr, hdr.data(), sizeof(hdtn::BlockHdr));
+                const uint16_t type = blockHdr.base.type;
+                if ((type == HDTN_MSGTYPE_STORE) || (type == HDTN_MSGTYPE_EGRESS)) {
+                    zmq::message_t & zmqMessage = payloadMessages[writeIndex];
                     // Use a form of receive that times out so we can terminate cleanly.  If no
                     // message was received after timeout go back to top of loop
                     // std::cout << "In runEgress, before recv. " << std::endl << std::flush;
                     while (m_running) {
-                        if (!sockets[itemIndex]->recv(*zmqMessagePtr, zmq::recv_flags::none)) {
+                        if (!sockets[itemIndex]->recv(zmqMessage, zmq::recv_flags::none)) {
                             continue;
                         }
-                        hdtn::BlockHdr *block = (hdtn::BlockHdr *)hdr.data();
-                        if (itemIndex == 0) { //reply to ingress
-                            flowIdToNeedAcksQueueMap[block->flowId].push(QueueItem(*block));
-                        }
-                        else if (itemIndex == 1) { //reply to storage
-                            flowIdToNeedAcksQueueMap[block->flowId].push(QueueItem(block->zframe));
-                        }
-                        unsigned int numUnackedBundles = 0;
-                        Forward(block->flowId, zmqMessagePtr, numUnackedBundles); 
-                        if (numUnackedBundles > 10) {
-                            std::cout << numUnackedBundles << std::endl;
-                        }
-
-                        m_bundleData += zmqMessagePtr->size();
+                        isFromStorage[writeIndex] = (itemIndex == 1);
+                       
+                        m_bundleData += zmqMessage.size();
                         ++m_bundleCount;
 
+                        cb.CommitWrite();
+                        m_conditionVariableProcessZmqMessages.notify_one();
                         break;
-                    }
-                    break;
+                    }                    
                 }
             }
-        }
-        
-        //Check for tcpcl acks from a bpsink-like program.
-        //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
-        //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
-        // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
-        // order of the acks.
-        timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
-        for (flowid_needacksqueue_map_t::iterator it = flowIdToNeedAcksQueueMap.begin(); it != flowIdToNeedAcksQueueMap.end(); ++it) {
-            const uint64_t flowId = it->first;
-            //const unsigned int fec = 1; //TODO
-            queue_t & q = it->second;
-            
-            
-            std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(static_cast<unsigned int>(flowId));
-            if (entryIt != m_entryMap.end()) {
-                if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
-                    const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
-                    while (q.size() > numAckedRemaining) {
-                        const QueueItem & qItem = q.front();
-                        if (qItem.m_isStorageAck) {
-                            hdtn::BlockHdr blockHdr;
-                            blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
-                            blockHdr.flowId = static_cast<uint32_t>(flowId);
-                            blockHdr.zframe = qItem.m_segmentId;
-                            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(zmq::const_buffer(&blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
-                                std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
-                                break;
-                            }
-                            ++totalCustodyTransfersSentToStorage;
-                        }
-                        else {
-                            //send ack message by echoing back the block
-                            if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(zmq::const_buffer(&qItem.m_blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
-                                std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
-                                break;
-                            }
-                            ++totalCustodyTransfersSentToIngress;
-                        }
-                        q.pop();
-                    }
-                        
-                }
-                    
-            }
-            
-            if (!q.empty()) {
-                timeoutPoll = 1; //shortest timeout 1ms as we wait for acks
-                ++totalEventsQueueNotEmpty;
-            }
-            
         }
     }
-    std::cout << "totalCustodyTransfersSentToStorage: " << totalCustodyTransfersSentToStorage << std::endl;
-    std::cout << "totalCustodyTransfersSentToIngress: " << totalCustodyTransfersSentToIngress << std::endl;
-    std::cout << "totalEventsQueueNotEmpty: " << totalEventsQueueNotEmpty << std::endl;
+    processZmqMessagesThread.join();
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
 }
@@ -243,6 +283,12 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
     else if (flags & HEGR_FLAG_TCPCLv3) {
         boost::shared_ptr<HegrTcpclEntryAsync> tcpclEntry = boost::make_shared<HegrTcpclEntryAsync>();
         tcpclEntry->Connect(dst, boost::lexical_cast<std::string>(port));
+        if (TcpclBundleSource * ptr = tcpclEntry->GetTcpclBundleSourcePtr()) {
+            ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
+        }
+        else {
+            std::cerr << "ERROR, CANNOT SET TCPCL CALLBACK" << std::endl;
+        }
         m_entryMap[fec] = tcpclEntry;
         m_entryMap[fec]->Disable();
         return 1;

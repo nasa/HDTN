@@ -224,6 +224,7 @@ public:
 
 
     void Connect(const std::string & hostname, const std::string & port);
+    TcpclBundleSource * GetTcpclBundleSourcePtr();
 
     std::size_t GetTotalBundlesAcked();
     std::size_t GetTotalBundlesSent();
@@ -344,12 +345,19 @@ public:
 
 private:
     void ReadZmqThreadFunc();
+    void OnSuccessfulBundleAck();
+    void ProcessZmqMessagesThreadFunc(
+        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
+        std::vector<hdtn::BlockHdr> & headerMessages,
+        std::vector<bool> & isFromStorage,
+        std::vector<zmq::message_t> & payloadMessages);
     std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> > m_entryMap;
     //HegrEntryAsync *Entry(int offset);
     //void *m_entries;
     boost::asio::io_service m_ioService;
     boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::io_service::work m_work; //keep ioservice::run from exiting when no work to do
+    boost::condition_variable m_conditionVariableProcessZmqMessages;
 
 
     boost::shared_ptr<boost::thread> m_threadZmqReaderPtr;
