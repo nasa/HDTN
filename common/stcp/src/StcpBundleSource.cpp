@@ -6,17 +6,33 @@
 #include <boost/endian/conversion.hpp>
 
 
-StcpBundleSource::StcpBundleSource(const uint16_t desiredKeeAliveIntervlSeconds) :
+StcpBundleSource::StcpBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t rateBps, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
+m_rateTimer(m_ioService),
+m_newDataSignalerTimer(m_ioService),
 M_KEEP_ALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
+M_RATE_BITS_PER_SEC(rateBps),
+MAX_UNACKED(maxUnacked),
+m_bytesToAckByRateCb(MAX_UNACKED),
+m_bytesToAckByRateCbVec(MAX_UNACKED),
+m_bytesToAckByTcpSendCallbackCb(MAX_UNACKED),
+m_bytesToAckByTcpSendCallbackCbVec(MAX_UNACKED),
 m_readyToForward(false),
 m_dataServedAsKeepAlive(true),
+m_rateTimerIsRunning(false),
+
+m_totalDataSegmentsAckedByTcpSendCallback(0),
+m_totalBytesAckedByTcpSendCallback(0),
+m_totalDataSegmentsAckedByRate(0),
+m_totalBytesAckedByRate(0),
 m_totalDataSegmentsSent(0),
 m_totalBundleBytesSent(0)
 {
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+
+    RestartNewDataSignaler();
 }
 
 StcpBundleSource::~StcpBundleSource() {
@@ -60,12 +76,35 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
     }
+
+    const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexRate == UINT32_MAX) { //push check
+        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by rate" << std::endl;
+        return false;
+    }
+
+    const unsigned int writeIndexTcpSendCallback = m_bytesToAckByTcpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexTcpSendCallback == UINT32_MAX) { //push check
+        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
+        return false;
+    }
+    
+
+
     numUnackedBundles = 0; //TODO
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += size;
     
     boost::shared_ptr<std::vector<uint8_t> > stcpDataUnitPtr = boost::make_shared<std::vector<uint8_t> >();
     StcpBundleSource::GenerateDataUnit(*stcpDataUnitPtr, bundleData, static_cast<uint32_t>(size));
+
+    m_bytesToAckByRateCbVec[writeIndexRate] = static_cast<uint32_t>(stcpDataUnitPtr->size());
+    m_bytesToAckByRateCb.CommitWrite(); //pushed
+
+    m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = static_cast<uint32_t>(stcpDataUnitPtr->size());
+    m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
+
+    SignalNewDataForwarded();
 
     m_dataServedAsKeepAlive = true;
     boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*stcpDataUnitPtr),
@@ -75,6 +114,16 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
     return true;
 }
 
+
+std::size_t StcpBundleSource::GetTotalDataSegmentsAcked() {
+    const std::size_t totalAckedByTcpSend = m_totalDataSegmentsAckedByTcpSendCallback;
+    const std::size_t totalAckedByRate = m_totalDataSegmentsAckedByRate;
+    return (totalAckedByTcpSend < totalAckedByRate) ? totalAckedByTcpSend : totalAckedByRate;
+}
+
+std::size_t StcpBundleSource::GetTotalDataSegmentsSent() {
+    return m_totalDataSegmentsSent;
+}
 
 
 void StcpBundleSource::Connect(const std::string & hostname, const std::string & port) {
@@ -130,6 +179,23 @@ void StcpBundleSource::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_
         std::cerr << "error in StcpBundleSource::HandleTcpSend: " << error.message() << std::endl;
         DoStcpShutdown();
     }
+    else {
+        const unsigned int readIndex = m_bytesToAckByTcpSendCallbackCb.GetIndexForRead();
+        if (readIndex == UINT32_MAX) { //empty
+            std::cerr << "error: AckCallback called with empty queue" << std::endl;
+        }
+        else if (m_bytesToAckByTcpSendCallbackCbVec[readIndex] == bytes_transferred) {
+            ++m_totalDataSegmentsAckedByTcpSendCallback;
+            m_totalBytesAckedByTcpSendCallback += m_bytesToAckByTcpSendCallbackCbVec[readIndex];
+            m_bytesToAckByTcpSendCallbackCb.CommitRead();
+            if (m_onSuccessfulAckCallback && (m_totalDataSegmentsAckedByTcpSendCallback <= m_totalDataSegmentsAckedByRate)) { //rate segments ahead
+                m_onSuccessfulAckCallback();
+            }
+        }
+        else {
+            std::cerr << "error in StcpBundleSource::HandleTcpSend: wrong bytes acked: expected " << m_bytesToAckByTcpSendCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+        }
+    }
 }
 
 void StcpBundleSource::HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred) {
@@ -161,6 +227,73 @@ void StcpBundleSource::HandleTcpReceiveSome(const boost::system::error_code & er
     }
     else if (error != boost::asio::error::operation_aborted) {
         std::cerr << "Error in StcpBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+    }
+}
+
+void StcpBundleSource::RestartNewDataSignaler() {
+    m_newDataSignalerTimer.expires_from_now(boost::posix_time::pos_infin);
+    m_newDataSignalerTimer.async_wait(boost::bind(&StcpBundleSource::OnNewData_TimerCancelled, this, boost::asio::placeholders::error));
+}
+
+void StcpBundleSource::SignalNewDataForwarded() {
+    //if (m_rateTimer.expires_from_now().is_positive()) {
+    //if the rate timer is running then it will automatically pick up the new data once it expires
+    if (!m_rateTimerIsRunning) {
+        m_newDataSignalerTimer.cancel(); //calls OnNewData_TimerCancelled within io_service thread
+    }
+    
+}
+
+void StcpBundleSource::OnNewData_TimerCancelled(const boost::system::error_code& e) {
+    if (e == boost::asio::error::operation_aborted) {
+        // Timer was cancelled as expected.  This method keeps calls within io_service thread.
+        RestartNewDataSignaler();
+        TryRestartRateTimer();
+    }
+    else {
+        std::cerr << "Critical error in OnHandleSocketShutdown_TimerCancelled: timer was not cancelled" << std::endl;
+    }
+}
+
+//restarts the rate timer if there is a pending ack in the cb
+void StcpBundleSource::TryRestartRateTimer() {
+    if (!m_rateTimerIsRunning) {
+        const unsigned int readIndex = m_bytesToAckByRateCb.GetIndexForRead();
+        if (readIndex != UINT32_MAX) { //notempty
+            const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
+            const double delayMicroSecDouble = (1.0 / M_RATE_BITS_PER_SEC) * numBitsDouble * 1e6;
+            const uint64_t delayMicroSec = static_cast<uint64_t>(delayMicroSecDouble);
+            //std::cout << "d " << delayMicroSec << std::endl;
+            m_rateTimer.expires_from_now(boost::posix_time::microseconds(delayMicroSec));
+            m_rateTimer.async_wait(boost::bind(&StcpBundleSource::OnRate_TimerExpired, this, boost::asio::placeholders::error, m_bytesToAckByRateCbVec[readIndex]));
+            m_rateTimerIsRunning = true;
+        }
+    }
+}
+
+void StcpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e, std::size_t bytes_transferred) {
+    m_rateTimerIsRunning = false;
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        const unsigned int readIndex = m_bytesToAckByRateCb.GetIndexForRead();
+        if (readIndex == UINT32_MAX) { //empty
+            std::cerr << "error: OnRate_TimerExpired called with empty queue" << std::endl;
+        }
+        else if (m_bytesToAckByRateCbVec[readIndex] == bytes_transferred) {
+            ++m_totalDataSegmentsAckedByRate;
+            m_totalBytesAckedByRate += m_bytesToAckByRateCbVec[readIndex];
+            m_bytesToAckByRateCb.CommitRead();
+            if (m_onSuccessfulAckCallback && (m_totalDataSegmentsAckedByRate <= m_totalDataSegmentsAckedByTcpSendCallback)) { //tcp send callback segments ahead
+                m_onSuccessfulAckCallback();
+            }
+            TryRestartRateTimer(); //must be called after commit read
+        }
+        else {
+            std::cerr << "error in StcpBundleSource::OnRate_TimerExpired: wrong bytes acked: expected " << m_bytesToAckByRateCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+        }
+    }
+    else {
+        //std::cout << "timer cancelled\n";
     }
 }
 
@@ -216,4 +349,8 @@ void StcpBundleSource::DoStcpShutdown() {
 
 bool StcpBundleSource::ReadyToForward() {
     return m_readyToForward;
+}
+
+void StcpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
+    m_onSuccessfulAckCallback = callback;
 }

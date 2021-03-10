@@ -15,6 +15,14 @@ HegrStcpEntryAsync::~HegrStcpEntryAsync() {
 
 }
 
+std::size_t HegrStcpEntryAsync::GetTotalBundlesAcked() {
+    return m_stcpBundleSourcePtr->GetTotalDataSegmentsAcked();
+}
+
+std::size_t HegrStcpEntryAsync::GetTotalBundlesSent() {
+    return m_stcpBundleSourcePtr->GetTotalDataSegmentsSent();
+}
+
 void HegrStcpEntryAsync::Init(uint64_t flags) {
     //m_fd = socket(AF_INET, SOCK_DGRAM, 0);
     //memcpy(&m_ipv4, inaddr, sizeof(sockaddr_in));
@@ -62,6 +70,10 @@ int HegrStcpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr,
 void HegrStcpEntryAsync::Connect(const std::string & hostname, const std::string & port) {
     m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15);
     m_stcpBundleSourcePtr->Connect(hostname, port);
+}
+
+StcpBundleSource * HegrStcpEntryAsync::GetStcpBundleSourcePtr() {
+    return (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr.get() : NULL;
 }
 
 

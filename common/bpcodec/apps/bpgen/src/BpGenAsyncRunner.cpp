@@ -90,8 +90,8 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
                 flowId = vm["flow-id"].as<uint64_t>();
 
-                if ((!useTcpcl) && (bundleRate == 0)) {
-                    std::cerr << "ERROR: bundle rate of 0 set (fastest possible with 5 acks) but tcpcl not selected" << std::endl;
+                if ( (!(useTcpcl || useStcp)) && (bundleRate == 0)) {
+                    std::cerr << "ERROR: bundle rate of 0 set (fastest possible with 5 acks) but tcpcl or stcp not selected" << std::endl;
                     return false;
                 }
         }

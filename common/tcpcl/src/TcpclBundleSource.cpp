@@ -252,7 +252,7 @@ void TcpclBundleSource::AckCallback(uint32_t totalBytesAcknowledged) {
         }
     }
     else {
-        std::cerr << "error: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
+        std::cerr << "error in TcpclBundleSource::AckCallback: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
     }
     
 }

@@ -100,6 +100,9 @@ public:
 
     void Shutdown();
 
+    virtual std::size_t GetTotalBundlesAcked() = 0;
+    virtual std::size_t GetTotalBundlesSent() = 0;
+
 protected:
     uint64_t m_label;
     uint64_t m_flags;
@@ -159,6 +162,8 @@ public:
 
     void Shutdown();
 
+    virtual std::size_t GetTotalBundlesAcked() { return 0; }
+    virtual std::size_t GetTotalBundlesSent() { return 0; }
 private:
     void HandleUdpSendBundle(boost::shared_ptr<zmq::message_t> zmqMessagePtr, const boost::system::error_code& error, std::size_t bytes_transferred);
 
@@ -226,8 +231,8 @@ public:
     void Connect(const std::string & hostname, const std::string & port);
     TcpclBundleSource * GetTcpclBundleSourcePtr();
 
-    std::size_t GetTotalBundlesAcked();
-    std::size_t GetTotalBundlesSent();
+    virtual std::size_t GetTotalBundlesAcked();
+    virtual std::size_t GetTotalBundlesSent();
 private:
     boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
 
@@ -290,6 +295,11 @@ public:
 
 
     void Connect(const std::string & hostname, const std::string & port);
+
+    StcpBundleSource * GetStcpBundleSourcePtr();
+
+    virtual std::size_t GetTotalBundlesAcked();
+    virtual std::size_t GetTotalBundlesSent();
 private:
     boost::shared_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
 
