@@ -35,6 +35,13 @@
 #include <boost/test/results_reporter.hpp>
 #include <boost/test/unit_test_parameters.hpp>
 #include "Environment.h"
+#include "BpGenAsyncRunner.h"
+#include "BpSinkAsyncRunner.h"
+#include "IngressAsyncRunner.h"
+#include "EgressAsyncRunner.h"
+
+
+
 
 enum Protocol { Tcpcl, Stcp, Udp};
 
@@ -48,6 +55,12 @@ int RunBpsinkAsync(bool useTcpcl, bool useStcp, uint64_t* ptrTotalBundlesBpsink,
 int RunReleaseMessageSender();
 bool TestStorage();
 bool TestCutThrough(Protocol protocol);
+
+int RunBpgenAsync2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+int RunEgressAsync2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+int RunBpsinkAsync2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+int RunIngress2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+bool TestCutThrough2();
 
 // Global flags used to control thread execution
 volatile bool RUN_BPGEN = true;
@@ -115,6 +128,50 @@ static void DurationEndedThreadFunction(const boost::system::error_code& e) {
         std::cout << "Unknown error occurred in DurationEndedThreadFunction " << e.message() << std::endl;
     }
     RUN_BPGEN = false;
+}
+
+int RunBpgenAsync2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount) {
+    std::cout << ">>>>>> Entering RunBpgenAsync2 ... " << std::endl << std::flush;
+    {
+        BpGenAsyncRunner runner;
+        runner.Run(argc, argv, running, false);
+        *ptrBundleCount = runner.m_bundleCount;
+    }
+    std::cout << ">>>>>> Leaving RunBpgenAsync2.  *ptrBundleCount = " << *ptrBundleCount << std::endl << std::flush;
+    return 0;
+}
+
+int RunEgressAsync2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount) {
+    std::cout << ">>>>>> Entering RunEgressAsync2 ... " << std::endl << std::flush;
+    {
+        EgressAsyncRunner runner;
+        runner.Run(argc, argv, running, false);
+        *ptrBundleCount = runner.m_bundleCount;
+    }
+    std::cout << ">>>>>> Leaving RunEgressAsync2.  *ptrBundleCount = " << *ptrBundleCount << std::endl << std::flush;
+    return 0;
+}
+
+int RunBpsinkAsync2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount) {
+    std::cout << ">>>>>> Entering RunBpsinkAsync2 ... " << std::endl << std::flush;
+    {
+        BpSinkAsyncRunner runner;
+        runner.Run(argc, argv, running, false);
+        *ptrBundleCount = runner.m_receivedCount;
+    }
+    std::cout << ">>>>>> Leaving RunBpsinkAsync2.  *ptrBundleCount = " << *ptrBundleCount << std::endl << std::flush;
+    return 0;
+}
+
+int RunIngress2(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount) {
+    std::cout << ">>>>>> Entering RunIngress2 ... " << std::endl << std::flush;
+    {
+        IngressAsyncRunner runner;
+        runner.Run(argc, argv, running, false);
+        *ptrBundleCount = runner.m_bundleCount;
+    }
+    std::cout << ">>>>>> Leaving RunIngress2.  *ptrBundleCount = " << *ptrBundleCount << std::endl << std::flush;
+    return 0;
 }
 
 int RunBpgenAsync(bool useTcpcl, bool useStcp, uint32_t bundleRate, uint64_t* ptrBundleCount) {
@@ -233,6 +290,7 @@ int RunBpsinkAsync(bool useTcpcl, bool useStcp, uint64_t* ptrTotalBundlesBpsink,
     return 0;
 }
 
+
 int RunReleaseMessageSender() {
     //scope to ensure clean exit before return 0
     {
@@ -276,6 +334,65 @@ int RunStorage() {
     }
     return 0;
 }
+
+bool TestCutThrough2() {
+    bool runningBpgen = true;
+    bool runningBpsink = true;
+    bool runningIngress = true;
+    bool runningEgress = true;
+
+    uint64_t bundlesSentBpgen = 0;
+    uint64_t totalBundlesBpsink = 0;
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+
+    // Start threads
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpsink(RunBpsinkAsync2,
+                             (const char * []){ "--use-tcpcl", "--port=4558", NULL },2,
+                             std::ref(runningBpsink),&totalBundlesBpsink);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadEgress(RunEgressAsync2,
+                             (const char * []){ "--use-tcpcl", "--port1=0", "--port2=4558", NULL },3,
+                             std::ref(runningEgress),&bundleCountEgress);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadIngress(RunIngress2,
+                              (const char * []){  NULL },0,
+                              std::ref(runningIngress),&bundleCountIngress);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpgen(RunBpgenAsync2,
+                             (const char * []){ "bpgen", "--bundle-rate=100", "--use-tcpcl", "--flow-id=2", NULL },4,
+                             std::ref(runningBpgen),&bundlesSentBpgen);
+    // Allow time for data to flow
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    // Stop threads
+    runningBpgen = false;
+    threadBpgen.join();
+    runningIngress = false;
+    threadIngress.join();
+    runningEgress = false;
+    threadEgress.join();
+    runningBpsink = false;
+    threadBpsink.join();
+    // Verify results
+    if (bundlesSentBpgen != bundleCountIngress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").");
+        return false;
+    }
+    if (bundlesSentBpgen != bundleCountEgress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").");
+        return false;
+    }
+    if (bundlesSentBpgen != totalBundlesBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(bundlesSentBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+    return true;
+}
+
 
 bool TestCutThrough(Protocol protocol) {
     RUN_BPGEN = true;
@@ -424,22 +541,27 @@ bool TestStorage() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl) {
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::disabled()) {
     bool result = TestCutThrough(Tcpcl);
     BOOST_CHECK(result == true);
 }
 
-BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp) {
+BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp, * boost::unit_test::disabled()) {
     bool result = TestCutThrough(Udp);
     BOOST_CHECK(result == true);
 }
 
-BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp) {
+BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp, * boost::unit_test::disabled()) {
     bool result = TestCutThrough(Stcp);
     BOOST_CHECK(result == true);
 }
 
-BOOST_AUTO_TEST_CASE(it_TestStorage) {
+BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::disabled()) {
     bool result = TestStorage();
+    BOOST_CHECK(result == true);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl2, * boost::unit_test::enabled()) {
+    bool result = TestCutThrough2();
     BOOST_CHECK(result == true);
 }

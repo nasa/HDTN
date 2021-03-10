@@ -14,6 +14,8 @@
 #include "message.hpp"
 #include <boost/bind.hpp>
 
+#include <boost/make_unique.hpp>
+
 namespace hdtn {
 
 BpIngressSyscall::BpIngressSyscall() :
@@ -244,7 +246,8 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         //m_storageAckQueue.
         //
         //m_storageAckQueueMutex.unlock();
-        std::unique_ptr<BlockHdr> hdrUptr = std::make_unique<BlockHdr>();
+        //std::unique_ptr<BlockHdr> hdrUptr = std::make_unique<BlockHdr>();
+        std::unique_ptr<BlockHdr> hdrUptr = boost::make_unique<BlockHdr>();
         hdtn::BlockHdr & hdr = *hdrUptr;
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         hdr.flowId = static_cast<uint32_t>(dst.node);  // for now

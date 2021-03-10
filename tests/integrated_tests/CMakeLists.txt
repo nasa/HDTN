@@ -27,6 +27,8 @@ add_executable(integrated-tests
 	src/integrated_tests.cpp
 	../../common/logging/src/logging.cpp
     ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
+    ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
+    ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
     ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
 
 	../../module/storage/src/store.cpp
