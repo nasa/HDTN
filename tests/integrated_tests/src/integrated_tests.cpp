@@ -486,7 +486,8 @@ bool TestCutThrough4() {
     boost::this_thread::sleep(boost::posix_time::seconds(3));
 // Works with this
 //    std::thread threadBpgen0(RunBpgenAsync2,
-//                             (const char * []){ "bpgen0", "--bundle-rate=20", "--use-tcpcl", "--flow-id=2", NULL },4,
+//                             (const char * []){ "bpgen0", "--bundle-rate=100", "--use-tcpcl", "--flow-id=2",
+//                                                "--duration=10" , NULL },5,
 //                             std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     std::thread threadBpgen0(RunBpgenAsync2,
                              (const char * []){ "bpgen0", "--bundle-rate=0", "--use-tcpcl", "--flow-id=2",
@@ -495,18 +496,19 @@ bool TestCutThrough4() {
     boost::this_thread::sleep(boost::posix_time::seconds(1));
 // Works with this
 //    std::thread threadBpgen1(RunBpgenAsync2,
-//                             (const char * []){ "bpgen1", "--bundle-rate=20", "--use-tcpcl", "--flow-id=1", NULL },4,
+//                             (const char * []){ "bpgen1", "--bundle-rate=100", "--use-tcpcl", "--flow-id=1",
+//                                                "--duration=10" ,NULL },5,
 //                             std::ref(runningBpgen[1]),&bundlesSentBpgen[1]);
     std::thread threadBpgen1(RunBpgenAsync2,
                              (const char * []){ "bpgen1", "--bundle-rate=0", "--use-tcpcl", "--flow-id=1",
                                                 "--duration=10" ,NULL },5,
                              std::ref(runningBpgen[1]),&bundlesSentBpgen[1]);
     // Allow time for data to flow
-    boost::this_thread::sleep(boost::posix_time::seconds(10));
+//    boost::this_thread::sleep(boost::posix_time::seconds(10)); // Probably not needed due to duration parameter
     // Stop threads
-    runningBpgen[1] = false;
+//    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen1.join();
-    runningBpgen[0] = false;
+//    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
     runningIngress = false;
     threadIngress.join();
