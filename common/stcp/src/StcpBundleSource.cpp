@@ -28,7 +28,8 @@ m_totalBytesAckedByTcpSendCallback(0),
 m_totalDataSegmentsAckedByRate(0),
 m_totalBytesAckedByRate(0),
 m_totalDataSegmentsSent(0),
-m_totalBundleBytesSent(0)
+m_totalBundleBytesSent(0),
+m_totalStcpBytesSent(0)
 {
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
@@ -51,7 +52,12 @@ StcpBundleSource::~StcpBundleSource() {
 
     //print stats
     std::cout << "m_totalDataSegmentsSent " << m_totalDataSegmentsSent << std::endl;
+    std::cout << "m_totalDataSegmentsAckedByTcpSendCallback " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
+    std::cout << "m_totalDataSegmentsAckedByRate " << m_totalDataSegmentsAckedByRate << std::endl;
     std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
+    std::cout << "m_totalStcpBytesSent " << m_totalStcpBytesSent << std::endl;
+    std::cout << "m_totalBytesAckedByTcpSendCallback " << m_totalBytesAckedByTcpSendCallback << std::endl;
+    std::cout << "m_totalBytesAckedByRate " << m_totalBytesAckedByRate << std::endl;
 }
 
 //An STCP protocol data unit (SPDU) is simply a serialized bundle
@@ -97,6 +103,8 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
     
     boost::shared_ptr<std::vector<uint8_t> > stcpDataUnitPtr = boost::make_shared<std::vector<uint8_t> >();
     StcpBundleSource::GenerateDataUnit(*stcpDataUnitPtr, bundleData, static_cast<uint32_t>(size));
+
+    m_totalStcpBytesSent += stcpDataUnitPtr->size();
 
     m_bytesToAckByRateCbVec[writeIndexRate] = static_cast<uint32_t>(stcpDataUnitPtr->size());
     m_bytesToAckByRateCb.CommitWrite(); //pushed
@@ -257,39 +265,45 @@ void StcpBundleSource::OnNewData_TimerCancelled(const boost::system::error_code&
 
 //restarts the rate timer if there is a pending ack in the cb
 void StcpBundleSource::TryRestartRateTimer() {
-    if (!m_rateTimerIsRunning) {
-        const unsigned int readIndex = m_bytesToAckByRateCb.GetIndexForRead();
-        if (readIndex != UINT32_MAX) { //notempty
+    if (!m_rateTimerIsRunning && (m_groupingOfBytesToAckByRateVec.size() == 0)) {
+        uint64_t delayMicroSec = 0;
+        for (unsigned int readIndex = m_bytesToAckByRateCb.GetIndexForRead(); readIndex != UINT32_MAX; readIndex = m_bytesToAckByRateCb.GetIndexForRead()) { //notempty
             const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
             const double delayMicroSecDouble = (1.0 / M_RATE_BITS_PER_SEC) * numBitsDouble * 1e6;
-            const uint64_t delayMicroSec = static_cast<uint64_t>(delayMicroSecDouble);
-            //std::cout << "d " << delayMicroSec << std::endl;
+            delayMicroSec += static_cast<uint64_t>(delayMicroSecDouble);
+            m_bytesToAckByRateCb.CommitRead();
+            m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
+            if (delayMicroSec >= 10000) { //try to avoid sleeping for any time smaller than 10 milliseconds
+                break;
+            }
+        }
+        if (m_groupingOfBytesToAckByRateVec.size()) {
+            //std::cout << "d " << delayMicroSec << " sz " << m_groupingOfBytesToAckByRateVec.size() << std::endl;
             m_rateTimer.expires_from_now(boost::posix_time::microseconds(delayMicroSec));
-            m_rateTimer.async_wait(boost::bind(&StcpBundleSource::OnRate_TimerExpired, this, boost::asio::placeholders::error, m_bytesToAckByRateCbVec[readIndex]));
+            m_rateTimer.async_wait(boost::bind(&StcpBundleSource::OnRate_TimerExpired, this, boost::asio::placeholders::error));
             m_rateTimerIsRunning = true;
         }
     }
 }
 
-void StcpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e, std::size_t bytes_transferred) {
+void StcpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e) {
     m_rateTimerIsRunning = false;
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        const unsigned int readIndex = m_bytesToAckByRateCb.GetIndexForRead();
-        if (readIndex == UINT32_MAX) { //empty
-            std::cerr << "error: OnRate_TimerExpired called with empty queue" << std::endl;
-        }
-        else if (m_bytesToAckByRateCbVec[readIndex] == bytes_transferred) {
-            ++m_totalDataSegmentsAckedByRate;
-            m_totalBytesAckedByRate += m_bytesToAckByRateCbVec[readIndex];
-            m_bytesToAckByRateCb.CommitRead();
+        if(m_groupingOfBytesToAckByRateVec.size() > 0) {
+            m_totalDataSegmentsAckedByRate += m_groupingOfBytesToAckByRateVec.size();
+            for (std::size_t i = 0; i < m_groupingOfBytesToAckByRateVec.size(); ++i) {
+                m_totalBytesAckedByRate += m_groupingOfBytesToAckByRateVec[i];
+            }
+            m_groupingOfBytesToAckByRateVec.clear();
+        
             if (m_onSuccessfulAckCallback && (m_totalDataSegmentsAckedByRate <= m_totalDataSegmentsAckedByTcpSendCallback)) { //tcp send callback segments ahead
                 m_onSuccessfulAckCallback();
             }
             TryRestartRateTimer(); //must be called after commit read
         }
         else {
-            std::cerr << "error in StcpBundleSource::OnRate_TimerExpired: wrong bytes acked: expected " << m_bytesToAckByRateCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+            std::cerr << "error in StcpBundleSource::OnRate_TimerExpired: m_groupingOfBytesToAckByRateVec is size 0" << std::endl;
         }
     }
     else {

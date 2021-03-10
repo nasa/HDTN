@@ -36,7 +36,7 @@ private:
     void SignalNewDataForwarded();
     void OnNewData_TimerCancelled(const boost::system::error_code& e);
     void TryRestartRateTimer();
-    void OnRate_TimerExpired(const boost::system::error_code& e, std::size_t bytes_transferred);
+    void OnRate_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
     void DoStcpShutdown();
 
@@ -59,6 +59,7 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByRateCb;
     std::vector<uint32_t> m_bytesToAckByRateCbVec;
+    std::vector<uint32_t> m_groupingOfBytesToAckByRateVec;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByTcpSendCallbackCb;
     std::vector<uint32_t> m_bytesToAckByTcpSendCallbackCbVec;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
@@ -76,6 +77,7 @@ public:
     std::size_t m_totalBytesAckedByRate;
     std::size_t m_totalDataSegmentsSent;
     std::size_t m_totalBundleBytesSent;
+    std::size_t m_totalStcpBytesSent;
 };
 
 

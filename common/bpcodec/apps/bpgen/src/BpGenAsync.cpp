@@ -78,7 +78,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         }
     }
     else if (useStcp) {
-        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15);
+        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15, 500000);
         m_stcpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_stcpBundleSourcePtr->Connect(hostname, port);
         for (unsigned int i = 0; i < 10; ++i) {
