@@ -79,6 +79,39 @@ public:
     bool m_forceStorage = false;
 
 private:
+    struct EgressToIngressAckingQueue {
+        EgressToIngressAckingQueue() {
+
+        }
+        std::size_t GetQueueSize() {
+            return m_blockHdrQueue.size();
+        }
+        void Push_ThreadSafe(const BlockHdr & blk) {
+            boost::mutex::scoped_lock lock(m_mutex);
+            m_blockHdrQueue.push(blk);
+        }
+        bool CompareAndPop_ThreadSafe(const BlockHdr & blk) {
+            boost::mutex::scoped_lock lock(m_mutex);
+            if (m_blockHdrQueue.empty()) {
+                return false;
+            }
+            else if (m_blockHdrQueue.front() == blk) {
+                m_blockHdrQueue.pop();
+                return true;
+            }
+            return false;
+        }
+        void WaitUntilNotifiedOr250MsTimeout() {
+            boost::mutex::scoped_lock lock(m_mutex);
+            m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+        }
+        void NotifyAll() {            
+            m_conditionVariable.notify_all();
+        }
+        boost::mutex m_mutex;
+        boost::condition_variable m_conditionVariable;
+        std::queue<BlockHdr> m_blockHdrQueue;
+    };
 
     boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
     boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
@@ -103,12 +136,12 @@ private:
     boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
     boost::shared_ptr<boost::thread> m_threadZmqAckReaderPtr;
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
-    std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;
+    std::queue<BlockHdr> m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;
-    std::map<uint64_t, std::queue<std::unique_ptr<BlockHdr> > > m_egressAckMapQueue; //flow id to queue
+    std::map<uint64_t, EgressToIngressAckingQueue> m_egressAckMapQueue; //flow id to queue
     boost::mutex m_egressAckMapQueueMutex;
-    boost::condition_variable m_conditionVariableEgressAckReceived;
+    boost::mutex m_ingressToEgressZmqSocketMutex;
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
