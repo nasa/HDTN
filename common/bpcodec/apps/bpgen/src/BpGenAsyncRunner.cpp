@@ -45,6 +45,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         uint32_t tcpclFragmentSize;
         uint32_t durationSeconds;
         uint64_t flowId;
+        uint64_t stcpRateBitsPerSec;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -60,6 +61,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                         ("tcpcl-fragment-size", boost::program_options::value<boost::uint32_t>()->default_value(0), "Max fragment size bytes of Tcpcl bundles (0->disabled).")
                         ("tcpcl-eid", boost::program_options::value<std::string>()->default_value("BpGen"), "Local EID string for this program.")
                         ("flow-id", boost::program_options::value<uint64_t>()->default_value(2), "Destination flow id.")
+                        ("stcp-rate-bits-per-sec", boost::program_options::value<uint64_t>()->default_value(500000), "Desired link rate for STCP (default 0.5Mbit/sec.")
                         ;
 
                 boost::program_options::variables_map vm;
@@ -89,9 +91,10 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 durationSeconds = vm["duration"].as<boost::uint32_t>();
                 thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
                 flowId = vm["flow-id"].as<uint64_t>();
+                stcpRateBitsPerSec = vm["stcp-rate-bits-per-sec"].as<uint64_t>();
 
-                if ((!useTcpcl) && (bundleRate == 0)) {
-                    std::cerr << "ERROR: bundle rate of 0 set (fastest possible with 5 acks) but tcpcl not selected" << std::endl;
+                if ( (!(useTcpcl || useStcp)) && (bundleRate == 0)) {
+                    std::cerr << "ERROR: bundle rate of 0 set (fastest possible with 5 acks) but tcpcl or stcp not selected" << std::endl;
                     return false;
                 }
         }
@@ -113,7 +116,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         std::cout << "starting BpGenAsync.." << std::endl;
 
         BpGenAsync bpGen;
-        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString, flowId);
+        bpGen.Start(destinationAddress, boost::lexical_cast<std::string>(port), useTcpcl, useStcp, bundleSizeBytes, bundleRate, tcpclFragmentSize, thisLocalEidString, flowId, stcpRateBitsPerSec);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::seconds(durationSeconds));

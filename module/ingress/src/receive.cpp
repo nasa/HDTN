@@ -13,6 +13,7 @@
 #include "ingress.h"
 #include "message.hpp"
 #include <boost/bind.hpp>
+#include <boost/make_unique.hpp>
 
 #include <boost/make_unique.hpp>
 
@@ -246,7 +247,6 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
         //m_storageAckQueue.
         //
         //m_storageAckQueueMutex.unlock();
-        //std::unique_ptr<BlockHdr> hdrUptr = std::make_unique<BlockHdr>();
         std::unique_ptr<BlockHdr> hdrUptr = boost::make_unique<BlockHdr>();
         hdtn::BlockHdr & hdr = *hdrUptr;
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
@@ -427,13 +427,13 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
         if (m_useTcpcl) {
             boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
                                                                                                    boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                                                   50, 2000, "ingress");
+                                                                                                   200, 20000, "ingress");
             m_listTcpclBundleSinkPtrs.push_back(bundleSinkPtr);
         }
         else if (m_useStcp) {
             boost::shared_ptr<StcpBundleSink> bundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
                                                                                                    boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                                                   50);
+                                                                                                   200);
             m_listStcpBundleSinkPtrs.push_back(bundleSinkPtr);
         }
         

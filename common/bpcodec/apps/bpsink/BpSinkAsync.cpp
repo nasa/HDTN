@@ -302,7 +302,7 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
 
             m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
                                                                        boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                       50, 2000, M_THIS_EID_STRING);
+                                                                       200, 20000, M_THIS_EID_STRING);
         }
         else if (m_useStcp) {
             if ((m_stcpBundleSinkPtr) && !m_stcpBundleSinkPtr->ReadyToBeDeleted()) {
@@ -311,7 +311,7 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
 
             m_stcpBundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
                                                                        boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                       50);
+                                                                       200);
         }
 
         StartTcpAccept(); //only accept if there was no error
