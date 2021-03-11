@@ -13,7 +13,7 @@ m_needToSendKeepAliveMessageTimer(m_ioService),
 m_rateTimer(m_ioService),
 m_newDataSignalerTimer(m_ioService),
 M_KEEP_ALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
-M_RATE_BITS_PER_SEC(rateBps),
+m_rateBitsPerSec(rateBps),
 MAX_UNACKED(maxUnacked),
 m_bytesToAckByRateCb(MAX_UNACKED),
 m_bytesToAckByRateCbVec(MAX_UNACKED),
@@ -76,6 +76,10 @@ void StcpBundleSource::GenerateDataUnit(std::vector<uint8_t> & dataUnit, const u
     }
 }
 
+void StcpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
+    m_rateBitsPerSec = rateBitsPerSec;
+}
+
 bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
 
     if(!m_readyToForward) {
@@ -131,6 +135,24 @@ std::size_t StcpBundleSource::GetTotalDataSegmentsAcked() {
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsSent() {
     return m_totalDataSegmentsSent;
+}
+
+std::size_t StcpBundleSource::GetTotalDataSegmentsUnacked() {
+    return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
+}
+
+std::size_t StcpBundleSource::GetTotalBundleBytesAcked() {
+    const std::size_t totalAckedByTcpSend = m_totalBytesAckedByTcpSendCallback;
+    const std::size_t totalAckedByRate = m_totalBytesAckedByRate;
+    return (totalAckedByTcpSend < totalAckedByRate) ? totalAckedByTcpSend : totalAckedByRate;
+}
+
+std::size_t StcpBundleSource::GetTotalBundleBytesSent() {
+    return m_totalBundleBytesSent;
+}
+
+std::size_t StcpBundleSource::GetTotalBundleBytesUnacked() {
+    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 }
 
 
@@ -269,7 +291,7 @@ void StcpBundleSource::TryRestartRateTimer() {
         uint64_t delayMicroSec = 0;
         for (unsigned int readIndex = m_bytesToAckByRateCb.GetIndexForRead(); readIndex != UINT32_MAX; readIndex = m_bytesToAckByRateCb.GetIndexForRead()) { //notempty
             const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
-            const double delayMicroSecDouble = (1.0 / M_RATE_BITS_PER_SEC) * numBitsDouble * 1e6;
+            const double delayMicroSecDouble = (1.0 / m_rateBitsPerSec) * numBitsDouble * 1e6;
             delayMicroSec += static_cast<uint64_t>(delayMicroSecDouble);
             m_bytesToAckByRateCb.CommitRead();
             m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);

@@ -14,12 +14,17 @@ private:
     StcpBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds, const uint64_t rateBps = 5000000, const unsigned int maxUnacked = 100);
+    StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds, const uint64_t rateBps = 50, const unsigned int maxUnacked = 100);
 
     ~StcpBundleSource();
     bool Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles);
     std::size_t GetTotalDataSegmentsAcked();
     std::size_t GetTotalDataSegmentsSent();
+    std::size_t GetTotalDataSegmentsUnacked();
+    std::size_t GetTotalBundleBytesAcked();
+    std::size_t GetTotalBundleBytesSent();
+    std::size_t GetTotalBundleBytesUnacked();
+    void UpdateRate(uint64_t rateBitsPerSec);
     void Connect(const std::string & hostname, const std::string & port);
     bool ReadyToForward();
     void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
@@ -55,7 +60,7 @@ private:
     boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
 
     const uint16_t M_KEEP_ALIVE_INTERVAL_SECONDS;
-    const uint64_t M_RATE_BITS_PER_SEC;
+    uint64_t m_rateBitsPerSec;
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByRateCb;
     std::vector<uint32_t> m_bytesToAckByRateCbVec;

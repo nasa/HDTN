@@ -324,7 +324,7 @@ public:
     /**
 
     */
-    int Add(int fec, uint64_t flags, const char *dst, int port);
+    int Add(int fec, uint64_t flags, const char *dst, int port, uint64_t rateBitsPerSec = 0);
 
     /**
 

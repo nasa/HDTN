@@ -72,6 +72,22 @@ std::size_t TcpclBundleSource::GetTotalDataSegmentsSent() {
     return m_totalDataSegmentsSent;
 }
 
+std::size_t TcpclBundleSource::GetTotalDataSegmentsUnacked() {
+    return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
+}
+
+std::size_t TcpclBundleSource::GetTotalBundleBytesAcked() {
+    return m_totalBytesAcked;
+}
+
+std::size_t TcpclBundleSource::GetTotalBundleBytesSent() {
+    return m_totalBundleBytesSent;
+}
+
+std::size_t TcpclBundleSource::GetTotalBundleBytesUnacked() {
+    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
+}
+
 bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
 
     if(!m_readyToForward) {

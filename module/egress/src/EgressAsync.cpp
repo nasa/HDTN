@@ -259,13 +259,14 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
 }
 
-int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int port) {
+int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int port, uint64_t rateBitsPerSec) {
 
     if (flags & HEGR_FLAG_STCPv1) {
         boost::shared_ptr<HegrStcpEntryAsync> stcpEntry = boost::make_shared<HegrStcpEntryAsync>();
         stcpEntry->Connect(dst, boost::lexical_cast<std::string>(port));
         if (StcpBundleSource * ptr = stcpEntry->GetStcpBundleSourcePtr()) {
             ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
+            ptr->UpdateRate(rateBitsPerSec);
         }
         else {
             std::cerr << "ERROR, CANNOT SET STCP CALLBACK" << std::endl;

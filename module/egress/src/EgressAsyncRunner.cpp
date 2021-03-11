@@ -27,6 +27,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         uint16_t portLink1, portLink2;
         bool useTcpcl = false;
         bool useStcp = false;
+        uint64_t stcpRateBitsPerSec;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -36,6 +37,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 ("port2", boost::program_options::value<boost::uint16_t>()->default_value(4558), "Connect FlowId 2 to this TCP or UDP port (0=>disabled).")
                 ("use-stcp", "Use STCP instead of UDP.")
                 ("use-tcpcl", "Use TCP Convergence Layer Version 3 instead of UDP.")
+                ("stcp-rate-bits-per-sec", boost::program_options::value<uint64_t>()->default_value(500000), "Desired link rate for STCP (default 0.5Mbit/sec.")
                 ;
 
             boost::program_options::variables_map vm;
@@ -60,6 +62,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
             portLink1 = vm["port1"].as<boost::uint16_t>();
             portLink2 = vm["port2"].as<boost::uint16_t>();
+            stcpRateBitsPerSec = vm["stcp-rate-bits-per-sec"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -95,10 +98,10 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         egress.Init();
         int entryStatus;
         if (portLink1) {
-            entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", portLink1);
+            entryStatus = egress.Add(1, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", portLink1, stcpRateBitsPerSec);
         }
         if (portLink2) {
-            entryStatus = egress.Add(2, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", portLink2);
+            entryStatus = egress.Add(2, (useTcpcl) ? HEGR_FLAG_TCPCLv3 : (useStcp) ? HEGR_FLAG_STCPv1 : HEGR_FLAG_UDP, "127.0.0.1", portLink2, stcpRateBitsPerSec);
         }
         if (!entryStatus) {
             return 0;  // error message prints in add function

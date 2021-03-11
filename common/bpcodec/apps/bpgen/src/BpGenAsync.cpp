@@ -54,7 +54,7 @@ void BpGenAsync::Stop() {
     }
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId) {
+void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId, uint64_t stcpRateBitsPerSec) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
@@ -78,7 +78,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         }
     }
     else if (useStcp) {
-        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15, 500000);
+        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15, stcpRateBitsPerSec);
         m_stcpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_stcpBundleSourcePtr->Connect(hostname, port);
         for (unsigned int i = 0; i < 10; ++i) {
@@ -185,9 +185,12 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             deadlineTimer.expires_at(deadlineTimer.expires_at() + boost::posix_time::microseconds(sValU64));
         }
         else {
-            const std::size_t numAckedRemaining = (m_tcpclBundleSourcePtr) ? 
-                m_tcpclBundleSourcePtr->GetTotalDataSegmentsSent() - m_tcpclBundleSourcePtr->GetTotalDataSegmentsAcked() :
-                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsSent() - m_stcpBundleSourcePtr->GetTotalDataSegmentsAcked() : 0;
+            const std::size_t numAckedRemaining = 
+                (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalDataSegmentsUnacked() :
+                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsUnacked() : 0;
+            const std::size_t numUnackedBundleBytesRemaining = 
+                (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalBundleBytesUnacked() :
+                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalBundleBytesUnacked() : 0; //TODO, FIGURE OUT WHAT'S APPROPRIATE
             if (numAckedRemaining > 5) {
                 ++numEventsTooManyUnackedBundles;
                 m_conditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
