@@ -486,7 +486,7 @@ bool TestCutThrough4() {
     boost::this_thread::sleep(boost::posix_time::seconds(3));
 // Works with this
 //    std::thread threadBpgen0(RunBpgenAsync2,
-//                             (const char * []){ "bpgen0", "--bundle-rate=100", "--use-tcpcl", "--flow-id=2",
+//                             (const char * []){ "bpgen0", "--bundle-rate=1000", "--use-tcpcl", "--flow-id=2",
 //                                                "--duration=10" , NULL },5,
 //                             std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     std::thread threadBpgen0(RunBpgenAsync2,
@@ -496,7 +496,7 @@ bool TestCutThrough4() {
     boost::this_thread::sleep(boost::posix_time::seconds(1));
 // Works with this
 //    std::thread threadBpgen1(RunBpgenAsync2,
-//                             (const char * []){ "bpgen1", "--bundle-rate=100", "--use-tcpcl", "--flow-id=1",
+//                             (const char * []){ "bpgen1", "--bundle-rate=1000", "--use-tcpcl", "--flow-id=1",
 //                                                "--duration=10" ,NULL },5,
 //                             std::ref(runningBpgen[1]),&bundlesSentBpgen[1]);
     std::thread threadBpgen1(RunBpgenAsync2,
