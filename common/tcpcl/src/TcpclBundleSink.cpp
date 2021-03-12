@@ -184,6 +184,7 @@ void TcpclBundleSink::DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t>
     uint32_t bytesToAck = 0;
     if(isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
         m_wholeBundleReadyCallback(dataSegmentDataSharedPtr);
+        //std::cout << dataSegmentDataSharedPtr->size() << std::endl;
         bytesToAck = static_cast<uint32_t>(dataSegmentDataSharedPtr->size());
     }
     else {

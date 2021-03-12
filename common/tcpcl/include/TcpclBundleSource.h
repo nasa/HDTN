@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 #include "Tcpcl.h"
+#include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 
 //tcpcl
@@ -19,6 +20,7 @@ public:
 
     ~TcpclBundleSource();
     bool Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles);
+    bool Forward(std::unique_ptr<zmq::message_t> && dataZmq, unsigned int & numUnackedBundles);
     std::size_t GetTotalDataSegmentsAcked();
     std::size_t GetTotalDataSegmentsSent();
     std::size_t GetTotalDataSegmentsUnacked();
@@ -31,8 +33,8 @@ public:
 private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
-    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-    void HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
@@ -52,6 +54,9 @@ private:
                                              bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds);
 
 
+    std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendShutdownCallback;
 
     Tcpcl m_tcpcl;
     boost::asio::io_service m_ioService;

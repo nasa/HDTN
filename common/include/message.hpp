@@ -6,7 +6,7 @@
 #include "stats.hpp"
 
 #define HMSG_MSG_MAX (65536)
-#define CHUNK_SIZE (65536)
+#define CHUNK_SIZE (65536 * 100) //TODO
 
 #define HDTN_FLAG_CUSTODY_REQ (0x01)
 #define HDTN_FLAG_CUSTODY_OK (0x02)

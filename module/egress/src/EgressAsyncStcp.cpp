@@ -53,7 +53,7 @@ int HegrStcpEntryAsync::Disable() {
     return 0;
 }
 
-int HegrStcpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
+int HegrStcpEntryAsync::Forward(std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }

@@ -123,7 +123,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                     flowIdToNeedAcksQueueMap[blockHdr.flowId].push(QueueItem(blockHdr));
                 }
                 unsigned int numUnackedBundles = 0;
-                Forward(blockHdr.flowId, boost::make_shared<zmq::message_t>(std::move(zmqMessage)), numUnackedBundles);
+                Forward(blockHdr.flowId, boost::make_unique<zmq::message_t>(std::move(zmqMessage)), numUnackedBundles);
                 if (numUnackedBundles > 10) {
                     std::cout << numUnackedBundles << std::endl;
                 }
@@ -332,10 +332,10 @@ void hdtn::HegrManagerAsync::Up(int fec) {
 }
 
 
-int hdtn::HegrManagerAsync::Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
+int hdtn::HegrManagerAsync::Forward(int fec, std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles) {
     try {
         if(boost::shared_ptr<HegrEntryAsync> entry = m_entryMap.at(fec)) {
-            return entry->Forward(zmqMessagePtr, numUnackedBundles);
+            return entry->Forward(std::move(zmqMessagePtr), numUnackedBundles);
         }
     }
     catch (const std::out_of_range &) {
@@ -426,7 +426,7 @@ int hdtn::HegrUdpEntryAsync::Disable() {
     return 0;
 }
 
-int hdtn::HegrUdpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
+int hdtn::HegrUdpEntryAsync::Forward(std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }

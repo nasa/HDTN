@@ -127,7 +127,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
 
 
-    #define BP_MSG_BUFSZ             (65536)
+    #define BP_MSG_BUFSZ             (65536 * 100) //todo
 
     double sval = 0.0;
     uint64_t sValU64 = 0;
@@ -156,6 +156,10 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     memset(data_buffer.data(), 0, bundleSizeBytes);
     bpgen_hdr* hdr = (bpgen_hdr*)data_buffer.data();
 
+    const bool doStepSize = false;
+    uint32_t bundleSizeBytesStep = 100;
+    
+
     uint64_t lastTimeRfc5050 = 0;
     uint64_t currentTimeRfc5050 = 0;
     uint64_t seq = 0;
@@ -170,6 +174,13 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::microseconds(sValU64));
     boost::shared_ptr<std::vector<uint8_t> > bundleToSend = boost::make_shared<std::vector<uint8_t> >(BP_MSG_BUFSZ);
     while (m_running) { //keep thread alive if running
+        if (doStepSize) {
+            bundleSizeBytes = bundleSizeBytesStep;
+            bundleSizeBytesStep += 1;
+            if (bundleSizeBytesStep > 1000000) {
+                bundleSizeBytesStep = 90000;
+            }
+        }
         /*
         if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
                     const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();

@@ -46,7 +46,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 
             if (vm.count("help")) {
                 std::cout << desc << "\n";
-                return 1;
+                return false;
             }
 
 #ifdef USE_BRIAN_STORAGE
@@ -58,15 +58,15 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
             std::cout << desc << "\n";
-            return 1;
+            return false;
         }
         catch (std::exception& e) {
             std::cerr << "error: " << e.what() << "\n";
-            return 1;
+            return false;
         }
         catch (...) {
             std::cerr << "Exception of unknown type!\n";
-            return 1;
+            return false;
         }
         //double last = 0.0;
         //timeval tv;
@@ -82,13 +82,13 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 
 
         if (!store.init(config)) {
-            return -1;
+            return false;
         }
 
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "egress up and running" << std::endl;
+        std::cout << "storage up and running" << std::endl;
         while (running && m_runningFromSigHandler) {            
             store.update();
             if (useSignalHandler) {

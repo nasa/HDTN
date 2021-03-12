@@ -234,6 +234,7 @@ void Tcpcl::HandleReceivedChar(const uint8_t rxVal) {
 				else {
 					m_dataSegmentDataSharedPtr = boost::make_shared<std::vector<uint8_t> >();
 					m_dataSegmentDataSharedPtr->reserve(m_dataSegmentLength);
+                    //std::cout << "l " << m_dataSegmentLength << std::endl;
 					m_dataSegmentRxState = TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENTS;
 				}
 			}
@@ -378,6 +379,7 @@ void Tcpcl::GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLA
 }
 
 void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint32_t sizeContents) {
+    //std::cout << "szc " << sizeContents << std::endl;
 	uint8_t dataSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT)) << 4;
 	if (isStartSegment) {		
 		dataSegmentHeader |= (1U << 1);
@@ -394,6 +396,25 @@ void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStart
 	
 	memcpy(&dataSegment[1], contentLengthSdnv, sdnvSize);
 	memcpy(&dataSegment[1 + sdnvSize], contents, sizeContents);
+}
+
+void Tcpcl::GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint32_t sizeContents) {
+    //std::cout << "szc " << sizeContents << std::endl;
+    uint8_t dataSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT)) << 4;
+    if (isStartSegment) {
+        dataSegmentHeader |= (1U << 1);
+    }
+    if (isEndSegment) {
+        dataSegmentHeader |= (1U << 0);
+    }
+    uint8_t contentLengthSdnv[10];
+    const unsigned int sdnvSize = SdnvEncodeU32(contentLengthSdnv, sizeContents);
+
+    dataSegmentHeaderDataVec.resize(1 + sdnvSize);
+
+    dataSegmentHeaderDataVec[0] = dataSegmentHeader;
+
+    memcpy(&dataSegmentHeaderDataVec[1], contentLengthSdnv, sdnvSize);
 }
 
 void Tcpcl::GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint32_t totalBytesAcknowledged) {
