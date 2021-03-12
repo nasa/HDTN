@@ -92,11 +92,6 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 thisLocalEidString = vm["tcpcl-eid"].as<std::string>();
                 flowId = vm["flow-id"].as<uint64_t>();
                 stcpRateBitsPerSec = vm["stcp-rate-bits-per-sec"].as<uint64_t>();
-
-                if ( (!(useTcpcl || useStcp)) && (bundleRate == 0)) {
-                    std::cerr << "ERROR: bundle rate of 0 set (fastest possible with 5 acks) but tcpcl or stcp not selected" << std::endl;
-                    return false;
-                }
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";

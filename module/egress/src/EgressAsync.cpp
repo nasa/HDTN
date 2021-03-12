@@ -3,6 +3,7 @@
 #include "EgressAsync.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_udpSocket(m_ioService), m_work(m_ioService), m_running(false) {
     //m_flags = 0;
@@ -276,10 +277,16 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         return 1;
     }
     else if (flags & HEGR_FLAG_UDP) {
-        static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-        boost::asio::ip::udp::resolver resolver(m_ioService);
-        boost::asio::ip::udp::endpoint endpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), dst, boost::lexical_cast<std::string>(port), UDP_RESOLVER_FLAGS));
-        m_entryMap[fec] = boost::make_shared<HegrUdpEntryAsync>(endpoint, &m_udpSocket);
+        boost::shared_ptr<HegrUdpEntryAsync> udpEntry = boost::make_unique<HegrUdpEntryAsync>();
+        udpEntry->Connect(dst, boost::lexical_cast<std::string>(port));
+        if (UdpBundleSource * ptr = udpEntry->GetUdpBundleSourcePtr()) {
+            ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
+            ptr->UpdateRate(rateBitsPerSec);
+        }
+        else {
+            std::cerr << "ERROR, CANNOT SET UDP CALLBACK" << std::endl;
+        }
+        m_entryMap[fec] = udpEntry;
         m_entryMap[fec]->Disable();
         return 1;
     }
@@ -379,13 +386,17 @@ void hdtn::HegrEntryAsync::Shutdown() {}
 
 
 
-hdtn::HegrUdpEntryAsync::HegrUdpEntryAsync(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint, boost::asio::ip::udp::socket * const udpSocketPtr) :
-HegrEntryAsync(),
-m_udpDestinationEndpoint(udpDestinationEndpoint),
-m_udpSocketPtr(udpSocketPtr)
-{
+hdtn::HegrUdpEntryAsync::HegrUdpEntryAsync() : HegrEntryAsync() {
     m_flags = HEGR_FLAG_ACTIVE | HEGR_FLAG_UDP;
     // memset(_name, 0, HEGR_NAME_SZ);
+}
+
+std::size_t hdtn::HegrUdpEntryAsync::GetTotalBundlesAcked() {
+    return m_udpBundleSourcePtr->GetTotalUdpPacketsAcked();
+}
+
+std::size_t hdtn::HegrUdpEntryAsync::GetTotalBundlesSent() {
+    return m_udpBundleSourcePtr->GetTotalUdpPacketsSent();
 }
 
 void hdtn::HegrUdpEntryAsync::Init(uint64_t flags) {
@@ -419,16 +430,20 @@ int hdtn::HegrUdpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessag
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }
-    numUnackedBundles = 0; //TODO
-    const std::size_t bundleSize = zmqMessagePtr->size();
-    m_udpSocketPtr->async_send_to(boost::asio::buffer(zmqMessagePtr->data(), bundleSize), m_udpDestinationEndpoint,
-                                  boost::bind(&HegrUdpEntryAsync::HandleUdpSendBundle, this, zmqMessagePtr,
-                                              boost::asio::placeholders::error,
-                                              boost::asio::placeholders::bytes_transferred));
+    if (m_udpBundleSourcePtr && m_udpBundleSourcePtr->Forward((const uint8_t *)zmqMessagePtr->data(), zmqMessagePtr->size(), numUnackedBundles)) {
+        return 1;
+
+    }
+    std::cerr << "link not ready to forward yet" << std::endl;
     return 1;
 }
 
-void hdtn::HegrUdpEntryAsync::HandleUdpSendBundle(boost::shared_ptr<zmq::message_t> zmqMessagePtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+
+void hdtn::HegrUdpEntryAsync::Connect(const std::string & hostname, const std::string & port) {
+    m_udpBundleSourcePtr = boost::make_unique<UdpBundleSource>(15);
+    m_udpBundleSourcePtr->Connect(hostname, port);
 }
 
-
+UdpBundleSource * hdtn::HegrUdpEntryAsync::GetUdpBundleSourcePtr() {
+    return (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr.get() : NULL;
+}

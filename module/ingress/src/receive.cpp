@@ -20,11 +20,6 @@
 namespace hdtn {
 
 BpIngressSyscall::BpIngressSyscall() :
-    m_udpSocket(m_ioService),
-    m_circularIndexBuffer(BP_INGRESS_MSG_NBUF),
-    m_udpReceiveBuffersCbVec(BP_INGRESS_MSG_NBUF),
-    m_remoteEndpointsCbVec(BP_INGRESS_MSG_NBUF),
-    m_udpReceiveBytesTransferredCbVec(BP_INGRESS_MSG_NBUF),
     m_eventsTooManyInStorageQueue(0),
     m_eventsTooManyInEgressQueue(0),
     m_running(false)
@@ -36,14 +31,6 @@ BpIngressSyscall::~BpIngressSyscall() {
 }
 
 void BpIngressSyscall::Stop() {
-    //stop the socket before stopping the io service
-    if (m_udpSocket.is_open()) {
-        try {
-            m_udpSocket.close();
-        } catch (const boost::system::system_error & e) {
-            std::cerr << "Error closing UDP socket in BpIngressSyscall::~BpIngressSyscall():  " << e.what() << std::endl;
-        }
-    }
     if (m_tcpAcceptorPtr) {
         if (m_tcpAcceptorPtr->is_open()) {
             try {
@@ -57,6 +44,7 @@ void BpIngressSyscall::Stop() {
     }
     m_listTcpclBundleSinkPtrs.clear();
     m_listStcpBundleSinkPtrs.clear();
+    m_udpBundleSinkPtr.reset();
     if (!m_ioService.stopped()) {
         m_ioService.stop(); //ioservice doesn't need stopped at this point but just in case
     }
@@ -69,11 +57,6 @@ void BpIngressSyscall::Stop() {
 
     m_running = false; //thread stopping criteria
 
-    if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
-    }
-
     if (m_threadZmqAckReaderPtr) {
         m_threadZmqAckReaderPtr->join();
         m_threadZmqAckReaderPtr = boost::shared_ptr<boost::thread>();
@@ -85,13 +68,9 @@ void BpIngressSyscall::Stop() {
 }
 
 int BpIngressSyscall::Init(uint32_t type) {
-    for (unsigned int i = 0; i < BP_INGRESS_MSG_NBUF; ++i) {
-        m_udpReceiveBuffersCbVec[i].resize(BP_INGRESS_MSG_BUFSZ);
-    }
+    
     if (!m_running) {
         m_running = true;
-        m_threadCbReaderPtr = boost::make_shared<boost::thread>(
-            boost::bind(&BpIngressSyscall::PopCbThreadFunc, this)); //create and start the worker thread
 
         // socket for cut-through mode straight to egress
         m_zmqCtx_ingressEgressPtr = boost::make_shared<zmq::context_t>();
@@ -128,18 +107,9 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
     }
     printf("Starting ingress channel ...\n");
     //Receiver UDP
-    try {
-        m_udpSocket.open(boost::asio::ip::udp::v4());
-        m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), port));
-    } catch (const boost::system::system_error & e) {
-        std::cerr << "Could not create port " << std::to_string(port) << std::endl;
-        std::cerr <<  "  Error: " << e.what() << std::endl;
-
-        m_running = false;
-        return 0;
-    }
-    printf("Ingress bound successfully on port %d ...", port);
-    StartUdpReceive(); //call before creating io_service thread so that it has "work"
+    m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
+        boost::bind(&BpIngressSyscall::UdpWholeBundleReadyCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        200, 65536);
     m_tcpAcceptorPtr = boost::make_shared<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -345,59 +315,12 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
 }
 
 
-void BpIngressSyscall::StartUdpReceive() {
-    const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-    if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in BpIngressSyscall::StartUdpReceive(): buffers full.. UDP receiving on ingress will now stop!\n";
-        return;
-    }
-            //m_udpReceiveBuffersCbVec[i].resize(BP_INGRESS_MSG_BUFSZ);
-    m_udpSocket.async_receive_from(
-                boost::asio::buffer(m_udpReceiveBuffersCbVec[writeIndex]),
-                m_remoteEndpointsCbVec[writeIndex],
-                boost::bind(&BpIngressSyscall::HandleUdpReceive, this,
-                            boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred,
-                            writeIndex));
+
+void BpIngressSyscall::UdpWholeBundleReadyCallback(const std::vector<uint8_t> & bundleBuffer, const std::size_t bundleSizeBytes) {
+    //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
+    //its own processing thread that calls this callback
+    Process(bundleBuffer, bundleSizeBytes);
 }
-
-void BpIngressSyscall::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
-    //std::cout << "1" << std::endl;
-    if (!error) {
-        m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
-        m_circularIndexBuffer.CommitWrite(); //write complete at this point
-        m_conditionVariableCb.notify_one();
-        StartUdpReceive(); //restart operation only if there was no error
-    }
-    else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "critical error in BpIngressSyscall::HandleUdpReceive(): " << error.message() << std::endl;
-    }
-}
-
-void BpIngressSyscall::PopCbThreadFunc() {
-
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-
-    while (m_running || (m_circularIndexBuffer.GetIndexForRead() != UINT32_MAX)) { //keep thread alive if running or cb not empty
-
-
-        const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-
-        if (consumeIndex == UINT32_MAX) { //if empty
-            m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
-        }
-        Process(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
-        //std::cout << "2" << std::endl;
-        m_circularIndexBuffer.CommitRead();
-    }
-
-    std::cout << "Ingress Circular buffer reader thread exiting\n";
-
-}
-
 
 void BpIngressSyscall::TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has

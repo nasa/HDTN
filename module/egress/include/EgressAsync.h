@@ -14,6 +14,7 @@
 #include <queue>
 #include "TcpclBundleSource.h"
 #include "StcpBundleSource.h"
+#include "UdpBundleSource.h"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -111,10 +112,8 @@ protected:
 
 
 class HegrUdpEntryAsync : public HegrEntryAsync {
-private:
-    HegrUdpEntryAsync();
 public:
-    HegrUdpEntryAsync(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint, boost::asio::ip::udp::socket * const udpSocketPtr);
+    HegrUdpEntryAsync();
 
     /**
     Initializes a new UDP forwarding entry
@@ -162,13 +161,13 @@ public:
 
     void Shutdown();
 
-    virtual std::size_t GetTotalBundlesAcked() { return 0; }
-    virtual std::size_t GetTotalBundlesSent() { return 0; }
-private:
-    void HandleUdpSendBundle(boost::shared_ptr<zmq::message_t> zmqMessagePtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void Connect(const std::string & hostname, const std::string & port);
+    UdpBundleSource * GetUdpBundleSourcePtr();
 
-    const boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
-    boost::asio::ip::udp::socket * const m_udpSocketPtr;
+    virtual std::size_t GetTotalBundlesAcked();
+    virtual std::size_t GetTotalBundlesSent();
+private:
+    std::unique_ptr<UdpBundleSource> m_udpBundleSourcePtr;
 };
 
 
