@@ -55,6 +55,7 @@ target_link_libraries(integrated-tests
 	hdtn_util
 	tcpcl_lib
 	stcp_lib
+	udp_lib
 	egress_async_lib
 	ingress_async_lib
 	${blosc_LIB}
