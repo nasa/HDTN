@@ -58,7 +58,7 @@ public:
     int send_telemetry();
     void RemoveInactiveTcpConnections();
 private:
-    int Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
+    int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
 
     void UdpWholeBundleReadyCallback(const std::vector<uint8_t> & bundleBuffer, const std::size_t bundleSizeBytes);
