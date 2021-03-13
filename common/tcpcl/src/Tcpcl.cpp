@@ -43,7 +43,17 @@ void Tcpcl::InitRx() {
 	m_localEidStr = "";
 }
 
-void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, const std::size_t numChars) {
+void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
+    if ((m_mainRxState == TCPCL_MAIN_RX_STATE::READ_DATA_SEGMENT) && (m_dataSegmentRxState == TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENTS)) {
+        const std::size_t bytesRemainingToCopy = m_dataSegmentLength - m_dataSegmentDataSharedPtr->size();
+        const std::size_t bytesToCopy = std::min(numChars, bytesRemainingToCopy - 1); //leave last byte to go through the state machine
+        if (bytesToCopy) {
+            m_dataSegmentDataSharedPtr->insert(m_dataSegmentDataSharedPtr->end(), rxVals, rxVals + bytesToCopy); //concatenate
+            rxVals += bytesToCopy;
+            numChars -= bytesToCopy;
+        }
+    }
+
 	for (std::size_t i = 0; i < numChars; ++i) {
 		HandleReceivedChar(*rxVals++);
 	}
