@@ -36,6 +36,9 @@ struct TcpAsyncSenderElement {
     static void Create(std::unique_ptr<TcpAsyncSenderElement> & el,
         std::unique_ptr<std::vector<boost::uint8_t> > && data1,
         OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr);
+    static void Create(std::unique_ptr<TcpAsyncSenderElement> & el,
+        const uint8_t * staticData, std::size_t staticDataSize,
+        OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr);
 
     void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
 

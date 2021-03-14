@@ -156,7 +156,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     memset(data_buffer.data(), 0, bundleSizeBytes);
     bpgen_hdr* hdr = (bpgen_hdr*)data_buffer.data();
 
-    const bool doStepSize = false;
+    //const bool doStepSize = false; //unsafe at the moment due to data_buffer
     uint32_t bundleSizeBytesStep = 100;
     
 
@@ -165,22 +165,22 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     uint64_t seq = 0;
     uint64_t bseq = 0;
 
-    unsigned int numUnackedBundles = 0;
+
 
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
 
     boost::asio::io_service ioService;
     boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::microseconds(sValU64));
-    boost::shared_ptr<std::vector<uint8_t> > bundleToSend = boost::make_shared<std::vector<uint8_t> >(BP_MSG_BUFSZ);
+    std::vector<uint8_t> bundleToSend;
     while (m_running) { //keep thread alive if running
-        if (doStepSize) {
+        /*if (doStepSize) {
             bundleSizeBytes = bundleSizeBytesStep;
             bundleSizeBytesStep += 1;
             if (bundleSizeBytesStep > 1000000) {
                 bundleSizeBytesStep = 90000;
             }
-        }
+        }*/
         /*
         if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
                     const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
@@ -214,12 +214,12 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         //boost::this_thread::sleep(boost::posix_time::microseconds(sValU64));
 
         
-        bundleToSend->resize(BP_MSG_BUFSZ);
+        bundleToSend.resize(bundleSizeBytes + 1000);
         
 
         {
 
-            char* curr_buf = (char*)bundleToSend->data(); //(msgbuf[idx].msg_hdr.msg_iov->iov_base);
+            char* curr_buf = (char*)bundleToSend.data(); //(msgbuf[idx].msg_hdr.msg_iov->iov_base);
             currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
             
             if(currentTimeRfc5050 == lastTimeRfc5050) {
@@ -276,26 +276,30 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             bundle_data += bundleSizeBytes;     // payload data
             raw_data += bundle_length; // bundle overhead + payload data
 
-            bundleToSend->resize(bundle_length);
+            bundleToSend.resize(bundle_length);
         }
 
 
 
         //send message
         if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
-            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size(), numUnackedBundles)) {
+            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend)) {
                 m_running = false;
             }
         }
         else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
-            if (!m_stcpBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size(), numUnackedBundles)) {
+            if (!m_stcpBundleSourcePtr->Forward(bundleToSend)) {
                 m_running = false;
             }
         }
         else if (m_udpBundleSourcePtr) { //udp
-            if (!m_udpBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size(), numUnackedBundles)) {
+            if (!m_udpBundleSourcePtr->Forward(bundleToSend)) {
                 m_running = false;
             }
+        }
+
+        if (bundleToSend.size() != 0) {
+            std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
         }
 
     }

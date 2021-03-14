@@ -92,7 +92,7 @@ std::size_t TcpclBundleSource::GetTotalBundleBytesUnacked() {
     return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 }
 
-bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
+bool TcpclBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     if(!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -105,26 +105,25 @@ bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t siz
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(size);
+    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataVec.size());
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(size);
+    m_totalBundleBytesSent += static_cast<uint32_t>(dataVec.size());
 
-    numUnackedBundles = m_bytesToAckCb.NumInBuffer();
+    //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
-    std::unique_ptr<std::vector<uint8_t> > payloadDataPtr = boost::make_unique<std::vector<uint8_t> >(bundleData, bundleData + size);
 
-    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(size));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataVec.size()));
     std::unique_ptr<TcpAsyncSenderElement> el;
-    TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), std::move(payloadDataPtr), &m_handleTcpSendCallback);
+    TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<std::vector<uint8_t> >(std::move(dataVec)), &m_handleTcpSendCallback);
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
     
     return true;
 }
 
-bool TcpclBundleSource::Forward(std::unique_ptr<zmq::message_t> && dataZmq, unsigned int & numUnackedBundles) {
+bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
 
     if (!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -137,24 +136,27 @@ bool TcpclBundleSource::Forward(std::unique_ptr<zmq::message_t> && dataZmq, unsi
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataZmq->size());
+    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataZmq.size());
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(dataZmq->size());
+    m_totalBundleBytesSent += static_cast<uint32_t>(dataZmq.size());
 
-    numUnackedBundles = m_bytesToAckCb.NumInBuffer();
+    //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataZmq->size()));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataZmq.size()));
     std::unique_ptr<TcpAsyncSenderElement> el;
-    TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), std::move(dataZmq), &m_handleTcpSendCallback);
+    TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<zmq::message_t>(std::move(dataZmq)), &m_handleTcpSendCallback);
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
 
     return true;
 }
 
+bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
+}
 
 
 void TcpclBundleSource::Connect(const std::string & hostname, const std::string & port) {

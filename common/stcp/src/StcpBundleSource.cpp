@@ -4,7 +4,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/endian/conversion.hpp>
-
+#include <boost/make_unique.hpp>
 
 StcpBundleSource::StcpBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t rateBps, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
@@ -31,6 +31,9 @@ m_totalDataSegmentsSent(0),
 m_totalBundleBytesSent(0),
 m_totalStcpBytesSent(0)
 {
+    m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+    m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     RestartNewDataSignaler();
@@ -39,7 +42,7 @@ m_totalStcpBytesSent(0)
 StcpBundleSource::~StcpBundleSource() {
     
     DoStcpShutdown();
-    
+    m_tcpAsyncSenderPtr.reset(); //stop this first
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
     //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
@@ -76,13 +79,24 @@ void StcpBundleSource::GenerateDataUnit(std::vector<uint8_t> & dataUnit, const u
     }
 }
 
+void StcpBundleSource::GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents) {
+    uint32_t sizeContentsBigEndian = sizeContents;
+    boost::endian::native_to_big_inplace(sizeContentsBigEndian);
+
+
+    dataUnit.resize(sizeof(uint32_t));
+
+    memcpy(&dataUnit[0], &sizeContentsBigEndian, sizeof(uint32_t));
+}
+
 void StcpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     m_rateBitsPerSec = rateBitsPerSec;
 }
 
-bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
 
-    if(!m_readyToForward) {
+
+bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
+    if (!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
     }
@@ -98,32 +112,83 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
         std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
         return false;
     }
-    
 
 
-    numUnackedBundles = 0; //TODO
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += size;
-    
-    boost::shared_ptr<std::vector<uint8_t> > stcpDataUnitPtr = boost::make_shared<std::vector<uint8_t> >();
-    StcpBundleSource::GenerateDataUnit(*stcpDataUnitPtr, bundleData, static_cast<uint32_t>(size));
+    m_totalBundleBytesSent += dataZmq.size();
 
-    m_totalStcpBytesSent += stcpDataUnitPtr->size();
+    const uint32_t dataUnitSize = static_cast<uint32_t>(dataZmq.size() + sizeof(uint32_t));
+    m_totalStcpBytesSent += dataUnitSize;
 
-    m_bytesToAckByRateCbVec[writeIndexRate] = static_cast<uint32_t>(stcpDataUnitPtr->size());
+    m_bytesToAckByRateCbVec[writeIndexRate] = dataUnitSize;
     m_bytesToAckByRateCb.CommitWrite(); //pushed
 
-    m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = static_cast<uint32_t>(stcpDataUnitPtr->size());
+    m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
     m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
 
     SignalNewDataForwarded();
 
     m_dataServedAsKeepAlive = true;
-    boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*stcpDataUnitPtr),
-                                     boost::bind(&StcpBundleSource::HandleTcpSend, this, stcpDataUnitPtr,
-                                                 boost::asio::placeholders::error,
-                                                 boost::asio::placeholders::bytes_transferred));
+
+    std::unique_ptr<std::vector<uint8_t> > dataUnitHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
+
+    StcpBundleSource::GenerateDataUnitHeaderOnly(*dataUnitHeaderPtr, static_cast<uint32_t>(dataZmq.size()));
+    std::unique_ptr<TcpAsyncSenderElement> el;
+    TcpAsyncSenderElement::Create(el, std::move(dataUnitHeaderPtr), boost::make_unique<zmq::message_t>(std::move(dataZmq)), &m_handleTcpSendCallback);
+    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+
     return true;
+}
+
+bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
+    if (!m_readyToForward) {
+        std::cerr << "link not ready to forward yet" << std::endl;
+        return false;
+    }
+
+    const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexRate == UINT32_MAX) { //push check
+        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by rate" << std::endl;
+        return false;
+    }
+
+    const unsigned int writeIndexTcpSendCallback = m_bytesToAckByTcpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexTcpSendCallback == UINT32_MAX) { //push check
+        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
+        return false;
+    }
+
+
+
+    ++m_totalDataSegmentsSent;
+    m_totalBundleBytesSent += dataVec.size();
+
+    const uint32_t dataUnitSize = static_cast<uint32_t>(dataVec.size() + sizeof(uint32_t));
+    m_totalStcpBytesSent += dataUnitSize;
+
+    m_bytesToAckByRateCbVec[writeIndexRate] = dataUnitSize;
+    m_bytesToAckByRateCb.CommitWrite(); //pushed
+
+    m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
+    m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
+
+    SignalNewDataForwarded();
+
+    m_dataServedAsKeepAlive = true;
+
+    std::unique_ptr<std::vector<uint8_t> > dataUnitHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
+
+    StcpBundleSource::GenerateDataUnitHeaderOnly(*dataUnitHeaderPtr, static_cast<uint32_t>(dataVec.size()));
+    std::unique_ptr<TcpAsyncSenderElement> el;
+    TcpAsyncSenderElement::Create(el, std::move(dataUnitHeaderPtr), boost::make_unique<std::vector<uint8_t> >(std::move(dataVec)), &m_handleTcpSendCallback);
+    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+
+    return true;
+}
+
+
+bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
 }
 
 
@@ -198,13 +263,15 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
     m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
 
     if(m_tcpSocketPtr) {
+        m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(100, m_tcpSocketPtr);
+
         StartTcpReceive();
     }
 }
 
 
 
-void StcpBundleSource::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in StcpBundleSource::HandleTcpSend: " << error.message() << std::endl;
         DoStcpShutdown();
@@ -344,12 +411,10 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
             //SEND KEEPALIVE PACKET
             if (!m_dataServedAsKeepAlive) {
                 static const uint32_t keepAliveData = 0; //0 is the keep alive signal 
-                boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(&keepAliveData, sizeof(uint32_t)),
-                                                                              boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this,
-                                                                                          boost::asio::placeholders::error,
-                                                                                          boost::asio::placeholders::bytes_transferred));
 
-
+                std::unique_ptr<TcpAsyncSenderElement> el;
+                TcpAsyncSenderElement::Create(el, (const uint8_t *) &keepAliveData, sizeof(keepAliveData), &m_handleTcpSendKeepAliveCallback);
+                m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
             }
             else {
                 std::cout << "notice: stcp keepalive packet not needed" << std::endl;

@@ -85,6 +85,18 @@ void TcpAsyncSenderElement::Create(std::unique_ptr<TcpAsyncSenderElement> & el,
 #endif // TCP_ASYNC_SENDER_USE_VECTOR
 }
 
+void TcpAsyncSenderElement::Create(std::unique_ptr<TcpAsyncSenderElement> & el,
+    const uint8_t * staticData, std::size_t staticDataSize,
+    OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr)
+{
+    el = boost::make_unique<TcpAsyncSenderElement>();
+
+    el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = onSuccessfulSendCallbackByIoServiceThreadPtr;
+
+    el->m_constBufferVec.reserve(1);
+    el->m_constBufferVec.push_back(boost::asio::buffer(staticData, staticDataSize));
+}
+
 
 TcpAsyncSender::TcpAsyncSender(const unsigned int circularBufferSize, boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr) :
 m_tcpSocketPtr(tcpSocketPtr),

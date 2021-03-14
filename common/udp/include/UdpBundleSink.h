@@ -12,7 +12,8 @@ class UdpBundleSink {
 private:
     UdpBundleSink();
 public:
-    typedef boost::function<void(const std::vector<uint8_t> & bundleBuffer, const std::size_t bundleSizeBytes)> WholeBundleReadyCallbackUdp_t;
+    //typedef boost::function<void(const std::vector<uint8_t> & bundleBuffer, const std::size_t bundleSizeBytes)> WholeBundleReadyCallbackUdp_t;
+    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallbackUdp_t;
     //typedef boost::function<void()> ConnectionClosedCallback_t;
 
     UdpBundleSink(boost::asio::io_service & ioService,

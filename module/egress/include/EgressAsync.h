@@ -71,7 +71,7 @@ public:
     @param count number of buffers to send
     @return number of messages forwarded
     */
-    virtual int Forward(std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles) = 0;
+    virtual int Forward(zmq::message_t & zmqMessage) = 0;
 
     /**
     Runs housekeeping tasks for a specified egress port
@@ -138,7 +138,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles);
+    virtual int Forward(zmq::message_t & zmqMessage);
 
     /**
     Essentially a no-op for this entry type
@@ -203,7 +203,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles);
+    virtual int Forward(zmq::message_t & zmqMessage);
 
     /**
     Essentially a no-op for this entry type
@@ -269,7 +269,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles);
+    virtual int Forward(zmq::message_t & zmqMessage);
 
     /**
     Essentially a no-op for this entry type
@@ -318,7 +318,7 @@ public:
     /**
 
     */
-    int Forward(int fec, std::unique_ptr<zmq::message_t> && zmqMessagePtr, unsigned int & numUnackedBundles);
+    int Forward(int fec, zmq::message_t & zmqMessage);
 
     /**
 
