@@ -14,7 +14,7 @@ class TcpclBundleSink {
 private:
     TcpclBundleSink();
 public:
-    typedef boost::function<void(std::vector<uint8_t> & wholeBundleSharedPtr)> WholeBundleReadyCallback_t;
+    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
     //typedef boost::function<void()> ConnectionClosedCallback_t;
 
     TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
