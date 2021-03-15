@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+# Scott Burleigh
+# February 26, 2012
+#
+
+# documentation boilerplate
+CONFIGFILES=" \
+./2.bench.stcp/bench.bprc \
+./2.bench.stcp/bench.ionconfig \
+./2.bench.stcp/bench.ionrc \
+./2.bench.stcp/bench.ionsecrc \
+./2.bench.stcp/bench.ipnrc \
+"
+
+echo "########################################"
+echo
+pwd | sed "s/\/.*\///" | xargs echo "NAME: "
+echo
+echo "PURPOSE: produce simple throughput benchmark results, for direct
+	comparison among computing platforms running ION.  All tests are
+	performed using the DTNRG-standard TCP convergence-layer protocol
+	between neighboring nodes residing on the same computer.  So
+	the results exercise BP in a non-loopback configuration, over
+	loopback TCP/IP; the results are therefore unaffected by network
+	traffic, router performance, or network interface card performance."
+
+echo
+echo "CONFIG: 2 node custom:"
+echo
+for N in $CONFIGFILES
+do
+	echo "$N:"
+	cat $N
+	echo "# EOF"
+	echo
+done
+echo "OUTPUT: Terminal messages will relay results."
+echo
+echo "########################################"
+
+./cleanup
+sleep 1
+echo "Starting ION..."
+export ION_NODE_LIST_DIR=$PWD
+rm -f ./ion_nodes
+RETVAL=0
+sleep 3
+# Start nodes.
+cd 2.bench.stcp
+./ionstart
+
+
+sleep 5
+#bpsink ipn:2.1  &
+
+# Wait for transmission to finish.
+
