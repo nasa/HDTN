@@ -8,6 +8,7 @@
 #include <boost/shared_ptr.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "Tcpcl.h"
+#include "TcpAsyncSender.h"
 
 class TcpclBundleSink {
 private:
@@ -28,8 +29,8 @@ private:
 
     void StartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-    void HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
     void OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e);
@@ -46,6 +47,10 @@ private:
     void KeepAliveCallback();
     void ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
                                              bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds);
+
+    std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendShutdownCallback;
 
     //tcpcl vars
     Tcpcl m_tcpcl;

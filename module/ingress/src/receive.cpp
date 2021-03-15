@@ -108,7 +108,7 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
     printf("Starting ingress channel ...\n");
     //Receiver UDP
     m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
-        boost::bind(&BpIngressSyscall::UdpWholeBundleReadyCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&BpIngressSyscall::UdpWholeBundleReadyCallback, this, boost::placeholders::_1),
         200, 65536);
     m_tcpAcceptorPtr = boost::make_shared<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
     StartTcpAccept();
@@ -186,7 +186,13 @@ void BpIngressSyscall::ReadZmqAcksThreadFunc() {
     std::cout << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting\n";
 }
 
-int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {  //TODO: make buffer zmq message to reduce copy
+static void CustomCleanup(void *data, void *hint) {
+    //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
+
+int BpIngressSyscall::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq message to reduce copy
+    const std::size_t messageSize = rxBuf.size();
 	//uint64_t timer = 0;
     uint64_t offset = 0;
     uint32_t zframeSeq = 0;
@@ -256,16 +262,35 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
                     {
                         boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
                         if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&hdr, sizeof(BlockHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                            std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
+                            std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
                         }
                         else {
                             egressToIngressAckingObj.Push_ThreadSafe(hdr);
-                            if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
-                                std::cerr << "ingress can't send bundle to storage" << std::endl;
+                            if (numChunks == 1) {
+                                //this is an optimization because we only have one chunk to send
+                                //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+                                //to represent the content referenced by the buffer located at address data, size bytes long.
+                                //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+                                //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+                                //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+                                std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
+                                zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanup, rxBufRawPointer);
+                                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                                    std::cerr << "ingress can't send bundle to egress" << std::endl;
+                                }
+                                else {
+                                    //success                            
+                                    ++m_bundleCountEgress;
+                                }
                             }
                             else {
-                                //success                            
-                                ++m_bundleCountEgress;
+                                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
+                                    std::cerr << "ingress can't send bundle to egress" << std::endl;
+                                }
+                                else {
+                                    //success                            
+                                    ++m_bundleCountEgress;
+                                }
                             }
                         }
                     }
@@ -292,12 +317,31 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
                     }
                     else {
                         m_storageAckQueue.push(hdr);
-                        if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
-                            std::cerr << "ingress can't send bundle to storage" << std::endl;
+                        if (numChunks == 1) {
+                            //this is an optimization because we only have one chunk to send
+                            //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+                            //to represent the content referenced by the buffer located at address data, size bytes long.
+                            //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+                            //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+                            //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+                            std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
+                            zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanup, rxBufRawPointer);
+                            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                                std::cerr << "ingress can't send bundle to storage" << std::endl;
+                            }
+                            else {
+                                //success                            
+                                ++m_bundleCountStorage;
+                            }
                         }
                         else {
-                            //success
-                            ++m_bundleCountStorage;
+                            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
+                                std::cerr << "ingress can't send bundle to storage" << std::endl;
+                            }
+                            else {
+                                //success                            
+                                ++m_bundleCountStorage;
+                            }
                         }
                     }
                     break;
@@ -316,16 +360,16 @@ int BpIngressSyscall::Process(const std::vector<uint8_t> & rxBuf, const std::siz
 
 
 
-void BpIngressSyscall::UdpWholeBundleReadyCallback(const std::vector<uint8_t> & bundleBuffer, const std::size_t bundleSizeBytes) {
+void BpIngressSyscall::UdpWholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
-    Process(bundleBuffer, bundleSizeBytes);
+    Process(std::move(wholeBundleVec));
 }
 
 void BpIngressSyscall::TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
-    Process(*wholeBundleSharedPtr, wholeBundleSharedPtr->size());
+    Process(std::vector<uint8_t>(std::move(*wholeBundleSharedPtr)));
 }
 
 void BpIngressSyscall::StartTcpAccept() {

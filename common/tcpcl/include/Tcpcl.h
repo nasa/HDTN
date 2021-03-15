@@ -102,10 +102,11 @@ public:
 
 
 	void InitRx();
-	void HandleReceivedChars(const uint8_t * rxVals, const std::size_t numChars);
+	void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
 	void HandleReceivedChar(const uint8_t rxVal);
 	static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
 	static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint32_t sizeContents);
+    static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint32_t sizeContents);
 	static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint32_t totalBytesAcknowledged);
 	static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode);
 	static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint32_t nextBundleLength);

@@ -122,10 +122,9 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                 else { //reply to ingress
                     flowIdToNeedAcksQueueMap[blockHdr.flowId].push(QueueItem(blockHdr));
                 }
-                unsigned int numUnackedBundles = 0;
-                Forward(blockHdr.flowId, boost::make_shared<zmq::message_t>(std::move(zmqMessage)), numUnackedBundles);
-                if (numUnackedBundles > 10) {
-                    std::cout << numUnackedBundles << std::endl;
+                Forward(blockHdr.flowId, zmqMessage);
+                if (zmqMessage.size() != 0) {
+                    std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
                 }
             }
             cb.CommitRead();
@@ -332,10 +331,10 @@ void hdtn::HegrManagerAsync::Up(int fec) {
 }
 
 
-int hdtn::HegrManagerAsync::Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
+int hdtn::HegrManagerAsync::Forward(int fec, zmq::message_t & zmqMessage) {
     try {
         if(boost::shared_ptr<HegrEntryAsync> entry = m_entryMap.at(fec)) {
-            return entry->Forward(zmqMessagePtr, numUnackedBundles);
+            return entry->Forward(zmqMessage);
         }
     }
     catch (const std::out_of_range &) {
@@ -426,13 +425,12 @@ int hdtn::HegrUdpEntryAsync::Disable() {
     return 0;
 }
 
-int hdtn::HegrUdpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr, unsigned int & numUnackedBundles) {
+int hdtn::HegrUdpEntryAsync::Forward(zmq::message_t & zmqMessage) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }
-    if (m_udpBundleSourcePtr && m_udpBundleSourcePtr->Forward((const uint8_t *)zmqMessagePtr->data(), zmqMessagePtr->size(), numUnackedBundles)) {
+    if (m_udpBundleSourcePtr && m_udpBundleSourcePtr->Forward(zmqMessage)) {
         return 1;
-
     }
     std::cerr << "link not ready to forward yet" << std::endl;
     return 1;

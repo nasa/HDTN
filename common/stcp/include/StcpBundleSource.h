@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <map>
 #include <queue>
+#include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 
 //tcpcl
@@ -17,7 +18,9 @@ public:
     StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds, const uint64_t rateBps = 50, const unsigned int maxUnacked = 100);
 
     ~StcpBundleSource();
-    bool Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles);
+    bool Forward(const uint8_t* bundleData, const std::size_t size);
+    bool Forward(zmq::message_t & dataZmq);
+    bool Forward(std::vector<uint8_t> & dataVec);
     std::size_t GetTotalDataSegmentsAcked();
     std::size_t GetTotalDataSegmentsSent();
     std::size_t GetTotalDataSegmentsUnacked();
@@ -30,9 +33,10 @@ public:
     void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
     static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
+    static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
-    void HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
@@ -46,7 +50,9 @@ private:
     void DoStcpShutdown();
 
     
-
+    std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendKeepAliveCallback;
 
 
     

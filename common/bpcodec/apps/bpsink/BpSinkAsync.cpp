@@ -117,7 +117,7 @@ int BpSinkAsync::Netstart() {
         }
 
         m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, m_rxPortUdpOrTcp,
-            boost::bind(&BpSinkAsync::UdpWholeBundleReadyCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+            boost::bind(&BpSinkAsync::UdpWholeBundleReadyCallback, this, boost::placeholders::_1),
             200, 65536);
     }
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -217,10 +217,10 @@ int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t m
     return 0;
 }
 
-void BpSinkAsync::UdpWholeBundleReadyCallback(const std::vector<uint8_t> & bundleBuffer, const std::size_t bundleSizeBytes) {
+void BpSinkAsync::UdpWholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
-    Process(bundleBuffer, bundleSizeBytes);
+    Process(wholeBundleVec, wholeBundleVec.size());
 }
 
 void BpSinkAsync::TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr) {

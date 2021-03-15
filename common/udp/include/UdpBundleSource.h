@@ -7,6 +7,7 @@
 #include <map>
 #include <queue>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include <zmq.hpp>
 
 class UdpBundleSource {
 private:
@@ -16,7 +17,9 @@ public:
     UdpBundleSource(const uint64_t rateBps = 50, const unsigned int maxUnacked = 100);
 
     ~UdpBundleSource();
-    bool Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles);
+    bool Forward(const uint8_t* bundleData, const std::size_t size);
+    bool Forward(zmq::message_t & dataZmq);
+    bool Forward(std::vector<uint8_t> & dataVec);
     std::size_t GetTotalUdpPacketsAcked();
     std::size_t GetTotalUdpPacketsSent();
     std::size_t GetTotalUdpPacketsUnacked();
@@ -31,7 +34,7 @@ private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
     void HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-    
+    void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
 
     void RestartNewDataSignaler();
     void SignalNewDataForwarded();

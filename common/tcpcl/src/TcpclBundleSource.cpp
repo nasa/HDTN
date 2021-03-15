@@ -3,7 +3,7 @@
 #include "TcpclBundleSource.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
-
+#include <boost/make_unique.hpp>
 
 TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
@@ -28,6 +28,9 @@ m_totalBytesAcked(0),
 m_totalDataSegmentsSent(0),
 m_totalBundleBytesSent(0)
 {
+    m_handleTcpSendCallback = boost::bind(&TcpclBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+    m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+
     m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
@@ -50,6 +53,7 @@ TcpclBundleSource::~TcpclBundleSource() {
     while (!m_tcpclShutdownComplete) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(250));
     }
+    m_tcpAsyncSenderPtr.reset(); //stop this first
     m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
 
     if(m_ioServiceThreadPtr) {
@@ -88,7 +92,7 @@ std::size_t TcpclBundleSource::GetTotalBundleBytesUnacked() {
     return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 }
 
-bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
+bool TcpclBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     if(!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -101,24 +105,58 @@ bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t siz
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(size);
+    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataVec.size());
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(size);
+    m_totalBundleBytesSent += static_cast<uint32_t>(dataVec.size());
 
-    numUnackedBundles = m_bytesToAckCb.NumInBuffer();
+    //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
-    boost::shared_ptr<std::vector<uint8_t> > bundleSegmentPtr = boost::make_shared<std::vector<uint8_t> >();
-    Tcpcl::GenerateDataSegment(*bundleSegmentPtr, true, true, bundleData, static_cast<uint32_t>(size));
+    std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*bundleSegmentPtr),
-                                     boost::bind(&TcpclBundleSource::HandleTcpSend, this, bundleSegmentPtr,
-                                                 boost::asio::placeholders::error,
-                                                 boost::asio::placeholders::bytes_transferred));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataVec.size()));
+    std::unique_ptr<TcpAsyncSenderElement> el;
+    TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<std::vector<uint8_t> >(std::move(dataVec)), &m_handleTcpSendCallback);
+    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+    
     return true;
 }
 
+bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
+
+    if (!m_readyToForward) {
+        std::cerr << "link not ready to forward yet" << std::endl;
+        return false;
+    }
+
+
+    const unsigned int writeIndex = m_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndex == UINT32_MAX) { //push check
+        std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
+        return false;
+    }
+    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataZmq.size());
+    m_bytesToAckCb.CommitWrite(); //pushed
+
+    ++m_totalDataSegmentsSent;
+    m_totalBundleBytesSent += static_cast<uint32_t>(dataZmq.size());
+
+    //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
+
+    std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
+
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataZmq.size()));
+    std::unique_ptr<TcpAsyncSenderElement> el;
+    TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<zmq::message_t>(std::move(dataZmq)), &m_handleTcpSendCallback);
+    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+
+    return true;
+}
+
+bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
+}
 
 
 void TcpclBundleSource::Connect(const std::string & hostname, const std::string & port) {
@@ -158,27 +196,28 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
     std::cout << "connected.. sending contact header..\n";
     m_tcpclShutdownComplete = false;
 
+    
     if(m_tcpSocketPtr) {
-        boost::shared_ptr<std::vector<uint8_t> > contactHeaderPtr = boost::make_shared<std::vector<uint8_t> >();
+        m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(100, m_tcpSocketPtr);
+        std::unique_ptr<std::vector<uint8_t> > contactHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
         Tcpcl::GenerateContactHeader(*contactHeaderPtr, CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, m_keepAliveIntervalSeconds, M_THIS_EID_STRING);
-        boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*contactHeaderPtr),
-                                         boost::bind(&TcpclBundleSource::HandleTcpSend, this, contactHeaderPtr,
-                                                     boost::asio::placeholders::error,
-                                                     boost::asio::placeholders::bytes_transferred));
+        std::unique_ptr<TcpAsyncSenderElement> el;
+        TcpAsyncSenderElement::Create(el, std::move(contactHeaderPtr), &m_handleTcpSendCallback);
+        m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
 
         StartTcpReceive();
     }
 }
 
 
-void TcpclBundleSource::HandleTcpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclBundleSource::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in TcpclBundleSource::HandleTcpSend: " << error.message() << std::endl;
         DoTcpclShutdown(true, false);
     }
 }
 
-void TcpclBundleSource::HandleTcpSendShutdown(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclBundleSource::HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in TcpclBundleSource::HandleTcpSendShutdown: " << error.message() << std::endl;
     }
@@ -323,12 +362,12 @@ void TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::s
         // Timer was not cancelled, take necessary action.
         //SEND KEEPALIVE PACKET
         if(m_tcpSocketPtr) {
-            boost::shared_ptr<std::vector<uint8_t> > keepAlivePtr = boost::make_shared<std::vector<uint8_t> >();
+            std::unique_ptr<std::vector<uint8_t> > keepAlivePtr = boost::make_unique<std::vector<uint8_t> >();
             Tcpcl::GenerateKeepAliveMessage(*keepAlivePtr);
-            boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*keepAlivePtr),
-                                             boost::bind(&TcpclBundleSource::HandleTcpSend, this, keepAlivePtr,
-                                                         boost::asio::placeholders::error,
-                                                         boost::asio::placeholders::bytes_transferred));
+            std::unique_ptr<TcpAsyncSenderElement> el;
+            TcpAsyncSenderElement::Create(el, std::move(keepAlivePtr), &m_handleTcpSendCallback);
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+
 
             m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_keepAliveIntervalSeconds));
             m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
@@ -352,7 +391,7 @@ void TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled(const boost::syste
         m_readyToForward = false;
         if (m_sendShutdownMessage) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
-            boost::shared_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_shared<std::vector<uint8_t> >();
+            std::unique_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_unique<std::vector<uint8_t> >();
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
             //i.e., that the connecting node MUST NOT re - establish the connection.
             if (m_reasonWasTimeOut) {
@@ -362,10 +401,9 @@ void TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled(const boost::syste
                 Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 0);
             }
 
-            boost::asio::async_write(*m_tcpSocketPtr, boost::asio::buffer(*shutdownPtr),
-                                     boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, shutdownPtr,
-                                                 boost::asio::placeholders::error,
-                                                 boost::asio::placeholders::bytes_transferred));
+            std::unique_ptr<TcpAsyncSenderElement> el;
+            TcpAsyncSenderElement::Create(el, std::move(shutdownPtr), &m_handleTcpSendShutdownCallback);
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
 
             m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(3));
         }

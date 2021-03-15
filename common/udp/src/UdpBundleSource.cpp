@@ -64,7 +64,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     m_rateBitsPerSec = rateBitsPerSec;
 }
 
-bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, unsigned int & numUnackedBundles) {
+bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     if(!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -85,26 +85,71 @@ bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
     
 
 
-    numUnackedBundles = 0; //TODO
     ++m_totalUdpPacketsSent;
-    m_totalBundleBytesSent += size;
+    m_totalBundleBytesSent += dataVec.size();
     
-    boost::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = boost::make_shared<std::vector<uint8_t> >(bundleData, bundleData + size);
 
-
-    m_bytesToAckByRateCbVec[writeIndexRate] = static_cast<uint32_t>(size);
+    m_bytesToAckByRateCbVec[writeIndexRate] = static_cast<uint32_t>(dataVec.size());
     m_bytesToAckByRateCb.CommitWrite(); //pushed
 
-    m_bytesToAckByUdpSendCallbackCbVec[writeIndexUdpSendCallback] = static_cast<uint32_t>(size);
+    m_bytesToAckByUdpSendCallbackCbVec[writeIndexUdpSendCallback] = static_cast<uint32_t>(dataVec.size());
     m_bytesToAckByUdpSendCallbackCb.CommitWrite(); //pushed
 
     SignalNewDataForwarded();
 
+    boost::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = boost::make_shared<std::vector<uint8_t> >(std::move(dataVec));
+    //dataVec invalid after this point
     m_udpSocket.async_send_to(boost::asio::buffer(*udpDataToSendPtr), m_udpDestinationEndpoint,
                                      boost::bind(&UdpBundleSource::HandleUdpSend, this, udpDataToSendPtr,
                                                  boost::asio::placeholders::error,
                                                  boost::asio::placeholders::bytes_transferred));
     return true;
+}
+
+bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
+
+    if (!m_readyToForward) {
+        std::cerr << "link not ready to forward yet" << std::endl;
+        return false;
+    }
+
+    const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexRate == UINT32_MAX) { //push check
+        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by rate" << std::endl;
+        return false;
+    }
+
+    const unsigned int writeIndexUdpSendCallback = m_bytesToAckByUdpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexUdpSendCallback == UINT32_MAX) { //push check
+        std::cerr << "Error in UdpBundleSource::Forward.. too many unacked packets by udp send callback" << std::endl;
+        return false;
+    }
+
+
+
+    ++m_totalUdpPacketsSent;
+    m_totalBundleBytesSent += dataZmq.size();
+
+
+    m_bytesToAckByRateCbVec[writeIndexRate] = static_cast<uint32_t>(dataZmq.size());
+    m_bytesToAckByRateCb.CommitWrite(); //pushed
+
+    m_bytesToAckByUdpSendCallbackCbVec[writeIndexUdpSendCallback] = static_cast<uint32_t>(dataZmq.size());
+    m_bytesToAckByUdpSendCallbackCb.CommitWrite(); //pushed
+
+    SignalNewDataForwarded();
+
+    boost::shared_ptr<zmq::message_t> zmqDataToSendPtr = boost::make_shared<zmq::message_t>(std::move(dataZmq));
+    //dataZmq invalid after this point
+    m_udpSocket.async_send_to(boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size()), m_udpDestinationEndpoint,
+        boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, zmqDataToSendPtr,
+            boost::asio::placeholders::error,
+            boost::asio::placeholders::bytes_transferred));
+    return true;
+}
+
+bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
 }
 
 
@@ -190,7 +235,31 @@ void UdpBundleSource::HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t
             }
         }
         else {
-            std::cerr << "error in StcpBundleSource::HandleTcpSend: wrong bytes acked: expected " << m_bytesToAckByUdpSendCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+            std::cerr << "error in UdpBundleSource::HandleUdpSend: wrong bytes acked: expected " << m_bytesToAckByUdpSendCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+        }
+    }
+}
+
+void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    if (error) {
+        std::cerr << "error in UdpBundleSource::HandleUdpSendZmqMessage: " << error.message() << std::endl;
+        DoUdpShutdown();
+    }
+    else {
+        const unsigned int readIndex = m_bytesToAckByUdpSendCallbackCb.GetIndexForRead();
+        if (readIndex == UINT32_MAX) { //empty
+            std::cerr << "error in UdpBundleSource::HandleUdpSendZmqMessage: AckCallback called with empty queue" << std::endl;
+        }
+        else if (m_bytesToAckByUdpSendCallbackCbVec[readIndex] == bytes_transferred) {
+            ++m_totalUdpPacketsAckedByUdpSendCallback;
+            m_totalBytesAckedByUdpSendCallback += m_bytesToAckByUdpSendCallbackCbVec[readIndex];
+            m_bytesToAckByUdpSendCallbackCb.CommitRead();
+            if (m_onSuccessfulAckCallback && (m_totalUdpPacketsAckedByUdpSendCallback <= m_totalUdpPacketsAckedByRate)) { //rate segments ahead
+                m_onSuccessfulAckCallback();
+            }
+        }
+        else {
+            std::cerr << "error in UdpBundleSource::HandleUdpSendZmqMessage: wrong bytes acked: expected " << m_bytesToAckByUdpSendCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
         }
     }
 }

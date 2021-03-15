@@ -105,7 +105,13 @@ void UdpBundleSink::PopCbThreadFunc() {
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
-        m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
+        //m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
+        m_udpReceiveBuffersCbVec[consumeIndex].resize(m_udpReceiveBytesTransferredCbVec[consumeIndex]);
+        m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex]);
+        //if (m_udpReceiveBuffersCbVec[consumeIndex].size() != 0) {
+        //    std::cerr << "error in UdpBundleSink::PopCbThreadFunc(): udp data was not moved" << std::endl;
+        //}
+        m_udpReceiveBuffersCbVec[consumeIndex].resize(M_MAX_UDP_PACKET_SIZE_BYTES); //restore for next udp read in case it was moved
         
         m_circularIndexBuffer.CommitRead();
     }
