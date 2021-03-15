@@ -233,7 +233,7 @@ public:
     virtual std::size_t GetTotalBundlesAcked();
     virtual std::size_t GetTotalBundlesSent();
 private:
-    boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
+    std::unique_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
 
 };
 
@@ -300,7 +300,7 @@ public:
     virtual std::size_t GetTotalBundlesAcked();
     virtual std::size_t GetTotalBundlesSent();
 private:
-    boost::shared_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
+    std::unique_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
 
 };
 
@@ -345,12 +345,12 @@ public:
     uint64_t m_messageCount;
 
     bool m_testStorage = false;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_storageEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtx_storageEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
 
 private:
     void ReadZmqThreadFunc();
@@ -360,7 +360,7 @@ private:
         std::vector<hdtn::BlockHdr> & headerMessages,
         std::vector<bool> & isFromStorage,
         std::vector<zmq::message_t> & payloadMessages);
-    std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> > m_entryMap;
+    std::map<unsigned int, std::unique_ptr<HegrEntryAsync> > m_entryMap;
     //HegrEntryAsync *Entry(int offset);
     //void *m_entries;
     boost::asio::io_service m_ioService;
@@ -369,8 +369,8 @@ private:
     boost::condition_variable m_conditionVariableProcessZmqMessages;
 
 
-    boost::shared_ptr<boost::thread> m_threadZmqReaderPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     volatile bool m_running;
 };
 

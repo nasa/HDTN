@@ -35,7 +35,7 @@ void BpGenAsync::Stop() {
     boost::this_thread::sleep(boost::posix_time::seconds(1));
     if(m_bpGenThreadPtr) {
         m_bpGenThreadPtr->join();
-        m_bpGenThreadPtr = boost::make_shared<boost::thread>();
+        m_bpGenThreadPtr.reset(); //delete it
     }
     //prevent bpgen from exiting before all bundles sent and acked
     boost::mutex localMutex;
@@ -59,8 +59,8 @@ void BpGenAsync::Stop() {
         break;
     }
 
-    m_tcpclBundleSourcePtr = boost::shared_ptr<TcpclBundleSource>(); //delete it
-    m_stcpBundleSourcePtr = boost::shared_ptr<StcpBundleSource>(); //delete it
+    m_tcpclBundleSourcePtr.reset(); //delete it
+    m_stcpBundleSourcePtr.reset(); //delete it
     m_udpBundleSourcePtr.reset(); //delete it
 }
 
@@ -71,7 +71,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
     }
 
     if(useTcpcl) {
-        m_tcpclBundleSourcePtr = boost::make_shared<TcpclBundleSource>(30, thisLocalEidString);
+        m_tcpclBundleSourcePtr = boost::make_unique<TcpclBundleSource>(30, thisLocalEidString);
         m_tcpclBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_tcpclBundleSourcePtr->Connect(hostname, port);
         for(unsigned int i = 0; i<10; ++i) {
@@ -84,7 +84,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         }
     }
     else if (useStcp) {
-        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15, stcpRateBitsPerSec);
+        m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15, stcpRateBitsPerSec);
         m_stcpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_stcpBundleSourcePtr->Connect(hostname, port);
         for (unsigned int i = 0; i < 10; ++i) {
@@ -113,7 +113,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
 
 
     m_running = true;
-    m_bpGenThreadPtr = boost::make_shared<boost::thread>(
+    m_bpGenThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, tcpclFragmentSize, destFlowId)); //create and start the worker thread
 
 

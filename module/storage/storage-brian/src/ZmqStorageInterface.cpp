@@ -7,6 +7,7 @@
 #include "BundleStorageManagerMT.h"
 #include <set>
 #include <boost/lexical_cast.hpp>
+#include <boost/make_unique.hpp>
 
 hdtn::ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
@@ -17,10 +18,9 @@ hdtn::ZmqStorageInterface::~ZmqStorageInterface() {
 void hdtn::ZmqStorageInterface::Stop() {
     m_running = false; //thread stopping criteria
     if (m_threadPtr) {
-            m_threadPtr->join();
+        m_threadPtr->join();
+        m_threadPtr.reset();
     }
-    m_threadPtr = boost::shared_ptr<boost::thread>();
-    
 }
 
 void hdtn::ZmqStorageInterface::init(zmq::context_t *ctx, const storageConfig & config) {
@@ -468,7 +468,7 @@ void hdtn::ZmqStorageInterface::launch() {
     if (!m_running) {
         m_running = true;
         std::cout << "[ZmqStorageInterface] Launching worker thread ..." << std::endl;
-        m_threadPtr = boost::make_shared<boost::thread>(
+        m_threadPtr = boost::make_unique<boost::thread>(
                 boost::bind(&ZmqStorageInterface::ThreadFunc, this)); //create and start the worker thread
     }
 }

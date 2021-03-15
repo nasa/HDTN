@@ -31,7 +31,7 @@ m_totalBundleBytesSent(0)
     m_handleTcpSendCallback = boost::bind(&TcpclBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
     m_handleSocketShutdownCancelOnlyTimer.async_wait(boost::bind(&TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled, this, boost::asio::placeholders::error));
@@ -58,7 +58,7 @@ TcpclBundleSource::~TcpclBundleSource() {
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
     //print stats
@@ -155,7 +155,8 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
 }
 
 bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
+    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    return Forward(vec);
 }
 
 

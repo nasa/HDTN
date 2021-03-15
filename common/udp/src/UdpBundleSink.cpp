@@ -3,6 +3,7 @@
 #include <iostream>
 #include "UdpBundleSink.h"
 #include <boost/endian/conversion.hpp>
+#include <boost/make_unique.hpp>
 
 UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
                                  uint16_t udpPort,
@@ -25,7 +26,7 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     }
     
     m_running = true;
-    m_threadCbReaderPtr = boost::make_shared<boost::thread>(
+    m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&UdpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
 
     //Receiver UDP
@@ -52,7 +53,7 @@ UdpBundleSink::~UdpBundleSink() {
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
+        m_threadCbReaderPtr.reset(); //delete it
     }
 }
 

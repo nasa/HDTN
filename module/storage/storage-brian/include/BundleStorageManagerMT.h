@@ -121,7 +121,7 @@ private:
 	//boost::shared_ptr<boost::thread> m_threadPtrs[NUM_STORAGE_THREADS];
 	//CircularIndexBufferSingleProducerSingleConsumer m_circularIndexBuffers[NUM_STORAGE_THREADS];
 	std::vector<boost::condition_variable> m_conditionVariablesVec;
-	std::vector<boost::shared_ptr<boost::thread> > m_threadPtrsVec;
+	std::vector<std::unique_ptr<boost::thread> > m_threadPtrsVec;
 	std::vector<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_circularIndexBuffersVec;
 	
 	volatile bool m_running;

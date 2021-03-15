@@ -76,7 +76,7 @@ private:
 
    private:
     zmq::context_t *m_zmqContextPtr;
-    boost::shared_ptr<boost::thread> m_threadPtr;
+    std::unique_ptr<boost::thread> m_threadPtr;
     std::string m_storageConfigFilePath;
     std::string m_queue;
     volatile bool m_running;
@@ -121,13 +121,13 @@ public:
     std::size_t m_totalBundlesErasedFromStorage = 0;
     std::size_t m_totalBundlesSentToEgressFromStorage = 0;
 
-   private:
-    boost::shared_ptr<zmq::context_t> m_zmqContextPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
+private:
+    std::unique_ptr<zmq::context_t> m_zmqContextPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
     uint16_t port;
-    boost::shared_ptr<zmq::socket_t> m_workerSockPtr;
-    boost::shared_ptr<zmq::socket_t> m_telemetrySockPtr;
+    std::unique_ptr<zmq::socket_t> m_workerSockPtr;
+    std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
 #ifdef USE_BRIAN_STORAGE
     ZmqStorageInterface worker;
 #else

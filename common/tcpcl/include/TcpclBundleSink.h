@@ -75,7 +75,7 @@ private:
     std::vector<std::vector<boost::uint8_t> > m_tcpReceiveBuffersCbVec;
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
-    boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     volatile bool m_sendShutdownMessage;
     volatile bool m_reasonWasTimeOut;
     volatile bool m_running;

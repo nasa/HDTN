@@ -34,7 +34,7 @@ m_totalStcpBytesSent(0)
     m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     RestartNewDataSignaler();
 }
@@ -50,7 +50,7 @@ StcpBundleSource::~StcpBundleSource() {
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
     //print stats
@@ -188,7 +188,8 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
 
 bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
+    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    return Forward(vec);
 }
 
 

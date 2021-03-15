@@ -3,6 +3,7 @@
 #include <iostream>
 #include "StcpBundleSink.h"
 #include <boost/endian/conversion.hpp>
+#include <boost/make_unique.hpp>
 
 StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
                                  WholeBundleReadyCallback_t wholeBundleReadyCallback,
@@ -19,7 +20,7 @@ StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> t
 {
 
     m_running = true;
-    m_threadCbReaderPtr = boost::make_shared<boost::thread>(
+    m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&StcpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
    
     StartTcpReceiveIncomingBundleSize();
@@ -33,7 +34,7 @@ StcpBundleSink::~StcpBundleSink() {
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
+        m_threadCbReaderPtr.reset(); //delete it
     }
 }
 

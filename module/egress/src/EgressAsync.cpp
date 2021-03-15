@@ -18,7 +18,7 @@ void hdtn::HegrManagerAsync::Stop() {
     m_running = false;
     if(m_threadZmqReaderPtr) {
         m_threadZmqReaderPtr->join();
-        m_threadZmqReaderPtr = boost::make_shared<boost::thread>();
+        m_threadZmqReaderPtr.reset(); //delete it
     }
 
     if (m_udpSocket.is_open()) {
@@ -33,7 +33,7 @@ void hdtn::HegrManagerAsync::Stop() {
     }
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::make_shared<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
 }
@@ -44,16 +44,16 @@ void hdtn::HegrManagerAsync::Init() {
     m_bundleData = 0;
     m_messageCount = 0;
     // socket for cut-through mode straight to egress
-    m_zmqCtx_ingressEgressPtr = boost::make_shared<zmq::context_t>();
-    m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
+    m_zmqCtx_ingressEgressPtr = boost::make_unique<zmq::context_t>();
+    m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
     m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
-    m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
+    m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
     m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH);
     // socket for sending bundles to storage
-    m_zmqCtx_storageEgressPtr = boost::make_shared<zmq::context_t>();
-    m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::pull);
+    m_zmqCtx_storageEgressPtr = boost::make_unique<zmq::context_t>();
+    m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::pull);
     m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH);
-    m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::push);
+    m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::push);
     m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH);
 
     try {
@@ -70,10 +70,10 @@ void hdtn::HegrManagerAsync::Init() {
 
     if (!m_running) {
         m_running = true;
-        m_threadZmqReaderPtr = boost::make_shared<boost::thread>(
+        m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&HegrManagerAsync::ReadZmqThreadFunc, this)); //create and start the worker thread
 
-        m_ioServiceThreadPtr = boost::make_shared<boost::thread>(
+        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(
             boost::bind(&boost::asio::io_service::run, &m_ioService));
     }
 }
@@ -139,7 +139,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                 const uint64_t flowId = it->first;
                 //const unsigned int fec = 1; //TODO
                 queue_t & q = it->second;
-                std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(static_cast<unsigned int>(flowId));
+                std::map<unsigned int, std::unique_ptr<HegrEntryAsync> >::iterator entryIt = m_entryMap.find(static_cast<unsigned int>(flowId));
                 if (entryIt != m_entryMap.end()) {
                     const std::size_t numAckedRemaining = entryIt->second->GetTotalBundlesSent() - entryIt->second->GetTotalBundlesAcked();
                     while (q.size() > numAckedRemaining) {
@@ -262,7 +262,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int port, uint64_t rateBitsPerSec) {
 
     if (flags & HEGR_FLAG_STCPv1) {
-        boost::shared_ptr<HegrStcpEntryAsync> stcpEntry = boost::make_shared<HegrStcpEntryAsync>();
+        std::unique_ptr<HegrStcpEntryAsync> stcpEntry = boost::make_unique<HegrStcpEntryAsync>();
         stcpEntry->Connect(dst, boost::lexical_cast<std::string>(port));
         if (StcpBundleSource * ptr = stcpEntry->GetStcpBundleSourcePtr()) {
             ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
@@ -271,12 +271,12 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         else {
             std::cerr << "ERROR, CANNOT SET STCP CALLBACK" << std::endl;
         }
-        m_entryMap[fec] = stcpEntry;
+        m_entryMap[fec] = std::move(stcpEntry);
         m_entryMap[fec]->Disable();
         return 1;
     }
     else if (flags & HEGR_FLAG_UDP) {
-        boost::shared_ptr<HegrUdpEntryAsync> udpEntry = boost::make_unique<HegrUdpEntryAsync>();
+        std::unique_ptr<HegrUdpEntryAsync> udpEntry = boost::make_unique<HegrUdpEntryAsync>();
         udpEntry->Connect(dst, boost::lexical_cast<std::string>(port));
         if (UdpBundleSource * ptr = udpEntry->GetUdpBundleSourcePtr()) {
             ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
@@ -285,12 +285,12 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         else {
             std::cerr << "ERROR, CANNOT SET UDP CALLBACK" << std::endl;
         }
-        m_entryMap[fec] = udpEntry;
+        m_entryMap[fec] = std::move(udpEntry);
         m_entryMap[fec]->Disable();
         return 1;
     }
     else if (flags & HEGR_FLAG_TCPCLv3) {
-        boost::shared_ptr<HegrTcpclEntryAsync> tcpclEntry = boost::make_shared<HegrTcpclEntryAsync>();
+        std::unique_ptr<HegrTcpclEntryAsync> tcpclEntry = boost::make_unique<HegrTcpclEntryAsync>();
         tcpclEntry->Connect(dst, boost::lexical_cast<std::string>(port));
         if (TcpclBundleSource * ptr = tcpclEntry->GetTcpclBundleSourcePtr()) {
             ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
@@ -298,7 +298,7 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         else {
             std::cerr << "ERROR, CANNOT SET TCPCL CALLBACK" << std::endl;
         }
-        m_entryMap[fec] = tcpclEntry;
+        m_entryMap[fec] = std::move(tcpclEntry);
         m_entryMap[fec]->Disable();
         return 1;
     }
@@ -310,7 +310,7 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
 
 void hdtn::HegrManagerAsync::Down(int fec) {
     try {
-        if(boost::shared_ptr<HegrEntryAsync> entry = m_entryMap.at(fec)) {
+        if(std::unique_ptr<HegrEntryAsync> & entry = m_entryMap.at(fec)) {
             entry->Disable();
         }
     }
@@ -321,7 +321,7 @@ void hdtn::HegrManagerAsync::Down(int fec) {
 
 void hdtn::HegrManagerAsync::Up(int fec) {
     try {
-        if(boost::shared_ptr<HegrEntryAsync> entry = m_entryMap.at(fec)) {
+        if(std::unique_ptr<HegrEntryAsync> & entry = m_entryMap.at(fec)) {
             entry->Enable();
         }
     }
@@ -333,7 +333,7 @@ void hdtn::HegrManagerAsync::Up(int fec) {
 
 int hdtn::HegrManagerAsync::Forward(int fec, zmq::message_t & zmqMessage) {
     try {
-        if(boost::shared_ptr<HegrEntryAsync> entry = m_entryMap.at(fec)) {
+        if(std::unique_ptr<HegrEntryAsync> & entry = m_entryMap.at(fec)) {
             return entry->Forward(zmqMessage);
         }
     }

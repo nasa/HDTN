@@ -63,7 +63,7 @@ private:
     boost::asio::deadline_timer m_rateTimer;
     boost::asio::deadline_timer m_newDataSignalerTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
 
     const uint16_t M_KEEP_ALIVE_INTERVAL_SECONDS;
     uint64_t m_rateBitsPerSec;

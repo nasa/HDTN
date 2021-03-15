@@ -40,7 +40,7 @@ void BpIngressSyscall::Stop() {
                 std::cerr << "Error closing TCP Acceptor in BpIngressSyscall::Stop():  " << e.what() << std::endl;
             }
         }        
-        m_tcpAcceptorPtr = boost::shared_ptr<boost::asio::ip::tcp::acceptor>();
+        m_tcpAcceptorPtr.reset(); //delete it
     }
     m_listTcpclBundleSinkPtrs.clear();
     m_listStcpBundleSinkPtrs.clear();
@@ -51,7 +51,7 @@ void BpIngressSyscall::Stop() {
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
 
@@ -59,7 +59,7 @@ void BpIngressSyscall::Stop() {
 
     if (m_threadZmqAckReaderPtr) {
         m_threadZmqAckReaderPtr->join();
-        m_threadZmqAckReaderPtr = boost::shared_ptr<boost::thread>();
+        m_threadZmqAckReaderPtr.reset(); //delete it
     }
 
     
@@ -73,24 +73,24 @@ int BpIngressSyscall::Init(uint32_t type) {
         m_running = true;
 
         // socket for cut-through mode straight to egress
-        m_zmqCtx_ingressEgressPtr = boost::make_shared<zmq::context_t>();
-        m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
+        m_zmqCtx_ingressEgressPtr = boost::make_unique<zmq::context_t>();
+        m_zmqPushSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
         m_zmqPushSock_boundIngressToConnectingEgressPtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
         // socket for sending bundles to storage
-        m_zmqCtx_ingressStoragePtr = boost::make_shared<zmq::context_t>();
-        m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressStoragePtr, zmq::socket_type::push);
+        m_zmqCtx_ingressStoragePtr = boost::make_unique<zmq::context_t>();
+        m_zmqPushSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressStoragePtr, zmq::socket_type::push);
         m_zmqPushSock_boundIngressToConnectingStoragePtr->bind(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
         // socket for receiving acks from storage
-        m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressStoragePtr, zmq::socket_type::pull);
+        m_zmqPullSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressStoragePtr, zmq::socket_type::pull);
         m_zmqPullSock_connectingStorageToBoundIngressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH);
         // socket for receiving acks from egress
-        m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_shared<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
+        m_zmqPullSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
         m_zmqPullSock_connectingEgressToBoundIngressPtr->bind(HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH);
         static const int timeout = 250;  // milliseconds
         m_zmqPullSock_connectingStorageToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
         m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
-        m_threadZmqAckReaderPtr = boost::make_shared<boost::thread>(
+        m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&BpIngressSyscall::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
     }
     return 0;
@@ -110,9 +110,9 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
     m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
         boost::bind(&BpIngressSyscall::UdpWholeBundleReadyCallback, this, boost::placeholders::_1),
         200, 65536);
-    m_tcpAcceptorPtr = boost::make_shared<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
+    m_tcpAcceptorPtr = boost::make_unique<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
     StartTcpAccept();
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     return 0;
 }
@@ -390,16 +390,16 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
         //    std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
         //}
         if (m_useTcpcl) {
-            boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
+            std::unique_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr,
                                                                                                    boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                                                    200, 20000, "ingress");
-            m_listTcpclBundleSinkPtrs.push_back(bundleSinkPtr);
+            m_listTcpclBundleSinkPtrs.push_back(std::move(bundleSinkPtr));
         }
         else if (m_useStcp) {
-            boost::shared_ptr<StcpBundleSink> bundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
+            std::unique_ptr<StcpBundleSink> bundleSinkPtr = boost::make_unique<StcpBundleSink>(newTcpSocketPtr,
                                                                                                    boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                                                    200);
-            m_listStcpBundleSinkPtrs.push_back(bundleSinkPtr);
+            m_listStcpBundleSinkPtrs.push_back(std::move(bundleSinkPtr));
         }
         
 
@@ -413,8 +413,8 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
 }
 
 void BpIngressSyscall::RemoveInactiveTcpConnections() {
-    m_listTcpclBundleSinkPtrs.remove_if([](const boost::shared_ptr<TcpclBundleSink> & ptr){ return ptr->ReadyToBeDeleted();});
-    m_listStcpBundleSinkPtrs.remove_if([](const boost::shared_ptr<StcpBundleSink> & ptr) { return ptr->ReadyToBeDeleted(); });
+    m_listTcpclBundleSinkPtrs.remove_if([](const std::unique_ptr<TcpclBundleSink> & ptr){ return ptr->ReadyToBeDeleted();});
+    m_listStcpBundleSinkPtrs.remove_if([](const std::unique_ptr<StcpBundleSink> & ptr) { return ptr->ReadyToBeDeleted(); });
 }
 
 }  // namespace hdtn

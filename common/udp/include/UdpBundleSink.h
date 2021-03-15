@@ -48,7 +48,7 @@ private:
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
     std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
-    boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     volatile bool m_running;
     volatile bool m_safeToDelete;
     uint32_t m_incomingBundleSize;
