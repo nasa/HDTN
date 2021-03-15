@@ -904,13 +904,13 @@ BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::disabl
 }
 
 // Fails -- test_udp.bat
-BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
     bool result = TestUdp1();
     BOOST_CHECK(result == true);
 }
 
 // Fails -- test_stcp.bat
-BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::disabled()) {
     bool result = TestStcp1();
     BOOST_CHECK(result == true);
 }
