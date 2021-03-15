@@ -155,7 +155,8 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
 }
 
 bool TcpclBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return Forward(std::vector<uint8_t>(bundleData, bundleData + size));
+    std::vector<uint8_t> vec(bundleData, bundleData + size);
+    return Forward(vec);
 }
 
 
