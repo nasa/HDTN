@@ -484,21 +484,11 @@ bool TestCutThrough4() {
                               (const char * []){ "ingress", NULL }, 1,
                               std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-// Works with this
-//    std::thread threadBpgen0(RunBpgenAsync2,
-//                             (const char * []){ "bpgen0", "--bundle-rate=3000", "--use-tcpcl", "--flow-id=2",
-//                                                "--duration=10" , NULL },5,
-//                             std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     std::thread threadBpgen0(RunBpgenAsync2,
                              (const char * []){ "bpgen0", "--bundle-rate=0", "--use-tcpcl", "--flow-id=2",
                                                 "--duration=10" , NULL },5,
                              std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(1));
-// Works with this
-//    std::thread threadBpgen1(RunBpgenAsync2,
-//                             (const char * []){ "bpgen1", "--bundle-rate=3000", "--use-tcpcl", "--flow-id=1",
-//                                                "--duration=10" ,NULL },5,
-//                             std::ref(runningBpgen[1]),&bundlesSentBpgen[1]);
     std::thread threadBpgen1(RunBpgenAsync2,
                              (const char * []){ "bpgen1", "--bundle-rate=0", "--use-tcpcl", "--flow-id=1",
                                                 "--duration=10" ,NULL },5,
@@ -544,6 +534,76 @@ bool TestCutThrough4() {
     }
     return true;
 }
+
+
+bool TestUdp1() {
+    bool runningBpgen[1] = {true};
+    bool runningBpsink[1] = {true};
+    bool runningIngress = true;
+    bool runningEgress = true;
+
+    uint64_t bundlesSentBpgen[1] = {0};
+    uint64_t bundlesReceivedBpsink[1] = {0};
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+
+    // Start threads
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpsink0(RunBpsinkAsync2,
+                             (const char * []){ "bpsink", "--port=4558",  NULL }, 2,
+                             std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadEgress(RunEgressAsync2,
+                             (const char * []){ "egress", "--port1=0", "--port2=4558",
+                                                "--stcp-rate-bits-per-sec=500000", NULL }, 4,
+                             std::ref(runningEgress),&bundleCountEgress);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadIngress(RunIngress2,
+                              (const char * []){ "ingress", NULL }, 1,
+                              std::ref(runningIngress),&bundleCountIngress);
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    std::thread threadBpgen0(RunBpgenAsync2,
+                             (const char * []){ "bpgen", "--bundle-rate=50", "--flow-id=2",
+                                                "--stcp-rate-bits-per-sec=500000", NULL },4,
+                             std::ref(runningBpgen[0]),&bundlesSentBpgen[1]);
+    // Allow time for data to flow
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    // Stop threads
+    runningBpgen[0] = false;
+    threadBpgen0.join();
+    runningIngress = false;
+    threadIngress.join();
+    runningEgress = false;
+    threadEgress.join();
+    runningBpsink[0] = false;
+    threadBpsink0.join();
+    // Verify results
+    uint64_t totalBundlesBpgen = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+    uint64_t totalBundlesBpsink = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpsink += bundlesReceivedBpsink[i];
+    }
+    if (totalBundlesBpgen != bundleCountIngress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != bundleCountEgress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != totalBundlesBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+    return true;
+}
+
 
 
 bool TestCutThrough(Protocol protocol) {
@@ -724,7 +784,12 @@ BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::disabled())
 }
 
 
-BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::disabled()) {
     bool result = TestCutThrough4();
+    BOOST_CHECK(result == true);
+}
+
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+    bool result = TestUdp1();
     BOOST_CHECK(result == true);
 }
