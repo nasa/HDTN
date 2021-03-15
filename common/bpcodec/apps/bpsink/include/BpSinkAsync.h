@@ -29,8 +29,7 @@ public:
     int Netstart();
     //int send_telemetry();
 private:
-    void UdpWholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-    void TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr);
+    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
     int Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
 
     void StartTcpAccept();

@@ -46,7 +46,7 @@ private:
 
     //tcpcl received data callback functions
     void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    void DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag);
+    void DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag);
     void AckCallback(uint32_t totalBytesAcknowledged);
     void BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
     void NextBundleLengthCallback(uint32_t nextBundleLength);

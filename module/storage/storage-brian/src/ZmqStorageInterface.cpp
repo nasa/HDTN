@@ -165,15 +165,15 @@ static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks,
     
 }
 
-static boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBlock(const std::vector<boost::uint64_t> & availableDestLinks, zmq::socket_t *egressSock, BundleStorageManagerMT & bsm, const uint64_t maxBundleSizeToRead) {
+static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBlock(const std::vector<boost::uint64_t> & availableDestLinks, zmq::socket_t *egressSock, BundleStorageManagerMT & bsm, const uint64_t maxBundleSizeToRead) {
     
     //std::cout << "reading\n";
-    boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> sessionReadPtr = boost::make_shared<BundleStorageManagerSession_ReadFromDisk>();
+    std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> sessionReadPtr = boost::make_unique<BundleStorageManagerSession_ReadFromDisk>();
     BundleStorageManagerSession_ReadFromDisk & sessionRead = *sessionReadPtr;
     const boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
     //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
     if (bytesToReadFromDisk == 0) { //no more of these links to read
-        return boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
     }
 
     //this link has a bundle in the fifo
@@ -183,7 +183,7 @@ static boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_No
     if (bytesToReadFromDisk > maxBundleSizeToRead) {
         std::cerr << "error: bundle to read from disk is too large right now" << std::endl;
         bsm.ReturnTop(sessionRead);
-        return boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
     }
         
@@ -199,7 +199,7 @@ static boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_No
     //std::cout << "totalBytesRead " << totalBytesRead << "\n";
     if (totalBytesRead != bytesToReadFromDisk) {
         std::cout << "error: totalBytesRead != bytesToReadFromDisk\n";
-        return boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
     }
 
 
@@ -217,12 +217,12 @@ static boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_No
     if (!egressSock->send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
         std::cout << "error: zmq could not send" << std::endl;
         bsm.ReturnTop(sessionRead);
-        return boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
     }
     if (!egressSock->send(std::move(zmqMsg), zmq::send_flags::dontwait)) {
         std::cout << "error: zmq could not send bundle" << std::endl;
         bsm.ReturnTop(sessionRead);
-        return boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
     }
     /*
     //if you're happy with the bundle data you read back, then officially remove it from the disk
@@ -236,7 +236,7 @@ static boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_No
         */
         
         
-    return sessionReadPtr;
+    return std::move(sessionReadPtr);
     
 
 }
@@ -279,7 +279,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     workerSock.send(zmq::const_buffer(&startupNotify, sizeof(CommonHdr)), zmq::send_flags::none);
     std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
 
-    typedef boost::shared_ptr<BundleStorageManagerSession_ReadFromDisk> session_read_ptr;
+    typedef std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> session_read_ptr;
     typedef std::map<segment_id_t, session_read_ptr> segid_session_map_t;
     typedef std::map<uint64_t, segid_session_map_t> flowid_opensessions_map_t;
     
@@ -426,7 +426,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     const chain_info_t & chainInfo = sessionPtr->chainInfo;
                     const segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
                     const segment_id_t segmentId = segmentIdChainVec[0];
-                    flowIdToOpenSessionsMap[flowId][segmentId] = sessionPtr;
+                    flowIdToOpenSessionsMap[flowId][segmentId] = std::move(sessionPtr);
                     //std::cout << "add flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
                     timeoutPoll = 0; //no timeout as we need to keep feeding to egress
                     ++m_totalBundlesSentToEgressFromStorage;

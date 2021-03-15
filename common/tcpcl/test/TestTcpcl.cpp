@@ -161,15 +161,15 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			BOOST_REQUIRE_EQUAL(m_localEidStr, localEid);
 		}
 
-		void DataSegmentCallbackNoFragment(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag) {
+		void DataSegmentCallbackNoFragment(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 			++m_numDataSegmentCallbackCountNoFragment;
 			BOOST_REQUIRE(isStartFlag);
 			BOOST_REQUIRE(isEndFlag);
-			const std::string rxBundleData(dataSegmentDataSharedPtr->data(), dataSegmentDataSharedPtr->data() + dataSegmentDataSharedPtr->size());
+			const std::string rxBundleData(dataSegmentDataVec.data(), dataSegmentDataVec.data() + dataSegmentDataVec.size());
 			BOOST_REQUIRE_EQUAL(m_bundleDataToSendNoFragment, rxBundleData);
 		}
 
-		void DataSegmentCallbackWithFragments(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag) {
+		void DataSegmentCallbackWithFragments(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 			
 			if (m_numDataSegmentCallbackCountWithFragments == 0) {
 				BOOST_REQUIRE(isStartFlag);
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			if (isStartFlag) {
 				m_fragmentedBundleRxConcat.resize(0);
 			}
-			const std::string rxBundleData(dataSegmentDataSharedPtr->data(), dataSegmentDataSharedPtr->data() + dataSegmentDataSharedPtr->size());
+			const std::string rxBundleData(dataSegmentDataVec.data(), dataSegmentDataVec.data() + dataSegmentDataVec.size());
 			m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), rxBundleData.begin(), rxBundleData.end()); //concatenate
 		}
 
