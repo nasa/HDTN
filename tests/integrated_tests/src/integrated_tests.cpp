@@ -544,7 +544,7 @@ bool TestUdp1() {
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress2,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--flow-id=2","--stcp-rate-bits-per-sec=500000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--stcp-rate-bits-per-sec=500000",NULL};
     std::thread threadBpgen0(RunBpgenAsync2,argsBpgen0,4,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
@@ -607,7 +607,7 @@ bool TestStcp1() {
     static const char * argsIngress[] = {"ingress","--use-stcp",NULL};
     std::thread threadIngress(RunIngress2,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-stcp","--flow-id=2","--stcp-rate-bits-per-sec=500000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--use-stcp","--flow-id=2","--stcp-rate-bits-per-sec=500000",NULL};
     std::thread threadBpgen0(RunBpgenAsync2,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
@@ -904,13 +904,13 @@ BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::disabl
 }
 
 // Fails -- test_udp.bat
-BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::disabled()) {
     bool result = TestUdp1();
     BOOST_CHECK(result == true);
 }
 
 // Fails -- test_stcp.bat
-BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
     bool result = TestStcp1();
     BOOST_CHECK(result == true);
 }
