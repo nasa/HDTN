@@ -3,6 +3,7 @@
 #include "UdpBundleSource.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
 
 
@@ -28,7 +29,7 @@ m_totalBytesAckedByRate(0),
 m_totalUdpPacketsSent(0),
 m_totalBundleBytesSent(0)
 {
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     RestartNewDataSignaler();
 }
@@ -46,7 +47,7 @@ UdpBundleSource::~UdpBundleSource() {
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
     //print stats

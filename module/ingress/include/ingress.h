@@ -61,8 +61,7 @@ private:
     int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
 
-    void UdpWholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-    void TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr);
+    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
     void StartTcpAccept();
     void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error);
 

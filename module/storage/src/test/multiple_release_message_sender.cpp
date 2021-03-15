@@ -3,6 +3,7 @@
 #include <boost/foreach.hpp>
 #include <boost/date_time.hpp>
 #include <boost/program_options.hpp>
+#include <boost/make_unique.hpp>
 #include <cstdlib>
 #include <iostream>
 #include "message.hpp"
@@ -11,7 +12,7 @@
 #include "JsonSerializable.h"
 #include "reg.hpp"
 
-typedef boost::shared_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
+typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
 
 struct ReleaseMessageEvent_t {
     int id;
@@ -126,12 +127,13 @@ int main(int argc, char *argv[]) {
 
     boost::asio::io_service ioService;
     std::vector<SmartDeadlineTimer> vectorTimers;
+    vectorTimers.reserve(releaseMessageEventVector.size());
     for(std::size_t i=0; i<releaseMessageEventVector.size(); ++i) {
-        SmartDeadlineTimer dt(new boost::asio::deadline_timer(ioService));
+        SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
         dt->expires_from_now(boost::posix_time::seconds(releaseMessageEventVector[i].delay));
         dt->async_wait(boost::bind(ProcessEvent,boost::asio::placeholders::error, releaseMessageEventVector[i].id,
                                    releaseMessageEventVector[i].message,&socket));
-        vectorTimers.push_back(dt);
+        vectorTimers.push_back(std::move(dt));
     }
     ioService.run();
 

@@ -14,7 +14,7 @@ class TcpclBundleSink {
 private:
     TcpclBundleSink();
 public:
-    typedef boost::function<void(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr)> WholeBundleReadyCallback_t;
+    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
     //typedef boost::function<void()> ConnectionClosedCallback_t;
 
     TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
@@ -40,7 +40,7 @@ private:
 
     //tcpcl received data callback functions
     void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    void DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag);
+    void DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
     void AckCallback(uint32_t totalBytesAcknowledged);
     void BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
     void NextBundleLengthCallback(uint32_t nextBundleLength);

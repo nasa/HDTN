@@ -233,26 +233,26 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                         m_mainRxState = TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER;
                     }
                     else {
-                        m_dataSegmentDataSharedPtr = boost::make_shared<std::vector<uint8_t> >();
-                        m_dataSegmentDataSharedPtr->reserve(m_dataSegmentLength);
+                        m_dataSegmentDataVec.resize(0);
+                        m_dataSegmentDataVec.reserve(m_dataSegmentLength);
                         //std::cout << "l " << m_dataSegmentLength << std::endl;
                         m_dataSegmentRxState = TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENTS;
                     }
                 }
             }
             else if (m_dataSegmentRxState == TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENTS) {
-                m_dataSegmentDataSharedPtr->push_back(rxVal);
-                if (m_dataSegmentDataSharedPtr->size() == m_dataSegmentLength) {
+                m_dataSegmentDataVec.push_back(rxVal);
+                if (m_dataSegmentDataVec.size() == m_dataSegmentLength) {
                     m_mainRxState = TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                     if (m_dataSegmentContentsReadCallback) {
-                        m_dataSegmentContentsReadCallback(m_dataSegmentDataSharedPtr, m_dataSegmentStartFlag, m_dataSegmentEndFlag);
+                        m_dataSegmentContentsReadCallback(m_dataSegmentDataVec, m_dataSegmentStartFlag, m_dataSegmentEndFlag);
                     }
                 }
                 else {
-                    const std::size_t bytesRemainingToCopy = m_dataSegmentLength - m_dataSegmentDataSharedPtr->size(); //guaranteed to be at least 1 from "if" above
+                    const std::size_t bytesRemainingToCopy = m_dataSegmentLength - m_dataSegmentDataVec.size(); //guaranteed to be at least 1 from "if" above
                     const std::size_t bytesToCopy = std::min(numChars, bytesRemainingToCopy - 1); //leave last byte to go through the state machine
                     if (bytesToCopy) {
-                        m_dataSegmentDataSharedPtr->insert(m_dataSegmentDataSharedPtr->end(), rxVals, rxVals + bytesToCopy); //concatenate
+                        m_dataSegmentDataVec.insert(m_dataSegmentDataVec.end(), rxVals, rxVals + bytesToCopy); //concatenate
                         rxVals += bytesToCopy;
                         numChars -= bytesToCopy;
                     }

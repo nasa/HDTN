@@ -108,7 +108,7 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
     printf("Starting ingress channel ...\n");
     //Receiver UDP
     m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
-        boost::bind(&BpIngressSyscall::UdpWholeBundleReadyCallback, this, boost::placeholders::_1),
+        boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
         200, 65536);
     m_tcpAcceptorPtr = boost::make_unique<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
     StartTcpAccept();
@@ -360,16 +360,10 @@ int BpIngressSyscall::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buf
 
 
 
-void BpIngressSyscall::UdpWholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void BpIngressSyscall::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
     Process(std::move(wholeBundleVec));
-}
-
-void BpIngressSyscall::TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr) {
-    //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
-    //its own processing thread that calls this callback
-    Process(std::vector<uint8_t>(std::move(*wholeBundleSharedPtr)));
 }
 
 void BpIngressSyscall::StartTcpAccept() {
@@ -391,13 +385,13 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
         //}
         if (m_useTcpcl) {
             std::unique_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr,
-                                                                                                   boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                                                   boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                                                    200, 20000, "ingress");
             m_listTcpclBundleSinkPtrs.push_back(std::move(bundleSinkPtr));
         }
         else if (m_useStcp) {
             std::unique_ptr<StcpBundleSink> bundleSinkPtr = boost::make_unique<StcpBundleSink>(newTcpSocketPtr,
-                                                                                                   boost::bind(&BpIngressSyscall::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                                                   boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                                                    200);
             m_listStcpBundleSinkPtrs.push_back(std::move(bundleSinkPtr));
         }

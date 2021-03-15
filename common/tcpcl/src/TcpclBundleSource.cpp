@@ -289,7 +289,7 @@ void TcpclBundleSource::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16
 
 }
 
-void TcpclBundleSource::DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag) {
+void TcpclBundleSource::DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 
     std::cout << "TcpclBundleSource should never enter DataSegmentCallback" << std::endl;
 }

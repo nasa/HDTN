@@ -123,7 +123,7 @@ void StcpBundleSink::PopCbThreadFunc() {
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
-        m_wholeBundleReadyCallback(boost::make_shared<std::vector<uint8_t> >(std::move(m_tcpReceiveBuffersCbVec[consumeIndex])));
+        m_wholeBundleReadyCallback(std::move(m_tcpReceiveBuffersCbVec[consumeIndex]));
         
         m_circularIndexBuffer.CommitRead();
     }

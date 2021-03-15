@@ -55,7 +55,7 @@ private:
     boost::asio::deadline_timer m_newDataSignalerTimer;
     boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
 
     uint64_t m_rateBitsPerSec;
     const unsigned int MAX_UNACKED;

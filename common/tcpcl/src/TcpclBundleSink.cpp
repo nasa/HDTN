@@ -184,23 +184,22 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
     }
 }
 
-void TcpclBundleSink::DataSegmentCallback(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag) {
+void TcpclBundleSink::DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 
     uint32_t bytesToAck = 0;
     if(isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
-        bytesToAck = static_cast<uint32_t>(dataSegmentDataSharedPtr->size()); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
-        m_wholeBundleReadyCallback(dataSegmentDataSharedPtr);
+        bytesToAck = static_cast<uint32_t>(dataSegmentDataVec.size()); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
+        m_wholeBundleReadyCallback(dataSegmentDataVec);
         //std::cout << dataSegmentDataSharedPtr->size() << std::endl;
     }
     else {
         if (isStartFlag) {
             m_fragmentedBundleRxConcat.resize(0);
         }
-        m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), dataSegmentDataSharedPtr->begin(), dataSegmentDataSharedPtr->end()); //concatenate
+        m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), dataSegmentDataVec.begin(), dataSegmentDataVec.end()); //concatenate
         bytesToAck = static_cast<uint32_t>(m_fragmentedBundleRxConcat.size());
         if(isEndFlag) { //fragmentation complete
-            *dataSegmentDataSharedPtr = std::move(m_fragmentedBundleRxConcat);
-            m_wholeBundleReadyCallback(dataSegmentDataSharedPtr);
+            m_wholeBundleReadyCallback(m_fragmentedBundleRxConcat);
         }
     }
     //send ack
