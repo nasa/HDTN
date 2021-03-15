@@ -563,7 +563,7 @@ bool TestUdp1() {
                               std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     std::thread threadBpgen0(RunBpgenAsync2,
-                             (const char * []){ "bpgen", "--bundle-rate=50", "--flow-id=2",
+                             (const char * []){ "bpgen", "--bundle-rate=20", "--flow-id=2",
                                                 "--stcp-rate-bits-per-sec=500000", NULL },4,
                              std::ref(runningBpgen[0]),&bundlesSentBpgen[1]);
     // Allow time for data to flow
@@ -753,42 +753,49 @@ bool TestStorage() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
+// Old version
 BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::disabled()) {
     bool result = TestCutThrough(Tcpcl);
     BOOST_CHECK(result == true);
 }
 
+// Old version
 BOOST_AUTO_TEST_CASE(it_TestCutThroughUdp, * boost::unit_test::disabled()) {
     bool result = TestCutThrough(Udp);
     BOOST_CHECK(result == true);
 }
 
+// Old version
 BOOST_AUTO_TEST_CASE(it_TestCutThroughStcp, * boost::unit_test::disabled()) {
     bool result = TestCutThrough(Stcp);
     BOOST_CHECK(result == true);
 }
 
+// Old version
 BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::disabled()) {
     bool result = TestStorage();
     BOOST_CHECK(result == true);
 }
 
+// Passes -- test_tcpl_cutthrough.bat
 BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl2, * boost::unit_test::disabled()) {
     bool result = TestCutThrough2();
     BOOST_CHECK(result == true);
 }
 
+// Passes -- test_tcpl_fast_cutthrough.bat
 BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::disabled()) {
     bool result = TestCutThrough3();
     BOOST_CHECK(result == true);
 }
 
-
+// Passes -- test_tcpl_multi_fast_cutthrough.bat
 BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::disabled()) {
     bool result = TestCutThrough4();
     BOOST_CHECK(result == true);
 }
 
+// Fails -- test_udp.bat
 BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
     bool result = TestUdp1();
     BOOST_CHECK(result == true);

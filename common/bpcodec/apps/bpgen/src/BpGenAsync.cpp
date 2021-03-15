@@ -32,7 +32,7 @@ BpGenAsync::~BpGenAsync() {
 
 void BpGenAsync::Stop() {
     m_running = false;
-    boost::this_thread::sleep(boost::posix_time::seconds(1));
+//    boost::this_thread::sleep(boost::posix_time::seconds(1));
     if(m_bpGenThreadPtr) {
         m_bpGenThreadPtr->join();
         m_bpGenThreadPtr.reset(); //delete it
