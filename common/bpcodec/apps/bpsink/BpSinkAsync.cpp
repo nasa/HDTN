@@ -67,8 +67,8 @@ void BpSinkAsync::Stop() {
         }
     }
    
-    m_tcpclBundleSinkPtr = boost::shared_ptr<TcpclBundleSink>();
-    m_stcpBundleSinkPtr = boost::shared_ptr<StcpBundleSink>();
+    m_tcpclBundleSinkPtr.reset(); //delete it
+    m_stcpBundleSinkPtr.reset(); //delete it
     m_udpBundleSinkPtr.reset(); //delete it
     if (!m_ioService.stopped()) {
         m_ioService.stop(); //stop may not be needed
@@ -76,7 +76,7 @@ void BpSinkAsync::Stop() {
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
 
@@ -120,7 +120,7 @@ int BpSinkAsync::Netstart() {
             boost::bind(&BpSinkAsync::UdpWholeBundleReadyCallback, this, boost::placeholders::_1),
             200, 65536);
     }
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     return 0;
 }
@@ -246,7 +246,7 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
                 std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
             }
 
-            m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
+            m_tcpclBundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr,
                                                                        boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                        200, 20000, M_THIS_EID_STRING);
         }
@@ -255,7 +255,7 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
                 std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
             }
 
-            m_stcpBundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
+            m_stcpBundleSinkPtr = boost::make_unique<StcpBundleSink>(newTcpSocketPtr,
                                                                        boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                        200);
         }

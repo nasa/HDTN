@@ -72,11 +72,11 @@ class HdtnRegsvr {
   HdtnEntries_ptr Query(const std::string & type = "");
 
  private:
-  boost::shared_ptr<zmq::context_t> m_zmqCtx;
-  boost::shared_ptr<zmq::socket_t> m_zmqSock;
-  std::string m_type;
-  std::string m_mode;
-  uint16_t m_port;
+    std::unique_ptr<zmq::context_t> m_zmqCtx;
+    std::unique_ptr<zmq::socket_t> m_zmqSock;
+    std::string m_type;
+    std::string m_mode;
+    uint16_t m_port;
 };
 
 };  // namespace hdtn

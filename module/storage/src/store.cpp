@@ -1,5 +1,6 @@
 #include "store.hpp"
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 #include <iostream>
 #include "cache.hpp"
 #include "message.hpp"
@@ -55,9 +56,9 @@ bool hdtn::storage::init(const storageConfig & config) {
     std::cout << "[storage] Registration completed." << std::endl;
 
 
-    m_zmqContextPtr = boost::make_shared<zmq::context_t>();
+    m_zmqContextPtr = boost::make_unique<zmq::context_t>();
     //telemetry not implemnted yet
-    m_telemetrySockPtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
+    m_telemetrySockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
     m_telemetrySockPtr->bind(config.telem);
 
     hdtn::HdtnEntries_ptr entries = storeReg.Query("ingress");
@@ -72,7 +73,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     std::string remote = entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
     std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
 
-    m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
+    m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
     try {
         //m_ingressSockPtr->connect(remote);
         m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
@@ -109,7 +110,7 @@ bool hdtn::storage::init(const storageConfig & config) {
         }
     }
 #endif //not using USE_BRIAN_STORAGE
-    m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
+    m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
     try {
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);// config.releaseWorker);
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "");
@@ -120,7 +121,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     }
 
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
-    m_workerSockPtr = boost::make_shared<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
+    m_workerSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
     m_workerSockPtr->bind(config.worker);
     worker.init(m_zmqContextPtr.get(), config);
     worker.launch();

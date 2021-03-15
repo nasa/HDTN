@@ -6,6 +6,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/timer/timer.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 #include "SignalHandler.h"
 
 //#ifdef _MSC_VER //Windows tests
@@ -52,8 +53,8 @@ BundleStorageManagerMT::~BundleStorageManagerMT() {
 	for (unsigned int tId = 0; tId < M_NUM_STORAGE_THREADS; ++tId) {
 		if (m_threadPtrsVec[tId]) {
 			m_threadPtrsVec[tId]->join();
+            m_threadPtrsVec[tId].reset(); //delete it
 		}
-		m_threadPtrsVec[tId] = boost::shared_ptr<boost::thread>();
 	}
 
 	free(m_circularBufferBlockDataPtr);
@@ -66,7 +67,7 @@ void BundleStorageManagerMT::Start(bool autoDeleteFilesOnExit) {
 		m_autoDeleteFilesOnExit = autoDeleteFilesOnExit;
 		m_running = true;		
 		for (unsigned int tId = 0; tId < M_NUM_STORAGE_THREADS; ++tId) {
-			m_threadPtrsVec[tId] = boost::make_shared<boost::thread>(
+			m_threadPtrsVec[tId] = boost::make_unique<boost::thread>(
 				boost::bind(&BundleStorageManagerMT::ThreadFunc, this, tId)); //create and start the worker thread
 		}
 	}

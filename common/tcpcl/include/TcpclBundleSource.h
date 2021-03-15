@@ -68,7 +68,7 @@ private:
     boost::asio::deadline_timer m_handleSocketShutdownCancelOnlyTimer;
     boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
 
     //tcpcl vars
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;

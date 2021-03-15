@@ -31,7 +31,7 @@ m_totalBundleBytesSent(0)
     m_handleTcpSendCallback = boost::bind(&TcpclBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
     m_handleSocketShutdownCancelOnlyTimer.async_wait(boost::bind(&TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled, this, boost::asio::placeholders::error));
@@ -58,7 +58,7 @@ TcpclBundleSource::~TcpclBundleSource() {
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
     //print stats

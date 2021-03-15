@@ -21,10 +21,10 @@ private:
 
 
 
-    boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
-    boost::shared_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
+    std::unique_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
+    std::unique_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
     std::unique_ptr<UdpBundleSource> m_udpBundleSourcePtr;
-    boost::shared_ptr<boost::thread> m_bpGenThreadPtr;
+    std::unique_ptr<boost::thread> m_bpGenThreadPtr;
     boost::condition_variable m_conditionVariableAckReceived;
     volatile bool m_running;
 };

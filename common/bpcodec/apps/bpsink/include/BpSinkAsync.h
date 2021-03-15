@@ -60,10 +60,10 @@ private:
     boost::asio::io_service m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
 
-    boost::shared_ptr<TcpclBundleSink> m_tcpclBundleSinkPtr;
-    boost::shared_ptr<StcpBundleSink> m_stcpBundleSinkPtr;
+    std::unique_ptr<TcpclBundleSink> m_tcpclBundleSinkPtr;
+    std::unique_ptr<StcpBundleSink> m_stcpBundleSinkPtr;
     std::unique_ptr<UdpBundleSink> m_udpBundleSinkPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     volatile bool m_running;
 };
 

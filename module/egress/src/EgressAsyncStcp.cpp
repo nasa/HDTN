@@ -3,6 +3,7 @@
 #include "EgressAsync.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 
 namespace hdtn {
 
@@ -68,7 +69,7 @@ int HegrStcpEntryAsync::Forward(zmq::message_t & zmqMessage) {
 
 
 void HegrStcpEntryAsync::Connect(const std::string & hostname, const std::string & port) {
-    m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15);
+    m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15);
     m_stcpBundleSourcePtr->Connect(hostname, port);
 }
 

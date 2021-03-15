@@ -112,24 +112,24 @@ private:
         std::queue<BlockHdr> m_blockHdrQueue;
     };
 
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingEgressToBoundIngressPtr;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_ingressStoragePtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingEgressToBoundIngressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
     int m_type;
     boost::asio::io_service m_ioService;
-    boost::shared_ptr<boost::asio::ip::tcp::acceptor> m_tcpAcceptorPtr;
+    std::unique_ptr<boost::asio::ip::tcp::acceptor> m_tcpAcceptorPtr;
 
-    std::list<boost::shared_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
-    std::list<boost::shared_ptr<StcpBundleSink> > m_listStcpBundleSinkPtrs;
+    std::list<std::unique_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
+    std::list<std::unique_ptr<StcpBundleSink> > m_listStcpBundleSinkPtrs;
     std::unique_ptr<UdpBundleSink> m_udpBundleSinkPtr;
     
-    boost::shared_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::queue<BlockHdr> m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;

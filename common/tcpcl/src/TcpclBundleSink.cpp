@@ -46,7 +46,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSink::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
     m_running = true;
-    m_threadCbReaderPtr = boost::make_shared<boost::thread>(
+    m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
 
     m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
@@ -66,7 +66,7 @@ TcpclBundleSink::~TcpclBundleSink() {
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
+        m_threadCbReaderPtr.reset(); //delete it
     }
     m_tcpAsyncSenderPtr.reset();
 }
