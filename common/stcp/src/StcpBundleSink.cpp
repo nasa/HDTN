@@ -138,13 +138,18 @@ void StcpBundleSink::DoStcpShutdown() {
     //final code to shut down tcp sockets
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
         try {
-            std::cout << "shutting down tcp socket.." << std::endl;
+            std::cout << "shutting down StcpBundleSink TCP socket.." << std::endl;
             m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing tcp socket.." << std::endl;
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in StcpBundleSink::DoStcpShutdown: " << e.what() << std::endl;
+        }
+        try {
+            std::cout << "closing StcpBundleSink TCP socket socket.." << std::endl;
             m_tcpSocketPtr->close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in DoStcpShutdown: " << e.what() << std::endl;
+            std::cerr << "error in StcpBundleSink::DoStcpShutdown: " << e.what() << std::endl;
         }
         //don't delete the tcp socket because the Destructor may call this from another thread
         //so prevent a race condition that would cause a null pointer exception

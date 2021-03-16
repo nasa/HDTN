@@ -334,17 +334,29 @@ void TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired(const boost::sys
     }
 
     //final code to shut down tcp sockets
+    std::cout << "deleting TcpclBundleSink TCP Async Sender" << std::endl;
+    m_tcpAsyncSenderPtr.reset();
     if (m_tcpSocketPtr) {
-        try {
-            std::cout << "shutting down tcp socket.." << std::endl;
-            m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing tcp socket.." << std::endl;
-            m_tcpSocketPtr->close();
+        if (m_tcpSocketPtr->is_open()) {
+            try {
+                std::cout << "shutting down TcpclBundleSink TCP socket.." << std::endl;
+                m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "error in TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+            }
+            try {
+                std::cout << "closing TcpclBundleSink TCP socket socket.." << std::endl;
+                m_tcpSocketPtr->close();
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "error in TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+            }
         }
-        catch (const boost::system::system_error & e) {
-            std::cerr << "error in OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+        std::cout << "deleting TcpclBundleSink TCP Socket" << std::endl;
+        if (m_tcpSocketPtr.use_count() != 1) {
+            std::cerr << "error m_tcpSocketPtr.use_count() != 1" << std::endl;
         }
-        std::cout << "deleting tcp socket" << std::endl;
         m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();

@@ -345,7 +345,9 @@ void StcpBundleSource::SignalNewDataForwarded() {
 void StcpBundleSource::OnNewData_TimerCancelled(const boost::system::error_code& e) {
     if (e == boost::asio::error::operation_aborted) {
         // Timer was cancelled as expected.  This method keeps calls within io_service thread.
-        RestartNewDataSignaler();
+        if (m_readyToForward) { //only allow signaling when tcp is running so the io_service doesn't get hung when destructor is called
+            RestartNewDataSignaler();
+        }
         TryRestartRateTimer();
     }
     else {
@@ -433,13 +435,18 @@ void StcpBundleSource::DoStcpShutdown() {
     m_readyToForward = false;
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
         try {
-            std::cout << "shutting down tcp socket.." << std::endl;
+            std::cout << "shutting down StcpBundleSource TCP socket.." << std::endl;
             m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing tcp socket.." << std::endl;
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in StcpBundleSource::DoStcpShutdown: " << e.what() << std::endl;
+        }
+        try {
+            std::cout << "closing StcpBundleSource TCP socket socket.." << std::endl;
             m_tcpSocketPtr->close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in DoStcpShutdown: " << e.what() << std::endl;
+            std::cerr << "error in StcpBundleSource::DoStcpShutdown: " << e.what() << std::endl;
         }
         //don't delete the tcp socket because the Forward function is multi-threaded without a mutex to
         //increase speed, so prevent a race condition that would cause a null pointer exception

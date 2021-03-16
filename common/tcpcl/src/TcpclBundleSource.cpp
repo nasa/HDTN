@@ -430,16 +430,23 @@ void TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired(const boost::s
 
     //final code to shut down tcp sockets
     if (m_tcpSocketPtr) {
-        try {
-            std::cout << "shutting down tcp socket.." << std::endl;
-            m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing tcp socket.." << std::endl;
-            m_tcpSocketPtr->close();
+        if (m_tcpSocketPtr->is_open()) {
+            try {
+                std::cout << "shutting down TcpclBundleSource TCP socket.." << std::endl;
+                m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "error in TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+            }
+            try {
+                std::cout << "closing TcpclBundleSource TCP socket socket.." << std::endl;
+                m_tcpSocketPtr->close();
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "error in TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+            }
         }
-        catch (const boost::system::system_error & e) {
-            std::cerr << "error in OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
-        }
-        //don't delete the tcp socket because the Forward function is multi-threaded without a mutex to
+        //don't delete the tcp socket or async sender because the Forward function is multi-threaded without a mutex to
         //increase speed, so prevent a race condition that would cause a null pointer exception
         //std::cout << "deleting tcp socket" << std::endl;
         //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();

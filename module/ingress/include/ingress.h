@@ -84,16 +84,16 @@ private:
         std::size_t GetQueueSize() {
             return m_blockHdrQueue.size();
         }
-        void Push_ThreadSafe(const BlockHdr & blk) {
+        void PushMove_ThreadSafe(std::unique_ptr<BlockHdr> & blk) {
             boost::mutex::scoped_lock lock(m_mutex);
-            m_blockHdrQueue.push(blk);
+            m_blockHdrQueue.push(std::move(blk));
         }
         bool CompareAndPop_ThreadSafe(const BlockHdr & blk) {
             boost::mutex::scoped_lock lock(m_mutex);
             if (m_blockHdrQueue.empty()) {
                 return false;
             }
-            else if (m_blockHdrQueue.front() == blk) {
+            else if (*m_blockHdrQueue.front() == blk) {
                 m_blockHdrQueue.pop();
                 return true;
             }
@@ -108,7 +108,7 @@ private:
         }
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
-        std::queue<BlockHdr> m_blockHdrQueue;
+        std::queue<std::unique_ptr<BlockHdr> > m_blockHdrQueue;
     };
 
     std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
@@ -129,7 +129,7 @@ private:
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    std::queue<BlockHdr> m_storageAckQueue;
+    std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;
     std::map<uint64_t, EgressToIngressAckingQueue> m_egressAckMapQueue; //flow id to queue
