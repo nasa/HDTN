@@ -82,23 +82,22 @@ void hdtn::HegrManagerAsync::OnSuccessfulBundleAck() {
     m_conditionVariableProcessZmqMessages.notify_one();
 }
 
+static void CustomCleanupBlockHdr(void *data, void *hint) {
+    //std::cout << "free " << static_cast<hdtn::BlockHdr *>(data)->flowId << std::endl;
+    delete static_cast<hdtn::BlockHdr *>(data);
+}
+
 void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
-    std::vector<hdtn::BlockHdr> & headerMessages,
+    std::vector<std::unique_ptr<hdtn::BlockHdr> > & headerMessages,
     std::vector<bool> & isFromStorage,
     std::vector<zmq::message_t> & payloadMessages)
 {
     std::cout << "starting ProcessZmqMessagesThreadFunc with cb size " << headerMessages.size() << std::endl;
     std::size_t totalCustodyTransfersSentToStorage = 0;
     std::size_t totalCustodyTransfersSentToIngress = 0;
-    struct QueueItem {
-        QueueItem(uint32_t segmentId) : m_segmentId(segmentId), m_isStorageAck(true) {}
-        QueueItem(const hdtn::BlockHdr & blockHdr) : m_blockHdr(blockHdr), m_isStorageAck(false) {}
-        uint32_t m_segmentId; //for storage acks
-        hdtn::BlockHdr m_blockHdr; //for ingress acks
-        bool m_isStorageAck;
-    };
-    typedef std::queue<QueueItem> queue_t;
+    
+    typedef std::queue<std::unique_ptr<hdtn::BlockHdr> > queue_t;
     typedef std::map<uint64_t, queue_t> flowid_needacksqueue_map_t;
 
     flowid_needacksqueue_map_t flowIdToNeedAcksQueueMap;
@@ -112,17 +111,16 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
         const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
 
         if (consumeIndex != UINT32_MAX) { //if not empty
-            hdtn::BlockHdr & blockHdr = headerMessages[consumeIndex];
+            std::unique_ptr<hdtn::BlockHdr> & blockHdrPtr = headerMessages[consumeIndex];
             zmq::message_t & zmqMessage = payloadMessages[consumeIndex];
-            const uint16_t type = blockHdr.base.type;
+            const uint16_t type = blockHdrPtr->base.type;
             if ((type == HDTN_MSGTYPE_STORE) || (type == HDTN_MSGTYPE_EGRESS)) {
+                const uint32_t flowId = blockHdrPtr->flowId;
                 if (isFromStorage[consumeIndex]) { //reply to storage
-                    flowIdToNeedAcksQueueMap[blockHdr.flowId].push(QueueItem(blockHdr.zframe));
+                    blockHdrPtr->base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
                 }
-                else { //reply to ingress
-                    flowIdToNeedAcksQueueMap[blockHdr.flowId].push(QueueItem(blockHdr));
-                }
-                Forward(blockHdr.flowId, zmqMessage);
+                flowIdToNeedAcksQueueMap[flowId].push(std::move(blockHdrPtr));
+                Forward(flowId, zmqMessage);
                 if (zmqMessage.size() != 0) {
                     std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
                 }
@@ -143,13 +141,17 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                 if (entryIt != m_entryMap.end()) {
                     const std::size_t numAckedRemaining = entryIt->second->GetTotalBundlesSent() - entryIt->second->GetTotalBundlesAcked();
                     while (q.size() > numAckedRemaining) {
-                        const QueueItem & qItem = q.front();
-                        if (qItem.m_isStorageAck) {
-                            hdtn::BlockHdr blockHdr;
-                            blockHdr.base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
-                            blockHdr.flowId = static_cast<uint32_t>(flowId);
-                            blockHdr.zframe = qItem.m_segmentId;
-                            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(zmq::const_buffer(&blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                        std::unique_ptr<hdtn::BlockHdr> & qItem = q.front();
+                        const uint16_t type = qItem->base.type;
+                        //this is an optimization because we only have one chunk to send
+                        //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+                        //to represent the content referenced by the buffer located at address data, size bytes long.
+                        //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+                        //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+                        //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+                        zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::BlockHdr), CustomCleanupBlockHdr); //unique_ptr goes "null" with release()
+                        if (type == HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY) {
+                            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
                                 break;
                             }
@@ -157,7 +159,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                         }
                         else {
                             //send ack message by echoing back the block
-                            if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(zmq::const_buffer(&qItem.m_blockHdr, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
+                            if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
                                 break;
                             }
@@ -182,7 +184,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
     static const unsigned int NUM_ZMQ_MESSAGES_CB = 40;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable cb(NUM_ZMQ_MESSAGES_CB);
-    std::vector<hdtn::BlockHdr> headerMessages(NUM_ZMQ_MESSAGES_CB);
+    std::vector<std::unique_ptr<hdtn::BlockHdr> > headerMessages(NUM_ZMQ_MESSAGES_CB);
     std::vector<bool> isFromStorage(NUM_ZMQ_MESSAGES_CB);
     std::vector<zmq::message_t> payloadMessages(NUM_ZMQ_MESSAGES_CB);
     boost::thread processZmqMessagesThread(boost::bind(
@@ -208,30 +210,33 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     };
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-    while (m_running) { //keep thread alive if running
-        zmq::message_t hdr;        
+    while (m_running) { //keep thread alive if running       
         if (zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL) > 0) {
             for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
                 if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                     continue;
                 }
-                if (!sockets[itemIndex]->recv(hdr, zmq::recv_flags::none)) {
-                    continue;
-                }
-                ++m_messageCount;
-                //char bundle[HMSG_MSG_MAX];
-                if (hdr.size() != sizeof(hdtn::BlockHdr)) {
-                    std::cerr << "egress blockhdr message mismatch: " << hdr.size() << std::endl;
-                    continue; //return -1;
-                }
+
                 const unsigned int writeIndex = cb.GetIndexForWrite();
                 if (writeIndex == UINT32_MAX) {
                     std::cerr << "error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full" << std::endl;
                     continue;
                 }
-                hdtn::BlockHdr & blockHdr = headerMessages[writeIndex];
-                memcpy(&blockHdr, hdr.data(), sizeof(hdtn::BlockHdr));
-                const uint16_t type = blockHdr.base.type;
+                headerMessages[writeIndex] = boost::make_unique<hdtn::BlockHdr>();
+                std::unique_ptr<hdtn::BlockHdr> & hdrPtr = headerMessages[writeIndex];
+                const zmq::recv_buffer_result_t res = sockets[itemIndex]->recv(zmq::mutable_buffer(hdrPtr.get(), sizeof(hdtn::BlockHdr)), zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr" << std::endl;
+                    continue;
+                }
+                else if ((res->truncated()) || res->size != sizeof(hdtn::BlockHdr)) {
+                    std::cerr << "egress blockhdr message mismatch: untruncated = " << res->untruncated_size 
+                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::BlockHdr) << std::endl;
+                    continue;
+                }
+                ++m_messageCount;
+                
+                const uint16_t type = hdrPtr->base.type;
                 if ((type == HDTN_MSGTYPE_STORE) || (type == HDTN_MSGTYPE_EGRESS)) {
                     zmq::message_t & zmqMessage = payloadMessages[writeIndex];
                     // Use a form of receive that times out so we can terminate cleanly.  If no

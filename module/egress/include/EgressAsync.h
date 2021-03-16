@@ -357,7 +357,7 @@ private:
     void OnSuccessfulBundleAck();
     void ProcessZmqMessagesThreadFunc(
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
-        std::vector<hdtn::BlockHdr> & headerMessages,
+        std::vector<std::unique_ptr<hdtn::BlockHdr> > & headerMessages,
         std::vector<bool> & isFromStorage,
         std::vector<zmq::message_t> & payloadMessages);
     std::map<unsigned int, std::unique_ptr<HegrEntryAsync> > m_entryMap;
