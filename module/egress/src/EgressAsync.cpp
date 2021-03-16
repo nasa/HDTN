@@ -229,7 +229,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr" << std::endl;
                     continue;
                 }
-                else if ((res->truncated()) || res->size != sizeof(hdtn::BlockHdr)) {
+                else if ((res->truncated()) || (res->size != sizeof(hdtn::BlockHdr))) {
                     std::cerr << "egress blockhdr message mismatch: untruncated = " << res->untruncated_size 
                         << " truncated = " << res->size << " expected = " << sizeof(hdtn::BlockHdr) << std::endl;
                     continue;
