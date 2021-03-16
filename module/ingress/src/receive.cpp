@@ -279,7 +279,7 @@ int BpIngressSyscall::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buf
                             std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
                         }
                         else {
-                            egressToIngressAckingObj.PushMove_ThreadSafe(std::move(hdrPtr));
+                            egressToIngressAckingObj.PushMove_ThreadSafe(hdrPtr);
                             if (numChunks == 1) {
                                 //this is an optimization because we only have one chunk to send
                                 //The zmq_msg_init_data() function shall initialise the message object referenced by msg

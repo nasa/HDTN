@@ -410,13 +410,13 @@ bool TestUdpFastCutthrough() {
     static const char * argsBpsink0[] = {"bpsink","--port=4558",NULL};
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2, std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=500000",NULL};
+    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=50000",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=10","--stcp-rate-bits-per-sec=500000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=10","--stcp-rate-bits-per-sec=50000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Stop threads
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
@@ -720,7 +720,7 @@ bool TestStcpMultiFastCutthrough() {
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
 // Passes -- test_tcpl_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
     bool result = TestCutThroughTcpcl();
     BOOST_CHECK(result == true);
@@ -748,7 +748,7 @@ BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::disabled()) {
 }
 
 //  Fails -- test_udp_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
     std::cout << " >>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
     bool result = TestUdpFastCutthrough();
     BOOST_CHECK(result == true);
