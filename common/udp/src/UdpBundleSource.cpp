@@ -284,7 +284,9 @@ void UdpBundleSource::SignalNewDataForwarded() {
 void UdpBundleSource::OnNewData_TimerCancelled(const boost::system::error_code& e) {
     if (e == boost::asio::error::operation_aborted) {
         // Timer was cancelled as expected.  This method keeps calls within io_service thread.
-        RestartNewDataSignaler();
+        if (m_readyToForward) { //only allow signaling when udp is running so the io_service doesn't get hung when destructor is called
+            RestartNewDataSignaler();
+        }
         TryRestartRateTimer();
     }
     else {
@@ -347,13 +349,18 @@ void UdpBundleSource::DoUdpShutdown() {
     m_readyToForward = false;
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "shutting down udp socket.." << std::endl;
+            std::cout << "shutting down UdpBundleSource UDP socket.." << std::endl;
             m_udpSocket.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing udp socket.." << std::endl;
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in UdpBundleSource::DoUdpShutdown: " << e.what() << std::endl;
+        }
+        try {
+            std::cout << "closing UdpBundleSource UDP socket.." << std::endl;
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in DoUdpShutdown: " << e.what() << std::endl;
+            std::cerr << "error in UdpBundleSource::DoUdpShutdown: " << e.what() << std::endl;
         }
     }
 }

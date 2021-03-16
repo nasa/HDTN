@@ -127,13 +127,18 @@ void UdpBundleSink::DoUdpShutdown() {
     //final code to shut down tcp sockets
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "shutting down udp socket.." << std::endl;
+            std::cout << "shutting down UdpBundleSink UDP socket.." << std::endl;
             m_udpSocket.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing udp socket.." << std::endl;
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in UdpBundleSink::DoUdpShutdown: " << e.what() << std::endl;
+        }
+        try {
+            std::cout << "closing UdpBundleSink UDP socket.." << std::endl;
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in DoUdpShutdown: " << e.what() << std::endl;
+            std::cerr << "error in UdpBundleSink::DoUdpShutdown: " << e.what() << std::endl;
         }
     }
     m_safeToDelete = true;
