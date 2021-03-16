@@ -227,6 +227,7 @@ void hdtn::storage::dispatch() {
                 std::cerr << "[dispatch] message not received" << std::endl;
                 return;
             }
+            //std::cout << "rxptr: " << (std::uintptr_t)(message.data()) << std::endl;
             /*if(message.size() < 7000){
                 std::cout<<"ingress sent less than 7000, type "<< common->type << "size " <<  message.size()<<"\n";
             }*/

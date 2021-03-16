@@ -5,7 +5,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 
-hdtn::HegrManagerAsync::HegrManagerAsync() : m_udpSocket(m_ioService), m_work(m_ioService), m_running(false) {
+hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
     //m_flags = 0;
     //_next = NULL;
 }
@@ -20,22 +20,6 @@ void hdtn::HegrManagerAsync::Stop() {
         m_threadZmqReaderPtr->join();
         m_threadZmqReaderPtr.reset(); //delete it
     }
-
-    if (m_udpSocket.is_open()) {
-        try {
-            m_udpSocket.close();
-        } catch (const boost::system::system_error & e) {
-            std::cerr << " Error closing udp socket: " << e.what() << std::endl;
-        }
-    }
-    if (!m_ioService.stopped()) {
-        m_ioService.stop();
-    }
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
-    }
-
 }
 
 void hdtn::HegrManagerAsync::Init() {
@@ -56,25 +40,11 @@ void hdtn::HegrManagerAsync::Init() {
     m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::push);
     m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH);
 
-    try {
-        m_udpSocket.open(boost::asio::ip::udp::v4());
-        m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0)); //bind to 0 (random ephemeral port)
-
-        std::cout << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port() << std::endl;
-
-    } catch (const boost::system::system_error & e) {
-        std::cerr << "Error in hdtn::HegrManagerAsync::Init(): " << e.what() << std::endl;
-        //m_running = false;
-    }
-
-
+    
     if (!m_running) {
         m_running = true;
         m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&HegrManagerAsync::ReadZmqThreadFunc, this)); //create and start the worker thread
-
-        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(
-            boost::bind(&boost::asio::io_service::run, &m_ioService));
     }
 }
 

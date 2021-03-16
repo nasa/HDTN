@@ -357,6 +357,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                         std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
                     }
                     if (rmsg.size() > 100) { //need to fix problem of writing message header as bundles
+                        //std::cout << "inptr: " << (std::uintptr_t)(rmsg.data()) << std::endl;
                         Write(block, &rmsg, bsm);
                         //send ack message by echoing back the block
                         if (!toIngressSock.send(zmq::const_buffer(block, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
