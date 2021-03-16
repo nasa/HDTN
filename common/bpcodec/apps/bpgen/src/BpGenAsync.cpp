@@ -48,6 +48,11 @@ void BpGenAsync::Stop() {
             (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() : 0;
         if (numUnacked) {
             std::cout << "notice: BpGenAsync destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+            if (m_udpBundleSourcePtr) {
+                            std::cout << "   acked by rate: " << m_udpBundleSourcePtr->m_totalUdpPacketsAckedByRate << std::endl;
+                            std::cout << "   acked by cb: " << m_udpBundleSourcePtr->m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
+                            std::cout << "   total sent: " << m_udpBundleSourcePtr->m_totalUdpPacketsSent << std::endl;
+            }
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
                 attempt = 0;

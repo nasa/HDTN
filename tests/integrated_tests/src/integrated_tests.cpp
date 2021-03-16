@@ -550,13 +550,13 @@ bool TestUdp1() {
     boost::this_thread::sleep(boost::posix_time::seconds(10));
     // Stop threads
     runningBpgen[0] = false;
-    threadBpgen0.join();
+    threadBpgen0.join(); boost::this_thread::sleep(boost::posix_time::seconds(3));
     runningIngress = false;
-    threadIngress.join();
+    threadIngress.join(); boost::this_thread::sleep(boost::posix_time::seconds(3));
     runningEgress = false;
-    threadEgress.join();
+    threadEgress.join(); boost::this_thread::sleep(boost::posix_time::seconds(3));
     runningBpsink[0] = false;
-    threadBpsink0.join();
+    threadBpsink0.join(); boost::this_thread::sleep(boost::posix_time::seconds(3));
     // Verify results
     uint64_t totalBundlesBpgen = 0;
     for(int i=0; i<1; i++) {

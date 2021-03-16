@@ -37,7 +37,7 @@ m_totalBundleBytesSent(0)
 UdpBundleSource::~UdpBundleSource() {
     
     DoUdpShutdown();
-    
+
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
     //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
