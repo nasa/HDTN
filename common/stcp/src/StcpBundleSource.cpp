@@ -454,6 +454,7 @@ void StcpBundleSource::DoStcpShutdown() {
         //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();
+    m_newDataSignalerTimer.cancel(); //do this after readyToForward is false (as cancel will just restart it otherwise)
 }
 
 bool StcpBundleSource::ReadyToForward() {

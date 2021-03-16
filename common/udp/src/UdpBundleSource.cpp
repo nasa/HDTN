@@ -363,6 +363,7 @@ void UdpBundleSource::DoUdpShutdown() {
             std::cerr << "error in UdpBundleSource::DoUdpShutdown: " << e.what() << std::endl;
         }
     }
+    m_newDataSignalerTimer.cancel(); //do this after readyToForward is false (as cancel will just restart it otherwise)
 }
 
 bool UdpBundleSource::ReadyToForward() {
