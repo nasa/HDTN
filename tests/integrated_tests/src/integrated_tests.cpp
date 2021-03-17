@@ -84,7 +84,7 @@ void BoostIntegratedTestsFixture::StopPythonServer() {
 void BoostIntegratedTestsFixture::StartPythonServer() {
     m_runningPythonServer = true;
     SignalHandler sigHandler(boost::bind(&BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction, this));
-    sigHandler.Start(true);
+    sigHandler.Start(false);
     const boost::filesystem::path commandArg = Environment::GetPathHdtnSourceRoot() / "common" / "regsvr" / "main.py";
 #ifdef _WIN32
     const std::string pythonExe = "python";
@@ -102,7 +102,7 @@ void BoostIntegratedTestsFixture::StartPythonServer() {
 }
 
 void BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction() {
-    std::cout << "SKeyboard Interrupt.. exiting " << std::endl << std::flush;
+    std::cout << "Keyboard Interrupt.. exiting " << std::endl << std::flush;
     this->StopPythonServer();
 }
 
