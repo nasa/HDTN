@@ -56,6 +56,7 @@ private:
     boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    boost::condition_variable m_localConditionVariableAckReceived;
 
     uint64_t m_rateBitsPerSec;
     const unsigned int MAX_UNACKED;
@@ -68,6 +69,7 @@ private:
     volatile bool m_readyToForward;
     volatile bool m_rateTimerIsRunning;
     volatile bool m_newDataSignalerTimerIsRunning;
+    volatile bool m_useLocalConditionVariableAckReceived;
 
 
 public:

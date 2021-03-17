@@ -64,6 +64,7 @@ private:
     boost::asio::deadline_timer m_newDataSignalerTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    boost::condition_variable m_localConditionVariableAckReceived;
 
     const uint16_t M_KEEP_ALIVE_INTERVAL_SECONDS;
     uint64_t m_rateBitsPerSec;
@@ -78,6 +79,7 @@ private:
     volatile bool m_dataServedAsKeepAlive;
     volatile bool m_rateTimerIsRunning;
     volatile bool m_newDataSignalerTimerIsRunning;
+    volatile bool m_useLocalConditionVariableAckReceived;
 
     uint8_t m_tcpReadSomeBuffer[10];
 

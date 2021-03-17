@@ -22,6 +22,7 @@ m_bytesToAckByUdpSendCallbackCbVec(MAX_UNACKED),
 m_readyToForward(false),
 m_rateTimerIsRunning(false),
 m_newDataSignalerTimerIsRunning(false),
+m_useLocalConditionVariableAckReceived(false), //for destructor only
 
 m_totalUdpPacketsAckedByUdpSendCallback(0),
 m_totalBytesAckedByUdpSendCallback(0),
@@ -36,6 +37,31 @@ m_totalBundleBytesSent(0)
 }
 
 UdpBundleSource::~UdpBundleSource() {
+
+    //prevent UdpBundleSource from exiting before all bundles sent and acked
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    m_useLocalConditionVariableAckReceived = true;
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+        const std::size_t numUnacked = GetTotalUdpPacketsUnacked();
+        if (numUnacked) {
+            std::cout << "notice: UdpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+
+            std::cout << "   acked by rate: " << m_totalUdpPacketsAckedByRate << std::endl;
+            std::cout << "   acked by cb: " << m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
+            std::cout << "   total sent: " << m_totalUdpPacketsSent << std::endl;
+
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
+    }
     
     DoUdpShutdown();
     
@@ -266,8 +292,13 @@ void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> 
             ++m_totalUdpPacketsAckedByUdpSendCallback;
             m_totalBytesAckedByUdpSendCallback += m_bytesToAckByUdpSendCallbackCbVec[readIndex];
             m_bytesToAckByUdpSendCallbackCb.CommitRead();
-            if (m_onSuccessfulAckCallback && (m_totalUdpPacketsAckedByUdpSendCallback <= m_totalUdpPacketsAckedByRate)) { //rate segments ahead
-                m_onSuccessfulAckCallback();
+            if (m_totalUdpPacketsAckedByUdpSendCallback <= m_totalUdpPacketsAckedByRate) { //rate segments ahead
+                if (m_onSuccessfulAckCallback) {
+                    m_onSuccessfulAckCallback();
+                }
+                if (m_useLocalConditionVariableAckReceived) {
+                    m_localConditionVariableAckReceived.notify_one();
+                }
             }
         }
         else {
@@ -342,8 +373,13 @@ void UdpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e) {
             }
             m_groupingOfBytesToAckByRateVec.clear();
         
-            if (m_onSuccessfulAckCallback && (m_totalUdpPacketsAckedByRate <= m_totalUdpPacketsAckedByUdpSendCallback)) { //tcp send callback segments ahead
-                m_onSuccessfulAckCallback();
+            if (m_totalUdpPacketsAckedByRate <= m_totalUdpPacketsAckedByUdpSendCallback) { //tcp send callback segments ahead
+                if (m_onSuccessfulAckCallback) {
+                    m_onSuccessfulAckCallback();
+                }
+                if (m_useLocalConditionVariableAckReceived) {
+                    m_localConditionVariableAckReceived.notify_one();
+                }
             }
             TryRestartRateTimer(); //must be called after commit read
         }
