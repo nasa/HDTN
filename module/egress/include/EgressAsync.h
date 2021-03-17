@@ -363,14 +363,11 @@ private:
     std::map<unsigned int, std::unique_ptr<HegrEntryAsync> > m_entryMap;
     //HegrEntryAsync *Entry(int offset);
     //void *m_entries;
-    boost::asio::io_service m_ioService;
-    boost::asio::ip::udp::socket m_udpSocket;
-    boost::asio::io_service::work m_work; //keep ioservice::run from exiting when no work to do
+    
     boost::condition_variable m_conditionVariableProcessZmqMessages;
 
 
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     volatile bool m_running;
 };
 

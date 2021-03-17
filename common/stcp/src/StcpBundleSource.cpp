@@ -22,6 +22,7 @@ m_bytesToAckByTcpSendCallbackCbVec(MAX_UNACKED),
 m_readyToForward(false),
 m_dataServedAsKeepAlive(true),
 m_rateTimerIsRunning(false),
+m_newDataSignalerTimerIsRunning(false),
 
 m_totalDataSegmentsAckedByTcpSendCallback(0),
 m_totalBytesAckedByTcpSendCallback(0),
@@ -42,6 +43,16 @@ m_totalStcpBytesSent(0)
 StcpBundleSource::~StcpBundleSource() {
     
     DoStcpShutdown();
+
+    //The DoStcpShutdown should have taken care of this, but just to be sure, we have a single threaded destructor call.
+    std::cout << "Checking that newDataSignalerTimer is stopped before the ioService.stop() call.." << std::endl;
+    while (m_newDataSignalerTimerIsRunning) {
+        std::cout << "newDataSignalerTimer is not stopped yet..." << std::endl;
+        m_newDataSignalerTimer.cancel(); //do this after readyToForward is false (DoUdpShutdown did this) (as cancel will just restart it otherwise)
+        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+    }
+    std::cout << "newDataSignalerTimer is stopped." << std::endl;
+
     m_tcpAsyncSenderPtr.reset(); //stop this first
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
@@ -348,10 +359,14 @@ void StcpBundleSource::OnNewData_TimerCancelled(const boost::system::error_code&
         if (m_readyToForward) { //only allow signaling when tcp is running so the io_service doesn't get hung when destructor is called
             RestartNewDataSignaler();
         }
+        else {
+            m_newDataSignalerTimerIsRunning = false;
+        }
         TryRestartRateTimer();
     }
     else {
-        std::cerr << "Critical error in OnHandleSocketShutdown_TimerCancelled: timer was not cancelled" << std::endl;
+        std::cerr << "Critical error in StcpBundleSource::OnNewData_TimerCancelled: timer was not cancelled" << std::endl;
+        m_newDataSignalerTimerIsRunning = false;
     }
 }
 
@@ -454,6 +469,7 @@ void StcpBundleSource::DoStcpShutdown() {
         //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();
+    m_newDataSignalerTimer.cancel(); //do this after readyToForward is false (as cancel will just restart it otherwise)
 }
 
 bool StcpBundleSource::ReadyToForward() {

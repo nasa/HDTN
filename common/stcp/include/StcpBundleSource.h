@@ -77,6 +77,7 @@ private:
     volatile bool m_readyToForward;
     volatile bool m_dataServedAsKeepAlive;
     volatile bool m_rateTimerIsRunning;
+    volatile bool m_newDataSignalerTimerIsRunning;
 
     uint8_t m_tcpReadSomeBuffer[10];
 
