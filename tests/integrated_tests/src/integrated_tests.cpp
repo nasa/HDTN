@@ -46,6 +46,9 @@ int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBu
 int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+static void SignalHandler(int signalValue);
+static void CatchSignals(void);
+
 
 // Global Test Fixture.  Used to setup Python Registration server.
 class BoostIntegratedTestsFixture {
@@ -53,14 +56,22 @@ public:
     BoostIntegratedTestsFixture();
     ~BoostIntegratedTestsFixture();
     bool m_runningPythonServer;
+    // Test cases do not have direct access to the global text fixture.  The following singleton pattern
+    // provides access so the Python server can be stopped by the signal handler if needed.
+    static BoostIntegratedTestsFixture*& instance() {
+        static BoostIntegratedTestsFixture* singletonInstance = NULL;
+        return singletonInstance;
+    }
+    void StopPythonServer();
 private:
     void StartPythonServer();
-    void StopPythonServer();
     boost::process::child * m_ptrChild;
     std::thread * m_ptrThreadPython;
 };
 
 BoostIntegratedTestsFixture::BoostIntegratedTestsFixture() {
+    instance() = this;
+    CatchSignals();
     boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
     boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
     m_ptrThreadPython = new std::thread(&BoostIntegratedTestsFixture::StartPythonServer,this);
@@ -95,6 +106,23 @@ void BoostIntegratedTestsFixture::StartPythonServer() {
         }
     }
 }
+
+static void SignalHandler(int signalValue) {
+    std::cout << "Signal handler called " << std::endl << std::flush;
+    BoostIntegratedTestsFixture::instance()->StopPythonServer();
+    exit(EXIT_SUCCESS);
+}
+
+static void CatchSignals(void) {
+    struct sigaction action;
+    action.sa_handler = SignalHandler;
+    action.sa_flags = 0;
+    sigemptyset(&action.sa_mask);
+    sigaction(SIGINT, &action, NULL);
+    sigaction(SIGTERM, &action, NULL);
+}
+
+
 
 int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount) {
     {

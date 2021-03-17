@@ -118,7 +118,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 
         std::string currentDate = hdtn::Datetime();
         std::ofstream output;
-        output.open("ingress-" + currentDate);
+//        output.open("ingress-" + currentDate);
 
         std::ostringstream oss;
         oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
@@ -128,8 +128,8 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024) << "\n";
 
         std::cout << oss.str();
-        output << oss.str();
-        output.close();
+//        output << oss.str();
+//        output.close();
 
         std::cout << "IngressAsyncRunner: exiting cleanly..\n";
         ingress.Stop();
