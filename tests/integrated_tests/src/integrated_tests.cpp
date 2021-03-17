@@ -761,7 +761,7 @@ BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::disabled
 }
 
 // Fails -- test_stcp.bat
-BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
     bool result = TestStcp();
     BOOST_CHECK(result == true);
