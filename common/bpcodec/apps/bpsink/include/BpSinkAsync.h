@@ -13,6 +13,7 @@
 #include <boost/thread.hpp>
 #include "TcpclBundleSink.h"
 #include "StcpBundleSink.h"
+#include "UdpBundleSink.h"
 
 namespace hdtn {
 
@@ -21,17 +22,15 @@ class BpSinkAsync {
 private:
     BpSinkAsync();
 public:
-    BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString);  // initialize message buffers
+    BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString, const uint32_t extraProcessingTimeMs = 0);  // initialize message buffers
+    void Stop();
     ~BpSinkAsync();
     int Init(uint32_t type);
     int Netstart();
     //int send_telemetry();
 private:
-    void TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr);
+    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
     int Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
-    void StartUdpReceive();
-    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void PopCbThreadFunc();
 
     void StartTcpAccept();
     void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error);
@@ -54,21 +53,16 @@ private:
     const bool m_useTcpcl;
     const bool m_useStcp;
     const std::string M_THIS_EID_STRING;
+    const uint32_t M_EXTRA_PROCESSING_TIME_MS;
 
     int m_type;
     boost::asio::io_service m_ioService;
-    boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
 
-    boost::shared_ptr<TcpclBundleSink> m_tcpclBundleSinkPtr;
-    boost::shared_ptr<StcpBundleSink> m_stcpBundleSinkPtr;
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
-    std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
-    std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
-    std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
-    boost::condition_variable m_conditionVariableCb;
-    boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<TcpclBundleSink> m_tcpclBundleSinkPtr;
+    std::unique_ptr<StcpBundleSink> m_stcpBundleSinkPtr;
+    std::unique_ptr<UdpBundleSink> m_udpBundleSinkPtr;
+    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     volatile bool m_running;
 };
 

@@ -12,7 +12,7 @@ class StcpBundleSink {
 private:
     StcpBundleSink();
 public:
-    typedef boost::function<void(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr)> WholeBundleReadyCallback_t;
+    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
     //typedef boost::function<void()> ConnectionClosedCallback_t;
 
     StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
@@ -45,7 +45,7 @@ private:
     std::vector<std::vector<boost::uint8_t> > m_tcpReceiveBuffersCbVec;
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
-    boost::shared_ptr<boost::thread> m_threadCbReaderPtr;
+    std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     volatile bool m_running;
     volatile bool m_safeToDelete;
     uint32_t m_incomingBundleSize;

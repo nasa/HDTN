@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD 11)
 if(USE_BRIAN_STORAGE)
 	SET(STORAGE_BRIAN_LIBRARY_NAME storage_brian_lib)
     add_executable(hdtn-storage
+        src/StorageRunner.cpp
         src/main.cpp
         src/store.cpp
         #src/store-worker.cpp
@@ -16,6 +17,7 @@ if(USE_BRIAN_STORAGE)
 else()
 	SET(STORAGE_BRIAN_LIBRARY_NAME "")
     add_executable(hdtn-storage
+        src/StorageRunner.cpp
         src/main.cpp
         src/store.cpp
         src/store-worker.cpp

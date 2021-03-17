@@ -3,6 +3,7 @@
 #include "EgressAsync.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 
 namespace hdtn {
 
@@ -13,6 +14,14 @@ HegrStcpEntryAsync::HegrStcpEntryAsync() : HegrEntryAsync() {
 
 HegrStcpEntryAsync::~HegrStcpEntryAsync() {
 
+}
+
+std::size_t HegrStcpEntryAsync::GetTotalBundlesAcked() {
+    return m_stcpBundleSourcePtr->GetTotalDataSegmentsAcked();
+}
+
+std::size_t HegrStcpEntryAsync::GetTotalBundlesSent() {
+    return m_stcpBundleSourcePtr->GetTotalDataSegmentsSent();
 }
 
 void HegrStcpEntryAsync::Init(uint64_t flags) {
@@ -45,11 +54,11 @@ int HegrStcpEntryAsync::Disable() {
     return 0;
 }
 
-int HegrStcpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr) {
+int HegrStcpEntryAsync::Forward(zmq::message_t & zmqMessage) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }
-    if(m_stcpBundleSourcePtr && m_stcpBundleSourcePtr->Forward((const uint8_t *)zmqMessagePtr->data(), zmqMessagePtr->size())) {
+    if(m_stcpBundleSourcePtr && m_stcpBundleSourcePtr->Forward(zmqMessage)) {
         return 1;
 
     }
@@ -60,8 +69,12 @@ int HegrStcpEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr)
 
 
 void HegrStcpEntryAsync::Connect(const std::string & hostname, const std::string & port) {
-    m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15);
+    m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15);
     m_stcpBundleSourcePtr->Connect(hostname, port);
+}
+
+StcpBundleSource * HegrStcpEntryAsync::GetStcpBundleSourcePtr() {
+    return (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr.get() : NULL;
 }
 
 

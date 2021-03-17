@@ -59,11 +59,16 @@ class ZmqStorageInterface {
    public:
     ZmqStorageInterface();
     ~ZmqStorageInterface();
+    void Stop();
     void init(zmq::context_t *ctx, const storageConfig & config);
     void launch();
     //pthread_t *thread() { return &storageThread; }
 
     WorkerStats stats() { return m_workerStats; }
+
+    std::size_t m_totalBundlesErasedFromStorage = 0;
+    std::size_t m_totalBundlesSentToEgressFromStorage = 0;
+
 private:
     void ThreadFunc();
     //void Write(hdtn::block_hdr *hdr, zmq::message_t *message);
@@ -71,7 +76,7 @@ private:
 
    private:
     zmq::context_t *m_zmqContextPtr;
-    boost::shared_ptr<boost::thread> m_threadPtr;
+    std::unique_ptr<boost::thread> m_threadPtr;
     std::string m_storageConfigFilePath;
     std::string m_queue;
     volatile bool m_running;
@@ -102,7 +107,10 @@ class storage_worker {
 
 
 class storage {
-   public:
+public:
+    storage();
+    ~storage();
+    void Stop();
     bool init(const storageConfig & config);
     void update();
     void dispatch();
@@ -110,13 +118,16 @@ class storage {
     void c2telem();
     StorageStats *stats() { return &storageStats; }
 
-   private:
-    boost::shared_ptr<zmq::context_t> m_zmqContextPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
+    std::size_t m_totalBundlesErasedFromStorage = 0;
+    std::size_t m_totalBundlesSentToEgressFromStorage = 0;
+
+private:
+    std::unique_ptr<zmq::context_t> m_zmqContextPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
     uint16_t port;
-    boost::shared_ptr<zmq::socket_t> m_workerSockPtr;
-    boost::shared_ptr<zmq::socket_t> m_telemetrySockPtr;
+    std::unique_ptr<zmq::socket_t> m_workerSockPtr;
+    std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
 #ifdef USE_BRIAN_STORAGE
     ZmqStorageInterface worker;
 #else

@@ -6,30 +6,26 @@
 #include <boost/asio.hpp>
 #include "TcpclBundleSource.h"
 #include "StcpBundleSource.h"
-
+#include "UdpBundleSource.h"
 
 class BpGenAsync {
 public:
     BpGenAsync();
     ~BpGenAsync();
     void Stop();
-    void Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString);
+    void Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId = 2, uint64_t stcpRateBitsPerSec = 500000);
     uint64_t m_bundleCount;
 private:
-    void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize);
-    void HandleUdpSendBundle(boost::shared_ptr<std::vector<uint8_t> > vecPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, uint64_t destFlowId);
+    void OnSuccessfulBundleAck();
 
 
 
-
-    boost::asio::io_service m_ioService;
-    boost::asio::ip::udp::socket m_udpSocket;
-    boost::asio::io_service::work m_work; //keep ioservice::run from exiting when no work to do
-    boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
-    boost::shared_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
-    boost::shared_ptr<boost::thread> m_bpGenThreadPtr;
-    boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
+    std::unique_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
+    std::unique_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
+    std::unique_ptr<UdpBundleSource> m_udpBundleSourcePtr;
+    std::unique_ptr<boost::thread> m_bpGenThreadPtr;
+    boost::condition_variable m_conditionVariableAckReceived;
     volatile bool m_running;
 };
 

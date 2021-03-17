@@ -16,6 +16,7 @@
 #endif
 #include "BpSinkAsync.h"
 #include <boost/bind.hpp>
+#include <boost/make_unique.hpp>
 
 #define BP_MSG_BUFSZ             (65536)
 #define BP_BUNDLE_DEFAULT_SZ     (100)
@@ -39,48 +40,48 @@ struct bpgen_hdr {
     timespec abstime;
 };
 
-BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString) :
+BpSinkAsync::BpSinkAsync(uint16_t port, bool useTcpcl, bool useStcp, const std::string & thisLocalEidString, const uint32_t extraProcessingTimeMs) :
     m_rxPortUdpOrTcp(port),
     m_useTcpcl(useTcpcl),
     m_useStcp(useStcp),
     M_THIS_EID_STRING(thisLocalEidString),
-    m_udpSocket(m_ioService),
+    M_EXTRA_PROCESSING_TIME_MS(extraProcessingTimeMs),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
-    m_circularIndexBuffer(BP_MSG_NBUF),
-    m_udpReceiveBuffersCbVec(BP_MSG_NBUF),
-    m_remoteEndpointsCbVec(BP_MSG_NBUF),
-    m_udpReceiveBytesTransferredCbVec(BP_MSG_NBUF),
     m_running(false)
 {
 
 }
 
 BpSinkAsync::~BpSinkAsync() {
-    //stop the socket before stopping the io service
-    if (m_udpSocket.is_open()) {
+    Stop();
+}
+
+void BpSinkAsync::Stop() {
+
+    if (m_tcpAcceptor.is_open()) {
         try {
-            m_udpSocket.close();
-        } catch (const boost::system::system_error & e) {
-            std::cerr << "Error closing UDP socket in BpSinkAsync::~BpSinkAsync():  " << e.what() << std::endl;
+            m_tcpAcceptor.close();
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "Error closing TCP Acceptor in BpSinkAsync::Stop():  " << e.what() << std::endl;
         }
     }
-    m_tcpAcceptor.close();
-    m_tcpclBundleSinkPtr = boost::shared_ptr<TcpclBundleSink>();
-    m_stcpBundleSinkPtr = boost::shared_ptr<StcpBundleSink>();
-    m_ioService.stop(); //stop may not be needed
+   
+    m_tcpclBundleSinkPtr.reset(); //delete it
+    m_stcpBundleSinkPtr.reset(); //delete it
+    m_udpBundleSinkPtr.reset(); //delete it
+    if (!m_ioService.stopped()) {
+        m_ioService.stop(); //stop may not be needed
+    } 
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::shared_ptr<boost::thread>();
+        m_ioServiceThreadPtr.reset(); //delete it
     }
 
 
     m_running = false; //thread stopping criteria
 
-    if (m_threadCbReaderPtr) {
-        m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
-    }
 }
 
 int BpSinkAsync::Init(uint32_t type) {
@@ -95,18 +96,7 @@ int BpSinkAsync::Init(uint32_t type) {
     m_duplicateCount = 0;
     m_seqHval = 0;
     m_seqBase = 0;
-    if((!m_useTcpcl) && (!m_useStcp)) { //udp only stuff
-        for (unsigned int i = 0; i < BP_MSG_NBUF; ++i) {
-            m_udpReceiveBuffersCbVec[i].resize(BP_MSG_BUFSZ);
-        }
-        if (!m_running) {
-            m_running = true;
-            m_threadCbReaderPtr = boost::make_shared<boost::thread>(
-                boost::bind(&BpSinkAsync::PopCbThreadFunc, this)); //create and start the worker thread
-
-
-        }
-    }
+    
     return 0;
 }
 
@@ -121,26 +111,24 @@ int BpSinkAsync::Netstart() {
         StartTcpAccept();
     }
     else {
-        //Receiver UDP
-        try {
-            m_udpSocket.open(boost::asio::ip::udp::v4());
-            m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), m_rxPortUdpOrTcp));
-        } catch (const boost::system::system_error & e) {
-            std::cerr << "Could not bind on UDP port " << m_rxPortUdpOrTcp << std::endl;
-            std::cerr <<  "  Error: " << e.what() << std::endl;
-
-            m_running = false;
-            return 0;
+        if ((m_udpBundleSinkPtr) && !m_udpBundleSinkPtr->ReadyToBeDeleted()) {
+            std::cerr << "Error in BpSinkAsync::Netstart: UDP bundle sink already running" << std::endl;
+            return 1;
         }
-        printf("BpSinkAsync bound successfully on UDP port %d ...", m_rxPortUdpOrTcp);
-        StartUdpReceive(); //call before creating io_service thread so that it has "work"
+
+        m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, m_rxPortUdpOrTcp,
+            boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
+            200, 65536);
     }
-    m_ioServiceThreadPtr = boost::make_shared<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
     return 0;
 }
 
 int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
+    if (M_EXTRA_PROCESSING_TIME_MS) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(M_EXTRA_PROCESSING_TIME_MS));
+    }
 
     {
         bpv6_primary_block primary;
@@ -229,40 +217,10 @@ int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t m
     return 0;
 }
 
-
-void BpSinkAsync::StartUdpReceive() {
-    const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-    if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in BpSinkAsync::StartUdpReceive(): buffers full.. UDP receiving on BpSinkAsync will now stop!\n";
-        return;
-    }
-
-    m_udpSocket.async_receive_from(
-                boost::asio::buffer(m_udpReceiveBuffersCbVec[writeIndex]),
-                m_remoteEndpointsCbVec[writeIndex],
-                boost::bind(&BpSinkAsync::HandleUdpReceive, this,
-                            boost::asio::placeholders::error,
-                            boost::asio::placeholders::bytes_transferred,
-                            writeIndex));
-}
-
-void BpSinkAsync::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
-    //std::cout << "1" << std::endl;
-    if (!error) {
-        m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
-        m_circularIndexBuffer.CommitWrite(); //write complete at this point
-        m_conditionVariableCb.notify_one();
-        StartUdpReceive(); //restart operation only if there was no error
-    }
-    else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "critical error in BpSinkAsync::HandleUdpReceive(): " << error.message() << std::endl;
-    }
-}
-
-void BpSinkAsync::TcpclWholeBundleReadyCallback(boost::shared_ptr<std::vector<uint8_t> > wholeBundleSharedPtr) {
+void BpSinkAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
-    Process(*wholeBundleSharedPtr, wholeBundleSharedPtr->size());
+    Process(wholeBundleVec, wholeBundleVec.size());
 }
 
 void BpSinkAsync::StartTcpAccept() {
@@ -282,18 +240,18 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
                 std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
             }
 
-            m_tcpclBundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,
-                                                                       boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                       50, 2000, M_THIS_EID_STRING);
+            m_tcpclBundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr,
+                                                                       boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                       200, 20000, M_THIS_EID_STRING);
         }
         else if (m_useStcp) {
             if ((m_stcpBundleSinkPtr) && !m_stcpBundleSinkPtr->ReadyToBeDeleted()) {
                 std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
             }
 
-            m_stcpBundleSinkPtr = boost::make_shared<StcpBundleSink>(newTcpSocketPtr,
-                                                                       boost::bind(&BpSinkAsync::TcpclWholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                       50);
+            m_stcpBundleSinkPtr = boost::make_unique<StcpBundleSink>(newTcpSocketPtr,
+                                                                       boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
+                                                                       200);
         }
 
         StartTcpAccept(); //only accept if there was no error
@@ -301,31 +259,6 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
     else if (error != boost::asio::error::operation_aborted) {
         std::cout << "tcp accept error: " << error.message() << "\n";
     }
-}
-
-void BpSinkAsync::PopCbThreadFunc() {
-
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-
-    while (m_running || (m_circularIndexBuffer.GetIndexForRead() != UINT32_MAX)) { //keep thread alive if running or cb not empty
-
-
-        const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-
-        if (consumeIndex == UINT32_MAX) { //if empty
-            m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
-        }
-
-        Process(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
-
-        m_circularIndexBuffer.CommitRead();
-    }
-
-    std::cout << "BpSinkAsync Circular buffer reader thread exiting\n";
-
 }
 
 

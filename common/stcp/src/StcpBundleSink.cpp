@@ -3,6 +3,7 @@
 #include <iostream>
 #include "StcpBundleSink.h"
 #include <boost/endian/conversion.hpp>
+#include <boost/make_unique.hpp>
 
 StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
                                  WholeBundleReadyCallback_t wholeBundleReadyCallback,
@@ -19,7 +20,7 @@ StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> t
 {
 
     m_running = true;
-    m_threadCbReaderPtr = boost::make_shared<boost::thread>(
+    m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&StcpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
    
     StartTcpReceiveIncomingBundleSize();
@@ -33,7 +34,7 @@ StcpBundleSink::~StcpBundleSink() {
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
-        m_threadCbReaderPtr = boost::shared_ptr<boost::thread>();
+        m_threadCbReaderPtr.reset(); //delete it
     }
 }
 
@@ -122,7 +123,7 @@ void StcpBundleSink::PopCbThreadFunc() {
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
-        m_wholeBundleReadyCallback(boost::make_shared<std::vector<uint8_t> >(std::move(m_tcpReceiveBuffersCbVec[consumeIndex])));
+        m_wholeBundleReadyCallback(m_tcpReceiveBuffersCbVec[consumeIndex]);
         
         m_circularIndexBuffer.CommitRead();
     }
@@ -137,13 +138,18 @@ void StcpBundleSink::DoStcpShutdown() {
     //final code to shut down tcp sockets
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
         try {
-            std::cout << "shutting down tcp socket.." << std::endl;
+            std::cout << "shutting down StcpBundleSink TCP socket.." << std::endl;
             m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-            std::cout << "closing tcp socket.." << std::endl;
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error in StcpBundleSink::DoStcpShutdown: " << e.what() << std::endl;
+        }
+        try {
+            std::cout << "closing StcpBundleSink TCP socket socket.." << std::endl;
             m_tcpSocketPtr->close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in DoStcpShutdown: " << e.what() << std::endl;
+            std::cerr << "error in StcpBundleSink::DoStcpShutdown: " << e.what() << std::endl;
         }
         //don't delete the tcp socket because the Destructor may call this from another thread
         //so prevent a race condition that would cause a null pointer exception

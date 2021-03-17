@@ -3,6 +3,7 @@
 #include "EgressAsync.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 
 namespace hdtn {
 
@@ -13,6 +14,14 @@ HegrTcpclEntryAsync::HegrTcpclEntryAsync() : HegrEntryAsync() {
 
 HegrTcpclEntryAsync::~HegrTcpclEntryAsync() {
 
+}
+
+std::size_t HegrTcpclEntryAsync::GetTotalBundlesAcked() {
+    return m_tcpclBundleSourcePtr->GetTotalDataSegmentsAcked();
+}
+
+std::size_t HegrTcpclEntryAsync::GetTotalBundlesSent() {
+    return m_tcpclBundleSourcePtr->GetTotalDataSegmentsSent();
 }
 
 void HegrTcpclEntryAsync::Init(uint64_t flags) {
@@ -45,11 +54,11 @@ int HegrTcpclEntryAsync::Disable() {
     return 0;
 }
 
-int HegrTcpclEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr) {
+int HegrTcpclEntryAsync::Forward(zmq::message_t & zmqMessage) {
     if (!(m_flags & HEGR_FLAG_UP)) {
         return 0;
     }
-    if(m_tcpclBundleSourcePtr && m_tcpclBundleSourcePtr->Forward((const uint8_t *)zmqMessagePtr->data(), zmqMessagePtr->size())) {
+    if(m_tcpclBundleSourcePtr && m_tcpclBundleSourcePtr->Forward(zmqMessage)) {
         return 1;
 
     }
@@ -60,9 +69,12 @@ int HegrTcpclEntryAsync::Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr
 
 
 void HegrTcpclEntryAsync::Connect(const std::string & hostname, const std::string & port) {
-    m_tcpclBundleSourcePtr = boost::make_shared<TcpclBundleSource>(30, "EGRESS");
+    m_tcpclBundleSourcePtr = boost::make_unique<TcpclBundleSource>(30, "EGRESS");
     m_tcpclBundleSourcePtr->Connect(hostname, port);
 }
 
+TcpclBundleSource * HegrTcpclEntryAsync::GetTcpclBundleSourcePtr() {
+    return (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr.get() : NULL;
+}
 
 }; //end namespace hdtn

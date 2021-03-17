@@ -6,7 +6,7 @@
 #include "stats.hpp"
 
 #define HMSG_MSG_MAX (65536)
-#define CHUNK_SIZE (65536)
+#define CHUNK_SIZE (65536 * 100) //TODO
 
 #define HDTN_FLAG_CUSTODY_REQ (0x01)
 #define HDTN_FLAG_CUSTODY_OK (0x02)
@@ -39,11 +39,17 @@
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
+#define HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (0x5555)
+
 namespace hdtn {
 #pragma pack (push, 1)
 struct CommonHdr {
     uint16_t type;
     uint16_t flags;
+
+    bool operator==(const CommonHdr & o) const {
+        return (type == o.type) && (flags == o.flags);
+    }
 };// __attribute__((packed));
 
 struct BlockHdr {
@@ -53,6 +59,10 @@ struct BlockHdr {
     uint32_t ttl;
     uint32_t zframe;
     uint64_t bundleSeq;
+
+    bool operator==(const BlockHdr & o) const {
+        return (base == o.base) && (flowId == o.flowId) && (ts == o.ts) && (ttl == o.ttl) && (zframe == o.zframe) && (bundleSeq == o.bundleSeq);
+    }
 };// __attribute__((packed));
 
 struct StoreHdr {

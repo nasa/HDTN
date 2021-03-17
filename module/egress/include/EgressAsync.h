@@ -14,6 +14,7 @@
 #include <queue>
 #include "TcpclBundleSource.h"
 #include "StcpBundleSource.h"
+#include "UdpBundleSource.h"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -70,7 +71,7 @@ public:
     @param count number of buffers to send
     @return number of messages forwarded
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr) = 0;
+    virtual int Forward(zmq::message_t & zmqMessage) = 0;
 
     /**
     Runs housekeeping tasks for a specified egress port
@@ -100,6 +101,9 @@ public:
 
     void Shutdown();
 
+    virtual std::size_t GetTotalBundlesAcked() = 0;
+    virtual std::size_t GetTotalBundlesSent() = 0;
+
 protected:
     uint64_t m_label;
     uint64_t m_flags;
@@ -108,10 +112,8 @@ protected:
 
 
 class HegrUdpEntryAsync : public HegrEntryAsync {
-private:
-    HegrUdpEntryAsync();
 public:
-    HegrUdpEntryAsync(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint, boost::asio::ip::udp::socket * const udpSocketPtr);
+    HegrUdpEntryAsync();
 
     /**
     Initializes a new UDP forwarding entry
@@ -136,7 +138,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    virtual int Forward(zmq::message_t & zmqMessage);
 
     /**
     Essentially a no-op for this entry type
@@ -159,11 +161,13 @@ public:
 
     void Shutdown();
 
-private:
-    void HandleUdpSendBundle(boost::shared_ptr<zmq::message_t> zmqMessagePtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    void Connect(const std::string & hostname, const std::string & port);
+    UdpBundleSource * GetUdpBundleSourcePtr();
 
-    const boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
-    boost::asio::ip::udp::socket * const m_udpSocketPtr;
+    virtual std::size_t GetTotalBundlesAcked();
+    virtual std::size_t GetTotalBundlesSent();
+private:
+    std::unique_ptr<UdpBundleSource> m_udpBundleSourcePtr;
 };
 
 
@@ -199,7 +203,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    virtual int Forward(zmq::message_t & zmqMessage);
 
     /**
     Essentially a no-op for this entry type
@@ -224,8 +228,12 @@ public:
 
 
     void Connect(const std::string & hostname, const std::string & port);
+    TcpclBundleSource * GetTcpclBundleSourcePtr();
+
+    virtual std::size_t GetTotalBundlesAcked();
+    virtual std::size_t GetTotalBundlesSent();
 private:
-    boost::shared_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
+    std::unique_ptr<TcpclBundleSource> m_tcpclBundleSourcePtr;
 
 };
 
@@ -261,7 +269,7 @@ public:
     @param count Total number of messages
     @return number of bytes forwarded on success, or an error code on failure
     */
-    virtual int Forward(boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    virtual int Forward(zmq::message_t & zmqMessage);
 
     /**
     Essentially a no-op for this entry type
@@ -286,8 +294,13 @@ public:
 
 
     void Connect(const std::string & hostname, const std::string & port);
+
+    StcpBundleSource * GetStcpBundleSourcePtr();
+
+    virtual std::size_t GetTotalBundlesAcked();
+    virtual std::size_t GetTotalBundlesSent();
 private:
-    boost::shared_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
+    std::unique_ptr<StcpBundleSource> m_stcpBundleSourcePtr;
 
 };
 
@@ -295,6 +308,7 @@ class HegrManagerAsync {
 public:
     HegrManagerAsync();
     ~HegrManagerAsync();
+    void Stop();
 
     /**
 
@@ -304,12 +318,12 @@ public:
     /**
 
     */
-    int Forward(int fec, boost::shared_ptr<zmq::message_t> zmqMessagePtr);
+    int Forward(int fec, zmq::message_t & zmqMessage);
 
     /**
 
     */
-    int Add(int fec, uint64_t flags, const char *dst, int port);
+    int Add(int fec, uint64_t flags, const char *dst, int port, uint64_t rateBitsPerSec = 0);
 
     /**
 
@@ -331,23 +345,29 @@ public:
     uint64_t m_messageCount;
 
     bool m_testStorage = false;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_boundIngressToConnectingEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
-    boost::shared_ptr<zmq::context_t> m_zmqCtx_connectingStorageToBoundEgressPtr;
-    boost::shared_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtx_storageEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
 
 private:
     void ReadZmqThreadFunc();
-    std::map<unsigned int, boost::shared_ptr<HegrEntryAsync> > m_entryMap;
+    void OnSuccessfulBundleAck();
+    void ProcessZmqMessagesThreadFunc(
+        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
+        std::vector<std::unique_ptr<hdtn::BlockHdr> > & headerMessages,
+        std::vector<bool> & isFromStorage,
+        std::vector<zmq::message_t> & payloadMessages);
+    std::map<unsigned int, std::unique_ptr<HegrEntryAsync> > m_entryMap;
     //HegrEntryAsync *Entry(int offset);
     //void *m_entries;
-    boost::asio::io_service m_ioService;
-    boost::asio::ip::udp::socket m_udpSocket;
-    boost::asio::io_service::work m_work; //keep ioservice::run from exiting when no work to do
+    
+    boost::condition_variable m_conditionVariableProcessZmqMessages;
 
 
-    boost::shared_ptr<boost::thread> m_threadZmqReaderPtr;
-    boost::shared_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
     volatile bool m_running;
 };
 

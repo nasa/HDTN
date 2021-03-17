@@ -3,6 +3,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/foreach.hpp>
 #include <iostream>
+#include <boost/make_unique.hpp>
 
 #define HDTN_REGSTR "HDTN/1.0 REGISTER"
 #define HDTN_DEREGSTR "HDTN/1.0 DEREGISTER"
@@ -47,9 +48,9 @@ bool HdtnEntry::operator==(const HdtnEntry & o) const {
 }
 
 void HdtnRegsvr::Init(std::string target, std::string svc, uint16_t port, std::string mode) {
-    m_zmqSock = boost::shared_ptr<zmq::socket_t>(); //delete any existing
-    m_zmqCtx = boost::make_shared<zmq::context_t>();
-    m_zmqSock = boost::make_shared<zmq::socket_t>(*m_zmqCtx, zmq::socket_type::req);
+    m_zmqSock.reset(); //delete any existing
+    m_zmqCtx = boost::make_unique<zmq::context_t>();
+    m_zmqSock = boost::make_unique<zmq::socket_t>(*m_zmqCtx, zmq::socket_type::req);
     char tbuf[255];
     memset(tbuf, 0, 255);
     snprintf(tbuf, 255, "%s:%d:%s", svc.c_str(), port, mode.c_str());

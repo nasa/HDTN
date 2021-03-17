@@ -81,7 +81,7 @@ class Tcpcl {
 
 
 public:
-	typedef boost::function<void(boost::shared_ptr<std::vector<uint8_t> > dataSegmentDataSharedPtr, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
+	typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
 	typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
 	typedef boost::function<void(uint32_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
 	typedef boost::function<void(BUNDLE_REFUSAL_CODES refusalCode)> BundleRefusalCallback_t;
@@ -102,10 +102,11 @@ public:
 
 
 	void InitRx();
-	void HandleReceivedChars(const uint8_t * rxVals, const std::size_t numChars);
+	void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
 	void HandleReceivedChar(const uint8_t rxVal);
 	static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
 	static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint32_t sizeContents);
+    static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint32_t sizeContents);
 	static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint32_t totalBytesAcknowledged);
 	static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode);
 	static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint32_t nextBundleLength);
@@ -133,7 +134,7 @@ public:
 	bool m_dataSegmentStartFlag;
 	bool m_dataSegmentEndFlag;
 	uint32_t m_dataSegmentLength;
-	boost::shared_ptr<std::vector<uint8_t> > m_dataSegmentDataSharedPtr;
+	std::vector<uint8_t> m_dataSegmentDataVec;
 
 	//ack segment
 	uint32_t m_ackSegmentLength;

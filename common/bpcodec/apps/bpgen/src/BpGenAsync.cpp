@@ -3,8 +3,10 @@
 #include "BpGenAsync.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/make_unique.hpp>
 
 #include <time.h>
+#include "TimestampUtil.h"
 #include "codec/bpv6.h"
 #ifndef _WIN32
 #include "util/tsc.h"
@@ -20,7 +22,7 @@ struct bpgen_hdr {
     timespec abstime;
 };
 
-BpGenAsync::BpGenAsync() : m_udpSocket(m_ioService), m_work(m_ioService), m_running(false) {
+BpGenAsync::BpGenAsync() : m_running(false) {
 
 }
 
@@ -30,41 +32,52 @@ BpGenAsync::~BpGenAsync() {
 
 void BpGenAsync::Stop() {
     m_running = false;
+//    boost::this_thread::sleep(boost::posix_time::seconds(1));
     if(m_bpGenThreadPtr) {
         m_bpGenThreadPtr->join();
-        m_bpGenThreadPtr = boost::make_shared<boost::thread>();
+        m_bpGenThreadPtr.reset(); //delete it
+    }
+    //prevent bpgen from exiting before all bundles sent and acked
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+        const std::size_t numUnacked =
+            (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalDataSegmentsUnacked() :
+            (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsUnacked() :
+            (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() : 0;
+        if (numUnacked) {
+            std::cout << "notice: BpGenAsync destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+            if (m_udpBundleSourcePtr) {
+                            std::cout << "   acked by rate: " << m_udpBundleSourcePtr->m_totalUdpPacketsAckedByRate << std::endl;
+                            std::cout << "   acked by cb: " << m_udpBundleSourcePtr->m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
+                            std::cout << "   total sent: " << m_udpBundleSourcePtr->m_totalUdpPacketsSent << std::endl;
+            }
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_conditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
     }
 
-    if (m_udpSocket.is_open()) {
-        try {
-            m_udpSocket.close();
-        } catch (const boost::system::system_error & e) {
-            std::cerr << " Error closing udp socket: " << e.what() << std::endl;
-        }
-    }
-    m_tcpclBundleSourcePtr = boost::shared_ptr<TcpclBundleSource>(); //delete it
-    m_stcpBundleSourcePtr = boost::shared_ptr<StcpBundleSource>(); //delete it
-    if (!m_ioService.stopped()) {
-        m_ioService.stop();
-    }
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr = boost::make_shared<boost::thread>();
-    }
+    m_tcpclBundleSourcePtr.reset(); //delete it
+    m_stcpBundleSourcePtr.reset(); //delete it
+    m_udpBundleSourcePtr.reset(); //delete it
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString) {
+void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId, uint64_t stcpRateBitsPerSec) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
     }
 
-    if (m_ioService.stopped()) {
-        m_ioService.reset();
-    }
-
     if(useTcpcl) {
-        m_tcpclBundleSourcePtr = boost::make_shared<TcpclBundleSource>(30, thisLocalEidString);
+        m_tcpclBundleSourcePtr = boost::make_unique<TcpclBundleSource>(30, thisLocalEidString);
+        m_tcpclBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_tcpclBundleSourcePtr->Connect(hostname, port);
         for(unsigned int i = 0; i<10; ++i) {
             std::cout << "Waiting for TCPCL to become ready to forward..." << std::endl;
@@ -76,7 +89,8 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         }
     }
     else if (useStcp) {
-        m_stcpBundleSourcePtr = boost::make_shared<StcpBundleSource>(15);
+        m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15, stcpRateBitsPerSec);
+        m_stcpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_stcpBundleSourcePtr->Connect(hostname, port);
         for (unsigned int i = 0; i < 10; ++i) {
             std::cout << "Waiting for STCP to become ready to forward..." << std::endl;
@@ -88,40 +102,38 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         }
     }
     else {
-        try {
-            static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-            boost::asio::ip::udp::resolver resolver(m_ioService);
-            m_udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), hostname, port, UDP_RESOLVER_FLAGS));
-
-            m_udpSocket.open(boost::asio::ip::udp::v4());
-            m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0)); //bind to 0 (random ephemeral port)
-
-            std::cout << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port() << std::endl;
-
-        } catch (const boost::system::system_error & e) {
-            std::cerr << "Error in BpGenAsync::Start(): " << e.what() << std::endl;
-            return;
+        m_udpBundleSourcePtr = boost::make_unique<UdpBundleSource>(stcpRateBitsPerSec);
+        m_udpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
+        m_udpBundleSourcePtr->Connect(hostname, port);
+        for (unsigned int i = 0; i < 10; ++i) {
+            std::cout << "Waiting for UDP to become ready to forward..." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            if (m_udpBundleSourcePtr->ReadyToForward()) {
+                std::cout << "UDP ready to forward" << std::endl;
+                break;
+            }
         }
-
-        m_ioServiceThreadPtr = boost::make_shared<boost::thread>(
-            boost::bind(&boost::asio::io_service::run, &m_ioService)); //io service thread only needed for udp.. tcpcl maintains its own io service and thread
     }
 
 
 
     m_running = true;
-    m_bpGenThreadPtr = boost::make_shared<boost::thread>(
-        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, tcpclFragmentSize)); //create and start the worker thread
+    m_bpGenThreadPtr = boost::make_unique<boost::thread>(
+        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, tcpclFragmentSize, destFlowId)); //create and start the worker thread
 
 
 
 }
 
-void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize) {
+void BpGenAsync::OnSuccessfulBundleAck() {
+    m_conditionVariableAckReceived.notify_one();
+}
+
+void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, uint64_t destFlowId) {
 
 
 
-    #define BP_MSG_BUFSZ             (65536)
+    #define BP_MSG_BUFSZ             (65536 * 100) //todo
 
     double sval = 0.0;
     uint64_t sValU64 = 0;
@@ -133,11 +145,10 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "Sleeping for " << sValU64 << " usec between bursts" << std::endl;
     }
     else {
-        std::cout << "bundle rate must be non-zero.. exiting"  << std::endl;;
-        return;
+        std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to 5 unacked bundles"  << std::endl;
     }
 
-
+    std::size_t numEventsTooManyUnackedBundles = 0;
     //stats?
     //uint64_t bundle_count = 0;
     m_bundleCount = 0;
@@ -145,24 +156,43 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     uint64_t raw_data = 0;
 
     int source_node = BP_GEN_SRC_NODE_DEFAULT;
-    int dest_node = BP_GEN_DST_NODE_DEFAULT;
+    //int dest_node = BP_GEN_DST_NODE_DEFAULT;
 
     std::vector<uint8_t> data_buffer(bundleSizeBytes);
     memset(data_buffer.data(), 0, bundleSizeBytes);
     bpgen_hdr* hdr = (bpgen_hdr*)data_buffer.data();
 
-    uint64_t last_time = 0;
-    uint64_t curr_time = 0;
+    //const bool doStepSize = false; //unsafe at the moment due to data_buffer
+    uint32_t bundleSizeBytesStep = 100;
+    
+
+    uint64_t lastTimeRfc5050 = 0;
+    uint64_t currentTimeRfc5050 = 0;
     uint64_t seq = 0;
     uint64_t bseq = 0;
 
 
 
-    boost::asio::deadline_timer deadlineTimer(m_ioService, boost::posix_time::microseconds(sValU64));
-    boost::shared_ptr<std::vector<uint8_t> > bundleToSend = boost::make_shared<std::vector<uint8_t> >(BP_MSG_BUFSZ);
-    while (m_running) { //keep thread alive if running
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
 
-        {
+    boost::asio::io_service ioService;
+    boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::microseconds(sValU64));
+    std::vector<uint8_t> bundleToSend;
+    while (m_running) { //keep thread alive if running
+        /*if (doStepSize) {
+            bundleSizeBytes = bundleSizeBytesStep;
+            bundleSizeBytesStep += 1;
+            if (bundleSizeBytesStep > 1000000) {
+                bundleSizeBytesStep = 90000;
+            }
+        }*/
+        /*
+        if (HegrTcpclEntryAsync * entryTcpcl = dynamic_cast<HegrTcpclEntryAsync*>(entryIt->second.get())) {
+                    const std::size_t numAckedRemaining = entryTcpcl->GetTotalBundlesSent() - entryTcpcl->GetTotalBundlesAcked();
+                    while (q.size() > numAckedRemaining) {*/
+        
+        if(bundleRate) {
             boost::system::error_code ec;
             deadlineTimer.wait(ec);
             if(ec) {
@@ -171,24 +201,38 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             }
             deadlineTimer.expires_at(deadlineTimer.expires_at() + boost::posix_time::microseconds(sValU64));
         }
+        else {
+            const std::size_t numAckedRemaining = 
+                (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalDataSegmentsUnacked() :
+                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsUnacked() :
+                (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() : 0;
+            const std::size_t numUnackedBundleBytesRemaining = 
+                (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalBundleBytesUnacked() :
+                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalBundleBytesUnacked() :
+                (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalBundleBytesUnacked() : 0; //TODO, FIGURE OUT WHAT'S APPROPRIATE
+            if (numAckedRemaining > 5) {
+                ++numEventsTooManyUnackedBundles;
+                m_conditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
+        }
         //boost::this_thread::sleep(boost::posix_time::microseconds(sValU64));
 
-        if (m_udpSocket.is_open()) { //udp requires new data, but the tcpcl forward does a copy before send
-            bundleToSend = boost::make_shared<std::vector<uint8_t> >(BP_MSG_BUFSZ);
-        }
-        else {
-            bundleToSend->resize(BP_MSG_BUFSZ);
-        }
+        
+        bundleToSend.resize(bundleSizeBytes + 1000);
+        
 
         {
 
-            char* curr_buf = (char*)bundleToSend->data(); //(msgbuf[idx].msg_hdr.msg_iov->iov_base);
-            /*curr_time = time(0);
-            if(curr_time == last_time) {
+            char* curr_buf = (char*)bundleToSend.data(); //(msgbuf[idx].msg_hdr.msg_iov->iov_base);
+            currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
+            
+            if(currentTimeRfc5050 == lastTimeRfc5050) {
                 ++seq;
             }
             else {
-                gettimeofday(&tv, NULL);
+                /*gettimeofday(&tv, NULL);
                 double elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
                 elapsed -= start;
                 start = start + elapsed;
@@ -197,11 +241,11 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
                 bundle_count = 0;
                 bundle_data = 0;
                 raw_data = 0;
-                tsc_total = 0;
+                tsc_total = 0;*/
                 seq = 0;
             }
-            last_time = curr_time;
-            */
+            lastTimeRfc5050 = currentTimeRfc5050;
+            
             bpv6_primary_block primary;
             memset(&primary, 0, sizeof(bpv6_primary_block));
             primary.version = 6;
@@ -211,9 +255,10 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
             primary.src_node = source_node;
             primary.src_svc = 1;
-            primary.dst_node = dest_node;
+            primary.dst_node = destFlowId;
             primary.dst_svc = 1;
-            primary.creation = (uint64_t)bpv6_unix_to_5050(curr_time);
+            primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
+            primary.lifetime = 1000;
             primary.sequence = seq;
             ////uint64_t tsc_start = rdtsc();
             bundle_length = bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);
@@ -237,27 +282,30 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             bundle_data += bundleSizeBytes;     // payload data
             raw_data += bundle_length; // bundle overhead + payload data
 
-            bundleToSend->resize(bundle_length);
+            bundleToSend.resize(bundle_length);
         }
 
 
 
         //send message
         if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
-            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
+            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend)) {
                 m_running = false;
             }
         }
         else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
-            if (!m_stcpBundleSourcePtr->Forward(bundleToSend->data(), bundleToSend->size())) {
+            if (!m_stcpBundleSourcePtr->Forward(bundleToSend)) {
                 m_running = false;
             }
         }
-        else if (m_udpSocket.is_open()) { //udp
-            m_udpSocket.async_send_to(boost::asio::buffer(*bundleToSend), m_udpDestinationEndpoint,
-                                          boost::bind(&BpGenAsync::HandleUdpSendBundle, this, bundleToSend,
-                                                      boost::asio::placeholders::error,
-                                                      boost::asio::placeholders::bytes_transferred));
+        else if (m_udpBundleSourcePtr) { //udp
+            if (!m_udpBundleSourcePtr->Forward(bundleToSend)) {
+                m_running = false;
+            }
+        }
+
+        if (bundleToSend.size() != 0) {
+            std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
         }
 
     }
@@ -266,9 +314,9 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     std::cout << "bundle_count: " << m_bundleCount << std::endl;
     std::cout << "bundle_data (payload data): " << bundle_data << " bytes" << std::endl;
     std::cout << "raw_data (bundle overhead + payload data): " << raw_data << " bytes" << std::endl;
+    if (bundleRate == 0) {
+        std::cout << "numEventsTooManyUnackedBundles: " << numEventsTooManyUnackedBundles << std::endl;
+    }
 
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
-}
-
-void BpGenAsync::HandleUdpSendBundle(boost::shared_ptr<std::vector<uint8_t> > vecPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
 }

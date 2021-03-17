@@ -11,20 +11,22 @@ class CircularIndexBufferSingleProducerSingleConsumerConfigurable {
 private:
     CircularIndexBufferSingleProducerSingleConsumerConfigurable();
 public:
-        CircularIndexBufferSingleProducerSingleConsumerConfigurable(unsigned int size);
-        ~CircularIndexBufferSingleProducerSingleConsumerConfigurable();
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable(unsigned int size);
+    ~CircularIndexBufferSingleProducerSingleConsumerConfigurable();
 	
-	bool IsFull();
-	bool IsEmpty();
-	unsigned int GetIndexForWrite();
-	void CommitWrite();
-	unsigned int GetIndexForRead();
-	void CommitRead();
+    void Init();
+    bool IsFull();
+    bool IsEmpty();
+    unsigned int GetIndexForWrite();
+    void CommitWrite();
+    unsigned int GetIndexForRead();
+    void CommitRead();
+    unsigned int NumInBuffer();
 
 private:
-	volatile unsigned int m_cbStartIndex;
-	volatile unsigned int m_cbEndIndex;
-        const unsigned int M_CIRCULAR_INDEX_BUFFER_SIZE;
+    volatile unsigned int m_cbStartIndex;
+    volatile unsigned int m_cbEndIndex;
+    const unsigned int M_CIRCULAR_INDEX_BUFFER_SIZE;
 	
 };
 

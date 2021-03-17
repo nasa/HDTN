@@ -12,6 +12,12 @@ CircularIndexBufferSingleProducerSingleConsumerConfigurable::~CircularIndexBuffe
 	
 }
 
+void CircularIndexBufferSingleProducerSingleConsumerConfigurable::Init() {
+    m_cbStartIndex = 0;
+    m_cbEndIndex = 0;
+}
+
+
 bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsFull() {
 	//return ((m_end + 1) % m_bufferSize) == m_start;
 	unsigned int endPlus1 = m_cbEndIndex + 1;
@@ -52,4 +58,13 @@ void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitRead() {
         if (startPlus1 >= M_CIRCULAR_INDEX_BUFFER_SIZE) startPlus1 = 0;
 	m_cbStartIndex = startPlus1;
 	
+}
+
+unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::NumInBuffer() {
+    unsigned int endIndex = m_cbEndIndex;
+    const unsigned int startIndex = m_cbStartIndex;
+    if (endIndex < startIndex) {
+        endIndex += M_CIRCULAR_INDEX_BUFFER_SIZE;
+    }
+    return endIndex - startIndex;
 }
