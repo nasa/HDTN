@@ -67,6 +67,7 @@ private:
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
     volatile bool m_rateTimerIsRunning;
+    volatile bool m_newDataSignalerTimerIsRunning;
 
 
 public:
