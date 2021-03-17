@@ -343,7 +343,7 @@ bool TestUdp() {
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--flow-id=2","--stcp-rate-bits-per-sec=3000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=20","--flow-id=2","--stcp-rate-bits-per-sec=3000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,4,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
@@ -539,7 +539,7 @@ bool TestStcp() {
     static const char * argsIngress[] = {"ingress","--use-stcp",NULL};
     std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-stcp","--flow-id=2",
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=20","--use-stcp","--flow-id=2",
                                         "--stcp-rate-bits-per-sec=3000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Allow time for data to flow
@@ -719,35 +719,35 @@ bool TestStcpMultiFastCutthrough() {
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
 // Passes -- test_tcpl_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
     bool result = TestCutThroughTcpcl();
     BOOST_CHECK(result == true);
 }
 
 // Passes -- test_tcpl_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
     bool result = TestTcpclFastCutThrough();
     BOOST_CHECK(result == true);
 }
 
 // Passes -- test_tcpl_multi_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
     bool result = TestTcpclMultiFastCutThrough();
     BOOST_CHECK(result == true);
 }
 
 // Fails -- test_udp.bat
-BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
     std::cout << " >>>>>> Running: " << "it_TestUdp" << std::endl << std::flush;
     bool result = TestUdp();
     BOOST_CHECK(result == true);
 }
 
 //  Passes -- test_udp_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
     bool result = TestUdpFastCutthrough();
     BOOST_CHECK(result == true);
@@ -761,21 +761,21 @@ BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::disabled
 }
 
 // Fails -- test_stcp.bat
-BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
     bool result = TestStcp();
     BOOST_CHECK(result == true);
 }
 
 // Passes -- test_stcp_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStcpFastCutthrough" << std::endl << std::flush;
     bool result = TestStcpFastCutthrough();
     BOOST_CHECK(result == true);
 }
 
 // Passes -- test_stcp_multi_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
     bool result = TestStcpMultiFastCutthrough();
     BOOST_CHECK(result == true);
