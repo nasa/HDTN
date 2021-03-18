@@ -112,6 +112,9 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         store.Stop();
         m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
         m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
+        std::cout << "  !!!!!!!!!!!!!!!!!!!!!!  "  << std::endl << std::endl;
+        std::cout << "m_totalBundlesErasedFromStorage: " << m_totalBundlesErasedFromStorage << std::endl;
+        std::cout << "m_totalBundlesSentToEgressFromStorage: " << m_totalBundlesSentToEgressFromStorage << std::endl;
     }
     std::cout << "StorageRunner: exited cleanly\n";
     return true;

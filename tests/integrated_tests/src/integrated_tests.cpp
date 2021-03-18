@@ -39,6 +39,7 @@
 #include "BpSinkAsyncRunner.h"
 #include "IngressAsyncRunner.h"
 #include "EgressAsyncRunner.h"
+#include "StorageRunner.h"
 #include "SignalHandler.h"
 #include "ReleaseSender.h"
 
@@ -48,6 +49,7 @@ int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBu
 int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 
 // Global Test Fixture.  Used to setup Python Registration server.
 class BoostIntegratedTestsFixture {
@@ -139,6 +141,15 @@ int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundl
         IngressAsyncRunner runner;
         runner.Run(argc, argv, running, false);
         *ptrBundleCount = runner.m_bundleCount;
+    }
+    return 0;
+}
+
+int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount) {
+    {
+        StorageRunner runner;
+        runner.Run(argc, argv, running, false);
+        *ptrBundleCount = runner.m_totalBundlesSentToEgressFromStorage;
     }
     return 0;
 }
@@ -723,11 +734,13 @@ bool TestStorage() {
     bool runningBpsink[1] = {true};
     bool runningIngress = true;
     bool runningEgress = true;
+    bool runningStorage = true;
 
     uint64_t bundlesSentBpgen[1] = {0};
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
+    uint64_t bundleCountStorage = 0;
 
     // Start threads
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -736,6 +749,103 @@ bool TestStorage() {
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
+    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
+    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+
+    // Run Release Message Sender
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    ReleaseSender releaseSender;
+    std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
+    releaseSender.ProcessEventFile(eventFile);
+
+    // Run Storage
+    boost::this_thread::sleep(boost::posix_time::seconds(1));
+#ifdef _WIN32
+    const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%\module\storage\storage-brian\unit_tests\storageConfig.json";
+#else
+    const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
+#endif
+    static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
+    std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
+    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
+
+    // Allow time for data to flow
+    boost::this_thread::sleep(boost::posix_time::seconds(10));  // Do not set due to the duration parameter
+    // Stop threads
+//    runningBpgen[0] = false;  // Do not set due to the duration parameter
+
+    threadBpgen0.join();
+    runningStorage = false;
+    threadStorage.join();
+    runningIngress = false;
+    threadIngress.join();
+    runningEgress = false;
+    threadEgress.join();
+    runningBpsink[0] = false;
+    threadBpsink0.join();
+    // Verify results
+    uint64_t totalBundlesBpgen = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+    uint64_t totalBundlesBpsink = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpsink += bundlesReceivedBpsink[i];
+    }
+    if (totalBundlesBpgen != bundleCountIngress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != bundleCountStorage) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles sent by storage "
+                + std::to_string(bundleCountStorage) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != bundleCountEgress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != totalBundlesBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+    return true;
+}
+
+
+
+bool TestStorageMulti() {
+    bool runningBpgen[2] = {true,true};
+    bool runningBpsink[2] = {true,true};
+    bool runningIngress = true;
+    bool runningEgress = true;
+
+    uint64_t bundlesSentBpgen[2] = {0,0};
+    uint64_t bundlesReceivedBpsink[2] = {0,0};
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+
+    // Start threads
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4557",NULL};
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsBpsink1[] = {"bpsink","--use-tcpcl","--port=4558",NULL};
+    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1]);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=4557","--port2=4558",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
@@ -788,6 +898,10 @@ bool TestStorage() {
     }
     return true;
 }
+
+
+
+
 
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
@@ -855,9 +969,16 @@ BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::disabled
     BOOST_CHECK(result == true);
 }
 
-//  -- test_storage.bat
+//  Fails -- test_storage.bat
 BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
     bool result = TestStorage();
+    BOOST_CHECK(result == true);
+}
+
+//   -- test_storage_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
+    std::cout << " >>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
+    bool result = TestStorageMulti();
     BOOST_CHECK(result == true);
 }

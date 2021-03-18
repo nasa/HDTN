@@ -32,6 +32,7 @@ add_executable(integrated-tests
     ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
 
     ../../module/storage/src/store.cpp
+    ../../module/storage/src/StorageRunner.cpp
     ../../module/storage/src/test/ReleaseSender.cpp
 
 	${LINUX_ONLY_INTEGRATED_TEST_SRCS}
