@@ -304,7 +304,8 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
         return SdnvDecodeU64Classic(data, numBytes);
     }
     const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
-    const uint64_t u64ByteSwapped = boost::endian::big_to_native(sdnvEncoded.m128i_u64[0]);
+    const uint64_t encoded64 = _mm_cvtsi128_si64x(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst. (same as _mm_cvtsi128_si64 ??)
+    const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
     uint64_t decoded = _pext_u64(u64ByteSwapped, masks[sdnvSizeBytes]);
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
     *numBytes = sdnvSizeBytes;
