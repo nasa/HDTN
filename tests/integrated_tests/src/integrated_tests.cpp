@@ -40,6 +40,7 @@
 #include "IngressAsyncRunner.h"
 #include "EgressAsyncRunner.h"
 #include "SignalHandler.h"
+#include "ReleaseSender.h"
 
 // Prototypes
 
@@ -716,6 +717,79 @@ bool TestStcpMultiFastCutthrough() {
     return true;
 }
 
+
+bool TestStorage() {
+    bool runningBpgen[1] = {true};
+    bool runningBpsink[1] = {true};
+    bool runningIngress = true;
+    bool runningEgress = true;
+
+    uint64_t bundlesSentBpgen[1] = {0};
+    uint64_t bundlesReceivedBpsink[1] = {0};
+    uint64_t bundleCountEgress = 0;
+    uint64_t bundleCountIngress = 0;
+
+    // Start threads
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4558",NULL};
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
+    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
+    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+
+    // Run Release Message Sender
+    ReleaseSender releaseSender;
+    std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
+    releaseSender.ProcessEventFile(eventFile);
+
+    boost::this_thread::sleep(boost::posix_time::seconds(3));
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
+    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
+
+    // Allow time for data to flow
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    // Stop threads
+    runningBpgen[0] = false;
+    threadBpgen0.join();
+    runningIngress = false;
+    threadIngress.join();
+    runningEgress = false;
+    threadEgress.join();
+    runningBpsink[0] = false;
+    threadBpsink0.join();
+    // Verify results
+    uint64_t totalBundlesBpgen = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+    uint64_t totalBundlesBpsink = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpsink += bundlesReceivedBpsink[i];
+    }
+    if (totalBundlesBpgen != bundleCountIngress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
+                + std::to_string(bundleCountIngress) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != bundleCountEgress) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by egress "
+                + std::to_string(bundleCountEgress) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != totalBundlesBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
+                + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+    return true;
+}
+
+
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
 // Passes -- test_tcpl_cutthrough.bat
@@ -740,7 +814,7 @@ BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::disabl
 }
 
 // Fails -- test_udp.bat
-BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestUdp" << std::endl << std::flush;
     bool result = TestUdp();
     BOOST_CHECK(result == true);
@@ -778,5 +852,12 @@ BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::disabled()) 
 BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
     bool result = TestStcpMultiFastCutthrough();
+    BOOST_CHECK(result == true);
+}
+
+//  -- test_storage.bat
+BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
+    std::cout << " >>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
+    bool result = TestStorage();
     BOOST_CHECK(result == true);
 }

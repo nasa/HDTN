@@ -95,6 +95,7 @@ target_include_directories(hdtn-release-message-sender PUBLIC
 
 
 add_executable(hdtn-multiple-release-message-sender
+    src/test/ReleaseSender.cpp
     src/test/multiple_release_message_sender.cpp
 )
 target_link_libraries(hdtn-multiple-release-message-sender hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})

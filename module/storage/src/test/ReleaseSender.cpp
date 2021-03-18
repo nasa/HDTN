@@ -1,34 +1,17 @@
-#include <boost/asio.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
-#include <boost/date_time.hpp>
-#include <boost/program_options.hpp>
-#include <boost/make_unique.hpp>
-#include <cstdlib>
-#include <iostream>
-#include "message.hpp"
-#include "paths.hpp"
-#include "Environment.h"
-#include "JsonSerializable.h"
-#include "reg.hpp"
+#include "ReleaseSender.h"
 
-typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
-struct ReleaseMessageEvent_t {
-    int id;
-    int delay;
-    std::string message;
-};
-typedef std::vector<ReleaseMessageEvent_t> ReleaseMessageEventVector_t;
+const std::string ReleaseSender::DEFAULT_FILE = "releaseMessages1.json";
 
-std::string DEFAULT_FILE = "releaseMessages1.json";
 
-// Prototypes
-void ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket);
-int ProcessEventFile(std::string jsonEventFileName);
-std::string GetFullyQualifiedFilename(std::string filename);
-int ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName);
+ReleaseSender::ReleaseSender() {
 
-void ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket) {
+}
+
+ReleaseSender::~ReleaseSender() {
+
+}
+
+void ReleaseSender::ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket) {
   boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
   std::cout <<  "Expiry time: " << timeLocal << " , id: " << id << " , message: " << message;
   if (message == "start") {
@@ -52,7 +35,7 @@ void ProcessEvent(const boost::system::error_code&, int id, std::string message,
   std::cout << std::endl << std::flush;
 }
 
-int ProcessEventFile(std::string jsonEventFileName) {
+int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     ReleaseMessageEventVector_t releaseMessageEventVector;
     boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName);
     const boost::property_tree::ptree & releaseMessageEventsPt
@@ -93,7 +76,7 @@ int ProcessEventFile(std::string jsonEventFileName) {
     for(std::size_t i=0; i<releaseMessageEventVector.size(); ++i) {
         SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
         dt->expires_from_now(boost::posix_time::seconds(releaseMessageEventVector[i].delay));
-        dt->async_wait(boost::bind(ProcessEvent,boost::asio::placeholders::error, releaseMessageEventVector[i].id,
+        dt->async_wait(boost::bind(&ReleaseSender::ProcessEvent,this,boost::asio::placeholders::error, releaseMessageEventVector[i].id,
                                    releaseMessageEventVector[i].message,&socket));
         vectorTimers.push_back(std::move(dt));
     }
@@ -103,18 +86,14 @@ int ProcessEventFile(std::string jsonEventFileName) {
     return 0;
 }
 
-std::string GetFullyQualifiedFilename(std::string filename) {
-    return (Environment::GetPathHdtnSourceRoot() / "module/storage/src/test/").string() + filename;
-}
-
-int ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName) {
+int ReleaseSender::ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName) {
     jsonEventFileName = "";
-    std::string eventsFile = DEFAULT_FILE;
+    std::string eventsFile = ReleaseSender::DEFAULT_FILE;
     boost::program_options::options_description desc("Allowed options");
     try {
         desc.add_options()
             ("help", "Produce help message.")
-            ("events-file", boost::program_options::value<std::string>()->default_value(DEFAULT_FILE),
+            ("events-file", boost::program_options::value<std::string>()->default_value(ReleaseSender::DEFAULT_FILE),
              "Name of events file.");
         boost::program_options::variables_map vm;
         boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc,
@@ -139,7 +118,7 @@ int ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName) {
         std::cerr << "Exception of unknown type!\n";
         return 1;
     }
-    std::string jsonFileName =  GetFullyQualifiedFilename(eventsFile);
+    std::string jsonFileName =  ReleaseSender::GetFullyQualifiedFilename(eventsFile);
     if ( !boost::filesystem::exists( jsonFileName ) ) {
         std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
         return 1;
@@ -148,11 +127,5 @@ int ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
-    std::string jsonFileName;
-    int returnCode = ProcessComandLine(argc,argv,jsonFileName);
-    if (returnCode == 0) {
-        returnCode = ProcessEventFile(jsonFileName);
-    }
-    return returnCode;
-}
+
+
