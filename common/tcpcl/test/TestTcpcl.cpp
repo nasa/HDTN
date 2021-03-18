@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 		void DoDataSegmentNoFragment() {
 			std::vector<uint8_t> bundleSegment;
 			m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackNoFragment, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-			Tcpcl::GenerateDataSegment(bundleSegment, true, true, (const uint8_t*)m_bundleDataToSendNoFragment.data(), static_cast<uint32_t>(m_bundleDataToSendNoFragment.size()));
+			Tcpcl::GenerateDataSegment(bundleSegment, true, true, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size());
 			m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
 		}
 
@@ -132,21 +132,21 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, std::string(""));
 			BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 0);
 			static const std::string f1 = "fragOne ";
-			Tcpcl::GenerateDataSegment(bundleSegment, true, false, (const uint8_t*)f1.data(), static_cast<uint32_t>(f1.size()));
+			Tcpcl::GenerateDataSegment(bundleSegment, true, false, (const uint8_t*)f1.data(), f1.size());
 			m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
 
 			BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
 			BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, f1);
 			BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 1);
 			static const std::string f2 = "fragTwo ";
-			Tcpcl::GenerateDataSegment(bundleSegment, false, false, (const uint8_t*)f2.data(), static_cast<uint32_t>(f2.size()));
+			Tcpcl::GenerateDataSegment(bundleSegment, false, false, (const uint8_t*)f2.data(), f2.size());
 			m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
 
 			BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
 			BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, f1 + f2);
 			BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 2);
 			static const std::string f3 = "fragThree";
-			Tcpcl::GenerateDataSegment(bundleSegment, false, true, (const uint8_t*)f3.data(), static_cast<uint32_t>(f3.size()));
+			Tcpcl::GenerateDataSegment(bundleSegment, false, true, (const uint8_t*)f3.data(), f3.size());
 			m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
 
 			BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), rxBundleData.begin(), rxBundleData.end()); //concatenate
 		}
 
-		void AckCallback(uint32_t totalBytesAcknowledged) {
+		void AckCallback(uint64_t totalBytesAcknowledged) {
 			++m_numAckCallbackCount;
 			BOOST_REQUIRE_EQUAL(0x1234567F, totalBytesAcknowledged);
 		}
@@ -205,7 +205,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			BOOST_REQUIRE(refusalCode == BUNDLE_REFUSAL_CODES::RECEIVER_RESOURCES_EXHAUSTED);
 		}
 
-		void NextBundleLengthCallback(uint32_t nextBundleLength) {
+		void NextBundleLengthCallback(uint64_t nextBundleLength) {
 			++m_numBundleLengthCallbackCount;
 			BOOST_REQUIRE_EQUAL(0xdeadbeef, nextBundleLength);
 		}
@@ -215,7 +215,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 		}
 
 		void ShutdownCallbackWithReasonWithDelay(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-												 bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+												 bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 		{
 			++m_numShutdownCallbacksWithReasonWithDelay;
 			BOOST_REQUIRE(hasReasonCode);
@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 		}
 
 		void ShutdownCallbackNoReasonNoDelay(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-												 bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+												 bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 		{
 			++m_numShutdownCallbacksNoReasonNoDelay;
 			BOOST_REQUIRE(!hasReasonCode);
@@ -234,7 +234,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 		}
 
 		void ShutdownCallbackWithReasonNoDelay(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-												 bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+												 bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 		{
 			++m_numShutdownCallbacksWithReasonNoDelay;
 			BOOST_REQUIRE(hasReasonCode);
@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 		}
 
 		void ShutdownCallbackNoReasonWithDelay(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-												 bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+												 bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 		{
 			++m_numShutdownCallbacksNoReasonWithDelay;
 			BOOST_REQUIRE(!hasReasonCode);

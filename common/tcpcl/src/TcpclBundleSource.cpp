@@ -105,17 +105,17 @@ bool TcpclBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataVec.size());
+    m_bytesToAckCbVec[writeIndex] = dataVec.size();
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(dataVec.size());
+    m_totalBundleBytesSent += dataVec.size();
 
     //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataVec.size()));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, dataVec.size());
     std::unique_ptr<TcpAsyncSenderElement> el;
     TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<std::vector<uint8_t> >(std::move(dataVec)), &m_handleTcpSendCallback);
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
@@ -136,17 +136,17 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataZmq.size());
+    m_bytesToAckCbVec[writeIndex] = dataZmq.size();
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(dataZmq.size());
+    m_totalBundleBytesSent += dataZmq.size();
 
     //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataZmq.size()));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, dataZmq.size());
     std::unique_ptr<TcpAsyncSenderElement> el;
     TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<zmq::message_t>(std::move(dataZmq)), &m_handleTcpSendCallback);
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
@@ -294,7 +294,7 @@ void TcpclBundleSource::DataSegmentCallback(std::vector<uint8_t> & dataSegmentDa
     std::cout << "TcpclBundleSource should never enter DataSegmentCallback" << std::endl;
 }
 
-void TcpclBundleSource::AckCallback(uint32_t totalBytesAcknowledged) {
+void TcpclBundleSource::AckCallback(uint64_t totalBytesAcknowledged) {
     const unsigned int readIndex = m_bytesToAckCb.GetIndexForRead();
     if(readIndex == UINT32_MAX) { //empty
         std::cerr << "error: AckCallback called with empty queue" << std::endl;
@@ -317,7 +317,7 @@ void TcpclBundleSource::BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) 
     std::cout << "error: BundleRefusalCallback not implemented yet in TcpclBundleSource" << std::endl;
 }
 
-void TcpclBundleSource::NextBundleLengthCallback(uint32_t nextBundleLength) {
+void TcpclBundleSource::NextBundleLengthCallback(uint64_t nextBundleLength) {
     std::cout << "TcpclBundleSource should never enter NextBundleLengthCallback" << std::endl;
 }
 
@@ -333,7 +333,7 @@ void TcpclBundleSource::KeepAliveCallback() {
 }
 
 void TcpclBundleSource::ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-                                         bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+                                         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 {
     std::cout << "remote has requested shutdown\n";
     if(hasReasonCode) {

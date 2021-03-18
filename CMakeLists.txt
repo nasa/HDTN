@@ -15,6 +15,11 @@ if(USE_BRIAN_STORAGE)
     add_compile_definitions(USE_BRIAN_STORAGE)
 endif()
 
+OPTION(SDNV_USE_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
+if(SDNV_USE_HARDWARE_ACCELERATION)
+    add_compile_definitions(SDNV_USE_HARDWARE_ACCELERATION)
+endif()
+
 if (WIN32)
 	#add_compile_definitions(ZMQ_STATIC)
 	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
