@@ -424,19 +424,22 @@ bool TestUdp() {
     static const char * argsBpsink0[] = {"bpsink","--port=4558",NULL};
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2, std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=9000",NULL};
+    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=4500",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=20","--flow-id=2","--stcp-rate-bits-per-sec=3000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--stcp-rate-bits-per-sec=1500",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,4,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Allow time for data to flow
     boost::this_thread::sleep(boost::posix_time::seconds(10));
     // Stop threads
     runningBpgen[0] = false;
     threadBpgen0.join();
+
+    boost::this_thread::sleep(boost::posix_time::seconds(10));
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -626,7 +629,7 @@ bool TestStcp() {
     static const char * argsIngress[] = {"ingress","--use-stcp",NULL};
     std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=20","--use-stcp","--flow-id=2",
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--use-stcp","--flow-id=2",
                                         "--stcp-rate-bits-per-sec=3000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
     // Allow time for data to flow
@@ -933,8 +936,8 @@ bool TestStorageSlowBpSink() {
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0",NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const char * argsEgress[] = {"egress","--use-tcpcl",NULL};
+    std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
@@ -974,15 +977,19 @@ bool TestStorageSlowBpSink() {
     std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
     runningStorage = false;
     threadStorage.join();
-
+std::cout << " 1 " << std::endl << std::flush;
     runningIngress = false;
     threadIngress.join();
+    std::cout << " 2 " << std::endl << std::flush;
     runningEgress = false;
     threadEgress.join();
+    std::cout << " 3 " << std::endl << std::flush;
     runningBpsink[0] = false;
     threadBpsink0.join();
+    std::cout << " 4 " << std::endl << std::flush;
 
     threadReleaseSender.join();
+    std::cout << " 5 " << std::endl << std::flush;
 
     // Verify results
     uint64_t totalBundlesBpgen = 0;
@@ -995,10 +1002,11 @@ bool TestStorageSlowBpSink() {
     }
 
     std::cout << std::endl << std::flush;
-    std::cout << " totalBundlesBpgen:  " << totalBundlesBpgen << std::endl << std::flush;
-    std::cout << " bundleCountIngress: " << bundleCountIngress << std::endl << std::flush;
-    std::cout << " bundleCountStorage: " << bundleCountStorage << std::endl << std::flush;
-    std::cout << " bundleCountEgress:  " << bundleCountEgress << std::endl << std::flush;
+    std::cout << " totalBundlesBpgen:   " << totalBundlesBpgen << std::endl << std::flush;
+    std::cout << " bundleCountIngress:  " << bundleCountIngress << std::endl << std::flush;
+    std::cout << " bundleCountStorage:  " << bundleCountStorage << std::endl << std::flush;
+    std::cout << " bundleCountEgress:   " << bundleCountEgress << std::endl << std::flush;
+    std::cout << " totalBundlesBpsink:  " << totalBundlesBpsink << std::endl << std::flush;
     std::cout << std::endl << std::flush;
 
     if (totalBundlesBpgen != bundleCountIngress) {
@@ -1177,7 +1185,7 @@ BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::disabled()) {
     BOOST_CHECK(result == true);
 }
 
-// Fails -- test_udp.bat
+// Passes -- test_udp.bat
 BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestUdp" << std::endl << std::flush;
     bool result = TestUdp();
@@ -1198,7 +1206,7 @@ BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::disabled
     BOOST_CHECK(result == true);
 }
 
-// Fails -- test_stcp.bat
+// Passes -- test_stcp.bat
 BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
     bool result = TestStcp();
@@ -1227,16 +1235,15 @@ BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::disabled()) {
 }
 
 //   Passes -- test_storage_multi.bat
-BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
     bool result = TestStorageMulti();
     BOOST_CHECK(result == true);
 }
 
 //   Fails -- test_storage_slowbpsink.bat
-BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
     bool result = TestStorageSlowBpSink();
     BOOST_CHECK(result == true);
 }
-

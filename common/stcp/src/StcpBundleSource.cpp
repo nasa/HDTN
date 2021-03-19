@@ -409,8 +409,11 @@ void StcpBundleSource::TryRestartRateTimer() {
             const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
             const double delayMicroSecDouble = (1.0 / m_rateBitsPerSec) * numBitsDouble * 1e6;
             delayMicroSec += static_cast<uint64_t>(delayMicroSecDouble);
-            m_bytesToAckByRateCb.CommitRead();
+// JCF -- swapped
+//            m_bytesToAckByRateCb.CommitRead();
+//            m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
             m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
+            m_bytesToAckByRateCb.CommitRead();
             if (delayMicroSec >= 10000) { //try to avoid sleeping for any time smaller than 10 milliseconds
                 break;
             }

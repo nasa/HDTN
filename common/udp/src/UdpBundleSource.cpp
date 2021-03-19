@@ -108,6 +108,8 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         return false;
     }
 
+std::cout << "NumInBuffer:" <<  m_bytesToAckByRateCb.NumInBuffer() << std::endl << std::flush;
+
     const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexRate == UINT32_MAX) { //push check
         std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by rate" << std::endl;
@@ -202,6 +204,8 @@ std::size_t UdpBundleSource::GetTotalUdpPacketsSent() {
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() {
+    std::cout << "GetTotalUdpPacketsSent(): " << GetTotalUdpPacketsSent() << std::endl;
+    std::cout << "GetTotalUdpPacketsAcked(): " << GetTotalUdpPacketsAcked() << std::endl;
     return GetTotalUdpPacketsSent() - GetTotalUdpPacketsAcked();
 }
 
@@ -347,8 +351,11 @@ void UdpBundleSource::TryRestartRateTimer() {
             const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
             const double delayMicroSecDouble = (1.0 / m_rateBitsPerSec) * numBitsDouble * 1e6;
             delayMicroSec += static_cast<uint64_t>(delayMicroSecDouble);
-            m_bytesToAckByRateCb.CommitRead();
+// JCF -- swapped
+//            m_bytesToAckByRateCb.CommitRead();
+//            m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
             m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
+            m_bytesToAckByRateCb.CommitRead();
             if (delayMicroSec >= 10000) { //try to avoid sleeping for any time smaller than 10 milliseconds
                 break;
             }
@@ -368,6 +375,7 @@ void UdpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e) {
         // Timer was not cancelled, take necessary action.
         if(m_groupingOfBytesToAckByRateVec.size() > 0) {
             m_totalUdpPacketsAckedByRate += m_groupingOfBytesToAckByRateVec.size();
+            std::cout << "m_totalUdpPacketsAckedByRate: " << m_totalUdpPacketsAckedByRate << std::endl;
             for (std::size_t i = 0; i < m_groupingOfBytesToAckByRateVec.size(); ++i) {
                 m_totalBytesAckedByRate += m_groupingOfBytesToAckByRateVec[i];
             }
