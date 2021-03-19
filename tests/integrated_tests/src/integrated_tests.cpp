@@ -834,7 +834,6 @@ bool TestStorage() {
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
-    //    releaseSender.ProcessEventFile(eventFile);
     std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
 
     std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
@@ -945,9 +944,9 @@ bool TestStorageSlowBpSink() {
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
-//    releaseSender.ProcessEventFile(eventFile);
     std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
 
+    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -966,17 +965,25 @@ bool TestStorageSlowBpSink() {
     // Allow time for data to flow
     //boost::this_thread::sleep(boost::posix_time::seconds(10));  // Do not set due to the duration parameter
     // Stop threads
-//    runningBpgen[0] = false;  // Do not set due to the duration parameter
-
+    //runningBpgen[0] = false;  // Do not set due to the duration parameter
     threadBpgen0.join();
+
+
+    // Storage should not be stopped until at least 10 seconds after release messages has finished.
+    boost::this_thread::sleep(boost::posix_time::seconds(20));
+    std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
     runningStorage = false;
     threadStorage.join();
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
     threadEgress.join();
     runningBpsink[0] = false;
     threadBpsink0.join();
+
+    threadReleaseSender.join();
+
     // Verify results
     uint64_t totalBundlesBpgen = 0;
     for(int i=0; i<1; i++) {
@@ -1055,8 +1062,9 @@ bool TestStorageMulti() {
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest2.json");
-//    releaseSender.ProcessEventFile(eventFile);
     std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+
+    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -1084,6 +1092,13 @@ bool TestStorageMulti() {
     threadBpgen0.join();
     //    runningBpgen[1] = false;  // Do not set due to the duration parameter
     threadBpgen1.join();
+
+    // Storage should not be stopped until at least 10 seconds after release messages has finished.
+    boost::this_thread::sleep(boost::posix_time::seconds(20));
+    std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
+    runningStorage = false;
+    threadStorage.join();
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -1092,6 +1107,9 @@ bool TestStorageMulti() {
     threadBpsink1.join();
     runningBpsink[0] = false;
     threadBpsink0.join();
+
+    threadReleaseSender.join();
+
     // Verify results
     uint64_t totalBundlesBpgen = 0;
     for(int i=0; i<2; i++) {
@@ -1201,15 +1219,15 @@ BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::disabled
     BOOST_CHECK(result == true);
 }
 
-//  Fails -- test_storage.bat
-BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
+//  Passes -- test_storage.bat
+BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::disabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
     bool result = TestStorage();
     BOOST_CHECK(result == true);
 }
 
-//   Fails -- test_storage_multi.bat
-BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
+//   Passes -- test_storage_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
     std::cout << " >>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
     bool result = TestStorageMulti();
     BOOST_CHECK(result == true);
