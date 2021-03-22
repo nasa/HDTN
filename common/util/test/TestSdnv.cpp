@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #include <vector>
 #include "Sdnv.h"
+#include <boost/timer/timer.hpp>
 
 BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
 {
@@ -171,6 +172,129 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
     BOOST_REQUIRE(allEncodedData == allEncodedDataFast);
 }
 
+static const std::vector<uint64_t> testVals = {
+    0,
+    1,
+    2,
+    3,
+    4,
+
+    // (1 << 7) - 1
+    127 - 4,
+    127 - 3,
+    127 - 2,
+    127 - 1,
+    127,
+    127 + 1,
+    127 + 2,
+    127 + 3,
+    127 + 4,
+
+    // (1 << 14) - 1
+    16383 - 4,
+    16383 - 3,
+    16383 - 2,
+    16383 - 1,
+    16383,
+    16383 + 1,
+    16383 + 2,
+    16383 + 3,
+    16383 + 4,
+
+    // (1 << 21) - 1
+    2097151 - 4,
+    2097151 - 3,
+    2097151 - 2,
+    2097151 - 1,
+    2097151,
+    2097151 + 1,
+    2097151 + 2,
+    2097151 + 3,
+    2097151 + 4,
+
+    // (1 << 28) - 1
+    268435455 - 4,
+    268435455 - 3,
+    268435455 - 2,
+    268435455 - 1,
+    268435455,
+    268435455 + 1,
+    268435455 + 2,
+    268435455 + 3,
+    268435455 + 4,
+
+    static_cast<uint64_t>(UINT32_MAX) - 4,
+    static_cast<uint64_t>(UINT32_MAX) - 3,
+    static_cast<uint64_t>(UINT32_MAX) - 2,
+    static_cast<uint64_t>(UINT32_MAX) - 1,
+    static_cast<uint64_t>(UINT32_MAX),
+    static_cast<uint64_t>(UINT32_MAX) + 1,
+    static_cast<uint64_t>(UINT32_MAX) + 2,
+    static_cast<uint64_t>(UINT32_MAX) + 3,
+    static_cast<uint64_t>(UINT32_MAX) + 4,
+
+    // (1 << 35) - 1
+    34359738367 - 4,
+    34359738367 - 3,
+    34359738367 - 2,
+    34359738367 - 1,
+    34359738367,
+    34359738367 + 1,
+    34359738367 + 2,
+    34359738367 + 3,
+    34359738367 + 4,
+
+    // (1 << 42) - 1
+    4398046511103 - 4,
+    4398046511103 - 3,
+    4398046511103 - 2,
+    4398046511103 - 1,
+    4398046511103,
+    4398046511103 + 1,
+    4398046511103 + 2,
+    4398046511103 + 3,
+    4398046511103 + 4,
+
+    // (1 << 49) - 1
+    562949953421311 - 4,
+    562949953421311 - 3,
+    562949953421311 - 2,
+    562949953421311 - 1,
+    562949953421311,
+    562949953421311 + 1,
+    562949953421311 + 2,
+    562949953421311 + 3,
+    562949953421311 + 4,
+
+    // (1 << 56) - 1
+    72057594037927935 - 4,
+    72057594037927935 - 3,
+    72057594037927935 - 2,
+    72057594037927935 - 1,
+    72057594037927935,
+    72057594037927935 + 1,
+    72057594037927935 + 2,
+    72057594037927935 + 3,
+    72057594037927935 + 4,
+
+    // (1 << 63) - 1
+    9223372036854775807U - 4,
+    9223372036854775807U - 3,
+    9223372036854775807U - 2,
+    9223372036854775807U - 1,
+    9223372036854775807U,
+    9223372036854775807U + 1,
+    9223372036854775807U + 2,
+    9223372036854775807U + 3,
+    9223372036854775807U + 4,
+
+    UINT64_MAX - 4,
+    UINT64_MAX - 3,
+    UINT64_MAX - 2,
+    UINT64_MAX - 1,
+    UINT64_MAX
+};
+
 BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 {
     std::vector<uint8_t> encoded(10);
@@ -178,128 +302,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
     encoded.assign(encoded.size(), 0);
     encodedFast.assign(encodedFast.size(), 0);
     uint16_t coverageMask = 0;
-    const std::vector<uint64_t> testVals = {
-        0,
-        1,
-        2,
-        3,
-        4,
-
-        // (1 << 7) - 1
-        127 - 4,
-        127 - 3,
-        127 - 2,
-        127 - 1,
-        127,
-        127 + 1,
-        127 + 2,
-        127 + 3,
-        127 + 4,
-
-        // (1 << 14) - 1
-        16383 - 4,
-        16383 - 3,
-        16383 - 2,
-        16383 - 1,
-        16383,
-        16383 + 1,
-        16383 + 2,
-        16383 + 3,
-        16383 + 4,
-
-        // (1 << 21) - 1
-        2097151 - 4,
-        2097151 - 3,
-        2097151 - 2,
-        2097151 - 1,
-        2097151,
-        2097151 + 1,
-        2097151 + 2,
-        2097151 + 3,
-        2097151 + 4,
-
-        // (1 << 28) - 1
-        268435455 - 4,
-        268435455 - 3,
-        268435455 - 2,
-        268435455 - 1,
-        268435455,
-        268435455 + 1,
-        268435455 + 2,
-        268435455 + 3,
-        268435455 + 4,
-
-        static_cast<uint64_t>(UINT32_MAX) - 4,
-        static_cast<uint64_t>(UINT32_MAX) - 3,
-        static_cast<uint64_t>(UINT32_MAX) - 2,
-        static_cast<uint64_t>(UINT32_MAX) - 1,
-        static_cast<uint64_t>(UINT32_MAX),
-        static_cast<uint64_t>(UINT32_MAX) + 1,
-        static_cast<uint64_t>(UINT32_MAX) + 2,
-        static_cast<uint64_t>(UINT32_MAX) + 3,
-        static_cast<uint64_t>(UINT32_MAX) + 4,
-
-        // (1 << 35) - 1
-        34359738367 - 4,
-        34359738367 - 3,
-        34359738367 - 2,
-        34359738367 - 1,
-        34359738367,
-        34359738367 + 1,
-        34359738367 + 2,
-        34359738367 + 3,
-        34359738367 + 4,
-
-        // (1 << 42) - 1
-        4398046511103 - 4,
-        4398046511103 - 3,
-        4398046511103 - 2,
-        4398046511103 - 1,
-        4398046511103,
-        4398046511103 + 1,
-        4398046511103 + 2,
-        4398046511103 + 3,
-        4398046511103 + 4,
-
-        // (1 << 49) - 1
-        562949953421311 - 4,
-        562949953421311 - 3,
-        562949953421311 - 2,
-        562949953421311 - 1,
-        562949953421311,
-        562949953421311 + 1,
-        562949953421311 + 2,
-        562949953421311 + 3,
-        562949953421311 + 4,
-
-        // (1 << 56) - 1
-        72057594037927935 - 4,
-        72057594037927935 - 3,
-        72057594037927935 - 2,
-        72057594037927935 - 1,
-        72057594037927935,
-        72057594037927935 + 1,
-        72057594037927935 + 2,
-        72057594037927935 + 3,
-        72057594037927935 + 4,
-
-        // (1 << 63) - 1
-        9223372036854775807U - 4,
-        9223372036854775807U - 3,
-        9223372036854775807U - 2,
-        9223372036854775807U - 1,
-        9223372036854775807U,
-        9223372036854775807U + 1,
-        9223372036854775807U + 2,
-        9223372036854775807U + 3,
-        9223372036854775807U + 4,
-
-        UINT64_MAX - 4,
-        UINT64_MAX - 3,
-        UINT64_MAX - 2,
-        UINT64_MAX - 1,
-        UINT64_MAX
-    };
+    
 
 
     for (std::size_t i = 0; i < testVals.size(); ++i) {
@@ -425,5 +428,206 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
     BOOST_REQUIRE(allDecodedValsFast == testVals);
     allEncodedDataFast.resize(totalBytesEncodedFast);
     BOOST_REQUIRE(allEncodedData == allEncodedDataFast);
+
+
+    //DECODE UP TO 16-BYTES AT A TIME ARRAY OF VALS
+    {
+        allEncodedDataPtr = allEncodedData.data();
+        std::vector<uint64_t> allDecodedValsFastMultiple(testVals.size());
+        uint64_t * allDecodedDataFastMultiplePtr = allDecodedValsFastMultiple.data();
+        j = 0;
+        unsigned int decodedRemaining = (unsigned int)testVals.size();
+        while (j < totalBytesEncoded) {
+            //return decoded value (0 if failure), also set parameter numBytes taken to decode
+            uint8_t totalBytesDecoded;
+            unsigned int numValsDecodedThisIteration = SdnvDecodeMultipleU64Fast(allEncodedDataPtr, &totalBytesDecoded, allDecodedDataFastMultiplePtr, decodedRemaining);
+            decodedRemaining -= numValsDecodedThisIteration;
+            allDecodedDataFastMultiplePtr += numValsDecodedThisIteration;
+            //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
+            BOOST_REQUIRE_NE(totalBytesDecoded, 0);
+            allEncodedDataPtr += totalBytesDecoded;
+
+            j += totalBytesDecoded;
+        }
+        BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFastMultiple == testVals);
+    }
+    
+    //DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS
+    {
+        allEncodedDataPtr = allEncodedData.data();
+        std::vector<uint64_t> allDecodedValsFastMultiple32(testVals.size());
+        uint64_t * allDecodedDataFastMultiple32Ptr = allDecodedValsFastMultiple32.data();
+        j = 0;
+        unsigned int decodedRemaining = (unsigned int)testVals.size();
+        while (j < totalBytesEncoded) {
+            //return decoded value (0 if failure), also set parameter numBytes taken to decode
+            uint8_t totalBytesDecoded;
+            unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(allEncodedDataPtr, &totalBytesDecoded, allDecodedDataFastMultiple32Ptr, decodedRemaining);
+            decodedRemaining -= numValsDecodedThisIteration;
+            allDecodedDataFastMultiple32Ptr += numValsDecodedThisIteration;
+            //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
+            BOOST_REQUIRE_NE(totalBytesDecoded, 0);
+            allEncodedDataPtr += totalBytesDecoded;
+
+            j += totalBytesDecoded;
+        }
+        BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals);
+    }
+}
+
+
+BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
+{
+    const std::vector<uint64_t> testVals2(testVals.cbegin(), testVals.cend() - 20);
+
+    std::vector<uint8_t> allEncodedData(testVals2.size() * 10);
+    std::vector<uint8_t> allEncodedDataFast(testVals2.size() * 10 + sizeof(uint64_t));
+    std::size_t totalBytesEncoded = 0;
+    std::size_t totalBytesEncodedFast = 0;
+    std::cout << "starting speed test\n";
+    std::cout << "testvals2 size: " << testVals2.size() << std::endl;
+
+    static const std::size_t LOOP_COUNT = 5000000;
+    //ENCODE ARRAY OF VALS (CLASSIC)
+    {
+        std::cout << "encode classic\n";
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            totalBytesEncoded = 0;
+            uint8_t * allEncodedDataPtr = allEncodedData.data();
+            for (std::size_t i = 0; i < testVals2.size(); ++i) {
+                const uint64_t val = testVals2[i];
+                //encode
+                const unsigned int outputSizeBytes = SdnvEncodeU64Classic(allEncodedDataPtr, val);
+                allEncodedDataPtr += outputSizeBytes;
+                totalBytesEncoded += outputSizeBytes;
+            }
+        }
+        //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
+        BOOST_REQUIRE_EQUAL(totalBytesEncoded, 354);
+    }
+
+    //ENCODE ARRAY OF VALS (FAST)
+    {
+        std::cout << "encode fast\n";
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            totalBytesEncodedFast = 0;
+            uint8_t * allEncodedDataFastPtr = allEncodedDataFast.data();
+            for (std::size_t i = 0; i < testVals2.size(); ++i) {
+                const uint64_t val = testVals2[i];
+                //encode fast
+                const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(allEncodedDataFastPtr, val);
+                allEncodedDataFastPtr += outputSizeBytesFast;
+                totalBytesEncodedFast += outputSizeBytesFast;
+            }
+        }
+        //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
+        BOOST_REQUIRE_EQUAL(totalBytesEncodedFast, 354);
+    }
+
+
+    //DECODE ARRAY OF VALS (CLASSIC)
+    {
+        std::cout << "decode classic\n";
+        std::vector<uint64_t> allDecodedVals;
+        std::size_t j;
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            allDecodedVals.resize(0);
+            uint8_t * allEncodedDataPtr = allEncodedData.data();
+            j = 0;
+            while (j < totalBytesEncoded) {
+                //return decoded value (0 if failure), also set parameter numBytes taken to decode
+                uint8_t numBytesTakenToDecode;
+                const uint64_t decodedVal = SdnvDecodeU64Classic(allEncodedDataPtr, &numBytesTakenToDecode);
+                allDecodedVals.push_back(decodedVal);
+                allEncodedDataPtr += numBytesTakenToDecode;
+
+                j += numBytesTakenToDecode;
+            }
+        }
+        BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedVals == testVals2);
+    }
+
+    //DECODE ARRAY OF VALS (FAST)
+    {
+        std::cout << "decode fast\n";
+        std::vector<uint64_t> allDecodedValsFast;
+        std::size_t j;
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            allDecodedValsFast.resize(0);
+            uint8_t * allEncodedDataFastPtr = allEncodedDataFast.data();
+            j = 0;
+            while (j < totalBytesEncoded) {
+
+                uint8_t numBytesTakenToDecodeFast;
+                const uint64_t decodedValFast = SdnvDecodeU64Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
+                //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
+                allDecodedValsFast.push_back(decodedValFast);
+                allEncodedDataFastPtr += numBytesTakenToDecodeFast;
+
+                j += numBytesTakenToDecodeFast;
+            }
+        }
+        BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFast == testVals2);
+    }
+
+    //DECODE UP TO 16-BYTES AT A TIME ARRAY OF VALS
+    {
+        std::cout << "decode fast 16 byte\n";
+        std::size_t j;
+        std::vector<uint64_t> allDecodedValsFastMultiple(testVals2.size());
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            uint8_t * allEncodedDataPtr = allEncodedData.data();
+            uint64_t * allDecodedDataFastMultiplePtr = allDecodedValsFastMultiple.data();
+            j = 0;
+            unsigned int decodedRemaining = (unsigned int)testVals2.size();
+            while (j < totalBytesEncoded) {
+                //return decoded value (0 if failure), also set parameter numBytes taken to decode
+                uint8_t totalBytesDecoded;
+                unsigned int numValsDecodedThisIteration = SdnvDecodeMultipleU64Fast(allEncodedDataPtr, &totalBytesDecoded, allDecodedDataFastMultiplePtr, decodedRemaining);
+                decodedRemaining -= numValsDecodedThisIteration;
+                allDecodedDataFastMultiplePtr += numValsDecodedThisIteration;
+                allEncodedDataPtr += totalBytesDecoded;
+
+                j += totalBytesDecoded;
+            }
+        }
+        BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFastMultiple == testVals2);
+    }
+
+    //DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS
+    {
+        std::cout << "decode fast 32 byte\n";
+        std::size_t j;
+        std::vector<uint64_t> allDecodedValsFastMultiple32(testVals2.size());
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            uint8_t * allEncodedDataPtr = allEncodedData.data();
+            uint64_t * allDecodedDataFastMultiple32Ptr = allDecodedValsFastMultiple32.data();
+            j = 0;
+            unsigned int decodedRemaining = (unsigned int)testVals2.size();
+            while (j < totalBytesEncoded) {
+                //return decoded value (0 if failure), also set parameter numBytes taken to decode
+                uint8_t totalBytesDecoded;
+                unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(allEncodedDataPtr, &totalBytesDecoded, allDecodedDataFastMultiple32Ptr, decodedRemaining);
+                decodedRemaining -= numValsDecodedThisIteration;
+                allDecodedDataFastMultiple32Ptr += numValsDecodedThisIteration;
+                allEncodedDataPtr += totalBytesDecoded;
+
+                j += totalBytesDecoded;
+            }
+        }
+        BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals2);
+    }
 }
 

@@ -311,3 +311,255 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     *numBytes = sdnvSizeBytes;
     return decoded;
 }
+
+
+typedef void(*m128_shift_func_t)(__m128i &);
+
+BOOST_FORCEINLINE void M128i_ShiftRight0Byte(__m128i & val) { val = _mm_srli_si128(val, 0); }
+BOOST_FORCEINLINE void M128i_ShiftRight1Byte(__m128i & val) { val = _mm_srli_si128(val, 1); }
+BOOST_FORCEINLINE void M128i_ShiftRight2Byte(__m128i & val) { val = _mm_srli_si128(val, 2); }
+BOOST_FORCEINLINE void M128i_ShiftRight3Byte(__m128i & val) { val = _mm_srli_si128(val, 3); }
+BOOST_FORCEINLINE void M128i_ShiftRight4Byte(__m128i & val) { val = _mm_srli_si128(val, 4); }
+BOOST_FORCEINLINE void M128i_ShiftRight5Byte(__m128i & val) { val = _mm_srli_si128(val, 5); }
+BOOST_FORCEINLINE void M128i_ShiftRight6Byte(__m128i & val) { val = _mm_srli_si128(val, 6); }
+BOOST_FORCEINLINE void M128i_ShiftRight7Byte(__m128i & val) { val = _mm_srli_si128(val, 7); }
+BOOST_FORCEINLINE void M128i_ShiftRight8Byte(__m128i & val) { val = _mm_srli_si128(val, 8); }
+BOOST_FORCEINLINE void M128i_ShiftRight9Byte(__m128i & val) { val = _mm_srli_si128(val, 9); }
+BOOST_FORCEINLINE void M128i_ShiftRight10Byte(__m128i & val) { val = _mm_srli_si128(val, 10); }
+BOOST_FORCEINLINE void M128i_ShiftRight11Byte(__m128i & val) { val = _mm_srli_si128(val, 11); }
+BOOST_FORCEINLINE void M128i_ShiftRight12Byte(__m128i & val) { val = _mm_srli_si128(val, 12); }
+BOOST_FORCEINLINE void M128i_ShiftRight13Byte(__m128i & val) { val = _mm_srli_si128(val, 13); }
+BOOST_FORCEINLINE void M128i_ShiftRight14Byte(__m128i & val) { val = _mm_srli_si128(val, 14); }
+BOOST_FORCEINLINE void M128i_ShiftRight15Byte(__m128i & val) { val = _mm_srli_si128(val, 15); }
+BOOST_FORCEINLINE void M128i_ShiftRight16Byte(__m128i & val) { val = _mm_srli_si128(val, 16); }
+
+static const m128_shift_func_t M128i_ShiftRightByteFunctions[17] = {
+    &M128i_ShiftRight0Byte,
+    &M128i_ShiftRight1Byte,
+    &M128i_ShiftRight2Byte,
+    &M128i_ShiftRight3Byte,
+    &M128i_ShiftRight4Byte,
+    &M128i_ShiftRight5Byte,
+    &M128i_ShiftRight6Byte,
+    &M128i_ShiftRight7Byte,
+    &M128i_ShiftRight8Byte,
+    &M128i_ShiftRight9Byte,
+    &M128i_ShiftRight10Byte,
+    &M128i_ShiftRight11Byte,
+    &M128i_ShiftRight12Byte,
+    &M128i_ShiftRight13Byte,
+    &M128i_ShiftRight14Byte,
+    &M128i_ShiftRight15Byte,
+    &M128i_ShiftRight16Byte
+};
+
+typedef void(*m256_shift_func_t)(__m256i &);
+
+BOOST_FORCEINLINE void M256i_ShiftRight0Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 0); }
+BOOST_FORCEINLINE void M256i_ShiftRight1Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 1); }
+BOOST_FORCEINLINE void M256i_ShiftRight2Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 2); }
+BOOST_FORCEINLINE void M256i_ShiftRight3Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 3); }
+BOOST_FORCEINLINE void M256i_ShiftRight4Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 4); }
+BOOST_FORCEINLINE void M256i_ShiftRight5Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 5); }
+BOOST_FORCEINLINE void M256i_ShiftRight6Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 6); }
+BOOST_FORCEINLINE void M256i_ShiftRight7Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 7); }
+BOOST_FORCEINLINE void M256i_ShiftRight8Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 8); }
+BOOST_FORCEINLINE void M256i_ShiftRight9Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 9); }
+BOOST_FORCEINLINE void M256i_ShiftRight10Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 10); }
+BOOST_FORCEINLINE void M256i_ShiftRight11Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 11); }
+BOOST_FORCEINLINE void M256i_ShiftRight12Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 12); }
+BOOST_FORCEINLINE void M256i_ShiftRight13Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 13); }
+BOOST_FORCEINLINE void M256i_ShiftRight14Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 14); }
+BOOST_FORCEINLINE void M256i_ShiftRight15Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 15); }
+BOOST_FORCEINLINE void M256i_ShiftRight16Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 16); }
+BOOST_FORCEINLINE void M256i_ShiftRight17Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 17); }
+BOOST_FORCEINLINE void M256i_ShiftRight18Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 18); }
+BOOST_FORCEINLINE void M256i_ShiftRight19Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 19); }
+BOOST_FORCEINLINE void M256i_ShiftRight20Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 20); }
+BOOST_FORCEINLINE void M256i_ShiftRight21Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 21); }
+BOOST_FORCEINLINE void M256i_ShiftRight22Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 22); }
+BOOST_FORCEINLINE void M256i_ShiftRight23Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 23); }
+BOOST_FORCEINLINE void M256i_ShiftRight24Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 24); }
+BOOST_FORCEINLINE void M256i_ShiftRight25Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 25); }
+BOOST_FORCEINLINE void M256i_ShiftRight26Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 26); }
+BOOST_FORCEINLINE void M256i_ShiftRight27Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 27); }
+BOOST_FORCEINLINE void M256i_ShiftRight28Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 28); }
+BOOST_FORCEINLINE void M256i_ShiftRight29Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 29); }
+BOOST_FORCEINLINE void M256i_ShiftRight30Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 30); }
+BOOST_FORCEINLINE void M256i_ShiftRight31Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 31); }
+BOOST_FORCEINLINE void M256i_ShiftRight32Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 32); }
+
+static const m256_shift_func_t M256i_ShiftRightByteFunctions[33] = {
+    &M256i_ShiftRight0Byte,
+    &M256i_ShiftRight1Byte,
+    &M256i_ShiftRight2Byte,
+    &M256i_ShiftRight3Byte,
+    &M256i_ShiftRight4Byte,
+    &M256i_ShiftRight5Byte,
+    &M256i_ShiftRight6Byte,
+    &M256i_ShiftRight7Byte,
+    &M256i_ShiftRight8Byte,
+    &M256i_ShiftRight9Byte,
+    &M256i_ShiftRight10Byte,
+    &M256i_ShiftRight11Byte,
+    &M256i_ShiftRight12Byte,
+    &M256i_ShiftRight13Byte,
+    &M256i_ShiftRight14Byte,
+    &M256i_ShiftRight15Byte,
+    &M256i_ShiftRight16Byte,
+    &M256i_ShiftRight17Byte,
+    &M256i_ShiftRight18Byte,
+    &M256i_ShiftRight19Byte,
+    &M256i_ShiftRight20Byte,
+    &M256i_ShiftRight21Byte,
+    &M256i_ShiftRight22Byte,
+    &M256i_ShiftRight23Byte,
+    &M256i_ShiftRight24Byte,
+    &M256i_ShiftRight25Byte,
+    &M256i_ShiftRight26Byte,
+    &M256i_ShiftRight27Byte,
+    &M256i_ShiftRight28Byte,
+    &M256i_ShiftRight29Byte,
+    &M256i_ShiftRight30Byte,
+    &M256i_ShiftRight31Byte,
+    &M256i_ShiftRight32Byte
+};
+
+//return num values decoded this iteration
+unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining) {
+    //(Initial Step) Set the result to 0.  Set an index to the first
+    //  byte of the encoded SDNV.
+    //(Recursion Step) Shift the result left 7 bits.  Add the low-order
+    //   7 bits of the value at the index to the result.  If the high-order
+    //   bit under the pointer is a 1, advance the index by one byte within
+    //   the encoded SDNV and repeat the Recursion Step, otherwise return
+    //   the current value of the result.
+
+    //Instruction   Selector mask    Source       Destination
+    //PEXT          0xff00fff0       0x12345678   0x00012567
+    //PDEP          0xff00fff0       0x00012567   0x12005670
+
+
+
+    //static const __m128i junk;
+    //__m128i sdnvEncoded = _mm_mask_loadu_epi8(junk,0xffff,data);
+    __m128i sdnvsEncoded = _mm_loadu_si128((__m128i const*) data); //SSE2 Load 128-bits of integer data from memory into dst. mem_addr does not need to be aligned on any particular boundary.
+    //{
+    //    const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
+    //    std::cout << "encoded64lower: " << std::hex << encoded64 << std::dec << std::endl;
+    //}
+    uint8_t sdnvTotalSizeBytesDecoded = 0;
+    unsigned int numValsDecodedThisIteration = 0;
+    //std::cout << "called SdnvDecodeU64Fast" << std::endl;
+    while (decodedRemaining && (sdnvTotalSizeBytesDecoded < sizeof(__m128i))) {
+        //std::cout << "remaining = " << decodedRemaining << " tbd=" << (int)sdnvTotalSizeBytesDecoded << std::endl;
+              
+        int significantBitsSetMask = _mm_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
+        //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
+        const unsigned int bytesRemainingThis16Read = sizeof(__m128i) - sdnvTotalSizeBytesDecoded;
+        const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
+        if (sdnvSizeBytes > bytesRemainingThis16Read) {
+            //std::cout << "breaking..\n";
+            break;
+        }
+        else if (sdnvSizeBytes > 8) { //((significantBitsSetMask & 0xff) == 0x00ff) {
+            //std::cout << "  notice: SdnvDecodeU64Fast encountered an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
+            uint8_t thisSdnvBytesDecoded;
+            *decodedValues++ = SdnvDecodeU64Classic((uint8_t*)&sdnvsEncoded, &thisSdnvBytesDecoded);
+            sdnvTotalSizeBytesDecoded += thisSdnvBytesDecoded;
+        }
+        else {
+            
+            const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
+            
+            
+            const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
+            const uint64_t decoded = _pext_u64(u64ByteSwapped, masks[sdnvSizeBytes]);
+            *decodedValues++ = decoded;
+            //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
+            //std::cout << "  decoded = " << decoded << std::endl;
+            sdnvTotalSizeBytesDecoded += sdnvSizeBytes;
+        }
+        (*M128i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
+        //const __m128i ZERO = _mm_set1_epi32(0);
+        //for (unsigned int i = 0; i < sdnvSizeBytes; ++i) {
+        //    sdnvsEncoded = _mm_alignr_epi8(ZERO, sdnvsEncoded, 1);// Concatenate 16-byte blocks in a and b into a 32-byte temporary result, shift the result right by imm8 bytes, and store the low 16 bytes in dst.
+        //}
+
+        ++numValsDecodedThisIteration;
+        --decodedRemaining;
+    }
+    //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
+    *numBytes = sdnvTotalSizeBytesDecoded;
+    return numValsDecodedThisIteration;
+}
+
+//return num values decoded this iteration
+unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining) {
+    //(Initial Step) Set the result to 0.  Set an index to the first
+    //  byte of the encoded SDNV.
+    //(Recursion Step) Shift the result left 7 bits.  Add the low-order
+    //   7 bits of the value at the index to the result.  If the high-order
+    //   bit under the pointer is a 1, advance the index by one byte within
+    //   the encoded SDNV and repeat the Recursion Step, otherwise return
+    //   the current value of the result.
+
+    //Instruction   Selector mask    Source       Destination
+    //PEXT          0xff00fff0       0x12345678   0x00012567
+    //PDEP          0xff00fff0       0x00012567   0x12005670
+
+
+
+    //static const __m128i junk;
+    //__m128i sdnvEncoded = _mm_mask_loadu_epi8(junk,0xffff,data);
+    __m256i sdnvsEncoded = _mm256_loadu_si256((__m256i const*) data); //AVX Load 256-bits of integer data from memory into dst. mem_addr does not need to be aligned on any particular boundary.
+    //{
+    //    const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
+    //    std::cout << "encoded64lower: " << std::hex << encoded64 << std::dec << std::endl;
+    //}
+    uint8_t sdnvTotalSizeBytesDecoded = 0;
+    unsigned int numValsDecodedThisIteration = 0;
+    //std::cout << "called SdnvDecodeU64Fast" << std::endl;
+    while (decodedRemaining && (sdnvTotalSizeBytesDecoded < sizeof(__m256i))) {
+        //std::cout << "remaining = " << decodedRemaining << " tbd=" << (int)sdnvTotalSizeBytesDecoded << std::endl;
+
+        int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
+        //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
+        const unsigned int bytesRemainingThis32Read = sizeof(__m256i) - sdnvTotalSizeBytesDecoded;
+        const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
+        if (sdnvSizeBytes > bytesRemainingThis32Read) {
+            //std::cout << "breaking..\n";
+            break;
+        }
+        else if (sdnvSizeBytes > 8) { //((significantBitsSetMask & 0xff) == 0x00ff) {
+            //std::cout << "  notice: SdnvDecodeU64Fast encountered an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
+            uint8_t thisSdnvBytesDecoded;
+            *decodedValues++ = SdnvDecodeU64Classic((uint8_t*)&sdnvsEncoded, &thisSdnvBytesDecoded);
+            sdnvTotalSizeBytesDecoded += thisSdnvBytesDecoded;
+        }
+        else {
+
+            const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
+            //std::cout << "  encoded64lower: " << std::hex << encoded64 << std::dec << std::endl;
+            //{
+            //    std::cout << "  " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[3] 
+            //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[2] 
+            //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[1] 
+            //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[0] << std::dec << std::endl;
+            //}
+            const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
+            const uint64_t decoded = _pext_u64(u64ByteSwapped, masks[sdnvSizeBytes]);
+            *decodedValues++ = decoded;
+            //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
+            //std::cout << "  decoded = " << decoded << std::endl;
+            sdnvTotalSizeBytesDecoded += sdnvSizeBytes;
+        }
+        (*M256i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
+        
+        ++numValsDecodedThisIteration;
+        --decodedRemaining;
+    }
+    //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
+    *numBytes = sdnvTotalSizeBytesDecoded;
+    return numValsDecodedThisIteration;
+}

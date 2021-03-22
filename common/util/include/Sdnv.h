@@ -40,5 +40,10 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes);
 
+//return num values decoded this iteration
+unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
+
+//return num values decoded this iteration
+unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
 
 #endif      // _SDNV_UTIL_H 
