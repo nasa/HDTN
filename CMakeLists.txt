@@ -19,7 +19,7 @@ OPTION(SDNV_USE_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" 
 if(SDNV_USE_HARDWARE_ACCELERATION)
     add_compile_definitions(SDNV_USE_HARDWARE_ACCELERATION)
     if(NOT WIN32)
-        SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -msse -msse2 -mbmi -mbmi2")
+        SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -msse -msse2 -mbmi -mbmi2 -mssse3 -mavx -mavx2")
     endif()
 endif()
 
