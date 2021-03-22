@@ -962,7 +962,7 @@ bool TestStorageSlowBpSink() {
     std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--use-tcpcl","--duration=5","--flow-id=2",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
 
     // Allow time for data to flow
@@ -973,7 +973,7 @@ bool TestStorageSlowBpSink() {
 
 
     // Storage should not be stopped until at least 10 seconds after release messages has finished.
-    boost::this_thread::sleep(boost::posix_time::seconds(20));
+    boost::this_thread::sleep(boost::posix_time::seconds(60));
     std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
     runningStorage = false;
     threadStorage.join();
