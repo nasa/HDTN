@@ -932,12 +932,12 @@ bool TestStorageSlowBpSink() {
 
     // Start threads
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--simulate-processing-lag-ms=10",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4558","--simulate-processing-lag-ms=10",NULL};
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,4,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--use-tcpcl",NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
+    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
+    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
@@ -962,8 +962,8 @@ bool TestStorageSlowBpSink() {
     std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,4,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--use-tcpcl","--duration=5","--flow-id=2",NULL};
+    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0]);
 
     // Allow time for data to flow
     //boost::this_thread::sleep(boost::posix_time::seconds(10));  // Do not set due to the duration parameter
