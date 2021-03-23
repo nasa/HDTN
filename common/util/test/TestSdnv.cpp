@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 }
 
 
-BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
+BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::enabled())
 {
     const std::vector<uint64_t> testVals2(testVals.cbegin(), testVals.cend() - 20);
 
@@ -532,18 +532,18 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
     //DECODE ARRAY OF VALS (CLASSIC)
     {
         std::cout << "decode classic\n";
-        std::vector<uint64_t> allDecodedVals;
+        std::vector<uint64_t> allDecodedVals(testVals2.size());
         std::size_t j;
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
-            allDecodedVals.resize(0);
             uint8_t * allEncodedDataPtr = allEncodedData.data();
             j = 0;
+            uint64_t * allDecodedDataPtr = allDecodedVals.data();
             while (j < totalBytesEncoded) {
                 //return decoded value (0 if failure), also set parameter numBytes taken to decode
                 uint8_t numBytesTakenToDecode;
                 const uint64_t decodedVal = SdnvDecodeU64Classic(allEncodedDataPtr, &numBytesTakenToDecode);
-                allDecodedVals.push_back(decodedVal);
+                *allDecodedDataPtr++ = decodedVal;
                 allEncodedDataPtr += numBytesTakenToDecode;
 
                 j += numBytesTakenToDecode;
@@ -556,19 +556,19 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
     //DECODE ARRAY OF VALS (FAST)
     {
         std::cout << "decode fast\n";
-        std::vector<uint64_t> allDecodedValsFast;
+        std::vector<uint64_t> allDecodedValsFast(testVals2.size());
         std::size_t j;
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
-            allDecodedValsFast.resize(0);
             uint8_t * allEncodedDataFastPtr = allEncodedDataFast.data();
             j = 0;
+            uint64_t * allDecodedDataFastPtr = allDecodedValsFast.data();
             while (j < totalBytesEncoded) {
 
                 uint8_t numBytesTakenToDecodeFast;
                 const uint64_t decodedValFast = SdnvDecodeU64Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
                 //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
-                allDecodedValsFast.push_back(decodedValFast);
+                *allDecodedDataFastPtr++ = decodedValFast;
                 allEncodedDataFastPtr += numBytesTakenToDecodeFast;
 
                 j += numBytesTakenToDecodeFast;

@@ -312,6 +312,10 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     return decoded;
 }
 
+//#define SIMD_BYTESHIFT_USE_FUNCTION_ARRAY 1
+
+#ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
+
 
 typedef void(*m128_shift_func_t)(__m128i &);
 
@@ -425,6 +429,8 @@ static const m256_shift_func_t M256i_ShiftRightByteFunctions[33] = {
     &M256i_ShiftRight32Byte
 };
 
+#endif // SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
+
 //return num values decoded this iteration
 unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining) {
     //(Initial Step) Set the result to 0.  Set an index to the first
@@ -448,17 +454,16 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
     //    const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     //    std::cout << "encoded64lower: " << std::hex << encoded64 << std::dec << std::endl;
     //}
-    uint8_t sdnvTotalSizeBytesDecoded = 0;
-    unsigned int numValsDecodedThisIteration = 0;
+    unsigned int bytesRemainingIn128Buffer = static_cast<unsigned int>(sizeof(__m128i));
+    const unsigned int decodedStart = decodedRemaining;
     //std::cout << "called SdnvDecodeU64Fast" << std::endl;
-    while (decodedRemaining && (sdnvTotalSizeBytesDecoded < sizeof(__m128i))) {
+    while (decodedRemaining && bytesRemainingIn128Buffer) {
         //std::cout << "remaining = " << decodedRemaining << " tbd=" << (int)sdnvTotalSizeBytesDecoded << std::endl;
               
         int significantBitsSetMask = _mm_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
         //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
-        const unsigned int bytesRemainingThis16Read = sizeof(__m128i) - sdnvTotalSizeBytesDecoded;
         const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
-        if (sdnvSizeBytes > bytesRemainingThis16Read) {
+        if (sdnvSizeBytes > bytesRemainingIn128Buffer) {
             //std::cout << "breaking..\n";
             break;
         }
@@ -466,7 +471,6 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
             //std::cout << "  notice: SdnvDecodeU64Fast encountered an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
             uint8_t thisSdnvBytesDecoded;
             *decodedValues++ = SdnvDecodeU64Classic((uint8_t*)&sdnvsEncoded, &thisSdnvBytesDecoded);
-            sdnvTotalSizeBytesDecoded += thisSdnvBytesDecoded;
         }
         else {
             
@@ -478,20 +482,45 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
             *decodedValues++ = decoded;
             //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
             //std::cout << "  decoded = " << decoded << std::endl;
-            sdnvTotalSizeBytesDecoded += sdnvSizeBytes;
         }
+#ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
         (*M128i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
+        
+#else
+        //this switch statement will be optimized by the compiler into a jump table, and sdnvsEncoded will remain in
+        // the SIMD registers as opposed to using the function array method resulting in expensive SIMD load operations
+        switch (sdnvSizeBytes) {
+        case 0: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 0); break;
+        case 1: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 1); break;
+        case 2: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 2); break;
+        case 3: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 3); break;
+        case 4: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 4); break;
+        case 5: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 5); break;
+        case 6: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 6); break;
+        case 7: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 7); break;
+        case 8: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 8); break;
+        case 9: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 9); break;
+        case 10: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 10); break;
+        case 11: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 11); break;
+        case 12: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 12); break;
+        case 13: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 13); break;
+        case 14: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 14); break;
+        case 15: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 15); break;
+        case 16: sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 16); break;
+        }
+
         //const __m128i ZERO = _mm_set1_epi32(0);
         //for (unsigned int i = 0; i < sdnvSizeBytes; ++i) {
         //    sdnvsEncoded = _mm_alignr_epi8(ZERO, sdnvsEncoded, 1);// Concatenate 16-byte blocks in a and b into a 32-byte temporary result, shift the result right by imm8 bytes, and store the low 16 bytes in dst.
         //}
 
-        ++numValsDecodedThisIteration;
+#endif
+        bytesRemainingIn128Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
-    *numBytes = sdnvTotalSizeBytesDecoded;
-    return numValsDecodedThisIteration;
+    *numBytes = static_cast<unsigned int>(sizeof(__m128i)) - bytesRemainingIn128Buffer;
+    return decodedStart - decodedRemaining;
 }
 
 //return num values decoded this iteration
@@ -517,17 +546,16 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
     //    const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
     //    std::cout << "encoded64lower: " << std::hex << encoded64 << std::dec << std::endl;
     //}
-    uint8_t sdnvTotalSizeBytesDecoded = 0;
-    unsigned int numValsDecodedThisIteration = 0;
+    unsigned int bytesRemainingIn256Buffer = static_cast<unsigned int>(sizeof(__m256i));
+    const unsigned int decodedStart = decodedRemaining;
     //std::cout << "called SdnvDecodeU64Fast" << std::endl;
-    while (decodedRemaining && (sdnvTotalSizeBytesDecoded < sizeof(__m256i))) {
+    while (decodedRemaining && bytesRemainingIn256Buffer) {
         //std::cout << "remaining = " << decodedRemaining << " tbd=" << (int)sdnvTotalSizeBytesDecoded << std::endl;
 
         int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
         //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
-        const unsigned int bytesRemainingThis32Read = sizeof(__m256i) - sdnvTotalSizeBytesDecoded;
         const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
-        if (sdnvSizeBytes > bytesRemainingThis32Read) {
+        if (sdnvSizeBytes > bytesRemainingIn256Buffer) {
             //std::cout << "breaking..\n";
             break;
         }
@@ -535,7 +563,6 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
             //std::cout << "  notice: SdnvDecodeU64Fast encountered an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
             uint8_t thisSdnvBytesDecoded;
             *decodedValues++ = SdnvDecodeU64Classic((uint8_t*)&sdnvsEncoded, &thisSdnvBytesDecoded);
-            sdnvTotalSizeBytesDecoded += thisSdnvBytesDecoded;
         }
         else {
 
@@ -552,14 +579,54 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
             *decodedValues++ = decoded;
             //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
             //std::cout << "  decoded = " << decoded << std::endl;
-            sdnvTotalSizeBytesDecoded += sdnvSizeBytes;
         }
+#ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
         (*M256i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
         
-        ++numValsDecodedThisIteration;
+#else
+        //this switch statement will be optimized by the compiler into a jump table, and sdnvsEncoded and shiftIn will remain in
+        // the SIMD registers as opposed to using the function array method resulting in expensive SIMD load operations
+        const __m256i shiftIn = _mm256_permute2f128_si256(_mm256_set1_epi32(0), sdnvsEncoded, 0x03);
+        switch (sdnvSizeBytes) {
+        case 0: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 0); break;
+        case 1: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 1); break;
+        case 2: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 2); break;
+        case 3: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 3); break;
+        case 4: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 4); break;
+        case 5: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 5); break;
+        case 6: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 6); break;
+        case 7: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 7); break;
+        case 8: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 8); break;
+        case 9: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 9); break;
+        case 10: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 10); break;
+        case 11: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 11); break;
+        case 12: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 12); break;
+        case 13: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 13); break;
+        case 14: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 14); break;
+        case 15: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 15); break;
+        case 16: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 16); break;
+        case 17: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 17); break;
+        case 18: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 18); break;
+        case 19: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 19); break;
+        case 20: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 20); break;
+        case 21: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 21); break;
+        case 22: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 22); break;
+        case 23: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 23); break;
+        case 24: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 24); break;
+        case 25: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 25); break;
+        case 26: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 26); break;
+        case 27: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 27); break;
+        case 28: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 28); break;
+        case 29: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 29); break;
+        case 30: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 30); break;
+        case 31: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 31); break;
+        case 32: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 32); break;        
+        }
+#endif
+        bytesRemainingIn256Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
-    *numBytes = sdnvTotalSizeBytesDecoded;
-    return numValsDecodedThisIteration;
+    *numBytes = static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer;
+    return decodedStart - decodedRemaining;
 }
