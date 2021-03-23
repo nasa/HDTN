@@ -879,11 +879,9 @@ bool TestStorage() {
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
-#ifdef _WIN32
-    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%/module/storage/storage-brian/unit_tests/storageConfig.json";
-#else
-    static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
-#endif
+
+    static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
+
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
 
@@ -986,11 +984,9 @@ bool TestStorageSlowBpSink() {
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
-#ifdef _WIN32
-    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%/module/storage/storage-brian/unit_tests/storageConfig.json";
-#else
-    static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
-#endif
+
+    static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
+
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
 
@@ -1102,11 +1098,9 @@ bool TestStorageMulti() {
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
-#ifdef _WIN32
-    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%/module/storage/storage-brian/unit_tests/storageConfig.json";
-#else
-    static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
-#endif
+
+    static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
+
 //    std::cout << "storageConfigArg: " << storageConfigArg << std::endl << std::flush;
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
