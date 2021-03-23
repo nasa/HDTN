@@ -288,7 +288,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     const __m128i forStore =_mm_set_epi64x(0, encoded64ForMemcpy); //put encoded64ForMemcpy in element 0
     _mm_storeu_si64(outputEncoded, forStore);//SSE Store 64-bit integer from the first element of a into memory. mem_addr does not need to be aligned on any particular boundary.
 #else
-    _mm_stream_si64((int64_t *)outputEncoded, encoded64ForMemcpy);
+    _mm_stream_si64((long long int *)outputEncoded, encoded64ForMemcpy);
 #endif
     return mask0x80Index + 1; //sdnvSizeBytes;
 }
