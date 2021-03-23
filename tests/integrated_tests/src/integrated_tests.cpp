@@ -187,9 +187,6 @@ bool TestCutThroughTcpcl() {
     runningBpgen = false;
     threadBpgen.join();
 
-    // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
-
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -244,9 +241,6 @@ bool TestTcpclFastCutThrough() {
     // Stop threads
     //runningBpgen = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen.join();
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     runningIngress = false;
     threadIngress.join();
@@ -310,9 +304,6 @@ bool TestTcpclMultiFastCutThrough() {
 //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
 
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     runningIngress = false;
     threadIngress.join();
@@ -387,9 +378,6 @@ bool TestCutThroughMulti() {
     threadBpgen1.join();
 //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     runningIngress = false;
     threadIngress.join();
@@ -892,7 +880,7 @@ bool TestStorage() {
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
 #ifdef _WIN32
-    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%\module\storage\storage-brian\unit_tests\storageConfig.json";
+    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%/module/storage/storage-brian/unit_tests/storageConfig.json";
 #else
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
 #endif
@@ -999,7 +987,7 @@ bool TestStorageSlowBpSink() {
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
 #ifdef _WIN32
-    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%\module\storage\storage-brian\unit_tests\storageConfig.json";
+    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%/module/storage/storage-brian/unit_tests/storageConfig.json";
 #else
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
 #endif
@@ -1115,7 +1103,7 @@ bool TestStorageMulti() {
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
 #ifdef _WIN32
-    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%\module\storage\storage-brian\unit_tests\storageConfig.json";
+    static const std::string storageConfigArg = "--storage-config-json-file=%HDTN_SOURCE_ROOT%/module/storage/storage-brian/unit_tests/storageConfig.json";
 #else
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json").string();
 #endif
@@ -1190,93 +1178,93 @@ bool TestStorageMulti() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-//// Passes -- test_tcpl_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
-//    bool result = TestCutThroughTcpcl();
-//    BOOST_CHECK(result == true);
-//}
+// Passes -- test_tcpl_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
+    bool result = TestCutThroughTcpcl();
+    BOOST_CHECK(result == true);
+}
 
-// Sometimes passes, Fails appears to be mutex error -- test_tcpl_fast_cutthrough.bat
+// Passes -- test_tcpl_fast_cutthrough.bat
 BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
     bool result = TestTcpclFastCutThrough();
     BOOST_CHECK(result == true);
 }
 
-//// Passes -- test_tcpl_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
-//    bool result = TestTcpclMultiFastCutThrough();
-//    BOOST_CHECK(result == true);
-//}
+// Passes -- test_tcpl_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
+    bool result = TestTcpclMultiFastCutThrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes -- test_cutthrough_multi.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
-//    bool result = TestCutThroughMulti();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes -- test_cutthrough_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
+    bool result = TestCutThroughMulti();
+    BOOST_CHECK(result == true);
+}
 
-//// Passes -- test_udp.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
-//    bool result = TestUdp();
-//    BOOST_CHECK(result == true);
-//}
+// Passes -- test_udp.bat
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
+    bool result = TestUdp();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes -- test_udp_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
-//    bool result = TestUdpFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes -- test_udp_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
+    bool result = TestUdpFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes -- test_udp_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
-//    bool result = TestUdpMultiFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes -- test_udp_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
+    bool result = TestUdpMultiFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-//// Passes -- test_stcp.bat
-//BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
-//    bool result = TestStcp();
-//    BOOST_CHECK(result == true);
-//}
+// Passes -- test_stcp.bat
+BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
+    bool result = TestStcp();
+    BOOST_CHECK(result == true);
+}
 
-//// Passes -- test_stcp_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " "it_TestStcpFastCutthrough" << std::endl << std::flush;
-//    bool result = TestStcpFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+// Passes -- test_stcp_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " "it_TestStcpFastCutthrough" << std::endl << std::flush;
+    bool result = TestStcpFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-//// Passes -- test_stcp_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
-//    bool result = TestStcpMultiFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+// Passes -- test_stcp_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
+    bool result = TestStcpMultiFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes -- test_storage.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
-//    bool result = TestStorage();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes -- test_storage.bat
+BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
+    bool result = TestStorage();
+    BOOST_CHECK(result == true);
+}
 
-////   Passes -- test_storage_multi.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
-//    bool result = TestStorageMulti();
-//    BOOST_CHECK(result == true);
-//}
+//   Fails -- test_storage_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
+    bool result = TestStorageMulti();
+    BOOST_CHECK(result == true);
+}
 
-////   Passes -- test_storage_slowbpsink.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
-//    bool result = TestStorageSlowBpSink();
-//    BOOST_CHECK(result == true);
-//}
+//   Passes -- test_storage_slowbpsink.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
+    bool result = TestStorageSlowBpSink();
+    BOOST_CHECK(result == true);
+}
