@@ -248,6 +248,17 @@ static const uint64_t masks[9] = { //index 1 based for sdnvSizeBytes
     0x7f7f7f7f7f7f7f7f
 };
 
+static const uint64_t masksPdep[8] = { //index 0 based for mask0x80Index
+    0x7f00000000000000,
+    0x7f7f000000000000,
+    0x7f7f7f0000000000,
+    0x7f7f7f7f00000000,
+    0x7f7f7f7f7f000000,
+    0x7f7f7f7f7f7f0000,
+    0x7f7f7f7f7f7f7f00,
+    0x7f7f7f7f7f7f7f7f
+};
+
 static const uint64_t masks0x80[9] = {
     0x00,
     0x8000000000000000,
@@ -268,9 +279,9 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     }
     const unsigned int msb = (valToEncodeU64 != 0) ? boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64) : 0;
     const unsigned int mask0x80Index = (msb / 7);
-    const unsigned int sdnvSizeBytes = mask0x80Index + 1;
+    //const unsigned int sdnvSizeBytes = mask0x80Index + 1;
     //std::cout << "encode fast: msb: " << msb << std::endl;
-    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masks[sdnvSizeBytes]) | masks0x80[mask0x80Index];
+    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep[mask0x80Index]) | masks0x80[mask0x80Index];
     //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
 #if 0
@@ -279,7 +290,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 #else
     _mm_stream_si64((int64_t *)outputEncoded, encoded64ForMemcpy);
 #endif
-    return sdnvSizeBytes;
+    return mask0x80Index + 1; //sdnvSizeBytes;
 }
 
 
