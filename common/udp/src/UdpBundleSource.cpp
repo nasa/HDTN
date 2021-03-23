@@ -48,9 +48,9 @@ UdpBundleSource::~UdpBundleSource() {
         if (numUnacked) {
             std::cout << "notice: UdpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
 
-            std::cout << "   acked by rate: " << m_totalUdpPacketsAckedByRate << std::endl;
-            std::cout << "   acked by cb: " << m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
-            std::cout << "   total sent: " << m_totalUdpPacketsSent << std::endl;
+//            std::cout << "   acked by rate: " << m_totalUdpPacketsAckedByRate << std::endl;
+//            std::cout << "   acked by cb: " << m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
+//            std::cout << "   total sent: " << m_totalUdpPacketsSent << std::endl;
 
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
@@ -107,8 +107,6 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
     }
-
-std::cout << "NumInBuffer:" <<  m_bytesToAckByRateCb.NumInBuffer() << std::endl << std::flush;
 
     const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexRate == UINT32_MAX) { //push check
@@ -204,8 +202,8 @@ std::size_t UdpBundleSource::GetTotalUdpPacketsSent() {
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() {
-    std::cout << "GetTotalUdpPacketsSent(): " << GetTotalUdpPacketsSent() << std::endl;
-    std::cout << "GetTotalUdpPacketsAcked(): " << GetTotalUdpPacketsAcked() << std::endl;
+//    std::cout << "GetTotalUdpPacketsSent(): " << GetTotalUdpPacketsSent() << std::endl;
+//    std::cout << "GetTotalUdpPacketsAcked(): " << GetTotalUdpPacketsAcked() << std::endl;
     return GetTotalUdpPacketsSent() - GetTotalUdpPacketsAcked();
 }
 
@@ -375,7 +373,7 @@ void UdpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e) {
         // Timer was not cancelled, take necessary action.
         if(m_groupingOfBytesToAckByRateVec.size() > 0) {
             m_totalUdpPacketsAckedByRate += m_groupingOfBytesToAckByRateVec.size();
-            std::cout << "m_totalUdpPacketsAckedByRate: " << m_totalUdpPacketsAckedByRate << std::endl;
+//            std::cout << "m_totalUdpPacketsAckedByRate: " << m_totalUdpPacketsAckedByRate << std::endl;
             for (std::size_t i = 0; i < m_groupingOfBytesToAckByRateVec.size(); ++i) {
                 m_totalBytesAckedByRate += m_groupingOfBytesToAckByRateVec[i];
             }

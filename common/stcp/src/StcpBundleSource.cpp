@@ -53,9 +53,9 @@ StcpBundleSource::~StcpBundleSource() {
         if (numUnacked) {
             std::cout << "notice: StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
             
-            std::cout << "   acked by rate: " << m_totalDataSegmentsAckedByRate << std::endl;
-            std::cout << "   acked by cb: " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
-            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
+//            std::cout << "   acked by rate: " << m_totalDataSegmentsAckedByRate << std::endl;
+//            std::cout << "   acked by cb: " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
+//            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
             
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
