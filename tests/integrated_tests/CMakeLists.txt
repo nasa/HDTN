@@ -31,14 +31,17 @@ add_executable(integrated-tests
     ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
     ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
 
-	../../module/storage/src/store.cpp
+    ../../module/storage/src/store.cpp
+    ../../module/storage/src/StorageRunner.cpp
+    ../../module/storage/src/test/ReleaseSender.cpp
 
 	${LINUX_ONLY_INTEGRATED_TEST_SRCS}
 )
 
 target_include_directories(integrated-tests PUBLIC include
-	../../module/storage/include
-	../../common/include
+    ../../module/storage/src/test
+    ../../module/storage/include
+    ../../common/include
 	../../common/pool/include
 	../../common/logging/include
 	../../common/regsvr/lib/include

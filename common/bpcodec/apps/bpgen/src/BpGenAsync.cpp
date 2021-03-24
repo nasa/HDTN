@@ -37,33 +37,7 @@ void BpGenAsync::Stop() {
         m_bpGenThreadPtr->join();
         m_bpGenThreadPtr.reset(); //delete it
     }
-    //prevent bpgen from exiting before all bundles sent and acked
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-        const std::size_t numUnacked =
-            (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalDataSegmentsUnacked() :
-            (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsUnacked() :
-            (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() : 0;
-        if (numUnacked) {
-            std::cout << "notice: BpGenAsync destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
-            if (m_udpBundleSourcePtr) {
-                            std::cout << "   acked by rate: " << m_udpBundleSourcePtr->m_totalUdpPacketsAckedByRate << std::endl;
-                            std::cout << "   acked by cb: " << m_udpBundleSourcePtr->m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
-                            std::cout << "   total sent: " << m_udpBundleSourcePtr->m_totalUdpPacketsSent << std::endl;
-            }
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
-            }
-            m_conditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
-        }
-        break;
-    }
-
+    
     m_tcpclBundleSourcePtr.reset(); //delete it
     m_stcpBundleSourcePtr.reset(); //delete it
     m_udpBundleSourcePtr.reset(); //delete it
@@ -306,6 +280,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
         if (bundleToSend.size() != 0) {
             std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
+            std::cerr << "bundleToSend.size() : " << bundleToSend.size() << std::endl;
         }
 
     }

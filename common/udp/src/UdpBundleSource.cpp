@@ -22,6 +22,7 @@ m_bytesToAckByUdpSendCallbackCbVec(MAX_UNACKED),
 m_readyToForward(false),
 m_rateTimerIsRunning(false),
 m_newDataSignalerTimerIsRunning(false),
+m_useLocalConditionVariableAckReceived(false), //for destructor only
 
 m_totalUdpPacketsAckedByUdpSendCallback(0),
 m_totalBytesAckedByUdpSendCallback(0),
@@ -36,6 +37,31 @@ m_totalBundleBytesSent(0)
 }
 
 UdpBundleSource::~UdpBundleSource() {
+
+    //prevent UdpBundleSource from exiting before all bundles sent and acked
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    m_useLocalConditionVariableAckReceived = true;
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+        const std::size_t numUnacked = GetTotalUdpPacketsUnacked();
+        if (numUnacked) {
+            std::cout << "notice: UdpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+
+//            std::cout << "   acked by rate: " << m_totalUdpPacketsAckedByRate << std::endl;
+//            std::cout << "   acked by cb: " << m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
+//            std::cout << "   total sent: " << m_totalUdpPacketsSent << std::endl;
+
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
+    }
     
     DoUdpShutdown();
     
@@ -176,6 +202,8 @@ std::size_t UdpBundleSource::GetTotalUdpPacketsSent() {
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() {
+//    std::cout << "GetTotalUdpPacketsSent(): " << GetTotalUdpPacketsSent() << std::endl;
+//    std::cout << "GetTotalUdpPacketsAcked(): " << GetTotalUdpPacketsAcked() << std::endl;
     return GetTotalUdpPacketsSent() - GetTotalUdpPacketsAcked();
 }
 
@@ -266,8 +294,13 @@ void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> 
             ++m_totalUdpPacketsAckedByUdpSendCallback;
             m_totalBytesAckedByUdpSendCallback += m_bytesToAckByUdpSendCallbackCbVec[readIndex];
             m_bytesToAckByUdpSendCallbackCb.CommitRead();
-            if (m_onSuccessfulAckCallback && (m_totalUdpPacketsAckedByUdpSendCallback <= m_totalUdpPacketsAckedByRate)) { //rate segments ahead
-                m_onSuccessfulAckCallback();
+            if (m_totalUdpPacketsAckedByUdpSendCallback <= m_totalUdpPacketsAckedByRate) { //rate segments ahead
+                if (m_onSuccessfulAckCallback) {
+                    m_onSuccessfulAckCallback();
+                }
+                if (m_useLocalConditionVariableAckReceived) {
+                    m_localConditionVariableAckReceived.notify_one();
+                }
             }
         }
         else {
@@ -316,8 +349,11 @@ void UdpBundleSource::TryRestartRateTimer() {
             const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
             const double delayMicroSecDouble = (1.0 / m_rateBitsPerSec) * numBitsDouble * 1e6;
             delayMicroSec += static_cast<uint64_t>(delayMicroSecDouble);
-            m_bytesToAckByRateCb.CommitRead();
+// JCF -- swapped
+//            m_bytesToAckByRateCb.CommitRead();
+//            m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
             m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
+            m_bytesToAckByRateCb.CommitRead();
             if (delayMicroSec >= 10000) { //try to avoid sleeping for any time smaller than 10 milliseconds
                 break;
             }
@@ -337,13 +373,19 @@ void UdpBundleSource::OnRate_TimerExpired(const boost::system::error_code& e) {
         // Timer was not cancelled, take necessary action.
         if(m_groupingOfBytesToAckByRateVec.size() > 0) {
             m_totalUdpPacketsAckedByRate += m_groupingOfBytesToAckByRateVec.size();
+//            std::cout << "m_totalUdpPacketsAckedByRate: " << m_totalUdpPacketsAckedByRate << std::endl;
             for (std::size_t i = 0; i < m_groupingOfBytesToAckByRateVec.size(); ++i) {
                 m_totalBytesAckedByRate += m_groupingOfBytesToAckByRateVec[i];
             }
             m_groupingOfBytesToAckByRateVec.clear();
         
-            if (m_onSuccessfulAckCallback && (m_totalUdpPacketsAckedByRate <= m_totalUdpPacketsAckedByUdpSendCallback)) { //tcp send callback segments ahead
-                m_onSuccessfulAckCallback();
+            if (m_totalUdpPacketsAckedByRate <= m_totalUdpPacketsAckedByUdpSendCallback) { //tcp send callback segments ahead
+                if (m_onSuccessfulAckCallback) {
+                    m_onSuccessfulAckCallback();
+                }
+                if (m_useLocalConditionVariableAckReceived) {
+                    m_localConditionVariableAckReceived.notify_one();
+                }
             }
             TryRestartRateTimer(); //must be called after commit read
         }

@@ -47,12 +47,12 @@ private:
     //tcpcl received data callback functions
     void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
     void DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
-    void AckCallback(uint32_t totalBytesAcknowledged);
+    void AckCallback(uint64_t totalBytesAcknowledged);
     void BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
-    void NextBundleLengthCallback(uint32_t nextBundleLength);
+    void NextBundleLengthCallback(uint64_t nextBundleLength);
     void KeepAliveCallback();
     void ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-                                             bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds);
+                                             bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds);
 
 
     std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
@@ -69,6 +69,7 @@ private:
     boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    boost::condition_variable m_localConditionVariableAckReceived;
 
     //tcpcl vars
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;
@@ -76,11 +77,12 @@ private:
     uint16_t m_keepAliveIntervalSeconds;
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
-    std::vector<uint32_t> m_bytesToAckCbVec;
+    std::vector<uint64_t> m_bytesToAckCbVec;
     volatile bool m_readyToForward;
     volatile bool m_tcpclShutdownComplete;
     volatile bool m_sendShutdownMessage;
     volatile bool m_reasonWasTimeOut;
+    volatile bool m_useLocalConditionVariableAckReceived;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;

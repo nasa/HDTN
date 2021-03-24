@@ -20,6 +20,7 @@ m_readyToForward(false),
 m_tcpclShutdownComplete(true),
 m_sendShutdownMessage(false),
 m_reasonWasTimeOut(false),
+m_useLocalConditionVariableAckReceived(false), //for destructor only
 M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 M_THIS_EID_STRING(thisEidString),
 
@@ -48,6 +49,30 @@ m_totalBundleBytesSent(0)
 }
 
 TcpclBundleSource::~TcpclBundleSource() {
+
+    //prevent TcpclBundleSource from exiting before all bundles sent and acked
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    m_useLocalConditionVariableAckReceived = true;
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+        const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+        if (numUnacked) {
+            std::cout << "notice: TcpclBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+
+            std::cout << "   acked: " << m_totalDataSegmentsAcked << std::endl;
+            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
+
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
+    }
     
     DoTcpclShutdown(true, false);
     while (!m_tcpclShutdownComplete) {
@@ -105,17 +130,17 @@ bool TcpclBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataVec.size());
+    m_bytesToAckCbVec[writeIndex] = dataVec.size();
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(dataVec.size());
+    m_totalBundleBytesSent += dataVec.size();
 
     //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataVec.size()));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, dataVec.size());
     std::unique_ptr<TcpAsyncSenderElement> el;
     TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<std::vector<uint8_t> >(std::move(dataVec)), &m_handleTcpSendCallback);
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
@@ -136,17 +161,17 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
         std::cerr << "Error in TcpclBundleSource::Forward.. too many unacked packets" << std::endl;
         return false;
     }
-    m_bytesToAckCbVec[writeIndex] = static_cast<uint32_t>(dataZmq.size());
+    m_bytesToAckCbVec[writeIndex] = dataZmq.size();
     m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += static_cast<uint32_t>(dataZmq.size());
+    m_totalBundleBytesSent += dataZmq.size();
 
     //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
 
     std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, static_cast<uint32_t>(dataZmq.size()));
+    Tcpcl::GenerateDataSegmentHeaderOnly(*dataSegmentHeaderPtr, true, true, dataZmq.size());
     std::unique_ptr<TcpAsyncSenderElement> el;
     TcpAsyncSenderElement::Create(el, std::move(dataSegmentHeaderPtr), boost::make_unique<zmq::message_t>(std::move(dataZmq)), &m_handleTcpSendCallback);
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
@@ -294,7 +319,7 @@ void TcpclBundleSource::DataSegmentCallback(std::vector<uint8_t> & dataSegmentDa
     std::cout << "TcpclBundleSource should never enter DataSegmentCallback" << std::endl;
 }
 
-void TcpclBundleSource::AckCallback(uint32_t totalBytesAcknowledged) {
+void TcpclBundleSource::AckCallback(uint64_t totalBytesAcknowledged) {
     const unsigned int readIndex = m_bytesToAckCb.GetIndexForRead();
     if(readIndex == UINT32_MAX) { //empty
         std::cerr << "error: AckCallback called with empty queue" << std::endl;
@@ -305,6 +330,9 @@ void TcpclBundleSource::AckCallback(uint32_t totalBytesAcknowledged) {
         m_bytesToAckCb.CommitRead();
         if (m_onSuccessfulAckCallback) {
             m_onSuccessfulAckCallback();
+        }
+        if (m_useLocalConditionVariableAckReceived) {
+            m_localConditionVariableAckReceived.notify_one();
         }
     }
     else {
@@ -317,7 +345,7 @@ void TcpclBundleSource::BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) 
     std::cout << "error: BundleRefusalCallback not implemented yet in TcpclBundleSource" << std::endl;
 }
 
-void TcpclBundleSource::NextBundleLengthCallback(uint32_t nextBundleLength) {
+void TcpclBundleSource::NextBundleLengthCallback(uint64_t nextBundleLength) {
     std::cout << "TcpclBundleSource should never enter NextBundleLengthCallback" << std::endl;
 }
 
@@ -333,7 +361,7 @@ void TcpclBundleSource::KeepAliveCallback() {
 }
 
 void TcpclBundleSource::ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-                                         bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+                                         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 {
     std::cout << "remote has requested shutdown\n";
     if(hasReasonCode) {
