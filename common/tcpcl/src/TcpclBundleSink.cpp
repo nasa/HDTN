@@ -186,9 +186,9 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
 
 void TcpclBundleSink::DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 
-    uint32_t bytesToAck = 0;
+    uint64_t bytesToAck = 0;
     if(isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
-        bytesToAck = static_cast<uint32_t>(dataSegmentDataVec.size()); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
+        bytesToAck = dataSegmentDataVec.size(); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
         m_wholeBundleReadyCallback(dataSegmentDataVec);
         //std::cout << dataSegmentDataSharedPtr->size() << std::endl;
     }
@@ -197,7 +197,7 @@ void TcpclBundleSink::DataSegmentCallback(std::vector<uint8_t> & dataSegmentData
             m_fragmentedBundleRxConcat.resize(0);
         }
         m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), dataSegmentDataVec.begin(), dataSegmentDataVec.end()); //concatenate
-        bytesToAck = static_cast<uint32_t>(m_fragmentedBundleRxConcat.size());
+        bytesToAck = m_fragmentedBundleRxConcat.size();
         if(isEndFlag) { //fragmentation complete
             m_wholeBundleReadyCallback(m_fragmentedBundleRxConcat);
         }
@@ -214,7 +214,7 @@ void TcpclBundleSink::DataSegmentCallback(std::vector<uint8_t> & dataSegmentData
     }
 }
 
-void TcpclBundleSink::AckCallback(uint32_t totalBytesAcknowledged) {
+void TcpclBundleSink::AckCallback(uint64_t totalBytesAcknowledged) {
     std::cout << "TcpclBundleSink should never enter AckCallback" << std::endl;
 }
 
@@ -222,7 +222,7 @@ void TcpclBundleSink::BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) {
     std::cout << "TcpclBundleSink should never enter BundleRefusalCallback" << std::endl;
 }
 
-void TcpclBundleSink::NextBundleLengthCallback(uint32_t nextBundleLength) {
+void TcpclBundleSink::NextBundleLengthCallback(uint64_t nextBundleLength) {
     std::cout << "next bundle length: " << nextBundleLength << std::endl;
 }
 
@@ -238,7 +238,7 @@ void TcpclBundleSink::KeepAliveCallback() {
 }
 
 void TcpclBundleSink::ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-                                         bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)
+                                         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 {
     std::cout << "remote has requested shutdown\n";
     if(hasReasonCode) {

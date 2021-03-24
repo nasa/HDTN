@@ -83,12 +83,12 @@ class Tcpcl {
 public:
 	typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
 	typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
-	typedef boost::function<void(uint32_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
+	typedef boost::function<void(uint64_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
 	typedef boost::function<void(BUNDLE_REFUSAL_CODES refusalCode)> BundleRefusalCallback_t;
-	typedef boost::function<void(uint32_t nextBundleLength)> NextBundleLengthCallback_t;
+	typedef boost::function<void(uint64_t nextBundleLength)> NextBundleLengthCallback_t;
 	typedef boost::function<void()> KeepAliveCallback_t;
 	typedef boost::function<void(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-								 bool hasReconnectionDelay, uint32_t reconnectionDelaySeconds)> ShutdownMessageCallback_t;
+								 bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)> ShutdownMessageCallback_t;
 
 	Tcpcl();
 	~Tcpcl();
@@ -105,15 +105,15 @@ public:
 	void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
 	void HandleReceivedChar(const uint8_t rxVal);
 	static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-	static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint32_t sizeContents);
-    static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint32_t sizeContents);
-	static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint32_t totalBytesAcknowledged);
+	static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents);
+    static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint64_t sizeContents);
+	static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint64_t totalBytesAcknowledged);
 	static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode);
-	static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint32_t nextBundleLength);
+	static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint64_t nextBundleLength);
 	static void GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage);
 	static void GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
 										bool includeReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-										bool includeReconnectionDelay, uint32_t reconnectionDelaySeconds);
+										bool includeReconnectionDelay, uint64_t reconnectionDelaySeconds);
 public:
 	std::vector<uint8_t> m_sdnvTempVec;
 	TCPCL_MAIN_RX_STATE m_mainRxState;
@@ -123,7 +123,7 @@ public:
 	//contact header
 	CONTACT_HEADER_FLAGS m_contactHeaderFlags;
 	uint16_t m_keepAliveInterval;
-	uint32_t m_localEidLength;
+	uint64_t m_localEidLength;
 	std::string m_localEidStr;
 	MESSAGE_TYPE_BYTE_CODES m_messageTypeByte;
 
@@ -133,22 +133,22 @@ public:
 	//data segment
 	bool m_dataSegmentStartFlag;
 	bool m_dataSegmentEndFlag;
-	uint32_t m_dataSegmentLength;
+	uint64_t m_dataSegmentLength;
 	std::vector<uint8_t> m_dataSegmentDataVec;
 
 	//ack segment
-	uint32_t m_ackSegmentLength;
+	uint64_t m_ackSegmentLength;
 
 	//refuse bundle
 	uint8_t m_bundleRefusalCode;
 
 	//next bundle length
-	uint32_t m_nextBundleLength;
+	uint64_t m_nextBundleLength;
 
 	//shutdown
 	bool m_shutdownHasReasonFlag;
 	bool m_shutdownHasReconnectionDelayFlag;
-	uint32_t m_shutdownReconnectionDelay;
+	uint64_t m_shutdownReconnectionDelay;
 	SHUTDOWN_REASON_CODES m_shutdownReasonCode;
 
 	//callback functions

@@ -49,7 +49,7 @@ m_totalBundleBytesSent(0)
 }
 
 TcpclBundleSource::~TcpclBundleSource() {
-
+    
     //prevent TcpclBundleSource from exiting before all bundles sent and acked
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
