@@ -20,6 +20,7 @@ m_readyToForward(false),
 m_tcpclShutdownComplete(true),
 m_sendShutdownMessage(false),
 m_reasonWasTimeOut(false),
+m_useLocalConditionVariableAckReceived(false), //for destructor only
 M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 M_THIS_EID_STRING(thisEidString),
 
@@ -48,6 +49,30 @@ m_totalBundleBytesSent(0)
 }
 
 TcpclBundleSource::~TcpclBundleSource() {
+    
+    //prevent TcpclBundleSource from exiting before all bundles sent and acked
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    m_useLocalConditionVariableAckReceived = true;
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+        const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+        if (numUnacked) {
+            std::cout << "notice: TcpclBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+
+            std::cout << "   acked: " << m_totalDataSegmentsAcked << std::endl;
+            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
+
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
+    }
     
     DoTcpclShutdown(true, false);
     while (!m_tcpclShutdownComplete) {
@@ -305,6 +330,9 @@ void TcpclBundleSource::AckCallback(uint64_t totalBytesAcknowledged) {
         m_bytesToAckCb.CommitRead();
         if (m_onSuccessfulAckCallback) {
             m_onSuccessfulAckCallback();
+        }
+        if (m_useLocalConditionVariableAckReceived) {
+            m_localConditionVariableAckReceived.notify_one();
         }
     }
     else {

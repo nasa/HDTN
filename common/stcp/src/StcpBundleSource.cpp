@@ -48,20 +48,20 @@ StcpBundleSource::~StcpBundleSource() {
     boost::mutex::scoped_lock lock(localMutex);
     m_useLocalConditionVariableAckReceived = true;
     std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+    for (unsigned int attempt = 0; attempt < 20; ++attempt) {
         const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
         if (numUnacked) {
             std::cout << "notice: StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
             
-            std::cout << "   acked by rate: " << m_totalDataSegmentsAckedByRate << std::endl;
-            std::cout << "   acked by cb: " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
-            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
+//            std::cout << "   acked by rate: " << m_totalDataSegmentsAckedByRate << std::endl;
+//            std::cout << "   acked by cb: " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
+//            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
             
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
                 attempt = 0;
             }
-            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
@@ -409,8 +409,11 @@ void StcpBundleSource::TryRestartRateTimer() {
             const double numBitsDouble = static_cast<double>(m_bytesToAckByRateCbVec[readIndex]) * 8.0;
             const double delayMicroSecDouble = (1.0 / m_rateBitsPerSec) * numBitsDouble * 1e6;
             delayMicroSec += static_cast<uint64_t>(delayMicroSecDouble);
-            m_bytesToAckByRateCb.CommitRead();
+// JCF -- swapped
+//            m_bytesToAckByRateCb.CommitRead();
+//            m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
             m_groupingOfBytesToAckByRateVec.push_back(m_bytesToAckByRateCbVec[readIndex]);
+            m_bytesToAckByRateCb.CommitRead();
             if (delayMicroSec >= 10000) { //try to avoid sleeping for any time smaller than 10 milliseconds
                 break;
             }

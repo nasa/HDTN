@@ -280,6 +280,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
         if (bundleToSend.size() != 0) {
             std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
+            std::cerr << "bundleToSend.size() : " << bundleToSend.size() << std::endl;
         }
 
     }

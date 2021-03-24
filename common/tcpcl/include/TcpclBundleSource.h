@@ -69,6 +69,7 @@ private:
     boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    boost::condition_variable m_localConditionVariableAckReceived;
 
     //tcpcl vars
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;
@@ -81,6 +82,7 @@ private:
     volatile bool m_tcpclShutdownComplete;
     volatile bool m_sendShutdownMessage;
     volatile bool m_reasonWasTimeOut;
+    volatile bool m_useLocalConditionVariableAckReceived;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;

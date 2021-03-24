@@ -19,10 +19,10 @@ void CircularIndexBufferSingleProducerSingleConsumerConfigurable::Init() {
 
 
 bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsFull() {
-	//return ((m_end + 1) % m_bufferSize) == m_start;
-	unsigned int endPlus1 = m_cbEndIndex + 1;
+    //return ((m_end + 1) % m_bufferSize) == m_start;
+    unsigned int endPlus1 = m_cbEndIndex + 1;
         if (endPlus1 >= M_CIRCULAR_INDEX_BUFFER_SIZE) endPlus1 = 0;
-	return (m_cbStartIndex == endPlus1);
+    return (m_cbStartIndex == endPlus1);
 }
 
 bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsEmpty() {
