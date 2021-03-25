@@ -94,6 +94,7 @@ class storage_worker {
     void releaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock);
     hdtn::WorkerStats stats() { return workerStats; }
 
+    std::size_t m_totalBundlesErasedFromStorage = 0;
    private:
     zmq::context_t *zmqContext;
     pthread_t storageThread;
@@ -117,6 +118,7 @@ public:
     void scheduleRelease();
     void c2telem();
     StorageStats *stats() { return &storageStats; }
+    std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
     std::size_t m_totalBundlesErasedFromStorage = 0;
     std::size_t m_totalBundlesSentToEgressFromStorage = 0;
