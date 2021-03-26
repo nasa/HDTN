@@ -237,3 +237,8 @@ void hdtn::storage::dispatch() {
             break;
     }
 }
+
+std::size_t hdtn::storage::GetCurrentNumberOfBundlesDeletedFromStorage() {
+    return worker.m_totalBundlesErasedFromStorage;
+}
+

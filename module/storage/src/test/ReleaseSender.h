@@ -33,6 +33,7 @@ public:
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/storage/src/test/").string() + filename;
     }
+    volatile bool m_timersFinished;
 private:
     void ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket);
 };

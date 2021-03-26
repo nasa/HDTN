@@ -871,9 +871,11 @@ bool TestStorage() {
 
     // Run Release Message Sender
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    ReleaseSender releaseSender;
+    //ReleaseSender releaseSender;
+    ReleaseSender * ptrReleaseSender = new ReleaseSender();
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+//    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,ptrReleaseSender,eventFile);
 
 //    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
@@ -883,7 +885,8 @@ bool TestStorage() {
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
 
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
-    std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
+    StorageRunner * ptrStorageRunner = new StorageRunner();
+    std::thread threadStorage(&StorageRunner::Run,ptrStorageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
@@ -892,11 +895,33 @@ bool TestStorage() {
     // Stop threads
 //    runningBpgen[0] = false;  // Do not set due to the duration parameter
     threadBpgen0.join();
-    // Storage should not be stopped until at least 10 seconds after release messages has finished.
-    boost::this_thread::sleep(boost::posix_time::seconds(20));
-//    std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
+
+    // Storage should not be stopped until after release messages has finished.
+    while (! ptrReleaseSender->m_timersFinished) {
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+    }
+//    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
+
+    // Do not stop storage until the bundles deleted equal number generated
+    uint64_t totalBundlesBpgen = 0;
+    for(int i=0; i<2; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+    for(int i=0; i<30; i++) {
+        uint64_t bundlesDeletedFromStorage = ptrStorageRunner->GetCurrentNumberOfBundlesDeletedFromStorage();
+//        std::cout << "\ntotalBundlesBpgen: " << totalBundlesBpgen << std::endl << std::flush;
+//        std::cout << "bundlesDeletedFromStorage: " <<  bundlesDeletedFromStorage << std::endl << std::flush;
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+        if (bundlesDeletedFromStorage == totalBundlesBpgen) {
+            break;
+        }
+    }
+
     runningStorage = false;
     threadStorage.join();
+    bundleCountStorage = ptrStorageRunner->m_totalBundlesSentToEgressFromStorage;
+    delete(ptrStorageRunner);
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -906,11 +931,9 @@ bool TestStorage() {
 
     threadReleaseSender.join();
 
+    delete(ptrReleaseSender);
+
     // Verify results
-    uint64_t totalBundlesBpgen = 0;
-    for(int i=0; i<1; i++) {
-        totalBundlesBpgen += bundlesSentBpgen[i];
-    }
     uint64_t totalBundlesBpsink = 0;
     for(int i=0; i<1; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
@@ -976,11 +999,13 @@ bool TestStorageSlowBpSink() {
 
     // Run Release Message Sender
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    ReleaseSender releaseSender;
+    //ReleaseSender releaseSender;
+    ReleaseSender * ptrReleaseSender = new ReleaseSender();
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+    //    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,ptrReleaseSender,eventFile);
 
-//    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
+    //std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -988,7 +1013,8 @@ bool TestStorageSlowBpSink() {
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
 
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
-    std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
+    StorageRunner * ptrStorageRunner = new StorageRunner();
+    std::thread threadStorage(&StorageRunner::Run,ptrStorageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
@@ -1000,12 +1026,32 @@ bool TestStorageSlowBpSink() {
     //runningBpgen[0] = false;  // Do not set due to the duration parameter
     threadBpgen0.join();
 
+    // Storage should not be stopped until after release messages has finished.
+    while (! ptrReleaseSender->m_timersFinished) {
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+    }
+//    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
 
-    // Storage should not be stopped until at least 10 seconds after release messages has finished.
-    boost::this_thread::sleep(boost::posix_time::seconds(60));
-//    std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
+    // Do not stop storage until the bundles deleted equal number generated
+    uint64_t totalBundlesBpgen = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+    for(int i=0; i<30; i++) {
+        uint64_t bundlesDeletedFromStorage = ptrStorageRunner->GetCurrentNumberOfBundlesDeletedFromStorage();
+//        std::cout << "\ntotalBundlesBpgen: " << totalBundlesBpgen << std::endl << std::flush;
+//        std::cout << "bundlesDeletedFromStorage: " <<  bundlesDeletedFromStorage << std::endl << std::flush;
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+        if (bundlesDeletedFromStorage == totalBundlesBpgen) {
+            break;
+        }
+    }
+
     runningStorage = false;
     threadStorage.join();
+    bundleCountStorage = ptrStorageRunner->m_totalBundlesSentToEgressFromStorage;
+    delete(ptrStorageRunner);
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -1014,12 +1060,9 @@ bool TestStorageSlowBpSink() {
     threadBpsink0.join();
 
     threadReleaseSender.join();
+    delete(ptrReleaseSender);
 
     // Verify results
-    uint64_t totalBundlesBpgen = 0;
-    for(int i=0; i<1; i++) {
-        totalBundlesBpgen += bundlesSentBpgen[i];
-    }
     uint64_t totalBundlesBpsink = 0;
     for(int i=0; i<1; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
@@ -1090,9 +1133,11 @@ bool TestStorageMulti() {
 
     // Run Release Message Sender
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    ReleaseSender releaseSender;
+    //ReleaseSender releaseSender;
+    ReleaseSender * ptrReleaseSender = new ReleaseSender();
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest2.json");
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+    //    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,ptrReleaseSender,eventFile);
 
 //    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
@@ -1103,7 +1148,8 @@ bool TestStorageMulti() {
 
 //    std::cout << "storageConfigArg: " << storageConfigArg << std::endl << std::flush;
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
-    std::thread threadStorage(RunStorage,argsStorage,2,std::ref(runningStorage),&bundleCountStorage);
+    StorageRunner * ptrStorageRunner = new StorageRunner();
+    std::thread threadStorage(&StorageRunner::Run,ptrStorageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen1[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
@@ -1121,11 +1167,31 @@ bool TestStorageMulti() {
     //    runningBpgen[1] = false;  // Do not set due to the duration parameter
     threadBpgen1.join();
 
-    // Storage should not be stopped until at least 10 seconds after release messages has finished.
-    boost::this_thread::sleep(boost::posix_time::seconds(25));
-//    std::cout <<  " $$$ Time at stopping Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
+    // Storage should not be stopped until after release messages has finished.
+    while (! ptrReleaseSender->m_timersFinished) {
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+    }
+//    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
+
+    // Do not stop storage until the bundles deleted equal number generated
+    uint64_t totalBundlesBpgen = 0;
+    for(int i=0; i<2; i++) {
+        totalBundlesBpgen += bundlesSentBpgen[i];
+    }
+    for(int i=0; i<30; i++) {
+        uint64_t bundlesDeletedFromStorage = ptrStorageRunner->GetCurrentNumberOfBundlesDeletedFromStorage();
+//        std::cout << "\ntotalBundlesBpgen: " << totalBundlesBpgen << std::endl << std::flush;
+//        std::cout << "bundlesDeletedFromStorage: " <<  bundlesDeletedFromStorage << std::endl << std::flush;
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
+        if (bundlesDeletedFromStorage == totalBundlesBpgen) {
+            break;
+        }
+    }
+
     runningStorage = false;
     threadStorage.join();
+    bundleCountStorage = ptrStorageRunner->m_totalBundlesSentToEgressFromStorage;
+    delete(ptrStorageRunner);
 
     runningIngress = false;
     threadIngress.join();
@@ -1137,12 +1203,9 @@ bool TestStorageMulti() {
     threadBpsink0.join();
 
     threadReleaseSender.join();
+    delete(ptrReleaseSender);
 
     // Verify results
-    uint64_t totalBundlesBpgen = 0;
-    for(int i=0; i<2; i++) {
-        totalBundlesBpgen += bundlesSentBpgen[i];
-    }
     uint64_t totalBundlesBpsink = 0;
     for(int i=0; i<2; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
@@ -1249,7 +1312,7 @@ BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
     BOOST_CHECK(result == true);
 }
 
-//   Fails -- test_storage_multi.bat
+//   Passes, but occasional failures -- test_storage_multi.bat
 BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
     bool result = TestStorageMulti();
@@ -1262,3 +1325,4 @@ BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
     bool result = TestStorageSlowBpSink();
     BOOST_CHECK(result == true);
 }
+

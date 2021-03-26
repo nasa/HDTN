@@ -8,6 +8,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/make_unique.hpp>
 
 
 void StorageRunner::MonitorExitKeypressThreadFunction() {
@@ -18,6 +19,14 @@ void StorageRunner::MonitorExitKeypressThreadFunction() {
 
 StorageRunner::StorageRunner() {}
 StorageRunner::~StorageRunner() {}
+
+
+std::size_t StorageRunner::GetCurrentNumberOfBundlesDeletedFromStorage() {
+    if (!m_storagePtr) {
+        return 0;
+    }
+    return m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
+}
 
 
 bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
@@ -77,11 +86,10 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         config.local = HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH;
         config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
         config.storePath = storePath;
-        hdtn::storage store;
+        m_storagePtr = boost::make_unique<hdtn::storage>();
         std::cout << "[store] Initializing storage manager ..." << std::endl;
 
-
-        if (!store.init(config)) {
+        if (!m_storagePtr->init(config)) {
             return false;
         }
 
@@ -90,7 +98,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         }
         std::cout << "storage up and running" << std::endl;
         while (running && m_runningFromSigHandler) {            
-            store.update();
+            m_storagePtr->update();
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
@@ -109,9 +117,12 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             }*/
         }
         std::cout << "StorageRunner: exiting cleanly..\n";
-        store.Stop();
-        m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
-        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
+//        store.Stop();
+//        m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
+//        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
+        m_storagePtr->Stop();
+        m_totalBundlesErasedFromStorage = m_storagePtr->m_totalBundlesErasedFromStorage;
+        m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
     }
     std::cout << "StorageRunner: exited cleanly\n";
     return true;
