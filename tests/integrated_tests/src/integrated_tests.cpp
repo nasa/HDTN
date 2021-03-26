@@ -1034,7 +1034,7 @@ bool TestStorageSlowBpSink() {
 
     // Do not stop storage until the bundles deleted equal number generated
     uint64_t totalBundlesBpgen = 0;
-    for(int i=0; i<2; i++) {
+    for(int i=0; i<1; i++) {
         totalBundlesBpgen += bundlesSentBpgen[i];
     }
     for(int i=0; i<30; i++) {
