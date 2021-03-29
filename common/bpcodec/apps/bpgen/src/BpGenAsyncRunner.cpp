@@ -1,6 +1,5 @@
 #include "BpGenAsyncRunner.h"
 #include <iostream>
-#include "BpGenAsync.h"
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -141,6 +140,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         std::cout<< "BpGenAsyncRunner::Run: exiting cleanly..\n";
         bpGen.Stop();
         m_bundleCount = bpGen.m_bundleCount;
+        m_FinalStats = bpGen.m_FinalStats;
     }
     std::cout<< "BpGenAsyncRunner::Run: exited cleanly\n";
     return true;
