@@ -310,6 +310,22 @@ bool TestTcpclMultiFastCutThrough() {
     threadBpgen0.join();
 
 
+
+    // Get stats
+    uint64_t bundlesAckedBpgen[2] = {0,0};
+    for(int i=0; i<2; i++) {
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+    }
+
+    // Bundles acked
+    std::cout << std::endl;
+    std::cout << "bundlesSentBpgen[0]: " << bundlesSentBpgen[0] << std::endl;
+    std::cout << "bundlesAckedBpgen[0]: " << bundlesAckedBpgen[0] << std::endl;
+    std::cout << "bundlesSentBpgen[1]: " << bundlesSentBpgen[1] << std::endl;
+    std::cout << "bundlesAckedBpgen[1]: " << bundlesAckedBpgen[1] << std::endl;
+    std::cout << std::endl;
+
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -327,6 +343,10 @@ bool TestTcpclMultiFastCutThrough() {
     for(int i=0; i<2; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
     }
+    uint64_t totalBundlesAckedBpgen = 0;
+    for(int i=0; i<2; i++) {
+        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
+    }
     if (totalBundlesBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
                 + std::to_string(bundleCountIngress) + ").");
@@ -340,6 +360,11 @@ bool TestTcpclMultiFastCutThrough() {
     if (totalBundlesBpgen != totalBundlesBpsink) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
                 + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
         return false;
     }
     return true;
@@ -387,6 +412,22 @@ bool TestCutThroughMulti() {
 //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
 
+
+
+    // Get stats
+    uint64_t bundlesAckedBpgen[2] = {0,0};
+    for(int i=0; i<2; i++) {
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+    }
+
+    // Bundles acked
+    std::cout << std::endl;
+    std::cout << "bundlesSentBpgen[0]: " << bundlesSentBpgen[0] << std::endl;
+    std::cout << "bundlesAckedBpgen[0]: " << bundlesAckedBpgen[0] << std::endl;
+    std::cout << "bundlesSentBpgen[1]: " << bundlesSentBpgen[1] << std::endl;
+    std::cout << "bundlesAckedBpgen[1]: " << bundlesAckedBpgen[1] << std::endl;
+    std::cout << std::endl;
+
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
@@ -404,6 +445,10 @@ bool TestCutThroughMulti() {
     for(int i=0; i<2; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
     }
+    uint64_t totalBundlesAckedBpgen = 0;
+    for(int i=0; i<2; i++) {
+        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
+    }
 
     if (totalBundlesBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
@@ -418,6 +463,11 @@ bool TestCutThroughMulti() {
     if (totalBundlesBpgen != totalBundlesBpsink) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
                 + std::to_string(totalBundlesBpsink) + ").");
+        return false;
+    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
         return false;
     }
     return true;
@@ -1333,7 +1383,7 @@ bool TestStorageMulti() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-// Passes -- test_tcpl_cutthrough.bat
+//// Passes -- test_tcpl_cutthrough.bat
 //BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
 //    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
 //    bool result = TestCutThroughTcpcl();
@@ -1347,40 +1397,40 @@ BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 //    BOOST_CHECK(result == true);
 //}
 
-//// Passes -- test_tcpl_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
-//    bool result = TestTcpclMultiFastCutThrough();
+// Passes -- test_tcpl_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
+    bool result = TestTcpclMultiFastCutThrough();
+    BOOST_CHECK(result == true);
+}
+
+//  Passes -- test_cutthrough_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
+    bool result = TestCutThroughMulti();
+    BOOST_CHECK(result == true);
+}
+
+//// Passes -- test_udp.bat
+//BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
+//    bool result = TestUdp();
 //    BOOST_CHECK(result == true);
 //}
 
-////  Passes -- test_cutthrough_multi.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
-//    bool result = TestCutThroughMulti();
+////  Passes -- test_udp_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
+//    bool result = TestUdpFastCutthrough();
 //    BOOST_CHECK(result == true);
 //}
 
-// Passes -- test_udp.bat
-BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
-    bool result = TestUdp();
-    BOOST_CHECK(result == true);
-}
-
-//  Passes -- test_udp_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
-    bool result = TestUdpFastCutthrough();
-    BOOST_CHECK(result == true);
-}
-
-//  Passes -- test_udp_multi_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
-    bool result = TestUdpMultiFastCutthrough();
-    BOOST_CHECK(result == true);
-}
+////  Passes -- test_udp_multi_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
+//    bool result = TestUdpMultiFastCutthrough();
+//    BOOST_CHECK(result == true);
+//}
 
 //// Passes -- test_stcp.bat
 //BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
@@ -1410,7 +1460,7 @@ BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled(
 //    BOOST_CHECK(result == true);
 //}
 
-////   Passes, but occasional failures -- test_storage_multi.bat
+////   Passes -- test_storage_multi.bat
 //BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
 //    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
 //    bool result = TestStorageMulti();
