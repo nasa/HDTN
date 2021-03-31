@@ -1060,22 +1060,16 @@ bool TestStorage() {
 
     // Run Release Message Sender
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    //ReleaseSender releaseSender;
-    ReleaseSender * ptrReleaseSender = new ReleaseSender();
+    ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
-//    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,ptrReleaseSender,eventFile);
-
-//    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,&releaseSender,eventFile);
 
     // Run Storage
     boost::this_thread::sleep(boost::posix_time::seconds(1));
-
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
-
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
-    StorageRunner * ptrStorageRunner = new StorageRunner();
-    std::thread threadStorage(&StorageRunner::Run,ptrStorageRunner,2,argsStorage,std::ref(runningStorage),false);
+    StorageRunner storageRunner;
+    std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
@@ -1086,10 +1080,9 @@ bool TestStorage() {
     threadBpgen0.join();
 
     // Storage should not be stopped until after release messages has finished.
-    while (! ptrReleaseSender->m_timersFinished) {
+    while (! releaseSender.m_timersFinished) {
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
-//    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
 
     // Do not stop storage until the bundles deleted equal number generated
     uint64_t totalBundlesBpgen = 0;
@@ -1097,9 +1090,7 @@ bool TestStorage() {
         totalBundlesBpgen += bundlesSentBpgen[i];
     }
     for(int i=0; i<30; i++) {
-        uint64_t bundlesDeletedFromStorage = ptrStorageRunner->GetCurrentNumberOfBundlesDeletedFromStorage();
-//        std::cout << "\ntotalBundlesBpgen: " << totalBundlesBpgen << std::endl << std::flush;
-//        std::cout << "bundlesDeletedFromStorage: " <<  bundlesDeletedFromStorage << std::endl << std::flush;
+        uint64_t bundlesDeletedFromStorage = storageRunner.GetCurrentNumberOfBundlesDeletedFromStorage();
         boost::this_thread::sleep(boost::posix_time::seconds(1));
         if (bundlesDeletedFromStorage == totalBundlesBpgen) {
             break;
@@ -1129,8 +1120,7 @@ bool TestStorage() {
 
     runningStorage = false;
     threadStorage.join();
-    bundleCountStorage = ptrStorageRunner->m_totalBundlesSentToEgressFromStorage;
-    delete(ptrStorageRunner);
+    bundleCountStorage = storageRunner.m_totalBundlesSentToEgressFromStorage;
 
     runningIngress = false;
     threadIngress.join();
@@ -1140,8 +1130,6 @@ bool TestStorage() {
     threadBpsink0.join();
 
     threadReleaseSender.join();
-
-    delete(ptrReleaseSender);
 
     // Verify results
     uint64_t totalBundlesBpsink = 0;
@@ -1210,10 +1198,10 @@ bool TestStorageSlowBpSink() {
     // Run Release Message Sender
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     //ReleaseSender releaseSender;
-    ReleaseSender * ptrReleaseSender = new ReleaseSender();
+    ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
     //    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,ptrReleaseSender,eventFile);
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,&releaseSender,eventFile);
 
     //std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
@@ -1223,8 +1211,8 @@ bool TestStorageSlowBpSink() {
     static const std::string storageConfigArg = "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage" / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
 
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
-    StorageRunner * ptrStorageRunner = new StorageRunner();
-    std::thread threadStorage(&StorageRunner::Run,ptrStorageRunner,2,argsStorage,std::ref(runningStorage),false);
+    StorageRunner storageRunner;
+    std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
@@ -1237,7 +1225,7 @@ bool TestStorageSlowBpSink() {
     threadBpgen0.join();
 
     // Storage should not be stopped until after release messages has finished.
-    while (! ptrReleaseSender->m_timersFinished) {
+    while (! releaseSender.m_timersFinished) {
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 //    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
@@ -1248,7 +1236,7 @@ bool TestStorageSlowBpSink() {
         totalBundlesBpgen += bundlesSentBpgen[i];
     }
     for(int i=0; i<30; i++) {
-        uint64_t bundlesDeletedFromStorage = ptrStorageRunner->GetCurrentNumberOfBundlesDeletedFromStorage();
+        uint64_t bundlesDeletedFromStorage = storageRunner.GetCurrentNumberOfBundlesDeletedFromStorage();
 //        std::cout << "\ntotalBundlesBpgen: " << totalBundlesBpgen << std::endl << std::flush;
 //        std::cout << "bundlesDeletedFromStorage: " <<  bundlesDeletedFromStorage << std::endl << std::flush;
         boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -1270,8 +1258,7 @@ bool TestStorageSlowBpSink() {
 
     runningStorage = false;
     threadStorage.join();
-    bundleCountStorage = ptrStorageRunner->m_totalBundlesSentToEgressFromStorage;
-    delete(ptrStorageRunner);
+    bundleCountStorage = storageRunner.m_totalBundlesSentToEgressFromStorage;
 
     runningIngress = false;
     threadIngress.join();
@@ -1281,7 +1268,6 @@ bool TestStorageSlowBpSink() {
     threadBpsink0.join();
 
     threadReleaseSender.join();
-    delete(ptrReleaseSender);
 
     // Verify results
     uint64_t totalBundlesBpsink = 0;
@@ -1354,10 +1340,10 @@ bool TestStorageMulti() {
     // Run Release Message Sender
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     //ReleaseSender releaseSender;
-    ReleaseSender * ptrReleaseSender = new ReleaseSender();
+    ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest2.json");
     //    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,ptrReleaseSender,eventFile);
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,&releaseSender,eventFile);
 
 //    std::cout <<  " $$$ Time Before Storage: " << boost::posix_time::second_clock::local_time() << std::endl << std::flush;
 
@@ -1368,8 +1354,8 @@ bool TestStorageMulti() {
 
 //    std::cout << "storageConfigArg: " << storageConfigArg << std::endl << std::flush;
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
-    StorageRunner * ptrStorageRunner = new StorageRunner();
-    std::thread threadStorage(&StorageRunner::Run,ptrStorageRunner,2,argsStorage,std::ref(runningStorage),false);
+    StorageRunner storageRunner;
+    std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen1[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
@@ -1388,7 +1374,7 @@ bool TestStorageMulti() {
     threadBpgen1.join();
 
     // Storage should not be stopped until after release messages has finished.
-    while (! ptrReleaseSender->m_timersFinished) {
+    while (! releaseSender.m_timersFinished) {
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
 //    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
@@ -1399,7 +1385,7 @@ bool TestStorageMulti() {
         totalBundlesBpgen += bundlesSentBpgen[i];
     }
     for(int i=0; i<30; i++) {
-        uint64_t bundlesDeletedFromStorage = ptrStorageRunner->GetCurrentNumberOfBundlesDeletedFromStorage();
+        uint64_t bundlesDeletedFromStorage = storageRunner.GetCurrentNumberOfBundlesDeletedFromStorage();
 //        std::cout << "\ntotalBundlesBpgen: " << totalBundlesBpgen << std::endl << std::flush;
 //        std::cout << "bundlesDeletedFromStorage: " <<  bundlesDeletedFromStorage << std::endl << std::flush;
         boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -1421,8 +1407,7 @@ bool TestStorageMulti() {
 
     runningStorage = false;
     threadStorage.join();
-    bundleCountStorage = ptrStorageRunner->m_totalBundlesSentToEgressFromStorage;
-    delete(ptrStorageRunner);
+    bundleCountStorage = storageRunner.m_totalBundlesSentToEgressFromStorage;
 
     runningIngress = false;
     threadIngress.join();
@@ -1432,9 +1417,7 @@ bool TestStorageMulti() {
     threadBpsink1.join();
     runningBpsink[0] = false;
     threadBpsink0.join();
-
     threadReleaseSender.join();
-    delete(ptrReleaseSender);
 
     // Verify results
     uint64_t totalBundlesBpsink = 0;
@@ -1472,75 +1455,75 @@ bool TestStorageMulti() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-//  Fails ACK test -- test_tcpl_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
-    bool result = TestCutThroughTcpcl();
-    BOOST_CHECK(result == true);
-}
+////  Fails ACK test -- test_tcpl_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
+//    bool result = TestCutThroughTcpcl();
+//    BOOST_CHECK(result == true);
+//}
 
-//  Fails ACK test-- test_tcpl_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
-    bool result = TestTcpclFastCutThrough();
-    BOOST_CHECK(result == true);
-}
+////  Fails ACK test-- test_tcpl_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
+//    bool result = TestTcpclFastCutThrough();
+//    BOOST_CHECK(result == true);
+//}
 
-//  Fails ACK test -- test_tcpl_multi_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
-    bool result = TestTcpclMultiFastCutThrough();
-    BOOST_CHECK(result == true);
-}
+////  Fails ACK test -- test_tcpl_multi_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
+//    bool result = TestTcpclMultiFastCutThrough();
+//    BOOST_CHECK(result == true);
+//}
 
-//   Fails ACK test -- test_cutthrough_multi.bat
-BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
-    bool result = TestCutThroughMulti();
-    BOOST_CHECK(result == true);
-}
+////   Fails ACK test -- test_cutthrough_multi.bat
+//BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
+//    bool result = TestCutThroughMulti();
+//    BOOST_CHECK(result == true);
+//}
 
-//  Passes ACK test -- test_udp.bat
-BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
-    bool result = TestUdp();
-    BOOST_CHECK(result == true);
-}
+////  Passes ACK test -- test_udp.bat
+//BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
+//    bool result = TestUdp();
+//    BOOST_CHECK(result == true);
+//}
 
-//   Passes ACK test -- test_udp_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
-    bool result = TestUdpFastCutthrough();
-    BOOST_CHECK(result == true);
-}
+////   Passes ACK test -- test_udp_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
+//    bool result = TestUdpFastCutthrough();
+//    BOOST_CHECK(result == true);
+//}
 
-//   Passes ACK test -- test_udp_multi_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
-    bool result = TestUdpMultiFastCutthrough();
-    BOOST_CHECK(result == true);
-}
+////   Passes ACK test -- test_udp_multi_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
+//    bool result = TestUdpMultiFastCutthrough();
+//    BOOST_CHECK(result == true);
+//}
 
-//  Passes ACK test -- test_stcp.bat
-BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
-    bool result = TestStcp();
-    BOOST_CHECK(result == true);
-}
+////  Passes ACK test -- test_stcp.bat
+//BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
+//    bool result = TestStcp();
+//    BOOST_CHECK(result == true);
+//}
 
-//  Passes ACK test -- test_stcp_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " "it_TestStcpFastCutthrough" << std::endl << std::flush;
-    bool result = TestStcpFastCutthrough();
-    BOOST_CHECK(result == true);
-}
+////  Passes ACK test -- test_stcp_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " "it_TestStcpFastCutthrough" << std::endl << std::flush;
+//    bool result = TestStcpFastCutthrough();
+//    BOOST_CHECK(result == true);
+//}
 
-//  Passes ACK test -- test_stcp_multi_fast_cutthrough.bat
-BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
-    bool result = TestStcpMultiFastCutthrough();
-    BOOST_CHECK(result == true);
-}
+////  Passes ACK test -- test_stcp_multi_fast_cutthrough.bat
+//BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
+//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
+//    bool result = TestStcpMultiFastCutthrough();
+//    BOOST_CHECK(result == true);
+//}
 
 //   Fails ACK test -- test_storage.bat
 BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
