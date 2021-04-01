@@ -535,7 +535,7 @@ bool TestUdp() {
         }
     }
     // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     runningIngress = false;
     threadIngress.join();
@@ -611,7 +611,7 @@ bool TestUdpFastCutthrough() {
     threadBpgen0.join();
 
     // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
@@ -706,7 +706,7 @@ bool TestUdpMultiFastCutthrough() {
 
 
     // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
@@ -795,7 +795,7 @@ bool TestStcp() {
     threadBpgen0.join();
 
     // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
@@ -881,7 +881,7 @@ bool TestStcpFastCutthrough() {
     threadBpgen0.join();
 
     // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
@@ -976,7 +976,7 @@ bool TestStcpMultiFastCutthrough() {
     threadBpgen0.join();
 
     // JCF -- Delay may be needed to get test to pass consistently.
-    boost::this_thread::sleep(boost::posix_time::seconds(6));
+//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
