@@ -186,7 +186,7 @@ bool TestCutThroughTcpcl() {
     std::thread threadBpgen(RunBpgenAsync,argsBpgen,4,std::ref(runningBpgen),&bundlesSentBpgen[0],&finalStats[0]);
 
     // Allow time for data to flow
-    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    boost::this_thread::sleep(boost::posix_time::seconds(5));
 
     // Stop threads
     runningBpgen = false;
@@ -261,7 +261,7 @@ bool TestTcpclFastCutThrough() {
     static const char * argsIngress[] = { "ingress", NULL };
     std::thread threadIngress(RunIngress,argsIngress, 1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=0", "--use-tcpcl", "--flow-id=2", "--duration=10",NULL};
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=0", "--use-tcpcl", "--flow-id=2", "--duration=5",NULL};
 
     std::thread threadBpgen(RunBpgenAsync,argsBpgen,5,std::ref(runningBpgen),&bundlesSentBpgen[0],&finalStats[0]);
     // Stop threads
@@ -340,10 +340,10 @@ bool TestTcpclMultiFastCutThrough() {
     static const char * argsIngress[] = { "ingress", NULL };
     std::thread threadIngress(RunIngress,argsIngress, 1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = { "bpgen0", "--bundle-rate=0","--use-tcpcl", "--flow-id=2","--duration=10",NULL};
+    static const char * argsBpgen0[] = { "bpgen0", "--bundle-rate=0","--use-tcpcl", "--flow-id=2","--duration=5",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(1));
-    static const char * argsBpgen1[] = { "bpgen1", "--bundle-rate=0", "--use-tcpcl","--flow-id=1","--duration=10",NULL};
+    static const char * argsBpgen1[] = { "bpgen1", "--bundle-rate=0", "--use-tcpcl","--flow-id=1","--duration=5",NULL};
     std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,5,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
     // Stop threads
 //    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
@@ -510,18 +510,18 @@ bool TestUdp() {
     static const char * argsBpsink0[] = {"bpsink","--port=4558",NULL};
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2, std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=4500",NULL};
+    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=30000",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--stcp-rate-bits-per-sec=1500",
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--stcp-rate-bits-per-sec=10000",
                                         "--bundle-size=1000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
     // Allow time for data to flow
-    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    boost::this_thread::sleep(boost::posix_time::seconds(5));
     // Stop threads
     runningBpgen[0] = false;
     threadBpgen0.join();
@@ -534,8 +534,6 @@ bool TestUdp() {
             bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback;
         }
     }
-    // JCF -- Delay may be needed to get test to pass consistently.
-//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     runningIngress = false;
     threadIngress.join();
@@ -597,21 +595,18 @@ bool TestUdpFastCutthrough() {
     static const char * argsBpsink0[] = {"bpsink","--port=4558",NULL};
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2, std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=9000",NULL};
+    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558","--stcp-rate-bits-per-sec=30000",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=10",
-                                        "--stcp-rate-bits-per-sec=3000","--bundle-size=1000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=5",
+                                        "--stcp-rate-bits-per-sec=10000","--bundle-size=1000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     // Stop threads
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
@@ -685,28 +680,24 @@ bool TestUdpMultiFastCutthrough() {
     static const char * argsBpsink1[] = {"bpsink","--port=4558",NULL};
     std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,2,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsEgress[] = {"egress","--port1=4557","--port2=4558","--stcp-rate-bits-per-sec=18000",NULL};
+    static const char * argsEgress[] = {"egress","--port1=4557","--port2=4558","--stcp-rate-bits-per-sec=60000",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress", NULL};
     std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=10",
-                                        "--stcp-rate-bits-per-sec=3000","--bundle-size=1000",NULL};
+    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=5",
+                                        "--stcp-rate-bits-per-sec=10000","--bundle-size=1000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen1[] = {"bpgen","--bundle-rate=0","--flow-id=1","--duration=10",
-                                        "--stcp-rate-bits-per-sec=3000","--bundle-size=1000",NULL};
+    static const char * argsBpgen1[] = {"bpgen","--bundle-rate=0","--flow-id=1","--duration=5",
+                                        "--stcp-rate-bits-per-sec=10000","--bundle-size=1000",NULL};
     std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,6,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
     // Stop threads
     //    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen1.join();
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
-
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
@@ -779,23 +770,20 @@ bool TestStcp() {
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsEgress[] = {"egress","--use-stcp","--port1=0","--port2=4558",
-                                        "--stcp-rate-bits-per-sec=9000",NULL};
+                                        "--stcp-rate-bits-per-sec=30000",NULL};
     std::thread threadEgress(RunEgressAsync,argsEgress,5,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = {"ingress","--use-stcp",NULL};
     std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--use-stcp","--flow-id=2",
-                                        "--stcp-rate-bits-per-sec=3000","--bundle-size=1000",NULL};
+                                        "--stcp-rate-bits-per-sec=10000","--bundle-size=1000",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     // Allow time for data to flow
-    boost::this_thread::sleep(boost::posix_time::seconds(10));
+    boost::this_thread::sleep(boost::posix_time::seconds(5));
     // Stop threads
     runningBpgen[0] = false;
     threadBpgen0.join();
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
@@ -867,21 +855,18 @@ bool TestStcpFastCutthrough() {
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0, 3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsEgress[] = { "egress",  "--use-stcp", "--port1=0",
-                                         "--port2=4558","--stcp-rate-bits-per-sec=9000", NULL };
+                                         "--port2=4558","--stcp-rate-bits-per-sec=30000", NULL };
     std::thread threadEgress(RunEgressAsync,argsEgress, 5,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = { "ingress", "--use-stcp", NULL };
     std::thread threadIngress(RunIngress,argsIngress, 2,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=2","--duration=10",
-                                         "--stcp-rate-bits-per-sec=3000","--bundle-size=1000",NULL };
+    static const char * argsBpgen0[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=2","--duration=5",
+                                         "--stcp-rate-bits-per-sec=10000","--bundle-size=1000",NULL };
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,7,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     // Stop threads
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
@@ -956,27 +941,24 @@ bool TestStcpMultiFastCutthrough() {
     std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,3,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsEgress[] = { "egress",  "--use-stcp", "--port1=4557", "--port2=4558",
-                                         "--stcp-rate-bits-per-sec=18000", NULL };
+                                         "--stcp-rate-bits-per-sec=30000", NULL };
     std::thread threadEgress(RunEgressAsync,argsEgress, 5,std::ref(runningEgress),&bundleCountEgress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
     static const char * argsIngress[] = { "ingress", "--use-stcp", NULL };
     std::thread threadIngress(RunIngress,argsIngress, 2,std::ref(runningIngress),&bundleCountIngress);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen0[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=2","--duration=10",
-                                         "--stcp-rate-bits-per-sec=3000","--bundle-size=1000",NULL };
+    static const char * argsBpgen0[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=2","--duration=5",
+                                         "--stcp-rate-bits-per-sec=10000","--bundle-size=1000",NULL };
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,7,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     boost::this_thread::sleep(boost::posix_time::seconds(3));
-    static const char * argsBpgen1[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=1","--duration=10",
-                                         "--stcp-rate-bits-per-sec=3000", "--bundle-size=1000",NULL };
+    static const char * argsBpgen1[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=1","--duration=5",
+                                         "--stcp-rate-bits-per-sec=10000", "--bundle-size=1000",NULL };
     std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,7,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
     // Stop threads
     //    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen1.join();
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
-
-    // JCF -- Delay may be needed to get test to pass consistently.
-//    boost::this_thread::sleep(boost::posix_time::seconds(6));
 
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
@@ -1221,8 +1203,6 @@ bool TestStorageSlowBpSink() {
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
-    // Allow time for data to flow
-    //boost::this_thread::sleep(boost::posix_time::seconds(10));  // Do not set due to the duration parameter
     // Stop threads
     //runningBpgen[0] = false;  // Do not set due to the duration parameter
     threadBpgen0.join();
@@ -1364,8 +1344,6 @@ bool TestStorageMulti() {
     static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=3","--flow-id=1",NULL};
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
-    // Allow time for data to flow
-    //boost::this_thread::sleep(boost::posix_time::seconds(10));  // Do not set due to the duration parameter
     // Stop threads
     //    runningBpgen[0] = false;  // Do not set due to the duration parameter
     threadBpgen0.join();
