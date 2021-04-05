@@ -1473,94 +1473,94 @@ bool TestStorageMulti() {
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-////  Fails ACK test -- test_tcpl_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
-//    bool result = TestCutThroughTcpcl();
-//    BOOST_CHECK(result == true);
-//}
+//  Fails ACK test -- test_tcpl_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
+    bool result = TestCutThroughTcpcl();
+    BOOST_CHECK(result == true);
+}
 
-////  Fails ACK test-- test_tcpl_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
-//    bool result = TestTcpclFastCutThrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Fails ACK test-- test_tcpl_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
+    bool result = TestTcpclFastCutThrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Fails ACK test -- test_tcpl_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
-//    bool result = TestTcpclMultiFastCutThrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Fails ACK test -- test_tcpl_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
+    bool result = TestTcpclMultiFastCutThrough();
+    BOOST_CHECK(result == true);
+}
 
-////   Fails ACK test -- test_cutthrough_multi.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
-//    bool result = TestCutThroughMulti();
-//    BOOST_CHECK(result == true);
-//}
+//   Fails ACK test -- test_cutthrough_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
+    bool result = TestCutThroughMulti();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes ACK test -- test_udp.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
-//    bool result = TestUdp();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes ACK test -- test_udp.bat
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
+    bool result = TestUdp();
+    BOOST_CHECK(result == true);
+}
 
-////   Passes ACK test -- test_udp_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
-//    bool result = TestUdpFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//   Passes ACK test -- test_udp_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
+    bool result = TestUdpFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////   Passes ACK test -- test_udp_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
-//    bool result = TestUdpMultiFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//   Passes ACK test -- test_udp_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
+    bool result = TestUdpMultiFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes ACK test -- test_stcp.bat
-//BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
-//    bool result = TestStcp();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes ACK test -- test_stcp.bat
+BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcp" << std::endl << std::flush;
+    bool result = TestStcp();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes ACK test -- test_stcp_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " "it_TestStcpFastCutthrough" << std::endl << std::flush;
-//    bool result = TestStcpFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes ACK test -- test_stcp_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestStcpFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " "it_TestStcpFastCutthrough" << std::endl << std::flush;
+    bool result = TestStcpFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes ACK test -- test_stcp_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
-//    bool result = TestStcpMultiFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes ACK test -- test_stcp_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStcpMuliFastCutthrough" << std::endl << std::flush;
+    bool result = TestStcpMultiFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////   Fails ACK test -- test_storage.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
-//    bool result = TestStorage();
-//    BOOST_CHECK(result == true);
-//}
+//   Fails ACK test -- test_storage.bat
+BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
+    bool result = TestStorage();
+    BOOST_CHECK(result == true);
+}
 
 //    Fails ACK test -- test_storage_multi.bat
-BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
     bool result = TestStorageMulti();
     BOOST_CHECK(result == true);
 }
 
-////    Fails ACK test -- test_storage_slowbpsink.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
-//    bool result = TestStorageSlowBpSink();
-//    BOOST_CHECK(result == true);
-//}
+//    Fails ACK test -- test_storage_slowbpsink.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
+    bool result = TestStorageSlowBpSink();
+    BOOST_CHECK(result == true);
+}
 
