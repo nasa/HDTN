@@ -19,6 +19,7 @@ public:
     TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100);
 
     ~TcpclBundleSource();
+    void Stop();
     bool Forward(const uint8_t* bundleData, const std::size_t size);
     bool Forward(zmq::message_t & dataZmq);
     bool Forward(std::vector<uint8_t> & dataVec);

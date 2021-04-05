@@ -37,7 +37,7 @@ public:
     uint64_t m_bundleCount;
 
 
-    struct FinalStats m_FinalStats;
+    FinalStats m_FinalStats;
     std::size_t GetTotalBundlesAcked();
 
 

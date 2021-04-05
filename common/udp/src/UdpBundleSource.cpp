@@ -37,7 +37,10 @@ m_totalBundleBytesSent(0)
 }
 
 UdpBundleSource::~UdpBundleSource() {
+    Stop();
+}
 
+void UdpBundleSource::Stop() {
     //prevent UdpBundleSource from exiting before all bundles sent and acked
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
@@ -62,9 +65,9 @@ UdpBundleSource::~UdpBundleSource() {
         }
         break;
     }
-    
+
     DoUdpShutdown();
-    
+
     //The DoUdpShutdown should have taken care of this, but just to be sure, we have a single threaded destructor call.
     std::cout << "Checking that newDataSignalerTimer is stopped before the ioService.stop() call.." << std::endl;
     while (m_newDataSignalerTimerIsRunning) {
@@ -79,7 +82,7 @@ UdpBundleSource::~UdpBundleSource() {
     //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
     if (!m_ioService.stopped()) {
         m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
-    } 
+    }
 
     if(m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
@@ -94,8 +97,6 @@ UdpBundleSource::~UdpBundleSource() {
     std::cout << "m_totalBytesAckedByUdpSendCallback " << m_totalBytesAckedByUdpSendCallback << std::endl;
     std::cout << "m_totalBytesAckedByRate " << m_totalBytesAckedByRate << std::endl;
 }
-
-
 
 void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     m_rateBitsPerSec = rateBitsPerSec;

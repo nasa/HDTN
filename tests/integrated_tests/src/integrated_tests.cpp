@@ -241,12 +241,11 @@ bool TestCutThroughTcpcl() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -319,12 +318,11 @@ bool TestTcpclFastCutThrough() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -410,12 +408,11 @@ bool TestTcpclMultiFastCutThrough() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -502,12 +499,11 @@ bool TestCutThroughMulti() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -1175,12 +1171,11 @@ bool TestStorage() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -1310,12 +1305,11 @@ bool TestStorageSlowBpSink() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -1462,18 +1456,17 @@ bool TestStorageMulti() {
                 + std::to_string(totalBundlesBpsink) + ").");
         return false;
     }
-// Fails this test
-//    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-//        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-//                + std::to_string(totalBundlesAckedBpgen) + ").");
-//        return false;
-//    }
+    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
+                + std::to_string(totalBundlesAckedBpgen) + ").");
+        return false;
+    }
     return true;
 }
 
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-//  Fails ACK test -- test_tcpl_cutthrough.bat
+//  Passes test_tcpl_cutthrough.bat
 BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
     bool result = TestCutThroughTcpcl();
