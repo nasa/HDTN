@@ -56,7 +56,7 @@ int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-void Delay(uint seconds);
+void Delay(uint64_t seconds);
 
 // Global Test Fixture.  Used to setup Python Registration server.
 class BoostIntegratedTestsFixture {
@@ -118,7 +118,7 @@ void BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction() {
     this->StopPythonServer();
 }
 
-void Delay(uint seconds) {
+void Delay(uint64_t seconds) {
     boost::this_thread::sleep(boost::posix_time::seconds(seconds));
 }
 
