@@ -276,28 +276,7 @@ static const uint8_t decodedShifts[11] = { //index 1 based for sdnvSizeBytes
     14//10 byte
 };
 
-static const uint64_t masksPdep[8] = { //index 0 based for mask0x80Index
-    0x7f00000000000000,
-    0x7f7f000000000000,
-    0x7f7f7f0000000000,
-    0x7f7f7f7f00000000,
-    0x7f7f7f7f7f000000,
-    0x7f7f7f7f7f7f0000,
-    0x7f7f7f7f7f7f7f00,
-    0x7f7f7f7f7f7f7f7f
-};
 
-static const uint64_t masks0x80[9] = {
-    0x00,
-    0x8000000000000000,
-    0x8080000000000000,
-    0x8080800000000000,
-    0x8080808000000000,
-    0x8080808080000000,
-    0x8080808080800000,
-    0x8080808080808000,
-    0x8080808080808080
-};
 
 #ifdef _MSC_VER
 __declspec(align(16))
@@ -330,22 +309,96 @@ __attribute__((aligned(16)))
 
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
-    if (valToEncodeU64 > SDNV64_MAX_8_BYTE) {
+    static const uint64_t masksPdep1[10] = { //index 0 based for mask0x80Index
+        0x7f00000000000000,
+        0x7f7f000000000000,
+        0x7f7f7f0000000000,
+        0x7f7f7f7f00000000,
+        0x7f7f7f7f7f000000,
+        0x7f7f7f7f7f7f0000,
+        0x7f7f7f7f7f7f7f00,
+        0x7f7f7f7f7f7f7f7f,
+        0x7f7f7f7f7f7f7f7f,
+        0x7f7f7f7f7f7f7f7f
+    };
+    static const uint64_t masksPdep2[10] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0x7f00000000000000,
+        0x7f7f000000000000,
+    };
+
+    static const uint64_t masks0x80[10] = {
+        0x00,
+        0x8000000000000000,
+        0x8080000000000000,
+        0x8080800000000000,
+        0x8080808000000000,
+        0x8080808080000000,
+        0x8080808080800000,
+        0x8080808080808000,
+        0x8080808080808000,
+        0x8080808080808000,
+    };
+    static const uint64_t masks0x80_2[10] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0x8000000000000000,
+        0x8080000000000000,
+    };
+    static const uint8_t memoryOffsets[10] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        2,
+    };
+
+    //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) {
         //std::cout << "notice: SdnvEncodeU64Fast encountered a value that would result in an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
-        return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64);
-    }
-    const unsigned int msb = (valToEncodeU64 != 0) ? boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64) : 0;
+    //    return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64);
+    //}
+    const unsigned int msb = (valToEncodeU64 != 0) * boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64);
     const unsigned int mask0x80Index = (msb / 7);
     //const unsigned int sdnvSizeBytes = mask0x80Index + 1;
-    //std::cout << "encode fast: msb: " << msb << std::endl;
-    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep[mask0x80Index]) | masks0x80[mask0x80Index];
+    //std::cout << "encode fast: msb: " << msb << " mask0x80Index: " << mask0x80Index << std::endl;
+    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep1[mask0x80Index]) | masks0x80[mask0x80Index];
     //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
+
+    //for the large 9 and 10 byte sdnv
+    const uint64_t encoded64BigSdnv = _pdep_u64(valToEncodeU64 >> 56, masksPdep2[mask0x80Index]) | masks0x80_2[mask0x80Index];
+    //std::cout << "encoded64BigSdnv: " << std::hex << encoded64BigSdnv  << std::dec << std::endl;
+    const uint64_t encoded64BigSdnvForMemcpy = boost::endian::big_to_native(encoded64BigSdnv);
 #if 0
     const __m128i forStore =_mm_set_epi64x(0, encoded64ForMemcpy); //put encoded64ForMemcpy in element 0
     _mm_storeu_si64(outputEncoded, forStore);//SSE Store 64-bit integer from the first element of a into memory. mem_addr does not need to be aligned on any particular boundary.
 #else
-    _mm_stream_si64((long long int *)outputEncoded, encoded64ForMemcpy);
+    _mm_stream_si64((long long int *)(outputEncoded), encoded64BigSdnvForMemcpy);
+    //for (unsigned int i = 0; i < 10; ++i) { std::cout << std::hex << (int)outputEncoded[i] << " "; } std::cout << std::endl;
+    
+    _mm_stream_si64((long long int *)(outputEncoded + memoryOffsets[mask0x80Index]), encoded64ForMemcpy);
+    //for (unsigned int i = 0; i < 10; ++i) { std::cout << std::hex << (int)outputEncoded[i] << " "; } std::cout << std::endl;
+    
+    //uint8_t numBytes;  std::cout << "valToEncodeU64: " << valToEncodeU64 << "  deoded: " << SdnvDecodeU64Classic(outputEncoded, &numBytes) << std::endl;
+    //std::cout << "numbytes: " << (int) numBytes << std::endl;
 #endif
     return mask0x80Index + 1; //sdnvSizeBytes;
 }
