@@ -104,6 +104,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         m_totalBytesRx = bpSink.m_totalBytesRx;
         m_receivedCount = bpSink.m_receivedCount;
         m_duplicateCount = bpSink.m_duplicateCount;
+        this->m_FinalStatsBpSink = bpSink.m_FinalStatsBpSink;
     }
     std::cout << "BpSinkAsyncRunner: exited cleanly\n";
     return true;

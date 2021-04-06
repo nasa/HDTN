@@ -18,6 +18,25 @@
 namespace hdtn {
 
 
+struct FinalStatsBpSink {
+    bool useTcpcl;
+    bool useStcp;
+
+    uint32_t m_batch;
+
+    uint64_t m_tscTotal;
+    int64_t m_rtTotal;
+    uint64_t m_totalBytesRx;
+
+    uint64_t m_receivedCount;
+    uint64_t m_duplicateCount;
+    uint64_t m_seqHval;
+    uint64_t m_seqBase;
+};
+
+
+
+
 class BpSinkAsync {
 private:
     BpSinkAsync();
@@ -47,6 +66,8 @@ public:
     uint64_t m_duplicateCount;
     uint64_t m_seqHval;
     uint64_t m_seqBase;
+
+    FinalStatsBpSink m_FinalStatsBpSink;
 
 private:
     const uint16_t m_rxPortUdpOrTcp;
