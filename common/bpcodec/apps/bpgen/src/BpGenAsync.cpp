@@ -37,7 +37,22 @@ void BpGenAsync::Stop() {
         m_bpGenThreadPtr->join();
         m_bpGenThreadPtr.reset(); //delete it
     }
-    
+
+    // Get the final stats
+    if (this->m_udpBundleSourcePtr) {
+        m_udpBundleSourcePtr->Stop();
+        m_FinalStats.m_totalUdpPacketsSent = m_udpBundleSourcePtr->m_totalUdpPacketsSent;
+        m_FinalStats.m_totalUdpPacketsAckedByRate = m_udpBundleSourcePtr->m_totalUdpPacketsAckedByRate;
+        m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = m_udpBundleSourcePtr->m_totalUdpPacketsAckedByUdpSendCallback;
+    } else if (this->m_tcpclBundleSourcePtr) {
+        m_tcpclBundleSourcePtr->Stop();
+        m_FinalStats.m_totalDataSegmentsAcked = m_tcpclBundleSourcePtr->m_totalDataSegmentsAcked;
+    } else if (this->m_stcpBundleSourcePtr) {
+        m_stcpBundleSourcePtr->Stop();
+        m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByTcpSendCallback;
+        m_FinalStats.m_totalDataSegmentsAckedByRate = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByRate;
+    }
+
     m_tcpclBundleSourcePtr.reset(); //delete it
     m_stcpBundleSourcePtr.reset(); //delete it
     m_udpBundleSourcePtr.reset(); //delete it
@@ -48,6 +63,17 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
     }
+
+    // Init final stats
+    m_FinalStats.useStcp = useStcp;
+    m_FinalStats.useTcpcl = useTcpcl;
+    m_FinalStats.bundleCount = m_bundleCount;
+    m_FinalStats.m_totalUdpPacketsSent = 0;
+    m_FinalStats.m_totalUdpPacketsAckedByRate = 0;
+    m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = 0;
+    m_FinalStats.m_totalDataSegmentsAcked = 0;
+    m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = 0;
+    m_FinalStats.m_totalDataSegmentsAckedByRate = 0;
 
     if(useTcpcl) {
         m_tcpclBundleSourcePtr = boost::make_unique<TcpclBundleSource>(30, thisLocalEidString);
@@ -295,3 +321,17 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
 }
+
+std::size_t BpGenAsync::GetTotalBundlesAcked() {
+    if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
+        return m_tcpclBundleSourcePtr->GetTotalDataSegmentsAcked();
+    }
+    else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
+        return m_stcpBundleSourcePtr->GetTotalDataSegmentsAcked();
+    }
+    else if (m_udpBundleSourcePtr) { //udp
+        return m_udpBundleSourcePtr->GetTotalUdpPacketsAcked();
+    }
+    return 0;
+}
+

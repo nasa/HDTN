@@ -18,6 +18,7 @@ public:
     StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds, const uint64_t rateBps = 50, const unsigned int maxUnacked = 100);
 
     ~StcpBundleSource();
+    void Stop();
     bool Forward(const uint8_t* bundleData, const std::size_t size);
     bool Forward(zmq::message_t & dataZmq);
     bool Forward(std::vector<uint8_t> & dataVec);

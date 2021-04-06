@@ -49,7 +49,10 @@ m_totalBundleBytesSent(0)
 }
 
 TcpclBundleSource::~TcpclBundleSource() {
-    
+    Stop();
+}
+
+void TcpclBundleSource::Stop() {
     //prevent TcpclBundleSource from exiting before all bundles sent and acked
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
@@ -73,7 +76,7 @@ TcpclBundleSource::~TcpclBundleSource() {
         }
         break;
     }
-    
+
     DoTcpclShutdown(true, false);
     while (!m_tcpclShutdownComplete) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(250));

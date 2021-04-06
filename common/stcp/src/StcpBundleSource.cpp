@@ -42,7 +42,10 @@ m_totalStcpBytesSent(0)
 }
 
 StcpBundleSource::~StcpBundleSource() {
+    Stop();
+}
 
+void StcpBundleSource::Stop() {
     //prevent StcpBundleSource from exiting before all bundles sent and acked
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
@@ -52,11 +55,11 @@ StcpBundleSource::~StcpBundleSource() {
         const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
         if (numUnacked) {
             std::cout << "notice: StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
-            
+
 //            std::cout << "   acked by rate: " << m_totalDataSegmentsAckedByRate << std::endl;
 //            std::cout << "   acked by cb: " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
 //            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
-            
+
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
                 attempt = 0;
@@ -67,7 +70,7 @@ StcpBundleSource::~StcpBundleSource() {
         }
         break;
     }
-    
+
     DoStcpShutdown();
 
     //The DoStcpShutdown should have taken care of this, but just to be sure, we have a single threaded destructor call.
