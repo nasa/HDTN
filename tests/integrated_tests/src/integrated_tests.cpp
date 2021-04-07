@@ -227,16 +227,16 @@ bool TestCutThroughTcpcl() {
 
 
 
-    std::cout << "finalStatsBpSink[0].useStcp:          " << finalStatsBpSink[0].useStcp << std::endl;
-    std::cout << "finalStatsBpSink[0].useStcp:          " << finalStatsBpSink[0].useStcp << std::endl;
-    std::cout << "finalStatsBpSink[0].useTcpcl:         " << finalStatsBpSink[0].useTcpcl << std::endl;
-    std::cout << "finalStatsBpSink[0].m_rtTotal:        " << finalStatsBpSink[0].m_rtTotal << std::endl;
-    std::cout << "finalStatsBpSink[0].m_seqBase:        " << finalStatsBpSink[0].m_seqBase << std::endl;
-    std::cout << "finalStatsBpSink[0].m_seqHval:        " << finalStatsBpSink[0].m_seqHval << std::endl;
-    std::cout << "finalStatsBpSink[0].m_tscTotal:       " << finalStatsBpSink[0].m_tscTotal << std::endl;
-    std::cout << "finalStatsBpSink[0].m_totalBytesRx:   " << finalStatsBpSink[0].m_totalBytesRx << std::endl;
-    std::cout << "finalStatsBpSink[0].m_receivedCount:  " << finalStatsBpSink[0].m_receivedCount << std::endl;
-    std::cout << "finalStatsBpSink[0].m_duplicateCount: " << finalStatsBpSink[0].m_duplicateCount << std::endl;
+//    std::cout << "finalStatsBpSink[0].useStcp:          " << finalStatsBpSink[0].useStcp << std::endl;
+//    std::cout << "finalStatsBpSink[0].useStcp:          " << finalStatsBpSink[0].useStcp << std::endl;
+//    std::cout << "finalStatsBpSink[0].useTcpcl:         " << finalStatsBpSink[0].useTcpcl << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_rtTotal:        " << finalStatsBpSink[0].m_rtTotal << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_seqBase:        " << finalStatsBpSink[0].m_seqBase << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_seqHval:        " << finalStatsBpSink[0].m_seqHval << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_tscTotal:       " << finalStatsBpSink[0].m_tscTotal << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_totalBytesRx:   " << finalStatsBpSink[0].m_totalBytesRx << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_receivedCount:  " << finalStatsBpSink[0].m_receivedCount << std::endl;
+//    std::cout << "finalStatsBpSink[0].m_duplicateCount: " << finalStatsBpSink[0].m_duplicateCount << std::endl;
 
 
 
@@ -1214,7 +1214,7 @@ bool TestStcpMultiFastCutthrough() {
     }
     return true;
 }
-/*
+
 bool TestStorage() {
 
     Delay(DELAY_TEST);
@@ -1227,6 +1227,7 @@ bool TestStorage() {
 
     uint64_t bundlesSentBpgen[1] = {0};
     struct FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
@@ -1235,7 +1236,7 @@ bool TestStorage() {
     // Start threads
     Delay(DELAY_THREAD);
     static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4558",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],&finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
     static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
@@ -1286,46 +1287,40 @@ bool TestStorage() {
         }
     }
 
-    // Get stats
-    uint64_t bundlesAckedBpgen[1] = {0};
-    for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
-    }
-
-//    std::cout << "finalStats[0].useStcp:                                   " << finalStats[0].useStcp << std::endl;
-//    std::cout << "finalStats[0].useTcpcl:                                  " << finalStats[0].useTcpcl << std::endl;
-//    std::cout << "finalStats[0].bundleCount:                               " << finalStats[0].bundleCount << std::endl;
-//    std::cout << "finalStats[0].m_totalUdpPacketsSent:                     " << finalStats[0].m_totalUdpPacketsSent << std::endl;
-//    std::cout << "finalStats[0].m_totalDataSegmentsAcked:                  " << finalStats[0].m_totalDataSegmentsAcked << std::endl;
-//    std::cout << "finalStats[0].m_totalUdpPacketsAckedByRate:              " << finalStats[0].m_totalUdpPacketsAckedByRate << std::endl;
-//    std::cout << "finalStats[0].m_totalDataSegmentsAckedByRate:            " << finalStats[0].m_totalDataSegmentsAckedByRate << std::endl;
-//    std::cout << "finalStats[0].m_totalUdpPacketsAckedByUdpSendCallback:   " << finalStats[0].m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
-//    std::cout << "finalStats[0].m_totalDataSegmentsAckedByTcpSendCallback: " << finalStats[0].m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
-
-    uint64_t totalBundlesAckedBpgen = 0;
-    for(int i=0; i<1; i++) {
-        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
-    }
-
     runningStorage = false;
     threadStorage.join();
     bundleCountStorage = storageRunner.m_totalBundlesSentToEgressFromStorage;
-
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
     threadEgress.join();
     runningBpsink[0] = false;
     threadBpsink0.join();
-
     threadReleaseSender.join();
 
-    // Verify results
+    // Get stats
+    uint64_t bundlesAckedBpgen[1] = {0};
+    for(int i=0; i<1; i++) {
+      bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+    }
+    uint64_t bundlesAckedBpsink[1] = {0};
+    for(int i=0; i<1; i++) {
+      bundlesAckedBpsink[i] = finalStatsBpSink[i].m_receivedCount;
+    }
     uint64_t totalBundlesBpsink = 0;
     for(int i=0; i<1; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
     }
+    uint64_t totalBundlesAckedBpgen = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
+    }
+    uint64_t totalBundlesAckedBpsink = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesAckedBpsink += bundlesAckedBpsink[i];
+    }
 
+    // Verify results
     if (totalBundlesBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
                 + std::to_string(bundleCountIngress) + ").");
@@ -1351,6 +1346,11 @@ bool TestStorage() {
                 + std::to_string(totalBundlesAckedBpgen) + ").");
         return false;
     }
+    if (totalBundlesBpgen != totalBundlesAckedBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPSINK "
+                + std::to_string(totalBundlesAckedBpsink) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -1366,6 +1366,7 @@ bool TestStorageSlowBpSink() {
 
     uint64_t bundlesSentBpgen[1] = {0};
     struct FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    hdtn::FinalStatsBpSink finalStatsBpSink[1];
 
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -1375,7 +1376,7 @@ bool TestStorageSlowBpSink() {
     // Start threads
     Delay(DELAY_THREAD);
     static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4558","--simulate-processing-lag-ms=10",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,4,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,4,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],&finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
     static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
@@ -1430,36 +1431,40 @@ bool TestStorageSlowBpSink() {
         }
     }
 
-    // Get stats
-    uint64_t bundlesAckedBpgen[1] = {0};
-    for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
-    }
-
-    uint64_t totalBundlesAckedBpgen = 0;
-    for(int i=0; i<1; i++) {
-        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
-    }
-
     runningStorage = false;
     threadStorage.join();
     bundleCountStorage = storageRunner.m_totalBundlesSentToEgressFromStorage;
-
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
     threadEgress.join();
     runningBpsink[0] = false;
     threadBpsink0.join();
-
     threadReleaseSender.join();
 
-    // Verify results
+    // Get stats
+    uint64_t bundlesAckedBpgen[1] = {0};
+    for(int i=0; i<1; i++) {
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+    }
+    uint64_t bundlesAckedBpsink[1] = {0};
+    for(int i=0; i<1; i++) {
+      bundlesAckedBpsink[i] = finalStatsBpSink[i].m_receivedCount;
+    }
+    uint64_t totalBundlesAckedBpgen = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
+    }
     uint64_t totalBundlesBpsink = 0;
     for(int i=0; i<1; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
     }
+    uint64_t totalBundlesAckedBpsink = 0;
+    for(int i=0; i<1; i++) {
+        totalBundlesAckedBpsink += bundlesAckedBpsink[i];
+    }
 
+    // Verify results
     if (totalBundlesBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
                 + std::to_string(bundleCountIngress) + ").");
@@ -1485,6 +1490,11 @@ bool TestStorageSlowBpSink() {
                 + std::to_string(totalBundlesAckedBpgen) + ").");
         return false;
     }
+    if (totalBundlesBpgen != totalBundlesAckedBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPSINK "
+                + std::to_string(totalBundlesAckedBpsink) + ").");
+        return false;
+    }
     return true;
 }
 
@@ -1500,6 +1510,7 @@ bool TestStorageMulti() {
 
     uint64_t bundlesSentBpgen[2] = {0,0};
     struct FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
@@ -1509,11 +1520,11 @@ bool TestStorageMulti() {
 
     Delay(DELAY_THREAD);
     static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4557",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0]);
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],&finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
     static const char * argsBpsink1[] = {"bpsink","--use-tcpcl","--port=4558",NULL};
-    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,3,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1]);
+    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,3,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],&finalStatsBpSink[1]);
 
     Delay(DELAY_THREAD);
     static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=4557","--port2=4558",NULL};
@@ -1558,7 +1569,6 @@ bool TestStorageMulti() {
     while (! releaseSender.m_timersFinished) {
         Delay(1);
     }
-//    std::cout << "releaseSender.m_timersFinished: " << ptrReleaseSender->m_timersFinished << std::endl << std::flush;
 
     // Do not stop storage until the bundles deleted equal number generated
     uint64_t totalBundlesBpgen = 0;
@@ -1578,17 +1588,6 @@ bool TestStorageMulti() {
         }
     }
 
-    // Get stats
-    uint64_t bundlesAckedBpgen[2] = {0,0};
-    for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
-    }
-
-    uint64_t totalBundlesAckedBpgen = 0;
-    for(int i=0; i<2; i++) {
-        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
-    }
-
     runningStorage = false;
     threadStorage.join();
     bundleCountStorage = storageRunner.m_totalBundlesSentToEgressFromStorage;
@@ -1606,11 +1605,29 @@ bool TestStorageMulti() {
     threadBpsink0.join();
     threadReleaseSender.join();
 
-    // Verify results
+    // Get stats
+    uint64_t bundlesAckedBpgen[2] = {0,0};
+    for(int i=0; i<2; i++) {
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+    }
+    uint64_t bundlesAckedBpsink[2] = {0,0};
+    for(int i=0; i<2; i++) {
+      bundlesAckedBpsink[i] = finalStatsBpSink[i].m_receivedCount;
+    }
+    uint64_t totalBundlesAckedBpgen = 0;
+    for(int i=0; i<2; i++) {
+        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
+    }
     uint64_t totalBundlesBpsink = 0;
     for(int i=0; i<2; i++) {
         totalBundlesBpsink += bundlesReceivedBpsink[i];
     }
+    uint64_t totalBundlesAckedBpsink = 0;
+    for(int i=0; i<2; i++) {
+        totalBundlesAckedBpsink += bundlesAckedBpsink[i];
+    }
+
+    // Verify results
     if (totalBundlesBpgen != bundleCountIngress) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
                 + std::to_string(bundleCountIngress) + ").");
@@ -1636,59 +1653,64 @@ bool TestStorageMulti() {
                 + std::to_string(totalBundlesAckedBpgen) + ").");
         return false;
     }
+    if (totalBundlesBpgen != totalBundlesAckedBpsink) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPSINK "
+                + std::to_string(totalBundlesAckedBpsink) + ").");
+        return false;
+    }
     return true;
 }
-*/
+
 BOOST_GLOBAL_FIXTURE(BoostIntegratedTestsFixture);
 
-////  Passes test_tcpl_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
-//    bool result = TestCutThroughTcpcl();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes test_tcpl_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughTcpcl, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughTcpcl" << std::endl << std::flush;
+    bool result = TestCutThroughTcpcl();
+    BOOST_CHECK(result == true);
+}
 
-////  Fails ACK test-- test_tcpl_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
-//    bool result = TestTcpclFastCutThrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Fails ACK test-- test_tcpl_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestTcpclFastCutThrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclFastCutThrough" << std::endl << std::flush;
+    bool result = TestTcpclFastCutThrough();
+    BOOST_CHECK(result == true);
+}
 
-////  Fails ACK test -- test_tcpl_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
-//    bool result = TestTcpclMultiFastCutThrough();
-//    BOOST_CHECK(result == true);
-//}
+//  Fails ACK test -- test_tcpl_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestTcpclMultiFastCutThrough" << std::endl << std::flush;
+    bool result = TestTcpclMultiFastCutThrough();
+    BOOST_CHECK(result == true);
+}
 
-////   Fails ACK test -- test_cutthrough_multi.bat
-//BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
-//    bool result = TestCutThroughMulti();
-//    BOOST_CHECK(result == true);
-//}
+//   Fails ACK test -- test_cutthrough_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
+    bool result = TestCutThroughMulti();
+    BOOST_CHECK(result == true);
+}
 
-////  Passes ACK test -- test_udp.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
-//    bool result = TestUdp();
-//    BOOST_CHECK(result == true);
-//}
+//  Passes ACK test -- test_udp.bat
+BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: "<< "it_TestUdp" << std::endl << std::flush;
+    bool result = TestUdp();
+    BOOST_CHECK(result == true);
+}
 
-////   Passes ACK test -- test_udp_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
-//    bool result = TestUdpFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//   Passes ACK test -- test_udp_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestUdpFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestUdpFastCutthrough" << std::endl << std::flush;
+    bool result = TestUdpFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
-////   Passes ACK test -- test_udp_multi_fast_cutthrough.bat
-//BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
-//    bool result = TestUdpMultiFastCutthrough();
-//    BOOST_CHECK(result == true);
-//}
+//   Passes ACK test -- test_udp_multi_fast_cutthrough.bat
+BOOST_AUTO_TEST_CASE(it_TestUdpMultiFastCutthrough, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " "it_TestUdpMultiFastCutthrough" << std::endl << std::flush;
+    bool result = TestUdpMultiFastCutthrough();
+    BOOST_CHECK(result == true);
+}
 
 //  Passes ACK test -- test_stcp.bat
 BOOST_AUTO_TEST_CASE(it_TestStcp, * boost::unit_test::enabled()) {
@@ -1711,24 +1733,24 @@ BOOST_AUTO_TEST_CASE(it_TestStcpMuliFastCutthrough, * boost::unit_test::enabled(
     BOOST_CHECK(result == true);
 }
 
-////   Fails ACK test -- test_storage.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
-//    bool result = TestStorage();
-//    BOOST_CHECK(result == true);
-//}
+//   Fails ACK test -- test_storage.bat
+BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorage" << std::endl << std::flush;
+    bool result = TestStorage();
+    BOOST_CHECK(result == true);
+}
 
-////    Fails ACK test -- test_storage_multi.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
-//    bool result = TestStorageMulti();
-//    BOOST_CHECK(result == true);
-//}
+//    Fails ACK test -- test_storage_multi.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
+    bool result = TestStorageMulti();
+    BOOST_CHECK(result == true);
+}
 
-////    Fails ACK test -- test_storage_slowbpsink.bat
-//BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
-//    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
-//    bool result = TestStorageSlowBpSink();
-//    BOOST_CHECK(result == true);
-//}
+//    Fails ACK test -- test_storage_slowbpsink.bat
+BOOST_AUTO_TEST_CASE(it_TestStorageSlowBpSink, * boost::unit_test::enabled()) {
+    std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageSlowBpSink" << std::endl << std::flush;
+    bool result = TestStorageSlowBpSink();
+    BOOST_CHECK(result == true);
+}
 
