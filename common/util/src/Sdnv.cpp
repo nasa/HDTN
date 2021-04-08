@@ -236,8 +236,7 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     return 0;
 }
 
-static const uint64_t masks[11] = { //index 1 based for sdnvSizeBytes
-    0x00,
+static const uint64_t masksPdepPext1[10] = { //index 0 based for mask0x80Index
     0x7f00000000000000,
     0x7f7f000000000000,
     0x7f7f7f0000000000,
@@ -249,32 +248,20 @@ static const uint64_t masks[11] = { //index 1 based for sdnvSizeBytes
     0x7f7f7f7f7f7f7f7f,
     0x7f7f7f7f7f7f7f7f
 };
-static const uint64_t masks2[11] = { //index 1 based for sdnvSizeBytes
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x7f00000000000000,//9 byte
-    0x7f7f000000000000//10 byte
+static const uint64_t masksPdepPext2[10] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0x7f00000000000000,
+    0x7f7f000000000000,
 };
-static const uint8_t decodedShifts[11] = { //index 1 based for sdnvSizeBytes
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    7,//9 byte
-    14//10 byte
-};
+
+
 
 
 
@@ -422,30 +409,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
 
-    static const uint64_t masksPdep1[10] = { //index 0 based for mask0x80Index
-        0x7f00000000000000,
-        0x7f7f000000000000,
-        0x7f7f7f0000000000,
-        0x7f7f7f7f00000000,
-        0x7f7f7f7f7f000000,
-        0x7f7f7f7f7f7f0000,
-        0x7f7f7f7f7f7f7f00,
-        0x7f7f7f7f7f7f7f7f,
-        0x7f7f7f7f7f7f7f7f,
-        0x7f7f7f7f7f7f7f7f
-    };
-    static const uint64_t masksPdep2[10] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0x7f00000000000000,
-        0x7f7f000000000000,
-    };
+    
 
     static const uint64_t masks0x80[10] = {
         0x00,
@@ -504,7 +468,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 
     const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
     //std::cout << "encode fast: msb: " << msb << std::endl;
-    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep1[mask0x80Index]) | masks0x80[mask0x80Index];
+    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdepPext1[mask0x80Index]) | masks0x80[mask0x80Index];
     //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
 #define ENCODE_USE_BRANCHING 0
@@ -515,7 +479,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     else {
 #endif
         //for the large 9 and 10 byte sdnv
-        const uint64_t encoded64BigSdnv = _pdep_u64(valToEncodeU64 >> 56, masksPdep2[mask0x80Index]) | masks0x80_2[mask0x80Index];
+        const uint64_t encoded64BigSdnv = _pdep_u64(valToEncodeU64 >> 56, masksPdepPext2[mask0x80Index]) | masks0x80_2[mask0x80Index];
         //std::cout << "encoded64BigSdnv: " << std::hex << encoded64BigSdnv  << std::dec << std::endl;
         const uint64_t encoded64BigSdnvForMemcpy = boost::endian::big_to_native(encoded64BigSdnv);
 
@@ -548,7 +512,7 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     //PDEP          0xff00fff0       0x00012567   0x12005670
 
 
-#if 0
+/*
     __m128i sdnvEncoded = _mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
     int significantBitsSetMask = _mm_movemask_epi8(sdnvEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
     if (significantBitsSetMask == 0x00ff) {
@@ -562,24 +526,36 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
     *numBytes = sdnvSizeBytes;
     return decoded;
-#else 
+*/
+
+    static const uint8_t decodedShifts[10] = { //index 0 based for maskIndex
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        7,//9 byte
+        14//10 byte
+    };
     __m128i sdnvEncoded = _mm_loadu_si128((__m128i const*) data); //SSE2 Load 128-bits of integer data from memory into dst. mem_addr does not need to be aligned on any particular boundary.
     int significantBitsSetMask = _mm_movemask_epi8(sdnvEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
-    const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
+    const unsigned int maskIndex = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask);
     const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-    uint64_t decoded = _pext_u64(u64ByteSwapped, masks[sdnvSizeBytes]);
-    decoded <<= decodedShifts[sdnvSizeBytes];
+    uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
+    decoded <<= decodedShifts[maskIndex];
     sdnvEncoded = _mm_srli_si128(sdnvEncoded, 8);
     const uint64_t encoded64High = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64HighByteSwapped = boost::endian::big_to_native(encoded64High);
-    uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masks2[sdnvSizeBytes]);
+    uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masksPdepPext2[maskIndex]);
     decoded |= decoded2;
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
     //std::cout << " u64HighByteSwapped " << std::hex << u64HighByteSwapped << " m2 " << masks2[sdnvSizeBytes] << " d2 " << decoded2 << std::dec << std::endl;
-    *numBytes = sdnvSizeBytes;
+    *numBytes = maskIndex + 1; //sdnvSizeBytes;
     return decoded;
-#endif
 }
 
 //#define SIMD_BYTESHIFT_USE_FUNCTION_ARRAY 1
@@ -732,7 +708,8 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
               
         int significantBitsSetMask = _mm_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
         //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
-        const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
+        const unsigned int maskIndex = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask);
+        const unsigned int sdnvSizeBytes = maskIndex + 1;
         if (sdnvSizeBytes > bytesRemainingIn128Buffer) {
             //std::cout << "breaking..\n";
             break;
@@ -748,7 +725,7 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
             
             
             const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-            const uint64_t decoded = _pext_u64(u64ByteSwapped, masks[sdnvSizeBytes]);
+            const uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
             *decodedValues++ = decoded;
             //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
             //std::cout << "  decoded = " << decoded << std::endl;
@@ -827,7 +804,8 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
 
         int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
         //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
-        const unsigned int sdnvSizeBytes = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask) + 1;
+        const unsigned int maskIndex = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask);
+        const unsigned int sdnvSizeBytes = maskIndex + 1;
         if (sdnvSizeBytes > bytesRemainingIn256Buffer) {
             //std::cout << "breaking..\n";
             break;
@@ -848,7 +826,7 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
             //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[0] << std::dec << std::endl;
             //}
             const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-            const uint64_t decoded = _pext_u64(u64ByteSwapped, masks[sdnvSizeBytes]);
+            const uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
             *decodedValues++ = decoded;
             //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
             //std::cout << "  decoded = " << decoded << std::endl;
