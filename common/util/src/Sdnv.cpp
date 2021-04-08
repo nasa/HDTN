@@ -534,124 +534,6 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     return decoded;
 }
 
-//#define SIMD_BYTESHIFT_USE_FUNCTION_ARRAY 1
-
-#ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
-
-
-typedef void(*m128_shift_func_t)(__m128i &);
-
-BOOST_FORCEINLINE void M128i_ShiftRight0Byte(__m128i & val) { val = _mm_srli_si128(val, 0); }
-BOOST_FORCEINLINE void M128i_ShiftRight1Byte(__m128i & val) { val = _mm_srli_si128(val, 1); }
-BOOST_FORCEINLINE void M128i_ShiftRight2Byte(__m128i & val) { val = _mm_srli_si128(val, 2); }
-BOOST_FORCEINLINE void M128i_ShiftRight3Byte(__m128i & val) { val = _mm_srli_si128(val, 3); }
-BOOST_FORCEINLINE void M128i_ShiftRight4Byte(__m128i & val) { val = _mm_srli_si128(val, 4); }
-BOOST_FORCEINLINE void M128i_ShiftRight5Byte(__m128i & val) { val = _mm_srli_si128(val, 5); }
-BOOST_FORCEINLINE void M128i_ShiftRight6Byte(__m128i & val) { val = _mm_srli_si128(val, 6); }
-BOOST_FORCEINLINE void M128i_ShiftRight7Byte(__m128i & val) { val = _mm_srli_si128(val, 7); }
-BOOST_FORCEINLINE void M128i_ShiftRight8Byte(__m128i & val) { val = _mm_srli_si128(val, 8); }
-BOOST_FORCEINLINE void M128i_ShiftRight9Byte(__m128i & val) { val = _mm_srli_si128(val, 9); }
-BOOST_FORCEINLINE void M128i_ShiftRight10Byte(__m128i & val) { val = _mm_srli_si128(val, 10); }
-BOOST_FORCEINLINE void M128i_ShiftRight11Byte(__m128i & val) { val = _mm_srli_si128(val, 11); }
-BOOST_FORCEINLINE void M128i_ShiftRight12Byte(__m128i & val) { val = _mm_srli_si128(val, 12); }
-BOOST_FORCEINLINE void M128i_ShiftRight13Byte(__m128i & val) { val = _mm_srli_si128(val, 13); }
-BOOST_FORCEINLINE void M128i_ShiftRight14Byte(__m128i & val) { val = _mm_srli_si128(val, 14); }
-BOOST_FORCEINLINE void M128i_ShiftRight15Byte(__m128i & val) { val = _mm_srli_si128(val, 15); }
-BOOST_FORCEINLINE void M128i_ShiftRight16Byte(__m128i & val) { val = _mm_srli_si128(val, 16); }
-
-static const m128_shift_func_t M128i_ShiftRightByteFunctions[17] = {
-    &M128i_ShiftRight0Byte,
-    &M128i_ShiftRight1Byte,
-    &M128i_ShiftRight2Byte,
-    &M128i_ShiftRight3Byte,
-    &M128i_ShiftRight4Byte,
-    &M128i_ShiftRight5Byte,
-    &M128i_ShiftRight6Byte,
-    &M128i_ShiftRight7Byte,
-    &M128i_ShiftRight8Byte,
-    &M128i_ShiftRight9Byte,
-    &M128i_ShiftRight10Byte,
-    &M128i_ShiftRight11Byte,
-    &M128i_ShiftRight12Byte,
-    &M128i_ShiftRight13Byte,
-    &M128i_ShiftRight14Byte,
-    &M128i_ShiftRight15Byte,
-    &M128i_ShiftRight16Byte
-};
-
-typedef void(*m256_shift_func_t)(__m256i &);
-
-BOOST_FORCEINLINE void M256i_ShiftRight0Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 0); }
-BOOST_FORCEINLINE void M256i_ShiftRight1Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 1); }
-BOOST_FORCEINLINE void M256i_ShiftRight2Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 2); }
-BOOST_FORCEINLINE void M256i_ShiftRight3Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 3); }
-BOOST_FORCEINLINE void M256i_ShiftRight4Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 4); }
-BOOST_FORCEINLINE void M256i_ShiftRight5Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 5); }
-BOOST_FORCEINLINE void M256i_ShiftRight6Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 6); }
-BOOST_FORCEINLINE void M256i_ShiftRight7Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 7); }
-BOOST_FORCEINLINE void M256i_ShiftRight8Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 8); }
-BOOST_FORCEINLINE void M256i_ShiftRight9Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 9); }
-BOOST_FORCEINLINE void M256i_ShiftRight10Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 10); }
-BOOST_FORCEINLINE void M256i_ShiftRight11Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 11); }
-BOOST_FORCEINLINE void M256i_ShiftRight12Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 12); }
-BOOST_FORCEINLINE void M256i_ShiftRight13Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 13); }
-BOOST_FORCEINLINE void M256i_ShiftRight14Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 14); }
-BOOST_FORCEINLINE void M256i_ShiftRight15Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 15); }
-BOOST_FORCEINLINE void M256i_ShiftRight16Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 16); }
-BOOST_FORCEINLINE void M256i_ShiftRight17Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 17); }
-BOOST_FORCEINLINE void M256i_ShiftRight18Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 18); }
-BOOST_FORCEINLINE void M256i_ShiftRight19Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 19); }
-BOOST_FORCEINLINE void M256i_ShiftRight20Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 20); }
-BOOST_FORCEINLINE void M256i_ShiftRight21Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 21); }
-BOOST_FORCEINLINE void M256i_ShiftRight22Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 22); }
-BOOST_FORCEINLINE void M256i_ShiftRight23Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 23); }
-BOOST_FORCEINLINE void M256i_ShiftRight24Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 24); }
-BOOST_FORCEINLINE void M256i_ShiftRight25Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 25); }
-BOOST_FORCEINLINE void M256i_ShiftRight26Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 26); }
-BOOST_FORCEINLINE void M256i_ShiftRight27Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 27); }
-BOOST_FORCEINLINE void M256i_ShiftRight28Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 28); }
-BOOST_FORCEINLINE void M256i_ShiftRight29Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 29); }
-BOOST_FORCEINLINE void M256i_ShiftRight30Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 30); }
-BOOST_FORCEINLINE void M256i_ShiftRight31Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 31); }
-BOOST_FORCEINLINE void M256i_ShiftRight32Byte(__m256i & val) { val = _mm256_alignr_epi8(_mm256_permute2f128_si256(_mm256_set1_epi32(0), val, 0x03), val, 32); }
-
-static const m256_shift_func_t M256i_ShiftRightByteFunctions[33] = {
-    &M256i_ShiftRight0Byte,
-    &M256i_ShiftRight1Byte,
-    &M256i_ShiftRight2Byte,
-    &M256i_ShiftRight3Byte,
-    &M256i_ShiftRight4Byte,
-    &M256i_ShiftRight5Byte,
-    &M256i_ShiftRight6Byte,
-    &M256i_ShiftRight7Byte,
-    &M256i_ShiftRight8Byte,
-    &M256i_ShiftRight9Byte,
-    &M256i_ShiftRight10Byte,
-    &M256i_ShiftRight11Byte,
-    &M256i_ShiftRight12Byte,
-    &M256i_ShiftRight13Byte,
-    &M256i_ShiftRight14Byte,
-    &M256i_ShiftRight15Byte,
-    &M256i_ShiftRight16Byte,
-    &M256i_ShiftRight17Byte,
-    &M256i_ShiftRight18Byte,
-    &M256i_ShiftRight19Byte,
-    &M256i_ShiftRight20Byte,
-    &M256i_ShiftRight21Byte,
-    &M256i_ShiftRight22Byte,
-    &M256i_ShiftRight23Byte,
-    &M256i_ShiftRight24Byte,
-    &M256i_ShiftRight25Byte,
-    &M256i_ShiftRight26Byte,
-    &M256i_ShiftRight27Byte,
-    &M256i_ShiftRight28Byte,
-    &M256i_ShiftRight29Byte,
-    &M256i_ShiftRight30Byte,
-    &M256i_ShiftRight31Byte,
-    &M256i_ShiftRight32Byte
-};
-
-#endif // SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
 
 //return num values decoded this iteration
 unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining) {
@@ -703,9 +585,15 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
         //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
         //std::cout << "  decoded = " << decoded << std::endl;
         
-#ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
-        (*M128i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
-#elif 1
+//#define DECODE_MULTIPLE_USE_LOOP 1 //slow
+#define DECODE_MULTIPLE_USE_SHUFFLE 1
+//#define DECODE_MULTIPLE_USE_SWITCH 1
+
+#ifdef DECODE_MULTIPLE_USE_LOOP
+        for (unsigned int i = 0; i < sdnvSizeBytes; ++i) {
+            sdnvsEncoded = _mm_srli_si128(sdnvsEncoded, 1);
+        }
+#elif defined DECODE_MULTIPLE_USE_SHUFFLE
         //const __m128i shuffleControlMask = _mm_loadu_si128((__m128i*) &SHUFFLE_SHR_128I[sdnvSizeBytes * sizeof(__m128i)]);
         const __m128i shuffleControlMask = _mm_stream_load_si128((__m128i*) &SHUFFLE_SHR_128I[sdnvSizeBytes * sizeof(__m128i)]); //SSE4.1 requires alignment
         sdnvsEncoded = _mm_shuffle_epi8(sdnvsEncoded, shuffleControlMask);
@@ -796,10 +684,6 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
         *decodedValues++ = decoded;
 
         
-#ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
-        (*M256i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
-       
-#else
         //this switch statement will be optimized by the compiler into a jump table, and sdnvsEncoded and shiftIn will remain in
         // the SIMD registers as opposed to using the function array method resulting in expensive SIMD load operations
         const __m256i shiftIn = _mm256_permute2f128_si256(_mm256_setzero_si256(), sdnvsEncoded, 0x03);
@@ -838,7 +722,7 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
         case 31: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 31); break;
         case 32: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 32); break;        
         }
-#endif
+
         bytesRemainingIn256Buffer -= sdnvSizeBytes;
         --decodedRemaining;
     }
