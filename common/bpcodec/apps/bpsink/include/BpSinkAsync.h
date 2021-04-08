@@ -17,25 +17,17 @@
 
 namespace hdtn {
 
-
 struct FinalStatsBpSink {
-    bool useTcpcl;
-    bool useStcp;
-
-    uint32_t m_batch;
-
+    FinalStatsBpSink() : m_tscTotal(0),m_rtTotal(0),m_totalBytesRx(0),m_receivedCount(0),m_duplicateCount(0),
+        m_seqHval(0),m_seqBase(0){};
     uint64_t m_tscTotal;
     int64_t m_rtTotal;
     uint64_t m_totalBytesRx;
-
     uint64_t m_receivedCount;
     uint64_t m_duplicateCount;
     uint64_t m_seqHval;
     uint64_t m_seqBase;
 };
-
-
-
 
 class BpSinkAsync {
 private:

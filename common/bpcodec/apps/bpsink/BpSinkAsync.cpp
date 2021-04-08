@@ -67,7 +67,6 @@ void BpSinkAsync::Stop() {
         }
     }
 
-    m_FinalStatsBpSink.m_batch = m_batch;
     m_FinalStatsBpSink.m_rtTotal = m_rtTotal;
     m_FinalStatsBpSink.m_seqBase = m_seqBase;
     m_FinalStatsBpSink.m_seqHval = m_seqHval;
@@ -105,15 +104,6 @@ int BpSinkAsync::Init(uint32_t type) {
     m_duplicateCount = 0;
     m_seqHval = 0;
     m_seqBase = 0;
-
-    m_FinalStatsBpSink.m_batch = m_batch;
-    m_FinalStatsBpSink.m_rtTotal = m_rtTotal;
-    m_FinalStatsBpSink.m_seqBase = m_seqBase;
-    m_FinalStatsBpSink.m_seqHval = m_seqHval;
-    m_FinalStatsBpSink.m_tscTotal = m_tscTotal;
-    m_FinalStatsBpSink.m_totalBytesRx = m_totalBytesRx;
-    m_FinalStatsBpSink.m_receivedCount = m_receivedCount;
-    m_FinalStatsBpSink.m_duplicateCount = m_duplicateCount;
     
     return 0;
 }
