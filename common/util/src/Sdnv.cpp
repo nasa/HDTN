@@ -261,7 +261,18 @@ static const uint64_t masksPdepPext2[10] = { //index 0 based for mask0x80Index (
     0x7f7f000000000000,
 };
 
-
+static const uint8_t decodedShifts[10] = { //index 0 based for maskIndex
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        7,//9 byte
+        14//10 byte
+};
 
 
 
@@ -300,31 +311,7 @@ __attribute__((aligned(16)))
 
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
-    static const uint64_t masksPdep1[10] = { //index 0 based for mask0x80Index
-        0x7f00000000000000,
-        0x7f7f000000000000,
-        0x7f7f7f0000000000,
-        0x7f7f7f7f00000000,
-        0x7f7f7f7f7f000000,
-        0x7f7f7f7f7f7f0000,
-        0x7f7f7f7f7f7f7f00,
-        0x7f7f7f7f7f7f7f7f,
-        0x7f7f7f7f7f7f7f7f,
-        0x7f7f7f7f7f7f7f7f
-    };
-    static const uint64_t masksPdep2[10] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0x7f00000000000000,
-        0x7f7f000000000000,
-    };
-
+    
     static const uint64_t masks0x80[10] = {
         0x00,
         0x8000000000000000,
@@ -528,18 +515,7 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     return decoded;
 */
 
-    static const uint8_t decodedShifts[10] = { //index 0 based for maskIndex
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,
-        7,//9 byte
-        14//10 byte
-    };
+    
     __m128i sdnvEncoded = _mm_loadu_si128((__m128i const*) data); //SSE2 Load 128-bits of integer data from memory into dst. mem_addr does not need to be aligned on any particular boundary.
     int significantBitsSetMask = _mm_movemask_epi8(sdnvEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
     const unsigned int maskIndex = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask);
@@ -714,26 +690,24 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
             //std::cout << "breaking..\n";
             break;
         }
-        else if (sdnvSizeBytes > 8) { //((significantBitsSetMask & 0xff) == 0x00ff) {
-            //std::cout << "  notice: SdnvDecodeU64Fast encountered an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
-            uint8_t thisSdnvBytesDecoded;
-            *decodedValues++ = SdnvDecodeU64Classic((data + sizeof(__m128i)) - bytesRemainingIn128Buffer, &thisSdnvBytesDecoded);
-        }
-        else {
-            
-            const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
-            
-            
-            const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-            const uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
-            *decodedValues++ = decoded;
-            //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
-            //std::cout << "  decoded = " << decoded << std::endl;
-        }
+        
+        const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
+        const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
+        uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
+        decoded <<= decodedShifts[maskIndex];
+        const uint64_t encoded64High = _mm_cvtsi128_si64(_mm_srli_si128(sdnvsEncoded, 8)); //SSE2 Copy the lower 64-bit integer in a to dst.
+        const uint64_t u64HighByteSwapped = boost::endian::big_to_native(encoded64High);
+        uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masksPdepPext2[maskIndex]);
+        decoded |= decoded2;
+        *decodedValues++ = decoded;
+        //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
+        //std::cout << "  decoded = " << decoded << std::endl;
+        
 #ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
         (*M128i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
 #elif 1
-        const __m128i shuffleControlMask = _mm_loadu_si128((__m128i*) &SHUFFLE_SHR_128I[sdnvSizeBytes * sizeof(__m128i)]);
+        //const __m128i shuffleControlMask = _mm_loadu_si128((__m128i*) &SHUFFLE_SHR_128I[sdnvSizeBytes * sizeof(__m128i)]);
+        const __m128i shuffleControlMask = _mm_stream_load_si128((__m128i*) &SHUFFLE_SHR_128I[sdnvSizeBytes * sizeof(__m128i)]); //SSE4.1 requires alignment
         sdnvsEncoded = _mm_shuffle_epi8(sdnvsEncoded, shuffleControlMask);
         //sdnvsEncoded = _mm_shuffle_epi8(sdnvsEncoded, SHUFFLE_CONTROL_MASK_M128I[sdnvSizeBytes]);
 #else
@@ -810,34 +784,25 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
             //std::cout << "breaking..\n";
             break;
         }
-        else if (sdnvSizeBytes > 8) { //((significantBitsSetMask & 0xff) == 0x00ff) {
-            //std::cout << "  notice: SdnvDecodeU64Fast encountered an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
-            uint8_t thisSdnvBytesDecoded;
-            *decodedValues++ = SdnvDecodeU64Classic((uint8_t*)&sdnvsEncoded, &thisSdnvBytesDecoded);
-        }
-        else {
 
-            const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
-            //std::cout << "  encoded64lower: " << std::hex << encoded64 << std::dec << std::endl;
-            //{
-            //    std::cout << "  " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[3] 
-            //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[2] 
-            //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[1] 
-            //        << " " << std::setfill('0') << std::setw(16) << std::hex << sdnvsEncoded.m256i_u64[0] << std::dec << std::endl;
-            //}
-            const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-            const uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
-            *decodedValues++ = decoded;
-            //std::cout << "  sdnvSizeBytes = " << sdnvSizeBytes << std::endl;
-            //std::cout << "  decoded = " << decoded << std::endl;
-        }
+        const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
+        const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
+        uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
+        decoded <<= decodedShifts[maskIndex];
+        const uint64_t encoded64High = _mm_cvtsi128_si64(_mm256_castsi256_si128(_mm256_srli_si256(sdnvsEncoded, 8))); //SSE2 Copy the lower 64-bit integer in a to dst.
+        const uint64_t u64HighByteSwapped = boost::endian::big_to_native(encoded64High);
+        uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masksPdepPext2[maskIndex]);
+        decoded |= decoded2;
+        *decodedValues++ = decoded;
+
+        
 #ifdef SIMD_BYTESHIFT_USE_FUNCTION_ARRAY
         (*M256i_ShiftRightByteFunctions[sdnvSizeBytes])(sdnvsEncoded);
-        
+       
 #else
         //this switch statement will be optimized by the compiler into a jump table, and sdnvsEncoded and shiftIn will remain in
         // the SIMD registers as opposed to using the function array method resulting in expensive SIMD load operations
-        const __m256i shiftIn = _mm256_permute2f128_si256(_mm256_set1_epi32(0), sdnvsEncoded, 0x03);
+        const __m256i shiftIn = _mm256_permute2f128_si256(_mm256_setzero_si256(), sdnvsEncoded, 0x03);
         switch (sdnvSizeBytes) {
         case 0: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 0); break;
         case 1: sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 1); break;
