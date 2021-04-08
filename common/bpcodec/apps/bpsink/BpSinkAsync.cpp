@@ -66,7 +66,15 @@ void BpSinkAsync::Stop() {
             std::cerr << "Error closing TCP Acceptor in BpSinkAsync::Stop():  " << e.what() << std::endl;
         }
     }
-   
+
+    m_FinalStatsBpSink.m_rtTotal = m_rtTotal;
+    m_FinalStatsBpSink.m_seqBase = m_seqBase;
+    m_FinalStatsBpSink.m_seqHval = m_seqHval;
+    m_FinalStatsBpSink.m_tscTotal = m_tscTotal;
+    m_FinalStatsBpSink.m_totalBytesRx = m_totalBytesRx;
+    m_FinalStatsBpSink.m_receivedCount = m_receivedCount;
+    m_FinalStatsBpSink.m_duplicateCount = m_duplicateCount;
+
     m_tcpclBundleSinkPtr.reset(); //delete it
     m_stcpBundleSinkPtr.reset(); //delete it
     m_udpBundleSinkPtr.reset(); //delete it

@@ -13,7 +13,7 @@ public:
     uint64_t m_bundleCount;
     uint64_t m_totalBundlesAcked;
 
-    struct FinalStats m_FinalStats;
+    FinalStats m_FinalStats;
 
 
 private:
