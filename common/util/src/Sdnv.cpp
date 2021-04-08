@@ -307,6 +307,8 @@ __attribute__((aligned(16)))
     0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, //shr 16
 };
 
+/*
+
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
     static const uint64_t masksPdep1[10] = { //index 0 based for mask0x80Index
@@ -413,6 +415,66 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     }
 #endif
     return mask0x80Index + 1; //sdnvSizeBytes;
+}
+*/
+//return output size
+unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
+
+    static const uint64_t masksPdep1[10] = { //index 0 based for mask0x80Index
+        0x7f00000000000000,
+        0x7f7f000000000000,
+        0x7f7f7f0000000000,
+        0x7f7f7f7f00000000,
+        0x7f7f7f7f7f000000,
+        0x7f7f7f7f7f7f0000,
+        0x7f7f7f7f7f7f7f00,
+        0x7f7f7f7f7f7f7f7f,
+        0x7f7f7f7f7f7f7f7f,
+        0x7f7f7f7f7f7f7f7f
+    };
+
+    static const uint64_t masks0x80[10] = {
+        0x00,
+        0x8000000000000000,
+        0x8080000000000000,
+        0x8080800000000000,
+        0x8080808000000000,
+        0x8080808080000000,
+        0x8080808080800000,
+        0x8080808080808000,
+        0x8080808080808000,
+        0x8080808080808000,
+    };
+
+    static const uint8_t mask0x80Indices[70] = {
+        0,0,0,0,0,0,0,
+        1,1,1,1,1,1,1,
+        2,2,2,2,2,2,2,
+        3,3,3,3,3,3,3,
+        4,4,4,4,4,4,4,
+        5,5,5,5,5,5,5,
+        6,6,6,6,6,6,6,
+        7,7,7,7,7,7,7,
+        8,8,8,8,8,8,8,
+        9,9,9,9,9,9,9
+    };
+
+
+    if (valToEncodeU64 > SDNV64_MAX_8_BYTE) {
+        //std::cout << "notice: SdnvEncodeU64Fast encountered a value that would result in an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
+        return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64);
+    }
+
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t are for)
+    const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+
+    const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
+    //std::cout << "encode fast: msb: " << msb << std::endl;
+    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep1[mask0x80Index]) | masks0x80[mask0x80Index];
+    //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
+    const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
+    _mm_stream_si64((long long int *)outputEncoded, encoded64ForMemcpy);
+    return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
 }
 
 
