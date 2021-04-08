@@ -480,7 +480,14 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 
 BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::enabled())
 {
+#define SPEED_TEST_LARGE_SDNVS 1
+#if SPEED_TEST_LARGE_SDNVS
+    static const unsigned int expectedTotalBytesEncoded = 541;
+    const std::vector<uint64_t> testVals2(testVals.cbegin(), testVals.cend()); //allow the big sdnvs with 9 and 10 byte encoding lengths
+#else
     const std::vector<uint64_t> testVals2(testVals.cbegin(), testVals.cend() - 20);
+    static const unsigned int expectedTotalBytesEncoded = 354;
+#endif
 
     std::vector<uint8_t> allEncodedData(testVals2.size() * 10);
     std::vector<uint8_t> allEncodedDataFast(testVals2.size() * 10 + sizeof(uint64_t));
@@ -506,7 +513,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::enabled())
             }
         }
         //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
-        BOOST_REQUIRE_EQUAL(totalBytesEncoded, 354);
+        BOOST_REQUIRE_EQUAL(totalBytesEncoded, expectedTotalBytesEncoded);
     }
 
     //ENCODE ARRAY OF VALS (FAST)
@@ -525,7 +532,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::enabled())
             }
         }
         //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
-        BOOST_REQUIRE_EQUAL(totalBytesEncodedFast, 354);
+        BOOST_REQUIRE_EQUAL(totalBytesEncodedFast, expectedTotalBytesEncoded);
     }
 
 

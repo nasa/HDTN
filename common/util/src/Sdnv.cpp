@@ -307,6 +307,8 @@ __attribute__((aligned(16)))
     0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, //shr 16
 };
 
+
+//the commented out version below attempting to bypass lookup tables with shifts turned out to be significantly slower
 /*
 
 //return output size
@@ -496,7 +498,8 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     };
 
     
-    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t are for)
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
+    //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
 
     const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
@@ -504,17 +507,18 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep1[mask0x80Index]) | masks0x80[mask0x80Index];
     //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
+#define ENCODE_USE_BRANCHING 0
+#if ENCODE_USE_BRANCHING
     if (mask0x80Index <= 7) {
         _mm_stream_si64((long long int *)(outputEncoded), encoded64ForMemcpy);
     }
     else {
+#endif
         //for the large 9 and 10 byte sdnv
         const uint64_t encoded64BigSdnv = _pdep_u64(valToEncodeU64 >> 56, masksPdep2[mask0x80Index]) | masks0x80_2[mask0x80Index];
         //std::cout << "encoded64BigSdnv: " << std::hex << encoded64BigSdnv  << std::dec << std::endl;
         const uint64_t encoded64BigSdnvForMemcpy = boost::endian::big_to_native(encoded64BigSdnv);
 
-        //outputEncoded[0] = static_cast<uint8_t>(encoded64BigSdnvForMemcpy);
-        //outputEncoded[1] = static_cast<uint8_t>(encoded64BigSdnvForMemcpy >> 8);
         _mm_stream_si64((long long int *)(outputEncoded), encoded64BigSdnvForMemcpy);
         //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { std::cout << std::hex << (int)outputEncoded[i] << " "; } std::cout << std::endl; }
         _mm_stream_si64((long long int *)(outputEncoded + memoryOffsets[mask0x80Index]), encoded64ForMemcpy);
@@ -522,7 +526,9 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 
         //uint8_t numBytes;  std::cout << "valToEncodeU64: " << valToEncodeU64 << "  deoded: " << SdnvDecodeU64Classic(outputEncoded, &numBytes) << std::endl;
         //std::cout << "numbytes: " << (int) numBytes << std::endl;
+#if ENCODE_USE_BRANCHING
     }
+#endif
     return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
 }
 
