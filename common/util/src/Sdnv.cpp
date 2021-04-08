@@ -432,6 +432,18 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
         0x7f7f7f7f7f7f7f7f,
         0x7f7f7f7f7f7f7f7f
     };
+    static const uint64_t masksPdep2[10] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0x7f00000000000000,
+        0x7f7f000000000000,
+    };
 
     static const uint64_t masks0x80[10] = {
         0x00,
@@ -444,6 +456,18 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
         0x8080808080808000,
         0x8080808080808000,
         0x8080808080808000,
+    };
+    static const uint64_t masks0x80_2[10] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0x8000000000000000,
+        0x8080000000000000,
     };
 
     static const uint8_t mask0x80Indices[70] = {
@@ -458,13 +482,20 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
         8,8,8,8,8,8,8,
         9,9,9,9,9,9,9
     };
+    static const uint8_t memoryOffsets[10] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1, //idx 8
+        2, //idx 9
+    };
 
-
-    if (valToEncodeU64 > SDNV64_MAX_8_BYTE) {
-        //std::cout << "notice: SdnvEncodeU64Fast encountered a value that would result in an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
-        return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64);
-    }
-
+    
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t are for)
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
 
@@ -473,7 +504,25 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdep1[mask0x80Index]) | masks0x80[mask0x80Index];
     //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
-    _mm_stream_si64((long long int *)outputEncoded, encoded64ForMemcpy);
+    if (mask0x80Index <= 7) {
+        _mm_stream_si64((long long int *)(outputEncoded), encoded64ForMemcpy);
+    }
+    else {
+        //for the large 9 and 10 byte sdnv
+        const uint64_t encoded64BigSdnv = _pdep_u64(valToEncodeU64 >> 56, masksPdep2[mask0x80Index]) | masks0x80_2[mask0x80Index];
+        //std::cout << "encoded64BigSdnv: " << std::hex << encoded64BigSdnv  << std::dec << std::endl;
+        const uint64_t encoded64BigSdnvForMemcpy = boost::endian::big_to_native(encoded64BigSdnv);
+
+        //outputEncoded[0] = static_cast<uint8_t>(encoded64BigSdnvForMemcpy);
+        //outputEncoded[1] = static_cast<uint8_t>(encoded64BigSdnvForMemcpy >> 8);
+        _mm_stream_si64((long long int *)(outputEncoded), encoded64BigSdnvForMemcpy);
+        //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { std::cout << std::hex << (int)outputEncoded[i] << " "; } std::cout << std::endl; }
+        _mm_stream_si64((long long int *)(outputEncoded + memoryOffsets[mask0x80Index]), encoded64ForMemcpy);
+        //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) { for (unsigned int i = 0; i < 10; ++i) { std::cout << std::hex << (int)outputEncoded[i] << " "; } std::cout << std::endl; }
+
+        //uint8_t numBytes;  std::cout << "valToEncodeU64: " << valToEncodeU64 << "  deoded: " << SdnvDecodeU64Classic(outputEncoded, &numBytes) << std::endl;
+        //std::cout << "numbytes: " << (int) numBytes << std::endl;
+    }
     return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
 }
 
