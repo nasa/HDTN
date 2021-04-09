@@ -34,6 +34,7 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes);
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes);
 	
+#ifdef SDNV_USE_HARDWARE_ACCELERATION
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64);
 
@@ -45,5 +46,6 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
 
 //return num values decoded this iteration
 unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
+#endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
 
 #endif      // _SDNV_UTIL_H 
