@@ -236,6 +236,7 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     return 0;
 }
 
+#ifdef SDNV_USE_HARDWARE_ACCELERATION
 static const uint64_t masksPdepPext1[10] = { //index 0 based for mask0x80Index
     0x7f00000000000000,
     0x7f7f000000000000,
@@ -730,3 +731,5 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
     *numBytes = static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer;
     return decodedStart - decodedRemaining;
 }
+
+#endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
