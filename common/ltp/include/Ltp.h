@@ -59,18 +59,33 @@ enum class LTP_REPORT_ACKNOWLEDGEMENT_SEGMENT_RX_STATE
 {
     READ_REPORT_SERIAL_NUMBER_SDNV = 0
 };
-/*
-enum class MESSAGE_TYPE_BYTE_CODES
-{
-	RESERVED = 0x0,
-	DATA_SEGMENT = 0x1,
-	ACK_SEGMENT = 0x2,
-	REFUSE_BUNDLE = 0x3,
-	KEEPALIVE = 0x4,
-	SHUTDOWN = 0x5,
-	LENGTH = 0x6
-};
 
+enum class LTP_SEGMENT_TYPE_FLAGS
+{
+    REDDATA = 0x00,
+    REDDATA_CHECKPOINT = 0x01,
+    REDDATA_CHECKPOINT_ENDOFREDPART = 0x02,
+    REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK = 0x03,
+    GREENDATA = 0x04,
+    GREENDATA_ENDOFBLOCK = 0x07,
+    REPORT_SEGMENT = 0x08,
+    REPORT_ACK_SEGMENT = 0x09,
+    CANCEL_SEGMENT_FROM_BLOCK_SENDER = 12,
+    CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER = 13,
+    CANCEL_SEGMENT_FROM_BLOCK_RECEIVER = 14,
+    CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER = 15,
+
+};
+enum class LTP_DATA_SEGMENT_TYPE_FLAGS //A SUBSET OF THE ABOVE FOR PARAMETER TO GENERATE DATA SEGMENTS
+{
+    REDDATA = 0x00,
+    REDDATA_CHECKPOINT = 0x01,
+    REDDATA_CHECKPOINT_ENDOFREDPART = 0x02,
+    REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK = 0x03,
+    GREENDATA = 0x04,
+    GREENDATA_ENDOFBLOCK = 0x07
+};
+/*
 enum class SHUTDOWN_REASON_CODES
 {
 	IDLE_TIMEOUT = 0x0,
@@ -101,9 +116,65 @@ class Ltp {
 
 
 public:
-    /*
-	typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
-	typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
+    struct reception_claim_t {
+        uint64_t offset;
+        uint64_t length;
+
+        reception_claim_t(); //a default constructor: X()
+        ~reception_claim_t(); //a destructor: ~X()
+        reception_claim_t(const reception_claim_t& o); //a copy constructor: X(const X&)
+        reception_claim_t(reception_claim_t&& o); //a move constructor: X(X&&)
+        reception_claim_t& operator=(const reception_claim_t& o); //a copy assignment: operator=(const X&)
+        reception_claim_t& operator=(reception_claim_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const reception_claim_t & o) const; //operator ==
+        bool operator!=(const reception_claim_t & o) const; //operator !=
+    };
+    struct ltp_extension_t {
+        uint8_t tag;
+        //uint64_t length; //shall be stored in valueVec.size()
+        std::vector<uint8_t> valueVec;
+
+        ltp_extension_t(); //a default constructor: X()
+        ~ltp_extension_t(); //a destructor: ~X()
+        ltp_extension_t(const ltp_extension_t& o); //a copy constructor: X(const X&)
+        ltp_extension_t(ltp_extension_t&& o); //a move constructor: X(X&&)
+        ltp_extension_t& operator=(const ltp_extension_t& o); //a copy assignment: operator=(const X&)
+        ltp_extension_t& operator=(ltp_extension_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const ltp_extension_t & o) const; //operator ==
+        bool operator!=(const ltp_extension_t & o) const; //operator !=
+        void AppendSerialize(std::vector<uint8_t> & serialization) const;
+        uint64_t Serialize(uint8_t * serialization) const;
+    };
+    struct ltp_extensions_t {
+        std::vector<ltp_extension_t> extensionsVec;
+
+        ltp_extensions_t(); //a default constructor: X()
+        ~ltp_extensions_t(); //a destructor: ~X()
+        ltp_extensions_t(const ltp_extensions_t& o); //a copy constructor: X(const X&)
+        ltp_extensions_t(ltp_extensions_t&& o); //a move constructor: X(X&&)
+        ltp_extensions_t& operator=(const ltp_extensions_t& o); //a copy assignment: operator=(const X&)
+        ltp_extensions_t& operator=(ltp_extensions_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const ltp_extensions_t & o) const; //operator ==
+        bool operator!=(const ltp_extensions_t & o) const; //operator !=
+        void AppendSerialize(std::vector<uint8_t> & serialization) const;
+        uint64_t Serialize(uint8_t * serialization) const;
+        uint64_t GetMaximumDataRequiredForSerialization() const;
+    };
+    struct data_segment_metadata_t {
+        data_segment_metadata_t();
+        data_segment_metadata_t(uint64_t paramClientServiceId, uint64_t paramOffset, uint64_t paramLength, uint64_t * paramCheckpointSerialNumber = NULL, uint64_t * paramReportSerialNumber = NULL);
+        bool operator==(const data_segment_metadata_t & o) const; //operator ==
+        bool operator!=(const data_segment_metadata_t & o) const; //operator !=
+        
+        uint64_t clientServiceId;
+        uint64_t offset;
+        uint64_t length;
+        uint64_t * checkpointSerialNumber;
+        uint64_t * reportSerialNumber;
+    };
+    
+	typedef boost::function<void(uint8_t segmentTypeFlags, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata)> DataSegmentContentsReadCallback_t;
+	/*typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
 	typedef boost::function<void(uint64_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
 	typedef boost::function<void(BUNDLE_REFUSAL_CODES refusalCode)> BundleRefusalCallback_t;
 	typedef boost::function<void(uint64_t nextBundleLength)> NextBundleLengthCallback_t;
@@ -113,9 +184,9 @@ public:
 */
     Ltp();
 	~Ltp();
-    /*
-	void SetDataSegmentContentsReadCallback(DataSegmentContentsReadCallback_t callback);
-	void SetContactHeaderReadCallback(ContactHeaderReadCallback_t callback);
+    
+	void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
+	/*void SetContactHeaderReadCallback(ContactHeaderReadCallback_t callback);
 	void SetAckSegmentReadCallback(AckSegmentReadCallback_t callback);
 	void SetBundleRefusalCallback(BundleRefusalCallback_t callback);
 	void SetNextBundleLengthCallback(NextBundleLengthCallback_t callback);
@@ -124,8 +195,10 @@ public:
     */
 
 	void InitRx();
-	void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
-	void HandleReceivedChar(const uint8_t rxVal);
+	bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage);
+	void HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage);
+    bool IsAtBeginningState() const; //unit testing convenience function
+    
     /*
 	static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
 	static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents);
@@ -138,6 +211,17 @@ public:
 										bool includeReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
 										bool includeReconnectionDelay, uint64_t reconnectionDelaySeconds);
                                         */
+    static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumber);
+    static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, uint64_t sessionOriginatorEngineId,
+        uint64_t sessionNumber, const data_segment_metadata_t & dataSegmentMetadata,
+        ltp_extensions_t * headerExtensions = NULL, uint8_t numTrailerExtensions = 0);
+    //static void GenerateDataSegmentWithoutCheckpoint(std::vector<uint8_t> & dataSegment, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentType, uint64_t sessionOriginatorEngineId,
+    //    uint64_t sessionNumber, uint64_t clientServiceId, uint64_t offsetBytes, uint64_t lengthBytes);
+
+private:
+    void SetBeginningState();
+    bool NextStateAfterHeaderExtensions(std::string & errorMessage);
+    bool NextStateAfterTrailerExtensions(std::string & errorMessage);
 public:
 	std::vector<uint8_t> m_sdnvTempVec;
     LTP_MAIN_RX_STATE m_mainRxState;
@@ -152,23 +236,22 @@ public:
     uint64_t m_sessionNumber;
     uint8_t m_numHeaderExtensionTlvs;
     uint8_t m_numTrailerExtensionTlvs;
+    ltp_extensions_t m_headerExtensions;
+    ltp_extensions_t m_trailerExtensions;
+    uint64_t m_currentHeaderExtensionLength;
+    uint64_t m_currentTrailerExtensionLength;
 
-    uint64_t m_dataSegment_clientServiceId;
-    uint64_t m_dataSegment_offset;
-    uint64_t m_dataSegment_length;
+    data_segment_metadata_t m_dataSegmentMetadata;
+    std::vector<uint8_t> m_dataSegment_clientServiceData;
     uint64_t m_dataSegment_checkpointSerialNumber;
     uint64_t m_dataSegment_reportSerialNumber;
-    std::vector<uint8_t> m_dataSegment_clientServiceData;
     
     uint64_t m_reportSegment_reportSerialNumber;
     uint64_t m_reportSegment_checkpointSerialNumber;
     uint64_t m_reportSegment_upperBound;
     uint64_t m_reportSegment_lowerBound;
     uint64_t m_reportSegment_receptionClaimCount;
-    struct reception_claim_t {
-        uint64_t offset;
-        uint64_t length;
-    };
+    
     std::vector<reception_claim_t> m_reportSegment_receptionClaims;
 
     uint64_t m_reportAcknowledgementSegment_reportSerialNumber;
@@ -205,16 +288,16 @@ public:
 	bool m_shutdownHasReconnectionDelayFlag;
 	uint64_t m_shutdownReconnectionDelay;
 	SHUTDOWN_REASON_CODES m_shutdownReasonCode;
-
+*/
 	//callback functions
-	ContactHeaderReadCallback_t m_contactHeaderReadCallback;
+	//ContactHeaderReadCallback_t m_contactHeaderReadCallback;
 	DataSegmentContentsReadCallback_t m_dataSegmentContentsReadCallback;
-	AckSegmentReadCallback_t m_ackSegmentReadCallback;
-	BundleRefusalCallback_t m_bundleRefusalCallback;
-	NextBundleLengthCallback_t m_nextBundleLengthCallback;
-	KeepAliveCallback_t m_keepAliveCallback;
-	ShutdownMessageCallback_t m_shutdownMessageCallback;
-    */
+	//AckSegmentReadCallback_t m_ackSegmentReadCallback;
+	//BundleRefusalCallback_t m_bundleRefusalCallback;
+	//NextBundleLengthCallback_t m_nextBundleLengthCallback;
+	//KeepAliveCallback_t m_keepAliveCallback;
+	//ShutdownMessageCallback_t m_shutdownMessageCallback;
+    
 };
 
 #endif // LTP_H

@@ -26,6 +26,7 @@ endif()
 add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
+	../../common/ltp/test/TestLtp.cpp
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
@@ -59,6 +60,7 @@ target_link_libraries(unit-tests
 	hdtn_util
 	tcpcl_lib
 	stcp_lib
+	ltp_lib
 	storage_brian_lib
         ingress_async_lib
 	${blosc_LIB}
