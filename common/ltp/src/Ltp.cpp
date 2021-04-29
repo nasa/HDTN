@@ -437,7 +437,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     else {
                         //callback data segment
                         if (m_dataSegmentContentsReadCallback) {
-                            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionOriginatorEngineId, m_sessionNumber, m_dataSegment_clientServiceData, m_dataSegmentMetadata);                           
+                            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionOriginatorEngineId, m_sessionNumber, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
                         }
                         SetBeginningState();
                     }
@@ -754,7 +754,7 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     else if (m_segmentTypeFlags <= 7) {
         //callback data segment
         if (m_dataSegmentContentsReadCallback) {
-            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionOriginatorEngineId, m_sessionNumber, m_dataSegment_clientServiceData, m_dataSegmentMetadata);
+            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionOriginatorEngineId, m_sessionNumber, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
         }
     }
     else if (m_segmentTypeFlags == 8) {

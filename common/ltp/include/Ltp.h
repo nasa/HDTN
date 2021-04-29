@@ -160,6 +160,10 @@ public:
         uint64_t Serialize(uint8_t * serialization) const;
         uint64_t GetMaximumDataRequiredForSerialization() const;
     };
+    //struct ltp_header_and_trailer_extensions_t {
+    //    ltp_extensions_t headerExtensions;
+    //    ltp_extensions_t trailerExtensions;
+    //};
     struct data_segment_metadata_t {
         data_segment_metadata_t();
         data_segment_metadata_t(uint64_t paramClientServiceId, uint64_t paramOffset, uint64_t paramLength, uint64_t * paramCheckpointSerialNumber = NULL, uint64_t * paramReportSerialNumber = NULL);
@@ -173,7 +177,9 @@ public:
         uint64_t * reportSerialNumber;
     };
     
-	typedef boost::function<void(uint8_t segmentTypeFlags, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata)> DataSegmentContentsReadCallback_t;
+	typedef boost::function<void(uint8_t segmentTypeFlags, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber,
+        std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata,
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> DataSegmentContentsReadCallback_t;
 	/*typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
 	typedef boost::function<void(uint64_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
 	typedef boost::function<void(BUNDLE_REFUSAL_CODES refusalCode)> BundleRefusalCallback_t;
