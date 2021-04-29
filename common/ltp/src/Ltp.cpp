@@ -27,6 +27,65 @@ bool Ltp::reception_claim_t::operator==(const reception_claim_t & o) const {
 bool Ltp::reception_claim_t::operator!=(const reception_claim_t & o) const {
     return (offset != o.offset) || (length != o.length);
 }
+uint64_t Ltp::reception_claim_t::Serialize(uint8_t * serialization) const {
+    uint8_t * serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, offset);
+    serialization += SdnvEncodeU64(serialization, length);
+    return serialization - serializationBase;
+}
+
+Ltp::report_segment_t::report_segment_t() : reportSerialNumber(0), checkpointSerialNumber(0), upperBound(0), lowerBound(0), receptionClaimCount(0) { } //a default constructor: X()
+Ltp::report_segment_t::~report_segment_t() { } //a destructor: ~X()
+Ltp::report_segment_t::report_segment_t(const report_segment_t& o) : 
+    reportSerialNumber(o.reportSerialNumber), checkpointSerialNumber(o.checkpointSerialNumber),
+    upperBound(o.upperBound), lowerBound(o.lowerBound), receptionClaimCount(o.receptionClaimCount), receptionClaims(o.receptionClaims) { } //a copy constructor: X(const X&)
+Ltp::report_segment_t::report_segment_t(report_segment_t&& o) : 
+    reportSerialNumber(o.reportSerialNumber), checkpointSerialNumber(o.checkpointSerialNumber),
+    upperBound(o.upperBound), lowerBound(o.lowerBound), receptionClaimCount(o.receptionClaimCount), receptionClaims(std::move(o.receptionClaims)) { } //a move constructor: X(X&&)
+Ltp::report_segment_t& Ltp::report_segment_t::operator=(const report_segment_t& o) { //a copy assignment: operator=(const X&)
+    reportSerialNumber = o.reportSerialNumber;
+    checkpointSerialNumber = o.checkpointSerialNumber;
+    upperBound = o.upperBound;
+    lowerBound = o.lowerBound;
+    receptionClaimCount = o.receptionClaimCount;
+    receptionClaims = o.receptionClaims;
+    return *this;
+}
+Ltp::report_segment_t& Ltp::report_segment_t::operator=(report_segment_t && o) { //a move assignment: operator=(X&&)
+    reportSerialNumber = o.reportSerialNumber;
+    checkpointSerialNumber = o.checkpointSerialNumber;
+    upperBound = o.upperBound;
+    lowerBound = o.lowerBound;
+    receptionClaimCount = o.receptionClaimCount;
+    receptionClaims = std::move(o.receptionClaims);
+    return *this;
+}
+bool Ltp::report_segment_t::operator==(const report_segment_t & o) const {
+    return (reportSerialNumber == o.reportSerialNumber) && (checkpointSerialNumber == o.checkpointSerialNumber)
+        && (upperBound == o.upperBound) && (lowerBound == o.lowerBound)
+        && (receptionClaimCount == o.receptionClaimCount) && (receptionClaims == o.receptionClaims);
+}
+bool Ltp::report_segment_t::operator!=(const report_segment_t & o) const {
+    return (reportSerialNumber != o.reportSerialNumber) || (checkpointSerialNumber != o.checkpointSerialNumber)
+        || (upperBound != o.upperBound) || (lowerBound != o.lowerBound)
+        || (receptionClaimCount != o.receptionClaimCount) || (receptionClaims != o.receptionClaims);
+}
+uint64_t Ltp::report_segment_t::Serialize(uint8_t * serialization) const {
+    uint8_t * serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, reportSerialNumber);
+    serialization += SdnvEncodeU64(serialization, checkpointSerialNumber);
+    serialization += SdnvEncodeU64(serialization, upperBound);
+    serialization += SdnvEncodeU64(serialization, lowerBound);
+    serialization += SdnvEncodeU64(serialization, receptionClaimCount);
+    
+    for (std::vector<reception_claim_t>::const_iterator it = receptionClaims.cbegin(); it != receptionClaims.cend(); ++it) {
+        serialization += it->Serialize(serialization);
+    }
+    return serialization - serializationBase;
+}
+uint64_t Ltp::report_segment_t::GetMaximumDataRequiredForSerialization() const {
+    return (5 * 10) + (receptionClaims.size() * (2 * 10)); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
+}
 
 Ltp::ltp_extension_t::ltp_extension_t() : tag(0) { } //a default constructor: X()
 Ltp::ltp_extension_t::~ltp_extension_t() { } //a destructor: ~X()
@@ -139,6 +198,20 @@ bool Ltp::data_segment_metadata_t::operator==(const data_segment_metadata_t & o)
 bool Ltp::data_segment_metadata_t::operator!=(const data_segment_metadata_t & o) const {
     return !(*this == o);
 }
+uint64_t Ltp::data_segment_metadata_t::Serialize(uint8_t * serialization) const {
+    uint8_t * serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, clientServiceId);
+    serialization += SdnvEncodeU64(serialization, offset);
+    serialization += SdnvEncodeU64(serialization, length); 
+    if (checkpointSerialNumber && reportSerialNumber) {
+        serialization += SdnvEncodeU64(serialization, *checkpointSerialNumber);
+        serialization += SdnvEncodeU64(serialization, *reportSerialNumber);
+    }
+    return serialization - serializationBase;
+}
+uint64_t Ltp::data_segment_metadata_t::GetMaximumDataRequiredForSerialization() const {
+    return (3 * 10) + ((static_cast<bool>(checkpointSerialNumber && reportSerialNumber)) * (static_cast<uint8_t>(2 * 10))); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
+}
 
 Ltp::Ltp() {
     InitRx();
@@ -150,25 +223,10 @@ Ltp::~Ltp() {
 void Ltp::SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback) {
     m_dataSegmentContentsReadCallback = callback;
 }
-/*void Tcpcl::SetContactHeaderReadCallback(ContactHeaderReadCallback_t callback) {
-    m_contactHeaderReadCallback = callback;
+void Ltp::SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback) {
+    m_reportSegmentContentsReadCallback = callback;
 }
-void Tcpcl::SetAckSegmentReadCallback(AckSegmentReadCallback_t callback) {
-    m_ackSegmentReadCallback = callback;
-}
-void Tcpcl::SetBundleRefusalCallback(BundleRefusalCallback_t callback) {
-    m_bundleRefusalCallback = callback;
-}
-void Tcpcl::SetNextBundleLengthCallback(NextBundleLengthCallback_t callback) {
-    m_nextBundleLengthCallback = callback;
-}
-void Tcpcl::SetKeepAliveCallback(KeepAliveCallback_t callback) {
-    m_keepAliveCallback = callback;
-}
-void Tcpcl::SetShutdownMessageCallback(ShutdownMessageCallback_t callback) {
-    m_shutdownMessageCallback = callback;
-}
-*/
+
 void Ltp::InitRx() {
     m_mainRxState = LTP_MAIN_RX_STATE::READ_HEADER;
     m_headerRxState = LTP_HEADER_RX_STATE::READ_CONTROL_BYTE;
@@ -463,7 +521,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -482,7 +540,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -501,7 +559,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_upperBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.upperBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -520,7 +578,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_lowerBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.lowerBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -539,19 +597,19 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
                     }
-                    else if (m_reportSegment_receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
+                    else if (m_reportSegment.receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, count == 0";
                         return false;
                     }
                     else {
                         m_sdnvTempVec.clear();
-                        m_reportSegment_receptionClaims.clear();
-                        m_reportSegment_receptionClaims.reserve(m_reportSegment_receptionClaimCount);
+                        m_reportSegment.receptionClaims.clear();
+                        m_reportSegment.receptionClaims.reserve(m_reportSegment.receptionClaimCount);
                         m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                     }
                 }
@@ -570,8 +628,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                         return false;
                     }
                     else {
-                        m_reportSegment_receptionClaims.resize(m_reportSegment_receptionClaims.size() + 1);
-                        m_reportSegment_receptionClaims.back().offset = claimOffset;
+                        m_reportSegment.receptionClaims.resize(m_reportSegment.receptionClaims.size() + 1);
+                        m_reportSegment.receptionClaims.back().offset = claimOffset;
                         m_sdnvTempVec.clear();
                         m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV;
                     }
@@ -595,9 +653,9 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                         return false;
                     }
                     else {
-                        m_reportSegment_receptionClaims.back().length = claimLength;
+                        m_reportSegment.receptionClaims.back().length = claimLength;
                         m_sdnvTempVec.clear();
-                        if (m_reportSegment_receptionClaims.size() < m_reportSegment_receptionClaimCount) {
+                        if (m_reportSegment.receptionClaims.size() < m_reportSegment.receptionClaimCount) {
                             m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                         }
                         else if (m_numTrailerExtensionTlvs) {
@@ -605,7 +663,10 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                             m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
                         }
                         else {
-                            //callback
+                            //callback report segment
+                            if (m_reportSegmentContentsReadCallback) {
+                                m_reportSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportSegment, m_headerExtensions, m_trailerExtensions);
+                            }
                             SetBeginningState();
                         }
                     }
@@ -759,6 +820,9 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     }
     else if (m_segmentTypeFlags == 8) {
         //callback report segment
+        if (m_reportSegmentContentsReadCallback) {
+            m_reportSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportSegment, m_headerExtensions, m_trailerExtensions);
+        }
     }
     else if (m_segmentTypeFlags == 9) {
         //callback report ack segment
@@ -800,7 +864,7 @@ void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHea
         numHeaderExtensions = static_cast<uint8_t>(headerExtensions->extensionsVec.size());
         maxBytesRequiredForHeaderExtensions = headerExtensions->GetMaximumDataRequiredForSerialization();
     }
-    ltpHeaderPlusDataSegmentMetadata.resize(1 + 1 + (7 * 10) + maxBytesRequiredForHeaderExtensions); //flags + extensionCounts + up to 7 10-byte sdnvs + header extensions
+    ltpHeaderPlusDataSegmentMetadata.resize(1 + 1 + (2 * 10) + dataSegmentMetadata.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions); //flags + extensionCounts + 2 10-byte session sdnvs + metadata sdnvs + header extensions
     uint8_t * encodedPtr = ltpHeaderPlusDataSegmentMetadata.data();
     *encodedPtr++ = static_cast<uint8_t>(dataSegmentTypeFlags); //assumes version 0 in most significant 4 bits
     encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
@@ -809,117 +873,38 @@ void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHea
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
     }
-    encodedPtr += SdnvEncodeU64(encodedPtr, dataSegmentMetadata.clientServiceId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, dataSegmentMetadata.offset);
-    encodedPtr += SdnvEncodeU64(encodedPtr, dataSegmentMetadata.length);
-    if (dataSegmentMetadata.checkpointSerialNumber && dataSegmentMetadata.reportSerialNumber) {
-        encodedPtr += SdnvEncodeU64(encodedPtr, *dataSegmentMetadata.checkpointSerialNumber);
-        encodedPtr += SdnvEncodeU64(encodedPtr, *dataSegmentMetadata.reportSerialNumber);
-    }
+    encodedPtr += dataSegmentMetadata.Serialize(encodedPtr);
     ltpHeaderPlusDataSegmentMetadata.resize(encodedPtr - ltpHeaderPlusDataSegmentMetadata.data());
 }
-/*void Ltp::GenerateDataSegmentWithoutCheckpoint(std::vector<uint8_t> & dataSegment, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentType, uint64_t sessionOriginatorEngineId,
-    uint64_t sessionNumber, uint64_t clientServiceId, uint64_t offsetBytes, uint64_t lengthBytes)
+
+void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, uint64_t sessionOriginatorEngineId,
+    uint64_t sessionNumber, const report_segment_t & reportSegmentStruct,
+    ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
 {
-
+    uint8_t numHeaderExtensions = 0;
+    uint64_t maxBytesRequiredForHeaderExtensions = 0;
+    if (headerExtensions) {
+        numHeaderExtensions = static_cast<uint8_t>(headerExtensions->extensionsVec.size());
+        maxBytesRequiredForHeaderExtensions = headerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    uint8_t numTrailerExtensions = 0;
+    uint64_t maxBytesRequiredForTrailerExtensions = 0;
+    if (trailerExtensions) {
+        numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
+        maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    ltpReportSegmentPacket.resize(1 + 1 + (2 * 10) + reportSegmentStruct.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + rest of data
+    uint8_t * encodedPtr = ltpReportSegmentPacket.data();
+    *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_SEGMENT); //assumes version 0 in most significant 4 bits
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
+    if (headerExtensions) {
+        encodedPtr += headerExtensions->Serialize(encodedPtr);
+    }
+    encodedPtr += reportSegmentStruct.Serialize(encodedPtr);
+    if (trailerExtensions) {
+        encodedPtr += trailerExtensions->Serialize(encodedPtr);
+    }
+    ltpReportSegmentPacket.resize(encodedPtr - ltpReportSegmentPacket.data());
 }
-void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents) {
-    //std::cout << "szc " << sizeContents << std::endl;
-    uint8_t dataSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT)) << 4;
-    if (isStartSegment) {
-        dataSegmentHeader |= (1U << 1);
-    }
-    if (isEndSegment) {
-        dataSegmentHeader |= (1U << 0);
-    }
-    uint8_t contentLengthSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(contentLengthSdnv, sizeContents);
-
-    dataSegment.resize(1 + sdnvSize + sizeContents);
-
-    dataSegment[0] = dataSegmentHeader;
-
-    memcpy(&dataSegment[1], contentLengthSdnv, sdnvSize);
-    memcpy(&dataSegment[1 + sdnvSize], contents, sizeContents);
-}
-
-void Tcpcl::GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint64_t sizeContents) {
-    //std::cout << "szc " << sizeContents << std::endl;
-    uint8_t dataSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::DATA_SEGMENT)) << 4;
-    if (isStartSegment) {
-        dataSegmentHeader |= (1U << 1);
-    }
-    if (isEndSegment) {
-        dataSegmentHeader |= (1U << 0);
-    }
-    uint8_t contentLengthSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(contentLengthSdnv, sizeContents);
-
-    dataSegmentHeaderDataVec.resize(1 + sdnvSize);
-
-    dataSegmentHeaderDataVec[0] = dataSegmentHeader;
-
-    memcpy(&dataSegmentHeaderDataVec[1], contentLengthSdnv, sdnvSize);
-}*/
-/*
-void Tcpcl::GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint64_t totalBytesAcknowledged) {
-    const uint8_t ackSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::ACK_SEGMENT)) << 4;
-    uint8_t totalBytesAcknowledgedSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(totalBytesAcknowledgedSdnv, totalBytesAcknowledged);
-    ackSegment.resize(1 + sdnvSize);
-    ackSegment[0] = ackSegmentHeader;
-    memcpy(&ackSegment[1], totalBytesAcknowledgedSdnv, sdnvSize);
-}
-
-void Tcpcl::GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode) {
-    uint8_t refusalHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::REFUSE_BUNDLE)) << 4;
-    refusalHeader |= static_cast<uint8_t>(refusalCode);
-    refusalMessage.resize(1);
-    refusalMessage[0] = refusalHeader;
-}
-
-void Tcpcl::GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint64_t nextBundleLength) {
-    const uint8_t bundleLengthHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::LENGTH)) << 4;
-    uint8_t nextBundleLengthSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(nextBundleLengthSdnv, nextBundleLength);
-    bundleLengthMessage.resize(1 + sdnvSize);
-    bundleLengthMessage[0] = bundleLengthHeader;
-    memcpy(&bundleLengthMessage[1], nextBundleLengthSdnv, sdnvSize);
-}
-
-void Tcpcl::GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage) {
-    keepAliveMessage.resize(1);
-    keepAliveMessage[0] = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::KEEPALIVE)) << 4;
-}
-
-void Tcpcl::GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
-                                    bool includeReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-                                    bool includeReconnectionDelay, uint64_t reconnectionDelaySeconds)
-{
-
-    uint8_t shutdownHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::SHUTDOWN)) << 4;
-    uint8_t reconnectionDelaySecondsSdnv[10];
-    uint64_t sdnvSize = 0;
-    std::size_t totalMessageSizeBytes = 1;
-    if (includeReasonCode) {
-        shutdownHeader |= (1U << 1);
-        totalMessageSizeBytes += 1;
-    }
-    if (includeReconnectionDelay) {
-        shutdownHeader |= (1U << 0);
-        sdnvSize = SdnvEncodeU64(reconnectionDelaySecondsSdnv, reconnectionDelaySeconds);
-        totalMessageSizeBytes += sdnvSize;
-    }
-
-    shutdownMessage.resize(totalMessageSizeBytes);
-    shutdownMessage[0] = shutdownHeader;
-    uint8_t * ptr = (totalMessageSizeBytes > 1) ? &shutdownMessage[1] : NULL;
-    if (includeReasonCode) {
-        *ptr++ = static_cast<uint8_t>(shutdownReasonCode);
-    }
-    if (includeReconnectionDelay) {
-        memcpy(ptr, reconnectionDelaySecondsSdnv, sdnvSize);
-    }
-
-}
-*/

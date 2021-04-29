@@ -128,6 +128,26 @@ public:
         reception_claim_t& operator=(reception_claim_t&& o); //a move assignment: operator=(X&&)
         bool operator==(const reception_claim_t & o) const; //operator ==
         bool operator!=(const reception_claim_t & o) const; //operator !=
+        uint64_t Serialize(uint8_t * serialization) const;
+    };
+    struct report_segment_t {
+        uint64_t reportSerialNumber;
+        uint64_t checkpointSerialNumber;
+        uint64_t upperBound;
+        uint64_t lowerBound;
+        uint64_t receptionClaimCount;
+        std::vector<reception_claim_t> receptionClaims;
+
+        report_segment_t(); //a default constructor: X()
+        ~report_segment_t(); //a destructor: ~X()
+        report_segment_t(const report_segment_t& o); //a copy constructor: X(const X&)
+        report_segment_t(report_segment_t&& o); //a move constructor: X(X&&)
+        report_segment_t& operator=(const report_segment_t& o); //a copy assignment: operator=(const X&)
+        report_segment_t& operator=(report_segment_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const report_segment_t & o) const; //operator ==
+        bool operator!=(const report_segment_t & o) const; //operator !=
+        uint64_t Serialize(uint8_t * serialization) const;
+        uint64_t GetMaximumDataRequiredForSerialization() const;
     };
     struct ltp_extension_t {
         uint8_t tag;
@@ -169,6 +189,8 @@ public:
         data_segment_metadata_t(uint64_t paramClientServiceId, uint64_t paramOffset, uint64_t paramLength, uint64_t * paramCheckpointSerialNumber = NULL, uint64_t * paramReportSerialNumber = NULL);
         bool operator==(const data_segment_metadata_t & o) const; //operator ==
         bool operator!=(const data_segment_metadata_t & o) const; //operator !=
+        uint64_t Serialize(uint8_t * serialization) const;
+        uint64_t GetMaximumDataRequiredForSerialization() const;
         
         uint64_t clientServiceId;
         uint64_t offset;
@@ -177,28 +199,19 @@ public:
         uint64_t * reportSerialNumber;
     };
     
+    
 	typedef boost::function<void(uint8_t segmentTypeFlags, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber,
         std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> DataSegmentContentsReadCallback_t;
-	/*typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
-	typedef boost::function<void(uint64_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
-	typedef boost::function<void(BUNDLE_REFUSAL_CODES refusalCode)> BundleRefusalCallback_t;
-	typedef boost::function<void(uint64_t nextBundleLength)> NextBundleLengthCallback_t;
-	typedef boost::function<void()> KeepAliveCallback_t;
-	typedef boost::function<void(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-								 bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)> ShutdownMessageCallback_t;
-*/
+    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, const report_segment_t & reportSegment,
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportSegmentContentsReadCallback_t;
+	
     Ltp();
 	~Ltp();
     
 	void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
-	/*void SetContactHeaderReadCallback(ContactHeaderReadCallback_t callback);
-	void SetAckSegmentReadCallback(AckSegmentReadCallback_t callback);
-	void SetBundleRefusalCallback(BundleRefusalCallback_t callback);
-	void SetNextBundleLengthCallback(NextBundleLengthCallback_t callback);
-	void SetKeepAliveCallback(KeepAliveCallback_t callback);
-	void SetShutdownMessageCallback(ShutdownMessageCallback_t callback);
-    */
+    void SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback);
+
 
 	void InitRx();
 	bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage);
@@ -221,6 +234,9 @@ public:
     static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, uint64_t sessionOriginatorEngineId,
         uint64_t sessionNumber, const data_segment_metadata_t & dataSegmentMetadata,
         ltp_extensions_t * headerExtensions = NULL, uint8_t numTrailerExtensions = 0);
+    static void GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, uint64_t sessionOriginatorEngineId,
+        uint64_t sessionNumber, const report_segment_t & reportSegmentStruct,
+        ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
     //static void GenerateDataSegmentWithoutCheckpoint(std::vector<uint8_t> & dataSegment, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentType, uint64_t sessionOriginatorEngineId,
     //    uint64_t sessionNumber, uint64_t clientServiceId, uint64_t offsetBytes, uint64_t lengthBytes);
 
@@ -252,13 +268,7 @@ public:
     uint64_t m_dataSegment_checkpointSerialNumber;
     uint64_t m_dataSegment_reportSerialNumber;
     
-    uint64_t m_reportSegment_reportSerialNumber;
-    uint64_t m_reportSegment_checkpointSerialNumber;
-    uint64_t m_reportSegment_upperBound;
-    uint64_t m_reportSegment_lowerBound;
-    uint64_t m_reportSegment_receptionClaimCount;
-    
-    std::vector<reception_claim_t> m_reportSegment_receptionClaims;
+    report_segment_t m_reportSegment;
 
     uint64_t m_reportAcknowledgementSegment_reportSerialNumber;
 
@@ -296,13 +306,8 @@ public:
 	SHUTDOWN_REASON_CODES m_shutdownReasonCode;
 */
 	//callback functions
-	//ContactHeaderReadCallback_t m_contactHeaderReadCallback;
 	DataSegmentContentsReadCallback_t m_dataSegmentContentsReadCallback;
-	//AckSegmentReadCallback_t m_ackSegmentReadCallback;
-	//BundleRefusalCallback_t m_bundleRefusalCallback;
-	//NextBundleLengthCallback_t m_nextBundleLengthCallback;
-	//KeepAliveCallback_t m_keepAliveCallback;
-	//ShutdownMessageCallback_t m_shutdownMessageCallback;
+    ReportSegmentContentsReadCallback_t m_reportSegmentContentsReadCallback;
     
 };
 
