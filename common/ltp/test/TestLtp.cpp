@@ -177,11 +177,212 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
         Ltp::report_segment_t m_desired_reportSegment;
 
+        uint64_t m_desired_reportAcknowledgementSegment_reportSerialNumber;
+
         uint64_t m_numDataSegmentCallbackCount;
         uint64_t m_numReportSegmentCallbackCount;
+        uint64_t m_numReportAcknowledgementSegmentCallbackCount;
         TestLtp()
         {
 
+        }
+
+        void ReceiveReportAcknowledgementSegment() {
+            m_numReportAcknowledgementSegmentCallbackCount = 0;
+            std::vector<uint8_t> ltpReportAcknowledgementSegmentPacket;
+            Ltp::GenerateReportAcknowledgementSegmentLtpPacket(ltpReportAcknowledgementSegmentPacket,
+                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_reportAcknowledgementSegment_reportSerialNumber,
+                (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
+                (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
+
+            for (unsigned int i = 1; i <= 5; ++i) {
+                std::string errorMessage;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpReportAcknowledgementSegmentPacket.data(), ltpReportAcknowledgementSegmentPacket.size(), errorMessage));
+                BOOST_REQUIRE_EQUAL(m_numReportAcknowledgementSegmentCallbackCount, i);
+                BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(m_ltp.IsAtBeginningState());
+            }
+        }
+
+        void DoReportAcknowledgementSegment() {
+
+
+            m_ltp.SetReportAcknowledgementSegmentContentsReadCallback(boost::bind(&TestLtp::ReportAcknowledgementSegmentCallback, this,
+                boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5));
+
+            m_desired_sessionOriginatorEngineId = 0xdeadbeefbee;
+            m_desired_sessionNumber = 0xabcdef;
+
+            m_desired_reportAcknowledgementSegment_reportSerialNumber = 0xabcd123456;
+
+            
+
+            //NO TRAILER EXTENSIONS, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //1 TRAILER EXTENSION WITH DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x55;
+                e.valueVec.assign(500, 'd');
+                m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+
+            //1 TRAILER EXTENSION WITH NO DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x56;
+                m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //2 TRAILER EXTENSIONS WITH DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x60;
+                    e.valueVec.assign(500, 'd');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x61;
+                    e.valueVec.assign(50, 'f');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //1 HEADER EXTENSION WITH DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x55;
+                e.valueVec.assign(501, 'g');
+                m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //1 HEADER EXTENSION WITH NO DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x56;
+                m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //2 HEADER EXTENSIONS WITH DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x60;
+                    e.valueVec.assign(502, 'h');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x61;
+                    e.valueVec.assign(51, 'i');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //2 HEADER EXTENSIONS WITH DATA, 2 TRAILER EXTENSIONS WITH DATA
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x70;
+                    e.valueVec.assign(502, 'A');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x71;
+                    e.valueVec.assign(51, 'B');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x72;
+                    e.valueVec.assign(502, 'C');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x73;
+                    e.valueVec.assign(51, 'D');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveReportAcknowledgementSegment();
+            }
+
+            //2 HEADER EXTENSIONS WITH NO DATA, 2 TRAILER EXTENSIONS WITH NO DATA
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x80;
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x81;
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x82;
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x83;
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveReportAcknowledgementSegment();
+            }
+        }
+
+        void ReportAcknowledgementSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
+            Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
+        {
+            ++m_numReportAcknowledgementSegmentCallbackCount;
+            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
+            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(reportSerialNumberBeingAcknowledged, m_desired_reportAcknowledgementSegment_reportSerialNumber);
+            BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
+            BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
         }
 
         void ReceiveReportSegment() {
@@ -209,6 +410,8 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
                 boost::placeholders::_4, boost::placeholders::_5));
 
 
+            m_desired_sessionOriginatorEngineId = 555555;
+            m_desired_sessionNumber = 6666666;
 
             m_desired_reportSegment.reportSerialNumber = 12345;
             m_desired_reportSegment.checkpointSerialNumber = 12346;
@@ -668,5 +871,9 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
     BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
     t.DoReportSegment();
+    BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
+
+    BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
+    t.DoReportAcknowledgementSegment();
     BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
 }

@@ -205,12 +205,15 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> DataSegmentContentsReadCallback_t;
     typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, const report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportSegmentContentsReadCallback_t;
+    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportAcknowledgementSegmentContentsReadCallback_t;
 	
     Ltp();
 	~Ltp();
     
 	void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
     void SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback);
+    void SetReportAcknowledgementSegmentContentsReadCallback(const ReportAcknowledgementSegmentContentsReadCallback_t & callback);
 
 
 	void InitRx();
@@ -218,18 +221,7 @@ public:
 	void HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage);
     bool IsAtBeginningState() const; //unit testing convenience function
     
-    /*
-	static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-	static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents);
-    static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint64_t sizeContents);
-	static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint64_t totalBytesAcknowledged);
-	static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode);
-	static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint64_t nextBundleLength);
-	static void GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage);
-	static void GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
-										bool includeReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-										bool includeReconnectionDelay, uint64_t reconnectionDelaySeconds);
-                                        */
+    
     static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumber);
     static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, uint64_t sessionOriginatorEngineId,
         uint64_t sessionNumber, const data_segment_metadata_t & dataSegmentMetadata,
@@ -237,8 +229,9 @@ public:
     static void GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, uint64_t sessionOriginatorEngineId,
         uint64_t sessionNumber, const report_segment_t & reportSegmentStruct,
         ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    //static void GenerateDataSegmentWithoutCheckpoint(std::vector<uint8_t> & dataSegment, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentType, uint64_t sessionOriginatorEngineId,
-    //    uint64_t sessionNumber, uint64_t clientServiceId, uint64_t offsetBytes, uint64_t lengthBytes);
+    static void GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
+        uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
+        ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
 
 private:
     void SetBeginningState();
@@ -308,6 +301,7 @@ public:
 	//callback functions
 	DataSegmentContentsReadCallback_t m_dataSegmentContentsReadCallback;
     ReportSegmentContentsReadCallback_t m_reportSegmentContentsReadCallback;
+    ReportAcknowledgementSegmentContentsReadCallback_t m_reportAcknowledgementSegmentContentsReadCallback;
     
 };
 

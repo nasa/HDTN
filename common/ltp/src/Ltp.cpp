@@ -226,6 +226,9 @@ void Ltp::SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallba
 void Ltp::SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback) {
     m_reportSegmentContentsReadCallback = callback;
 }
+void Ltp::SetReportAcknowledgementSegmentContentsReadCallback(const ReportAcknowledgementSegmentContentsReadCallback_t & callback) {
+    m_reportAcknowledgementSegmentContentsReadCallback = callback;
+}
 
 void Ltp::InitRx() {
     m_mainRxState = LTP_MAIN_RX_STATE::READ_HEADER;
@@ -691,7 +694,10 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
                 }
                 else {
-                    //callback
+                    //callback report acknowledgement segment
+                    if (m_reportAcknowledgementSegmentContentsReadCallback) {
+                        m_reportAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportAcknowledgementSegment_reportSerialNumber, m_headerExtensions, m_trailerExtensions);
+                    }
                     SetBeginningState();
                 }
             }
@@ -825,7 +831,10 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
         }
     }
     else if (m_segmentTypeFlags == 9) {
-        //callback report ack segment
+        //callback report acknowledgement segment
+        if (m_reportAcknowledgementSegmentContentsReadCallback) {
+            m_reportAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportAcknowledgementSegment_reportSerialNumber, m_headerExtensions, m_trailerExtensions);
+        }
     }
     else { //12 or 14 => cancel segment
         //callback cancel segment
@@ -907,4 +916,36 @@ void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegment
         encodedPtr += trailerExtensions->Serialize(encodedPtr);
     }
     ltpReportSegmentPacket.resize(encodedPtr - ltpReportSegmentPacket.data());
+}
+
+void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
+    uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
+    ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
+{
+    uint8_t numHeaderExtensions = 0;
+    uint64_t maxBytesRequiredForHeaderExtensions = 0;
+    if (headerExtensions) {
+        numHeaderExtensions = static_cast<uint8_t>(headerExtensions->extensionsVec.size());
+        maxBytesRequiredForHeaderExtensions = headerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    uint8_t numTrailerExtensions = 0;
+    uint64_t maxBytesRequiredForTrailerExtensions = 0;
+    if (trailerExtensions) {
+        numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
+        maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    ltpReportAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + (1 * 10) + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 report serial number 10-byte sdnv + rest of data
+    uint8_t * encodedPtr = ltpReportAcknowledgementSegmentPacket.data();
+    *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT); //assumes version 0 in most significant 4 bits
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
+    if (headerExtensions) {
+        encodedPtr += headerExtensions->Serialize(encodedPtr);
+    }
+    encodedPtr += SdnvEncodeU64(encodedPtr, reportSerialNumberBeingAcknowledged);
+    if (trailerExtensions) {
+        encodedPtr += trailerExtensions->Serialize(encodedPtr);
+    }
+    ltpReportAcknowledgementSegmentPacket.resize(encodedPtr - ltpReportAcknowledgementSegmentPacket.data());
 }
