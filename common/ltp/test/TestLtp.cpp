@@ -179,12 +179,454 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
         uint64_t m_desired_reportAcknowledgementSegment_reportSerialNumber;
 
+        bool m_desired_cancelAcknowledgementSegment_isToSender;
+
+        CANCEL_SEGMENT_REASON_CODES m_desired_cancelSegment_reasonCode;
+        bool m_desired_cancelSegment_isFromSender;
+
         uint64_t m_numDataSegmentCallbackCount;
         uint64_t m_numReportSegmentCallbackCount;
         uint64_t m_numReportAcknowledgementSegmentCallbackCount;
+        uint64_t m_numCancelAcknowledgementSegmentCallbackCount;
+        uint64_t m_numCancelSegmentCallbackCount;
         TestLtp()
         {
 
+        }
+
+        void ReceiveCancelSegment() {
+            m_numCancelSegmentCallbackCount = 0;
+            std::vector<uint8_t> ltpCancelSegmentPacket;
+            Ltp::GenerateCancelSegmentLtpPacket(ltpCancelSegmentPacket,
+                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_cancelSegment_reasonCode, m_desired_cancelSegment_isFromSender,
+                (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
+                (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
+
+            for (unsigned int i = 1; i <= 5; ++i) {
+                std::string errorMessage;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpCancelSegmentPacket.data(), ltpCancelSegmentPacket.size(), errorMessage));
+                BOOST_REQUIRE_EQUAL(m_numCancelSegmentCallbackCount, i);
+                BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(m_ltp.IsAtBeginningState());
+            }
+        }
+
+        void DoCancelSegment() {
+
+
+            m_ltp.SetCancelSegmentContentsReadCallback(boost::bind(&TestLtp::CancelSegmentCallback, this,
+                boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
+
+            m_desired_sessionOriginatorEngineId = 0xdeadbeefbee;
+            m_desired_sessionNumber = 0xabcdef;
+
+            m_desired_cancelSegment_isFromSender = true;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED;
+
+
+            //NO TRAILER EXTENSIONS, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::MISCOLORED;
+
+            //1 TRAILER EXTENSION WITH DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x55;
+                e.valueVec.assign(500, 'd');
+                m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::RLEXC;
+
+            //1 TRAILER EXTENSION WITH NO DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x56;
+                m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::RXMTCYCEXC;
+
+            //2 TRAILER EXTENSIONS WITH DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x60;
+                    e.valueVec.assign(500, 'd');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x61;
+                    e.valueVec.assign(50, 'f');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::UNREACHABLE;
+
+            //1 HEADER EXTENSION WITH DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x55;
+                e.valueVec.assign(501, 'g');
+                m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::RXMTCYCEXC;
+
+            //1 HEADER EXTENSION WITH NO DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x56;
+                m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED;
+
+            //2 HEADER EXTENSIONS WITH DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x60;
+                    e.valueVec.assign(502, 'h');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x61;
+                    e.valueVec.assign(51, 'i');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::MISCOLORED;
+
+            //2 HEADER EXTENSIONS WITH DATA, 2 TRAILER EXTENSIONS WITH DATA
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x70;
+                    e.valueVec.assign(502, 'A');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x71;
+                    e.valueVec.assign(51, 'B');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x72;
+                    e.valueVec.assign(502, 'C');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x73;
+                    e.valueVec.assign(51, 'D');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelSegment();
+            }
+
+            m_desired_cancelSegment_isFromSender = !m_desired_cancelSegment_isFromSender;
+            m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED;
+
+            //2 HEADER EXTENSIONS WITH NO DATA, 2 TRAILER EXTENSIONS WITH NO DATA
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x80;
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x81;
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x82;
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x83;
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelSegment();
+            }
+        }
+
+        void CancelSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
+            Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
+        {
+            ++m_numCancelSegmentCallbackCount;
+            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
+            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE(reasonCode == m_desired_cancelSegment_reasonCode);
+            BOOST_REQUIRE_EQUAL(isFromSender, m_desired_cancelSegment_isFromSender);
+            BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
+            BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
+        }
+
+        void ReceiveCancelAcknowledgementSegment() {
+            m_numCancelAcknowledgementSegmentCallbackCount = 0;
+            std::vector<uint8_t> ltpCancelAcknowledgementSegmentPacket;
+            Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(ltpCancelAcknowledgementSegmentPacket,
+                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_cancelAcknowledgementSegment_isToSender,
+                (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
+                (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
+
+            for (unsigned int i = 1; i <= 5; ++i) {
+                std::string errorMessage;
+                BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpCancelAcknowledgementSegmentPacket.data(), ltpCancelAcknowledgementSegmentPacket.size(), errorMessage));
+                BOOST_REQUIRE_EQUAL(m_numCancelAcknowledgementSegmentCallbackCount, i);
+                BOOST_REQUIRE_EQUAL(errorMessage.size(), 0);
+                BOOST_REQUIRE(m_ltp.IsAtBeginningState());
+            }
+        }
+
+        void DoCancelAcknowledgementSegment() {
+
+
+            m_ltp.SetCancelAcknowledgementSegmentContentsReadCallback(boost::bind(&TestLtp::CancelAcknowledgementSegmentCallback, this,
+                boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5));
+
+            m_desired_sessionOriginatorEngineId = 0xdeadbeefbee;
+            m_desired_sessionNumber = 0xabcdef;
+
+            m_desired_cancelAcknowledgementSegment_isToSender = true;
+
+
+
+            //NO TRAILER EXTENSIONS, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //1 TRAILER EXTENSION WITH DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x55;
+                e.valueVec.assign(500, 'd');
+                m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //1 TRAILER EXTENSION WITH NO DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x56;
+                m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+            
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //2 TRAILER EXTENSIONS WITH DATA, NO HEADER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x60;
+                    e.valueVec.assign(500, 'd');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x61;
+                    e.valueVec.assign(50, 'f');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //1 HEADER EXTENSION WITH DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x55;
+                e.valueVec.assign(501, 'g');
+                m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //1 HEADER EXTENSION WITH NO DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                Ltp::ltp_extension_t e;
+                e.tag = 0x56;
+                m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //2 HEADER EXTENSIONS WITH DATA, NO TRAILER EXTENSIONS
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x60;
+                    e.valueVec.assign(502, 'h');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x61;
+                    e.valueVec.assign(51, 'i');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //2 HEADER EXTENSIONS WITH DATA, 2 TRAILER EXTENSIONS WITH DATA
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x70;
+                    e.valueVec.assign(502, 'A');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x71;
+                    e.valueVec.assign(51, 'B');
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x72;
+                    e.valueVec.assign(502, 'C');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x73;
+                    e.valueVec.assign(51, 'D');
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+
+            m_desired_cancelAcknowledgementSegment_isToSender = !m_desired_cancelAcknowledgementSegment_isToSender;
+
+            //2 HEADER EXTENSIONS WITH NO DATA, 2 TRAILER EXTENSIONS WITH NO DATA
+            {
+                m_desired_headerExtensions.extensionsVec.clear();
+                m_desired_trailerExtensions.extensionsVec.clear();
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x80;
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x81;
+                    m_desired_headerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x82;
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+                {
+                    Ltp::ltp_extension_t e;
+                    e.tag = 0x83;
+                    m_desired_trailerExtensions.extensionsVec.push_back(std::move(e));
+                }
+
+                ReceiveCancelAcknowledgementSegment();
+            }
+        }
+
+        void CancelAcknowledgementSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, bool isToSender,
+            Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
+        {
+            ++m_numCancelAcknowledgementSegmentCallbackCount;
+            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
+            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(isToSender, m_desired_cancelAcknowledgementSegment_isToSender);
+            BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
+            BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
         }
 
         void ReceiveReportAcknowledgementSegment() {
@@ -875,5 +1317,13 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
     BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
     t.DoReportAcknowledgementSegment();
+    BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
+
+    BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
+    t.DoCancelAcknowledgementSegment();
+    BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
+
+    BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
+    t.DoCancelSegment();
     BOOST_REQUIRE(t.m_ltp.IsAtBeginningState());
 }

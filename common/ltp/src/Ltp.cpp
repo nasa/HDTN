@@ -229,6 +229,12 @@ void Ltp::SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCa
 void Ltp::SetReportAcknowledgementSegmentContentsReadCallback(const ReportAcknowledgementSegmentContentsReadCallback_t & callback) {
     m_reportAcknowledgementSegmentContentsReadCallback = callback;
 }
+void Ltp::SetCancelSegmentContentsReadCallback(const CancelSegmentContentsReadCallback_t & callback) {
+    m_cancelSegmentContentsReadCallback = callback;
+}
+void Ltp::SetCancelAcknowledgementSegmentContentsReadCallback(const CancelAcknowledgementSegmentContentsReadCallback_t & callback) {
+    m_cancelAcknowledgementSegmentContentsReadCallback = callback;
+}
 
 void Ltp::InitRx() {
     m_mainRxState = LTP_MAIN_RX_STATE::READ_HEADER;
@@ -710,7 +716,10 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
             }
             else {
-                //callback
+                //callback cancel segment
+                if (m_cancelSegmentContentsReadCallback) {
+                    m_cancelSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (static_cast<CANCEL_SEGMENT_REASON_CODES>(m_cancelSegment_reasonCode)), (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+                }
                 SetBeginningState();
             }
         }
@@ -778,7 +787,11 @@ bool Ltp::NextStateAfterHeaderExtensions(std::string & errorMessage) {
             m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
         }
         else {
-            //callback
+            //callback cancel acknowledgement segment
+            if (m_cancelAcknowledgementSegmentContentsReadCallback) {
+                m_cancelAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+            }
+            SetBeginningState();
         }
     }
     else if ((m_segmentTypeFlags == 5) || (m_segmentTypeFlags == 6) || (m_segmentTypeFlags == 10) || (m_segmentTypeFlags == 11)) { // undefined
@@ -812,7 +825,10 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     }
 
     if ((m_segmentTypeFlags & 0xd) == 0xd) { //CAx (cancel ack) with no contents
-        //callback cax
+        //callback cancel acknowledgement segment
+        if (m_cancelAcknowledgementSegmentContentsReadCallback) {
+            m_cancelAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+        }
     }
     else if ((m_segmentTypeFlags == 5) || (m_segmentTypeFlags == 6) || (m_segmentTypeFlags == 10) || (m_segmentTypeFlags == 11)) { // undefined
         errorMessage = "error in NextStateAfterTrailerExtensions: undefined segment type flags: " + boost::lexical_cast<std::string>((int)m_segmentTypeFlags);
@@ -838,30 +854,16 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     }
     else { //12 or 14 => cancel segment
         //callback cancel segment
+        if (m_cancelSegmentContentsReadCallback) {
+            m_cancelSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (static_cast<CANCEL_SEGMENT_REASON_CODES>(m_cancelSegment_reasonCode)), (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+        }
     }
     SetBeginningState();
     return true;
 }
 
 
-/*
-void Tcpcl::GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid) {
-    uint8_t localEidSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(localEidSdnv, localEid.size());
 
-    hdr.resize(8 + sdnvSize + localEid.size());
-
-    hdr[0] = 'd';
-    hdr[1] = 't';
-    hdr[2] = 'n';
-    hdr[3] = '!';
-    hdr[4] = 3; //version
-    hdr[5] = static_cast<uint8_t>(flags);
-    boost::endian::native_to_big_inplace(keepAliveIntervalSeconds);
-    memcpy(&hdr[6], &keepAliveIntervalSeconds, sizeof(keepAliveIntervalSeconds));
-    memcpy(&hdr[8], localEidSdnv, sdnvSize);
-    memcpy(&hdr[8 + sdnvSize], localEid.data(), localEid.size());
-}*/
 
 void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, 
     uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, const data_segment_metadata_t & dataSegmentMetadata,
@@ -948,4 +950,66 @@ void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
         encodedPtr += trailerExtensions->Serialize(encodedPtr);
     }
     ltpReportAcknowledgementSegmentPacket.resize(encodedPtr - ltpReportAcknowledgementSegmentPacket.data());
+}
+
+void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, uint64_t sessionOriginatorEngineId,
+    uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
+    ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
+{
+    uint8_t numHeaderExtensions = 0;
+    uint64_t maxBytesRequiredForHeaderExtensions = 0;
+    if (headerExtensions) {
+        numHeaderExtensions = static_cast<uint8_t>(headerExtensions->extensionsVec.size());
+        maxBytesRequiredForHeaderExtensions = headerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    uint8_t numTrailerExtensions = 0;
+    uint64_t maxBytesRequiredForTrailerExtensions = 0;
+    if (trailerExtensions) {
+        numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
+        maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    ltpCancelSegmentPacket.resize(1 + 1 + (2 * 10) + 1 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 one-byte reason code + rest of data
+    uint8_t * encodedPtr = ltpCancelSegmentPacket.data();
+    *encodedPtr++ = static_cast<uint8_t>(isFromSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
+    if (headerExtensions) {
+        encodedPtr += headerExtensions->Serialize(encodedPtr);
+    }
+    *encodedPtr++ = static_cast<uint8_t>(reasonCode);
+    if (trailerExtensions) {
+        encodedPtr += trailerExtensions->Serialize(encodedPtr);
+    }
+    ltpCancelSegmentPacket.resize(encodedPtr - ltpCancelSegmentPacket.data());
+}
+
+void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
+    uint64_t sessionNumber, bool isToSender, ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
+{
+    uint8_t numHeaderExtensions = 0;
+    uint64_t maxBytesRequiredForHeaderExtensions = 0;
+    if (headerExtensions) {
+        numHeaderExtensions = static_cast<uint8_t>(headerExtensions->extensionsVec.size());
+        maxBytesRequiredForHeaderExtensions = headerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    uint8_t numTrailerExtensions = 0;
+    uint64_t maxBytesRequiredForTrailerExtensions = 0;
+    if (trailerExtensions) {
+        numTrailerExtensions = static_cast<uint8_t>(trailerExtensions->extensionsVec.size());
+        maxBytesRequiredForTrailerExtensions = trailerExtensions->GetMaximumDataRequiredForSerialization();
+    }
+    ltpCancelAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + 0 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + no payload data + rest of data
+    uint8_t * encodedPtr = ltpCancelAcknowledgementSegmentPacket.data();
+    *encodedPtr++ = static_cast<uint8_t>(isToSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
+    if (headerExtensions) {
+        encodedPtr += headerExtensions->Serialize(encodedPtr);
+    }
+    if (trailerExtensions) {
+        encodedPtr += trailerExtensions->Serialize(encodedPtr);
+    }
+    ltpCancelAcknowledgementSegmentPacket.resize(encodedPtr - ltpCancelAcknowledgementSegmentPacket.data());
 }

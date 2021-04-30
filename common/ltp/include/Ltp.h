@@ -85,32 +85,19 @@ enum class LTP_DATA_SEGMENT_TYPE_FLAGS //A SUBSET OF THE ABOVE FOR PARAMETER TO 
     GREENDATA = 0x04,
     GREENDATA_ENDOFBLOCK = 0x07
 };
-/*
-enum class SHUTDOWN_REASON_CODES
+
+enum class CANCEL_SEGMENT_REASON_CODES
 {
-	IDLE_TIMEOUT = 0x0,
-	VERSION_MISMATCH = 0x1,
-	BUSY = 0x2,
-	UNASSIGNED
+	USER_CANCELLED = 0x0, //Client service canceled session.
+	UNREACHABLE = 0x1, //Unreachable client service.
+	RLEXC = 0x2, //Retransmission limit exceeded.
+    MISCOLORED = 0x3, //Received either a red-part data segment at block offset above any green - part data segment offset or a green - part data segment at block offset below any red - part data segment offset..
+    SYSTEM_CANCELLED = 0x4, //A system error condition caused unexpected session termination.
+    RXMTCYCEXC = 0x5, //Exceeded the Retransmission-Cycles limit.
+	RESERVED
 };
 
-enum class BUNDLE_REFUSAL_CODES
-{
-	REFUSAL_REASON_UNKNOWN = 0x0, //REASON_UNKNOW taken in windows
-	RECEIVER_HAS_COMPLETE_BUNDLE = 0x1,
-	RECEIVER_RESOURCES_EXHAUSTED = 0x2,
-	RECEIVER_PROBLEM__PLEASE_RETRANSMIT = 0x3,
-	UNASSIGNED
-};
 
-enum class CONTACT_HEADER_FLAGS
-{
-	REQUEST_ACK_OF_BUNDLE_SEGMENTS = (1U << 0),
-	REQUEST_ENABLING_OF_REACTIVE_FRAGMENTATION = (1U << 1),
-	SUPPORT_BUNDLE_REFUSAL = (1U << 2),
-	REQUEST_SENDING_OF_LENGTH_MESSAGES = (1U << 3)
-};
-*/
 
 class Ltp {
 
@@ -207,6 +194,10 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportSegmentContentsReadCallback_t;
     typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportAcknowledgementSegmentContentsReadCallback_t;
+    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> CancelSegmentContentsReadCallback_t;
+    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, bool isToSender,
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> CancelAcknowledgementSegmentContentsReadCallback_t;
 	
     Ltp();
 	~Ltp();
@@ -214,6 +205,8 @@ public:
 	void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
     void SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback);
     void SetReportAcknowledgementSegmentContentsReadCallback(const ReportAcknowledgementSegmentContentsReadCallback_t & callback);
+    void SetCancelSegmentContentsReadCallback(const CancelSegmentContentsReadCallback_t & callback);
+    void SetCancelAcknowledgementSegmentContentsReadCallback(const CancelAcknowledgementSegmentContentsReadCallback_t & callback);
 
 
 	void InitRx();
@@ -232,6 +225,11 @@ public:
     static void GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
         uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
         ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
+    static void GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, uint64_t sessionOriginatorEngineId,
+        uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
+        ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
+    static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
+        uint64_t sessionNumber, bool isToSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
 
 private:
     void SetBeginningState();
@@ -266,43 +264,13 @@ public:
     uint64_t m_reportAcknowledgementSegment_reportSerialNumber;
 
     uint8_t m_cancelSegment_reasonCode;
-        /*
-	//contact header
-	CONTACT_HEADER_FLAGS m_contactHeaderFlags;
-	uint16_t m_keepAliveInterval;
-	uint64_t m_localEidLength;
-	std::string m_localEidStr;
-	MESSAGE_TYPE_BYTE_CODES m_messageTypeByte;
-
-
-	uint8_t m_messageTypeFlags;
-
-	//data segment
-	bool m_dataSegmentStartFlag;
-	bool m_dataSegmentEndFlag;
-	uint64_t m_dataSegmentLength;
-	std::vector<uint8_t> m_dataSegmentDataVec;
-
-	//ack segment
-	uint64_t m_ackSegmentLength;
-
-	//refuse bundle
-	uint8_t m_bundleRefusalCode;
-
-	//next bundle length
-	uint64_t m_nextBundleLength;
-
-	//shutdown
-	bool m_shutdownHasReasonFlag;
-	bool m_shutdownHasReconnectionDelayFlag;
-	uint64_t m_shutdownReconnectionDelay;
-	SHUTDOWN_REASON_CODES m_shutdownReasonCode;
-*/
+        
 	//callback functions
 	DataSegmentContentsReadCallback_t m_dataSegmentContentsReadCallback;
     ReportSegmentContentsReadCallback_t m_reportSegmentContentsReadCallback;
     ReportAcknowledgementSegmentContentsReadCallback_t m_reportAcknowledgementSegmentContentsReadCallback;
-    
+    CancelSegmentContentsReadCallback_t m_cancelSegmentContentsReadCallback;
+    CancelAcknowledgementSegmentContentsReadCallback_t m_cancelAcknowledgementSegmentContentsReadCallback;
 };
 
 #endif // LTP_H
