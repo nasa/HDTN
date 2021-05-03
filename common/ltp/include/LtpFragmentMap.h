@@ -8,6 +8,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include "Ltp.h"
 
 class LtpFragmentMap {
 public:
@@ -25,13 +26,14 @@ public:
         bool operator==(const data_fragment_t & o) const; //operator ==
         bool operator!=(const data_fragment_t & o) const; //operator !=
         bool operator<(const data_fragment_t & o) const; //operator < (no overlap no abut)
-        //bool operator||(const data_fragment_t & o) const; //operator || (overlaps or abuts)
         static bool SimulateSetKeyFind(const data_fragment_t & key, const data_fragment_t & keyInSet);
     };
 
 public:
     
     static void InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
+    static bool PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment);
+    static void AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment);
 
     LtpFragmentMap(); //a default constructor: X()
     ~LtpFragmentMap(); //a destructor: ~X()

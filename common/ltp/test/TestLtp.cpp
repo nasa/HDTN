@@ -101,8 +101,7 @@ BOOST_AUTO_TEST_CASE(LtpReportSegmentTestCase)
     reportSegment.reportSerialNumber = 50;
     reportSegment.checkpointSerialNumber = 55;
     reportSegment.upperBound = 60;
-    reportSegment.lowerBound = 65;
-    reportSegment.receptionClaimCount = 130; //2 byte sdnv
+    reportSegment.lowerBound = 130;
 
     {
         std::vector<uint8_t> serialization;
@@ -865,7 +864,6 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
                 rc.offset = 12349;
                 rc.length = 12350;
                 m_desired_reportSegment.receptionClaims.push_back(rc);
-                m_desired_reportSegment.receptionClaimCount = m_desired_reportSegment.receptionClaims.size(); //minimum size is 1
             }
             
 
@@ -885,7 +883,6 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
                     rc.offset = 123490;
                     rc.length = 123500;
                     m_desired_reportSegment.receptionClaims.push_back(rc);
-                    m_desired_reportSegment.receptionClaimCount = m_desired_reportSegment.receptionClaims.size(); //minimum size is 1
                 }
 
                 ReceiveReportSegment();
@@ -894,7 +891,6 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             //back to 1 claim
             BOOST_REQUIRE_EQUAL(m_desired_reportSegment.receptionClaims.size(), 2);
             m_desired_reportSegment.receptionClaims.pop_back();
-            m_desired_reportSegment.receptionClaimCount = m_desired_reportSegment.receptionClaims.size(); //minimum size is 1  TODO THIS IS MESSY
             BOOST_REQUIRE_EQUAL(m_desired_reportSegment.receptionClaims.size(), 1);
 
            
@@ -1052,7 +1048,6 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
                     rc.offset = 123490;
                     rc.length = 123500;
                     m_desired_reportSegment.receptionClaims.push_back(rc);
-                    m_desired_reportSegment.receptionClaimCount = m_desired_reportSegment.receptionClaims.size(); //minimum size is 1
                 }
 
                 ReceiveReportSegment();

@@ -108,6 +108,7 @@ public:
         uint64_t length;
 
         reception_claim_t(); //a default constructor: X()
+        reception_claim_t(uint64_t paramOffset, uint64_t paramLength);
         ~reception_claim_t(); //a destructor: ~X()
         reception_claim_t(const reception_claim_t& o); //a copy constructor: X(const X&)
         reception_claim_t(reception_claim_t&& o); //a move constructor: X(X&&)
@@ -115,6 +116,7 @@ public:
         reception_claim_t& operator=(reception_claim_t&& o); //a move assignment: operator=(X&&)
         bool operator==(const reception_claim_t & o) const; //operator ==
         bool operator!=(const reception_claim_t & o) const; //operator !=
+        friend std::ostream& operator<<(std::ostream& os, const reception_claim_t& o);
         uint64_t Serialize(uint8_t * serialization) const;
     };
     struct report_segment_t {
@@ -122,10 +124,11 @@ public:
         uint64_t checkpointSerialNumber;
         uint64_t upperBound;
         uint64_t lowerBound;
-        uint64_t receptionClaimCount;
         std::vector<reception_claim_t> receptionClaims;
 
         report_segment_t(); //a default constructor: X()
+        report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, const std::vector<reception_claim_t> & paramReceptionClaims);
+        report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, std::vector<reception_claim_t> && paramReceptionClaims);
         ~report_segment_t(); //a destructor: ~X()
         report_segment_t(const report_segment_t& o); //a copy constructor: X(const X&)
         report_segment_t(report_segment_t&& o); //a move constructor: X(X&&)
@@ -133,6 +136,7 @@ public:
         report_segment_t& operator=(report_segment_t&& o); //a move assignment: operator=(X&&)
         bool operator==(const report_segment_t & o) const; //operator ==
         bool operator!=(const report_segment_t & o) const; //operator !=
+        friend std::ostream& operator<<(std::ostream& os, const report_segment_t& dt);
         uint64_t Serialize(uint8_t * serialization) const;
         uint64_t GetMaximumDataRequiredForSerialization() const;
     };
@@ -260,6 +264,7 @@ public:
     uint64_t m_dataSegment_reportSerialNumber;
     
     report_segment_t m_reportSegment;
+    uint64_t m_reportSegment_receptionClaimCount;
 
     uint64_t m_reportAcknowledgementSegment_reportSerialNumber;
 

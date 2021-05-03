@@ -8,6 +8,7 @@
 
 
 Ltp::reception_claim_t::reception_claim_t() : offset(0), length(0) { } //a default constructor: X()
+Ltp::reception_claim_t::reception_claim_t(uint64_t paramOffset, uint64_t paramLength) : offset(paramOffset), length(paramLength) { }
 Ltp::reception_claim_t::~reception_claim_t() { } //a destructor: ~X()
 Ltp::reception_claim_t::reception_claim_t(const reception_claim_t& o) : offset(o.offset), length(o.length) { } //a copy constructor: X(const X&)
 Ltp::reception_claim_t::reception_claim_t(reception_claim_t&& o) : offset(o.offset), length(o.length) { } //a move constructor: X(X&&)
@@ -27,6 +28,10 @@ bool Ltp::reception_claim_t::operator==(const reception_claim_t & o) const {
 bool Ltp::reception_claim_t::operator!=(const reception_claim_t & o) const {
     return (offset != o.offset) || (length != o.length);
 }
+std::ostream& operator<<(std::ostream& os, const Ltp::reception_claim_t & o) {
+    os << "offset: " << o.offset << ", length: " << o.length;
+    return os;
+}
 uint64_t Ltp::reception_claim_t::Serialize(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
     serialization += SdnvEncodeU64(serialization, offset);
@@ -34,20 +39,31 @@ uint64_t Ltp::reception_claim_t::Serialize(uint8_t * serialization) const {
     return serialization - serializationBase;
 }
 
-Ltp::report_segment_t::report_segment_t() : reportSerialNumber(0), checkpointSerialNumber(0), upperBound(0), lowerBound(0), receptionClaimCount(0) { } //a default constructor: X()
+Ltp::report_segment_t::report_segment_t() : reportSerialNumber(0), checkpointSerialNumber(0), upperBound(0), lowerBound(0) { } //a default constructor: X()
+Ltp::report_segment_t::report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, const std::vector<reception_claim_t> & paramReceptionClaims) :
+    reportSerialNumber(paramReportSerialNumber), 
+    checkpointSerialNumber(paramCheckpointSerialNumber),
+    upperBound(paramUpperBound),
+    lowerBound(paramLowerBound),
+    receptionClaims(paramReceptionClaims) {}
+Ltp::report_segment_t::report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, std::vector<reception_claim_t> && paramReceptionClaims) :
+    reportSerialNumber(paramReportSerialNumber),
+    checkpointSerialNumber(paramCheckpointSerialNumber),
+    upperBound(paramUpperBound),
+    lowerBound(paramLowerBound),
+    receptionClaims(std::move(paramReceptionClaims)) {}
 Ltp::report_segment_t::~report_segment_t() { } //a destructor: ~X()
 Ltp::report_segment_t::report_segment_t(const report_segment_t& o) : 
     reportSerialNumber(o.reportSerialNumber), checkpointSerialNumber(o.checkpointSerialNumber),
-    upperBound(o.upperBound), lowerBound(o.lowerBound), receptionClaimCount(o.receptionClaimCount), receptionClaims(o.receptionClaims) { } //a copy constructor: X(const X&)
+    upperBound(o.upperBound), lowerBound(o.lowerBound), receptionClaims(o.receptionClaims) { } //a copy constructor: X(const X&)
 Ltp::report_segment_t::report_segment_t(report_segment_t&& o) : 
     reportSerialNumber(o.reportSerialNumber), checkpointSerialNumber(o.checkpointSerialNumber),
-    upperBound(o.upperBound), lowerBound(o.lowerBound), receptionClaimCount(o.receptionClaimCount), receptionClaims(std::move(o.receptionClaims)) { } //a move constructor: X(X&&)
+    upperBound(o.upperBound), lowerBound(o.lowerBound), receptionClaims(std::move(o.receptionClaims)) { } //a move constructor: X(X&&)
 Ltp::report_segment_t& Ltp::report_segment_t::operator=(const report_segment_t& o) { //a copy assignment: operator=(const X&)
     reportSerialNumber = o.reportSerialNumber;
     checkpointSerialNumber = o.checkpointSerialNumber;
     upperBound = o.upperBound;
     lowerBound = o.lowerBound;
-    receptionClaimCount = o.receptionClaimCount;
     receptionClaims = o.receptionClaims;
     return *this;
 }
@@ -56,19 +72,27 @@ Ltp::report_segment_t& Ltp::report_segment_t::operator=(report_segment_t && o) {
     checkpointSerialNumber = o.checkpointSerialNumber;
     upperBound = o.upperBound;
     lowerBound = o.lowerBound;
-    receptionClaimCount = o.receptionClaimCount;
     receptionClaims = std::move(o.receptionClaims);
     return *this;
 }
 bool Ltp::report_segment_t::operator==(const report_segment_t & o) const {
     return (reportSerialNumber == o.reportSerialNumber) && (checkpointSerialNumber == o.checkpointSerialNumber)
         && (upperBound == o.upperBound) && (lowerBound == o.lowerBound)
-        && (receptionClaimCount == o.receptionClaimCount) && (receptionClaims == o.receptionClaims);
+        && (receptionClaims == o.receptionClaims);
 }
 bool Ltp::report_segment_t::operator!=(const report_segment_t & o) const {
     return (reportSerialNumber != o.reportSerialNumber) || (checkpointSerialNumber != o.checkpointSerialNumber)
         || (upperBound != o.upperBound) || (lowerBound != o.lowerBound)
-        || (receptionClaimCount != o.receptionClaimCount) || (receptionClaims != o.receptionClaims);
+        || (receptionClaims != o.receptionClaims);
+}
+std::ostream& operator<<(std::ostream& os, const Ltp::report_segment_t & o) {
+    os << "report serial number: " << o.reportSerialNumber << ", checkpoint serial number: " << o.checkpointSerialNumber << std::endl;
+    os << "upper bound: " << o.upperBound << ", lower bound: " << o.lowerBound << std::endl;
+    os << "claims:" << std::endl;
+    for (std::vector<Ltp::reception_claim_t>::const_iterator it = o.receptionClaims.cbegin(); it != o.receptionClaims.cend(); ++it) {
+        os << *it << std::endl;
+    }
+    return os;
 }
 uint64_t Ltp::report_segment_t::Serialize(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
@@ -76,7 +100,7 @@ uint64_t Ltp::report_segment_t::Serialize(uint8_t * serialization) const {
     serialization += SdnvEncodeU64(serialization, checkpointSerialNumber);
     serialization += SdnvEncodeU64(serialization, upperBound);
     serialization += SdnvEncodeU64(serialization, lowerBound);
-    serialization += SdnvEncodeU64(serialization, receptionClaimCount);
+    serialization += SdnvEncodeU64(serialization, receptionClaims.size());
     
     for (std::vector<reception_claim_t>::const_iterator it = receptionClaims.cbegin(); it != receptionClaims.cend(); ++it) {
         serialization += it->Serialize(serialization);
@@ -606,19 +630,19 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment.receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment_receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
                     }
-                    else if (m_reportSegment.receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
+                    else if (m_reportSegment_receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, count == 0";
                         return false;
                     }
                     else {
                         m_sdnvTempVec.clear();
                         m_reportSegment.receptionClaims.clear();
-                        m_reportSegment.receptionClaims.reserve(m_reportSegment.receptionClaimCount);
+                        m_reportSegment.receptionClaims.reserve(m_reportSegment_receptionClaimCount);
                         m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                     }
                 }
@@ -664,7 +688,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     else {
                         m_reportSegment.receptionClaims.back().length = claimLength;
                         m_sdnvTempVec.clear();
-                        if (m_reportSegment.receptionClaims.size() < m_reportSegment.receptionClaimCount) {
+                        if (m_reportSegment.receptionClaims.size() < m_reportSegment_receptionClaimCount) {
                             m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                         }
                         else if (m_numTrailerExtensionTlvs) {

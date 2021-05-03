@@ -34,9 +34,6 @@ bool LtpFragmentMap::data_fragment_t::operator!=(const data_fragment_t & o) cons
 bool LtpFragmentMap::data_fragment_t::operator<(const data_fragment_t & o) const { //operator < (no overlap no abut) 
     return ((endIndex+1) < o.beginIndex);
 }
-//bool LtpFragmentMap::data_fragment_t::operator||(const data_fragment_t & o) const { //operator || (overlaps or abuts)
-//    return (beginIndex != o.beginIndex) || (endIndex != o.endIndex);
-//}
 bool LtpFragmentMap::data_fragment_t::SimulateSetKeyFind(const data_fragment_t & key, const data_fragment_t & keyInSet) {
     //equal defined as !(a<b) && !(b<a)
     return !(key < keyInSet) && !(keyInSet < key);
@@ -60,29 +57,41 @@ void LtpFragmentMap::InsertFragment(std::set<data_fragment_t> & fragmentSet, dat
         fragmentSet.erase(res.first);
     }
 }
-/*
-bool LtpFragmentMap::AddDataRange(uint64_t startIndex, uint64_t length) {
-    if (m_fragmentMap.empty()) {
-        m_fragmentMap[startIndex] = length;
-        return true;
+
+bool LtpFragmentMap::PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment) {
+    if (fragmentSet.empty()) {
+        return false;
     }
-    //todo just use lower bound and --it for before
-    std::pair<std::map<uint64_t, uint64_t>::iterator, std::map<uint64_t, uint64_t>::iterator> range = m_fragmentMap.equal_range(startIndex);
-    uint64_t startIndexLowerBound = 0;
-    uint64_t lengthLowerBound = 0;
-    if (range.first != m_fragmentMap.end()) { //lower_bound (not less than key) 
-        startIndexLowerBound = range.first->first;
-        lengthLowerBound = range.first->second;
+
+    //Lower bound : The lower bound of a report segment is the size of the(interior) block prefix to which the segment's reception claims do NOT pertain.
+    std::set<data_fragment_t>::const_iterator firstElement = fragmentSet.cbegin();
+    const uint64_t lowerBound = firstElement->beginIndex;
+    reportSegment.lowerBound = lowerBound;
+
+    //Upper bound : The upper bound of a report segment is the size of the block prefix to which the segment's reception claims pertain.
+    std::set<data_fragment_t>::const_reverse_iterator lastElement = fragmentSet.crbegin();
+    reportSegment.upperBound = lastElement->endIndex + 1;
+
+    //Reception claims
+    reportSegment.receptionClaims.clear();
+    reportSegment.receptionClaims.reserve(fragmentSet.size());
+    for (std::set<data_fragment_t>::const_iterator it = fragmentSet.cbegin(); it != fragmentSet.cend(); ++it) {
+        //Offset : The offset indicates the successful reception of data beginning at the indicated offset from the lower bound of the RS.The
+        //offset within the entire block can be calculated by summing this offset with the lower bound of the RS.
+        const uint64_t offset = it->beginIndex - lowerBound;
+
+        //Length : The length of a reception claim indicates the number of contiguous octets of block data starting at the indicated offset that have been successfully received.
+        const uint64_t length = (it->endIndex + 1) - it->beginIndex;
+        
+        reportSegment.receptionClaims.emplace_back(offset, length);
     }
-    uint64_t startIndexUpperBound = UINT64_MAX;
-    uint64_t lengthUpperBound = 0;
-    if (range.second != m_fragmentMap.end()) { //upper_bound (pointing to the first element greater than key) 
-        startIndexUpperBound = range.second->first;
-        lengthUpperBound = range.second->second;
+    return true;
+}
+
+void LtpFragmentMap::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment) {
+    const uint64_t lowerBound = reportSegment.lowerBound;
+    for (std::vector<Ltp::reception_claim_t>::const_iterator it = reportSegment.receptionClaims.cbegin(); it != reportSegment.receptionClaims.cend(); ++it) {
+        const uint64_t beginIndex = lowerBound + it->offset;
+        LtpFragmentMap::InsertFragment(fragmentSet, LtpFragmentMap::data_fragment_t(beginIndex, (beginIndex + it->length) - 1));
     }
-    const uint64_t dataRangeFirstOutOfBoundsIndex = startIndex + length;
-    const uint64_t firstWritableIndex = startIndexLowerBound + lengthLowerBound;
-    if ((dataRangeFirstOutOfBoundsIndex <= startIndexUpperBound) && (startIndex >= firstWritableIndex)) {
-        m_fragmentMap[startIndex] = length;
-    }
-}*/
+}
