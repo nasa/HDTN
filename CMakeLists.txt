@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.0)
 project(HDTN VERSION 1.0)
 #set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams)
+find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams random)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)

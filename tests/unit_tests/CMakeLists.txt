@@ -28,6 +28,7 @@ add_executable(unit-tests
     ../../common/tcpcl/test/TestTcpcl.cpp
 	../../common/ltp/test/TestLtp.cpp
 	../../common/ltp/test/TestLtpFragmentMap.cpp
+	../../common/ltp/test/TestLtpRandomNumberGenerator.cpp
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
