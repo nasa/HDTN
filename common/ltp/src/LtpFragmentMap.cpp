@@ -95,3 +95,37 @@ void LtpFragmentMap::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & f
         LtpFragmentMap::InsertFragment(fragmentSet, LtpFragmentMap::data_fragment_t(beginIndex, (beginIndex + it->length) - 1));
     }
 }
+
+void LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment) {
+    const std::vector<Ltp::reception_claim_t> & receptionClaims = reportSegment.receptionClaims;
+    if (receptionClaims.empty()) {
+        return;
+    }
+    const uint64_t lowerBound = reportSegment.lowerBound;
+    std::vector<Ltp::reception_claim_t>::const_iterator it = receptionClaims.cbegin();
+    if (it->offset > lowerBound) { //add one
+        LtpFragmentMap::InsertFragment(fragmentSetNeedingResent, LtpFragmentMap::data_fragment_t(lowerBound, (lowerBound + it->offset) - 1));
+    }
+    //uint64_t nextBeginIndex = lowerBound;
+    const Ltp::reception_claim_t * previousReceptionClaim = NULL;
+    for (std::vector<Ltp::reception_claim_t>::const_iterator it = reportSegment.receptionClaims.cbegin(); it != reportSegment.receptionClaims.cend(); ++it) {
+        if (previousReceptionClaim) {
+            const uint64_t beginIndex = lowerBound + previousReceptionClaim->offset + previousReceptionClaim->length;
+            const uint64_t endIndex = (lowerBound + it->offset) - 1;
+            LtpFragmentMap::InsertFragment(fragmentSetNeedingResent, LtpFragmentMap::data_fragment_t(beginIndex, endIndex));
+        }
+        //nextBeginIndex = (lowerBound + it->offset + it->length);
+        previousReceptionClaim = &(*it);
+    }
+    const uint64_t beginIndex = lowerBound + previousReceptionClaim->offset + previousReceptionClaim->length;;
+    if (beginIndex < reportSegment.upperBound) {
+        LtpFragmentMap::InsertFragment(fragmentSetNeedingResent, LtpFragmentMap::data_fragment_t(beginIndex, reportSegment.upperBound - 1));
+    }
+}
+
+void LtpFragmentMap::PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet) {
+    for (std::set<data_fragment_t>::const_iterator it = fragmentSet.cbegin(); it != fragmentSet.cend(); ++it) {
+        std::cout << "(" << it->beginIndex << "," << it->endIndex << ") ";
+    }
+    std::cout << std::endl;
+}

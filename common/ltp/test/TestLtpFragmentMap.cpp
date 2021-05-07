@@ -87,5 +87,30 @@ BOOST_AUTO_TEST_CASE(LtpFragmentMapTestCase)
         std::set<df> fragmentSet2;
         LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet2, reportSegment);
         BOOST_REQUIRE(fragmentSet == fragmentSet2);
+        std::set<df> fragmentsNeedingResent;
+        LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        //LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent);
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(3000,3999), df(4500,5999) }));
+        //LtpFragmentMap::PrintFragmentSet(std::set<df>({ df(3000,3999), df(4500,5999) }));
+    }
+    {
+        rs reportSegment(0, 0, 6000, 0, std::vector<rc>({ rc(0,2000), rc(3000,500) }));
+        std::set<df> fragmentsNeedingResent;
+        LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(2000,2999), df(3500,5999) }));
+    }
+    {
+        rs reportSegment(0, 0, 6000, 0, std::vector<rc>({ rc(1,2000), rc(3000,500) }));
+        std::set<df> fragmentsNeedingResent;
+        LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        //LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent);
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999), df(3500,5999) }));
+    }
+    {
+        rs reportSegment(0, 0, 3500, 0, std::vector<rc>({ rc(1,2000), rc(3000,500) }));
+        std::set<df> fragmentsNeedingResent;
+        LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        //LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent);
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999) }));
     }
 }

@@ -8,6 +8,9 @@ add_library(ltp_lib STATIC
     src/Ltp.cpp
 	src/LtpFragmentMap.cpp
 	src/LtpRandomNumberGenerator.cpp
+	src/LtpSessionReceiver.cpp
+	src/LtpSessionSender.cpp
+	src/LtpEngine.cpp
 	#src/LtpBundleSink.cpp
 	#src/LtpBundleSource.cpp
 )

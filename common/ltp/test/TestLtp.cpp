@@ -2,6 +2,29 @@
 #include "Ltp.h"
 #include <boost/bind.hpp>
 
+BOOST_AUTO_TEST_CASE(LtpSessionIdTestCase)
+{
+    Ltp::session_id_t sidCopy; //0,0
+    Ltp::session_id_t sid;
+    sid.sessionOriginatorEngineId = 100;
+    sid.sessionNumber = 50;
+    BOOST_REQUIRE(sidCopy != sid);
+    BOOST_REQUIRE(!(sidCopy == sid));
+    BOOST_REQUIRE(sidCopy < sid);
+    BOOST_REQUIRE(!(sid < sidCopy));
+    BOOST_REQUIRE(!(sid < sid));
+    sidCopy = sid;
+    BOOST_REQUIRE(sidCopy == sid);
+    BOOST_REQUIRE(!(sidCopy != sid));
+    BOOST_REQUIRE(!(sid < sidCopy));
+    BOOST_REQUIRE(!(sidCopy < sid));
+    
+    BOOST_REQUIRE(!(Ltp::session_id_t(500, 400) < Ltp::session_id_t(500, 200)));
+    BOOST_REQUIRE( (Ltp::session_id_t(500, 400) < Ltp::session_id_t(500, 600)));
+    BOOST_REQUIRE(!(Ltp::session_id_t(400, 1000) < Ltp::session_id_t(200, 2000)));
+    BOOST_REQUIRE( (Ltp::session_id_t(200, 2000) < Ltp::session_id_t(400, 1000)));
+}
+
 BOOST_AUTO_TEST_CASE(LtpDataSegmentMetadataTestCase)
 {
     Ltp::data_segment_metadata_t dsm1(1, 2, 3, NULL, NULL);
@@ -167,8 +190,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
     struct TestLtp {
         Ltp m_ltp;
         LTP_DATA_SEGMENT_TYPE_FLAGS m_desired_dataSegmentTypeFlags;
-        uint64_t m_desired_sessionOriginatorEngineId;
-        uint64_t m_desired_sessionNumber;
+        Ltp::session_id_t m_desired_sessionId;
         std::vector<uint8_t> m_desired_clientServiceDataVec;
         Ltp::data_segment_metadata_t m_desired_dataSegmentMetadata;
         Ltp::ltp_extensions_t m_desired_headerExtensions;
@@ -197,7 +219,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             m_numCancelSegmentCallbackCount = 0;
             std::vector<uint8_t> ltpCancelSegmentPacket;
             Ltp::GenerateCancelSegmentLtpPacket(ltpCancelSegmentPacket,
-                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_cancelSegment_reasonCode, m_desired_cancelSegment_isFromSender,
+                m_desired_sessionId, m_desired_cancelSegment_reasonCode, m_desired_cancelSegment_isFromSender,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
 
@@ -215,10 +237,9 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             m_ltp.SetCancelSegmentContentsReadCallback(boost::bind(&TestLtp::CancelSegmentCallback, this,
                 boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
+                boost::placeholders::_4, boost::placeholders::_5));
 
-            m_desired_sessionOriginatorEngineId = 0xdeadbeefbee;
-            m_desired_sessionNumber = 0xabcdef;
+            m_desired_sessionId = Ltp::session_id_t(0xdeadbeefbee, 0xabcdef);
 
             m_desired_cancelSegment_isFromSender = true;
             m_desired_cancelSegment_reasonCode = CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED;
@@ -403,12 +424,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             }
         }
 
-        void CancelSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
+        void CancelSegmentCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
             ++m_numCancelSegmentCallbackCount;
-            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
-            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(sessionId, m_desired_sessionId);
             BOOST_REQUIRE(reasonCode == m_desired_cancelSegment_reasonCode);
             BOOST_REQUIRE_EQUAL(isFromSender, m_desired_cancelSegment_isFromSender);
             BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
@@ -419,7 +439,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             m_numCancelAcknowledgementSegmentCallbackCount = 0;
             std::vector<uint8_t> ltpCancelAcknowledgementSegmentPacket;
             Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(ltpCancelAcknowledgementSegmentPacket,
-                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_cancelAcknowledgementSegment_isToSender,
+                m_desired_sessionId, m_desired_cancelAcknowledgementSegment_isToSender,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
 
@@ -437,10 +457,9 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             m_ltp.SetCancelAcknowledgementSegmentContentsReadCallback(boost::bind(&TestLtp::CancelAcknowledgementSegmentCallback, this,
                 boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5));
+                boost::placeholders::_4));
 
-            m_desired_sessionOriginatorEngineId = 0xdeadbeefbee;
-            m_desired_sessionNumber = 0xabcdef;
+            m_desired_sessionId = Ltp::session_id_t(0xdeadbeefbee, 0xabcdef);
 
             m_desired_cancelAcknowledgementSegment_isToSender = true;
 
@@ -617,12 +636,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             }
         }
 
-        void CancelAcknowledgementSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, bool isToSender,
+        void CancelAcknowledgementSegmentCallback(const Ltp::session_id_t & sessionId, bool isToSender,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
             ++m_numCancelAcknowledgementSegmentCallbackCount;
-            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
-            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(sessionId, m_desired_sessionId);
             BOOST_REQUIRE_EQUAL(isToSender, m_desired_cancelAcknowledgementSegment_isToSender);
             BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
             BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
@@ -632,7 +650,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             m_numReportAcknowledgementSegmentCallbackCount = 0;
             std::vector<uint8_t> ltpReportAcknowledgementSegmentPacket;
             Ltp::GenerateReportAcknowledgementSegmentLtpPacket(ltpReportAcknowledgementSegmentPacket,
-                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_reportAcknowledgementSegment_reportSerialNumber,
+                m_desired_sessionId, m_desired_reportAcknowledgementSegment_reportSerialNumber,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
 
@@ -650,10 +668,9 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             m_ltp.SetReportAcknowledgementSegmentContentsReadCallback(boost::bind(&TestLtp::ReportAcknowledgementSegmentCallback, this,
                 boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5));
+                boost::placeholders::_4));
 
-            m_desired_sessionOriginatorEngineId = 0xdeadbeefbee;
-            m_desired_sessionNumber = 0xabcdef;
+            m_desired_sessionId = Ltp::session_id_t(0xdeadbeefbee, 0xabcdef);
 
             m_desired_reportAcknowledgementSegment_reportSerialNumber = 0xabcd123456;
 
@@ -815,12 +832,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             }
         }
 
-        void ReportAcknowledgementSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
+        void ReportAcknowledgementSegmentCallback(const Ltp::session_id_t & sessionId, uint64_t reportSerialNumberBeingAcknowledged,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
             ++m_numReportAcknowledgementSegmentCallbackCount;
-            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
-            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(sessionId, m_desired_sessionId);
             BOOST_REQUIRE_EQUAL(reportSerialNumberBeingAcknowledged, m_desired_reportAcknowledgementSegment_reportSerialNumber);
             BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
             BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
@@ -830,7 +846,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             m_numReportSegmentCallbackCount = 0;
             std::vector<uint8_t> ltpReportSegmentPacket;
             Ltp::GenerateReportSegmentLtpPacket(ltpReportSegmentPacket,
-                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_reportSegment,
+                m_desired_sessionId, m_desired_reportSegment,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 (m_desired_trailerExtensions.extensionsVec.empty()) ? NULL : &m_desired_trailerExtensions);
             
@@ -848,11 +864,10 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             m_ltp.SetReportSegmentContentsReadCallback(boost::bind(&TestLtp::ReportSegmentCallback, this,
                 boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5));
+                boost::placeholders::_4));
 
 
-            m_desired_sessionOriginatorEngineId = 555555;
-            m_desired_sessionNumber = 6666666;
+            m_desired_sessionId = Ltp::session_id_t(555555, 6666666);
 
             m_desired_reportSegment.reportSerialNumber = 12345;
             m_desired_reportSegment.checkpointSerialNumber = 12346;
@@ -1054,12 +1069,11 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             }
         }
 
-        void ReportSegmentCallback(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, const Ltp::report_segment_t & reportSegment,
+        void ReportSegmentCallback(const Ltp::session_id_t & sessionId, const Ltp::report_segment_t & reportSegment,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
             ++m_numReportSegmentCallbackCount;
-            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
-            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(sessionId, m_desired_sessionId);
             BOOST_REQUIRE(reportSegment == m_desired_reportSegment);
             BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
             BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);
@@ -1069,7 +1083,7 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
             m_numDataSegmentCallbackCount = 0;
             std::vector<uint8_t> ltpHeaderPlusDataSegmentMetadata;
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(ltpHeaderPlusDataSegmentMetadata, m_desired_dataSegmentTypeFlags,
-                m_desired_sessionOriginatorEngineId, m_desired_sessionNumber, m_desired_dataSegmentMetadata,
+                m_desired_sessionId, m_desired_dataSegmentMetadata,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 static_cast<uint8_t>(m_desired_trailerExtensions.extensionsVec.size()));
             for (unsigned int i = 1; i <= 5; ++i) {
@@ -1092,13 +1106,12 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
 
             m_ltp.SetDataSegmentContentsReadCallback(boost::bind(&TestLtp::DataSegmentCallback, this,
                 boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6, boost::placeholders::_7));
+                boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
 
 
             m_desired_dataSegmentTypeFlags = LTP_DATA_SEGMENT_TYPE_FLAGS::GREENDATA;
-            m_desired_sessionOriginatorEngineId = 5555;
-            m_desired_sessionNumber = 6666;
+            m_desired_sessionId = Ltp::session_id_t(5555, 6666);
             m_desired_clientServiceDataVec = { 'a', 'b', 'c', 'd' };
             m_desired_dataSegmentMetadata.clientServiceId = 7777;
             m_desired_dataSegmentMetadata.offset = 8888;
@@ -1281,14 +1294,13 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
         //uint64_t * checkpointSerialNumber, uint64_t * reportSerialNumber) > DataSegmentContentsReadCallback_t;
 
 
-        void DataSegmentCallback(uint8_t segmentTypeFlags, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber,
+        void DataSegmentCallback(uint8_t segmentTypeFlags, const Ltp::session_id_t & sessionId,
             std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
             Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
         {
             ++m_numDataSegmentCallbackCount;
             BOOST_REQUIRE_EQUAL(segmentTypeFlags, static_cast<uint8_t>(m_desired_dataSegmentTypeFlags));
-            BOOST_REQUIRE_EQUAL(sessionOriginatorEngineId, m_desired_sessionOriginatorEngineId);
-            BOOST_REQUIRE_EQUAL(sessionNumber, m_desired_sessionNumber);
+            BOOST_REQUIRE_EQUAL(sessionId, m_desired_sessionId);
             BOOST_REQUIRE(dataSegmentMetadata == m_desired_dataSegmentMetadata);
             BOOST_REQUIRE(headerExtensions == m_desired_headerExtensions);
             BOOST_REQUIRE(trailerExtensions == m_desired_trailerExtensions);

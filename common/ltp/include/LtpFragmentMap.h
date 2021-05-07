@@ -34,6 +34,8 @@ public:
     static void InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
     static bool PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment);
     static void AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment);
+    static void AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment);
+    static void PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet);
 
     LtpFragmentMap(); //a default constructor: X()
     ~LtpFragmentMap(); //a destructor: ~X()
@@ -45,7 +47,7 @@ public:
     //bool AddDataRange(uint64_t startIndex, uint64_t length);
 
 private:
-    std::map<uint64_t, uint64_t> m_fragmentMap; //startIndex, length
+    //std::map<uint64_t, uint64_t> m_fragmentMap; //startIndex, length
     
 };
 

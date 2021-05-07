@@ -7,6 +7,56 @@
 #include "Sdnv.h"
 
 
+Ltp::session_id_t::session_id_t() : sessionOriginatorEngineId(0), sessionNumber(0) { } //a default constructor: X()
+Ltp::session_id_t::session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber) :
+    sessionOriginatorEngineId(paramSessionOriginatorEngineId), sessionNumber(paramSessionNumber) { }
+Ltp::session_id_t::~session_id_t() { } //a destructor: ~X()
+Ltp::session_id_t::session_id_t(const session_id_t& o) : sessionOriginatorEngineId(o.sessionOriginatorEngineId), sessionNumber(o.sessionNumber) { } //a copy constructor: X(const X&)
+Ltp::session_id_t::session_id_t(session_id_t&& o) : sessionOriginatorEngineId(o.sessionOriginatorEngineId), sessionNumber(o.sessionNumber) { } //a move constructor: X(X&&)
+Ltp::session_id_t& Ltp::session_id_t::operator=(const session_id_t& o) { //a copy assignment: operator=(const X&)
+    sessionOriginatorEngineId = o.sessionOriginatorEngineId;
+    sessionNumber = o.sessionNumber;
+    return *this;
+}
+Ltp::session_id_t& Ltp::session_id_t::operator=(session_id_t && o) { //a move assignment: operator=(X&&)
+    sessionOriginatorEngineId = o.sessionOriginatorEngineId;
+    sessionNumber = o.sessionNumber;
+    return *this;
+}
+bool Ltp::session_id_t::operator==(const session_id_t & o) const {
+    return (sessionOriginatorEngineId == o.sessionOriginatorEngineId) && (sessionNumber == o.sessionNumber);
+}
+bool Ltp::session_id_t::operator!=(const session_id_t & o) const {
+    return (sessionOriginatorEngineId != o.sessionOriginatorEngineId) || (sessionNumber != o.sessionNumber);
+}
+bool Ltp::session_id_t::operator<(const session_id_t & o) const {
+#if 1
+    if (sessionOriginatorEngineId == o.sessionOriginatorEngineId) {
+        return (sessionNumber < o.sessionNumber);
+    }
+    return (sessionOriginatorEngineId < o.sessionOriginatorEngineId);
+#else
+    //non-branching version of above
+    const uint64_t eid = sessionOriginatorEngineId;
+    const uint64_t eidRhs = o.sessionOriginatorEngineId;
+    const bool engineIdEqual = (eid == eidRhs);
+    const bool engineIdLtRhs = (eid < eidRhs);
+    const bool sessionNumberLtRhs = (sessionNumber < o.sessionNumber);
+    return (engineIdEqual * sessionNumberLtRhs) + ((!engineIdEqual) * engineIdLtRhs);
+#endif
+}
+std::ostream& operator<<(std::ostream& os, const Ltp::session_id_t & o) {
+    os << "sessionOriginatorEngineId: " << o.sessionOriginatorEngineId << ", sessionNumber: " << o.sessionNumber;
+    return os;
+}
+uint64_t Ltp::session_id_t::Serialize(uint8_t * serialization) const {
+    uint8_t * serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, sessionOriginatorEngineId);
+    serialization += SdnvEncodeU64(serialization, sessionNumber);
+    return serialization - serializationBase;
+}
+
+
 Ltp::reception_claim_t::reception_claim_t() : offset(0), length(0) { } //a default constructor: X()
 Ltp::reception_claim_t::reception_claim_t(uint64_t paramOffset, uint64_t paramLength) : offset(paramOffset), length(paramLength) { }
 Ltp::reception_claim_t::~reception_claim_t() { } //a destructor: ~X()
@@ -311,7 +361,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_sessionOriginatorEngineId = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_sessionId.sessionOriginatorEngineId = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -330,7 +380,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_sessionNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_sessionId.sessionNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -528,7 +578,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     else {
                         //callback data segment
                         if (m_dataSegmentContentsReadCallback) {
-                            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionOriginatorEngineId, m_sessionNumber, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+                            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
                         }
                         SetBeginningState();
                     }
@@ -698,7 +748,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                         else {
                             //callback report segment
                             if (m_reportSegmentContentsReadCallback) {
-                                m_reportSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportSegment, m_headerExtensions, m_trailerExtensions);
+                                m_reportSegmentContentsReadCallback(m_sessionId, m_reportSegment, m_headerExtensions, m_trailerExtensions);
                             }
                             SetBeginningState();
                         }
@@ -726,7 +776,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 else {
                     //callback report acknowledgement segment
                     if (m_reportAcknowledgementSegmentContentsReadCallback) {
-                        m_reportAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportAcknowledgementSegment_reportSerialNumber, m_headerExtensions, m_trailerExtensions);
+                        m_reportAcknowledgementSegmentContentsReadCallback(m_sessionId, m_reportAcknowledgementSegment_reportSerialNumber, m_headerExtensions, m_trailerExtensions);
                     }
                     SetBeginningState();
                 }
@@ -742,7 +792,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
             else {
                 //callback cancel segment
                 if (m_cancelSegmentContentsReadCallback) {
-                    m_cancelSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (static_cast<CANCEL_SEGMENT_REASON_CODES>(m_cancelSegment_reasonCode)), (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+                    m_cancelSegmentContentsReadCallback(m_sessionId, (static_cast<CANCEL_SEGMENT_REASON_CODES>(m_cancelSegment_reasonCode)), (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
                 }
                 SetBeginningState();
             }
@@ -813,7 +863,7 @@ bool Ltp::NextStateAfterHeaderExtensions(std::string & errorMessage) {
         else {
             //callback cancel acknowledgement segment
             if (m_cancelAcknowledgementSegmentContentsReadCallback) {
-                m_cancelAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+                m_cancelAcknowledgementSegmentContentsReadCallback(m_sessionId, (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
             }
             SetBeginningState();
         }
@@ -851,7 +901,7 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     if ((m_segmentTypeFlags & 0xd) == 0xd) { //CAx (cancel ack) with no contents
         //callback cancel acknowledgement segment
         if (m_cancelAcknowledgementSegmentContentsReadCallback) {
-            m_cancelAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+            m_cancelAcknowledgementSegmentContentsReadCallback(m_sessionId, (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
         }
     }
     else if ((m_segmentTypeFlags == 5) || (m_segmentTypeFlags == 6) || (m_segmentTypeFlags == 10) || (m_segmentTypeFlags == 11)) { // undefined
@@ -861,25 +911,25 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     else if (m_segmentTypeFlags <= 7) {
         //callback data segment
         if (m_dataSegmentContentsReadCallback) {
-            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionOriginatorEngineId, m_sessionNumber, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
+            m_dataSegmentContentsReadCallback(m_segmentTypeFlags, m_sessionId, m_dataSegment_clientServiceData, m_dataSegmentMetadata, m_headerExtensions, m_trailerExtensions);
         }
     }
     else if (m_segmentTypeFlags == 8) {
         //callback report segment
         if (m_reportSegmentContentsReadCallback) {
-            m_reportSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportSegment, m_headerExtensions, m_trailerExtensions);
+            m_reportSegmentContentsReadCallback(m_sessionId, m_reportSegment, m_headerExtensions, m_trailerExtensions);
         }
     }
     else if (m_segmentTypeFlags == 9) {
         //callback report acknowledgement segment
         if (m_reportAcknowledgementSegmentContentsReadCallback) {
-            m_reportAcknowledgementSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, m_reportAcknowledgementSegment_reportSerialNumber, m_headerExtensions, m_trailerExtensions);
+            m_reportAcknowledgementSegmentContentsReadCallback(m_sessionId, m_reportAcknowledgementSegment_reportSerialNumber, m_headerExtensions, m_trailerExtensions);
         }
     }
     else { //12 or 14 => cancel segment
         //callback cancel segment
         if (m_cancelSegmentContentsReadCallback) {
-            m_cancelSegmentContentsReadCallback(m_sessionOriginatorEngineId, m_sessionNumber, (static_cast<CANCEL_SEGMENT_REASON_CODES>(m_cancelSegment_reasonCode)), (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
+            m_cancelSegmentContentsReadCallback(m_sessionId, (static_cast<CANCEL_SEGMENT_REASON_CODES>(m_cancelSegment_reasonCode)), (m_segmentTypeFlags == (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))), m_headerExtensions, m_trailerExtensions);
         }
     }
     SetBeginningState();
@@ -890,7 +940,7 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
 
 
 void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, 
-    uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, const data_segment_metadata_t & dataSegmentMetadata,
+    const session_id_t & sessionId, const data_segment_metadata_t & dataSegmentMetadata,
     ltp_extensions_t * headerExtensions, uint8_t numTrailerExtensions)
 {
     uint8_t numHeaderExtensions = 0;
@@ -902,8 +952,8 @@ void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHea
     ltpHeaderPlusDataSegmentMetadata.resize(1 + 1 + (2 * 10) + dataSegmentMetadata.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions); //flags + extensionCounts + 2 10-byte session sdnvs + metadata sdnvs + header extensions
     uint8_t * encodedPtr = ltpHeaderPlusDataSegmentMetadata.data();
     *encodedPtr++ = static_cast<uint8_t>(dataSegmentTypeFlags); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -912,8 +962,7 @@ void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHea
     ltpHeaderPlusDataSegmentMetadata.resize(encodedPtr - ltpHeaderPlusDataSegmentMetadata.data());
 }
 
-void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, uint64_t sessionOriginatorEngineId,
-    uint64_t sessionNumber, const report_segment_t & reportSegmentStruct,
+void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, const session_id_t & sessionId, const report_segment_t & reportSegmentStruct,
     ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
 {
     uint8_t numHeaderExtensions = 0;
@@ -931,8 +980,8 @@ void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegment
     ltpReportSegmentPacket.resize(1 + 1 + (2 * 10) + reportSegmentStruct.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + rest of data
     uint8_t * encodedPtr = ltpReportSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_SEGMENT); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -944,9 +993,8 @@ void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegment
     ltpReportSegmentPacket.resize(encodedPtr - ltpReportSegmentPacket.data());
 }
 
-void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
-    uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
-    ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
+void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, const session_id_t & sessionId,
+    uint64_t reportSerialNumberBeingAcknowledged, ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
 {
     uint8_t numHeaderExtensions = 0;
     uint64_t maxBytesRequiredForHeaderExtensions = 0;
@@ -963,8 +1011,8 @@ void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
     ltpReportAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + (1 * 10) + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 report serial number 10-byte sdnv + rest of data
     uint8_t * encodedPtr = ltpReportAcknowledgementSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -976,9 +1024,8 @@ void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
     ltpReportAcknowledgementSegmentPacket.resize(encodedPtr - ltpReportAcknowledgementSegmentPacket.data());
 }
 
-void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, uint64_t sessionOriginatorEngineId,
-    uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
-    ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
+void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, const session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode,
+    bool isFromSender, ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
 {
     uint8_t numHeaderExtensions = 0;
     uint64_t maxBytesRequiredForHeaderExtensions = 0;
@@ -995,8 +1042,8 @@ void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegment
     ltpCancelSegmentPacket.resize(1 + 1 + (2 * 10) + 1 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 one-byte reason code + rest of data
     uint8_t * encodedPtr = ltpCancelSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(isFromSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -1008,8 +1055,8 @@ void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegment
     ltpCancelSegmentPacket.resize(encodedPtr - ltpCancelSegmentPacket.data());
 }
 
-void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
-    uint64_t sessionNumber, bool isToSender, ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
+void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, const session_id_t & sessionId,
+    bool isToSender, ltp_extensions_t * headerExtensions, ltp_extensions_t * trailerExtensions)
 {
     uint8_t numHeaderExtensions = 0;
     uint64_t maxBytesRequiredForHeaderExtensions = 0;
@@ -1026,8 +1073,8 @@ void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
     ltpCancelAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + 0 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + no payload data + rest of data
     uint8_t * encodedPtr = ltpCancelAcknowledgementSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(isToSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionNumber);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);

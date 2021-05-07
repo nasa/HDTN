@@ -7,28 +7,6 @@
 LtpRandomNumberGenerator::LtpRandomNumberGenerator() : m_birthdayParadoxPreventer_incrementalPart_U16(1) {
 
 }
-/*
-uint64_t LtpRandomNumberGenerator::GetRandom() {
-    while (true) {
-        const uint64_t random1 = TimestampUtil::GetMicrosecondsSinceEpochRfc5050();
-        uint64_t random2 = 0;
-        if (!_rdseed64_step(&random2)) {
-            std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
-        }
-        uint64_t random3 = (static_cast<uint32_t>(m_randomDevice())); //should already return a 32 bit integer
-        random3 <<= 32;
-        random3 |= (static_cast<uint32_t>(m_randomDevice()));
-        const uint64_t randomNumber = (random1 ^ random2) ^ random3;
-        printf("random1: 0x%016" PRIx64 "\nrandom2: 0x%016" PRIx64 " \nrandom3: 0x%016" PRIx64 "\nrandomF: 0x%016" PRIx64 "\n", random1, random2, random3, randomNumber);
-        if (randomNumber) { //must be non-zero
-            std::pair<std::set<uint64_t>::iterator, bool> res = m_alreadyUsedRandomNumbers.insert(randomNumber);
-            if (res.second == true) { //random number (key) was inserted (because it's unused)
-                return randomNumber;
-            }
-        }
-    }
-}
-*/
 
 //return a hardware random generated number with the 16 lsb an incremental part (to prevent a birthday paradox) and the rest a random part
 //(bit 63 shall be 0 to leave room for incrementing without rolling back around to zero)

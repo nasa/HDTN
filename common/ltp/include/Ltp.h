@@ -103,6 +103,23 @@ class Ltp {
 
 
 public:
+    struct session_id_t {
+        uint64_t sessionOriginatorEngineId;
+        uint64_t sessionNumber;
+
+        session_id_t(); //a default constructor: X()
+        session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber);
+        ~session_id_t(); //a destructor: ~X()
+        session_id_t(const session_id_t& o); //a copy constructor: X(const X&)
+        session_id_t(session_id_t&& o); //a move constructor: X(X&&)
+        session_id_t& operator=(const session_id_t& o); //a copy assignment: operator=(const X&)
+        session_id_t& operator=(session_id_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const session_id_t & o) const; //operator ==
+        bool operator!=(const session_id_t & o) const; //operator !=
+        bool operator<(const session_id_t & o) const; //operator < so it can be used as a map key
+        friend std::ostream& operator<<(std::ostream& os, const session_id_t& o);
+        uint64_t Serialize(uint8_t * serialization) const;
+    };
     struct reception_claim_t {
         uint64_t offset;
         uint64_t length;
@@ -191,16 +208,16 @@ public:
     };
     
     
-	typedef boost::function<void(uint8_t segmentTypeFlags, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber,
+	typedef boost::function<void(uint8_t segmentTypeFlags, const session_id_t & sessionId,
         std::vector<uint8_t> & clientServiceDataVec, const data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> DataSegmentContentsReadCallback_t;
-    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, const report_segment_t & reportSegment,
+    typedef boost::function<void(const session_id_t & sessionId, const report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportSegmentContentsReadCallback_t;
-    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
+    typedef boost::function<void(const session_id_t & sessionId, uint64_t reportSerialNumberBeingAcknowledged,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> ReportAcknowledgementSegmentContentsReadCallback_t;
-    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
+    typedef boost::function<void(const session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> CancelSegmentContentsReadCallback_t;
-    typedef boost::function<void(uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, bool isToSender,
+    typedef boost::function<void(const session_id_t & sessionId, bool isToSender,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> CancelAcknowledgementSegmentContentsReadCallback_t;
 	
     Ltp();
@@ -219,21 +236,18 @@ public:
     bool IsAtBeginningState() const; //unit testing convenience function
     
     
-    static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, uint64_t sessionOriginatorEngineId, uint64_t sessionNumber, uint64_t reportSerialNumber);
-    static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, uint64_t sessionOriginatorEngineId,
-        uint64_t sessionNumber, const data_segment_metadata_t & dataSegmentMetadata,
+    static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, const session_id_t & sessionId, uint64_t reportSerialNumber);
+    static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, 
+        const session_id_t & sessionId, const data_segment_metadata_t & dataSegmentMetadata,
         ltp_extensions_t * headerExtensions = NULL, uint8_t numTrailerExtensions = 0);
-    static void GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, uint64_t sessionOriginatorEngineId,
-        uint64_t sessionNumber, const report_segment_t & reportSegmentStruct,
+    static void GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, const session_id_t & sessionId, const report_segment_t & reportSegmentStruct,
         ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    static void GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
-        uint64_t sessionNumber, uint64_t reportSerialNumberBeingAcknowledged,
-        ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    static void GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, uint64_t sessionOriginatorEngineId,
-        uint64_t sessionNumber, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
-        ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, uint64_t sessionOriginatorEngineId,
-        uint64_t sessionNumber, bool isToSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
+    static void GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, const session_id_t & sessionId,
+        uint64_t reportSerialNumberBeingAcknowledged, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
+    static void GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, const session_id_t & sessionId,
+        CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
+    static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, const session_id_t & sessionId,
+        bool isToSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
 
 private:
     void SetBeginningState();
@@ -249,8 +263,7 @@ public:
     //LTP_REPORT_ACKNOWLEDGEMENT_SEGMENT_RX_STATE m_reportAcknowledgementSegmentRxState; //one state only so not needed
 
     uint8_t m_segmentTypeFlags;
-    uint64_t m_sessionOriginatorEngineId;
-    uint64_t m_sessionNumber;
+    session_id_t m_sessionId;
     uint8_t m_numHeaderExtensionTlvs;
     uint8_t m_numTrailerExtensionTlvs;
     ltp_extensions_t m_headerExtensions;
