@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/next_prior.hpp>
 
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
     std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId) :
@@ -36,8 +37,15 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
         meta.clientServiceId = M_CLIENT_SERVICE_ID;
         meta.offset = resendFragment.offset;
         meta.length = resendFragment.length;
-        meta.checkpointSerialNumber = &resendFragment.checkpointSerialNumber;
-        meta.reportSerialNumber = &resendFragment.reportSerialNumber;
+        const bool isCheckpoint = (resendFragment.flags != LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA);
+        if (isCheckpoint) {
+            meta.checkpointSerialNumber = &resendFragment.checkpointSerialNumber;
+            meta.reportSerialNumber = &resendFragment.reportSerialNumber;
+        }
+        else {
+            meta.checkpointSerialNumber = NULL;
+            meta.reportSerialNumber = NULL;
+        }
         underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(2); //2 in case of trailer extensions
         Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
             M_SESSION_ID, meta, NULL, 0);
@@ -124,31 +132,78 @@ void LtpSessionSender::CancelAcknowledgementSegmentReceivedCallback(Ltp::ltp_ext
 void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    LtpFragmentMap::AddReportSegmentToFragmentSet(m_dataFragmentsAckedByReceiver, reportSegment);
+    //6.13.  Retransmit Data
+
+    //Response: first, an RA segment with the same report serial number as
+    //the RS segment is issued and is, in concept, appended to the queue of
+    //internal operations traffic bound for the receiver.
     m_nonDataToSend.emplace_back();
     Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_nonDataToSend.back(),
         M_SESSION_ID, reportSegment.reportSerialNumber, NULL, NULL);
 
+    //If the RS segment is redundant -- i.e., either the indicated session is unknown
+    //(for example, the RS segment is received after the session has been
+    //completed or canceled) or the RS segment's report serial number
+    //matches that of an RS segment that has already been received and
+    //processed -- then no further action is taken.
+    if (m_reportSegmentSerialNumbersReceivedSet.insert(reportSegment.reportSerialNumber).second == false) { //serial number was not inserted (already exists)
+        return; //no work to do.. ignore this redundant report segment
+    }
+
+    //If the report's checkpoint serial number is not zero, then the
+    //countdown timer associated with the indicated checkpoint segment is deleted.
+    if (reportSegment.checkpointSerialNumber) {
+        //TODO DELETE TIMER
+    }
+
+
+    LtpFragmentMap::AddReportSegmentToFragmentSet(m_dataFragmentsAckedByReceiver, reportSegment);
+    
+    //If the segment's reception claims indicate incomplete data reception
+    //within the scope of the report segment :
+    //If the number of transmission problems for this session has not
+    //exceeded any limit, new data segments encapsulating all block
+    //data whose non - reception is implied by the reception claims are
+    //appended to the transmission queue bound for the receiver.The
+    //last-- and only the last -- data segment must be marked as a CP
+    //segment carrying a new CP serial number(obtained by
+    //incrementing the last CP serial number used) and the report
+    //serial number of the received RS segment.
     std::set<LtpFragmentMap::data_fragment_t> fragmentsNeedingResent;
     LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+    std::cout << "resend\n";
     for (std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
+        std::cout << "h1\n";
+        const bool isLastFragmentNeedingResent = (boost::next(it) == fragmentsNeedingResent.cend());
         for (uint64_t dataIndex = it->beginIndex; dataIndex <= it->endIndex; ) {
+            std::cout << "h2 " << "isLastFragmentNeedingResent " << isLastFragmentNeedingResent << "\n";
             uint64_t bytesToSendRed = std::min((it->endIndex - dataIndex) + 1, M_MTU);
             if ((bytesToSendRed + dataIndex) > M_LENGTH_OF_RED_PART) {
                 std::cerr << "critical error gt length red part\n";
             }
+            std::cout << "(dataIndex + bytesToSendRed) " << (dataIndex + bytesToSendRed) <<  " it->endIndex " << it->endIndex << "\n";
+            const bool isLastPacketNeedingResent = ((isLastFragmentNeedingResent) && ((dataIndex + bytesToSendRed) == (it->endIndex + 1)));
             const bool isEndOfRedPart = ((bytesToSendRed + dataIndex) == M_LENGTH_OF_RED_PART);
+            if (isEndOfRedPart && !isLastPacketNeedingResent) {
+                std::cerr << "critical error: end of red part but not last packet being resent\n";
+            }
             
-            LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT;
-            if (isEndOfRedPart) {
-                flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART;
-                const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSend.size());
-                if (isEndOfBlock) {
-                    flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
+            uint64_t checkpointSerialNumber = 0; //dont care
+            LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA;
+            if (isLastPacketNeedingResent) {
+                std::cout << "h3\n";
+                flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT;
+                checkpointSerialNumber = m_nextCheckpointSerialNumber++; //now we care since this is now a checkpoint
+                if (isEndOfRedPart) {
+                    flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART;
+                    const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSend.size());
+                    if (isEndOfBlock) {
+                        flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
+                    }
                 }
             }
             
-            m_resendFragmentsList.emplace_back(dataIndex, bytesToSendRed, reportSegment.checkpointSerialNumber, reportSegment.reportSerialNumber, flags);
+            m_resendFragmentsList.emplace_back(dataIndex, bytesToSendRed, checkpointSerialNumber, reportSegment.reportSerialNumber, flags);
             dataIndex += bytesToSendRed;
         }
     }

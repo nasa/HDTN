@@ -113,4 +113,81 @@ BOOST_AUTO_TEST_CASE(LtpFragmentMapTestCase)
         //LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent);
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999) }));
     }
+
+    //REPORT SEGMENTS WITH CUSTOM LOWER AND UPPER BOUNDS
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }) , reportSegment));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 1000, std::vector<rc>({ rc(0,2000), rc(3000,500) })));
+    }
+    //same as above
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 1000, std::vector<rc>({ rc(0,2000), rc(3000,500) })));
+
+        //SOME UPPER BOUND TESTS BELOW
+        BOOST_REQUIRE(!LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 1000)); //can't have UB = LB
+        BOOST_REQUIRE(!LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 999)); //can't have UB < LB
+
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 1001));
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 1001, 1000, std::vector<rc>({ rc(0,1)})));
+
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 1002));
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 1002, 1000, std::vector<rc>({ rc(0,2) })));
+
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 3500));
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 3500, 1000, std::vector<rc>({ rc(0,2000)})));
+
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 4400));
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 4400, 1000, std::vector<rc>({ rc(0,2000), rc(3000, 400) })));
+
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1000, 6000));
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 1000, std::vector<rc>({ rc(0,2000), rc(3000, 500) })));
+    }
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 0));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 0, std::vector<rc>({ rc(1000,2000), rc(4000,500) })));
+    }
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 1, std::vector<rc>({ rc(999,2000), rc(3999,500) })));
+    }
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 1001));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 1001, std::vector<rc>({ rc(0,1999), rc(2999,500) })));
+    }
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 2999));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 2999, std::vector<rc>({ rc(0,1), rc(1001,500) })));
+    }
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 3000));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 3000, std::vector<rc>({ rc(1000,500) })));
+    }
+
+    {
+        rs reportSegment;
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(std::set<df>({ df(1000,2999), df(4000,4499) }), reportSegment, 3001));
+        reportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 3001, std::vector<rc>({ rc(999,500) })));
+    }
 }

@@ -58,32 +58,64 @@ void LtpFragmentMap::InsertFragment(std::set<data_fragment_t> & fragmentSet, dat
     }
 }
 
-bool LtpFragmentMap::PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment) {
+bool LtpFragmentMap::PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment, uint64_t lowerBound, uint64_t upperBound) {
     if (fragmentSet.empty()) {
         return false;
     }
 
     //Lower bound : The lower bound of a report segment is the size of the(interior) block prefix to which the segment's reception claims do NOT pertain.
-    std::set<data_fragment_t>::const_iterator firstElement = fragmentSet.cbegin();
-    const uint64_t lowerBound = firstElement->beginIndex;
+    std::set<data_fragment_t>::const_iterator firstElement;
+    if (lowerBound == UINT64_MAX) { //AUTO DETECT
+        firstElement = fragmentSet.cbegin();
+        lowerBound = firstElement->beginIndex;
+    }
+    else {
+        //set::lower_bound() returns an iterator pointing to the element in the container which is equivalent to k passed in the parameter.
+        //In case k is not present in the set container, the function returns an iterator pointing to the immediate next element which is just greater than k.
+        firstElement = fragmentSet.lower_bound(data_fragment_t(lowerBound, lowerBound)); //firstElement may overlap or abut key
+    }
     reportSegment.lowerBound = lowerBound;
 
     //Upper bound : The upper bound of a report segment is the size of the block prefix to which the segment's reception claims pertain.
-    std::set<data_fragment_t>::const_reverse_iterator lastElement = fragmentSet.crbegin();
-    reportSegment.upperBound = lastElement->endIndex + 1;
+    if (upperBound == UINT64_MAX) { //AUTO DETECT
+        std::set<data_fragment_t>::const_reverse_iterator lastElement = fragmentSet.crbegin();
+        upperBound = lastElement->endIndex + 1;
+    }
+    reportSegment.upperBound = upperBound;
+    if (lowerBound >= upperBound) {
+        return false;
+    }
+    const uint64_t differenceBetweenUpperAndLowerBounds = upperBound - lowerBound;
 
     //Reception claims
     reportSegment.receptionClaims.clear();
     reportSegment.receptionClaims.reserve(fragmentSet.size());
-    for (std::set<data_fragment_t>::const_iterator it = fragmentSet.cbegin(); it != fragmentSet.cend(); ++it) {
+    for (std::set<data_fragment_t>::const_iterator it = firstElement; it != fragmentSet.cend(); ++it) {
         //Offset : The offset indicates the successful reception of data beginning at the indicated offset from the lower bound of the RS.The
         //offset within the entire block can be calculated by summing this offset with the lower bound of the RS.
-        const uint64_t offset = it->beginIndex - lowerBound;
+        const uint64_t beginIndex = std::max(it->beginIndex, lowerBound);
+        if (beginIndex >= upperBound) {
+            break;
+        }
+        const uint64_t offset = beginIndex - lowerBound;
 
         //Length : The length of a reception claim indicates the number of contiguous octets of block data starting at the indicated offset that have been successfully received.
-        const uint64_t length = (it->endIndex + 1) - it->beginIndex;
+        uint64_t length = (it->endIndex + 1) - beginIndex;
+
+        //A reception claim's length shall never exceed the difference between the upper and lower bounds of the report segment.
+        length = std::min(length, differenceBetweenUpperAndLowerBounds);
+
+        //The sum of a reception claim's offset and length and the lower bound of the report segment shall never exceed the upper bound of the report segment.
+        // offset + length + lowerBound <= upperBound
+        // length <= (upperBound - lowerBound) - offset
+        // length <= (upperBound - lowerBound) - (beginIndex - lowerBound)
+        // length <= upperBound - lowerBound - beginIndex + lowerBound
+        // length <= upperBound - beginIndex
+        length = std::min(length, upperBound - beginIndex);
         
-        reportSegment.receptionClaims.emplace_back(offset, length);
+        if (length) { //A reception claim's length shall never be less than 1 
+            reportSegment.receptionClaims.emplace_back(offset, length);
+        }
     }
     return true;
 }

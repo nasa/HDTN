@@ -36,6 +36,7 @@ private:
     std::set<LtpFragmentMap::data_fragment_t> m_dataFragmentsAckedByReceiver;
     std::list<std::vector<uint8_t> > m_nonDataToSend;
     std::list<resend_fragment_t> m_resendFragmentsList;
+    std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
     std::vector<uint8_t> m_dataToSend;

@@ -100,8 +100,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase)
                 ++count;
             }
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            //TODO BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 7); //+7 for 3 Report acks and 2 resends
-            //TODO BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //2 for 2 Report segments
+            BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends
+            BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
         }
     };
@@ -109,5 +109,5 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase)
     Test t;
     t.DoTest();
     t.DoTestOneDropSrcToDest();
-    //t.DoTestTwoDropsSrcToDest();
+    t.DoTestTwoDropsSrcToDest();
 }

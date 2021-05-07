@@ -45,8 +45,11 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback);
 private:
     std::set<LtpFragmentMap::data_fragment_t> m_receivedDataFragmentsSet;
-    std::map<uint64_t, Ltp::report_segment_t> m_mapReportSegmentsSent;
+    std::map<uint64_t, Ltp::report_segment_t> m_mapAllReportSegmentsSent;
+    std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     std::set<LtpFragmentMap::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
+    std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
+    std::set<uint64_t> m_reportSegmentReportSerialNumbersUnackedSet;
     std::list<std::vector<uint8_t> > m_nonDataToSend;
     uint64_t m_nextReportSegmentReportSerialNumber;
     std::vector<uint8_t> m_dataReceived;

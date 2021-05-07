@@ -42,9 +42,9 @@ void LtpSessionReceiver::CancelAcknowledgementSegmentReceivedCallback(Ltp::ltp_e
 void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapReportSegmentsSent.find(reportSerialNumberBeingAcknowledged);
-    if (reportSegmentIt != m_mapReportSegmentsSent.end()) { //found
-        m_mapReportSegmentsSent.erase(reportSegmentIt);
+    std::set<uint64_t>::iterator reportSegmentIt = m_reportSegmentReportSerialNumbersUnackedSet.find(reportSerialNumberBeingAcknowledged);
+    if (reportSegmentIt != m_reportSegmentReportSerialNumbersUnackedSet.end()) { //found
+        m_reportSegmentReportSerialNumbersUnackedSet.erase(reportSegmentIt);
     }
     else {
         std::cerr << "error in LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback: cannot find report segment\n";
@@ -57,9 +57,9 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback)
 {
-    const uint64_t minVectorSize = dataSegmentMetadata.offset + dataSegmentMetadata.length;
-    if (m_dataReceived.size() < minVectorSize) {
-        m_dataReceived.resize(minVectorSize);
+    const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
+    if (m_dataReceived.size() < offsetPlusLength) {
+        m_dataReceived.resize(offsetPlusLength);
     }
     if (dataSegmentMetadata.length != clientServiceDataVec.size()) {
         std::cerr << "error dataSegmentMetadata.length != clientServiceDataVec.size()\n";
@@ -72,15 +72,75 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         bool isRedCheckpoint = (segmentTypeFlags != 0);
         bool isEndOfRedPart = (segmentTypeFlags & 2);
         LtpFragmentMap::InsertFragment(m_receivedDataFragmentsSet, 
-            LtpFragmentMap::data_fragment_t(dataSegmentMetadata.offset, (dataSegmentMetadata.offset + dataSegmentMetadata.length) - 1));
+            LtpFragmentMap::data_fragment_t(dataSegmentMetadata.offset, offsetPlusLength - 1));
         //LtpFragmentMap::PrintFragmentSet(m_receivedDataFragmentsSet);
         //std::cout << "offset: " << dataSegmentMetadata.offset << " l: " << dataSegmentMetadata.length << " d: " << (int)clientServiceDataVec[0] << std::endl;
         if (isEndOfRedPart) {
-            m_lengthOfRedPart = dataSegmentMetadata.offset + dataSegmentMetadata.length;
+            m_lengthOfRedPart = offsetPlusLength;
         }
         if (isRedCheckpoint) {
+            if ((dataSegmentMetadata.checkpointSerialNumber == NULL) || (dataSegmentMetadata.reportSerialNumber == NULL)) {
+                std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: checkpoint but NULL values\n";
+                return;
+            }
+            std::cout << "csn rxed: " << *dataSegmentMetadata.checkpointSerialNumber << std::endl;
+            //6.11.  Send Reception Report
+            //This procedure is triggered by either (a) the original reception of a
+            //CP segment(the checkpoint serial number identifying this CP is new)
+            if (m_checkpointSerialNumbersReceivedSet.insert(*dataSegmentMetadata.checkpointSerialNumber).second == false) { //serial number was not inserted (already exists)
+                return; //no work to do.. ignore this redundant checkpoint
+            }
+
+            //data segment Report serial number (SDNV)
+            //If the checkpoint was queued for transmission in response to the
+            //reception of an RS(Section 6.13), then its value MUST be the
+            //report serial number value of the RS that caused the data segment
+            //to be queued for transmission.
+            //Otherwise, the value of report serial number MUST be zero.
+            const bool checkpointIsResponseToReportSegment = ((*dataSegmentMetadata.reportSerialNumber) != 0);
+
+            //a reception report is issued as follows.
+            //If production of the reception report was triggered by reception of a checkpoint :
+            // - The upper bound of the report SHOULD be the upper bound (the sum of the offset and length) of the checkpoint data segment, to minimize unnecessary retransmission.
+            const uint64_t upperBound = offsetPlusLength;
+            std::cout << "UB: " << upperBound << std::endl;
+
+            uint64_t lowerBound = 0;
+            if (checkpointIsResponseToReportSegment) {
+                // -If the checkpoint was itself issued in response to a report
+                //segment, then this report is a "secondary" reception report.In
+                //that case, the lower bound of the report SHOULD be the lower
+                //bound of the report segment to which the triggering checkpoint
+                //was itself a response, to minimize unnecessary retransmission.
+                std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(*dataSegmentMetadata.reportSerialNumber);
+                if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
+                    lowerBound = reportSegmentIt->second.lowerBound;
+                    std::cout << "1LB: " << lowerBound << std::endl;
+                }
+                else {
+                    std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot find report segment\n";
+                }
+            }
+            else {
+                //- If the checkpoint was not issued in response to a report
+                //segment, this report is a "primary" reception report.
+                if (m_mapPrimaryReportSegmentsSent.empty()) {
+                    //The lower bound of the first primary reception report issued for any session MUST be zero.
+                    lowerBound = 0;
+                    std::cout << "2LB: " << lowerBound << std::endl;
+                }
+                else {
+                    //The lower bound of each subsequent
+                    //primary reception report issued for the same session SHOULD be
+                    //the upper bound of the prior primary reception report issued for
+                    //the session, to minimize unnecessary retransmission.
+                    lowerBound = m_mapPrimaryReportSegmentsSent.crbegin()->second.lowerBound;
+                    std::cout << "3LB: " << lowerBound << std::endl;
+                }
+            }
+
             Ltp::report_segment_t reportSegment;
-            if (!LtpFragmentMap::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegment)) {
+            if (!LtpFragmentMap::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegment, lowerBound, upperBound)) {
                 std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot populate report segment\n";
             }
 
@@ -107,7 +167,13 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             Ltp::GenerateReportSegmentLtpPacket(m_nonDataToSend.back(),
                 M_SESSION_ID, reportSegment, NULL, NULL);
 
-            m_mapReportSegmentsSent[rsn] = std::move(reportSegment);
+            if (!checkpointIsResponseToReportSegment) {
+                m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
+            }
+            m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
+            if (m_reportSegmentReportSerialNumbersUnackedSet.insert(rsn).second == false) { //serial number was not inserted (already exists)
+                std::cerr << "unexpected error: m_reportSegmentReportSerialNumbersUnackedSet.insert(rsn) not inserted\n";
+            }
         }
         if ((m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {
             std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_receivedDataFragmentsSet.cbegin();
