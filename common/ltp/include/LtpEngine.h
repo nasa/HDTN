@@ -16,6 +16,7 @@ public:
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData);
 
     void Reset();
+    void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
 
     void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart);
     void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart);
@@ -51,6 +52,7 @@ private:
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator m_receiversIterator;
 
     RedPartReceptionCallback_t m_redPartReceptionCallback;
+    uint64_t m_checkpointEveryNthDataPacketSender;
 };
 
 #endif // LTP_ENGINE_H

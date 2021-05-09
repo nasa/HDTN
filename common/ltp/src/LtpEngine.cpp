@@ -21,8 +21,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
         boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
-    m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
-    m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+    Reset();
 }
 
 void LtpEngine::Reset() {
@@ -31,6 +30,11 @@ void LtpEngine::Reset() {
     m_ltpRxStateMachine.InitRx();
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
     m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+    m_checkpointEveryNthDataPacketSender = 0;
+}
+
+void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender) {
+    m_checkpointEveryNthDataPacketSender = checkpointEveryNthDataPacketSender;
 }
 
 bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size) {
@@ -101,7 +105,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = std::make_unique<LtpSessionSender>(
-        randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId);
+        randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId, m_checkpointEveryNthDataPacketSender);
     //revalidate iterator
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 }

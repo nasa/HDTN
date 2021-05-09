@@ -104,10 +104,29 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase)
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
         }
+
+        void DoTestTwoDropsSrcToDestRegularCheckpoints() {
+            engineSrc.Reset();
+            engineDest.Reset();
+            engineSrc.SetCheckpointEveryNthDataPacketForSenders(5);
+            numSrcToDestDataExchanged = 0;
+            numDestToSrcDataExchanged = 0;
+            numRedPartReceptionCallbacks = 0;
+            engineSrc.TransmissionRequest(CLIENT_SERVICE_ID_DEST, ENGINE_ID_DEST, (uint8_t*)DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.size(), DESIRED_RED_DATA_TO_SEND.size());
+            unsigned int count = 0;
+            while (ExchangeData((count == 7) || (count == 13), false)) {
+                ++count;
+            }
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 11); //+11 for 9 Report acks (see next line) and 2 resends
+            BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 10); // 44/5=8 + (1 eobCp at 44) + 1 retrans report 
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+        }
     };
 
     Test t;
     t.DoTest();
     t.DoTestOneDropSrcToDest();
     t.DoTestTwoDropsSrcToDest();
+    t.DoTestTwoDropsSrcToDestRegularCheckpoints();
 }

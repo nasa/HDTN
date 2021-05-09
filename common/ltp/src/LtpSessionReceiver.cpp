@@ -83,7 +83,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: checkpoint but NULL values\n";
                 return;
             }
-            std::cout << "csn rxed: " << *dataSegmentMetadata.checkpointSerialNumber << std::endl;
+            //std::cout << "csn rxed: " << *dataSegmentMetadata.checkpointSerialNumber << std::endl;
             //6.11.  Send Reception Report
             //This procedure is triggered by either (a) the original reception of a
             //CP segment(the checkpoint serial number identifying this CP is new)
@@ -103,7 +103,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             //If production of the reception report was triggered by reception of a checkpoint :
             // - The upper bound of the report SHOULD be the upper bound (the sum of the offset and length) of the checkpoint data segment, to minimize unnecessary retransmission.
             const uint64_t upperBound = offsetPlusLength;
-            std::cout << "UB: " << upperBound << std::endl;
+            //std::cout << "UB: " << upperBound << std::endl;
 
             uint64_t lowerBound = 0;
             if (checkpointIsResponseToReportSegment) {
@@ -115,7 +115,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(*dataSegmentMetadata.reportSerialNumber);
                 if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
                     lowerBound = reportSegmentIt->second.lowerBound;
-                    std::cout << "1LB: " << lowerBound << std::endl;
+                    //std::cout << "1LB: " << lowerBound << std::endl;
                 }
                 else {
                     std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot find report segment\n";
@@ -127,15 +127,15 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 if (m_mapPrimaryReportSegmentsSent.empty()) {
                     //The lower bound of the first primary reception report issued for any session MUST be zero.
                     lowerBound = 0;
-                    std::cout << "2LB: " << lowerBound << std::endl;
+                    //std::cout << "2LB: " << lowerBound << std::endl;
                 }
                 else {
                     //The lower bound of each subsequent
                     //primary reception report issued for the same session SHOULD be
                     //the upper bound of the prior primary reception report issued for
                     //the session, to minimize unnecessary retransmission.
-                    lowerBound = m_mapPrimaryReportSegmentsSent.crbegin()->second.lowerBound;
-                    std::cout << "3LB: " << lowerBound << std::endl;
+                    lowerBound = m_mapPrimaryReportSegmentsSent.crbegin()->second.upperBound;
+                    //std::cout << "3LB: " << lowerBound << std::endl;
                 }
             }
 

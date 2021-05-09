@@ -23,7 +23,7 @@ public:
     };
     
     LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
-        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId);
+        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId, const uint64_t checkpointEveryNthDataPacket = 0);
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
 
@@ -45,6 +45,8 @@ private:
     const uint64_t M_MTU;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
+    const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
+    uint64_t m_checkpointEveryNthDataPacketCounter;
 };
 
 #endif // LTP_SESSION_SENDER_H

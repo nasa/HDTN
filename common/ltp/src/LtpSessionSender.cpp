@@ -6,7 +6,7 @@
 #include <boost/next_prior.hpp>
 
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
-    std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId) :
+    std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId, const uint64_t checkpointEveryNthDataPacket) :
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
     m_dataToSend(std::move(dataToSend)),
@@ -14,7 +14,9 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_dataIndexFirstPass(0),
     M_MTU(MTU),
     M_SESSION_ID(sessionId),
-    M_CLIENT_SERVICE_ID(clientServiceId)
+    M_CLIENT_SERVICE_ID(clientServiceId),
+    M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
+    m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket)
 {
 
 }
@@ -62,20 +64,29 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
         if (m_dataIndexFirstPass < M_LENGTH_OF_RED_PART) { //first pass of red data send
             uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, M_MTU);
             const bool isEndOfRedPart = ((bytesToSendRed + m_dataIndexFirstPass) == M_LENGTH_OF_RED_PART);
+            bool isPeriodicCheckpoint = false;
+            if (M_CHECKPOINT_EVERY_NTH_DATA_PACKET && (--m_checkpointEveryNthDataPacketCounter == 0)) {
+                m_checkpointEveryNthDataPacketCounter = M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
+                isPeriodicCheckpoint = true;
+            }
+            const bool isCheckpoint = isPeriodicCheckpoint || isEndOfRedPart;
 
             LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA;
             uint64_t cp;
             uint64_t * checkpointSerialNumber = NULL;
             uint64_t rsn = 0; //0 in this state because not a response to an RS
             uint64_t * reportSerialNumber = NULL;
-            if (isEndOfRedPart) {
-                flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART;
+            if (isCheckpoint) {
+                flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT;
                 cp = m_nextCheckpointSerialNumber++;
                 checkpointSerialNumber = &cp;
                 reportSerialNumber = &rsn;
-                const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSend.size());
-                if (isEndOfBlock) {
-                    flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
+                if (isEndOfRedPart) {
+                    flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART;
+                    const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSend.size());
+                    if (isEndOfBlock) {
+                        flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
+                    }
                 }
             }
 
@@ -171,17 +182,17 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //serial number of the received RS segment.
     std::set<LtpFragmentMap::data_fragment_t> fragmentsNeedingResent;
     LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
-    std::cout << "resend\n";
+    //std::cout << "resend\n";
     for (std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
-        std::cout << "h1\n";
+        //std::cout << "h1\n";
         const bool isLastFragmentNeedingResent = (boost::next(it) == fragmentsNeedingResent.cend());
         for (uint64_t dataIndex = it->beginIndex; dataIndex <= it->endIndex; ) {
-            std::cout << "h2 " << "isLastFragmentNeedingResent " << isLastFragmentNeedingResent << "\n";
+            //std::cout << "h2 " << "isLastFragmentNeedingResent " << isLastFragmentNeedingResent << "\n";
             uint64_t bytesToSendRed = std::min((it->endIndex - dataIndex) + 1, M_MTU);
             if ((bytesToSendRed + dataIndex) > M_LENGTH_OF_RED_PART) {
                 std::cerr << "critical error gt length red part\n";
             }
-            std::cout << "(dataIndex + bytesToSendRed) " << (dataIndex + bytesToSendRed) <<  " it->endIndex " << it->endIndex << "\n";
+            //std::cout << "(dataIndex + bytesToSendRed) " << (dataIndex + bytesToSendRed) <<  " it->endIndex " << it->endIndex << "\n";
             const bool isLastPacketNeedingResent = ((isLastFragmentNeedingResent) && ((dataIndex + bytesToSendRed) == (it->endIndex + 1)));
             const bool isEndOfRedPart = ((bytesToSendRed + dataIndex) == M_LENGTH_OF_RED_PART);
             if (isEndOfRedPart && !isLastPacketNeedingResent) {
@@ -191,7 +202,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             uint64_t checkpointSerialNumber = 0; //dont care
             LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA;
             if (isLastPacketNeedingResent) {
-                std::cout << "h3\n";
+                //std::cout << "h3\n";
                 flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT;
                 checkpointSerialNumber = m_nextCheckpointSerialNumber++; //now we care since this is now a checkpoint
                 if (isEndOfRedPart) {
