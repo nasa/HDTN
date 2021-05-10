@@ -12,7 +12,7 @@
 
 ## Quick Start ##
 ### Build HDTN ###
-* export HDTN_SOURCE_ROOT=/home/nkortas/hdtn
+* export HDTN_SOURCE_ROOT=/home/username/hdtn
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
