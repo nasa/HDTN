@@ -14,7 +14,7 @@ cd ~/hdtn/build/module/storage
 ./hdtn-release-message-sender "--release-message-type=start" "--flow-id=2" "--delay-before-send=14" &
 sleep 1
 cd ~/hdtn/build/module/storage
-./hdtn-storage "--storage-config-json-file=/home/nkortas/hdtn/module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json" &
+./hdtn-storage "--storage-config-json-file=$HDTN_SOURCE_ROOT/module/storage/storage-brian/unit_tests/storageConfigRelativePaths.json" &
 sleep 3
 cd ~/hdtn/build/common/bpcodec/apps
 ./bpgen-async "--bundle-rate=100" "--use-tcpcl" "--flow-id=2" "--duration=5" &

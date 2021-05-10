@@ -12,7 +12,8 @@
 
 ## Quick Start ##
 ### Build HDTN ###
-* cd ~/hdtn
+* export HDTN_SOURCE_ROOT=/home/nkortas/hdtn
+* cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
 * cmake ..
@@ -26,5 +27,10 @@ In another terminal, run:
 * ./runscript.sh
 
 ### Run Unit Tests ###
-After building HDTN (see above), the unit tests can be run with the command within the build directory:
-* ./tests/unit_tests/unit-tests 
+After building HDTN (see above), the unit tests can be run with the following command within the build directory:
+* ./tests/unit_tests/unit-tests
+
+### Run Integrated Tests ###
+After building HDTN (see above), the integrated tests can be run with the following command within the build directory:
+* ./tests/integrated_tests/integrated-tests
+ 
