@@ -14,15 +14,16 @@
 ### Build HDTN ###
 * cd ~/hdtn
 * mkdir build
+* cd build
 * cmake ..
 * make
 ### Run HDTN ###
 Note: You made need to increase the maximum number of files the operating system will allow to have open to run the storage component. On Debian, this can be done by setting the hard and soft limits for "nofile" to unlimited in /etc/security/limits.conf.
 
-You can use tcpdump to test the HDTN ingress and egress.
-* sudo tcpdump -i lo -vv -s0 port 4557
+You can use tcpdump to test the HDTN ingress storage and egress. The generated pcap file can be read using wireshark. 
+* sudo tcpdump -i lo -vv -s0 port 4558 -w hdtn-traffic.pcap
 In another terminal, run:
-* ./runscript
+* ./runscript.sh
 
 ### Run Unit Tests ###
 After building HDTN (see above), the unit tests can be run with the command within the build directory:
