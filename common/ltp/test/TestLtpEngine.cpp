@@ -5,6 +5,8 @@
 BOOST_AUTO_TEST_CASE(LtpEngineTestCase)
 {
     struct Test {
+        const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
+        const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
         const uint64_t ENGINE_ID_SRC;
         const uint64_t ENGINE_ID_DEST;
         const uint64_t CLIENT_SERVICE_ID_DEST;
@@ -17,11 +19,13 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase)
         uint64_t numDestToSrcDataExchanged;
 
         Test() :
+            ONE_WAY_LIGHT_TIME(boost::posix_time::seconds(10)),
+            ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(2000)),
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
             CLIENT_SERVICE_ID_DEST(300),
-            engineSrc(ENGINE_ID_SRC, 1),//1=> 1 CHARACTER AT A TIME
-            engineDest(ENGINE_ID_DEST, 1),//1=> MTU NOT USED AT THIS TIME
+            engineSrc(ENGINE_ID_SRC, 1, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME),//1=> 1 CHARACTER AT A TIME
+            engineDest(ENGINE_ID_DEST, 1, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME),//1=> MTU NOT USED AT THIS TIME
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!")
         {
             engineDest.SetRedPartReceptionCallback(boost::bind(&Test::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,

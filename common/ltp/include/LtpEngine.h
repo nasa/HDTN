@@ -13,7 +13,8 @@ class LtpEngine {
 private:
     LtpEngine();
 public:
-    LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData);
+    LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, 
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime);
 
     void Reset();
     void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
@@ -25,6 +26,10 @@ public:
 
     bool PacketIn(const uint8_t * data, const std::size_t size);
     bool PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
+
+    void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size);
+    void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
+
     bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
 private:
     void CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
@@ -43,6 +48,9 @@ private:
     LtpRandomNumberGenerator m_rng;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_MTU_CLIENT_SERVICE_DATA;
+    const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
+    const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
+    const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     boost::random_device m_randomDevice;
     boost::mutex m_randomDeviceMutex;
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> > m_mapSessionNumberToSessionSender;
@@ -53,6 +61,8 @@ private:
 
     RedPartReceptionCallback_t m_redPartReceptionCallback;
     uint64_t m_checkpointEveryNthDataPacketSender;
+
+    boost::asio::io_service m_ioService; //for timers and post calls only
 };
 
 #endif // LTP_ENGINE_H

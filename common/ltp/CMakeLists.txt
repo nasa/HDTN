@@ -11,6 +11,7 @@ add_library(ltp_lib STATIC
 	src/LtpSessionReceiver.cpp
 	src/LtpSessionSender.cpp
 	src/LtpEngine.cpp
+	src/LtpTimerManager.cpp
 	#src/LtpBundleSink.cpp
 	#src/LtpBundleSource.cpp
 )

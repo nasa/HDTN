@@ -30,14 +30,15 @@ add_executable(unit-tests
 	../../common/ltp/test/TestLtpFragmentMap.cpp
 	../../common/ltp/test/TestLtpRandomNumberGenerator.cpp
 	../../common/ltp/test/TestLtpEngine.cpp
+	../../common/ltp/test/TestLtpTimerManager.cpp
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
 	../../module/storage/storage-brian/unit_tests/StorageConfigTests.cpp
-	../../module/storage/storage-brian/unit_tests/MemoryManagerTreeTests.cpp
-	../../module/storage/storage-brian/unit_tests/MemoryManagerTreeArrayTests.cpp
-	../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtTests.cpp
-	../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
+	#../../module/storage/storage-brian/unit_tests/MemoryManagerTreeTests.cpp
+	#../../module/storage/storage-brian/unit_tests/MemoryManagerTreeArrayTests.cpp
+	#../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtTests.cpp
+	#../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
     ${LINUX_ONLY_UNIT_TEST_SRCS}
     
 

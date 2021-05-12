@@ -5,13 +5,20 @@
 #include <boost/make_shared.hpp>
 
 LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU,
-    const Ltp::session_id_t & sessionId, const uint64_t clientServiceId) :
+    const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef) :
+    m_timeManagerOfReportSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1)),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
     M_MTU(MTU),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
-    m_lengthOfRedPart(UINT64_MAX)
+    m_lengthOfRedPart(UINT64_MAX),
+    m_ioServiceRef(ioServiceRef)
 {
+
+}
+
+void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber) {
 
 }
 

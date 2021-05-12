@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 }
 
 
-BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::enabled())
+BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
 {
 #define SPEED_TEST_LARGE_SDNVS 1
 #if SPEED_TEST_LARGE_SDNVS

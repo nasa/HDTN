@@ -6,7 +6,9 @@
 #include <boost/next_prior.hpp>
 
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
-    std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId, const uint64_t checkpointEveryNthDataPacket) :
+    std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, const uint64_t checkpointEveryNthDataPacket) :
+    m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1)),
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
     m_dataToSend(std::move(dataToSend)),
@@ -16,9 +18,14 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
     M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
-    m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket)
+    m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
+    m_ioServiceRef(ioServiceRef)
 {
 
+}
+
+void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSerialNumber) {
+    
 }
 
 bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {

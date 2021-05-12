@@ -3,7 +3,14 @@
 #include <inttypes.h>
 #include <boost/bind.hpp>
 
-LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData) : M_THIS_ENGINE_ID(thisEngineId), M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData) {
+LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime) :
+    M_THIS_ENGINE_ID(thisEngineId),
+    M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
+    M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
+    M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
+    M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2))
+{
 
     m_ltpRxStateMachine.SetCancelSegmentContentsReadCallback(boost::bind(&LtpEngine::CancelSegmentReceivedCallback, this,
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -41,6 +48,7 @@ bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size) {
     std::string errorMessage;
     if (!m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage)) {
         std::cerr << "error in LtpEngine::PacketIn: " << errorMessage << std::endl;
+        m_ltpRxStateMachine.InitRx();
         return false;
     }
     return true;
@@ -56,20 +64,32 @@ bool LtpEngine::PacketIn(const std::vector<boost::asio::const_buffer> & constBuf
     return true;
 }
 
+void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size) {
+    boost::asio::post(m_ioService, boost::bind(&LtpEngine::PacketIn, this, data, size));
+}
+void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
+    boost::asio::post(m_ioService, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));
+}
+
 bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
 
     bool foundDataToSend = false;
-    while ((m_sendersIterator != m_mapSessionNumberToSessionSender.end()) && !foundDataToSend) {
-        foundDataToSend = m_sendersIterator->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback);
-        ++m_sendersIterator;
-    }
-    while ((m_receiversIterator != m_mapSessionIdToSessionReceiver.end()) && !foundDataToSend) {
-        foundDataToSend = m_receiversIterator->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback);
-        ++m_receiversIterator;
-    }
-    if ((m_sendersIterator == m_mapSessionNumberToSessionSender.end()) && (m_receiversIterator == m_mapSessionIdToSessionReceiver.end())) {
-        m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
-        m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+    for (unsigned int i = 0; i < 2; ++i) {
+        while ((m_sendersIterator != m_mapSessionNumberToSessionSender.end()) && !foundDataToSend) {
+            foundDataToSend = m_sendersIterator->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback);
+            ++m_sendersIterator;
+        }
+        while ((m_receiversIterator != m_mapSessionIdToSessionReceiver.end()) && !foundDataToSend) {
+            foundDataToSend = m_receiversIterator->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback);
+            ++m_receiversIterator;
+        }
+        if ((m_sendersIterator == m_mapSessionNumberToSessionSender.end()) && (m_receiversIterator == m_mapSessionIdToSessionReceiver.end())) {
+            m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
+            m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+            if (!foundDataToSend) {
+                continue; //continue once
+            }
+        }
     }
     return foundDataToSend;
 }
@@ -105,7 +125,8 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = std::make_unique<LtpSessionSender>(
-        randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId, m_checkpointEveryNthDataPacketSender);
+        randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
+        M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioService, m_checkpointEveryNthDataPacketSender);
     //revalidate iterator
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 }
@@ -199,7 +220,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             randomNextReportSegmentReportSerialNumber = m_rng.GetRandom(m_randomDevice);
         }
         std::unique_ptr<LtpSessionReceiver> session = std::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA,
-            sessionId, dataSegmentMetadata.clientServiceId);
+            sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioService);
 
         std::pair<std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator, bool> res =
             m_mapSessionIdToSessionReceiver.insert(std::pair< Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >(sessionId, std::move(session)));

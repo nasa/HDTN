@@ -7,10 +7,12 @@
 #include <list>
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
+#include "LtpTimerManager.h"
 
 class LtpSessionSender {
 private:
     LtpSessionSender();
+    void LtpCheckpointTimerExpiredCallback(uint64_t checkpointSerialNumber);
 public:
     struct resend_fragment_t {
         resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
@@ -23,7 +25,9 @@ public:
     };
     
     LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
-        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId, const uint64_t checkpointEveryNthDataPacket = 0);
+        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
+        const uint64_t checkpointEveryNthDataPacket = 0);
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
 
@@ -37,6 +41,7 @@ private:
     std::list<std::vector<uint8_t> > m_nonDataToSend;
     std::list<resend_fragment_t> m_resendFragmentsList;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
+    LtpTimerManager m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
     std::vector<uint8_t> m_dataToSend;
@@ -47,6 +52,7 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
     uint64_t m_checkpointEveryNthDataPacketCounter;
+    boost::asio::io_service & m_ioServiceRef;
 };
 
 #endif // LTP_SESSION_SENDER_H

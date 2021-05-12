@@ -4,6 +4,7 @@
 #include "LtpFragmentMap.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
+#include "LtpTimerManager.h"
 #include <list>
 #include <set>
 #include <boost/asio.hpp>
@@ -28,11 +29,14 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId,
 class LtpSessionReceiver {
 private:
     LtpSessionReceiver();
+
+    void LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber);
 public:
     
     
     LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU,
-        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId);
+        const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef);
 
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
@@ -51,12 +55,14 @@ private:
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     std::set<uint64_t> m_reportSegmentReportSerialNumbersUnackedSet;
     std::list<std::vector<uint8_t> > m_nonDataToSend;
+    LtpTimerManager m_timeManagerOfReportSerialNumbers;
     uint64_t m_nextReportSegmentReportSerialNumber;
     std::vector<uint8_t> m_dataReceived;
     const uint64_t M_MTU;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;
+    boost::asio::io_service & m_ioServiceRef;
 };
 
 #endif // LTP_SESSION_RECEIVER_H
