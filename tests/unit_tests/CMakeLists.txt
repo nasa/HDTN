@@ -33,6 +33,7 @@ add_executable(unit-tests
 	../../common/ltp/test/TestLtpTimerManager.cpp
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
+	../../common/util/test/TestRateManagerAsync.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
 	../../module/storage/storage-brian/unit_tests/StorageConfigTests.cpp
 	#../../module/storage/storage-brian/unit_tests/MemoryManagerTreeTests.cpp

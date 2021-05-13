@@ -12,6 +12,7 @@ add_library(hdtn_util STATIC
 	src/TimestampUtil.cpp
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
+	src/RateManagerAsync.cpp
 )
 target_link_libraries(hdtn_util ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
 target_include_directories(hdtn_util PUBLIC include ../regsvr/lib/include ${Boost_INCLUDE_DIRS} ${libzmq_INCLUDE})
