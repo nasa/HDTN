@@ -30,6 +30,7 @@ add_executable(unit-tests
 	../../common/ltp/test/TestLtpFragmentMap.cpp
 	../../common/ltp/test/TestLtpRandomNumberGenerator.cpp
 	../../common/ltp/test/TestLtpEngine.cpp
+	../../common/ltp/test/TestLtpUdpEngine.cpp
 	../../common/ltp/test/TestLtpTimerManager.cpp
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp

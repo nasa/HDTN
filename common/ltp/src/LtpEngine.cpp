@@ -2,14 +2,16 @@
 #include <iostream>
 #include <inttypes.h>
 #include <boost/bind.hpp>
+#include <boost/make_unique.hpp>
 
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime) :
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, bool startIoServiceThread) :
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
-    M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2))
+    M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
+    m_workLtpEngine(m_ioServiceLtpEngine)
 {
 
     m_ltpRxStateMachine.SetCancelSegmentContentsReadCallback(boost::bind(&LtpEngine::CancelSegmentReceivedCallback, this,
@@ -29,6 +31,21 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
         boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
     Reset();
+
+    if (startIoServiceThread) {
+        m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceLtpEngine));
+    }
+}
+
+LtpEngine::~LtpEngine() {
+    if (!m_ioServiceLtpEngine.stopped()) {
+        m_ioServiceLtpEngine.stop(); //ioservice requires stopping before join because of the m_work object
+    }
+
+    if (m_ioServiceLtpEngineThreadPtr) {
+        m_ioServiceLtpEngineThreadPtr->join();
+        m_ioServiceLtpEngineThreadPtr.reset(); //delete it
+    }
 }
 
 void LtpEngine::Reset() {
@@ -44,14 +61,16 @@ void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEve
     m_checkpointEveryNthDataPacketSender = checkpointEveryNthDataPacketSender;
 }
 
+
 bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size) {
     std::string errorMessage;
-    if (!m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage)) {
+    const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage);
+    if (!success) {
         std::cerr << "error in LtpEngine::PacketIn: " << errorMessage << std::endl;
         m_ltpRxStateMachine.InitRx();
-        return false;
     }
-    return true;
+    PacketInFullyProcessedCallback(success);
+    return success;
 }
 
 bool LtpEngine::PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
@@ -65,11 +84,29 @@ bool LtpEngine::PacketIn(const std::vector<boost::asio::const_buffer> & constBuf
 }
 
 void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size) {
-    boost::asio::post(m_ioService, boost::bind(&LtpEngine::PacketIn, this, data, size));
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, data, size));
 }
 void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
-    boost::asio::post(m_ioService, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));
 }
+
+void LtpEngine::SignalReadyForSend_ThreadSafe() {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));
+}
+
+void LtpEngine::TrySendPacketIfAvailable() {
+    if (m_ioServiceLtpEngineThreadPtr) { //if not running inside a unit test
+        std::vector<boost::asio::const_buffer> constBufferVec;
+        boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
+        if (NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback)) {
+            SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback); //virtual call to child implementation
+        }
+    }
+}
+
+void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
+
+void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {}
 
 bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
 
@@ -114,24 +151,32 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
    On reception of a valid transmission request from a client service,
    LTP proceeds as follows.
    */
-void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart) {
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart) { //only called directly by unit test (not thread safe)
 
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
     {
-        boost::mutex::scoped_lock lock(m_randomDeviceMutex);
+        //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
         randomSessionNumberGeneratedBySender = m_rng.GetRandom(m_randomDevice);
         randomInitialSenderCheckpointSerialNumber = m_rng.GetRandom(m_randomDevice);
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = std::make_unique<LtpSessionSender>(
         randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
-        M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioService, m_checkpointEveryNthDataPacketSender);
+        M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine, m_checkpointEveryNthDataPacketSender);
     //revalidate iterator
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 }
-void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart) {
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart) {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId, std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length), lengthOfRedPart);
+}
+void LtpEngine::TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest) {
+    TransmissionRequest(transmissionRequest->destinationClientServiceId, transmissionRequest->destinationLtpEngineId, std::move(transmissionRequest->clientServiceDataToSend), transmissionRequest->lengthOfRedPart);
+    TrySendPacketIfAvailable();
+}
+void LtpEngine::TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest) {
+    //The arguments to bind are copied or moved, and are never passed by reference unless wrapped in std::ref or std::cref.
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TransmissionRequest, this, std::move(transmissionRequest)));
 }
 
 void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
@@ -195,6 +240,7 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
     if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
         txSessionIt->second->ReportSegmentReceivedCallback(reportSegment, headerExtensions, trailerExtensions);
+        TrySendPacketIfAvailable();
     }
 }
 
@@ -216,11 +262,11 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
     if (rxSessionIt == m_mapSessionIdToSessionReceiver.end()) { //not found.. new session started
         uint64_t randomNextReportSegmentReportSerialNumber; //incremented by 1 for new
         {
-            boost::mutex::scoped_lock lock(m_randomDeviceMutex);
+            //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
             randomNextReportSegmentReportSerialNumber = m_rng.GetRandom(m_randomDevice);
         }
         std::unique_ptr<LtpSessionReceiver> session = std::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA,
-            sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioService);
+            sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine);
 
         std::pair<std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator, bool> res =
             m_mapSessionIdToSessionReceiver.insert(std::pair< Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >(sessionId, std::move(session)));
@@ -233,6 +279,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
     }
     rxSessionIt->second->DataSegmentReceivedCallback(segmentTypeFlags, clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions, m_redPartReceptionCallback);
+    TrySendPacketIfAvailable();
 }
 
 void LtpEngine::SetRedPartReceptionCallback(const RedPartReceptionCallback_t & callback) {
