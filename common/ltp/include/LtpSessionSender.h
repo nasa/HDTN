@@ -55,8 +55,7 @@ public:
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
 
-    void CancelSegmentReceivedCallback(CANCEL_SEGMENT_REASON_CODES reasonCode, Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
-    void CancelAcknowledgementSegmentReceivedCallback(Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
+    
     void ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     
@@ -65,7 +64,7 @@ private:
     std::list<std::vector<uint8_t> > m_nonDataToSend;
     std::list<resend_fragment_t> m_resendFragmentsList;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
-    LtpTimerManager m_timeManagerOfCheckpointSerialNumbers;
+    LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
     std::vector<uint8_t> m_dataToSend;

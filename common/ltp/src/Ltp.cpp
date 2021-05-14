@@ -23,6 +23,11 @@ Ltp::session_id_t& Ltp::session_id_t::operator=(session_id_t && o) { //a move as
     sessionNumber = o.sessionNumber;
     return *this;
 }
+Ltp::session_id_t& Ltp::session_id_t::operator=(const uint64_t o) { //assign to uint64 (for template code in LtpTimerManager)
+    sessionOriginatorEngineId = o;
+    sessionNumber = o;
+    return *this;
+}
 bool Ltp::session_id_t::operator==(const session_id_t & o) const {
     return (sessionOriginatorEngineId == o.sessionOriginatorEngineId) && (sessionNumber == o.sessionNumber);
 }

@@ -50,8 +50,7 @@ public:
 
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
-    void CancelSegmentReceivedCallback(CANCEL_SEGMENT_REASON_CODES reasonCode, Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
-    void CancelAcknowledgementSegmentReceivedCallback(Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
+    
     void ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     void DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
@@ -65,7 +64,7 @@ private:
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     std::set<uint64_t> m_reportSegmentReportSerialNumbersUnackedSet;
     std::list<std::vector<uint8_t> > m_nonDataToSend;
-    LtpTimerManager m_timeManagerOfReportSerialNumbers;
+    LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
     uint64_t m_nextReportSegmentReportSerialNumber;
     std::vector<uint8_t> m_dataReceived;
     const uint64_t M_MTU;

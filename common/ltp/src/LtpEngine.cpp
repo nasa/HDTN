@@ -58,7 +58,6 @@ void LtpEngine::Reset() {
     m_checkpointEveryNthDataPacketSender = 0;
     m_closedSessionDataToSend.clear();
     m_timeManagerOfCancelSegments.Reset();
-    m_nextCancelSegmentTimerSerialNumber = 0;
     m_listCancelSegmentTimerInfo.clear();
     m_listSendersNeedingDeleted.clear();
     m_listReceiversNeedingDeleted.clear();
@@ -163,7 +162,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
 
         const uint8_t * const infoPtr = (uint8_t*)&info;
-        m_timeManagerOfCancelSegments.StartTimer(m_nextCancelSegmentTimerSerialNumber++, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
+        m_timeManagerOfCancelSegments.StartTimer(info.sessionId, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
 
         m_listCancelSegmentTimerInfo.pop_front();
         return true;
@@ -350,7 +349,6 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     if (isFromSender) { //to receiver
         std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
-            rxSessionIt->second->CancelAcknowledgementSegmentReceivedCallback(headerExtensions, trailerExtensions); //may not be needed
             if (m_receptionSessionCancelledCallback) {
                 m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
             }
@@ -373,7 +371,6 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     else { //to sender
         std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            txSessionIt->second->CancelAcknowledgementSegmentReceivedCallback(headerExtensions, trailerExtensions); //may not be needed
             if (m_transmissionSessionCancelledCallback) {
                 m_transmissionSessionCancelledCallback(sessionId, reasonCode);
             }
@@ -416,23 +413,13 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     //Response: the timer associated with the Cx segment is deleted, and
     //the session of which the segment is one token is closed, i.e., the
     //"Close Session" procedure(Section 6.20) is invoked.
-    //m_timeManagerOfCancelSegments.DeleteTimer()
-    if (isToSender) {
-        std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
-        if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            txSessionIt->second->CancelAcknowledgementSegmentReceivedCallback(headerExtensions, trailerExtensions);
-        }
-        
+    if (!m_timeManagerOfCancelSegments.DeleteTimer(sessionId)) {
+        std::cout << "LtpEngine::CancelAcknowledgementSegmentReceivedCallback didn't delete timer\n";
     }
-    else {
-        std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
-        if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
-            rxSessionIt->second->CancelAcknowledgementSegmentReceivedCallback(headerExtensions, trailerExtensions);;
-        }
-    }
+    
 }
 
-void LtpEngine::CancelSegmentTimerExpiredCallback(uint64_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
+void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
     
     cancel_segment_timer_info_t info;
     if (userData.size() != sizeof(info)) {

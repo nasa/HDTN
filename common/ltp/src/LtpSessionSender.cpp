@@ -191,15 +191,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
     return false;
 }
 
-void LtpSessionSender::CancelSegmentReceivedCallback(CANCEL_SEGMENT_REASON_CODES reasonCode, Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
-{
-
-}
-
-void LtpSessionSender::CancelAcknowledgementSegmentReceivedCallback(Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
-{
-
-}
 
 void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)

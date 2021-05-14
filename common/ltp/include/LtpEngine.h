@@ -74,7 +74,7 @@ private:
         std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
 
-    void CancelSegmentTimerExpiredCallback(uint64_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData);
+    void CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData);
     void NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
     void NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
     void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId);
@@ -108,8 +108,7 @@ private:
 
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     boost::asio::io_service::work m_workLtpEngine;
-    LtpTimerManager m_timeManagerOfCancelSegments;
-    uint64_t m_nextCancelSegmentTimerSerialNumber;
+    LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
 };
 
