@@ -26,6 +26,15 @@
 typedef boost::function<void(const Ltp::session_id_t & sessionId,
     const std::vector<uint8_t> & clientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)> RedPartReceptionCallback_t;
 
+//A reception-session cancellation notice informs the client service
+//that the indicated session was terminated, either by the sender or
+//else due to an error or a resource quench condition in the local LTP
+//engine.No subsequent delivery notices will be issued for this
+//session.
+typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode)> ReceptionSessionCancelledCallback_t;
+
+typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
+
 class LtpSessionReceiver {
 private:
     LtpSessionReceiver();
@@ -36,7 +45,8 @@ public:
     
     LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef);
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
+        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback);
 
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
@@ -63,6 +73,7 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;
     boost::asio::io_service & m_ioServiceRef;
+    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
 };
 
 #endif // LTP_SESSION_RECEIVER_H

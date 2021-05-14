@@ -5,10 +5,15 @@
 #include <boost/make_shared.hpp>
 #include <boost/next_prior.hpp>
 
+
+
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
     std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, const uint64_t checkpointEveryNthDataPacket) :
-    m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1)),
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, 
+    const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
+    const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
+    const uint64_t checkpointEveryNthDataPacket) :
+    m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
     m_dataToSend(std::move(dataToSend)),
@@ -19,13 +24,46 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_CLIENT_SERVICE_ID(clientServiceId),
     M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
     m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
-    m_ioServiceRef(ioServiceRef)
+    m_ioServiceRef(ioServiceRef),
+    m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
+    m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback)
 {
 
 }
 
-void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSerialNumber) {
+void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSerialNumber, std::vector<uint8_t> & userData) {
+    //6.7.  Retransmit Checkpoint
+    //This procedure is triggered by the expiration of a countdown timer
+    //associated with a CP segment.
+    //
+    //Response: if the number of times this CP segment has been queued for
+    //transmission exceeds the checkpoint retransmission limit established
+    //for the local LTP engine by network management, then the session of
+    //which the segment is one token is canceled : the "Cancel Session"
+    //procedure(Section 6.19) is invoked, a CS with reason - code RLEXC is
+    //appended to the(conceptual) application data queue, and a
+    //transmission - session cancellation notice(Section 7.5) is sent back
+    //to the client service that requested the transmission.
+    //
+    //Otherwise, a new copy of the CP segment is appended to the
+    //(conceptual) application data queue for the destination LTP engine.
+
     
+    if (userData.size() != sizeof(resend_fragment_t)) {
+        std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
+        return;
+    }
+    resend_fragment_t resendFragment;
+    memcpy(&resendFragment, userData.data(), sizeof(resendFragment));
+
+    if (resendFragment.retryCount <= 5) {
+        //resend 
+        ++resendFragment.retryCount;
+        m_resendFragmentsList.push_back(resendFragment);
+    }
+    else {
+        m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+    }
 }
 
 bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
@@ -50,6 +88,19 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
         if (isCheckpoint) {
             meta.checkpointSerialNumber = &resendFragment.checkpointSerialNumber;
             meta.reportSerialNumber = &resendFragment.reportSerialNumber;
+
+            //6.2.  Start Checkpoint Timer
+            //This procedure is triggered by the arrival of a link state cue
+            //indicating the de - queuing(for transmission) of a CP segment.
+            //
+            //Response: the expected arrival time of the RS segment that will be
+            //produced on reception of this CP segment is computed, and a countdown
+            //timer is started for this arrival time.However, if it is known that
+            //the remote LTP engine has ceased transmission(Section 6.5), then
+            //this timer is immediately suspended, because the computed expected
+            //arrival time may require an adjustment that cannot yet be computed.
+            const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
+            m_timeManagerOfCheckpointSerialNumbers.StartTimer(resendFragment.checkpointSerialNumber, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)));
         }
         else {
             meta.checkpointSerialNumber = NULL;
@@ -131,6 +182,9 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
             constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendGreen);
             m_dataIndexFirstPass += bytesToSendGreen;
+        }
+        if (m_dataIndexFirstPass == m_dataToSend.size()) {
+            m_initialTransmissionCompletedCallback(M_SESSION_ID);
         }
         return true;
     }

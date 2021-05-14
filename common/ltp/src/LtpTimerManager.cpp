@@ -20,12 +20,17 @@ LtpTimerManager::~LtpTimerManager() {
 
 void LtpTimerManager::Reset() {
     m_bimapCheckpointSerialNumberToExpiry.clear(); //clear first so cancel doesnt restart the next one
+    m_mapSerialNumberToUserData.clear();
     m_deadlineTimer.cancel();
     m_activeSerialNumberBeingTimed = 0;
     m_isTimerActive = false;
 }
 
-bool LtpTimerManager::StartTimer(const uint64_t serialNumber) {
+//std::vector<uint8_t> & LtpTimerManager::GetUserDataRef(const uint64_t serialNumber) {
+//    return m_mapSerialNumberToUserData[serialNumber];
+//}
+
+bool LtpTimerManager::StartTimer(const uint64_t serialNumber, std::vector<uint8_t> userData) {
     boost::posix_time::ptime expiry;
     do { //loop to make sure expiry is unique in case multiple calls to StartTimer are too close
         expiry = boost::posix_time::microsec_clock::universal_time() + M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
@@ -33,6 +38,7 @@ bool LtpTimerManager::StartTimer(const uint64_t serialNumber) {
 
     if (m_bimapCheckpointSerialNumberToExpiry.left.insert(boost::bimap<uint64_t, boost::posix_time::ptime>::left_value_type(serialNumber, expiry)).second) {
         //value was inserted
+        m_mapSerialNumberToUserData[serialNumber] = std::move(userData);
         //std::cout << "StartTimer inserted " << serialNumber << std::endl;
         if (!m_isTimerActive) { //timer is not running
             //std::cout << "StartTimer started timer for " << serialNumber << std::endl;
@@ -46,6 +52,12 @@ bool LtpTimerManager::StartTimer(const uint64_t serialNumber) {
     return false;
 }
 bool LtpTimerManager::DeleteTimer(const uint64_t serialNumber) {
+    
+    std::map<uint64_t, std::vector<uint8_t> >::iterator itUserData = m_mapSerialNumberToUserData.find(serialNumber);
+    if (itUserData != m_mapSerialNumberToUserData.end()) {
+        m_mapSerialNumberToUserData.erase(itUserData);
+    }
+    
     boost::bimap<uint64_t, boost::posix_time::ptime>::left_iterator it = m_bimapCheckpointSerialNumberToExpiry.left.find(serialNumber);
     if (it != m_bimapCheckpointSerialNumberToExpiry.left.end()) {
         //std::cout << "DeleteTimer found and erasing " << serialNumber << std::endl;
@@ -64,11 +76,12 @@ void LtpTimerManager::OnTimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         const uint64_t serialNumberThatExpired = m_activeSerialNumberBeingTimed;
+        std::vector<uint8_t> userData(std::move(m_mapSerialNumberToUserData[serialNumberThatExpired])); //grab any user data before DeleteTimer deletes it
         //std::cout << "OnTimerExpired expired sn " << serialNumberThatExpired << std::endl;
         m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
         DeleteTimer(serialNumberThatExpired); //callback function can choose to readd it later
 
-        m_ltpTimerExpiredCallbackFunction(serialNumberThatExpired); //called after DeleteTimer in case callback readds it
+        m_ltpTimerExpiredCallbackFunction(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
     }
     else {
         //std::cout << "timer cancelled\n";
