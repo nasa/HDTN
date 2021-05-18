@@ -254,18 +254,172 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 11); // 44/5=8 + (1 eobCp at 44) + 2 retrans report 
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
-            BOOST_CHECK_EQUAL(numRedPartReceptionCallbacks, 1);
-            BOOST_CHECK_EQUAL(numReceptionSessionCancelledCallbacks, 0);
-            BOOST_CHECK_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
-            BOOST_CHECK_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
         }
+
+        //this test essentially doesn't do anything new the above does.  The skipped checkpoint is settled at the next checkpoint
+        //and the transmission is completed before the timer expires, cancelling it
+        void DoTestDropOneCheckpointDataSegmentSrcToDest() {
+            struct DropSimulation {
+                int count;
+                DropSimulation() : count(0) {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT) { //skip only non-EORP-EOB checkpoints
+                        ++count;
+                        if (count == 2) {
+                            std::cout << "drop\n";
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            };
+            Reset();
+            DropSimulation sim;
+            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            engineSrc.SetCheckpointEveryNthDataPacketForSenders(5);
+            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 50; ++i) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                    break;
+                }
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                //engineSrc.SignalReadyForSend_ThreadSafe();
+                //engineDest.SignalReadyForSend_ThreadSafe();
+            }
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+
+            //primary first LB: 0, UB: 5
+            //primary subsequent LB : 5, UB : 15
+            //primary subsequent LB : 15, UB : 20
+            //secondary LB : 5, UB : 10
+            //primary subsequent LB : 20, UB : 25
+            //primary subsequent LB : 25, UB : 30
+            //primary subsequent LB : 30, UB : 35
+            //primary subsequent LB : 35, UB : 40
+            //primary subsequent LB : 40, UB : 44
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 9); // 44/5-1=7 + (1 eobCp at 44) + 1 retrans report 
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+        }
+
+        void DoTestDropEOBCheckpointDataSegmentSrcToDest() {
+            struct DropSimulation {
+                int count;
+                DropSimulation() : count(0) {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    if ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK)) {
+                        ++count;
+                        if (count == 1) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            };
+            Reset();
+            DropSimulation sim;
+            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 50; ++i) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                    break;
+                }
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                //engineSrc.SignalReadyForSend_ThreadSafe();
+                //engineDest.SignalReadyForSend_ThreadSafe();
+            }
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            //BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+
+
+            //BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 9); // 44/5-1=7 + (1 eobCp at 44) + 1 retrans report 
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 1);
+        }
+        /*
+        void DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest() {
+            struct DropSimulation {
+                DropSimulation() {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    return ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK));
+                }
+            };
+            Reset();
+            DropSimulation sim;
+            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 50; ++i) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                    break;
+                }
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                //engineSrc.SignalReadyForSend_ThreadSafe();
+                //engineDest.SignalReadyForSend_ThreadSafe();
+            }
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            //BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+
+            
+            //BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 9); // 44/5-1=7 + (1 eobCp at 44) + 1 retrans report 
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+        }*/
         
     };
 
     Test t;
-    t.DoTest();
-    t.DoTestOneDropDataSegmentSrcToDest();
-    t.DoTestTwoDropDataSegmentSrcToDest();
-    t.DoTestTwoDropDataSegmentSrcToDestRegularCheckpoints();
+    //t.DoTest();
+    //t.DoTestOneDropDataSegmentSrcToDest();
+    //t.DoTestTwoDropDataSegmentSrcToDest();
+    //t.DoTestTwoDropDataSegmentSrcToDestRegularCheckpoints();
+    //t.DoTestDropOneCheckpointDataSegmentSrcToDest();
+    t.DoTestDropEOBCheckpointDataSegmentSrcToDest();
 }

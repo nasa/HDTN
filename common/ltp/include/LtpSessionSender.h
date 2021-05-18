@@ -29,6 +29,8 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisSenderNeedsDeletedCallback_t;
 
+typedef boost::function<void()> NotifyEngineThatThisSendersTimersProducedDataFunction_t;
+
 class LtpSessionSender {
 private:
     LtpSessionSender();
@@ -50,6 +52,7 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
+        const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
         const uint64_t checkpointEveryNthDataPacket = 0);
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
@@ -77,7 +80,12 @@ private:
     uint64_t m_checkpointEveryNthDataPacketCounter;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
+    const NotifyEngineThatThisSendersTimersProducedDataFunction_t m_notifyEngineThatThisSendersTimersProducedDataFunction;
     const InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
+
+public:
+    //stats
+    uint64_t m_numTimerExpiredCallbacks;
 };
 
 #endif // LTP_SESSION_SENDER_H

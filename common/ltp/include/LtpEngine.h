@@ -111,6 +111,11 @@ private:
     boost::asio::io_service::work m_workLtpEngine;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
+
+public:
+    //stats
+    uint64_t m_numTimerExpiredCallbacks;
+
 };
 
 #endif // LTP_ENGINE_H

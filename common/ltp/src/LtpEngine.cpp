@@ -61,6 +61,7 @@ void LtpEngine::Reset() {
     m_listCancelSegmentTimerInfo.clear();
     m_listSendersNeedingDeleted.clear();
     m_listReceiversNeedingDeleted.clear();
+    m_numTimerExpiredCallbacks = 0;
 }
 
 void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender) {
@@ -122,6 +123,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 return true;
             }
             else {
+                m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
                 //revalidate iterator
                 m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
@@ -243,6 +245,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
         M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+        boost::bind(&LtpEngine::TrySendPacketIfAvailable, this),
         boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1), m_checkpointEveryNthDataPacketSender);
     //revalidate iterator
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
@@ -300,6 +303,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //destination LTP engine specified in the transmission request
             //that started this session.
             //erase session
+            m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
             //revalidate iterator
             m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
@@ -385,6 +389,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                 m_transmissionSessionCancelledCallback(sessionId, reasonCode);
             }
             //erase session
+            m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
             //revalidate iterator
             m_sendersIterator = m_mapSessionNumberToSessionSender.begin();

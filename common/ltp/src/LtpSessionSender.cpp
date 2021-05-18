@@ -11,6 +11,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, 
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
+    const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
     const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
     const uint64_t checkpointEveryNthDataPacket) :
     m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
@@ -26,7 +27,9 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
-    m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback)
+    m_notifyEngineThatThisSendersTimersProducedDataFunction(notifyEngineThatThisSendersTimersProducedDataFunction),
+    m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback),
+    m_numTimerExpiredCallbacks(0)
 {
 
 }
@@ -47,8 +50,8 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!\n";
-    
+    //std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!\n";
+    ++m_numTimerExpiredCallbacks;
     if (userData.size() != sizeof(resend_fragment_t)) {
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
         return;
@@ -60,6 +63,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
         //resend 
         ++resendFragment.retryCount;
         m_resendFragmentsList.push_back(resendFragment);
+        m_notifyEngineThatThisSendersTimersProducedDataFunction();
     }
     else {
         m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
@@ -147,7 +151,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }
                 }
-                //std::cout << "send sync csn " << cp << std::endl;
+                std::cout << "send sync csn " << cp << std::endl;
                 LtpSessionSender::resend_fragment_t resendFragment(m_dataIndexFirstPass, bytesToSendRed, cp, rsn, flags);
                 const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
                 m_timeManagerOfCheckpointSerialNumbers.StartTimer(cp, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)));
@@ -221,7 +225,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //If the report's checkpoint serial number is not zero, then the
     //countdown timer associated with the indicated checkpoint segment is deleted.
     if (reportSegment.checkpointSerialNumber) {
-        //std::cout << "delete rs's csn " << reportSegment.checkpointSerialNumber << std::endl;
+        std::cout << "delete rs's csn " << reportSegment.checkpointSerialNumber << std::endl;
         m_timeManagerOfCheckpointSerialNumbers.DeleteTimer(reportSegment.checkpointSerialNumber);
     }
 
