@@ -31,7 +31,7 @@ public:
 
     ~LtpEngine();
 
-    void Reset();
+    virtual void Reset();
     void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
 
     void TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest);
@@ -55,10 +55,11 @@ public:
 
     bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
 
+    void SignalReadyForSend_ThreadSafe();
 protected:
     virtual void PacketInFullyProcessedCallback(bool success);
     virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
-    void SignalReadyForSend_ThreadSafe();
+    
 private:
     void TrySendPacketIfAvailable();
 

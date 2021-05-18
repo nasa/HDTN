@@ -135,7 +135,7 @@ void LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fr
     }
     const uint64_t lowerBound = reportSegment.lowerBound;
     std::vector<Ltp::reception_claim_t>::const_iterator it = receptionClaims.cbegin();
-    if (it->offset > lowerBound) { //add one
+    if (it->offset > 0) { //add one
         LtpFragmentMap::InsertFragment(fragmentSetNeedingResent, LtpFragmentMap::data_fragment_t(lowerBound, (lowerBound + it->offset) - 1));
     }
     //uint64_t nextBeginIndex = lowerBound;

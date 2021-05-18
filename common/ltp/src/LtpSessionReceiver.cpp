@@ -21,7 +21,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
 }
 
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber) {
-
+    std::cout << "LtpReportSegmentTimerExpiredCallback reportSerialNumber " << reportSerialNumber << std::endl;
 }
 
 bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
@@ -114,7 +114,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(*dataSegmentMetadata.reportSerialNumber);
                 if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
                     lowerBound = reportSegmentIt->second.lowerBound;
-                    //std::cout << "1LB: " << lowerBound << std::endl;
+                    //std::cout << "secondary LB: " << lowerBound << std::endl;
                 }
                 else {
                     std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot find report segment\n";
@@ -126,7 +126,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 if (m_mapPrimaryReportSegmentsSent.empty()) {
                     //The lower bound of the first primary reception report issued for any session MUST be zero.
                     lowerBound = 0;
-                    //std::cout << "2LB: " << lowerBound << std::endl;
+                    //std::cout << "primary first LB: " << lowerBound << std::endl;
                 }
                 else {
                     //The lower bound of each subsequent
@@ -134,7 +134,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     //the upper bound of the prior primary reception report issued for
                     //the session, to minimize unnecessary retransmission.
                     lowerBound = m_mapPrimaryReportSegmentsSent.crbegin()->second.upperBound;
-                    //std::cout << "3LB: " << lowerBound << std::endl;
+                    //std::cout << "primary subsequent LB: " << lowerBound << std::endl;
                 }
             }
 
@@ -142,6 +142,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             if (!LtpFragmentMap::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegment, lowerBound, upperBound)) {
                 std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot populate report segment\n";
             }
+            
 
             //The value of the checkpoint serial number MUST be zero if the
             //report segment is NOT a response to reception of a checkpoint,
@@ -162,6 +163,8 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             //be zero.
             const uint64_t rsn = m_nextReportSegmentReportSerialNumber++;
             reportSegment.reportSerialNumber = rsn;
+            //std::cout << "reportSegment for lb: " << lowerBound << " and ub: " << upperBound << std::endl << reportSegment << std::endl;
+            //LtpFragmentMap::PrintFragmentSet(m_receivedDataFragmentsSet);
             m_nonDataToSend.emplace_back();
             Ltp::GenerateReportSegmentLtpPacket(m_nonDataToSend.back(),
                 M_SESSION_ID, reportSegment, NULL, NULL);
@@ -174,8 +177,10 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 std::cerr << "unexpected error: m_reportSegmentReportSerialNumbersUnackedSet.insert(rsn) not inserted\n";
             }
         }
+        //std::cout << "m_lengthOfRedPart " << m_lengthOfRedPart << " m_receivedDataFragmentsSet.size() " << m_receivedDataFragmentsSet.size() << std::endl;
         if ((m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {
             std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_receivedDataFragmentsSet.cbegin();
+            //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
             if ((it->beginIndex == 0) && (it->endIndex == (m_lengthOfRedPart - 1))) {
                 if (redPartReceptionCallback) {
                     redPartReceptionCallback(M_SESSION_ID,

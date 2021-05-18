@@ -12,6 +12,7 @@ class LtpUdpEngine : public LtpEngine {
 private:
     LtpUdpEngine();
 public:
+    typedef boost::function<bool(const uint8_t ltpHeaderByte)> UdpDropSimulatorFunction_t;
     
     LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
@@ -19,6 +20,7 @@ public:
 
     ~LtpUdpEngine();
 
+    virtual void Reset();
     void Stop();
     void DoUdpShutdown();
     void Connect(const std::string & hostname, const std::string & port);
@@ -51,7 +53,9 @@ public:
     volatile uint64_t m_countAsyncSendCalls;
     volatile uint64_t m_countAsyncSendCallbackCalls;
 
-
+    //unit testing drop packet simulation stuff
+    UdpDropSimulatorFunction_t m_udpDropSimulatorFunction;
+   // boost::asio::ip::udp::endpoint m_udpDestinationNullEndpoint;
 };
 
 

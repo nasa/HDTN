@@ -96,7 +96,7 @@ void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer>
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));
 }
 
-void LtpEngine::SignalReadyForSend_ThreadSafe() {
+void LtpEngine::SignalReadyForSend_ThreadSafe() { //called by HandleUdpSend
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));
 }
 
@@ -118,10 +118,15 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
     while (!m_listSendersNeedingDeleted.empty()) {
         std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_listSendersNeedingDeleted.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            m_mapSessionNumberToSessionSender.erase(txSessionIt);
-            //revalidate iterator
-            m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
-            std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
+            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+                return true;
+            }
+            else {
+                m_mapSessionNumberToSessionSender.erase(txSessionIt);
+                //revalidate iterator
+                m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
+                std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
+            }
         }
         else {
             std::cout << "error in LtpEngine::NextPacketToSendRoundRobin: could not find session sender to delete\n";
@@ -132,11 +137,16 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
     while (!m_listReceiversNeedingDeleted.empty()) {
         std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(m_listReceiversNeedingDeleted.front());
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found rx Session
-            //erase session
-            m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
-            //revalidate iterator
-            m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
-            std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
+            if (rxSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+                return true;
+            }
+            else {
+                //erase session
+                m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+                //revalidate iterator
+                m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+                std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
+            }
         }
         else {
             std::cout << "error in LtpEngine::NextPacketToSendRoundRobin: could not find session receiver to delete\n";
@@ -472,6 +482,9 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
         info.isFromSender = false;
         info.reasonCode = reasonCode;
     }
+    else { //not cancelled
+
+    }
     
     m_listReceiversNeedingDeleted.push_back(sessionId);
     TrySendPacketIfAvailable();
@@ -494,6 +507,7 @@ void LtpEngine::ReportAcknowledgementSegmentReceivedCallback(const Ltp::session_
     if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
         rxSessionIt->second->ReportAcknowledgementSegmentReceivedCallback(reportSerialNumberBeingAcknowledged, headerExtensions, trailerExtensions);
     }
+    TrySendPacketIfAvailable();
 }
 
 void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionId, const Ltp::report_segment_t & reportSegment,

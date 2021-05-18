@@ -47,7 +47,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-
+    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!\n";
     
     if (userData.size() != sizeof(resend_fragment_t)) {
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
@@ -100,6 +100,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             //this timer is immediately suspended, because the computed expected
             //arrival time may require an adjustment that cannot yet be computed.
             const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
+            //std::cout << "resend csn " << resendFragment.checkpointSerialNumber << std::endl;
             m_timeManagerOfCheckpointSerialNumbers.StartTimer(resendFragment.checkpointSerialNumber, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)));
         }
         else {
@@ -146,6 +147,10 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }
                 }
+                //std::cout << "send sync csn " << cp << std::endl;
+                LtpSessionSender::resend_fragment_t resendFragment(m_dataIndexFirstPass, bytesToSendRed, cp, rsn, flags);
+                const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
+                m_timeManagerOfCheckpointSerialNumbers.StartTimer(cp, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)));
             }
 
             Ltp::data_segment_metadata_t meta;
@@ -216,11 +221,43 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //If the report's checkpoint serial number is not zero, then the
     //countdown timer associated with the indicated checkpoint segment is deleted.
     if (reportSegment.checkpointSerialNumber) {
-        //TODO DELETE TIMER
+        //std::cout << "delete rs's csn " << reportSegment.checkpointSerialNumber << std::endl;
+        m_timeManagerOfCheckpointSerialNumbers.DeleteTimer(reportSegment.checkpointSerialNumber);
     }
 
 
     LtpFragmentMap::AddReportSegmentToFragmentSet(m_dataFragmentsAckedByReceiver, reportSegment);
+    //std::cout << "rs: " << reportSegment << std::endl;
+    //std::cout << "acked segments: "; LtpFragmentMap::PrintFragmentSet(m_dataFragmentsAckedByReceiver); std::cout << std::endl;
+    //6.12.  Signify Transmission Completion
+    //
+    //This procedure is triggered at the earliest time at which(a) all
+    //data in the block are known to have been transmitted *and* (b)the
+    //entire red - part of the block-- if of non - zero length -- is known to
+    //have been successfully received.Condition(a) is signaled by
+    //arrival of a link state cue indicating the de - queuing(for
+    //transmission) of the EOB segment for the block.Condition(b) is
+    //signaled by reception of an RS segment whose reception claims, taken
+    //together with the reception claims of all other RS segments
+    //previously received in the course of this session, indicate complete
+    //reception of the red - part of the block.
+    //
+    //Response: a transmission - session completion notice(Section 7.4) is
+    //sent to the local client service associated with the session, and the
+    //session is closed : the "Close Session" procedure(Section 6.20) is
+    //invoked.
+    //std::cout << "M_LENGTH_OF_RED_PART " << M_LENGTH_OF_RED_PART << " m_dataFragmentsAckedByReceiver.size() " << m_dataFragmentsAckedByReceiver.size() << std::endl;
+    //std::cout << "m_dataIndexFirstPass " << m_dataIndexFirstPass << " m_dataToSend.size() " << m_dataToSend.size() << std::endl;
+    if ((m_dataIndexFirstPass == m_dataToSend.size()) && (m_dataFragmentsAckedByReceiver.size() == 1)) {
+        std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+        //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
+        if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
+            if (m_notifyEngineThatThisSenderNeedsDeletedCallback) {
+                m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
+            }
+        }
+    }
+    
     
     //If the segment's reception claims indicate incomplete data reception
     //within the scope of the report segment :
@@ -234,6 +271,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //serial number of the received RS segment.
     std::set<LtpFragmentMap::data_fragment_t> fragmentsNeedingResent;
     LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+    //std::cout << "need resent: "; LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent); std::cout << std::endl;
     //std::cout << "resend\n";
     for (std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
         //std::cout << "h1\n";

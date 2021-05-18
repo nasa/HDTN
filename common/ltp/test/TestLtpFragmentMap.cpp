@@ -113,6 +113,20 @@ BOOST_AUTO_TEST_CASE(LtpFragmentMapTestCase)
         //LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent);
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999) }));
     }
+    {
+        //added to fix bug:
+        //rs: upper bound : 20, lower bound : 15
+        //    claims :
+        //    offset : 1, length : 4
+        //
+        //acked segments : (0, 14) (16, 19)
+        //
+        //    need resent : nothing, but should be (15,15)
+        rs reportSegment(0, 0, 20, 15, std::vector<rc>({ rc(1,4) }));
+        std::set<df> fragmentsNeedingResent;
+        LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(15,15)}));
+    }
 
     //REPORT SEGMENTS WITH CUSTOM LOWER AND UPPER BOUNDS
 

@@ -4,7 +4,7 @@
 LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes) :
-    LtpEngine(thisEngineId, mtuClientServiceData, oneWayLightTime, oneWayMarginTime, true), 
+    LtpEngine(thisEngineId, mtuClientServiceData, oneWayLightTime, oneWayMarginTime, true),
     M_MY_BOUND_UDP_PORT(udpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
@@ -16,6 +16,7 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     m_readyToForward(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0)
+    //m_udpDestinationNullEndpoint(boost::asio::ip::make_address_v4("127.0.0.1"), 55555) //for unit testing
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
@@ -66,6 +67,12 @@ void LtpUdpEngine::Stop() {
     
 }
 
+void LtpUdpEngine::Reset() {
+    LtpEngine::Reset();
+    m_countAsyncSendCalls = 0;
+    m_countAsyncSendCallbackCalls = 0;
+}
+
 void LtpUdpEngine::StartUdpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
@@ -86,10 +93,15 @@ void LtpUdpEngine::StartUdpReceive() {
 void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
-    m_udpSocket.async_send_to(constBufferVec, m_udpDestinationEndpoint,
-        boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred));
+    if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(*((uint8_t*)constBufferVec[0].data()))) {
+        boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback, boost::system::error_code(), 0));
+    }
+    else {
+        m_udpSocket.async_send_to(constBufferVec, m_udpDestinationEndpoint,
+            boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
 }
 
 void LtpUdpEngine::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {

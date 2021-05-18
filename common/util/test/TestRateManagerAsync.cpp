@@ -3,7 +3,7 @@
 #include <boost/bind.hpp>
 #include <boost/timer/timer.hpp>
 
-BOOST_AUTO_TEST_CASE(RateManagerAsyncTestCase)
+BOOST_AUTO_TEST_CASE(RateManagerAsyncTestCase, *boost::unit_test::disabled())
 {
     struct Test {
         boost::asio::io_service m_ioService;
