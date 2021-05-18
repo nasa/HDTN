@@ -35,18 +35,21 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
 
+typedef boost::function<void()> NotifyEngineThatThisReceiversTimersProducedDataFunction_t;
+
 class LtpSessionReceiver {
 private:
     LtpSessionReceiver();
 
-    void LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber);
+    void LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData);
 public:
     
     
     LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
-        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback);
+        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
+        const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction);
 
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
@@ -62,8 +65,7 @@ private:
     std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     std::set<LtpFragmentMap::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
-    std::set<uint64_t> m_reportSegmentReportSerialNumbersUnackedSet;
-    std::list<std::vector<uint8_t> > m_nonDataToSend;
+    std::list<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendList; //pair<reportSerialNumber, retryCount>
     LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
     uint64_t m_nextReportSegmentReportSerialNumber;
     std::vector<uint8_t> m_dataReceived;
@@ -71,8 +73,15 @@ private:
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;
+    bool m_didRedPartReceptionCallback;
+    bool m_receivedEobFromGreenOrRed;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
+    const NotifyEngineThatThisReceiversTimersProducedDataFunction_t m_notifyEngineThatThisReceiversTimersProducedDataFunction;
+
+public:
+    //stats
+    uint64_t m_numTimerExpiredCallbacks;
 };
 
 #endif // LTP_SESSION_RECEIVER_H

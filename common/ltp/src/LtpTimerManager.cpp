@@ -108,6 +108,11 @@ void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e)
     }
 }
 
+template <class idType>
+bool LtpTimerManager<idType>::Empty() const {
+    return m_bimapCheckpointSerialNumberToExpiry.left.empty();
+}
+
 // Explicit template instantiation
 template class LtpTimerManager<uint64_t>;
 template class LtpTimerManager<Ltp::session_id_t>;

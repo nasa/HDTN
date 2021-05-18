@@ -20,6 +20,7 @@ public:
        
     bool StartTimer(const idType serialNumber, std::vector<uint8_t> userData = std::vector<uint8_t>());
     bool DeleteTimer(const idType serialNumber);
+    bool Empty() const;
     //std::vector<uint8_t> & GetUserDataRef(const uint64_t serialNumber);
 private:
     void OnTimerExpired(const boost::system::error_code& e);

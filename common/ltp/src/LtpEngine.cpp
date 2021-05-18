@@ -144,6 +144,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             }
             else {
                 //erase session
+                m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
                 m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
                 //revalidate iterator
                 m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
@@ -335,6 +336,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //sender.
 
             //erase session
+            m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
             //revalidate iterator
             m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
@@ -367,6 +369,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                 m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
             }
             //erase session
+            m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
             //revalidate iterator
             m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
@@ -562,7 +565,8 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         }
         std::unique_ptr<LtpSessionReceiver> session = std::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
-            boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+            boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+            boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));
 
         std::pair<std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator, bool> res =
             m_mapSessionIdToSessionReceiver.insert(std::pair< Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >(sessionId, std::move(session)));
@@ -592,4 +596,11 @@ void LtpEngine::SetInitialTransmissionCompletedCallback(const InitialTransmissio
 }
 void LtpEngine::SetTransmissionSessionCancelledCallback(const TransmissionSessionCancelledCallback_t & callback) {
     m_transmissionSessionCancelledCallback = callback;
+}
+
+std::size_t LtpEngine::NumActiveReceivers() const {
+    return m_mapSessionIdToSessionReceiver.size();
+}
+std::size_t LtpEngine::NumActiveSenders() const {
+    return m_mapSessionNumberToSessionSender.size();
 }

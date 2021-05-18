@@ -50,7 +50,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-    //std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!\n";
+    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!\n";
     ++m_numTimerExpiredCallbacks;
     if (userData.size() != sizeof(resend_fragment_t)) {
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
@@ -72,6 +72,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
 
 bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
     if (!m_nonDataToSend.empty()) { //includes report ack segments
+        //std::cout << "sender dequeue\n";
         //highest priority
         underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
         (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSend.front());
@@ -151,7 +152,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }
                 }
-                std::cout << "send sync csn " << cp << std::endl;
+                //std::cout << "send sync csn " << cp << std::endl;
                 LtpSessionSender::resend_fragment_t resendFragment(m_dataIndexFirstPass, bytesToSendRed, cp, rsn, flags);
                 const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
                 m_timeManagerOfCheckpointSerialNumbers.StartTimer(cp, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)));
@@ -210,6 +211,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //the RS segment is issued and is, in concept, appended to the queue of
     //internal operations traffic bound for the receiver.
     m_nonDataToSend.emplace_back();
+    //std::cout << "sender queue rsn " << reportSegment.reportSerialNumber << "\n";
     Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_nonDataToSend.back(),
         M_SESSION_ID, reportSegment.reportSerialNumber, NULL, NULL);
 
@@ -219,13 +221,14 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //matches that of an RS segment that has already been received and
     //processed -- then no further action is taken.
     if (m_reportSegmentSerialNumbersReceivedSet.insert(reportSegment.reportSerialNumber).second == false) { //serial number was not inserted (already exists)
+        std::cout << "serial number was not inserted (already exists)\n";
         return; //no work to do.. ignore this redundant report segment
     }
 
     //If the report's checkpoint serial number is not zero, then the
     //countdown timer associated with the indicated checkpoint segment is deleted.
     if (reportSegment.checkpointSerialNumber) {
-        std::cout << "delete rs's csn " << reportSegment.checkpointSerialNumber << std::endl;
+        //std::cout << "delete rs's csn " << reportSegment.checkpointSerialNumber << std::endl;
         m_timeManagerOfCheckpointSerialNumbers.DeleteTimer(reportSegment.checkpointSerialNumber);
     }
 
