@@ -39,14 +39,19 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
 }
 
 LtpEngine::~LtpEngine() {
-    if (!m_ioServiceLtpEngine.stopped()) {
+    //std::cout << "h1\n";
+    //if (!m_ioServiceLtpEngine.stopped()) {
+    //    std::cout << "h1a\n";
         m_ioServiceLtpEngine.stop(); //ioservice requires stopping before join because of the m_work object
-    }
-
+    //}
+    //std::cout << "h2\n";
     if (m_ioServiceLtpEngineThreadPtr) {
+        //std::cout << "h3\n";
         m_ioServiceLtpEngineThreadPtr->join();
+        //std::cout << "h4\n";
         m_ioServiceLtpEngineThreadPtr.reset(); //delete it
     }
+    //std::cout << "h5\n";
 }
 
 void LtpEngine::Reset() {
@@ -176,7 +181,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
 
         const uint8_t * const infoPtr = (uint8_t*)&info;
         m_timeManagerOfCancelSegments.StartTimer(info.sessionId, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
-
+        //std::cout << "start cancel timer\n";
         m_listCancelSegmentTimerInfo.pop_front();
         return true;
     }
@@ -306,6 +311,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //erase session
             m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
+            std::cout << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
             m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 
@@ -338,6 +344,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //erase session
             m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+            std::cout << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
             m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
 
@@ -371,6 +378,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             //erase session
             m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+            std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
             m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
             //Send CAx after outer if-else statement
@@ -394,6 +402,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             //erase session
             m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
+            std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
             m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
             //Send CAx after outer if-else statement
@@ -420,9 +429,17 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
 void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_id_t & sessionId, bool isToSender,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in CA received: sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID\n";
-        return;
+    if (isToSender) {
+        if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+            std::cerr << "error in CA received to sender: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") != M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")\n";
+            return;
+        }
+    }
+    else {//to receiver
+        if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
+            std::cerr << "error in CA received to receiver: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")\n";
+            return;
+        }
     }
 
     //6.18.  Stop Cancel Timer
@@ -431,14 +448,15 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     //Response: the timer associated with the Cx segment is deleted, and
     //the session of which the segment is one token is closed, i.e., the
     //"Close Session" procedure(Section 6.20) is invoked.
+    //std::cout << "CancelAcknowledgementSegmentReceivedCallback1\n";
     if (!m_timeManagerOfCancelSegments.DeleteTimer(sessionId)) {
         std::cout << "LtpEngine::CancelAcknowledgementSegmentReceivedCallback didn't delete timer\n";
     }
-    
+    //std::cout << "CancelAcknowledgementSegmentReceivedCallback2\n";
 }
 
 void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
-    
+    std::cout << "CancelSegmentTimerExpiredCallback!\n";
     cancel_segment_timer_info_t info;
     if (userData.size() != sizeof(info)) {
         std::cerr << "error in LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)\n";
@@ -489,6 +507,10 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
         info.retryCount = 1;
         info.isFromSender = false;
         info.reasonCode = reasonCode;
+
+        if (m_receptionSessionCancelledCallback) {
+            m_receptionSessionCancelledCallback(sessionId, reasonCode);
+        }
     }
     else { //not cancelled
 
@@ -507,10 +529,10 @@ void LtpEngine::InitialTransmissionCompletedCallback(const Ltp::session_id_t & s
 void LtpEngine::ReportAcknowledgementSegmentReceivedCallback(const Ltp::session_id_t & sessionId, uint64_t reportSerialNumberBeingAcknowledged,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    //if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-    //    std::cerr << "error in RA received: sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID\n";
-    //    return;
-    //}
+    if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
+        std::cerr << "error in RA received: sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID\n";
+        return;
+    }
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
     if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
         rxSessionIt->second->ReportAcknowledgementSegmentReceivedCallback(reportSerialNumberBeingAcknowledged, headerExtensions, trailerExtensions);
@@ -551,10 +573,10 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
     std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
-    //if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-    //    std::cerr << "error in DS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ") != M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")\n";
-    //    return;
-    //}
+    if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
+        std::cerr << "error in DS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")\n";
+        return;
+    }
 
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
     if (rxSessionIt == m_mapSessionIdToSessionReceiver.end()) { //not found.. new session started

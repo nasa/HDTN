@@ -23,7 +23,7 @@ public:
     bool Empty() const;
     //std::vector<uint8_t> & GetUserDataRef(const uint64_t serialNumber);
 private:
-    void OnTimerExpired(const boost::system::error_code& e);
+    void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
 private:
     boost::asio::deadline_timer m_deadlineTimer;
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
@@ -34,6 +34,7 @@ private:
     std::map<idType, std::vector<uint8_t> > m_mapSerialNumberToUserData;
     idType m_activeSerialNumberBeingTimed;
     bool m_isTimerActive;
+    bool * m_timerIsDeletedPtr;
 };
 
 #endif // LTP_TIMER_MANAGER_H

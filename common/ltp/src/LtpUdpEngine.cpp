@@ -41,7 +41,9 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
 }
 
 LtpUdpEngine::~LtpUdpEngine() {
+    //std::cout << "u1\n";
     Stop();
+    //std::cout << "u2\n";
 }
 
 void LtpUdpEngine::Stop() {
@@ -54,9 +56,9 @@ void LtpUdpEngine::Stop() {
     //This function does not block, but instead simply signals the io_service to stop
     //All invocations of its run() or run_one() member functions should return as soon as possible.
     //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
-    if (!m_ioServiceUdp.stopped()) {
+    //if (!m_ioServiceUdp.stopped()) {
         m_ioServiceUdp.stop(); //ioservice requires stopping before join because of the m_work object
-    }
+    //}
 
     if (m_ioServiceUdpThreadPtr) {
         m_ioServiceUdpThreadPtr->join();

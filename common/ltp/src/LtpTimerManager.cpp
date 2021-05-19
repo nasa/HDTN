@@ -10,7 +10,8 @@ LtpTimerManager<idType>::LtpTimerManager(boost::asio::io_service & ioService, co
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
-    m_ltpTimerExpiredCallbackFunction(callback)
+    m_ltpTimerExpiredCallbackFunction(callback),
+    m_timerIsDeletedPtr(new bool(false))
 {
 
     Reset();
@@ -18,6 +19,14 @@ LtpTimerManager<idType>::LtpTimerManager(boost::asio::io_service & ioService, co
 
 template <class idType>
 LtpTimerManager<idType>::~LtpTimerManager() {
+    //this destructor is single threaded
+    if (!m_isTimerActive) {
+        delete m_timerIsDeletedPtr;
+        m_timerIsDeletedPtr = NULL;
+    }
+    else { //timer is active
+        *m_timerIsDeletedPtr = true;
+    }
     Reset();
 }
 
@@ -46,7 +55,7 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
             //std::cout << "StartTimer started timer for " << serialNumber << std::endl;
             m_activeSerialNumberBeingTimed = serialNumber;
             m_deadlineTimer.expires_at(expiry);
-            m_deadlineTimer.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error));
+            m_deadlineTimer.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error, m_timerIsDeletedPtr));
             m_isTimerActive = true;
         }
         return true;
@@ -76,7 +85,15 @@ bool LtpTimerManager<idType>::DeleteTimer(const idType serialNumber) {
 }
 
 template <class idType>
-void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e) {
+void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted) {
+
+    //for that timer that got cancelled by the destructor, it's still going to enter this function.. prevent it from using the deleted member variables
+    if (*isTimerDeleted) {
+        //std::cout << "safely returning from OnTimerExpired\n";
+        delete isTimerDeleted;
+        return;
+    }
+
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         const idType serialNumberThatExpired = m_activeSerialNumberBeingTimed;
@@ -100,7 +117,7 @@ void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e)
         m_activeSerialNumberBeingTimed = it->second;
         //std::cout << "OnTimerExpired starting next ptime for " << m_activeSerialNumberBeingTimed << std::endl;
         m_deadlineTimer.expires_at(it->first);
-        m_deadlineTimer.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error));
+        m_deadlineTimer.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error, m_timerIsDeletedPtr));
         m_isTimerActive = true;
     }
     else {

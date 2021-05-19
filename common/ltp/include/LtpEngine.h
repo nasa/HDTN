@@ -29,7 +29,7 @@ public:
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, 
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, bool startIoServiceThread = false);
 
-    ~LtpEngine();
+    virtual ~LtpEngine();
 
     virtual void Reset();
     void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);

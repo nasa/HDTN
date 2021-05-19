@@ -18,7 +18,7 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
         const uint16_t udpPort = 0, const unsigned int numUdpRxCircularBufferVectors = 100, const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX);
 
-    ~LtpUdpEngine();
+    virtual ~LtpUdpEngine();
 
     virtual void Reset();
     void Stop();
