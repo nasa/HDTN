@@ -40,6 +40,7 @@ public:
     void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart);
 
     bool CancellationRequest(const Ltp::session_id_t & sessionId);
+    void CancellationRequest_ThreadSafe(const Ltp::session_id_t & sessionId);
     
     void SetRedPartReceptionCallback(const RedPartReceptionCallback_t & callback);
     void SetReceptionSessionCancelledCallback(const ReceptionSessionCancelledCallback_t & callback);

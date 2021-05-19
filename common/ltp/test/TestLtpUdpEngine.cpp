@@ -25,6 +25,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_receptionSessionCancelledCallback;
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_transmissionSessionCancelledCallback;
+        Ltp::session_id_t lastSessionId_initialTransmissionCompletedCallback;
 
         Test() :
             ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(500)),
@@ -68,6 +69,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
         void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
+            lastSessionId_initialTransmissionCompletedCallback = sessionId;
             ++numInitialTransmissionCompletedCallbacks;
         }
         void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
@@ -605,6 +607,101 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
         }
 
+        //src checkpoint should never make it to receiver, giving receiver time to cancel session
+        void DoTestReceiverCancelSession() {
+            struct DropSimulation {
+                DropSimulation() {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    return ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK));
+                }
+            };
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            DropSimulation sim;
+            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 10; ++i) {
+                if (numInitialTransmissionCompletedCallbacks) {
+                    break;
+                }
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
+            }
+            engineDest.CancellationRequest_ThreadSafe(lastSessionId_initialTransmissionCompletedCallback); //cancel from receiver
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            AssertNoActiveSendersAndReceivers();
+
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel ack
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 cancel segment
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            //BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
+        }
+
+        //src checkpoint should never make it to receiver, giving sender time to cancel session
+        void DoTestSenderCancelSession() {
+            struct DropSimulation {
+                DropSimulation() {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    return ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK));
+                }
+            };
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            DropSimulation sim;
+            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 10; ++i) {
+                if (numInitialTransmissionCompletedCallbacks) {
+                    break;
+                }
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
+            }
+            engineSrc.CancellationRequest_ThreadSafe(lastSessionId_initialTransmissionCompletedCallback); //cancel from sender
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            AssertNoActiveSendersAndReceivers();
+
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel req
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 cancel ack
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+            //BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+
+            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
+        }
         
     };
 
@@ -618,4 +715,6 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     t.DoTestDropRaSrcToDest();
     t.DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest();
     t.DoTestDropRaAlwaysSrcToDest();
+    t.DoTestReceiverCancelSession();
+    t.DoTestSenderCancelSession();
 }

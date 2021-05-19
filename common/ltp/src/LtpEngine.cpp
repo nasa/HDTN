@@ -268,6 +268,11 @@ void LtpEngine::TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_re
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TransmissionRequest, this, std::move(transmissionRequest)));
 }
 
+void LtpEngine::CancellationRequest_ThreadSafe(const Ltp::session_id_t & sessionId) {
+    //The arguments to bind are copied or moved, and are never passed by reference unless wrapped in std::ref or std::cref.
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::CancellationRequest, this, sessionId));
+}
+
 //4.2.  Cancellation Request
 //In order to request cancellation of a session, either as the sender
 //or as the receiver of the associated data block, the client service
@@ -402,7 +407,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             //erase session
             m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
-            std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
+            std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
             m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
             //Send CAx after outer if-else statement
