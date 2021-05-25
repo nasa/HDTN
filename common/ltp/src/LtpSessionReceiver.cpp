@@ -4,7 +4,7 @@
 #include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 
-LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU,
+LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU, const uint64_t ESTIMATED_BYTES_TO_RECEIVE,
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
@@ -12,6 +12,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_timeManagerOfReportSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
     M_MTU(MTU),
+    M_ESTIMATED_BYTES_TO_RECEIVE(ESTIMATED_BYTES_TO_RECEIVE),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
     m_lengthOfRedPart(UINT64_MAX),
@@ -22,7 +23,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_notifyEngineThatThisReceiversTimersProducedDataFunction(notifyEngineThatThisReceiversTimersProducedDataFunction),
     m_numTimerExpiredCallbacks(0)
 {
-
+    m_dataReceived.reserve(ESTIMATED_BYTES_TO_RECEIVE);
 }
 
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData) {
@@ -134,6 +135,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
     if (m_dataReceived.size() < offsetPlusLength) {
         m_dataReceived.resize(offsetPlusLength);
+        //std::cout << m_dataReceived.size() << " " << m_dataReceived.capacity() << std::endl;
     }
     if (dataSegmentMetadata.length != clientServiceDataVec.size()) {
         std::cerr << "error dataSegmentMetadata.length != clientServiceDataVec.size()\n";

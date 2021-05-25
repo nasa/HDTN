@@ -16,7 +16,7 @@ public:
     
     LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
-        const uint16_t udpPort = 0, const unsigned int numUdpRxCircularBufferVectors = 100, const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX);
+        const uint16_t udpPort = 0, const unsigned int numUdpRxCircularBufferVectors = 100, const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0);
 
     virtual ~LtpUdpEngine();
 

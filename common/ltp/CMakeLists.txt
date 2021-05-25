@@ -19,4 +19,13 @@ add_library(ltp_lib STATIC
 target_link_libraries(ltp_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(ltp_lib PUBLIC include ${Boost_INCLUDE_DIRS})
 
+add_executable(ltp-file-transfer
+    apps/ltp_file_transfer/src/LtpFileTransferMain.cpp
+	apps/ltp_file_transfer/src/LtpFileTransferRunner.cpp
+)
 
+target_include_directories(ltp-file-transfer PUBLIC 
+	apps/ltp_file_transfer/include
+	${Boost_INCLUDE_DIRS}
+)
+target_link_libraries(ltp-file-transfer PUBLIC ltp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})

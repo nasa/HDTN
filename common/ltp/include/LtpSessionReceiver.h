@@ -45,7 +45,7 @@ private:
 public:
     
     
-    LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU,
+    LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU, const uint64_t ESTIMATED_BYTES_TO_RECEIVE,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
@@ -70,6 +70,7 @@ private:
     uint64_t m_nextReportSegmentReportSerialNumber;
     std::vector<uint8_t> m_dataReceived;
     const uint64_t M_MTU;
+    const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;

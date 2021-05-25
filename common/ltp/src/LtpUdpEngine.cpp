@@ -3,8 +3,8 @@
 
 LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes) :
-    LtpEngine(thisEngineId, mtuClientServiceData, oneWayLightTime, oneWayMarginTime, true),
+    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION) :
+    LtpEngine(thisEngineId, mtuClientServiceData, oneWayLightTime, oneWayMarginTime, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true),
     M_MY_BOUND_UDP_PORT(udpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
@@ -78,7 +78,7 @@ void LtpUdpEngine::Reset() {
 void LtpUdpEngine::StartUdpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in UdpBundleSink::StartUdpReceive(): buffers full.. UDP receiving on UdpBundleSink will now stop!\n";
+        std::cerr << "critical error in LtpUdpEngine::StartUdpReceive(): buffers full.. UDP receiving will now stop!\n";
         DoUdpShutdown();
         return;
     }

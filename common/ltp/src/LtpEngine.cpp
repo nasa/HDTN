@@ -5,7 +5,8 @@
 #include <boost/make_unique.hpp>
 
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, bool startIoServiceThread) :
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread) :
+    M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
@@ -590,7 +591,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
             randomNextReportSegmentReportSerialNumber = m_rng.GetRandom(m_randomDevice);
         }
-        std::unique_ptr<LtpSessionReceiver> session = std::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA,
+        std::unique_ptr<LtpSessionReceiver> session = std::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
             boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));
