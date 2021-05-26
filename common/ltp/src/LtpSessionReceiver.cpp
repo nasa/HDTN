@@ -16,6 +16,8 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
     m_lengthOfRedPart(UINT64_MAX),
+    m_lowestGreenOffsetReceived(UINT64_MAX),
+    m_highestRedOffsetReceived(0),
     m_didRedPartReceptionCallback(false),
     m_didNotifyForDeletion(false),
     m_receivedEobFromGreenOrRed(false),
@@ -153,6 +155,32 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         m_receivedEobFromGreenOrRed = true;
     }
     if (isRedData) {
+        m_highestRedOffsetReceived = std::max(dataSegmentMetadata.offset, m_highestRedOffsetReceived);
+        //6.21.  Handle Miscolored Segment
+        //This procedure is triggered by the arrival of either(a) a red - part
+        //data segment whose block offset begins at an offset higher than the
+        //block offset of any green - part data segment previously received for
+        //the same session
+        //
+        //The arrival of a segment
+        //matching either of the above checks is a violation of the protocol
+        //requirement of having all red - part data as the block prefix and all
+        //green - part data as the block suffix.
+        //
+        //Response: the received data segment is simply discarded.
+        //
+        //The Cancel Session procedure(Section 6.19) is invoked and a CR
+        //segment with reason - code MISCOLORED SHOULD be enqueued for
+        //transmission to the data sender.
+        if (dataSegmentMetadata.offset > m_lowestGreenOffsetReceived) {
+            //std::cout << "miscolored red\n";
+            if (!m_didNotifyForDeletion) {
+                m_didNotifyForDeletion = true;
+                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
+            }
+            return;
+        }
+
         if (m_didRedPartReceptionCallback) {
             return;
         }
@@ -283,6 +311,31 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         }
     }
     else { //green
+        m_lowestGreenOffsetReceived = std::min(dataSegmentMetadata.offset, m_lowestGreenOffsetReceived);
+
+        //6.21.  Handle Miscolored Segment
+        //This procedure is triggered by the arrival of either (b) a green-part data segment whose block offset
+        //is lower than the block offset of any red - part data segment previously received for the same session.
+        //
+        //The arrival of a segment
+        //matching either of the above checks is a violation of the protocol
+        //requirement of having all red - part data as the block prefix and all
+        //green - part data as the block suffix.
+        //
+        //Response: the received data segment is simply discarded.
+        //
+        //The Cancel Session procedure(Section 6.19) is invoked and a CR
+        //segment with reason - code MISCOLORED SHOULD be enqueued for
+        //transmission to the data sender.
+        if (dataSegmentMetadata.offset < m_highestRedOffsetReceived) {
+            //std::cout << "miscolored green\n";
+            if (!m_didNotifyForDeletion) {
+                m_didNotifyForDeletion = true;
+                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::MISCOLORED); //close session (cancelled)
+            }
+            return;
+        }
+
         if (greenPartSegmentArrivalCallback) {
             greenPartSegmentArrivalCallback(M_SESSION_ID, clientServiceDataVec, offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
         }

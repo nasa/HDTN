@@ -24,6 +24,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         uint64_t numTransmissionSessionCancelledCallbacks;
         uint64_t numSrcToDestDataExchanged;
         uint64_t numDestToSrcDataExchanged;
+        CANCEL_SEGMENT_REASON_CODES lastRxCancelSegmentReasonCode;
+        CANCEL_SEGMENT_REASON_CODES lastTxCancelSegmentReasonCode;
 
         Test() :
             ONE_WAY_LIGHT_TIME(boost::posix_time::seconds(10)),
@@ -66,6 +68,7 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             }
         }
         void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+            lastRxCancelSegmentReasonCode = reasonCode;
             ++numReceptionSessionCancelledCallbacks;
         }
         void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
@@ -75,13 +78,18 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             ++numInitialTransmissionCompletedCallbacks;
         }
         void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+            lastTxCancelSegmentReasonCode = reasonCode;
             ++numTransmissionSessionCancelledCallbacks;
         }
 
-        static bool SendData(LtpEngine & src, LtpEngine & dest, bool simulateDrop = false) {
+        static bool SendData(LtpEngine & src, LtpEngine & dest, bool simulateDrop = false, bool swapHeader = false, LTP_SEGMENT_TYPE_FLAGS headerReplacement = LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
             std::vector<boost::asio::const_buffer> constBufferVec;
             boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
             if (src.NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback)) {
+                if (swapHeader) {
+                    uint8_t *data = static_cast<uint8_t*>(const_cast<void*>(constBufferVec[0].data()));
+                    data[0] = static_cast<uint8_t>(headerReplacement);
+                }
                 if (!simulateDrop) {
                     dest.PacketIn(constBufferVec);
                 }
@@ -104,9 +112,9 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         }
 
         //returns false when no data exchanged
-        bool ExchangeData(bool simulateDropSrcToDest = false, bool simulateDropDestToSrc = false) {
-            bool didSrcToDest = SendData(engineSrc, engineDest, simulateDropSrcToDest);
-            bool didDestToSrc = SendData(engineDest, engineSrc, simulateDropDestToSrc);
+        bool ExchangeData(bool simulateDropSrcToDest = false, bool simulateDropDestToSrc = false, bool swapHeaderSrcToDest = false, bool swapHeaderDestToSrc = false, LTP_SEGMENT_TYPE_FLAGS headerReplacement = LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
+            bool didSrcToDest = SendData(engineSrc, engineDest, simulateDropSrcToDest, swapHeaderSrcToDest, headerReplacement);
+            bool didDestToSrc = SendData(engineDest, engineSrc, simulateDropDestToSrc, swapHeaderDestToSrc, headerReplacement);
             numSrcToDestDataExchanged += didSrcToDest;
             numDestToSrcDataExchanged += didDestToSrc;
             return (didSrcToDest || didDestToSrc);
@@ -270,6 +278,54 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
         }
+
+        void DoTestMiscoloredRed() {
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            engineSrc.TransmissionRequest(CLIENT_SERVICE_ID_DEST, ENGINE_ID_DEST, (uint8_t*)DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.size(), DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
+            AssertOneActiveSenderOnly();
+            unsigned int count = 0;
+            while (ExchangeData(false,false, count == 2, false, LTP_SEGMENT_TYPE_FLAGS::GREENDATA)) { //red, red, green, red should trigger miscolored
+                ++count;
+            }
+            AssertNoActiveSendersAndReceivers();
+
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, 4+1); //+1 for cancel segment to reach
+            BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 1); //1 for cancel segment
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastRxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastTxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);
+        }
+
+        void DoTestMiscoloredGreen() {
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            engineSrc.TransmissionRequest(CLIENT_SERVICE_ID_DEST, ENGINE_ID_DEST, (uint8_t*)DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.size(), DESIRED_RED_DATA_TO_SEND.size());
+            AssertOneActiveSenderOnly();
+            unsigned int count = 0;
+            while (ExchangeData((count >= 2) && (count <=10), false, count > (DESIRED_RED_DATA_TO_SEND.size()+3), false, LTP_SEGMENT_TYPE_FLAGS::GREENDATA)) { //red..red repeat red..green
+                ++count;
+            }
+            AssertNoActiveSendersAndReceivers();
+
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            //BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 6); //+1 for cancel segment to reach
+            BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //1 rs and 1 cancel segment
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastRxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastTxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);
+        }
     };
 
     Test t;
@@ -280,4 +336,6 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
     t.DoTestTwoDropsSrcToDestRegularCheckpointsCpBoundary();
     t.DoTestRedAndGreenData();
     t.DoTestFullyGreenData();
+    t.DoTestMiscoloredRed();
+    t.DoTestMiscoloredGreen();
 }

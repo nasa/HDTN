@@ -95,6 +95,8 @@ private:
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;
+    uint64_t m_lowestGreenOffsetReceived;
+    uint64_t m_highestRedOffsetReceived;
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
