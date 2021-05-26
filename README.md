@@ -1,5 +1,5 @@
 High Speed Delay Tolerant Network 
-
+==================================
 
 Overview
 =========
@@ -25,8 +25,6 @@ $ sudo apt-get install python3-zmq
 $ sudo apt install libboost-dev
 $ sudo apt install libboost-all-dev
 
-* Mac 
-
 ## Known issue ##
 * Ubuntu distributions may install an older CMake version that is not compatible
 * Mac OS may not support recvmmsg and sendmmsg functions, recvmsg and sendmsg could be used
@@ -34,7 +32,6 @@ $ sudo apt install libboost-all-dev
 
 Getting Started
 ===============
-
 
 Build HDTN
 ===========
@@ -53,7 +50,7 @@ You can use tcpdump to test the HDTN ingress storage and egress. The generated p
 * sudo tcpdump -i lo -vv -s0 port 4558 -w hdtn-traffic.pcap
 
 In another terminal, run:
-*./runscript.sh
+* ./runscript.sh
 
 Run Unit Tests
 ===============

@@ -1,3 +1,11 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ ****************************************************************************
+ */
+
 #include "codec/crc.h"
 
 static crc_parameters_t crc16_x25 = {

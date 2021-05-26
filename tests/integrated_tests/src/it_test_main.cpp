@@ -1,3 +1,11 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+****************************************************************************
+ */
+
+
 #define BOOST_TEST_MODULE HtdnTestsModule
 
 //todo: better cmake solution to detect if we are using boost static or shared libs... assume for now

@@ -1,3 +1,11 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * May, 2021
+ *
+ * Egress - CL adapter that forwards bundle traffic
+ ****************************************************************************
+ */
+
 #include <iostream>
 #include "EgressAsyncRunner.h"
 
