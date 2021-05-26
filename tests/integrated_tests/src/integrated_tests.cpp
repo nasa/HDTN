@@ -1259,10 +1259,10 @@ bool TestStorage() {
     for(int i=0; i<30; i++) {
         uint64_t bundlesDeletedFromStorage = storageRunner.GetCurrentNumberOfBundlesDeletedFromStorage();
         Delay(1);
-	std::cout << std::endl << " @nadia bundlesDeletedFromStorage: " << bundlesDeletedFromStorage << "totalBundlesBpgen"  << totalBundlesBpgen << std::endl << std::flush;
+	std::cout << std::endl << " bundlesDeletedFromStorage: " << bundlesDeletedFromStorage << "totalBundlesBpgen"  << totalBundlesBpgen << std::endl << std::flush;
 
         if (bundlesDeletedFromStorage == totalBundlesBpgen) {
-	    	std::cout << "@nadia Exiting!" << std::endl;
+	    	std::cout << "Exiting!" << std::endl;
 		break;
         }
     }
