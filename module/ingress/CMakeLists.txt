@@ -7,10 +7,9 @@ add_library(ingress_async_lib STATIC
 	src/IngressAsyncRunner.cpp
 )
 
-target_link_libraries(ingress_async_lib hdtn_reg hdtn_util tcpcl_lib stcp_lib udp_lib ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} bpcodec ${Boost_LIBRARIES})
+target_link_libraries(ingress_async_lib hdtn_reg hdtn_util tcpcl_lib stcp_lib udp_lib ${libzmq_LIB} ${pthread_LIB} bpcodec ${Boost_LIBRARIES})
 target_include_directories(ingress_async_lib PUBLIC
 	include
-	../../common/logging/include
 	../../common/pool/include
 	../../common/include
 	${Boost_INCLUDE_DIRS} 
@@ -19,7 +18,6 @@ target_include_directories(ingress_async_lib PUBLIC
 
 add_executable(hdtn-ingress 
         src/ingress.cpp
-        ../../common/logging/src/logging.cpp
 )
 
 target_link_libraries(hdtn-ingress
@@ -32,7 +30,6 @@ target_link_libraries(hdtn-ingress
 	ingress_async_lib
 	${libzmq_LIB}
 	${pthread_LIB}
-	${blosc_LIB}
 	${Boost_LIBRARIES}
 )
 target_include_directories(hdtn-ingress PUBLIC

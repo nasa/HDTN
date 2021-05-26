@@ -4,13 +4,12 @@
 
 #include <fstream>
 #include <iostream>
-
-#include "logging.hpp"
 #include "message.hpp"
 #include "reg.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/date_time.hpp>
 
 #define BP_INGRESS_TELEM_FREQ (0.10)
 #define INGRESS_PORT (4556)
@@ -117,7 +116,6 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             }
         }
 
-        std::string currentDate = hdtn::Datetime();
         std::ofstream output;
 //        output.open("ingress-" + currentDate);
 
@@ -132,7 +130,9 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 //        output << oss.str();
 //        output.close();
 
-	std::cout << "IngressAsyncRunner currentTime" << currentDate << std::endl;
+	boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+        std::cout << "IngressAsyncRunner currentTime  " << timeLocal << std::endl << std::flush;
+
         std::cout << "IngressAsyncRunner: exiting cleanly..\n";
         ingress.Stop();
         m_bundleCountStorage = ingress.m_bundleCountStorage;

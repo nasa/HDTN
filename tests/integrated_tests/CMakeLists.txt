@@ -6,7 +6,6 @@ SET(STORAGE_LIBRARY_NAME storage_lib)
 add_executable(integrated-tests
 	src/it_test_main.cpp
 	src/integrated_tests.cpp
-	../../common/logging/src/logging.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
@@ -23,7 +22,6 @@ target_include_directories(integrated-tests PUBLIC include
     ../../module/storage/include
     ../../common/include
     ../../common/pool/include
-    ../../common/logging/include
     ../../common/regsvr/lib/include
     ../../common/bpcodec/include
     ../../common/bpcodec/apps/bpgen/include
@@ -43,7 +41,6 @@ target_link_libraries(integrated-tests
 	udp_lib
 	egress_async_lib
 	ingress_async_lib
-	${blosc_LIB}
 	bpcodec
 	${Boost_LIBRARIES}
 )

@@ -26,7 +26,6 @@
 #define BP_INGRESS_TYPE_STCP (0x02)
 
 namespace hdtn {
-std::string Datetime();
 
 typedef struct BpMmsgbuf {
     uint32_t nbuf;

@@ -22,7 +22,6 @@ target_include_directories(unit-tests PUBLIC include
     ../../module/storage/include
     ../../common/include
     ../../common/pool/include
-    ../../common/logging/include
     ${Boost_INCLUDE_DIRS}
     ${libzmq_INCLUDE}
 )
@@ -37,7 +36,6 @@ target_link_libraries(unit-tests
 	stcp_lib
 	storage_lib
         ingress_async_lib
-	${blosc_LIB}
 	bpcodec
 	${Boost_LIBRARIES}
 )

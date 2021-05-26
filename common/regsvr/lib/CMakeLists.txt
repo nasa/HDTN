@@ -11,7 +11,7 @@ add_library(hdtn_reg STATIC
 )
 
 
-target_link_libraries(hdtn_reg ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} bpcodec hdtn_util ${Boost_LIBRARIES})
+target_link_libraries(hdtn_reg ${libzmq_LIB} ${pthread_LIB} bpcodec hdtn_util ${Boost_LIBRARIES})
 target_include_directories(hdtn_reg PUBLIC 
 	include
 	${Boost_INCLUDE_DIRS}

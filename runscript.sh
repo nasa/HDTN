@@ -11,7 +11,7 @@ cd $HDTN_SOURCE_ROOT/build/module/ingress
 ./hdtn-ingress "--always-send-to-storage" & 
 sleep 3
 cd $HDTN_SOURCE_ROOT/build/module/storage
-./hdtn-release-message-sender "--release-message-type=stop" "--flow-id=2" "--delay-before-send=14" &
+./hdtn-release-message-sender "--release-message-type=start" "--flow-id=2" "--delay-before-send=14" &
 sleep 1
 cd $HDTN_SOURCE_ROOT/build/module/storage
 ./hdtn-storage "--storage-config-json-file=$HDTN_SOURCE_ROOT/module/storage/unit_tests/storageConfigRelativePaths.json" &

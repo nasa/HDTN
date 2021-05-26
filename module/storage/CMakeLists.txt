@@ -9,7 +9,7 @@ add_executable(hdtn-storage
         src/store.cpp
 	)
 
-target_link_libraries(hdtn-storage hdtn_reg bpcodec hdtn_util ${STORAGE_LIBRARY_NAME} ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})
+target_link_libraries(hdtn-storage hdtn_reg bpcodec hdtn_util ${STORAGE_LIBRARY_NAME} ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES})
 
 target_include_directories(hdtn-storage PUBLIC
 	include
@@ -50,7 +50,7 @@ endif()
 add_executable(hdtn-test-schedule
 	       src/test/schedule.cpp
 )
-target_link_libraries(hdtn-test-schedule hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})
+target_link_libraries(hdtn-test-schedule hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES})
 target_include_directories(hdtn-test-schedule PUBLIC
 	include
 	lib/include
@@ -64,7 +64,7 @@ target_include_directories(hdtn-test-schedule PUBLIC
 add_executable(hdtn-release-message-sender
 	src/test/release_message_sender.cpp
 )
-target_link_libraries(hdtn-release-message-sender hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})
+target_link_libraries(hdtn-release-message-sender hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES})
 target_include_directories(hdtn-release-message-sender PUBLIC
 	include
 	lib/include
@@ -79,7 +79,7 @@ add_executable(hdtn-multiple-release-message-sender
     src/test/ReleaseSender.cpp
     src/test/multiple_release_message_sender.cpp
 )
-target_link_libraries(hdtn-multiple-release-message-sender hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})
+target_link_libraries(hdtn-multiple-release-message-sender hdtn_reg bpcodec ${libzmq_LIB} ${pthread_LIB}  ${Boost_LIBRARIES})
 target_include_directories(hdtn-multiple-release-message-sender PUBLIC
     include
     lib/include
