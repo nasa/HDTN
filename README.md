@@ -50,6 +50,7 @@ Note: You made need to increase the maximum number of files the operating system
 
 You can use tcpdump to test the HDTN ingress storage and egress. The generated pcap file can be read using wireshark. 
 * sudo tcpdump -i lo -vv -s0 port 4558 -w hdtn-traffic.pcap
+
 In another terminal, run:
 *./runscript.sh
 
