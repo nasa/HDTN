@@ -1,8 +1,8 @@
 #ifndef _HDTN_EGRESS_H
 #define _HDTN_EGRESS_H
 
-#include <netinet/in.h>
-#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <sys/socket.h>
 #include <unistd.h>
 
 #include <iostream>
