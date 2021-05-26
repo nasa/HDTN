@@ -9,6 +9,26 @@
 #include <set>
 #include <boost/asio.hpp>
 
+//7.2.  Green-Part Segment Arrival
+//The following parameters are provided by the LTP engine when a green -
+//part segment arrival notice is delivered :
+//
+//Session ID of the transmission session.
+//
+//Array of client service data bytes contained in the data segment.
+//
+//Offset of the data segment's content from the start of the block.
+//
+//Length of the data segment's content. (shall be included in the vector size() function)
+//
+//Indication as to whether or not the last byte of this data
+//segment's content is also the end of the block.
+//
+//Source LTP engine ID.
+typedef boost::function<void(const Ltp::session_id_t & sessionId,
+    std::vector<uint8_t> & movableClientServiceDataVec, uint64_t offsetStartOfBlock,
+    uint64_t clientServiceId, bool isEndOfBlock)> GreenPartSegmentArrivalCallback_t;
+
 //7.3.  Red-Part Reception
 //The following parameters are provided by the LTP engine when a red -
 //part reception notice is delivered :
@@ -24,7 +44,7 @@
 //
 //Source LTP engine ID.
 typedef boost::function<void(const Ltp::session_id_t & sessionId,
-    const std::vector<uint8_t> & clientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)> RedPartReceptionCallback_t;
+    std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)> RedPartReceptionCallback_t;
 
 //A reception-session cancellation notice informs the client service
 //that the indicated session was terminated, either by the sender or
@@ -58,7 +78,8 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     void DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
-        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback);
+        Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback,
+        const GreenPartSegmentArrivalCallback_t & greenPartSegmentArrivalCallback);
 private:
     std::set<LtpFragmentMap::data_fragment_t> m_receivedDataFragmentsSet;
     std::map<uint64_t, Ltp::report_segment_t> m_mapAllReportSegmentsSent;
@@ -68,13 +89,14 @@ private:
     std::list<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendList; //pair<reportSerialNumber, retryCount>
     LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
     uint64_t m_nextReportSegmentReportSerialNumber;
-    std::vector<uint8_t> m_dataReceived;
+    std::vector<uint8_t> m_dataReceivedRed;
     const uint64_t M_MTU;
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;
     bool m_didRedPartReceptionCallback;
+    bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;

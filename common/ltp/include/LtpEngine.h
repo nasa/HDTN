@@ -43,6 +43,7 @@ public:
     void CancellationRequest_ThreadSafe(const Ltp::session_id_t & sessionId);
     
     void SetRedPartReceptionCallback(const RedPartReceptionCallback_t & callback);
+    void SetGreenPartSegmentArrivalCallback(const GreenPartSegmentArrivalCallback_t & callback);
     void SetReceptionSessionCancelledCallback(const ReceptionSessionCancelledCallback_t & callback);
     void SetTransmissionSessionCompletedCallback(const TransmissionSessionCompletedCallback_t & callback);
     void SetInitialTransmissionCompletedCallback(const InitialTransmissionCompletedCallback_t & callback);
@@ -103,6 +104,7 @@ private:
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator m_receiversIterator;
 
     RedPartReceptionCallback_t m_redPartReceptionCallback;
+    GreenPartSegmentArrivalCallback_t m_greenPartSegmentArrivalCallback;
     ReceptionSessionCancelledCallback_t m_receptionSessionCancelledCallback;
     TransmissionSessionCompletedCallback_t m_transmissionSessionCompletedCallback;
     InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
@@ -111,7 +113,7 @@ private:
     uint64_t m_checkpointEveryNthDataPacketSender;
 
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
-    boost::asio::io_service::work m_workLtpEngine;
+    std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
 

@@ -73,6 +73,7 @@ private:
     std::vector<uint8_t> m_dataToSend;
     uint64_t M_LENGTH_OF_RED_PART;
     uint64_t m_dataIndexFirstPass;
+    bool m_didNotifyForDeletion;
     const uint64_t M_MTU;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;

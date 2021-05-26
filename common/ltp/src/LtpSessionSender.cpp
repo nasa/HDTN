@@ -20,6 +20,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_dataToSend(std::move(dataToSend)),
     M_LENGTH_OF_RED_PART(lengthOfRedPart),
     m_dataIndexFirstPass(0),
+    m_didNotifyForDeletion(false),
     M_MTU(MTU),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
@@ -66,7 +67,10 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
         m_notifyEngineThatThisSendersTimersProducedDataFunction();
     }
     else {
-        m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+        if (!m_didNotifyForDeletion) {
+            m_didNotifyForDeletion = true;
+            m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+        }
     }
 }
 
@@ -193,9 +197,26 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendGreen);
             m_dataIndexFirstPass += bytesToSendGreen;
         }
-        if (m_dataIndexFirstPass == m_dataToSend.size()) {
+        if (m_dataIndexFirstPass == m_dataToSend.size()) { //only ever enters here once
             m_initialTransmissionCompletedCallback(M_SESSION_ID);
+            if (M_LENGTH_OF_RED_PART == 0) { //fully green case complete (notify engine for deletion)
+                if (!m_didNotifyForDeletion) {
+                    m_didNotifyForDeletion = true;
+                    m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
+                }
+            }
+            else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
+                std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+                //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
+                if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
+                    if (!m_didNotifyForDeletion) {
+                        m_didNotifyForDeletion = true;
+                        m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
+                    }
+                }
+            }
         }
+        
         return true;
     }
     return false;
@@ -259,7 +280,8 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
         std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
         //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
         if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
-            if (m_notifyEngineThatThisSenderNeedsDeletedCallback) {
+            if (!m_didNotifyForDeletion) {
+                m_didNotifyForDeletion = true;
                 m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
             }
         }

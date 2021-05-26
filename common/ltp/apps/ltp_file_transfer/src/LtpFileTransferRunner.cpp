@@ -213,7 +213,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                     sigHandler.PollOnce();
                 }
             }
-            boost::this_thread::sleep(boost::posix_time::seconds(5));
+            boost::this_thread::sleep(boost::posix_time::seconds(2));
             boost::posix_time::time_duration diff = senderHelper.finishedTime - startTime;
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
             const double rateBps = rateMbps * 1e6;
@@ -222,25 +222,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         }
         else { //receive file
             struct ReceiverHelper {
-                ReceiverHelper(const std::string & paramSaveFilePath) : finished(false), cancelled(false), saveFilePath(paramSaveFilePath) {}
-                void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, const std::vector<uint8_t> & clientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
+                ReceiverHelper() : finished(false), cancelled(false) {}
+                void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
                     finishedTime = boost::posix_time::microsec_clock::universal_time();
-                    std::string receivedMessage(clientServiceDataVec.data(), clientServiceDataVec.data() + clientServiceDataVec.size());
+                    receivedFileContents = std::move(movableClientServiceDataVec);
                     finished = true;
-                    //TODO.. THIS NEEDS TO BE DONE OUTSIDE .. data should be movable
-                    std::cout << "received file of size " << clientServiceDataVec.size() << std::endl;
-                    std::cout << "computing sha1..\n";
-                    std::string sha1Str;
-                    GetSha1(clientServiceDataVec, sha1Str);
-                    std::cout << "SHA1: " << sha1Str << std::endl;
-                    std::ofstream ofs(saveFilePath, std::ofstream::out | std::ofstream::binary);
-                    if (!ofs.good()) {
-                        std::cout << "error, unable to open file " << saveFilePath << " for writing\n";
-                        return;
-                    }
-                    ofs.write((char*)clientServiceDataVec.data(), clientServiceDataVec.size());
-                    ofs.close();
-                    std::cout << "wrote " << saveFilePath << "\n";
                     cv.notify_one();
                 }
                 void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
@@ -252,10 +238,10 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 boost::condition_variable cv;
                 bool finished;
                 bool cancelled;
-                std::string saveFilePath;
+                std::vector<uint8_t> receivedFileContents;
 
             };
-            ReceiverHelper receiverHelper(receiveFilePath);
+            ReceiverHelper receiverHelper;
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
             LtpUdpEngine engineDest(thisLtpEngineId, 1, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, 100, 65535, estimatedFileSizeToReceive);
@@ -275,7 +261,23 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                     sigHandler.PollOnce();
                 }
             }
-            boost::this_thread::sleep(boost::posix_time::seconds(5));
+            if (receiverHelper.finished) {
+                std::cout << "received file of size " << receiverHelper.receivedFileContents.size() << std::endl;
+                std::cout << "computing sha1..\n";
+                std::string sha1Str;
+                GetSha1(receiverHelper.receivedFileContents, sha1Str);
+                std::cout << "SHA1: " << sha1Str << std::endl;
+                std::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);
+                if (!ofs.good()) {
+                    std::cout << "error, unable to open file " << receiveFilePath << " for writing\n";
+                    return false;
+                }
+                ofs.write((char*)receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size());
+                ofs.close();
+                std::cout << "wrote " << receiveFilePath << "\n";
+                
+            }
+            boost::this_thread::sleep(boost::posix_time::seconds(2));
             std::cout << "udp packets sent: " << engineDest.m_countAsyncSendCallbackCalls << std::endl;
         }
 

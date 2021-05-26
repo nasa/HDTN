@@ -12,7 +12,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
-    m_workLtpEngine(m_ioServiceLtpEngine),
+    m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_timeManagerOfCancelSegments(m_ioServiceLtpEngine, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2))
 {
 
@@ -43,16 +43,21 @@ LtpEngine::~LtpEngine() {
     //std::cout << "h1\n";
     //if (!m_ioServiceLtpEngine.stopped()) {
     //    std::cout << "h1a\n";
-        m_ioServiceLtpEngine.stop(); //ioservice requires stopping before join because of the m_work object
+        //m_ioServiceLtpEngine.stop(); //ioservice requires stopping before join because of the m_work object
+    
     //}
     //std::cout << "h2\n";
     if (m_ioServiceLtpEngineThreadPtr) {
+        boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
+
+        m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
         //std::cout << "h3\n";
         m_ioServiceLtpEngineThreadPtr->join();
         //std::cout << "h4\n";
         m_ioServiceLtpEngineThreadPtr.reset(); //delete it
     }
     //std::cout << "h5\n";
+    //TODO: FIX HANG WHERE ioserviceLtpEngine is trying to be destructed (shutdown called)
 }
 
 void LtpEngine::Reset() {
@@ -606,12 +611,15 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         //revalidate iterator
         m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
     }
-    rxSessionIt->second->DataSegmentReceivedCallback(segmentTypeFlags, clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions, m_redPartReceptionCallback);
+    rxSessionIt->second->DataSegmentReceivedCallback(segmentTypeFlags, clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions, m_redPartReceptionCallback, m_greenPartSegmentArrivalCallback);
     TrySendPacketIfAvailable();
 }
 
 void LtpEngine::SetRedPartReceptionCallback(const RedPartReceptionCallback_t & callback) {
     m_redPartReceptionCallback = callback;
+}
+void LtpEngine::SetGreenPartSegmentArrivalCallback(const GreenPartSegmentArrivalCallback_t & callback) {
+    m_greenPartSegmentArrivalCallback = callback;
 }
 void LtpEngine::SetReceptionSessionCancelledCallback(const ReceptionSessionCancelledCallback_t & callback) {
     m_receptionSessionCancelledCallback = callback;

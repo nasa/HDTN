@@ -17,13 +17,14 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     M_CLIENT_SERVICE_ID(clientServiceId),
     m_lengthOfRedPart(UINT64_MAX),
     m_didRedPartReceptionCallback(false),
+    m_didNotifyForDeletion(false),
     m_receivedEobFromGreenOrRed(false),
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisReceiverNeedsDeletedCallback(notifyEngineThatThisReceiverNeedsDeletedCallback),
     m_notifyEngineThatThisReceiversTimersProducedDataFunction(notifyEngineThatThisReceiversTimersProducedDataFunction),
     m_numTimerExpiredCallbacks(0)
 {
-    m_dataReceived.reserve(ESTIMATED_BYTES_TO_RECEIVE);
+    m_dataReceivedRed.reserve(ESTIMATED_BYTES_TO_RECEIVE);
 }
 
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData) {
@@ -61,7 +62,10 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
         m_notifyEngineThatThisReceiversTimersProducedDataFunction();
     }
     else {
-        m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+        if (!m_didNotifyForDeletion) {
+            m_didNotifyForDeletion = true;
+            m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+        }
     }
 }
 
@@ -118,7 +122,8 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
     if (m_reportSerialNumbersToSendList.empty() && m_timeManagerOfReportSerialNumbers.Empty()) {
         //TODO.. NOT SURE WHAT TO DO WHEN GREEN EOB LOST
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
-            if (m_notifyEngineThatThisReceiverNeedsDeletedCallback) {
+            if (!m_didNotifyForDeletion) {
+                m_didNotifyForDeletion = true;
                 m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED); //close session (not cancelled)
                 //std::cout << "rx notified\n";
             }
@@ -130,17 +135,15 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
 
 void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
     std::vector<uint8_t> & clientServiceDataVec, const Ltp::data_segment_metadata_t & dataSegmentMetadata,
-    Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback)
+    Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback,
+    const GreenPartSegmentArrivalCallback_t & greenPartSegmentArrivalCallback)
 {
     const uint64_t offsetPlusLength = dataSegmentMetadata.offset + dataSegmentMetadata.length;
-    if (m_dataReceived.size() < offsetPlusLength) {
-        m_dataReceived.resize(offsetPlusLength);
-        //std::cout << m_dataReceived.size() << " " << m_dataReceived.capacity() << std::endl;
-    }
+    
     if (dataSegmentMetadata.length != clientServiceDataVec.size()) {
         std::cerr << "error dataSegmentMetadata.length != clientServiceDataVec.size()\n";
     }
-    memcpy(m_dataReceived.data() + dataSegmentMetadata.offset, clientServiceDataVec.data(), dataSegmentMetadata.length);
+    
 
     
 
@@ -150,6 +153,15 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         m_receivedEobFromGreenOrRed = true;
     }
     if (isRedData) {
+        if (m_didRedPartReceptionCallback) {
+            return;
+        }
+        if (m_dataReceivedRed.size() < offsetPlusLength) {
+            m_dataReceivedRed.resize(offsetPlusLength);
+            //std::cout << m_dataReceived.size() << " " << m_dataReceived.capacity() << std::endl;
+        }
+        memcpy(m_dataReceivedRed.data() + dataSegmentMetadata.offset, clientServiceDataVec.data(), dataSegmentMetadata.length);
+
         bool isRedCheckpoint = (segmentTypeFlags != 0);
         bool isEndOfRedPart = (segmentTypeFlags & 2);
         LtpFragmentMap::InsertFragment(m_receivedDataFragmentsSet, 
@@ -265,7 +277,32 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 if (redPartReceptionCallback) {
                     m_didRedPartReceptionCallback = true;
                     redPartReceptionCallback(M_SESSION_ID,
-                        m_dataReceived, m_lengthOfRedPart, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+                        m_dataReceivedRed, m_lengthOfRedPart, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+                }
+            }
+        }
+    }
+    else { //green
+        if (greenPartSegmentArrivalCallback) {
+            greenPartSegmentArrivalCallback(M_SESSION_ID, clientServiceDataVec, offsetPlusLength, dataSegmentMetadata.clientServiceId, isEndOfBlock);
+        }
+        
+        if (isEndOfBlock) { //a green EOB
+            //Note that if there were no red data segments received in the session
+            //yet, including the case where the session was indeed fully green or
+            //the pathological case where the entire red - part of the block gets
+            //lost but at least the green data segment marked EOB is received(the
+            //LTP receiver has no indication of whether the session had a red - part
+            //transmission), the LTP receiver assumes the "RP rcvd. fully"
+            //condition to be true and moves to the CLOSED state from the
+            //WAIT_RP_REC state.
+            const bool noRedSegmentsReceived = ((m_lengthOfRedPart == UINT64_MAX) && m_receivedDataFragmentsSet.empty()); //green EOB and no red segments received
+
+            if (noRedSegmentsReceived || m_didRedPartReceptionCallback) { //if no red received or red fully complete, this green EOB shall close the session
+                if (!m_didNotifyForDeletion) {
+                    m_didNotifyForDeletion = true;
+                    m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED); //close session (not cancelled)
+                    //std::cout << "rx notified\n";
                 }
             }
         }
