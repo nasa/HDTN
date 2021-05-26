@@ -5,13 +5,6 @@
 #include "cache.hpp"
 #include "message.hpp"
 
-#ifndef USE_BRIAN_STORAGE
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
-#define HDTN_STORAGE_TYPE "storage"
 #define HDTN_STORAGE_RECV_MODE "push"
 
 hdtn::storage::storage() {
@@ -21,11 +14,9 @@ hdtn::storage::~storage() {
     Stop();
 }
 void hdtn::storage::Stop() {
-#ifdef USE_BRIAN_STORAGE
     worker.Stop();
     m_totalBundlesErasedFromStorage = worker.m_totalBundlesErasedFromStorage;
     m_totalBundlesSentToEgressFromStorage = worker.m_totalBundlesSentToEgressFromStorage;
-#endif
 }
 
 bool hdtn::storage::init(const storageConfig & config) {
@@ -55,7 +46,6 @@ bool hdtn::storage::init(const storageConfig & config) {
     telemReg.Reg();
     std::cout << "[storage] Registration completed." << std::endl;
 
-
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
     //telemetry not implemnted yet
     m_telemetrySockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
@@ -68,7 +58,6 @@ bool hdtn::storage::init(const storageConfig & config) {
         entries = storeReg.Query("ingress");
     }
     const hdtn::HdtnEntryList_t & entryList = entries->m_hdtnEntryList;
-
 
     std::string remote = entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
     std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
@@ -83,33 +72,6 @@ bool hdtn::storage::init(const storageConfig & config) {
         return false;
     }
 
-#ifndef USE_BRIAN_STORAGE
-    std::cout << "[storage] Preparing flow cache ... " << std::endl;
-    struct stat cache_info;
-    int res = stat(config.storePath.c_str(), &cache_info);
-    if (res) {
-        switch (errno) {
-            case ENOENT:
-                break;
-            case ENOTDIR:
-                std::cerr << "Failed to open cache - at least one element in specified path is not a directory." << std::endl;
-                return false;
-            default:
-                perror("Failed to open cache - ");
-                return false;
-        }
-
-        if (errno == ENOENT) {
-            std::cout << "[storage] Attempting to create cache: " << config.storePath << std::endl;
-            mkdir(config.storePath.c_str(), S_IRWXU);
-            res = stat(config.storePath.c_str(), &cache_info);
-            if (res) {
-                perror("Failed to create file cache - ");
-                return false;
-            }
-        }
-    }
-#endif //not using USE_BRIAN_STORAGE
     m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
     try {
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);// config.releaseWorker);

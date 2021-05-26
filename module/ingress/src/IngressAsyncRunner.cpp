@@ -15,6 +15,8 @@
 #define BP_INGRESS_TELEM_FREQ (0.10)
 #define INGRESS_PORT (4556)
 
+namespace opt = boost::program_options;
+
 void IngressAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false; //do this first
@@ -34,18 +36,18 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         bool useStcp = false;
         bool alwaysSendToStorage = false;
 
-        boost::program_options::options_description desc("Allowed options");
+        opt::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                //("port", boost::program_options::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
+                //("port", opt::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
                 ("use-stcp", "Use STCP instead of TCPCL.")
                 ("always-send-to-storage", "Don't send straight to egress (for testing).")
                 ;
 
-            boost::program_options::variables_map vm;
-            boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
-            boost::program_options::notify(vm);
+            opt::variables_map vm; 
+            opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
+            opt::notify(vm);
 
             if (vm.count("help")) {
                 std::cout << desc << "\n";
@@ -76,7 +78,6 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             std::cerr << "Exception of unknown type!\n";
             return false;
         }
-
 
         std::cout << "starting ingress.." << std::endl;
         hdtn::BpIngress ingress;
@@ -131,6 +132,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 //        output << oss.str();
 //        output.close();
 
+	std::cout << "IngressAsyncRunner currentTime" << currentDate << std::endl;
         std::cout << "IngressAsyncRunner: exiting cleanly..\n";
         ingress.Stop();
         m_bundleCountStorage = ingress.m_bundleCountStorage;

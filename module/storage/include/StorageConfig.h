@@ -10,9 +10,6 @@
 #include <tuple>
 #include "JsonSerializable.h"
 
-
-	
-
 struct storage_disk_config_t {
     std::string name;
 	std::string storeFilePath;

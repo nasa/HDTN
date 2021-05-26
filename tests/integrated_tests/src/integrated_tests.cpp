@@ -1226,7 +1226,7 @@ bool TestStorage() {
     Delay(DELAY_THREAD);
     static const std::string storageConfigArg =
             "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
+            / "unit_tests" / "storageConfigRelativePaths.json").string();
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
     std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
@@ -1252,8 +1252,11 @@ bool TestStorage() {
     for(int i=0; i<30; i++) {
         uint64_t bundlesDeletedFromStorage = storageRunner.GetCurrentNumberOfBundlesDeletedFromStorage();
         Delay(1);
+	std::cout << std::endl << " @nadia bundlesDeletedFromStorage: " << bundlesDeletedFromStorage << "totalBundlesBpgen"  << totalBundlesBpgen << std::endl << std::flush;
+
         if (bundlesDeletedFromStorage == totalBundlesBpgen) {
-            break;
+	    	std::cout << "@nadia Exiting!" << std::endl;
+		break;
         }
     }
 
@@ -1367,7 +1370,7 @@ bool TestStorageSlowBpSink() {
 
     static const std::string storageConfigArg =
             "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
+            / "unit_tests" / "storageConfigRelativePaths.json").string();
 
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
@@ -1513,7 +1516,7 @@ bool TestStorageMulti() {
     Delay(1);
     static const std::string storageConfigArg =
             "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "storage-brian" / "unit_tests" / "storageConfigRelativePaths.json").string();
+            / "unit_tests" / "storageConfigRelativePaths.json").string();
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
     std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);

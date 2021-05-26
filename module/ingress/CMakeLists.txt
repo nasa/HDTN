@@ -18,10 +18,9 @@ target_include_directories(ingress_async_lib PUBLIC
 )
 
 add_executable(hdtn-ingress 
-    src/ingress.cpp
-    ../../common/logging/src/logging.cpp
+        src/ingress.cpp
+        ../../common/logging/src/logging.cpp
 )
-
 
 target_link_libraries(hdtn-ingress
 	hdtn_reg

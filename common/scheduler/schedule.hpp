@@ -7,7 +7,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 
-//#include "cache.hpp"
+#include "cache.hpp"
 #include "paths.hpp"
 #include "reg.hpp"
 #include "stats.hpp"
@@ -83,7 +83,6 @@ private:
     WorkerStats m_workerStats;
 };
 
-
 class storage {
 public:
     storage();
@@ -96,6 +95,7 @@ public:
     void c2telem();
     StorageStats *stats() { return &storageStats; }
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
+
     std::size_t m_totalBundlesErasedFromStorage = 0;
     std::size_t m_totalBundlesSentToEgressFromStorage = 0;
 

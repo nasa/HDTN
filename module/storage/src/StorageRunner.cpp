@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-
 #include "store.hpp"
 #include "StorageRunner.h"
 #include "message.hpp"
@@ -42,12 +41,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-#ifdef USE_BRIAN_STORAGE
-                ("storage-config-json-file", boost::program_options::value<std::string>()->default_value("storageConfig.json"), "Listen on this TCP or UDP port.")
-#else
-                ("storage-path", boost::program_options::value<std::string>()->default_value("/home/hdtn/hdtn.store"), "Listen on this TCP or UDP port.")
-#endif // USE_BRIAN_STORAGE
-                ;
+                ("storage-config-json-file", boost::program_options::value<std::string>()->default_value("storageConfig.json"), "Listen on this TCP or UDP port.");
 
             boost::program_options::variables_map vm;
             boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
@@ -58,11 +52,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
                 return false;
             }
 
-#ifdef USE_BRIAN_STORAGE
             storePath = vm["storage-config-json-file"].as<std::string>();
-#else
-            storePath = vm["storage-path"].as<std::string>();
-#endif
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
