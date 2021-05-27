@@ -19,6 +19,7 @@ LtpTimerManager<idType>::LtpTimerManager(boost::asio::io_service & ioService, co
 
 template <class idType>
 LtpTimerManager<idType>::~LtpTimerManager() {
+    //std::cout << "~LtpTimerManager " << m_isTimerActive << std::endl;
     //this destructor is single threaded
     if (!m_isTimerActive) {
         delete m_timerIsDeletedPtr;
@@ -47,7 +48,7 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
         expiry = boost::posix_time::microsec_clock::universal_time() + M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     } while (m_bimapCheckpointSerialNumberToExpiry.right.count(expiry));
 
-    if (m_bimapCheckpointSerialNumberToExpiry.left.insert(boost::bimap<idType, boost::posix_time::ptime>::left_value_type(serialNumber, expiry)).second) {
+    if (m_bimapCheckpointSerialNumberToExpiry.left.insert(typename boost::bimap<idType, boost::posix_time::ptime>::left_value_type(serialNumber, expiry)).second) {
         //value was inserted
         m_mapSerialNumberToUserData[serialNumber] = std::move(userData);
         //std::cout << "StartTimer inserted " << serialNumber << std::endl;
@@ -66,12 +67,12 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
 template <class idType>
 bool LtpTimerManager<idType>::DeleteTimer(const idType serialNumber) {
     
-    std::map<idType, std::vector<uint8_t> >::iterator itUserData = m_mapSerialNumberToUserData.find(serialNumber);
+    typename std::map<idType, std::vector<uint8_t> >::iterator itUserData = m_mapSerialNumberToUserData.find(serialNumber);
     if (itUserData != m_mapSerialNumberToUserData.end()) {
         m_mapSerialNumberToUserData.erase(itUserData);
     }
     
-    boost::bimap<idType, boost::posix_time::ptime>::left_iterator it = m_bimapCheckpointSerialNumberToExpiry.left.find(serialNumber);
+    typename boost::bimap<idType, boost::posix_time::ptime>::left_iterator it = m_bimapCheckpointSerialNumberToExpiry.left.find(serialNumber);
     if (it != m_bimapCheckpointSerialNumberToExpiry.left.end()) {
         //std::cout << "DeleteTimer found and erasing " << serialNumber << std::endl;
         m_bimapCheckpointSerialNumberToExpiry.left.erase(it);
@@ -110,7 +111,7 @@ void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e,
 
     //regardless of cancelled or expired:
     //start the next timer (if most recent ptime exists)
-    boost::bimap<idType, boost::posix_time::ptime>::right_iterator it = m_bimapCheckpointSerialNumberToExpiry.right.begin();
+    typename boost::bimap<idType, boost::posix_time::ptime>::right_iterator it = m_bimapCheckpointSerialNumberToExpiry.right.begin();
     if (it != m_bimapCheckpointSerialNumberToExpiry.right.end()) {
         //most recent ptime exists
         

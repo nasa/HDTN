@@ -29,6 +29,8 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_dataReceivedRed.reserve(ESTIMATED_BYTES_TO_RECEIVE);
 }
 
+LtpSessionReceiver::~LtpSessionReceiver() {}
+
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData) {
     std::cout << "LtpReportSegmentTimerExpiredCallback reportSerialNumber " << reportSerialNumber << std::endl;
     

@@ -40,24 +40,12 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
 }
 
 LtpEngine::~LtpEngine() {
-    //std::cout << "h1\n";
-    //if (!m_ioServiceLtpEngine.stopped()) {
-    //    std::cout << "h1a\n";
-        //m_ioServiceLtpEngine.stop(); //ioservice requires stopping before join because of the m_work object
-    
-    //}
-    //std::cout << "h2\n";
     if (m_ioServiceLtpEngineThreadPtr) {
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
-
         m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
-        //std::cout << "h3\n";
         m_ioServiceLtpEngineThreadPtr->join();
-        //std::cout << "h4\n";
         m_ioServiceLtpEngineThreadPtr.reset(); //delete it
     }
-    //std::cout << "h5\n";
-    //TODO: FIX HANG WHERE ioserviceLtpEngine is trying to be destructed (shutdown called)
 }
 
 void LtpEngine::Reset() {
@@ -253,7 +241,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         randomInitialSenderCheckpointSerialNumber = m_rng.GetRandom(m_randomDevice);
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
-    m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = std::make_unique<LtpSessionSender>(
+    m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = boost::make_unique<LtpSessionSender>(
         randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
         M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
@@ -506,7 +494,7 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
     }
 
     m_listSendersNeedingDeleted.push_back(sessionId.sessionNumber);
-    TrySendPacketIfAvailable();
+    SignalReadyForSend_ThreadSafe(); //posts the TrySendPacketIfAvailable(); so this won't be deleteted during execution
 }
 
 void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode) {
@@ -528,7 +516,7 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
     }
     
     m_listReceiversNeedingDeleted.push_back(sessionId);
-    TrySendPacketIfAvailable();
+    SignalReadyForSend_ThreadSafe(); //posts the TrySendPacketIfAvailable(); so this won't be deleteted during execution
 }
 
 void LtpEngine::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
@@ -596,7 +584,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
             randomNextReportSegmentReportSerialNumber = m_rng.GetRandom(m_randomDevice);
         }
-        std::unique_ptr<LtpSessionReceiver> session = std::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+        std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
             boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));

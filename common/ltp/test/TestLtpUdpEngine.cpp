@@ -113,6 +113,17 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.NumActiveSenders(), 0);
             BOOST_REQUIRE_EQUAL(engineDest.NumActiveReceivers(), 0);
         }
+        bool HasActiveSendersAndReceivers() {
+            return engineSrc.NumActiveSenders() || engineSrc.NumActiveReceivers() || engineDest.NumActiveSenders() || engineDest.NumActiveReceivers();
+        }
+        void TryWaitForNoActiveSendersAndReceivers() {
+            for(unsigned int i=0; i<20; ++i) {
+                if(!HasActiveSendersAndReceivers()) {
+                    break;
+                }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(200));
+            }
+        }
 
         void DoTest() {
             Reset();
@@ -129,7 +140,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
@@ -161,7 +172,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
@@ -193,7 +204,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
@@ -242,7 +253,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 3); //+3 for 2 Report acks and 1 resend
@@ -291,7 +302,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends
@@ -339,7 +350,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 13); //+13 for 11 Report acks (see next line) and 2 resends
@@ -402,7 +413,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
@@ -459,7 +470,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
@@ -512,7 +523,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend Report Ack
@@ -629,7 +640,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(500));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
           
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 6); //+6 for 5 resend EOB and 1 cancel segment
@@ -676,7 +687,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(500));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 7); //+7 for 6 RA and 1 CA
@@ -723,7 +734,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
             }
             engineDest.CancellationRequest_ThreadSafe(lastSessionId_initialTransmissionCompletedCallback); //cancel from receiver
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel ack
@@ -771,7 +782,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
             }
             engineSrc.CancellationRequest_ThreadSafe(lastSessionId_initialTransmissionCompletedCallback); //cancel from sender
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
             BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel req

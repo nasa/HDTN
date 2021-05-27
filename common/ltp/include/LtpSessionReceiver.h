@@ -71,6 +71,7 @@ public:
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
         const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction);
 
+    ~LtpSessionReceiver();
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
     

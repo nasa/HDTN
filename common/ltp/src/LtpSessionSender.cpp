@@ -35,6 +35,10 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
 
 }
 
+LtpSessionSender::~LtpSessionSender() {
+    //std::cout << "~LtpSessionSender" << std::endl;
+}
+
 void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSerialNumber, std::vector<uint8_t> & userData) {
     //6.7.  Retransmit Checkpoint
     //This procedure is triggered by the expiration of a countdown timer
@@ -51,7 +55,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!\n";
+    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!" << std::endl;
     ++m_numTimerExpiredCallbacks;
     if (userData.size() != sizeof(resend_fragment_t)) {
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";

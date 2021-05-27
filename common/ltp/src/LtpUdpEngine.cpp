@@ -41,26 +41,13 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
 }
 
 LtpUdpEngine::~LtpUdpEngine() {
-    //std::cout << "u1\n";
     Stop();
-    //std::cout << "u2\n";
+    //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
 }
 
 void LtpUdpEngine::Stop() {
-    //prevent UdpBundleSource from exiting before all bundles sent and acked
-    
-
-    DoUdpShutdown();
-
-    
-    //This function does not block, but instead simply signals the io_service to stop
-    //All invocations of its run() or run_one() member functions should return as soon as possible.
-    //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
-    //if (!m_ioServiceUdp.stopped()) {
-        m_ioServiceUdp.stop(); //ioservice requires stopping before join because of the m_work object
-    //}
-
     if (m_ioServiceUdpThreadPtr) {
+        boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngine::DoUdpShutdown, this));
         m_ioServiceUdpThreadPtr->join();
         m_ioServiceUdpThreadPtr.reset(); //delete it
     }
@@ -180,18 +167,11 @@ void LtpUdpEngine::DoUdpShutdown() {
     m_readyToForward = false;
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "shutting down LtpUdpEngine UDP socket.." << std::endl;
-            m_udpSocket.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-        }
-        catch (const boost::system::system_error & e) {
-            std::cerr << "error in LtpUdpEngine::DoUdpShutdown: " << e.what() << std::endl;
-        }
-        try {
             std::cout << "closing LtpUdpEngine UDP socket.." << std::endl;
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in LtpUdpEngine::DoUdpShutdown: " << e.what() << std::endl;
+            std::cout << "notice in LtpUdpEngine::DoUdpShutdown calling udpSocket.close: " << e.what() << std::endl;
         }
     }
 }

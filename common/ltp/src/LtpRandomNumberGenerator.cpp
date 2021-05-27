@@ -13,9 +13,11 @@ LtpRandomNumberGenerator::LtpRandomNumberGenerator() : m_birthdayParadoxPrevente
 uint64_t LtpRandomNumberGenerator::GetRandom(const uint64_t additionalRandomness) {
     const uint64_t random1 = TimestampUtil::GetMicrosecondsSinceEpochRfc5050() << 16;
     uint64_t random2 = 0;
-    if (!_rdseed64_step(&random2)) {
+#ifdef LTP_RNG_USE_RDSEED
+    if (!_rdseed64_step((unsigned long long *)&random2)) {
         std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
     }
+#endif
     uint64_t randomNumber = (random1 ^ random2) ^ additionalRandomness;
     randomNumber &= (static_cast<uint64_t>(0x7fffffffffff0000u));
     //randomNumber >>= 16; //zero out 16 lsb for OR'ing with the incremental part 
