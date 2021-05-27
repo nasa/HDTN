@@ -5,6 +5,7 @@
 #include "message.hpp"
 #include "store.hpp"
 #include "BundleStorageManagerMT.h"
+#include "Logger.h"
 #include <set>
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
@@ -245,6 +246,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     zmq::message_t rhdr;
     zmq::message_t rmsg;
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 
     zmq::socket_t workerSock(*m_zmqContextPtr, zmq::socket_type::pair);
     workerSock.connect(m_queue.c_str());
@@ -278,6 +280,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     //}
     workerSock.send(zmq::const_buffer(&startupNotify, sizeof(CommonHdr)), zmq::send_flags::none);
     std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Notified parent that startup is complete.");
 
     typedef std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> session_read_ptr;
     typedef std::map<segment_id_t, session_read_ptr> segid_session_map_t;
@@ -380,6 +383,8 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     }
                     strVals += "]";
                     std::cout << "Currently Releasing Flow Ids: " << strVals << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Flow Ids: " + strVals);
+
                     //storageStillHasData = true;
                 }
                 else if(type == HDTN_MSGTYPE_IRELSTOP) {
@@ -396,6 +401,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     }
                     strVals += "]";
                     std::cout << "Currently Releasing Flow Ids: " << strVals << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Flow Ids: " + strVals);
                 }
                 
             }            
@@ -460,6 +466,12 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::cout << "totalEventsAllLinksClogged: " << totalEventsAllLinksClogged << std::endl;
     std::cout << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks << std::endl;
     std::cout << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks << std::endl;
+    hdtn::Logger::getInstance()->logInfo("storage", "totalEventsAllLinksClogged: " + 
+        std::to_string(totalEventsAllLinksClogged));
+    hdtn::Logger::getInstance()->logInfo("storage", "totalEventsNoDataInStorageForAvailableLinks: " + 
+        std::to_string(totalEventsNoDataInStorageForAvailableLinks));
+    hdtn::Logger::getInstance()->logInfo("storage", "totalEventsDataInStorageForCloggedLinks: " + 
+        std::to_string(totalEventsDataInStorageForCloggedLinks));
 }
 
 
@@ -469,6 +481,7 @@ void hdtn::ZmqStorageInterface::launch() {
     if (!m_running) {
         m_running = true;
         std::cout << "[ZmqStorageInterface] Launching worker thread ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Launching worker thread");
         m_threadPtr = boost::make_unique<boost::thread>(
                 boost::bind(&ZmqStorageInterface::ThreadFunc, this)); //create and start the worker thread
     }

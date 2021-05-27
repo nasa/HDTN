@@ -37,6 +37,7 @@ else()
 endif()
 
 add_subdirectory(common/bpcodec)
+add_subdirectory(common/logger)
 add_subdirectory(common/util)
 add_subdirectory(common/tcpcl)
 add_subdirectory(common/stcp)

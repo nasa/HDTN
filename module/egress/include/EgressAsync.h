@@ -15,6 +15,7 @@
 #include "TcpclBundleSource.h"
 #include "StcpBundleSource.h"
 #include "UdpBundleSource.h"
+#include "Logger.h"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)

@@ -25,7 +25,7 @@ endif()
 add_executable(integrated-tests
 	src/it_test_main.cpp
 	src/integrated_tests.cpp
-	../../common/logging/src/logging.cpp
+	../../common/logger/src/Logger.cpp
     ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
     ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
     ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
@@ -43,7 +43,7 @@ target_include_directories(integrated-tests PUBLIC include
     ../../module/storage/include
     ../../common/include
 	../../common/pool/include
-	../../common/logging/include
+	../../common/logger/include
 	../../common/regsvr/lib/include
 	../../common/bpcodec/include
     ../../common/bpcodec/apps/bpgen/include

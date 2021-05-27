@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-storage)
 set(CMAKE_CXX_STANDARD 11)
-
+find_package(Boost REQUIRED COMPONENTS system log log_setup)
 
 
 
@@ -11,6 +11,7 @@ if(USE_BRIAN_STORAGE)
         src/StorageRunner.cpp
         src/main.cpp
         src/store.cpp
+        ../../common/logger/src/Logger.cpp
         #src/store-worker.cpp
         #src/cache/cache-basic.cpp
     )
@@ -22,10 +23,11 @@ else()
         src/store.cpp
         src/store-worker.cpp
         src/cache/cache-basic.cpp
+        ../../common/logger/src/Logger.cpp
     )
     
 endif()
-target_link_libraries(hdtn-storage hdtn_reg bpcodec hdtn_util ${STORAGE_BRIAN_LIBRARY_NAME} ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES})
+target_link_libraries(hdtn-storage hdtn_reg bpcodec hdtn_util ${STORAGE_BRIAN_LIBRARY_NAME} ${libzmq_LIB} ${pthread_LIB} ${blosc_LIB} ${Boost_LIBRARIES} log_lib)
 target_include_directories(hdtn-storage PUBLIC
 	include
 	${Boost_INCLUDE_DIRS}

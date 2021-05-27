@@ -9,6 +9,11 @@ build/*
 tests/unit_tests/build/
 tests/unit_tests/build/*
 
+logs/
+logs/*
+
 #
 common/regsvr/hdtn/__pycache__/
 common/regsvr/hdtn/__pycache__/*
+
+.vscode/
