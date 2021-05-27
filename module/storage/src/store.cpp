@@ -4,6 +4,7 @@
 #include <iostream>
 #include "cache.hpp"
 #include "message.hpp"
+#include "Logger.h"
 
 #ifndef USE_BRIAN_STORAGE
 #include <sys/types.h>
@@ -47,6 +48,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     int telem_port = atoi(telem_path.substr(telem_path.find(":") + 1).c_str());
 
     std::cout << "[storage] Executing registration ..." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "Executing Registration");
     hdtn::HdtnRegsvr storeReg;
     hdtn::HdtnRegsvr telemReg;
     storeReg.Init(config.regsvr, "storage", port, "push");
@@ -54,6 +56,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     storeReg.Reg();
     telemReg.Reg();
     std::cout << "[storage] Registration completed." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "Registration Completed");
 
 
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
@@ -136,6 +139,7 @@ bool hdtn::storage::init(const storageConfig & config) {
         return false;
     }
     std::cout << "[storage] Verified worker startup." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "Verified worker startup");
 
     std::cout << "[storage] Done." << std::endl;
     return true;
@@ -192,6 +196,7 @@ void hdtn::storage::scheduleRelease() {
         std::cerr << "[schedule release] message too short: " << message.size() << std::endl;
         return;
     }
+    hdtn::Logger::getInstance()->logNotification("storage", "Message received");
     std::cout << "message received\n";
     CommonHdr *common = (CommonHdr *)message.data();
     switch (common->type) {

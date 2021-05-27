@@ -17,6 +17,7 @@ target_include_directories(storage_brian_lib PUBLIC
 	include
 	../../../common/include
 	../include
+    ../../../common/logger/include
 	${Boost_INCLUDE_DIRS}
 	${libzmq_INCLUDE}
 )

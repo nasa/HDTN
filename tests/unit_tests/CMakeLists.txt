@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(unit-tests)
 set(CMAKE_CXX_STANDARD 11)
+find_package(Boost REQUIRED COMPONENTS system log log_setup)
 
 
 if (WIN32)
@@ -36,7 +37,7 @@ add_executable(unit-tests
 	../../module/storage/storage-brian/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
     ${LINUX_ONLY_UNIT_TEST_SRCS}
     
-
+    ../../common/logger/src/Logger.cpp
 )
 
 target_include_directories(unit-tests PUBLIC include
@@ -64,6 +65,8 @@ target_link_libraries(unit-tests
 	${blosc_LIB}
 	bpcodec
 	${Boost_LIBRARIES}
+    Boost::log
+    Boost::log_setup
 )
 
 

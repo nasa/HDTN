@@ -6,7 +6,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "logging.hpp"
+#include "Logger.h"
 #include "message.hpp"
 #include "reg.hpp"
 

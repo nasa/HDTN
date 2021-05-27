@@ -7,7 +7,6 @@
 #include <boost/lexical_cast.hpp>
 #include "reg.hpp"
 
-
 void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false; //do this first
@@ -57,6 +56,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             }
             if (useTcpcl && useStcp) {
                 std::cerr << "ERROR: cannot use both tcpcl and stcp" << std::endl;
+                hdtn::Logger::getInstance()->logError("egress", "Attempt to use both tcpcl and stcp");
                 return false;
             }
 
@@ -66,20 +66,24 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
+            hdtn::Logger::getInstance()->logError("egress", "Invalid data error: " + std::string(e.what()));
             std::cout << desc << "\n";
             return false;
         }
         catch (std::exception& e) {
             std::cerr << "error: " << e.what() << "\n";
+            hdtn::Logger::getInstance()->logError("egress", "Error: " + std::string(e.what()));
             return false;
         }
         catch (...) {
             std::cerr << "Exception of unknown type!\n";
+            hdtn::Logger::getInstance()->logError("egress", "Exception of unknown type!");
             return false;
         }
 
 
         std::cout << "starting EgressAsync.." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("egress", "Starting EgressAsync");
         hdtn::HdtnRegsvr regsvr;
         regsvr.Init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
         regsvr.Reg();
@@ -88,10 +92,12 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
                 const hdtn::HdtnEntry & entry = *it;
                 std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
+                hdtn::Logger::getInstance()->logInfo("egress", std::string(entry.address) + ":" + std::to_string(entry.port) + ":" + entry.mode);
             }
         }
         else {
             std::cerr << "error: null registration query" << std::endl;
+            hdtn::Logger::getInstance()->logError("egress", "Error: null registration query");
             return 1;
         }
         hdtn::HegrManagerAsync egress;
@@ -107,6 +113,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             return 0;  // error message prints in add function
         }
         printf("Announcing presence of egress ...\n");
+        hdtn::Logger::getInstance()->logNotification("egress", "Egress Present");
         for (int i = 0; i < 8; ++i) {
             egress.Up(i);
         }
@@ -115,15 +122,13 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             sigHandler.Start(false);
         }
         std::cout << "egress up and running" << std::endl;
+        hdtn::Logger::getInstance()->logNotification("egress", "Egress up and running.");
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
         }
-
-        
-
 
         std::cout << "EgressAsyncRunner: exiting cleanly..\n";
         egress.Stop();
@@ -132,5 +137,6 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         m_messageCount = egress.m_messageCount;
     }
     std::cout << "EgressAsyncRunner: exited cleanly\n";
+    hdtn::Logger::getInstance()->logNotification("egress", "EgressAsyncRunner: Exited cleanly");
     return true;
 }

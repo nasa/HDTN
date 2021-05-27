@@ -66,6 +66,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
+            hdtn::Logger::getInstance()->logError("storage", "Invalid data error: " + std::string(e.what()));
             std::cout << desc << "\n";
             return false;
         }
@@ -97,6 +98,8 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             sigHandler.Start(false);
         }
         std::cout << "storage up and running" << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "Storage up and running");
+
         while (running && m_runningFromSigHandler) {            
             m_storagePtr->update();
             if (useSignalHandler) {
@@ -125,5 +128,6 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
     }
     std::cout << "StorageRunner: exited cleanly\n";
+    hdtn::Logger::getInstance()->logNotification("storage", "StorageRunner: exited cleanly");
     return true;
 }

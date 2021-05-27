@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "store.hpp"
+#include "Logger.h"
 
 class StorageRunner {
 public:
