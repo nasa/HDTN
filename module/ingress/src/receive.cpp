@@ -384,7 +384,7 @@ void BpIngressSyscall::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBund
 
 void BpIngressSyscall::StartTcpAccept() {
     std::cout << "waiting for tcp connections\n";
-    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_tcpAcceptorPtr->get_executor()); //get_io_service() is deprecated: Use get_executor()
+    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
 
     m_tcpAcceptorPtr->async_accept(*newTcpSocketPtr,
         boost::bind(&BpIngressSyscall::HandleTcpAccept, this, newTcpSocketPtr,
@@ -400,7 +400,7 @@ void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::s
         //    std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
         //}
         if (m_useTcpcl) {
-            std::unique_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr,
+            std::unique_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr, m_ioService,
                                                                                                    boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                                                    200, 20000, "ingress");
             m_listTcpclBundleSinkPtrs.push_back(std::move(bundleSinkPtr));

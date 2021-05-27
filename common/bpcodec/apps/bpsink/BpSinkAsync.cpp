@@ -233,7 +233,7 @@ void BpSinkAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec
 
 void BpSinkAsync::StartTcpAccept() {
     std::cout << "waiting for tcp connections\n";
-    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_tcpAcceptor.get_executor()); //get_io_service() is deprecated: Use get_executor()
+    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
 
     m_tcpAcceptor.async_accept(*newTcpSocketPtr,
         boost::bind(&BpSinkAsync::HandleTcpAccept, this, newTcpSocketPtr,
@@ -248,7 +248,7 @@ void BpSinkAsync::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
                 std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
             }
 
-            m_tcpclBundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr,
+            m_tcpclBundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr, m_ioService,
                                                                        boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
                                                                        200, 20000, M_THIS_EID_STRING);
         }

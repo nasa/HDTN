@@ -2,6 +2,9 @@
 #include <iostream>
 #include "TimestampUtil.h"
 #include <immintrin.h>
+#if defined(__GNUC__)
+#include <x86intrin.h> // rdseed for older compilers
+#endif
 #include <inttypes.h>
 
 LtpRandomNumberGenerator::LtpRandomNumberGenerator() : m_birthdayParadoxPreventer_incrementalPart_U16(1) {
