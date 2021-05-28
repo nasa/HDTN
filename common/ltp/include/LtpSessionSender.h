@@ -8,24 +8,12 @@
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
 #include "LtpTimerManager.h"
+#include "LtpNoticesToClientService.h"
 
-//A transmission-session completion notice informs the client service
-//that all bytes of the indicated data block have been transmitted and
-//that the receiver has received the red - part of the block.
-typedef boost::function<void(const Ltp::session_id_t & sessionId)> TransmissionSessionCompletedCallback_t;
 
-//This notice informs the client service that all segments of a block
-//(both red - part and green - part) have been transmitted.This notice
-//only indicates that original transmission is complete; retransmission
-//of any lost red - part data segments may still be necessary.
-typedef boost::function<void(const Ltp::session_id_t & sessionId)> InitialTransmissionCompletedCallback_t;
 
-//A transmission-session cancellation notice informs the client service
-//that the indicated session was terminated, either by the receiver or
-//else due to an error or a resource quench condition in the local LTP
-//engine.There is no assurance that the destination client service
-//instance received any portion of the data block.
-typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode)> TransmissionSessionCancelledCallback_t;
+
+
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisSenderNeedsDeletedCallback_t;
 

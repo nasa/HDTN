@@ -17,6 +17,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         const std::string DESIRED_FULLY_GREEN_DATA_TO_SEND;
 
         uint64_t numRedPartReceptionCallbacks;
+        uint64_t numSessionStartSenderCallbacks;
+        uint64_t numSessionStartReceiverCallbacks;
         uint64_t numGreenPartReceptionCallbacks;
         uint64_t numReceptionSessionCancelledCallbacks;
         uint64_t numTransmissionSessionCompletedCallbacks;
@@ -26,6 +28,7 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         uint64_t numDestToSrcDataExchanged;
         CANCEL_SEGMENT_REASON_CODES lastRxCancelSegmentReasonCode;
         CANCEL_SEGMENT_REASON_CODES lastTxCancelSegmentReasonCode;
+        Ltp::session_id_t sessionIdFromSessionStartSender;
 
         Test() :
             ONE_WAY_LIGHT_TIME(boost::posix_time::seconds(10)),
@@ -39,21 +42,32 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE")
         {
+            engineDest.SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
             engineDest.SetRedPartReceptionCallback(boost::bind(&Test::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetGreenPartSegmentArrivalCallback(boost::bind(&Test::GreenPartSegmentArrivalCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
 
             engineDest.SetReceptionSessionCancelledCallback(boost::bind(&Test::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+            engineSrc.SetSessionStartCallback(boost::bind(&Test::SessionStartSenderCallback, this, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
             engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
         }
 
+        void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {
+            ++numSessionStartSenderCallbacks;
+            sessionIdFromSessionStartSender = sessionId;
+        }
+        void SessionStartReceiverCallback(const Ltp::session_id_t & sessionId) {
+            ++numSessionStartReceiverCallbacks;
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
+        }
         void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
             std::string receivedMessage(movableClientServiceDataVec.data(), movableClientServiceDataVec.data() + movableClientServiceDataVec.size());
             ++numRedPartReceptionCallbacks;
             BOOST_REQUIRE_EQUAL(receivedMessage, DESIRED_RED_DATA_TO_SEND);
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
             //std::cout << "receivedMessage: " << receivedMessage << std::endl;
             //std::cout << "here\n";
         }
@@ -66,20 +80,25 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             else {
                 BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], 'G');
             }
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
         }
         void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
             lastRxCancelSegmentReasonCode = reasonCode;
             ++numReceptionSessionCancelledCallbacks;
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
         }
         void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
             ++numTransmissionSessionCompletedCallbacks;
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
         }
         void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
             ++numInitialTransmissionCompletedCallbacks;
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
         }
         void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
             lastTxCancelSegmentReasonCode = reasonCode;
             ++numTransmissionSessionCancelledCallbacks;
+            BOOST_REQUIRE(sessionId == sessionIdFromSessionStartSender);
         }
 
         static bool SendData(LtpEngine & src, LtpEngine & dest, bool simulateDrop = false, bool swapHeader = false, LTP_SEGMENT_TYPE_FLAGS headerReplacement = LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
@@ -104,11 +123,14 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             numSrcToDestDataExchanged = 0;
             numDestToSrcDataExchanged = 0;
             numRedPartReceptionCallbacks = 0;
+            numSessionStartSenderCallbacks = 0;
+            numSessionStartReceiverCallbacks = 0;
             numGreenPartReceptionCallbacks = 0;
             numReceptionSessionCancelledCallbacks = 0;
             numTransmissionSessionCompletedCallbacks = 0;
             numInitialTransmissionCompletedCallbacks = 0;
             numTransmissionSessionCancelledCallbacks = 0;
+            sessionIdFromSessionStartSender = 0; //sets all fields to 0
         }
 
         //returns false when no data exchanged
@@ -145,6 +167,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for Report ack
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 1); //1 for Report segment
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -166,6 +190,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 3); //+3 for 2 Report acks and 1 resend
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -187,6 +213,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -209,6 +237,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 12); //+12 for 10 Report acks (see next line) and 2 resends
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 10); // 44/5=8 + (1 eobCp at 44) + 1 retrans report 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -230,6 +260,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 13); //+13 for 11 Report acks (see next line) and 2 resends
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 11); // 44/5=8 + (1 eobCp at 44) + 1 retrans report TODO not sure why 11 yet
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -251,6 +283,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_AND_GREEN_DATA_TO_SEND.size() + 1); //+1 for Report ack
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 1); //1 for Report segment
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 3);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -272,6 +306,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 0);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -294,6 +330,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, 4+1); //+1 for cancel segment to reach
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 1); //1 for cancel segment
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastRxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);
@@ -318,6 +356,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             //BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 6); //+1 for cancel segment to reach
             BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //1 rs and 1 cancel segment
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastRxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);

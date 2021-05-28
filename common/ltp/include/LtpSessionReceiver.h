@@ -8,50 +8,7 @@
 #include <list>
 #include <set>
 #include <boost/asio.hpp>
-
-//7.2.  Green-Part Segment Arrival
-//The following parameters are provided by the LTP engine when a green -
-//part segment arrival notice is delivered :
-//
-//Session ID of the transmission session.
-//
-//Array of client service data bytes contained in the data segment.
-//
-//Offset of the data segment's content from the start of the block.
-//
-//Length of the data segment's content. (shall be included in the vector size() function)
-//
-//Indication as to whether or not the last byte of this data
-//segment's content is also the end of the block.
-//
-//Source LTP engine ID.
-typedef boost::function<void(const Ltp::session_id_t & sessionId,
-    std::vector<uint8_t> & movableClientServiceDataVec, uint64_t offsetStartOfBlock,
-    uint64_t clientServiceId, bool isEndOfBlock)> GreenPartSegmentArrivalCallback_t;
-
-//7.3.  Red-Part Reception
-//The following parameters are provided by the LTP engine when a red -
-//part reception notice is delivered :
-//Session ID of the transmission session.
-//
-//Array of client service data bytes that constitute the red - part of
-//the block.
-//
-//Length of the red - part of the block.
-//
-//Indication as to whether or not the last byte of the red - part is
-//also the end of the block.
-//
-//Source LTP engine ID.
-typedef boost::function<void(const Ltp::session_id_t & sessionId,
-    std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)> RedPartReceptionCallback_t;
-
-//A reception-session cancellation notice informs the client service
-//that the indicated session was terminated, either by the sender or
-//else due to an error or a resource quench condition in the local LTP
-//engine.No subsequent delivery notices will be issued for this
-//session.
-typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode)> ReceptionSessionCancelledCallback_t;
+#include "LtpNoticesToClientService.h"
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
 

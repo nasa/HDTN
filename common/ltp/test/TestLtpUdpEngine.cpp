@@ -20,6 +20,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         boost::mutex::scoped_lock cvLock;
 
         uint64_t numRedPartReceptionCallbacks;
+        uint64_t numSessionStartSenderCallbacks;
+        uint64_t numSessionStartReceiverCallbacks;
         uint64_t numGreenPartReceptionCallbacks;
         uint64_t numReceptionSessionCancelledCallbacks;
         uint64_t numTransmissionSessionCompletedCallbacks;
@@ -28,7 +30,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_receptionSessionCancelledCallback;
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_transmissionSessionCancelledCallback;
-        Ltp::session_id_t lastSessionId_initialTransmissionCompletedCallback;
+        Ltp::session_id_t lastSessionId_sessionStartSenderCallback;
 
         Test() :
             ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(500)),
@@ -43,11 +45,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
             cvLock(cvMutex)
         {
+            engineDest.SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
             engineDest.SetRedPartReceptionCallback(boost::bind(&Test::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetGreenPartSegmentArrivalCallback(boost::bind(&Test::GreenPartSegmentArrivalCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetReceptionSessionCancelledCallback(boost::bind(&Test::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+            engineSrc.SetSessionStartCallback(boost::bind(&Test::SessionStartSenderCallback, this, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
             engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
@@ -59,10 +63,19 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             }
         }
 
+        void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {
+            ++numSessionStartSenderCallbacks;
+            lastSessionId_sessionStartSenderCallback = sessionId;
+        }
+        void SessionStartReceiverCallback(const Ltp::session_id_t & sessionId) {
+            ++numSessionStartReceiverCallbacks;
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+        }
         void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
             std::string receivedMessage(movableClientServiceDataVec.data(), movableClientServiceDataVec.data() + movableClientServiceDataVec.size());
             ++numRedPartReceptionCallbacks;
             BOOST_REQUIRE_EQUAL(receivedMessage, DESIRED_RED_DATA_TO_SEND);
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             cv.notify_one();
             //std::cout << "receivedMessage: " << receivedMessage << std::endl;
             //std::cout << "here\n";
@@ -76,23 +89,27 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             else {
                 BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], 'G');
             }
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             cv.notify_one();
         }
         void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
             ++numReceptionSessionCancelledCallbacks;
             lastReasonCode_receptionSessionCancelledCallback = reasonCode;
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
         }
         void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
             ++numTransmissionSessionCompletedCallbacks;
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             cv.notify_one();
         }
         void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
-            lastSessionId_initialTransmissionCompletedCallback = sessionId;
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             ++numInitialTransmissionCompletedCallbacks;
         }
         void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
             ++numTransmissionSessionCancelledCallbacks;
             lastReasonCode_transmissionSessionCancelledCallback = reasonCode;
+            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
         }
 
         void Reset() {
@@ -101,11 +118,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             engineSrc.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             engineDest.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             numRedPartReceptionCallbacks = 0;
+            numSessionStartSenderCallbacks = 0;
+            numSessionStartReceiverCallbacks = 0;
             numGreenPartReceptionCallbacks = 0;
             numReceptionSessionCancelledCallbacks = 0;
             numTransmissionSessionCompletedCallbacks = 0;
             numInitialTransmissionCompletedCallbacks = 0;
             numTransmissionSessionCancelledCallbacks = 0;
+            lastSessionId_sessionStartSenderCallback = 0; //sets all fields to 0
         }
         void AssertNoActiveSendersAndReceivers() {
             BOOST_REQUIRE_EQUAL(engineSrc.NumActiveSenders(), 0);
@@ -145,6 +165,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -177,6 +199,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 3);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -209,6 +233,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -261,6 +287,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -310,6 +338,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -371,6 +401,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -432,6 +464,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -481,6 +515,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -534,6 +570,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -651,6 +689,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
@@ -698,6 +738,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
@@ -733,7 +775,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
             }
-            engineDest.CancellationRequest_ThreadSafe(lastSessionId_initialTransmissionCompletedCallback); //cancel from receiver
+            engineDest.CancellationRequest_ThreadSafe(lastSessionId_sessionStartSenderCallback); //cancel from receiver
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
@@ -745,6 +787,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             //BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
@@ -781,7 +825,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
             }
-            engineSrc.CancellationRequest_ThreadSafe(lastSessionId_initialTransmissionCompletedCallback); //cancel from sender
+            engineSrc.CancellationRequest_ThreadSafe(lastSessionId_sessionStartSenderCallback); //cancel from sender
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
@@ -793,6 +837,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);

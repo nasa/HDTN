@@ -8,6 +8,7 @@
 #include "LtpRandomNumberGenerator.h"
 #include "LtpSessionReceiver.h"
 #include "LtpSessionSender.h"
+#include "LtpNoticesToClientService.h"
 
 class LtpEngine {
 private:
@@ -42,6 +43,7 @@ public:
     bool CancellationRequest(const Ltp::session_id_t & sessionId);
     void CancellationRequest_ThreadSafe(const Ltp::session_id_t & sessionId);
     
+    void SetSessionStartCallback(const SessionStartCallback_t & callback);
     void SetRedPartReceptionCallback(const RedPartReceptionCallback_t & callback);
     void SetGreenPartSegmentArrivalCallback(const GreenPartSegmentArrivalCallback_t & callback);
     void SetReceptionSessionCancelledCallback(const ReceptionSessionCancelledCallback_t & callback);
@@ -103,6 +105,7 @@ private:
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator m_sendersIterator;
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator m_receiversIterator;
 
+    SessionStartCallback_t m_sessionStartCallback;
     RedPartReceptionCallback_t m_redPartReceptionCallback;
     GreenPartSegmentArrivalCallback_t m_greenPartSegmentArrivalCallback;
     ReceptionSessionCancelledCallback_t m_receptionSessionCancelledCallback;

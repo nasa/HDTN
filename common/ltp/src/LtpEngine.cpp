@@ -249,6 +249,11 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1), m_checkpointEveryNthDataPacketSender);
     //revalidate iterator
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
+
+    if (m_sessionStartCallback) {
+        //At the sender, the session start notice informs the client service of the initiation of the transmission session.
+        m_sessionStartCallback(senderSessionId);
+    }
 }
 void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart) {  //only called directly by unit test (not thread safe)
     TransmissionRequest(destinationClientServiceId, destinationLtpEngineId, std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length), lengthOfRedPart);
@@ -598,11 +603,19 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         rxSessionIt = res.first;
         //revalidate iterator
         m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+
+        if (m_sessionStartCallback) {
+            //At the receiver, this notice indicates the beginning of a new reception session, and is delivered upon arrival of the first data segment carrying a new session ID.
+            m_sessionStartCallback(sessionId);
+        }
     }
     rxSessionIt->second->DataSegmentReceivedCallback(segmentTypeFlags, clientServiceDataVec, dataSegmentMetadata, headerExtensions, trailerExtensions, m_redPartReceptionCallback, m_greenPartSegmentArrivalCallback);
     TrySendPacketIfAvailable();
 }
 
+void LtpEngine::SetSessionStartCallback(const SessionStartCallback_t & callback) {
+    m_sessionStartCallback = callback;
+}
 void LtpEngine::SetRedPartReceptionCallback(const RedPartReceptionCallback_t & callback) {
     m_redPartReceptionCallback = callback;
 }
