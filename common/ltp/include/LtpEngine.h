@@ -27,13 +27,14 @@ public:
         uint8_t retryCount;
     };
     
-    LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, 
+    LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false);
 
     virtual ~LtpEngine();
 
     virtual void Reset();
     void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
+    void SetMtuReportSegment(uint64_t mtuReportSegment);
 
     void TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest);
     void TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest);
@@ -114,6 +115,7 @@ private:
     TransmissionSessionCancelledCallback_t m_transmissionSessionCancelledCallback;
 
     uint64_t m_checkpointEveryNthDataPacketSender;
+    uint64_t m_maxReceptionClaims;
 
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;

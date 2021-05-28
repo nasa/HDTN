@@ -4,14 +4,14 @@
 #include <boost/bind.hpp>
 #include <boost/make_shared.hpp>
 
-LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MTU, const uint64_t ESTIMATED_BYTES_TO_RECEIVE,
+LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS, const uint64_t ESTIMATED_BYTES_TO_RECEIVE,
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
     const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisReceiversTimersProducedDataFunction) :
     m_timeManagerOfReportSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
-    M_MTU(MTU),
+    M_MAX_RECEPTION_CLAIMS(MAX_RECEPTION_CLAIMS),
     M_ESTIMATED_BYTES_TO_RECEIVE(ESTIMATED_BYTES_TO_RECEIVE),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
@@ -263,41 +263,66 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 }
             }
 
-            Ltp::report_segment_t reportSegment;
-            if (!LtpFragmentMap::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegment, lowerBound, upperBound)) {
+            std::vector<Ltp::report_segment_t> reportSegmentsVec(1);
+            if (!LtpFragmentMap::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegmentsVec[0], lowerBound, upperBound)) {
                 std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot populate report segment\n";
             }
             
-
-            //The value of the checkpoint serial number MUST be zero if the
-            //report segment is NOT a response to reception of a checkpoint,
-            //i.e., the reception report is asynchronous; otherwise, it MUST be
-            //the checkpoint serial number of the checkpoint that caused the RS
-            //to be issued.
-            reportSegment.checkpointSerialNumber = *dataSegmentMetadata.checkpointSerialNumber;
-
-            //The report serial number uniquely identifies the report among all
-            //reports issued by the receiver in a session.The first report
-            //issued by the receiver MUST have this serial number chosen
-            //randomly for security reasons, and it is RECOMMENDED that the
-            //receiver use the guidelines in[ESC05] for this.Any subsequent
-            //RS issued by the receiver MUST have the serial number value found
-            //by incrementing the last report serial number by 1.  When an RS is
-            //retransmitted however, its serial number MUST be the same as when
-            //it was originally transmitted.The report serial number MUST NOT
-            //be zero.
-            const uint64_t rsn = m_nextReportSegmentReportSerialNumber++;
-            reportSegment.reportSerialNumber = rsn;
-            //std::cout << "reportSegment for lb: " << lowerBound << " and ub: " << upperBound << std::endl << reportSegment << std::endl;
-            //LtpFragmentMap::PrintFragmentSet(m_receivedDataFragmentsSet);
-            
-
-            if (!checkpointIsResponseToReportSegment) {
-                m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
+            if (reportSegmentsVec[0].receptionClaims.size() > M_MAX_RECEPTION_CLAIMS) {
+                //3.2.  Retransmission
+                //
+                //... The maximum size of a report segment, like
+                //all LTP segments, is constrained by the data - link MTU; if many non -
+                //contiguous segments were lost in a large block transmission and/or
+                //the data - link MTU was relatively small, multiple report segments need
+                //to be generated.  In this case, LTP generates as many report segments
+                //as are necessary and splits the scope of red - part data covered across
+                //multiple report segments so that each of them may stand on their own.
+                //For example, if three report segments are to be generated as part of
+                //a reception report covering red - part data in range[0:1,000,000],
+                //they could look like this: RS 19, scope[0:300,000], RS 20, scope
+                //[300,000:950,000], and RS 21, scope[950,000:1,000,000].  In all
+                //cases, a timer is started upon transmission of each report segment of
+                //the reception report.
+                std::vector<Ltp::report_segment_t> reportSegmentsSplitVec;
+                LtpFragmentMap::SplitReportSegment(reportSegmentsVec[0], reportSegmentsSplitVec, M_MAX_RECEPTION_CLAIMS);
+                std::cout << "splitting 1 report segment with " << reportSegmentsVec[0].receptionClaims.size() << " reception claims into "
+                    << reportSegmentsSplitVec.size() << " report segments with no more than " << M_MAX_RECEPTION_CLAIMS << " reception claims per report segment" << std::endl;
+                reportSegmentsVec = std::move(reportSegmentsSplitVec);
             }
-            m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
-            //std::cout << "queue send rsn " << rsn << "\n";
-            m_reportSerialNumbersToSendList.push_back(std::pair<uint64_t, uint8_t>(rsn, 1)); //initial retryCount of 1
+
+            for (std::vector<Ltp::report_segment_t>::iterator it = reportSegmentsVec.begin(); it != reportSegmentsVec.end(); ++it) {
+                Ltp::report_segment_t & reportSegment = *it;
+
+                //The value of the checkpoint serial number MUST be zero if the
+                //report segment is NOT a response to reception of a checkpoint,
+                //i.e., the reception report is asynchronous; otherwise, it MUST be
+                //the checkpoint serial number of the checkpoint that caused the RS
+                //to be issued.
+                reportSegment.checkpointSerialNumber = *dataSegmentMetadata.checkpointSerialNumber;
+
+                //The report serial number uniquely identifies the report among all
+                //reports issued by the receiver in a session.The first report
+                //issued by the receiver MUST have this serial number chosen
+                //randomly for security reasons, and it is RECOMMENDED that the
+                //receiver use the guidelines in[ESC05] for this.Any subsequent
+                //RS issued by the receiver MUST have the serial number value found
+                //by incrementing the last report serial number by 1.  When an RS is
+                //retransmitted however, its serial number MUST be the same as when
+                //it was originally transmitted.The report serial number MUST NOT
+                //be zero.
+                const uint64_t rsn = m_nextReportSegmentReportSerialNumber++;
+                reportSegment.reportSerialNumber = rsn;
+                //std::cout << "reportSegment for lb: " << lowerBound << " and ub: " << upperBound << std::endl << reportSegment << std::endl;
+                //LtpFragmentMap::PrintFragmentSet(m_receivedDataFragmentsSet);
+
+                if (!checkpointIsResponseToReportSegment) {
+                    m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
+                }
+                m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
+                //std::cout << "queue send rsn " << rsn << "\n";
+                m_reportSerialNumbersToSendList.push_back(std::pair<uint64_t, uint8_t>(rsn, 1)); //initial retryCount of 1
+            }
         }
         //std::cout << "m_lengthOfRedPart " << m_lengthOfRedPart << " m_receivedDataFragmentsSet.size() " << m_receivedDataFragmentsSet.size() << std::endl;
         if ((!m_didRedPartReceptionCallback) && (m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {

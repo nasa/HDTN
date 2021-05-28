@@ -204,4 +204,167 @@ BOOST_AUTO_TEST_CASE(LtpFragmentMapTestCase)
         reportSegment.upperBound = 6000; //increase upper bound
         BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 3001, std::vector<rc>({ rc(999,500) })));
     }
+
+
+    //LARGE REPORT SEGMENTS NEEDING SPLIT UP
+    {
+        rs tooLargeReportSegment;
+        const std::set<df> originalReceivedFragments({ df(10,19), df(30,39), df(50,59), df(65,69), df(75,89), df(100,109), df(120,129), df(140,149), df(160,169), df(180,189) });
+        BOOST_REQUIRE(LtpFragmentMap::PopulateReportSegment(originalReceivedFragments, tooLargeReportSegment, 5));
+        tooLargeReportSegment.upperBound = 6000; //increase upper bound
+        BOOST_REQUIRE_EQUAL(tooLargeReportSegment, rs(0, 0, 6000, 5, std::vector<rc>({ rc(5,10), rc(25,10), rc(45,10), rc(60,5), rc(70,15), rc(95,10), rc(115,10), rc(135,10), rc(155,10), rc(175,10) })));
+
+        //split size 1
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 1));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 10);
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 20, 5, std::vector<rc>({ rc(5,10)})),
+                rs(0, 0, 40, 20, std::vector<rc>({ rc(10,10)})),
+                rs(0, 0, 60, 40, std::vector<rc>({ rc(10,10)})),
+                rs(0, 0, 70, 60, std::vector<rc>({ rc(5,5)})),
+                rs(0, 0, 90, 70, std::vector<rc>({ rc(5,15)})),
+                rs(0, 0, 110, 90, std::vector<rc>({ rc(10,10)})),
+                rs(0, 0, 130, 110, std::vector<rc>({ rc(10,10)})),
+                rs(0, 0, 150, 130, std::vector<rc>({ rc(10,10)})),
+                rs(0, 0, 170, 150, std::vector<rc>({ rc(10,10)})),
+                rs(0, 0, 6000, 170, std::vector<rc>({ rc(10,10)}))
+            };
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+
+        //split size 2
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 2));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 5); //ceil(10/2)
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 40, 5, std::vector<rc>({ rc(5,10), rc(25,10)})),
+                rs(0, 0, 70, 40, std::vector<rc>({ rc(10,10), rc(25,5)})),
+                rs(0, 0, 110, 70, std::vector<rc>({ rc(5,15), rc(30,10)})),
+                rs(0, 0, 150, 110, std::vector<rc>({ rc(10,10), rc(30,10)})),
+                rs(0, 0, 6000, 150, std::vector<rc>({ rc(10,10), rc(30,10)}))
+            };
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+
+        //split size 3
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 3));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 4); //ceil(10/3)
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 60, 5, std::vector<rc>({ rc(5,10), rc(25,10), rc(45,10)})),
+                rs(0, 0, 110, 60, std::vector<rc>({ rc(5,5), rc(15,15), rc(40,10)})),
+                rs(0, 0, 170, 110, std::vector<rc>({ rc(10,10), rc(30,10), rc(50,10)})),
+                rs(0, 0, 6000, 170, std::vector<rc>({ rc(10,10)}))
+            };
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+
+        //split size 4
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 4));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 3); //ceil(10/4)
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 70, 5, std::vector<rc>({ rc(5,10), rc(25,10), rc(45,10), rc(60,5)})),
+                rs(0, 0, 150, 70, std::vector<rc>({ rc(5,15), rc(30,10), rc(50,10), rc(70,10)})),
+                rs(0, 0, 6000, 150, std::vector<rc>({ rc(10,10), rc(30,10)}))
+            };
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+
+        //split size 5
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 5));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 2); //ceil(10/5)
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 90, 5, std::vector<rc>({ rc(5,10), rc(25,10), rc(45,10), rc(60,5), rc(70,15) })),
+                rs(0, 0, 6000, 90, std::vector<rc>({ rc(10,10), rc(30,10), rc(50,10), rc(70,10), rc(90,10)}))
+            };
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+
+        //split size 6
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 6));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 2); //ceil(10/6)
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 110, 5, std::vector<rc>({ rc(5,10), rc(25,10), rc(45,10), rc(60,5), rc(70,15), rc(95,10) })),
+                rs(0, 0, 6000, 110, std::vector<rc>({ rc(10,10), rc(30,10), rc(50,10), rc(70,10)}))
+            };            
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+
+        //split size 10
+        {
+            std::vector<rs> reportSegmentsVec;
+            BOOST_REQUIRE(LtpFragmentMap::SplitReportSegment(tooLargeReportSegment, reportSegmentsVec, 10));
+            BOOST_REQUIRE_EQUAL(reportSegmentsVec.size(), 1); //ceil(10/10)
+            //for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+            //    std::cout << "rs: " << reportSegmentsVec[i] << std::endl;
+            //}
+            const std::vector<rs> expectedRsVec = {
+                rs(0, 0, 6000, 5, std::vector<rc>({ rc(5,10), rc(25,10), rc(45,10), rc(60,5), rc(70,15), rc(95,10), rc(115,10), rc(135,10), rc(155,10), rc(175,10)} ))
+            };
+            BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
+            std::set<df> fragmentSet;
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                LtpFragmentMap::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+        }
+    }
 }

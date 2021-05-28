@@ -53,6 +53,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         uint64_t thisLtpEngineId;
         uint64_t remoteLtpEngineId;
         uint64_t ltpDataSegmentMtu;
+        uint64_t ltpReportSegmentMtu;
         uint64_t oneWayLightTimeMs;
         uint64_t oneWayMarginTimeMs;
         uint64_t clientServiceId;
@@ -70,6 +71,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("this-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "My LTP engine ID.")
                 ("remote-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "Remote LTP engine ID.")
                 ("ltp-data-segment-mtu", boost::program_options::value<uint64_t>()->default_value(1), "Max payload size (bytes) of sender's LTP data segment")
+                ("ltp-report-segment-mtu", boost::program_options::value<uint64_t>()->default_value(UINT64_MAX), "Approximate max size (bytes) of receiver's LTP report segment")
                 ("one-way-light-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
                 ("one-way-margin-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
                 ("client-service-id", boost::program_options::value<uint64_t>()->default_value(2), "Remote LTP engine ID.")
@@ -102,6 +104,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             thisLtpEngineId = vm["this-ltp-engine-id"].as<uint64_t>();
             remoteLtpEngineId = vm["remote-ltp-engine-id"].as<uint64_t>();
             ltpDataSegmentMtu = vm["ltp-data-segment-mtu"].as<uint64_t>();
+            ltpReportSegmentMtu = vm["ltp-report-segment-mtu"].as<uint64_t>();
             oneWayLightTimeMs = vm["one-way-light-time-ms"].as<uint64_t>();
             oneWayMarginTimeMs = vm["one-way-margin-time-ms"].as<uint64_t>();
             clientServiceId = vm["client-service-id"].as<uint64_t>();
@@ -178,7 +181,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             };
             SenderHelper senderHelper;
 
-            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0);
+            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0);
             engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&SenderHelper::InitialTransmissionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&SenderHelper::TransmissionSessionCancelledCallback, &senderHelper, boost::placeholders::_1, boost::placeholders::_2));
@@ -244,7 +247,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             ReceiverHelper receiverHelper;
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
-            LtpUdpEngine engineDest(thisLtpEngineId, 1, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, 100, 65535, estimatedFileSizeToReceive);
+            LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, 100, 65535, estimatedFileSizeToReceive);
             engineDest.SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));

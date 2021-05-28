@@ -120,6 +120,46 @@ bool LtpFragmentMap::PopulateReportSegment(const std::set<data_fragment_t> & fra
     return true;
 }
 
+bool LtpFragmentMap::SplitReportSegment(const Ltp::report_segment_t & originalTooLargeReportSegment, std::vector<Ltp::report_segment_t> & reportSegmentsVec, const uint64_t maxReceptionClaimsPerReportSegment) {
+    //3.2.  Retransmission
+    //
+    //... The maximum size of a report segment, like
+    //all LTP segments, is constrained by the data - link MTU; if many non -
+    //contiguous segments were lost in a large block transmission and/or
+    //the data - link MTU was relatively small, multiple report segments need
+    //to be generated.  In this case, LTP generates as many report segments
+    //as are necessary and splits the scope of red - part data covered across
+    //multiple report segments so that each of them may stand on their own.
+    //For example, if three report segments are to be generated as part of
+    //a reception report covering red - part data in range[0:1,000,000],
+    //they could look like this: RS 19, scope[0:300,000], RS 20, scope
+    //[300,000:950,000], and RS 21, scope[950,000:1,000,000].  In all
+    //cases, a timer is started upon transmission of each report segment of
+    //the reception report.
+    if (maxReceptionClaimsPerReportSegment == 0) {
+        return false;
+    }
+    reportSegmentsVec.resize(0);
+    reportSegmentsVec.reserve((originalTooLargeReportSegment.receptionClaims.size() / maxReceptionClaimsPerReportSegment) + 1);
+    const uint64_t originalLowerBound = originalTooLargeReportSegment.lowerBound;
+    uint64_t thisRsNewLowerBound = originalTooLargeReportSegment.lowerBound;
+    std::vector<Ltp::reception_claim_t>::const_iterator it = originalTooLargeReportSegment.receptionClaims.cbegin();
+    while (it != originalTooLargeReportSegment.receptionClaims.cend()) {
+        reportSegmentsVec.emplace_back();
+        Ltp::report_segment_t & rs = reportSegmentsVec.back();
+        rs.receptionClaims.reserve(maxReceptionClaimsPerReportSegment);
+        rs.lowerBound = thisRsNewLowerBound;
+        const uint64_t deltaLowerBound = thisRsNewLowerBound - originalLowerBound;
+        for (uint64_t i = 0; (i < maxReceptionClaimsPerReportSegment) && (it != originalTooLargeReportSegment.receptionClaims.cend()); ++it, ++i) {
+            rs.receptionClaims.emplace_back(it->offset - deltaLowerBound, it->length);
+            thisRsNewLowerBound = originalLowerBound + it->offset + it->length;
+            rs.upperBound = thisRsNewLowerBound; //next lower bound will be the last upper bound
+        }
+    }
+    reportSegmentsVec.back().upperBound = originalTooLargeReportSegment.upperBound;
+    return true;
+}
+
 void LtpFragmentMap::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment) {
     const uint64_t lowerBound = reportSegment.lowerBound;
     for (std::vector<Ltp::reception_claim_t>::const_iterator it = reportSegment.receptionClaims.cbegin(); it != reportSegment.receptionClaims.cend(); ++it) {

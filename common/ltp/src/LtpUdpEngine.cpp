@@ -1,10 +1,10 @@
 #include "LtpUdpEngine.h"
 #include <boost/make_unique.hpp>
 
-LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
+LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION) :
-    LtpEngine(thisEngineId, mtuClientServiceData, oneWayLightTime, oneWayMarginTime, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true),
+    LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true),
     M_MY_BOUND_UDP_PORT(udpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),

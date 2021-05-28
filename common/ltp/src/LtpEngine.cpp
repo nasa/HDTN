@@ -4,7 +4,7 @@
 #include <boost/bind.hpp>
 #include <boost/make_unique.hpp>
 
-LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
+LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -32,6 +32,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
         boost::placeholders::_4, boost::placeholders::_5, boost::placeholders::_6));
 
+    SetMtuReportSegment(mtuReportSegment);
     Reset();
 
     if (startIoServiceThread) {
@@ -67,6 +68,16 @@ void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEve
     m_checkpointEveryNthDataPacketSender = checkpointEveryNthDataPacketSender;
 }
 
+void LtpEngine::SetMtuReportSegment(uint64_t mtuReportSegment) {
+    //(5 * 10) + (receptionClaims.size() * (2 * 10)); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
+    //70 bytes worst case minimum for 1 claim
+    if (mtuReportSegment < 70) {
+        std::cerr << "error in LtpEngine::SetMtuReportSegment: mtuReportSegment must be at least 70 bytes!!!!.. setting to 70 bytes" << std::endl;
+        m_maxReceptionClaims = 1;
+    }
+    m_maxReceptionClaims = (mtuReportSegment - 50) / 20;
+    std::cout << "max reception claims = " << m_maxReceptionClaims << std::endl;
+}
 
 bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size) {
     std::string errorMessage;
@@ -130,7 +141,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             }
         }
         else {
-            std::cout << "error in LtpEngine::NextPacketToSendRoundRobin: could not find session sender to delete\n";
+            std::cout << "error in LtpEngine::NextPacketToSendRoundRobin: could not find session sender " << m_listSendersNeedingDeleted.front() << " to delete" << std::endl;
         }
         m_listSendersNeedingDeleted.pop_front();
     }
@@ -151,7 +162,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             }
         }
         else {
-            std::cout << "error in LtpEngine::NextPacketToSendRoundRobin: could not find session receiver to delete\n";
+            std::cout << "error in LtpEngine::NextPacketToSendRoundRobin: could not find session receiver " << m_listReceiversNeedingDeleted.front() << " to delete" << std::endl;
         }
         m_listReceiversNeedingDeleted.pop_front();
     }
@@ -589,7 +600,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
             randomNextReportSegmentReportSerialNumber = m_rng.GetRandom(m_randomDevice);
         }
-        std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, M_MTU_CLIENT_SERVICE_DATA, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+        std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
             boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));

@@ -38,8 +38,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
             CLIENT_SERVICE_ID_DEST(300),
-            engineSrc(ENGINE_ID_SRC, 1, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0),//1=> 1 CHARACTER AT A TIME
-            engineDest(ENGINE_ID_DEST, 1, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345),//1=> MTU NOT USED AT THIS TIME
+            engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
+            engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
@@ -65,6 +65,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
         void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {
             ++numSessionStartSenderCallbacks;
+
+            //On receiving this notice the client service may, for example, .. remember the
+            //session ID so that the session can be canceled in the future if necessary.
             lastSessionId_sessionStartSenderCallback = sessionId;
         }
         void SessionStartReceiverCallback(const Ltp::session_id_t & sessionId) {
@@ -143,6 +146,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(200));
             }
+            boost::this_thread::sleep(boost::posix_time::milliseconds(200)); //give extra 200ms before any non-thread-safe Reset() is called (Reset() should not be called in production)
         }
 
         void DoTest() {
@@ -849,6 +853,62 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
             BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
         }
+
+        void DoTestDropOddDataSegmentWithRsMtu() {
+            struct DropSimulation {
+                int count;
+                DropSimulation() : count(0) {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
+                        ++count;
+                        if ((count < 30) && (count & 1)) {
+                            //std::cout << "drop odd\n";
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            };
+            //expect:
+            //  max reception claims = 3
+            //  drop odd (printed 15x)                
+            //  splitting 1 report segment with 15 reception claims into 5 report segments with no more than 3 reception claims per report segment
+            Reset();
+            engineDest.SetMtuReportSegment(110); // 110 bytes will result in 3 reception claims max
+            AssertNoActiveSendersAndReceivers();
+            DropSimulation sim;
+            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 10; ++i) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                    break;
+                }
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+            }
+            TryWaitForNoActiveSendersAndReceivers();
+            AssertNoActiveSendersAndReceivers();
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 25); //+25 for 10 Report acks (see below) and 15 resends
+            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 10); //10 for 5 initial separately sentReport segments + 5 report segments of data complete as response to resends
+            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+
+            engineDest.SetMtuReportSegment(UINT64_MAX); //restore to default unlimited reception claims
+        }
         
     };
 
@@ -866,4 +926,5 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     t.DoTestDropRaAlwaysSrcToDest();
     t.DoTestReceiverCancelSession();
     t.DoTestSenderCancelSession();
+    t.DoTestDropOddDataSegmentWithRsMtu();
 }
