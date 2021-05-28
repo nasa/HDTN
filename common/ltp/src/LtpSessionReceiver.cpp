@@ -17,7 +17,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     M_CLIENT_SERVICE_ID(clientServiceId),
     m_lengthOfRedPart(UINT64_MAX),
     m_lowestGreenOffsetReceived(UINT64_MAX),
-    m_highestRedOffsetReceived(0),
+    m_currentRedLength(0),
     m_didRedPartReceptionCallback(false),
     m_didNotifyForDeletion(false),
     m_receivedEobFromGreenOrRed(false),
@@ -157,7 +157,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         m_receivedEobFromGreenOrRed = true;
     }
     if (isRedData) {
-        m_highestRedOffsetReceived = std::max(dataSegmentMetadata.offset, m_highestRedOffsetReceived);
+        m_currentRedLength = std::max(offsetPlusLength, m_currentRedLength);
         //6.21.  Handle Miscolored Segment
         //This procedure is triggered by the arrival of either(a) a red - part
         //data segment whose block offset begins at an offset higher than the
@@ -174,7 +174,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         //The Cancel Session procedure(Section 6.19) is invoked and a CR
         //segment with reason - code MISCOLORED SHOULD be enqueued for
         //transmission to the data sender.
-        if (dataSegmentMetadata.offset > m_lowestGreenOffsetReceived) {
+        if (m_currentRedLength > m_lowestGreenOffsetReceived) {
             //std::cout << "miscolored red\n";
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;
@@ -329,7 +329,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         //The Cancel Session procedure(Section 6.19) is invoked and a CR
         //segment with reason - code MISCOLORED SHOULD be enqueued for
         //transmission to the data sender.
-        if (dataSegmentMetadata.offset < m_highestRedOffsetReceived) {
+        if (m_currentRedLength > m_lowestGreenOffsetReceived) {
             //std::cout << "miscolored green\n";
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;

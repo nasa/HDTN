@@ -97,7 +97,7 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     uint64_t m_lengthOfRedPart;
     uint64_t m_lowestGreenOffsetReceived;
-    uint64_t m_highestRedOffsetReceived;
+    uint64_t m_currentRedLength;
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
