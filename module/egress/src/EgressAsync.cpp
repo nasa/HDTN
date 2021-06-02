@@ -1,3 +1,10 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ ****************************************************************************
+ */
+
 #include <string.h>
 
 #include "EgressAsync.h"
@@ -64,6 +71,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
     std::vector<zmq::message_t> & payloadMessages)
 {
     std::cout << "starting ProcessZmqMessagesThreadFunc with cb size " << headerMessages.size() << std::endl;
+    hdtn::Logger::getInstance()->logNotification("egress", "Starting ProcessZmqMessagesThreadFunc with cb size " + std::to_string(headerMessages.size()));
     std::size_t totalCustodyTransfersSentToStorage = 0;
     std::size_t totalCustodyTransfersSentToIngress = 0;
     
@@ -93,6 +101,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                 Forward(flowId, zmqMessage);
                 if (zmqMessage.size() != 0) {
                     std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
                 }
             }
             cb.CommitRead();
@@ -123,6 +132,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                         if (type == HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY) {
                             if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                                hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
                                 break;
                             }
                             ++totalCustodyTransfersSentToStorage;
@@ -131,6 +141,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                             //send ack message by echoing back the block
                             if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
+                                hdtn::Logger::getInstance()->logError("egress", "Error: zmq could not send ingress an ack from egress");
                                 break;
                             }
                             ++totalCustodyTransfersSentToIngress;
@@ -146,8 +157,11 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
     }
 
     std::cout << "ProcessZmqMessagesThreadFunc thread exiting\n";
+    hdtn::Logger::getInstance()->logNotification("egress", "ProcessZmqMessagesThreadFunc thread exiting");
     std::cout << "totalCustodyTransfersSentToStorage: " << totalCustodyTransfersSentToStorage << std::endl;
+    hdtn::Logger::getInstance()->logInfo("egress", "totalCustodyTransfersSentToStorage: " + std::to_string(totalCustodyTransfersSentToStorage));
     std::cout << "totalCustodyTransfersSentToIngress: " << totalCustodyTransfersSentToIngress << std::endl;
+    hdtn::Logger::getInstance()->logInfo("egress", "totalCustodyTransfersSentToIngress: " + std::to_string(totalCustodyTransfersSentToIngress));
 }
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
@@ -190,6 +204,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 const unsigned int writeIndex = cb.GetIndexForWrite();
                 if (writeIndex == UINT32_MAX) {
                     std::cerr << "error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full" << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full");
                     continue;
                 }
                 headerMessages[writeIndex] = boost::make_unique<hdtn::BlockHdr>();
@@ -197,11 +212,15 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 const zmq::recv_buffer_result_t res = sockets[itemIndex]->recv(zmq::mutable_buffer(hdrPtr.get(), sizeof(hdtn::BlockHdr)), zmq::recv_flags::none);
                 if (!res) {
                     std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr" << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr");
                     continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::BlockHdr))) {
                     std::cerr << "egress blockhdr message mismatch: untruncated = " << res->untruncated_size 
                         << " truncated = " << res->size << " expected = " << sizeof(hdtn::BlockHdr) << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Egress blockhdr message mismatch: untruncated = " + 
+                        std::to_string(res->untruncated_size) +  " truncated = " + std::to_string(res->size) + " expected = " + 
+                        std::to_string(sizeof(hdtn::BlockHdr)));
                     continue;
                 }
                 ++m_messageCount;
@@ -232,6 +251,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     processZmqMessagesThread.join();
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
+    hdtn::Logger::getInstance()->logNotification("egress", "HegrManagerAsync::ReadZmqThreadFunc thread exiting");
 }
 
 int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int port, uint64_t rateBitsPerSec) {
@@ -245,6 +265,7 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         }
         else {
             std::cerr << "ERROR, CANNOT SET STCP CALLBACK" << std::endl;
+            hdtn::Logger::getInstance()->logError("egress", "ERROR, CANNOT SET STCP CALLBACK");
         }
         m_entryMap[fec] = std::move(stcpEntry);
         m_entryMap[fec]->Disable();
@@ -259,6 +280,7 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         }
         else {
             std::cerr << "ERROR, CANNOT SET UDP CALLBACK" << std::endl;
+            hdtn::Logger::getInstance()->logError("egress", "ERROR, CANNOT SET UDP CALLBACK");
         }
         m_entryMap[fec] = std::move(udpEntry);
         m_entryMap[fec]->Disable();
@@ -272,6 +294,7 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         }
         else {
             std::cerr << "ERROR, CANNOT SET TCPCL CALLBACK" << std::endl;
+            hdtn::Logger::getInstance()->logError("egress", "ERROR, CANNOT SET TCPCL CALLBACK");
         }
         m_entryMap[fec] = std::move(tcpclEntry);
         m_entryMap[fec]->Disable();
@@ -390,12 +413,14 @@ void hdtn::HegrUdpEntryAsync::Update(uint64_t delta) {}
 
 int hdtn::HegrUdpEntryAsync::Enable() {
     printf("[%d] UDP egress port state set to UP - forwarding to ", (int)m_label);
+    hdtn::Logger::getInstance()->logNotification("egress", "[" + std::to_string(m_label) + "] UDP egress port state set to UP - forwarding to");
     m_flags |= HEGR_FLAG_UP;
     return 0;
 }
 
 int hdtn::HegrUdpEntryAsync::Disable() {
     printf("[%d] UDP egress port state set to DOWN.\n", (int)m_label);
+    hdtn::Logger::getInstance()->logNotification("egress", "[" + std::to_string(m_label) + "] UDP egress port state set to DOWN");
     m_flags &= (~HEGR_FLAG_UP);
     return 0;
 }
@@ -408,6 +433,7 @@ int hdtn::HegrUdpEntryAsync::Forward(zmq::message_t & zmqMessage) {
         return 1;
     }
     std::cerr << "link not ready to forward yet" << std::endl;
+    hdtn::Logger::getInstance()->logWarning("egress", "link not ready to forward yet");
     return 1;
 }
 

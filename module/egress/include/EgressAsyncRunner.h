@@ -2,6 +2,7 @@
 #define _EGRESS_ASYNC_RUNNER_H 1
 
 #include <stdint.h>
+#include "Logger.h"
 
 
 class EgressAsyncRunner {

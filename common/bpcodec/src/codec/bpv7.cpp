@@ -1,3 +1,12 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ ****************************************************************************
+ */
+
+
 #include "codec/bpv7.h"
 #include <cstdio>
 #include <cstring>

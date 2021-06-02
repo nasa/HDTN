@@ -1,3 +1,11 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ ****************************************************************************
+ */
+
 #ifdef BPV6_SDNV_CGOTO
 
 #include <assert.h>

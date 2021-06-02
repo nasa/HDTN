@@ -1,3 +1,10 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ ****************************************************************************
+ */
+
 #include <string.h>
 
 #include "EgressAsync.h"
@@ -44,12 +51,14 @@ void HegrStcpEntryAsync::Update(uint64_t delta) {
 
 int HegrStcpEntryAsync::Enable() {
     printf("[%d] Stcp egress port state set to UP - forwarding to ", (int)m_label);
+    hdtn::Logger::getInstance()->logNotification("egress", "[" + std::to_string(m_label) + "] UDP egress port state set to UP - forwarding to");
     m_flags |= HEGR_FLAG_UP;
     return 0;
 }
 
 int HegrStcpEntryAsync::Disable() {
     printf("[%d] Stcp egress port state set to DOWN.\n", (int)m_label);
+    hdtn::Logger::getInstance()->logNotification("egress", "[" + std::to_string(m_label) + "] UDP egress port state set to DOWN");
     m_flags &= (~HEGR_FLAG_UP);
     return 0;
 }
@@ -63,6 +72,7 @@ int HegrStcpEntryAsync::Forward(zmq::message_t & zmqMessage) {
 
     }
     std::cerr << "link not ready to forward yet" << std::endl;
+    hdtn::Logger::getInstance()->logWarning("egress", "Link not ready to forward yet");
     return 1;
 }
 

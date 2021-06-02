@@ -1,6 +1,12 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ ****************************************************************************
+ */
+
 #include <iostream>
 #include <vector>
-
 #include "store.hpp"
 #include "StorageRunner.h"
 #include "message.hpp"
@@ -42,12 +48,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-#ifdef USE_BRIAN_STORAGE
-                ("storage-config-json-file", boost::program_options::value<std::string>()->default_value("storageConfig.json"), "Listen on this TCP or UDP port.")
-#else
-                ("storage-path", boost::program_options::value<std::string>()->default_value("/home/hdtn/hdtn.store"), "Listen on this TCP or UDP port.")
-#endif // USE_BRIAN_STORAGE
-                ;
+                ("storage-config-json-file", boost::program_options::value<std::string>()->default_value("storageConfig.json"), "Listen on this TCP or UDP port.");
 
             boost::program_options::variables_map vm;
             boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
@@ -58,14 +59,11 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
                 return false;
             }
 
-#ifdef USE_BRIAN_STORAGE
             storePath = vm["storage-config-json-file"].as<std::string>();
-#else
-            storePath = vm["storage-path"].as<std::string>();
-#endif
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
+            hdtn::Logger::getInstance()->logError("storage", "Invalid data error: " + std::string(e.what()));
             std::cout << desc << "\n";
             return false;
         }
@@ -97,6 +95,8 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             sigHandler.Start(false);
         }
         std::cout << "storage up and running" << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "Storage up and running");
+
         while (running && m_runningFromSigHandler) {            
             m_storagePtr->update();
             if (useSignalHandler) {
@@ -125,5 +125,6 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
     }
     std::cout << "StorageRunner: exited cleanly\n";
+    hdtn::Logger::getInstance()->logNotification("storage", "StorageRunner: exited cleanly");
     return true;
 }
