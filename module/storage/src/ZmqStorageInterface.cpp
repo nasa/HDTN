@@ -1,3 +1,10 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ ****************************************************************************
+ */
+
 #include <math.h>
 
 #include <iostream>
@@ -5,7 +12,7 @@
 #include "message.hpp"
 #include "store.hpp"
 #include "BundleStorageManagerMT.h"
-#include "Logger.h"
+#include "../../../common/logger/include/Logger.h"
 #include <set>
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>

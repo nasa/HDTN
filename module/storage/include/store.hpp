@@ -7,7 +7,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 
-#include "cache.hpp"
+//#include "cache.hpp"
 #include "paths.hpp"
 #include "reg.hpp"
 #include "stats.hpp"
@@ -54,7 +54,7 @@ struct storageConfig {
     std::string worker;
     std::string releaseWorker;
 };
-#ifdef USE_BRIAN_STORAGE
+
 class ZmqStorageInterface {
    public:
     ZmqStorageInterface();
@@ -82,29 +82,6 @@ private:
     volatile bool m_running;
     WorkerStats m_workerStats;
 };
-#else
-class storage_worker {
-   public:
-    ~storage_worker();
-    void init(zmq::context_t *ctx, storageConfig config);
-    void launch();
-    void *execute(void *arg);
-    pthread_t *thread() { return &storageThread; }
-    void write(hdtn::BlockHdr *hdr, zmq::message_t *message);
-    void releaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock);
-    hdtn::WorkerStats stats() { return workerStats; }
-
-    std::size_t m_totalBundlesErasedFromStorage = 0;
-   private:
-    zmq::context_t *zmqContext;
-    pthread_t storageThread;
-    std::string root;
-    std::string queue;
-    char *outBuf;
-    hdtn::flow_store storeFlow;
-    hdtn::WorkerStats workerStats;
-};
-#endif
 
 
 class storage {
@@ -119,7 +96,6 @@ public:
     void c2telem();
     StorageStats *stats() { return &storageStats; }
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
-
     std::size_t m_totalBundlesErasedFromStorage = 0;
     std::size_t m_totalBundlesSentToEgressFromStorage = 0;
 
@@ -130,12 +106,7 @@ private:
     uint16_t port;
     std::unique_ptr<zmq::socket_t> m_workerSockPtr;
     std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
-#ifdef USE_BRIAN_STORAGE
     ZmqStorageInterface worker;
-#else
-    storage_worker worker;
-#endif
-
     StorageStats storageStats;
 };
 

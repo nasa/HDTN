@@ -1,3 +1,13 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ * Ingress- CL adapter that accepts traffic in bundle format
+ ****************************************************************************
+ */
+
+
 #include <iostream>
 #include "IngressAsyncRunner.h"
 #include "Logger.h"

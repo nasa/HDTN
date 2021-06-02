@@ -1,6 +1,6 @@
 #include <string.h>
 #include <stdio.h>
-#include <sys/socket.h>
+//#include <sys/socket.h>
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
