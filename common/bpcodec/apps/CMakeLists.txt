@@ -33,9 +33,9 @@ target_link_libraries(bpgen PUBLIC bpcodec)
 endif()
 
 add_executable(bpgen-async
-    bpgen/src/BpGenAsync.cpp
-    bpgen/src/BpGenAsyncMain.cpp
-	bpgen/src/BpGenAsyncRunner.cpp
+               bpgen/src/BpGenAsync.cpp
+    	       bpgen/src/BpGenAsyncMain.cpp
+               bpgen/src/BpGenAsyncRunner.cpp
 )
 
 target_include_directories(bpgen-async PUBLIC 
@@ -47,7 +47,7 @@ target_link_libraries(bpgen-async PUBLIC tcpcl_lib stcp_lib udp_lib bpcodec hdtn
 
 if (NOT WIN32)	
 	add_executable(bpsink
-		bpsink/bpsink.cpp
+	               bpsink/bpsink.cpp
 	)
 
 	target_include_directories(bpsink PUBLIC ../include)
@@ -55,9 +55,9 @@ if (NOT WIN32)
 endif()
 
 add_executable(bpsink-async
-    bpsink/BpSinkAsync.cpp
-    bpsink/BpSinkAsyncMain.cpp
-	bpsink/BpSinkAsyncRunner.cpp
+               bpsink/BpSinkAsync.cpp
+               bpsink/BpSinkAsyncMain.cpp
+	       bpsink/BpSinkAsyncRunner.cpp
 )
 
 target_include_directories(bpsink-async PUBLIC
@@ -69,7 +69,7 @@ target_link_libraries(bpsink-async PUBLIC tcpcl_lib stcp_lib udp_lib bpcodec hdt
 
 if (NOT WIN32)	
 	add_executable(bpreflect
-		bpreflect/bpreflect.cpp
+		       bpreflect/bpreflect.cpp
 	)
 
 

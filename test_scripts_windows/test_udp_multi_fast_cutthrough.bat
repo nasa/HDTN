@@ -1,7 +1,7 @@
 @Echo off
 
 CALL C:\Users\btomko\Anaconda3\Scripts\activate.bat C:\Users\btomko\Anaconda3
-START "RegServer" /D "%~dp0\common\regsvr" "cmd /k" "python" "main.py"
+START "RegServer" /D "%HDTN_SOURCE_ROOT%\common\regsvr" "cmd /k" "python" "main.py"
 timeout /t 3
 START "BpSink1" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpsink-async.exe" "--port=4557"
 timeout /t 3
