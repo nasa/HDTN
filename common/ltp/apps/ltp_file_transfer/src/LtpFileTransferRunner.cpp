@@ -58,6 +58,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         uint64_t oneWayMarginTimeMs;
         uint64_t clientServiceId;
         uint64_t estimatedFileSizeToReceive;
+        unsigned int numUdpRxPacketsCircularBufferSize;
+        unsigned int maxRxUdpPacketSizeBytes;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -72,6 +74,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("remote-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "Remote LTP engine ID.")
                 ("ltp-data-segment-mtu", boost::program_options::value<uint64_t>()->default_value(1), "Max payload size (bytes) of sender's LTP data segment")
                 ("ltp-report-segment-mtu", boost::program_options::value<uint64_t>()->default_value(UINT64_MAX), "Approximate max size (bytes) of receiver's LTP report segment")
+                ("num-rx-udp-packets-buffer-size", boost::program_options::value<unsigned int>()->default_value(100), "UDP max packets to receive (circular buffer size)")
+                ("max-rx-udp-packet-size-bytes", boost::program_options::value<unsigned int>()->default_value(UINT16_MAX), "Maximum size (bytes) of a UDP packet to receive (65KB safest option)")
                 ("one-way-light-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
                 ("one-way-margin-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
                 ("client-service-id", boost::program_options::value<uint64_t>()->default_value(2), "Remote LTP engine ID.")
@@ -109,7 +113,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             oneWayMarginTimeMs = vm["one-way-margin-time-ms"].as<uint64_t>();
             clientServiceId = vm["client-service-id"].as<uint64_t>();
             estimatedFileSizeToReceive = vm["estimated-rx-filesize"].as<uint64_t>();
-            
+            numUdpRxPacketsCircularBufferSize = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
+            maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -181,7 +186,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             };
             SenderHelper senderHelper;
 
-            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0);
+            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes);
             engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&SenderHelper::InitialTransmissionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&SenderHelper::TransmissionSessionCancelledCallback, &senderHelper, boost::placeholders::_1, boost::placeholders::_2));
@@ -247,7 +252,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             ReceiverHelper receiverHelper;
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
-            LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, 100, 65535, estimatedFileSizeToReceive);
+            LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes, estimatedFileSizeToReceive);
             engineDest.SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));

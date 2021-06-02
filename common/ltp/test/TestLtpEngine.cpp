@@ -222,6 +222,29 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
         }
 
+        void DoTestTwoDropsConsecutiveMtuContrainedSrcToDest() {
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            engineSrc.TransmissionRequest(CLIENT_SERVICE_ID_DEST, ENGINE_ID_DEST, (uint8_t*)DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.size(), DESIRED_RED_DATA_TO_SEND.size());
+            AssertOneActiveSenderOnly();
+            unsigned int count = 0;
+            while (ExchangeData((count == 10) || (count == 11), false)) {
+                ++count;
+            }
+            AssertNoActiveSendersAndReceivers();
+            //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            BOOST_REQUIRE_EQUAL(numSrcToDestDataExchanged, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends (2 resends instead of 1 because MTU should constrain)
+            BOOST_REQUIRE_EQUAL(numDestToSrcDataExchanged, 2); //2 for 2 Report segments
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+        }
+
         void DoTestTwoDropsSrcToDestRegularCheckpoints() {
             Reset();
             AssertNoActiveSendersAndReceivers();
@@ -372,6 +395,7 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
     t.DoTest();
     t.DoTestOneDropSrcToDest();
     t.DoTestTwoDropsSrcToDest();
+    t.DoTestTwoDropsConsecutiveMtuContrainedSrcToDest();
     t.DoTestTwoDropsSrcToDestRegularCheckpoints();
     t.DoTestTwoDropsSrcToDestRegularCheckpointsCpBoundary();
     t.DoTestRedAndGreenData();

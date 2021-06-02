@@ -13,6 +13,7 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_remoteEndpointsCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
+    m_udpReceiveDiscardBuffer(M_MAX_UDP_PACKET_SIZE_BYTES),
     m_readyToForward(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0)
@@ -65,18 +66,23 @@ void LtpUdpEngine::Reset() {
 void LtpUdpEngine::StartUdpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in LtpUdpEngine::StartUdpReceive(): buffers full.. UDP receiving will now stop!\n";
-        DoUdpShutdown();
-        return;
+        std::cerr << "LtpUdpEngine::StartUdpReceive(): buffers full.. Next UDP packet will be dropped!\n";
+        m_udpSocket.async_receive_from(
+            boost::asio::buffer(m_udpReceiveDiscardBuffer),
+            m_remoteEndpointDiscard,
+            boost::bind(&LtpUdpEngine::HandleUdpReceiveDiscard, this,
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
     }
-
-    m_udpSocket.async_receive_from(
-        boost::asio::buffer(m_udpReceiveBuffersCbVec[writeIndex]),
-        m_remoteEndpointsCbVec[writeIndex],
-        boost::bind(&LtpUdpEngine::HandleUdpReceive, this,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred,
-            writeIndex));
+    else {
+        m_udpSocket.async_receive_from(
+            boost::asio::buffer(m_udpReceiveBuffersCbVec[writeIndex]),
+            m_remoteEndpointsCbVec[writeIndex],
+            boost::bind(&LtpUdpEngine::HandleUdpReceive, this,
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred,
+                writeIndex));
+    }
 }
 
 void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
@@ -114,6 +120,28 @@ void LtpUdpEngine::HandleUdpReceive(const boost::system::error_code & error, std
     }
     else if (error != boost::asio::error::operation_aborted) {
         std::cerr << "critical error in LtpUdpEngine::HandleUdpReceive(): " << error.message() << std::endl;
+        DoUdpShutdown();
+    }
+}
+
+void LtpUdpEngine::HandleUdpReceiveDiscard(const boost::system::error_code & error, std::size_t bytesTransferred) {
+    if (!error) {
+        if (m_udpDestinationEndpoint != m_remoteEndpointDiscard) {
+            if (M_MY_BOUND_UDP_PORT != 0) { //i am the destination/server and don't know who i'm sending to yet
+                m_udpDestinationEndpoint = m_remoteEndpointDiscard;
+                std::cout << "notice: destination/server received udp from new client endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+            }
+            else {
+                std::cerr << "error: source/client received udp from unexpected server endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+                DoUdpShutdown();
+                return;
+            }
+        }
+
+        StartUdpReceive(); //restart operation only if there was no error
+    }
+    else if (error != boost::asio::error::operation_aborted) {
+        std::cerr << "critical error in LtpUdpEngine::HandleUdpReceiveDiscard(): " << error.message() << std::endl;
         DoUdpShutdown();
     }
 }

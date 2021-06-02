@@ -29,6 +29,7 @@ public:
 private:
     void StartUdpReceive();
     void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    void HandleUdpReceiveDiscard(const boost::system::error_code & error, std::size_t bytesTransferred);
     virtual void PacketInFullyProcessedCallback(bool success);
     virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
@@ -47,6 +48,8 @@ private:
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
+    std::vector<boost::uint8_t> m_udpReceiveDiscardBuffer;
+    boost::asio::ip::udp::endpoint m_remoteEndpointDiscard;
 
     volatile bool m_readyToForward;
 public:

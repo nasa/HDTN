@@ -55,7 +55,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!!" << std::endl;
+    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!! checkpointSerialNumber = " << checkpointSerialNumber << std::endl;
     ++m_numTimerExpiredCallbacks;
     if (userData.size() != sizeof(resend_fragment_t)) {
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
@@ -246,7 +246,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //matches that of an RS segment that has already been received and
     //processed -- then no further action is taken.
     if (m_reportSegmentSerialNumbersReceivedSet.insert(reportSegment.reportSerialNumber).second == false) { //serial number was not inserted (already exists)
-        std::cout << "serial number was not inserted (already exists)\n";
+        //std::cout << "serial number was not inserted (already exists)\n";
         return; //no work to do.. ignore this redundant report segment
     }
 
