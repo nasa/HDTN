@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-ingress)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost REQUIRED COMPONENTS system log log_setup)
 
 add_library(ingress_async_lib STATIC
 	src/receive.cpp

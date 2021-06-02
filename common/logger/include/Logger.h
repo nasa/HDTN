@@ -1,6 +1,6 @@
 #ifndef _HDTN_LOG_H
 #define _HDTN_LOG_H
-#define BOOST_LOG_DYN_LINK 1
+//#define BOOST_LOG_DYN_LINK 1
 
 #include <cstddef>
 #include <fstream>
