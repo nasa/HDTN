@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(unit-tests)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost REQUIRED COMPONENTS system log log_setup)
 
 
 if (WIN32)
@@ -65,8 +64,6 @@ target_link_libraries(unit-tests
 	${blosc_LIB}
 	bpcodec
 	${Boost_LIBRARIES}
-    Boost::log
-    Boost::log_setup
 )
 
 

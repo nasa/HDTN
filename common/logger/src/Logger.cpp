@@ -1,5 +1,5 @@
 #include "Logger.h"
-#define BOOST_LOG_DYN_LINK 1
+//#define BOOST_LOG_DYN_LINK 1
 
 
 namespace logging = boost::log;
