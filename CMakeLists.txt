@@ -10,6 +10,11 @@ if(WIN32)
     add_compile_definitions(_WIN32_WINNT=0x0A00)
 endif()
 
+#logging link type
+if(NOT Boost_USE_STATIC_LIBS)
+	add_compile_definitions(BOOST_LOG_DYN_LINK)
+endif()
+
 OPTION(SDNV_USE_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
 if(SDNV_USE_HARDWARE_ACCELERATION)
     add_compile_definitions(SDNV_USE_HARDWARE_ACCELERATION)
