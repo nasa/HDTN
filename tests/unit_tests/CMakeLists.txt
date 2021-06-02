@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(unit-tests)
 set(CMAKE_CXX_STANDARD 11)
-find_package(Boost REQUIRED COMPONENTS system log log_setup)
 
 add_executable(unit-tests
     src/test_main.cpp
