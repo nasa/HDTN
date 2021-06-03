@@ -66,12 +66,14 @@ bool hdtn::storage::init(const storageConfig & config) {
     while (!entries || entries->m_hdtnEntryList.empty()) {
         boost::this_thread::sleep(boost::posix_time::seconds(1));
         std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[storage] Waiting for available ingress system ...");
         entries = storeReg.Query("ingress");
     }
     const hdtn::HdtnEntryList_t & entryList = entries->m_hdtnEntryList;
 
     std::string remote = entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
     std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "[storage] Found available ingress: " + remote + " - connecting ...");
 
     m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
     try {
@@ -80,6 +82,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     }
     catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect ingress socket: " << ex.what() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "Error: cannot connect ingress socket: " + std::string(ex.what()));
         return false;
     }
 
@@ -88,12 +91,15 @@ bool hdtn::storage::init(const storageConfig & config) {
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);// config.releaseWorker);
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "");
         std::cout << "release sock connected to " << config.releaseWorker << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "Release sock connected to " + config.releaseWorker);
     } catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect release socket: " << ex.what() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "Error: cannot connect release socket: " + std::string(ex.what()));
         return false;
     }
 
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "[storage] Spinning up worker thread ...");
     m_workerSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
     m_workerSockPtr->bind(config.worker);
     worker.init(m_zmqContextPtr.get(), config);
@@ -101,11 +107,13 @@ bool hdtn::storage::init(const storageConfig & config) {
     zmq::message_t tmsg;
     if (!m_workerSockPtr->recv(tmsg, zmq::recv_flags::none)) {
         std::cerr << "[storage] Worker startup failed (no receive) - aborting ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[storage] Worker startup failed (no receive) - aborting ...");
         return false;
     }
     CommonHdr *notify = (CommonHdr *)tmsg.data();
     if (notify->type != HDTN_MSGTYPE_IOK) {
         std::cout << "[storage] Worker startup failed - aborting ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[storage] Worker startup failed - aborting ...");
         return false;
     }
     std::cout << "[storage] Verified worker startup." << std::endl;
@@ -128,6 +136,7 @@ void hdtn::storage::update() {
         }
         if (items[1].revents & ZMQ_POLLIN) {
             std::cout << "release" << std::endl;
+            hdtn::Logger::getInstance()->logNotification("storage", "release");
             scheduleRelease();
         }
         if (items[2].revents & ZMQ_POLLIN) {
@@ -140,10 +149,12 @@ void hdtn::storage::c2telem() {
     zmq::message_t message;
     if (!m_telemetrySockPtr->recv(message, zmq::recv_flags::none)) {
         std::cerr << "[c2telem] message not received" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[c2telem] message not received");
         return;
     }
     if (message.size() < sizeof(CommonHdr)) {
         std::cerr << "[c2telem] message too short: " << message.size() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[c2telem] message too short: " + std::to_string(message.size()));
         return;
     }
     CommonHdr *common = (CommonHdr *)message.data();
@@ -160,23 +171,27 @@ void hdtn::storage::scheduleRelease() {
     zmq::message_t message;
     if (!m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
         std::cerr << "[schedule release] message not received" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[schedule release] message not received");
         return;
     }
     if (message.size() < sizeof(CommonHdr)) {
         std::cerr << "[schedule release] message too short: " << message.size() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[schedule release] message too short: " + std::to_string(message.size()));
         return;
     }
-    hdtn::Logger::getInstance()->logNotification("storage", "Message received");
     std::cout << "message received\n";
+    hdtn::Logger::getInstance()->logNotification("storage", "Message received");
     CommonHdr *common = (CommonHdr *)message.data();
     switch (common->type) {
         case HDTN_MSGTYPE_IRELSTART:
             std::cout << "release data\n";
+            hdtn::Logger::getInstance()->logNotification("storage", "Release data");
             m_workerSockPtr->send(message, zmq::send_flags::none); //VERIFY this works over const_buffer message.data(), message.size(), 0); (tested and apparently it does)
             storageStats.worker = worker.stats();
             break;
         case HDTN_MSGTYPE_IRELSTOP:
             std::cout << "stop releasing data\n";
+            hdtn::Logger::getInstance()->logNotification("storage", "Stop releasing data");
             break;
     }
 }
@@ -185,6 +200,7 @@ void hdtn::storage::dispatch() {
     zmq::message_t message;
     if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(hdr, zmq::recv_flags::none)) {
         std::cerr << "[dispatch] message hdr not received" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[dispatch] message hdr not received");
         return;
     }
     storageStats.inBytes += hdr.size();
@@ -192,6 +208,7 @@ void hdtn::storage::dispatch() {
 
     if (hdr.size() < sizeof(CommonHdr)) {
         std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[dispatch] message too short: " + std::to_string(hdr.size()));
         return;
     }
     CommonHdr *common = (CommonHdr *)hdr.data();
@@ -200,6 +217,7 @@ void hdtn::storage::dispatch() {
         case HDTN_MSGTYPE_STORE:
             if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
                 std::cerr << "[dispatch] message not received" << std::endl;
+                hdtn::Logger::getInstance()->logError("storage", "[dispatch] message not received");
                 return;
             }
             //std::cout << "rxptr: " << (std::uintptr_t)(message.data()) << std::endl;
