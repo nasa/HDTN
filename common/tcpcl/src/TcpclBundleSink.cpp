@@ -5,6 +5,7 @@
 #include <boost/make_unique.hpp>
 
 TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
+                                 boost::asio::io_service & tcpSocketIoServiceRef,
                                  WholeBundleReadyCallback_t wholeBundleReadyCallback,
                                  //ConnectionClosedCallback_t connectionClosedCallback,
                                  const unsigned int numCircularBufferVectors,
@@ -14,10 +15,10 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
     //m_connectionClosedCallback(connectionClosedCallback),
     m_tcpSocketPtr(tcpSocketPtr),
-    m_noKeepAlivePacketReceivedTimer(tcpSocketPtr->get_executor()),
-    m_needToSendKeepAliveMessageTimer(tcpSocketPtr->get_executor()),
-    m_handleSocketShutdownCancelOnlyTimer(tcpSocketPtr->get_executor()),
-    m_sendShutdownMessageTimeoutTimer(tcpSocketPtr->get_executor()),
+    m_noKeepAlivePacketReceivedTimer(tcpSocketIoServiceRef),
+    m_needToSendKeepAliveMessageTimer(tcpSocketIoServiceRef),
+    m_handleSocketShutdownCancelOnlyTimer(tcpSocketIoServiceRef),
+    m_sendShutdownMessageTimeoutTimer(tcpSocketIoServiceRef),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
     M_CIRCULAR_BUFFER_BYTES_PER_VECTOR(circularBufferBytesPerVector),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),

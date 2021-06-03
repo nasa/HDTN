@@ -18,6 +18,7 @@ public:
     //typedef boost::function<void()> ConnectionClosedCallback_t;
 
     TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
+                    boost::asio::io_service & tcpSocketIoServiceRef,
                     WholeBundleReadyCallback_t wholeBundleReadyCallback,
                     //ConnectionClosedCallback_t connectionClosedCallback,
                     const unsigned int numCircularBufferVectors,

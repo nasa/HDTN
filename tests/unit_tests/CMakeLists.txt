@@ -5,8 +5,15 @@ set(CMAKE_CXX_STANDARD 11)
 add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
+	../../common/ltp/test/TestLtp.cpp
+	../../common/ltp/test/TestLtpFragmentMap.cpp
+	../../common/ltp/test/TestLtpRandomNumberGenerator.cpp
+	../../common/ltp/test/TestLtpEngine.cpp
+	../../common/ltp/test/TestLtpUdpEngine.cpp
+	../../common/ltp/test/TestLtpTimerManager.cpp
     ../../common/util/test/TestSdnv.cpp
-    ../../common/util/test/TestCircularIndexBuffer.cpp
+	../../common/util/test/TestCircularIndexBuffer.cpp
+	../../common/util/test/TestRateManagerAsync.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
     ../../module/storage/unit_tests/StorageConfigTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
@@ -34,10 +41,9 @@ target_link_libraries(unit-tests
 	hdtn_util
 	tcpcl_lib
 	stcp_lib
+	ltp_lib
 	storage_lib
-        ingress_async_lib
+    ingress_async_lib
 	bpcodec
 	${Boost_LIBRARIES}
-        Boost::log
-        Boost::log_setup
 )
