@@ -78,6 +78,7 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
 	m_totalStorageCapacityBytes = pt.get<boost::uint64_t>("totalStorageCapacityBytes", 0); //non-throw version
 	if (m_totalStorageCapacityBytes == 0) {
 		std::cerr << "error: totalStorageCapacityBytes must be defined and non-zero\n";
+        hdtn::Logger::getInstance()->logError("storage", "Error: totalStorageCapacityBytes must be defined and non-zero");
 		return false;
 	}
 	const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", boost::property_tree::ptree()); //non-throw version
@@ -89,6 +90,7 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
 		storageDiskConfig.storeFilePath = storageDiskConfigPt.second.get<std::string>("storeFilePath", ""); //non-throw version
 		if (storageDiskConfig.storeFilePath == "") {
 			std::cerr << "error: storeFilePath must be defined\n";
+            hdtn::Logger::getInstance()->logError("storage", "Error: storeFilePath must be defined");
 			return false;
 		}
 	}
@@ -102,6 +104,7 @@ StorageConfig_ptr StorageConfig::CreateFromJson(const std::string & jsonString) 
 	}
 	catch (boost::property_tree::json_parser_error & e) {
 		const std::string message = "In StorageConfig::CreateFromJson. Error: " + std::string(e.what());
+        hdtn::Logger::getInstance()->logError("storage", message);
 		std::cerr << message << std::endl;
 	}
 
@@ -114,6 +117,7 @@ StorageConfig_ptr StorageConfig::CreateFromJsonFile(const std::string & jsonFile
 	}
 	catch (boost::property_tree::json_parser_error & e) {
 		const std::string message = "In StorageConfig::CreateFromJsonFile. Error: " + std::string(e.what());
+        hdtn::Logger::getInstance()->logError("storage", message);
 		std::cerr << message << std::endl;
 	}
 

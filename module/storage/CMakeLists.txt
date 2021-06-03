@@ -8,10 +8,9 @@ add_executable(hdtn-storage
         src/StorageRunner.cpp
         src/main.cpp
         src/store.cpp
-	../../common/logger/src/Logger.cpp
 )
 
-target_link_libraries(hdtn-storage hdtn_reg bpcodec hdtn_util ${STORAGE_LIBRARY_NAME} ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES} log_lib)
+target_link_libraries(hdtn-storage hdtn_reg bpcodec hdtn_util log_lib ${STORAGE_LIBRARY_NAME} ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES} log_lib)
 
 target_include_directories(hdtn-storage PUBLIC
 	include
@@ -99,7 +98,7 @@ add_library(storage_lib STATIC
         src/ZmqStorageInterface.cpp
 )
 
-target_link_libraries(storage_lib hdtn_util hdtn_reg bpcodec ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
+target_link_libraries(storage_lib hdtn_util hdtn_reg bpcodec log_lib ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
 target_include_directories(storage_lib PUBLIC
         include
         ../../common/include

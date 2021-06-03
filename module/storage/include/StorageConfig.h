@@ -9,6 +9,7 @@
 #include <utility>
 #include <tuple>
 #include "JsonSerializable.h"
+#include "Logger.h"
 
 struct storage_disk_config_t {
     std::string name;
