@@ -242,7 +242,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
    On reception of a valid transmission request from a client service,
    LTP proceeds as follows.
    */
-void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart) { //only called directly by unit test (not thread safe)
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, LtpClientServiceDataToSend && clientServiceDataToSend, uint64_t lengthOfRedPart) { //only called directly by unit test (not thread safe)
 
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new

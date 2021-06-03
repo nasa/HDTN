@@ -9,6 +9,7 @@
 #include "LtpSessionReceiver.h"
 #include "LtpSessionSender.h"
 #include "LtpNoticesToClientService.h"
+#include "LtpClientServiceDataToSend.h"
 
 class LtpEngine {
 private:
@@ -17,7 +18,7 @@ public:
     struct transmission_request_t {
         uint64_t destinationClientServiceId;
         uint64_t destinationLtpEngineId;
-        std::vector<uint8_t> clientServiceDataToSend;
+        LtpClientServiceDataToSend clientServiceDataToSend;
         uint64_t lengthOfRedPart;
     };
     struct cancel_segment_timer_info_t {
@@ -38,7 +39,7 @@ public:
 
     void TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest);
     void TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest);
-    void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart);
+    void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, LtpClientServiceDataToSend && clientServiceDataToSend, uint64_t lengthOfRedPart);
     void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart);
 
     bool CancellationRequest(const Ltp::session_id_t & sessionId);
