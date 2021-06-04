@@ -52,13 +52,24 @@ void BpGenAsync::Stop() {
         m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByTcpSendCallback;
         m_FinalStats.m_totalDataSegmentsAckedByRate = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByRate;
     }
+    else if (this->m_ltpBundleSourcePtr) {
+        m_ltpBundleSourcePtr->Stop();
+        m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = m_ltpBundleSourcePtr->m_totalDataSegmentsSentSuccessfullyWithAck;
+        m_FinalStats.m_totalDataSegmentsAckedByRate = m_ltpBundleSourcePtr->m_totalDataSegmentsSentSuccessfullyWithAck;
+    }
 
     m_tcpclBundleSourcePtr.reset(); //delete it
     m_stcpBundleSourcePtr.reset(); //delete it
     m_udpBundleSourcePtr.reset(); //delete it
+    m_ltpBundleSourcePtr.reset(); //delete it
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId, uint64_t stcpRateBitsPerSec) {
+void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, bool useLtp, uint32_t bundleSizeBytes, uint32_t bundleRate,
+    uint32_t tcpclFragmentSize, const std::string & thisLocalEidString,
+    uint64_t thisLtpEngineId, uint64_t remoteLtpEngineId, uint64_t ltpDataSegmentMtu, uint64_t oneWayLightTimeMs, uint64_t oneWayMarginTimeMs, uint64_t clientServiceId,
+    unsigned int numLtpUdpRxPacketsCircularBufferSize, unsigned int maxLtpRxUdpPacketSizeBytes,
+    uint64_t destFlowId, uint64_t stcpRateBitsPerSec)
+{
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
@@ -97,6 +108,21 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
             if (m_stcpBundleSourcePtr->ReadyToForward()) {
                 std::cout << "STCP ready to forward" << std::endl;
+                break;
+            }
+        }
+    }
+    else if (useLtp) {
+        m_ltpBundleSourcePtr = boost::make_unique<LtpBundleSource>(clientServiceId, remoteLtpEngineId, thisLtpEngineId, ltpDataSegmentMtu, 1,
+            boost::posix_time::milliseconds(oneWayLightTimeMs), boost::posix_time::milliseconds(oneWayMarginTimeMs),
+            0, numLtpUdpRxPacketsCircularBufferSize, maxLtpRxUdpPacketSizeBytes, 100);
+        m_ltpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
+        m_ltpBundleSourcePtr->Connect(hostname, port);
+        for (unsigned int i = 0; i < 10; ++i) {
+            std::cout << "Waiting for LTP to become ready to forward..." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            if (m_ltpBundleSourcePtr->ReadyToForward()) {
+                std::cout << "LTP ready to forward" << std::endl;
                 break;
             }
         }
@@ -179,6 +205,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     boost::asio::io_service ioService;
     boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::microseconds(sValU64));
     std::vector<uint8_t> bundleToSend;
+    boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     while (m_running) { //keep thread alive if running
         /*if (doStepSize) {
             bundleSizeBytes = bundleSizeBytesStep;
@@ -205,7 +232,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             const std::size_t numAckedRemaining = 
                 (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalDataSegmentsUnacked() :
                 (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsUnacked() :
-                (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() : 0;
+                (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() :
+                (m_ltpBundleSourcePtr) ? m_ltpBundleSourcePtr->GetTotalDataSegmentsUnacked() : 0;
             const std::size_t numUnackedBundleBytesRemaining = 
                 (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalBundleBytesUnacked() :
                 (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalBundleBytesUnacked() :
@@ -303,6 +331,11 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
                 m_running = false;
             }
         }
+        else if (m_ltpBundleSourcePtr) { //ltp
+            if (!m_ltpBundleSourcePtr->Forward(bundleToSend)) {
+                m_running = false;
+            }
+        }
 
         if (bundleToSend.size() != 0) {
             std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
@@ -310,6 +343,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         }
 
     }
+    boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
 
 //    std::cout << "bundle_count: " << bundle_count << std::endl;
     std::cout << "bundle_count: " << m_bundleCount << std::endl;
@@ -317,6 +351,16 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     std::cout << "raw_data (bundle overhead + payload data): " << raw_data << " bytes" << std::endl;
     if (bundleRate == 0) {
         std::cout << "numEventsTooManyUnackedBundles: " << numEventsTooManyUnackedBundles << std::endl;
+    }
+
+    boost::posix_time::time_duration diff = finishedTime - startTime;
+    {
+        const double rateMbps = (bundle_data * 8.0) / (diff.total_microseconds());
+        printf("Sent bundle_data (payload data) at %0.4f Mbits/sec\n", rateMbps);
+    }
+    {
+        const double rateMbps = (raw_data * 8.0) / (diff.total_microseconds());
+        printf("Sent raw_data (bundle overhead + payload data) at %0.4f Mbits/sec\n", rateMbps);
     }
 
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
@@ -331,6 +375,9 @@ std::size_t BpGenAsync::GetTotalBundlesAcked() {
     }
     else if (m_udpBundleSourcePtr) { //udp
         return m_udpBundleSourcePtr->GetTotalUdpPacketsAcked();
+    }
+    else if (m_ltpBundleSourcePtr) { //ltp
+        return m_ltpBundleSourcePtr->GetTotalDataSegmentsAcked();
     }
     return 0;
 }

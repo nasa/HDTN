@@ -43,7 +43,7 @@ target_include_directories(bpgen-async PUBLIC
 	bpgen/include
 	${Boost_INCLUDE_DIRS}
 )
-target_link_libraries(bpgen-async PUBLIC tcpcl_lib stcp_lib udp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
+target_link_libraries(bpgen-async PUBLIC tcpcl_lib stcp_lib udp_lib ltp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
 	add_executable(bpsink

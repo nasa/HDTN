@@ -14,6 +14,7 @@
 #include "TcpclBundleSink.h"
 #include "StcpBundleSink.h"
 #include "UdpBundleSink.h"
+#include "LtpBundleSink.h"
 #include <list>
 #include <queue>
 
@@ -53,7 +54,10 @@ public:
     ~BpIngressSyscall();
     void Stop();
     int Init(uint32_t type);
-    int Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool alwaysSendToStorage);
+    int Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool useLtp, bool alwaysSendToStorage, 
+        uint64_t thisLtpEngineId, uint64_t ltpReportSegmentMtu, uint64_t oneWayLightTimeMs, 
+        uint64_t oneWayMarginTimeMs, uint64_t clientServiceId, uint64_t estimatedFileSizeToReceive,
+        unsigned int numLtpUdpRxPacketsCircularBufferSize, unsigned int maxLtpRxUdpPacketSizeBytes);
     int send_telemetry();
     void RemoveInactiveTcpConnections();
 private:
@@ -125,6 +129,7 @@ private:
     std::list<std::unique_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
     std::list<std::unique_ptr<StcpBundleSink> > m_listStcpBundleSinkPtrs;
     std::unique_ptr<UdpBundleSink> m_udpBundleSinkPtr;
+    std::unique_ptr<LtpBundleSink> m_ltpBundleSinkPtr;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;

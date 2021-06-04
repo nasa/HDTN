@@ -39,6 +39,7 @@ target_link_libraries(integrated-tests
 	tcpcl_lib
 	stcp_lib
 	udp_lib
+	ltp_lib
 	egress_async_lib
 	ingress_async_lib
 	bpcodec

@@ -104,7 +104,11 @@ int BpIngressSyscall::Init(uint32_t type) {
 }
 
 
-int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool alwaysSendToStorage) {
+int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool useLtp, bool alwaysSendToStorage,
+    uint64_t thisLtpEngineId, uint64_t ltpReportSegmentMtu, uint64_t oneWayLightTimeMs,
+    uint64_t oneWayMarginTimeMs, uint64_t clientServiceId, uint64_t estimatedFileSizeToReceive,
+    unsigned int numLtpUdpRxPacketsCircularBufferSize, unsigned int maxLtpRxUdpPacketSizeBytes)
+{
     m_useTcpcl = useTcpcl;
     m_useStcp = useStcp;
     m_alwaysSendToStorage = alwaysSendToStorage;
@@ -113,10 +117,20 @@ int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool 
         return 1;
     }
     printf("Starting ingress channel ...\n");
-    //Receiver UDP
-    m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
-        boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
-        200, 65536);
+    if (useLtp) {
+        m_ltpBundleSinkPtr = boost::make_unique<LtpBundleSink>(
+            boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
+            thisLtpEngineId, 1, ltpReportSegmentMtu,
+            boost::posix_time::milliseconds(oneWayLightTimeMs), boost::posix_time::milliseconds(oneWayMarginTimeMs),
+            port, numLtpUdpRxPacketsCircularBufferSize,
+            maxLtpRxUdpPacketSizeBytes, estimatedFileSizeToReceive);
+    }
+    else {
+        //Receiver UDP
+        m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
+            boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
+            200, 65536);
+    }
     m_tcpAcceptorPtr = boost::make_unique<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));

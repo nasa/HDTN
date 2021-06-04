@@ -42,7 +42,17 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&IngressAsyncRunner::MonitorExitKeypressThreadFunction, this));
         bool useStcp = false;
+        bool useLtp = false;
         bool alwaysSendToStorage = false;
+        //ltp
+        uint64_t thisLtpEngineId;
+        uint64_t ltpReportSegmentMtu;
+        uint64_t oneWayLightTimeMs;
+        uint64_t oneWayMarginTimeMs;
+        uint64_t clientServiceId;
+        uint64_t estimatedFileSizeToReceive;
+        unsigned int numLtpUdpRxPacketsCircularBufferSize;
+        unsigned int maxLtpRxUdpPacketSizeBytes;
 
         opt::options_description desc("Allowed options");
         try {
@@ -50,7 +60,17 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
                 ("help", "Produce help message.")
                 //("port", opt::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
                 ("use-stcp", "Use STCP instead of TCPCL.")
+                ("use-ltp", "Use LTP over UDP instead of pure UDP.")
                 ("always-send-to-storage", "Don't send straight to egress (for testing).")
+
+                ("this-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "My LTP engine ID.")
+                ("ltp-report-segment-mtu", boost::program_options::value<uint64_t>()->default_value(UINT64_MAX), "Approximate max size (bytes) of receiver's LTP report segment")
+                ("num-ltp-rx-udp-packets-buffer-size", boost::program_options::value<unsigned int>()->default_value(100), "UDP max packets to receive (circular buffer size)")
+                ("max-ltp-rx-udp-packet-size-bytes", boost::program_options::value<unsigned int>()->default_value(UINT16_MAX), "Maximum size (bytes) of a UDP packet to receive (65KB safest option)")
+                ("one-way-light-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
+                ("one-way-margin-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
+                ("client-service-id", boost::program_options::value<uint64_t>()->default_value(2), "LTP Client Service ID.")
+                ("estimated-rx-filesize", boost::program_options::value<uint64_t>()->default_value(50000000), "How many bytes to initially reserve for rx (default 50MB).")
                 ;
 
             opt::variables_map vm; 
@@ -66,10 +86,22 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             if (vm.count("use-stcp")) {
                 useStcp = true;
             }
+            if (vm.count("use-ltp")) {
+                useLtp = true;
+            }
 
             if (vm.count("always-send-to-storage")) {
                 alwaysSendToStorage = true;
             }
+
+            thisLtpEngineId = vm["this-ltp-engine-id"].as<uint64_t>();
+            ltpReportSegmentMtu = vm["ltp-report-segment-mtu"].as<uint64_t>();
+            oneWayLightTimeMs = vm["one-way-light-time-ms"].as<uint64_t>();
+            oneWayMarginTimeMs = vm["one-way-margin-time-ms"].as<uint64_t>();
+            clientServiceId = vm["client-service-id"].as<uint64_t>();
+            estimatedFileSizeToReceive = vm["estimated-rx-filesize"].as<uint64_t>();
+            numLtpUdpRxPacketsCircularBufferSize = vm["num-ltp-rx-udp-packets-buffer-size"].as<unsigned int>();
+            maxLtpRxUdpPacketSizeBytes = vm["max-ltp-rx-udp-packet-size-bytes"].as<unsigned int>();
 
             //port = vm["port"].as<boost::uint16_t>();
         }
@@ -119,7 +151,10 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 
         printf("Announcing presence of ingress engine ...\n");
 
-        ingress.Netstart(INGRESS_PORT, !useStcp, useStcp, alwaysSendToStorage);
+        ingress.Netstart(INGRESS_PORT, !useStcp, useStcp, useLtp, alwaysSendToStorage,
+            thisLtpEngineId, ltpReportSegmentMtu, oneWayLightTimeMs,
+            oneWayMarginTimeMs, clientServiceId, estimatedFileSizeToReceive,
+            numLtpUdpRxPacketsCircularBufferSize, maxLtpRxUdpPacketSizeBytes);
 
         if (useSignalHandler) {
             sigHandler.Start(false);

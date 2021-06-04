@@ -10,13 +10,13 @@ add_library(ingress_async_lib STATIC
 target_link_libraries(ingress_async_lib 
 	hdtn_reg 
 	hdtn_util 
-        log_lib
+    log_lib
 	tcpcl_lib 
 	stcp_lib 
 	udp_lib 
+	ltp_lib
 	${libzmq_LIB} 
-	${pthread_LIB} 
-	${blosc_LIB} 
+	${pthread_LIB}
 	bpcodec 
 	${Boost_LIBRARIES}
 	)

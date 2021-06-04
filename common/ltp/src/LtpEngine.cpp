@@ -137,7 +137,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
                 //revalidate iterator
                 m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
-                std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
+                ////std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
             }
         }
         else {
@@ -158,7 +158,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
                 //revalidate iterator
                 m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
-                std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
+                ////std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
             }
         }
         else {
