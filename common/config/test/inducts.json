@@ -1,0 +1,45 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "i1",
+            "convergenceLayer": "ltp_over_udp",
+            "endpointIdStr": "ipn1:1",
+            "boundPort": 1113,
+            "numRxCircularBufferElements": 101,
+            "numRxCircularBufferBytesPerElement": 65532,
+            "thisLtpEngineId": 102,
+            "ltpReportSegmentMtu": 1003,
+            "oneWayLightTimeMs": 1004,
+            "oneWayMarginTimeMs": 205,
+            "clientServiceId": 2,
+            "preallocatedRedDataBytes": 200006
+        },
+        {
+            "name": "i2",
+            "convergenceLayer": "udp",
+            "endpointIdStr": "ipn1:2",
+            "boundPort": 4557,
+            "numRxCircularBufferElements": 107,
+            "numRxCircularBufferBytesPerElement": 65533
+        },
+        {
+            "name": "i3",
+            "convergenceLayer": "tcpcl",
+            "endpointIdStr": "ipn1:3",
+            "boundPort": 4558,
+            "numRxCircularBufferElements": 1009,
+            "numRxCircularBufferBytesPerElement": 2000,
+            "keepAliveIntervalSeconds": 16
+        },
+        {
+            "name": "i4",
+            "convergenceLayer": "stcp",
+            "endpointIdStr": "ipn1:4",
+            "boundPort": 4559,
+            "numRxCircularBufferElements": 1000,
+            "numRxCircularBufferBytesPerElement": 2000,
+            "keepAliveIntervalSeconds": 17
+        }
+    ]
+}

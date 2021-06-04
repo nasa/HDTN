@@ -14,6 +14,7 @@ add_executable(unit-tests
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
 	../../common/util/test/TestRateManagerAsync.cpp
+	../../common/config/test/TestInductsConfig.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
     ../../module/storage/unit_tests/StorageConfigTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
@@ -43,6 +44,7 @@ target_link_libraries(unit-tests
 	stcp_lib
 	ltp_lib
 	storage_lib
+	config_lib
     ingress_async_lib
 	bpcodec
 	${Boost_LIBRARIES}
