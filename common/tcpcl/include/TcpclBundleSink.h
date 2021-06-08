@@ -29,7 +29,7 @@ public:
     bool ReadyToBeDeleted();
 private:
 
-    void StartTcpReceive();
+    void TryStartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
@@ -78,6 +78,8 @@ private:
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
+    bool m_stateTcpReadActive;
+    bool m_printedCbTooSmallNotice;
     volatile bool m_running;
     volatile bool m_safeToDelete;
 };

@@ -26,6 +26,8 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
+    m_stateTcpReadActive(false),
+    m_printedCbTooSmallNotice(false),
     m_running(false),
     m_safeToDelete(false)
 {
@@ -50,7 +52,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
 
-    StartTcpReceive();
+    TryStartTcpReceive();
 }
 
 TcpclBundleSink::~TcpclBundleSink() {
@@ -73,28 +75,33 @@ TcpclBundleSink::~TcpclBundleSink() {
 
 
 
-void TcpclBundleSink::StartTcpReceive() {
-    const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-    if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in TcpclBundleSink::StartTcpReceive(): buffers full.. TCP receiving on TcpclBundleSink will now stop!\n";
-        DoTcpclShutdown(true, false);
-        return;
-    }
-    if(m_tcpSocketPtr) {
-        m_tcpSocketPtr->async_read_some(
-            boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
-            boost::bind(&TcpclBundleSink::HandleTcpReceiveSome, this,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred,
-                writeIndex));
+void TcpclBundleSink::TryStartTcpReceive() {
+    if ((!m_stateTcpReadActive) && (m_tcpSocketPtr)) {
+        const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
+        if (writeIndex == UINT32_MAX) {
+            if (!m_printedCbTooSmallNotice) {
+                m_printedCbTooSmallNotice = true;
+                std::cout << "notice in TcpclBundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
+            }
+        }
+        else {
+            m_stateTcpReadActive = true;
+            m_tcpSocketPtr->async_read_some(
+                boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
+                boost::bind(&TcpclBundleSink::HandleTcpReceiveSome, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred,
+                    writeIndex));
+        }
     }
 }
 void TcpclBundleSink::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
     if (!error) {
         m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
+        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
         m_conditionVariableCb.notify_one();
-        StartTcpReceive(); //restart operation only if there was no error
+        TryStartTcpReceive(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "Tcp connection closed cleanly by peer" << std::endl;
@@ -114,7 +121,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
 
 
         const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-
+        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == UINT32_MAX) { //if empty
             m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()

@@ -44,6 +44,7 @@ private:
     boost::condition_variable m_conditionVariableCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
+    bool m_printedCbTooSmallNotice;
     volatile bool m_running;
     volatile bool m_safeToDelete;
     uint32_t m_incomingBundleSize;

@@ -20,6 +20,7 @@ StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> t
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_stateTcpReadActive(false),
+    m_printedCbTooSmallNotice(false),
     m_running(false),
     m_safeToDelete(false)
 {
@@ -55,7 +56,10 @@ void StcpBundleSink::TryStartTcpReceive() {
 
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == UINT32_MAX) {
-            //std::cout << "notice in StcpBundleSink::StartTcpReceiveBundleData(): buffers full.. you might want to increase the circular buffer size!" << std::endl;            
+            if (!m_printedCbTooSmallNotice) {
+                m_printedCbTooSmallNotice = true;
+                std::cout << "notice in StcpBundleSink::TryStartTcpReceive(): buffers full.. you might want to increase the circular buffer size!" << std::endl; 
+            }
         }
         else {
             //StartTcpReceiveIncomingBundleSize
