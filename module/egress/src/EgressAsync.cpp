@@ -261,7 +261,7 @@ int hdtn::HegrManagerAsync::Add(int fec, uint64_t flags, const char *dst, int po
         stcpEntry->Connect(dst, boost::lexical_cast<std::string>(port));
         if (StcpBundleSource * ptr = stcpEntry->GetStcpBundleSourcePtr()) {
             ptr->SetOnSuccessfulAckCallback(boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleAck, this));
-            ptr->UpdateRate(rateBitsPerSec);
+            //ptr->UpdateRate(rateBitsPerSec);
         }
         else {
             std::cerr << "ERROR, CANNOT SET STCP CALLBACK" << std::endl;

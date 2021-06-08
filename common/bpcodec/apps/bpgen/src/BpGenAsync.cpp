@@ -50,12 +50,10 @@ void BpGenAsync::Stop() {
     } else if (this->m_stcpBundleSourcePtr) {
         m_stcpBundleSourcePtr->Stop();
         m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByTcpSendCallback;
-        m_FinalStats.m_totalDataSegmentsAckedByRate = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByRate;
     }
     else if (this->m_ltpBundleSourcePtr) {
         m_ltpBundleSourcePtr->Stop();
         m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = m_ltpBundleSourcePtr->m_totalDataSegmentsSentSuccessfullyWithAck;
-        m_FinalStats.m_totalDataSegmentsAckedByRate = m_ltpBundleSourcePtr->m_totalDataSegmentsSentSuccessfullyWithAck;
     }
 
     m_tcpclBundleSourcePtr.reset(); //delete it
@@ -84,7 +82,6 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
     m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = 0;
     m_FinalStats.m_totalDataSegmentsAcked = 0;
     m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = 0;
-    m_FinalStats.m_totalDataSegmentsAckedByRate = 0;
 
     if(useTcpcl) {
         m_tcpclBundleSourcePtr = boost::make_unique<TcpclBundleSource>(30, thisLocalEidString);
@@ -100,7 +97,7 @@ void BpGenAsync::Start(const std::string & hostname, const std::string & port, b
         }
     }
     else if (useStcp) {
-        m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15, stcpRateBitsPerSec);
+        m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15);
         m_stcpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
         m_stcpBundleSourcePtr->Connect(hostname, port);
         for (unsigned int i = 0; i < 10; ++i) {

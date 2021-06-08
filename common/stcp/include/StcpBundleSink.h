@@ -24,9 +24,8 @@ public:
     bool ReadyToBeDeleted();
 private:
 
-    void StartTcpReceiveIncomingBundleSize();
-    void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred);
-    void StartTcpReceiveBundleData();
+    void TryStartTcpReceive();
+    void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
     void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void PopCbThreadFunc();
     void DoStcpShutdown();
@@ -44,6 +43,7 @@ private:
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
+    bool m_stateTcpReadActive;
     volatile bool m_running;
     volatile bool m_safeToDelete;
     uint32_t m_incomingBundleSize;

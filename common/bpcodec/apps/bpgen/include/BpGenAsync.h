@@ -21,7 +21,6 @@ struct FinalStats {
 
     //stcp stats
     std::size_t m_totalDataSegmentsAckedByTcpSendCallback;
-    std::size_t m_totalDataSegmentsAckedByRate;
 
     //tcpcl stats
     std::size_t m_totalDataSegmentsAcked;

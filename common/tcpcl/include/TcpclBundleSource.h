@@ -41,7 +41,7 @@ private:
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    void OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e);
+    void DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
 
@@ -66,7 +66,6 @@ private:
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
-    boost::asio::deadline_timer m_handleSocketShutdownCancelOnlyTimer;
     boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
@@ -81,8 +80,7 @@ private:
     std::vector<uint64_t> m_bytesToAckCbVec;
     volatile bool m_readyToForward;
     volatile bool m_tcpclShutdownComplete;
-    volatile bool m_sendShutdownMessage;
-    volatile bool m_reasonWasTimeOut;
+    bool m_shutdownCalled;
     volatile bool m_useLocalConditionVariableAckReceived;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;

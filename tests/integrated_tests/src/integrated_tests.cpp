@@ -186,7 +186,7 @@ bool TestCutThroughTcpcl() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t totalBundlesBpsink = 0;
     uint64_t bundleCountEgress = 0;
@@ -280,7 +280,7 @@ bool TestTcpclFastCutThrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t totalBundlesBpsink = 0;
     uint64_t bundleCountEgress = 0;
@@ -371,7 +371,7 @@ bool TestTcpclMultiFastCutThrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0},{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
@@ -476,7 +476,7 @@ bool TestCutThroughMulti() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0},{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
@@ -581,7 +581,7 @@ bool TestUdp() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -682,7 +682,7 @@ bool TestUdpFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -780,7 +780,7 @@ bool TestUdpMultiFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0},{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
@@ -890,7 +890,7 @@ bool TestStcp() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -927,10 +927,7 @@ bool TestStcp() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByRate;
-        if (finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback > finalStats[i].m_totalDataSegmentsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -991,7 +988,7 @@ bool TestStcpFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -1026,10 +1023,7 @@ bool TestStcpFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByRate;
-        if (finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback > finalStats[i].m_totalDataSegmentsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1090,7 +1084,7 @@ bool TestStcpMultiFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0},{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
@@ -1137,10 +1131,7 @@ bool TestStcpMultiFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByRate;
-        if (finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback > finalStats[i].m_totalDataSegmentsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -1202,7 +1193,7 @@ bool TestStorage() {
     bool runningEgress = true;
     bool runningStorage = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -1344,7 +1335,7 @@ bool TestStorageSlowBpSink() {
     bool runningEgress = true;
     bool runningStorage = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -1486,7 +1477,7 @@ bool TestStorageMulti() {
     bool runningEgress = true;
     bool runningStorage = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0},{false,false,0,0,0,0,0,0}};
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;

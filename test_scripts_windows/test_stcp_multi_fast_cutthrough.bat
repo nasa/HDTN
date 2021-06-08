@@ -7,11 +7,11 @@ START "BpSink1" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcode
 timeout /t 3
 START "BpSink2" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpsink-async.exe" "--inducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\inducts\bpsink_one_stcp_port4558.json"
 timeout /t 3
-START "Egress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\egress\hdtn-egress-async.exe" "--use-stcp" "--port1=4557" "--port2=4558" "--stcp-rate-bits-per-sec=50000"
+START "Egress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\egress\hdtn-egress-async.exe" "--use-stcp" "--port1=4557" "--port2=4558"
 timeout /t 3
 START "Ingress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\ingress\hdtn-ingress.exe" "--inducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\inducts\ingress_one_stcp_port4556.json"
 timeout /t 3
-START "BpGen2" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--use-stcp" "--duration=10" "--flow-id=2" "--stcp-rate-bits-per-sec=20000"
+START "BpGen2" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--use-stcp" "--duration=10" "--flow-id=2" "--bundle-size=100000"
 timeout /t 1
-START "BpGen1" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--use-stcp" "--duration=10" "--flow-id=1" "--stcp-rate-bits-per-sec=20000"
+START "BpGen1" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--use-stcp" "--duration=10" "--flow-id=1" "--bundle-size=100000"
 timeout /t 8
