@@ -5,14 +5,6 @@
  ****************************************************************************
  */
 
-#include <errno.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
-#include <cassert>
 #include <iostream>
 
 #include "codec/bpv6-ext-block.h"
@@ -26,41 +18,19 @@
 
 namespace hdtn {
 
-BpIngressSyscall::BpIngressSyscall() :
+Ingress::Ingress() :
     m_eventsTooManyInStorageQueue(0),
     m_eventsTooManyInEgressQueue(0),
     m_running(false)
 {
 }
 
-BpIngressSyscall::~BpIngressSyscall() {
+Ingress::~Ingress() {
     Stop();
 }
 
-void BpIngressSyscall::Stop() {
-    if (m_tcpAcceptorPtr) {
-        if (m_tcpAcceptorPtr->is_open()) {
-            try {
-                m_tcpAcceptorPtr->close();
-            }
-            catch (const boost::system::system_error & e) {
-                std::cerr << "Error closing TCP Acceptor in BpIngressSyscall::Stop():  " << e.what() << std::endl;
-            }
-        }        
-        m_tcpAcceptorPtr.reset(); //delete it
-    }
-    m_listTcpclBundleSinkPtrs.clear();
-    m_listStcpBundleSinkPtrs.clear();
-    m_udpBundleSinkPtr.reset();
-    if (!m_ioService.stopped()) {
-        m_ioService.stop(); //ioservice doesn't need stopped at this point but just in case
-    }
-
-    if(m_ioServiceThreadPtr) {
-        m_ioServiceThreadPtr->join();
-        m_ioServiceThreadPtr.reset(); //delete it
-    }
-
+void Ingress::Stop() {
+    m_inductManager.Clear();
 
     m_running = false; //thread stopping criteria
 
@@ -74,7 +44,7 @@ void BpIngressSyscall::Stop() {
     std::cout << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue << std::endl;
 }
 
-int BpIngressSyscall::Init(uint32_t type) {
+int Ingress::Init(const InductsConfig & inductsConfig, bool alwaysSendToStorage) {
     
     if (!m_running) {
         m_running = true;
@@ -98,47 +68,17 @@ int BpIngressSyscall::Init(uint32_t type) {
         m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&BpIngressSyscall::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+            boost::bind(&Ingress::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
+
+        m_alwaysSendToStorage = alwaysSendToStorage;
+        m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig);
     }
     return 0;
 }
 
 
-int BpIngressSyscall::Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool useLtp, bool alwaysSendToStorage,
-    uint64_t thisLtpEngineId, uint64_t ltpReportSegmentMtu, uint64_t oneWayLightTimeMs,
-    uint64_t oneWayMarginTimeMs, uint64_t clientServiceId, uint64_t estimatedFileSizeToReceive,
-    unsigned int numLtpUdpRxPacketsCircularBufferSize, unsigned int maxLtpRxUdpPacketSizeBytes)
-{
-    m_useTcpcl = useTcpcl;
-    m_useStcp = useStcp;
-    m_alwaysSendToStorage = alwaysSendToStorage;
-    if(m_ioServiceThreadPtr) {
-        std::cerr << "Error in BpIngressSyscall::Netstart: already running" << std::endl;
-        return 1;
-    }
-    printf("Starting ingress channel ...\n");
-    if (useLtp) {
-        m_ltpBundleSinkPtr = boost::make_unique<LtpBundleSink>(
-            boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
-            thisLtpEngineId, 1, ltpReportSegmentMtu,
-            boost::posix_time::milliseconds(oneWayLightTimeMs), boost::posix_time::milliseconds(oneWayMarginTimeMs),
-            port, numLtpUdpRxPacketsCircularBufferSize,
-            maxLtpRxUdpPacketSizeBytes, estimatedFileSizeToReceive);
-    }
-    else {
-        //Receiver UDP
-        m_udpBundleSinkPtr = boost::make_unique<UdpBundleSink>(m_ioService, port,
-            boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
-            200, 65536);
-    }
-    m_tcpAcceptorPtr = boost::make_unique<boost::asio::ip::tcp::acceptor>(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) ;
-    StartTcpAccept();
-    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
-    return 0;
-}
-
-void BpIngressSyscall::ReadZmqAcksThreadFunc() {
+void Ingress::ReadZmqAcksThreadFunc() {
 
     static const unsigned int NUM_SOCKETS = 2;
 
@@ -224,7 +164,7 @@ static void CustomCleanup(void *data, void *hint) {
 
 static void CustomIgnoreCleanupBlockHdr(void *data, void *hint) {}
 
-int BpIngressSyscall::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq message to reduce copy
+int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq message to reduce copy
     const std::size_t messageSize = rxBuf.size();
 	//uint64_t timer = 0;
     uint64_t offset = 0;
@@ -397,55 +337,11 @@ int BpIngressSyscall::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buf
 
 
 
-void BpIngressSyscall::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void Ingress::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
     Process(std::move(wholeBundleVec));
 }
 
-void BpIngressSyscall::StartTcpAccept() {
-    std::cout << "waiting for tcp connections\n";
-    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
-
-    m_tcpAcceptorPtr->async_accept(*newTcpSocketPtr,
-        boost::bind(&BpIngressSyscall::HandleTcpAccept, this, newTcpSocketPtr,
-            boost::asio::placeholders::error));
-}
-
-void BpIngressSyscall::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error) {
-    if (!error) {
-        std::cout << "tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << "\n";
-        //boost::shared_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_shared<TcpclBundleSink>(newTcpSocketPtr,)
-        //std::list<boost::shared_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
-        //if((m_tcpclBundleSinkPtr) && !m_tcpclBundleSinkPtr->ReadyToBeDeleted() ) {
-        //    std::cout << "warning: bpsink received a new tcp connection, but there is an old connection that is active.. old connection will be stopped" << std::endl;
-        //}
-        if (m_useTcpcl) {
-            std::unique_ptr<TcpclBundleSink> bundleSinkPtr = boost::make_unique<TcpclBundleSink>(newTcpSocketPtr, m_ioService,
-                                                                                                   boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                                                   200, 20000, "ingress");
-            m_listTcpclBundleSinkPtrs.push_back(std::move(bundleSinkPtr));
-        }
-        else if (m_useStcp) {
-            std::unique_ptr<StcpBundleSink> bundleSinkPtr = boost::make_unique<StcpBundleSink>(newTcpSocketPtr,
-                                                                                                   boost::bind(&BpIngressSyscall::WholeBundleReadyCallback, this, boost::placeholders::_1),
-                                                                                                   200);
-            m_listStcpBundleSinkPtrs.push_back(std::move(bundleSinkPtr));
-        }
-        
-
-        StartTcpAccept(); //only accept if there was no error
-    }
-    else if (error != boost::asio::error::operation_aborted) {
-        std::cout << "tcp accept error: " << error.message() << "\n";
-    }
-
-
-}
-
-void BpIngressSyscall::RemoveInactiveTcpConnections() {
-    m_listTcpclBundleSinkPtrs.remove_if([](const std::unique_ptr<TcpclBundleSink> & ptr){ return ptr->ReadyToBeDeleted();});
-    m_listStcpBundleSinkPtrs.remove_if([](const std::unique_ptr<StcpBundleSink> & ptr) { return ptr->ReadyToBeDeleted(); });
-}
 
 }  // namespace hdtn

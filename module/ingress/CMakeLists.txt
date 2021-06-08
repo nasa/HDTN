@@ -11,10 +11,7 @@ target_link_libraries(ingress_async_lib
 	hdtn_reg 
 	hdtn_util 
     log_lib
-	tcpcl_lib 
-	stcp_lib 
-	udp_lib 
-	ltp_lib
+	induct_manager_lib
 	${libzmq_LIB} 
 	${pthread_LIB}
 	bpcodec 
@@ -36,10 +33,7 @@ target_link_libraries(hdtn-ingress
 	hdtn_reg
 	bpcodec
 	hdtn_util
-        log_lib
-	tcpcl_lib
-	stcp_lib
-	udp_lib
+    log_lib
 	ingress_async_lib
 	${libzmq_LIB}
 	${pthread_LIB}

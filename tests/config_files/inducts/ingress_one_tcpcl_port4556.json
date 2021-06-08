@@ -1,0 +1,14 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "tcpcl_ingress",
+            "convergenceLayer": "tcpcl",
+            "endpointIdStr": "ipn1:3",
+            "boundPort": 4556,
+            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferBytesPerElement": 20000,
+            "keepAliveIntervalSeconds": 15
+        }
+    ]
+}

@@ -6,11 +6,15 @@
 #include <boost/make_unique.hpp>
 
 StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
-                                 WholeBundleReadyCallback_t wholeBundleReadyCallback,
-                                 //ConnectionClosedCallback_t connectionClosedCallback,
-                                 const unsigned int numCircularBufferVectors) :
+    boost::asio::io_service & tcpSocketIoServiceRef,
+    const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
+    const unsigned int numCircularBufferVectors,
+    const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
+
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
+    m_notifyReadyToDeleteCallback(notifyReadyToDeleteCallback),
     m_tcpSocketPtr(tcpSocketPtr),
+    m_tcpSocketIoServiceRef(tcpSocketIoServiceRef),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
@@ -28,7 +32,13 @@ StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> t
 
 StcpBundleSink::~StcpBundleSink() {
 
-    DoStcpShutdown();
+    if (!m_safeToDelete) {
+        DoStcpShutdown();
+        while (!m_safeToDelete) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+    }
+    
     
     m_running = false; //thread stopping criteria
 
@@ -132,31 +142,39 @@ void StcpBundleSink::PopCbThreadFunc() {
 
 }
 
-
-
 void StcpBundleSink::DoStcpShutdown() {
+    boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&StcpBundleSink::HandleSocketShutdown, this));
+}
+
+void StcpBundleSink::HandleSocketShutdown() {
     //final code to shut down tcp sockets
-    if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
-        try {
-            std::cout << "shutting down StcpBundleSink TCP socket.." << std::endl;
-            m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+    if (m_tcpSocketPtr) {
+        if (m_tcpSocketPtr->is_open()) {
+            try {
+                std::cout << "shutting down StcpBundleSink TCP socket.." << std::endl;
+                m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "error in StcpBundleSink::HandleSocketShutdown: " << e.what() << std::endl;
+            }
+            try {
+                std::cout << "closing StcpBundleSink TCP socket socket.." << std::endl;
+                m_tcpSocketPtr->close();
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << "error in StcpBundleSink::HandleSocketShutdown: " << e.what() << std::endl;
+            }
         }
-        catch (const boost::system::system_error & e) {
-            std::cerr << "error in StcpBundleSink::DoStcpShutdown: " << e.what() << std::endl;
+        std::cout << "deleting TcpclBundleSink TCP Socket" << std::endl;
+        if (m_tcpSocketPtr.use_count() != 1) {
+            std::cerr << "error m_tcpSocketPtr.use_count() != 1" << std::endl;
         }
-        try {
-            std::cout << "closing StcpBundleSink TCP socket socket.." << std::endl;
-            m_tcpSocketPtr->close();
-        }
-        catch (const boost::system::system_error & e) {
-            std::cerr << "error in StcpBundleSink::DoStcpShutdown: " << e.what() << std::endl;
-        }
-        //don't delete the tcp socket because the Destructor may call this from another thread
-        //so prevent a race condition that would cause a null pointer exception
-        //std::cout << "deleting tcp socket" << std::endl;
-        //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+        m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_safeToDelete = true;
+    if (m_notifyReadyToDeleteCallback) {
+        m_notifyReadyToDeleteCallback();
+    }
 }
 
 bool StcpBundleSink::ReadyToBeDeleted() {

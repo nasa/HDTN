@@ -13,12 +13,13 @@ private:
     StcpBundleSink();
 public:
     typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
-    //typedef boost::function<void()> ConnectionClosedCallback_t;
+    typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
     StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
-                    WholeBundleReadyCallback_t wholeBundleReadyCallback,
-                    //ConnectionClosedCallback_t connectionClosedCallback,
-                    const unsigned int numCircularBufferVectors);
+        boost::asio::io_service & tcpSocketIoServiceRef,
+        const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
+        const unsigned int numCircularBufferVectors,
+        const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     ~StcpBundleSink();
     bool ReadyToBeDeleted();
 private:
@@ -29,16 +30,13 @@ private:
     void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void PopCbThreadFunc();
     void DoStcpShutdown();
-
-
+    void HandleSocketShutdown();
     
-    //std::vector<uint8_t> m_fragmentedBundleRxConcat;
-
-    WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
-    //ConnectionClosedCallback_t m_connectionClosedCallback;
+    const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
+    const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;
 
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
-    
+    boost::asio::io_service & m_tcpSocketIoServiceRef;
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
