@@ -15,6 +15,7 @@ MAX_UNACKED(maxUnacked),
 m_bytesToAckByTcpSendCallbackCb(MAX_UNACKED),
 m_bytesToAckByTcpSendCallbackCbVec(MAX_UNACKED),
 m_readyToForward(false),
+m_stcpShutdownComplete(true),
 m_dataServedAsKeepAlive(true),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
@@ -62,6 +63,9 @@ void StcpBundleSource::Stop() {
     }
 
     DoStcpShutdown();
+    while (!m_stcpShutdownComplete) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+    }
 
     m_tcpAsyncSenderPtr.reset(); //stop this first
     //This function does not block, but instead simply signals the io_service to stop
@@ -250,6 +254,7 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
     }
 
     std::cout << "Stcp connection complete" << std::endl;
+    m_stcpShutdownComplete = false;
     m_readyToForward = true;
 
 
@@ -350,10 +355,15 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
     }
     else {
         //std::cout << "timer cancelled\n";
+        m_stcpShutdownComplete = true; //last step in sequence
     }
 }
 
 void StcpBundleSource::DoStcpShutdown() {
+    boost::asio::post(m_ioService, boost::bind(&StcpBundleSource::DoHandleSocketShutdown, this));
+}
+
+void StcpBundleSource::DoHandleSocketShutdown() {
     //final code to shut down tcp sockets
     m_readyToForward = false;
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {

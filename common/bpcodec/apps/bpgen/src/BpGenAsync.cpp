@@ -41,9 +41,9 @@ void BpGenAsync::Stop() {
     // Get the final stats
     if (this->m_udpBundleSourcePtr) {
         m_udpBundleSourcePtr->Stop();
-        m_FinalStats.m_totalUdpPacketsSent = m_udpBundleSourcePtr->m_totalUdpPacketsSent;
-        m_FinalStats.m_totalUdpPacketsAckedByRate = m_udpBundleSourcePtr->m_totalUdpPacketsAckedByRate;
-        m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = m_udpBundleSourcePtr->m_totalUdpPacketsAckedByUdpSendCallback;
+        m_FinalStats.m_totalUdpPacketsSent = m_udpBundleSourcePtr->GetTotalUdpPacketsSent();
+        m_FinalStats.m_totalUdpPacketsAckedByRate = m_udpBundleSourcePtr->GetTotalUdpPacketsAcked();
+        m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = m_udpBundleSourcePtr->GetTotalUdpPacketsAcked();
     } else if (this->m_tcpclBundleSourcePtr) {
         m_tcpclBundleSourcePtr->Stop();
         m_FinalStats.m_totalDataSegmentsAcked = m_tcpclBundleSourcePtr->m_totalDataSegmentsAcked;

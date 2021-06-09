@@ -43,7 +43,7 @@ private:
 
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
     void DoStcpShutdown();
-
+    void DoHandleSocketShutdown();
     
     std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;
@@ -65,6 +65,7 @@ private:
     std::vector<uint32_t> m_bytesToAckByTcpSendCallbackCbVec;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
+    volatile bool m_stcpShutdownComplete;
     volatile bool m_dataServedAsKeepAlive;
     volatile bool m_useLocalConditionVariableAckReceived;
 
