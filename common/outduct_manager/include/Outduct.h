@@ -36,6 +36,7 @@ public:
 
     uint64_t GetOutductUuid() const;
     uint64_t GetOutductMaxBundlesInPipeline() const;
+    std::string GetConvergenceLayerName() const;
 
 protected:
     const outduct_element_config_t m_outductConfig;

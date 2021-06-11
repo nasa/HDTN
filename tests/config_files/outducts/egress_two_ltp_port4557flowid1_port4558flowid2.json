@@ -1,0 +1,43 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "egress",
+            "convergenceLayer": "ltp_over_udp",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4557,
+            "bundlePipelineLimit": 5,
+            "flowIds": [
+                1
+            ],
+            "thisLtpEngineId": 20004557,
+            "remoteLtpEngineId": 10004557,
+            "ltpDataSegmentMtu": 60000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 400,
+            "numRxCircularBufferElements": 100,
+            "numRxCircularBufferBytesPerElement": 65535
+        },
+        {
+            "name": "egress",
+            "convergenceLayer": "ltp_over_udp",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4558,
+            "bundlePipelineLimit": 5,
+            "flowIds": [
+                2
+            ],
+            "thisLtpEngineId": 20004558,
+            "remoteLtpEngineId": 10004558,
+            "ltpDataSegmentMtu": 60000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 400,
+            "numRxCircularBufferElements": 100,
+            "numRxCircularBufferBytesPerElement": 65535
+        }
+    ]
+}

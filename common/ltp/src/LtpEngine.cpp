@@ -559,7 +559,7 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in RS received: sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID\n";
+        std::cerr << "error in RS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ")  != M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")" << std::endl;
         return;
     }
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);

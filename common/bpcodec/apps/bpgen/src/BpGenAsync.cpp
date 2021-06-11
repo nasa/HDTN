@@ -242,6 +242,13 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "numEventsTooManyUnackedBundles: " << numEventsTooManyUnackedBundles << std::endl;
     }
 
+    if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+        if (outduct->GetConvergenceLayerName() == "ltp_over_udp") {
+            std::cout << "Bpgen Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
+            boost::this_thread::sleep(boost::posix_time::seconds(4));
+        }
+    }
+
     boost::posix_time::time_duration diff = finishedTime - startTime;
     {
         const double rateMbps = (bundle_data * 8.0) / (diff.total_microseconds());
