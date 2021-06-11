@@ -1,0 +1,17 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "stcp",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4558,
+            "bundlePipelineLimit": 5,
+            "flowIds": [
+                2
+            ],
+            "keepAliveIntervalSeconds": 17
+        }
+    ]
+}

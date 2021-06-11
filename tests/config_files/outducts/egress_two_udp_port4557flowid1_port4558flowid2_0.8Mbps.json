@@ -1,0 +1,29 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "udp",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4557,
+            "bundlePipelineLimit": 5,
+            "flowIds": [
+                1
+            ],
+            "udpRateBps": 800000
+        },
+        {
+            "name": "bpgen",
+            "convergenceLayer": "udp",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4558,
+            "bundlePipelineLimit": 5,
+            "flowIds": [
+                2
+            ],
+            "udpRateBps": 800000
+        }
+    ]
+}

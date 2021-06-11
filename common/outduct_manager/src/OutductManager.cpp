@@ -15,10 +15,19 @@ OutductManager::~OutductManager() {
 
 void OutductManager::OnSuccessfulBundleAck(uint64_t uuidIndex) {
     m_threadCommunicationVec[uuidIndex]->Notify();
+    if (m_outductManager_onSuccessfulOutductAckCallback) {
+        m_outductManager_onSuccessfulOutductAckCallback(uuidIndex);
+    }
+}
+
+void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback) {
+    m_outductManager_onSuccessfulOutductAckCallback = callback;
 }
 
 bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig) {
     m_flowIdToOutductMap.clear();
+    m_outductsVec.clear();
+    m_threadCommunicationVec.clear();
     uint64_t nextOutductUuidIndex = 0;
     std::set<uint64_t> usedFlowIdSet;
     const outduct_element_config_vector_t & configsVec = outductsConfig.m_outductElementConfigVector;

@@ -10,7 +10,7 @@
 
 class OutductManager {
 public:
-    
+    typedef boost::function<void(uint64_t outductUuidIndex)> OutductManager_OnSuccessfulOutductAckCallback_t;
 
     OutductManager();
     ~OutductManager();
@@ -20,6 +20,8 @@ public:
     void StopAllOutducts();
     Outduct * GetOutductByFlowId(const uint64_t flowId);
     Outduct * GetOutductByOutductUuid(const uint64_t uuid);
+
+    void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
 
     bool Forward(uint64_t flowId, const uint8_t* bundleData, const std::size_t size);
     bool Forward(uint64_t flowId, zmq::message_t & movableDataZmq);
@@ -49,6 +51,7 @@ private:
     std::vector<boost::shared_ptr<Outduct> > m_outductsVec;
     std::vector<std::unique_ptr<thread_communication_t> > m_threadCommunicationVec;
     uint64_t m_numEventsTooManyUnackedBundles;
+    OutductManager_OnSuccessfulOutductAckCallback_t m_outductManager_onSuccessfulOutductAckCallback;
 };
 
 #endif // OUTDUCT_MANAGER_H
