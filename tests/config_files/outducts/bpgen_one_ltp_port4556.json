@@ -1,0 +1,26 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "ltp_over_udp",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "bundlePipelineLimit": 5,
+            "flowIds": [
+                1,
+                2,
+                3
+            ],
+            "thisLtpEngineId": 200,
+            "remoteLtpEngineId": 100,
+            "ltpDataSegmentMtu": 60000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 400,
+            "numRxCircularBufferElements": 100,
+            "numRxCircularBufferBytesPerElement": 65535
+        }
+    ]
+}

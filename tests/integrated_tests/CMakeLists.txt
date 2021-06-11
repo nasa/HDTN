@@ -42,6 +42,8 @@ target_link_libraries(integrated-tests
 	ltp_lib
 	egress_async_lib
 	ingress_async_lib
+	induct_manager_lib
+	outduct_manager_lib
 	bpcodec
 	${Boost_LIBRARIES}
 )

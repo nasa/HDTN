@@ -23,6 +23,7 @@ outduct_element_config_t::outduct_element_config_t() :
     flowIds(),
     
     thisLtpEngineId(0),
+    remoteLtpEngineId(0),
     ltpDataSegmentMtu(0),
     oneWayLightTimeMs(0),
     oneWayMarginTimeMs(0),
@@ -47,6 +48,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     flowIds(o.flowIds),
     
     thisLtpEngineId(o.thisLtpEngineId),
+    remoteLtpEngineId(o.remoteLtpEngineId),
     ltpDataSegmentMtu(o.ltpDataSegmentMtu),
     oneWayLightTimeMs(o.oneWayLightTimeMs),
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
@@ -69,6 +71,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     flowIds(std::move(o.flowIds)),
     
     thisLtpEngineId(o.thisLtpEngineId),
+    remoteLtpEngineId(o.remoteLtpEngineId),
     ltpDataSegmentMtu(o.ltpDataSegmentMtu),
     oneWayLightTimeMs(o.oneWayLightTimeMs),
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
@@ -91,6 +94,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     flowIds = o.flowIds;
     
     thisLtpEngineId = o.thisLtpEngineId;
+    remoteLtpEngineId = o.remoteLtpEngineId;
     ltpDataSegmentMtu = o.ltpDataSegmentMtu;
     oneWayLightTimeMs = o.oneWayLightTimeMs;
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
@@ -115,6 +119,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     flowIds = std::move(o.flowIds);
 
     thisLtpEngineId = o.thisLtpEngineId;
+    remoteLtpEngineId = o.remoteLtpEngineId;
     ltpDataSegmentMtu = o.ltpDataSegmentMtu;
     oneWayLightTimeMs = o.oneWayLightTimeMs;
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
@@ -138,6 +143,7 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (flowIds == o.flowIds) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
+        (remoteLtpEngineId == o.remoteLtpEngineId) &&
         (ltpDataSegmentMtu == o.ltpDataSegmentMtu) &&
         (oneWayLightTimeMs == o.oneWayLightTimeMs) &&
         (oneWayMarginTimeMs == o.oneWayMarginTimeMs) &&
@@ -231,6 +237,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
 
         if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
             outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId", 0); //non-throw version
+            outductElementConfig.remoteLtpEngineId = outductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId", 0); //non-throw version
             outductElementConfig.ltpDataSegmentMtu = outductElementConfigPt.second.get<uint32_t>("ltpDataSegmentMtu", 1000); //non-throw version
             outductElementConfig.oneWayLightTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs", 1000); //non-throw version
             outductElementConfig.oneWayMarginTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
@@ -304,6 +311,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         
         if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
             outductElementConfigPt.put("thisLtpEngineId", outductElementConfig.thisLtpEngineId);
+            outductElementConfigPt.put("remoteLtpEngineId", outductElementConfig.remoteLtpEngineId);
             outductElementConfigPt.put("ltpDataSegmentMtu", outductElementConfig.ltpDataSegmentMtu);
             outductElementConfigPt.put("oneWayLightTimeMs", outductElementConfig.oneWayLightTimeMs);
             outductElementConfigPt.put("oneWayMarginTimeMs", outductElementConfig.oneWayMarginTimeMs);

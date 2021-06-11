@@ -13,6 +13,7 @@
                 2
             ],
             "thisLtpEngineId": 102,
+            "remoteLtpEngineId": 103,
             "ltpDataSegmentMtu": 1003,
             "oneWayLightTimeMs": 1004,
             "oneWayMarginTimeMs": 205,

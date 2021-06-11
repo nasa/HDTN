@@ -9,4 +9,4 @@ START "Egress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\egress\
 timeout /t 3
 START "Ingress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\ingress\hdtn-ingress.exe" "--inducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\inducts\ingress_one_ltp_port4556.json"
 timeout /t 3
-START "BpGen" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--use-ltp" "--flow-id=2" "--duration=10" "--bundle-size=100000" "--this-ltp-engine-id=200" "--remote-ltp-engine-id=100" "--ltp-data-segment-mtu=60000" "--one-way-light-time-ms=1000" "--one-way-margin-time-ms=200" "--client-service-id=400"
+START "BpGen" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--flow-id=2" "--duration=10" "--bundle-size=100000" "--outducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\outducts\bpgen_one_ltp_port4556.json"

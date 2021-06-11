@@ -100,7 +100,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
-    tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID;
+    tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //TODO THIS ISN'T CURRENTLY USED
     const uint64_t bundleBytesToSend = dataVec.size();
     tReq->clientServiceDataToSend = std::move(dataVec);
     tReq->lengthOfRedPart = bundleBytesToSend;
