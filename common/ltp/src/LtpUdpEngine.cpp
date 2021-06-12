@@ -85,35 +85,68 @@ void LtpUdpEngine::StartUdpReceive() {
     }
 }
 
-void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
+void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId) {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
     if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(*((uint8_t*)constBufferVec[0].data()))) {
         boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback, boost::system::error_code(), 0));
     }
     else {
-        m_udpSocket.async_send_to(constBufferVec, m_udpDestinationEndpoint,
-            boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
+        if (M_MY_BOUND_UDP_PORT != 0) { //i am the receiver/destination/server
+            boost::bimap<uint64_t, boost::asio::ip::udp::endpoint>::left_iterator it = m_bimapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender.left.find(sessionOriginatorEngineId);
+            if (it != m_bimapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender.left.end()) {
+                m_udpSocket.async_send_to(constBufferVec, it->second,
+                    boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+            }
+            else {
+                std::cerr << "error in LtpUdpEngine::SendPacket: sessionOriginatorEngineId " << sessionOriginatorEngineId << " not found" << std::endl;
+            }
+        }
+        else { //i am the source/client
+            m_udpSocket.async_send_to(constBufferVec, m_udpDestinationResolvedEndpointDataSourceToDataSink,
+                boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));           
+        }
     }
 }
 
 void LtpUdpEngine::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
 
     if (!error) {
-        if (m_udpDestinationEndpoint != m_remoteEndpointsCbVec[writeIndex]) {
-            if (M_MY_BOUND_UDP_PORT != 0) { //i am the destination/server and don't know who i'm sending to yet
-                m_udpDestinationEndpoint = m_remoteEndpointsCbVec[writeIndex];
-                std::cout << "notice: destination/server received udp from new client endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+        const boost::asio::ip::udp::endpoint & rxEndpoint = m_remoteEndpointsCbVec[writeIndex];
+        if (M_MY_BOUND_UDP_PORT != 0) { //i am the receiver/destination/server
+            if (m_bimapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender.right.count(rxEndpoint) == 0) { //first contact from this sender
+                uint64_t sessionOriginatorEngineId;
+                if (Ltp::GetSessionOriginatorEngineIdFromLtpPacket(m_udpReceiveBuffersCbVec[writeIndex].data(), bytesTransferred, sessionOriginatorEngineId)) {
+                    if (m_bimapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender.left.insert(boost::bimap<uint64_t, boost::asio::ip::udp::endpoint>::left_value_type(sessionOriginatorEngineId, rxEndpoint)).second) {
+                        std::cout << "notice: receiver/destination/server received udp from new session originator engine id " << sessionOriginatorEngineId << " with address " << rxEndpoint.address() << ":" << rxEndpoint.port() << std::endl;
+                    }
+                    else {
+                        std::cerr << "error in LtpUdpEngine::HandleUdpReceive: receiver/destination/server received udp from new address " << rxEndpoint.address() << ":" << rxEndpoint.port() 
+                            << " but session originator engine id " << sessionOriginatorEngineId << " is already assigned to a different address" << std::endl;
+                        DoUdpShutdown();
+                        return;
+                    }
+                }
+                else {
+                    std::cerr << "error in LtpUdpEngine::HandleUdpReceive, cannot get Session Originator Engine Id from packet" << std::endl;
+                    DoUdpShutdown();
+                    return;
+                }
+                //
             }
-            else {
-                std::cerr << "error: source/client received udp from unexpected server endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+        }
+        else { //i am the source/client
+            if (m_udpDestinationResolvedEndpointDataSourceToDataSink != rxEndpoint) { //and my received server endpoint doesnt match what i resolved from the Connect function
+                std::cerr << "error in LtpUdpEngine::HandleUdpReceive: source/client received udp from unexpected server endpoint " << rxEndpoint.address() << ":" << rxEndpoint.port() << std::endl;
                 DoUdpShutdown();
                 return;
             }
         }
-
+        
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
         PacketIn_ThreadSafe(m_udpReceiveBuffersCbVec[writeIndex].data(), bytesTransferred); //Post to the LtpEngine IoService so its thread will process
         StartUdpReceive(); //restart operation only if there was no error
@@ -126,16 +159,10 @@ void LtpUdpEngine::HandleUdpReceive(const boost::system::error_code & error, std
 
 void LtpUdpEngine::HandleUdpReceiveDiscard(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        if (m_udpDestinationEndpoint != m_remoteEndpointDiscard) {
-            if (M_MY_BOUND_UDP_PORT != 0) { //i am the destination/server and don't know who i'm sending to yet
-                m_udpDestinationEndpoint = m_remoteEndpointDiscard;
-                std::cout << "notice: destination/server received udp from new client endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
-            }
-            else {
-                std::cerr << "error: source/client received udp from unexpected server endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
-                DoUdpShutdown();
-                return;
-            }
+        if ((M_MY_BOUND_UDP_PORT == 0) && (m_udpDestinationResolvedEndpointDataSourceToDataSink != m_remoteEndpointDiscard)) { //i am the source/client and received udp from unexpected server endpoint
+            std::cerr << "error in LtpUdpEngine::HandleUdpReceiveDiscard: source/client received udp from unexpected server endpoint " << m_remoteEndpointDiscard.address() << ":" << m_remoteEndpointDiscard.port() << std::endl;
+            DoUdpShutdown();
+            return;            
         }
 
         StartUdpReceive(); //restart operation only if there was no error
@@ -166,8 +193,8 @@ void LtpUdpEngine::OnResolve(const boost::system::error_code & ec, boost::asio::
         std::cerr << "Error resolving: " << ec.message() << std::endl;
     }
     else {
-        m_udpDestinationEndpoint = *results;
-        std::cout << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+        m_udpDestinationResolvedEndpointDataSourceToDataSink = *results;
+        std::cout << "resolved host to " << m_udpDestinationResolvedEndpointDataSourceToDataSink.address() << ":" << m_udpDestinationResolvedEndpointDataSourceToDataSink.port() << std::endl;
         std::cout << "UDP READY" << std::endl;
         m_readyToForward = true;
     }

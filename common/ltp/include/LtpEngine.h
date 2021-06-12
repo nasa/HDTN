@@ -59,13 +59,13 @@ public:
     void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size);
     void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
-    bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId);
 
     std::size_t NumActiveReceivers() const;
     std::size_t NumActiveSenders() const;
 protected:
     virtual void PacketInFullyProcessedCallback(bool success);
-    virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
     void SignalReadyForSend_ThreadSafe();
 private:
     void TrySendPacketIfAvailable();
@@ -99,7 +99,7 @@ private:
     //boost::mutex m_randomDeviceMutex;
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> > m_mapSessionNumberToSessionSender;
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> > m_mapSessionIdToSessionReceiver;
-    std::list<std::vector<uint8_t> > m_closedSessionDataToSend;
+    std::list<std::pair<uint64_t, std::vector<uint8_t> > > m_closedSessionDataToSend; //sessionOriginatorEngineId, data
     std::list<cancel_segment_timer_info_t> m_listCancelSegmentTimerInfo;
     std::list<uint64_t> m_listSendersNeedingDeleted;
     std::list<Ltp::session_id_t> m_listReceiversNeedingDeleted;
