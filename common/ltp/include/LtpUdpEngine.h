@@ -5,7 +5,7 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <vector>
-#include <boost/bimap.hpp>
+#include <map>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
 
@@ -31,6 +31,7 @@ private:
     void StartUdpReceive();
     void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void HandleUdpReceiveDiscard(const boost::system::error_code & error, std::size_t bytesTransferred);
+    void SessionOriginatorEngineIdDecodedCallbackFromThisUdpEndpoint(const boost::asio::ip::udp::endpoint * const udpEndpointPtr, const uint64_t sessionOriginatorEngineId);
     virtual void PacketInFullyProcessedCallback(bool success);
     virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
@@ -49,9 +50,10 @@ private:
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
+    std::vector<Ltp::SessionOriginatorEngineIdDecodedCallback_t> m_sessionOriginatorEngineIdDecodedCallbackCbVec;
     std::vector<boost::uint8_t> m_udpReceiveDiscardBuffer;
     boost::asio::ip::udp::endpoint m_remoteEndpointDiscard;
-    boost::bimap<uint64_t, boost::asio::ip::udp::endpoint> m_bimapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender;
+    std::map<uint64_t, boost::asio::ip::udp::endpoint> m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly;
 
     volatile bool m_readyToForward;
 public:

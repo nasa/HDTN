@@ -335,52 +335,13 @@ void Ltp::SetBeginningState() {
     m_headerRxState = LTP_HEADER_RX_STATE::READ_CONTROL_BYTE;
 }
 
-bool Ltp::GetSessionOriginatorEngineIdFromLtpPacket(const uint8_t * const rxVals, std::size_t numChars, uint64_t & sessionOriginatorEngineId) {
-    if (numChars) {
-        --numChars;
-        const uint8_t ltpVersion = rxVals[0] >> 4;
-        if (ltpVersion != 0) {
-            std::cerr << "error in Ltp::GetSessionOriginatorEngineIdFromLtpPacket: ltp version not 0.. got " + boost::lexical_cast<std::string>((int)ltpVersion) << std::endl;
-            return false;
-        }
-    }
-    else {
-        std::cerr << "error in in Ltp::GetSessionOriginatorEngineIdFromLtpPacket:  0 length ltp packet received" << std::endl;
-        return false;
-    }
-    unsigned int sdnvCountedSize = 0;
-    const uint8_t * const sdnvEncodedBase = &rxVals[1];
-    const uint8_t * sdnvEncodedPtr = sdnvEncodedBase;
-    while (numChars) {
-        --numChars;
-        const uint8_t rxVal = *sdnvEncodedPtr++;
-        ++sdnvCountedSize;
-        if (sdnvCountedSize > 10) {
-            std::cerr << "error in Ltp::GetSessionOriginatorEngineIdFromLtpPacket, sdnv > 10 bytes" << std::endl;
-            return false;
-        }
-        else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
-            uint8_t sdnvSize;
-            sessionOriginatorEngineId = SdnvDecodeU64(sdnvEncodedBase, &sdnvSize);
-            if (sdnvSize != sdnvCountedSize) {
-                std::cerr << "error in Ltp::GetSessionOriginatorEngineIdFromLtpPacket, sdnvSize != sdnvCountedSize" << std::endl;
-                return false;
-            }
-            else {
-                return true;
-            }
-        }
-    }
-    std::cerr << "error in Ltp::GetSessionOriginatorEngineIdFromLtpPacket, incomplete sdnv data" << std::endl;
-    return false;
-}
 
 void Ltp::HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage) {
     HandleReceivedChars(&rxVal, 1, errorMessage);
 }
 
 
-bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage) {
+bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
     while (numChars) {
         --numChars;
         const uint8_t rxVal = *rxVals++;
@@ -413,6 +374,9 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                         return false;
                     }
                     else {
+                        if (sessionOriginatorEngineIdDecodedCallbackPtr) {
+                            (*sessionOriginatorEngineIdDecodedCallbackPtr)(m_sessionId.sessionOriginatorEngineId);
+                        }
                         m_sdnvTempVec.clear();
                         m_headerRxState = LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV;
                     }

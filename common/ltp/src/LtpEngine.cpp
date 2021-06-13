@@ -79,9 +79,9 @@ void LtpEngine::SetMtuReportSegment(uint64_t mtuReportSegment) {
     std::cout << "max reception claims = " << m_maxReceptionClaims << std::endl;
 }
 
-bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size) {
+bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
     std::string errorMessage;
-    const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage);
+    const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage, sessionOriginatorEngineIdDecodedCallbackPtr);
     if (!success) {
         std::cerr << "error in LtpEngine::PacketIn: " << errorMessage << std::endl;
         m_ltpRxStateMachine.InitRx();
@@ -100,8 +100,8 @@ bool LtpEngine::PacketIn(const std::vector<boost::asio::const_buffer> & constBuf
     return true;
 }
 
-void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size) {
-    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, data, size));
+void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, data, size, sessionOriginatorEngineIdDecodedCallbackPtr));
 }
 void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));

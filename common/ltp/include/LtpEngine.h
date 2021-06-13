@@ -53,10 +53,10 @@ public:
     void SetInitialTransmissionCompletedCallback(const InitialTransmissionCompletedCallback_t & callback);
     void SetTransmissionSessionCancelledCallback(const TransmissionSessionCancelledCallback_t & callback);
 
-    bool PacketIn(const uint8_t * data, const std::size_t size);
+    bool PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     bool PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
-    void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size);
+    void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
     bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId);

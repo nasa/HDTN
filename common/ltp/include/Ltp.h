@@ -220,6 +220,8 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> CancelSegmentContentsReadCallback_t;
     typedef boost::function<void(const session_id_t & sessionId, bool isToSender,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)> CancelAcknowledgementSegmentContentsReadCallback_t;
+
+    typedef boost::function<void(uint64_t sessionOriginatorEngineId)> SessionOriginatorEngineIdDecodedCallback_t;
 	
     Ltp();
 	~Ltp();
@@ -232,11 +234,10 @@ public:
 
 
 	void InitRx();
-	bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage);
+	bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
 	void HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage);
     bool IsAtBeginningState() const; //unit testing convenience function
-    
-    static bool GetSessionOriginatorEngineIdFromLtpPacket(const uint8_t * const rxVals, std::size_t numChars, uint64_t & sessionOriginatorEngineId);
+
     
     static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, const session_id_t & sessionId, uint64_t reportSerialNumber);
     static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, 
