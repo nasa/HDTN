@@ -8,6 +8,7 @@ add_library(config_lib STATIC
     src/InductsConfig.cpp
 	src/OutductsConfig.cpp
     src/StorageConfig.cpp
+	src/HdtnConfig.cpp
 )
 
 target_link_libraries(config_lib hdtn_util ${Boost_LIBRARIES})

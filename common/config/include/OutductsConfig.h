@@ -30,12 +30,16 @@ struct outduct_element_config_t {
     uint64_t clientServiceId;
     uint32_t numRxCircularBufferElements;
     uint32_t numRxCircularBufferBytesPerElement;
+    uint32_t ltpMaxRetriesPerSerialNumber;
 
     //specific to udp
     uint64_t udpRateBps;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
+
+    //specific to tcpcl
+    uint64_t tcpclAutoFragmentSizeBytes;
 
     outduct_element_config_t();
     ~outduct_element_config_t();

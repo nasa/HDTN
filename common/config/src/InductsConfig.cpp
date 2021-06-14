@@ -25,6 +25,7 @@ induct_element_config_t::induct_element_config_t() :
     oneWayMarginTimeMs(0),
     clientServiceId(0),
     preallocatedRedDataBytes(0),
+    ltpMaxRetriesPerSerialNumber(0),
     keepAliveIntervalSeconds(0) {}
 induct_element_config_t::~induct_element_config_t() {}
 
@@ -43,6 +44,7 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     preallocatedRedDataBytes(o.preallocatedRedDataBytes),
+    ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
 
 //a move constructor: X(X&&)
@@ -59,6 +61,7 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     preallocatedRedDataBytes(o.preallocatedRedDataBytes),
+    ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
 
 //a copy assignment: operator=(const X&)
@@ -75,6 +78,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     preallocatedRedDataBytes = o.preallocatedRedDataBytes;
+    ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
     return *this;
 }
@@ -93,6 +97,7 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     preallocatedRedDataBytes = o.preallocatedRedDataBytes;
+    ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
     return *this;
 }
@@ -110,6 +115,7 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (oneWayMarginTimeMs == o.oneWayMarginTimeMs) &&
         (clientServiceId == o.clientServiceId) &&
         (preallocatedRedDataBytes == o.preallocatedRedDataBytes) &&
+        (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds);
 }
 
@@ -187,6 +193,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             inductElementConfig.oneWayMarginTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
             inductElementConfig.clientServiceId = inductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
             inductElementConfig.preallocatedRedDataBytes = inductElementConfigPt.second.get<uint64_t>("preallocatedRedDataBytes", 100); //non-throw version
+            inductElementConfig.ltpMaxRetriesPerSerialNumber = inductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
         }
 
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
@@ -250,6 +257,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("oneWayMarginTimeMs", inductElementConfig.oneWayMarginTimeMs);
             inductElementConfigPt.put("clientServiceId", inductElementConfig.clientServiceId);
             inductElementConfigPt.put("preallocatedRedDataBytes", inductElementConfig.preallocatedRedDataBytes);
+            inductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", inductElementConfig.ltpMaxRetriesPerSerialNumber);
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);

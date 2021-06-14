@@ -30,10 +30,12 @@ outduct_element_config_t::outduct_element_config_t() :
     clientServiceId(0),
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
+    ltpMaxRetriesPerSerialNumber(0),
 
     udpRateBps(0),
 
-    keepAliveIntervalSeconds(0) {}
+    keepAliveIntervalSeconds(0),
+    tcpclAutoFragmentSizeBytes(0) {}
 outduct_element_config_t::~outduct_element_config_t() {}
 
 
@@ -55,10 +57,12 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     clientServiceId(o.clientServiceId),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
+    ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
 
     udpRateBps(o.udpRateBps),
 
-    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
+    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
+    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes) { }
 
 //a move constructor: X(X&&)
 outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
@@ -78,10 +82,12 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     clientServiceId(o.clientServiceId),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
+    ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
 
     udpRateBps(o.udpRateBps),
 
-    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
+    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
+    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes) { }
 
 //a copy assignment: operator=(const X&)
 outduct_element_config_t& outduct_element_config_t::operator=(const outduct_element_config_t& o) {
@@ -101,10 +107,13 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     clientServiceId = o.clientServiceId;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
+    ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
 
     udpRateBps = o.udpRateBps;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
+
+    tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
     return *this;
 }
 
@@ -126,10 +135,13 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     clientServiceId = o.clientServiceId;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
+    ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
 
     udpRateBps = o.udpRateBps;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
+
+    tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
     return *this;
 }
 
@@ -150,10 +162,13 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (clientServiceId == o.clientServiceId) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
+        (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
 
         (udpRateBps == o.udpRateBps) &&
 
-        (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds);
+        (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
+        
+        (tcpclAutoFragmentSizeBytes == o.tcpclAutoFragmentSizeBytes);
 }
 
 OutductsConfig::OutductsConfig() {
@@ -244,6 +259,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             outductElementConfig.clientServiceId = outductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
             outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements", 100); //non-throw version
             outductElementConfig.numRxCircularBufferBytesPerElement = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement", UINT16_MAX); //non-throw version
+            outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
         }
 
         if (outductElementConfig.convergenceLayer == "udp") {
@@ -252,6 +268,10 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
 
         if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl")) {
             outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds", 15); //non-throw version
+        }
+
+        if (outductElementConfig.convergenceLayer == "tcpcl") {
+            outductElementConfig.tcpclAutoFragmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclAutoFragmentSizeBytes", 200000000); //non-throw version
         }
     }
 
@@ -318,12 +338,16 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("clientServiceId", outductElementConfig.clientServiceId);
             outductElementConfigPt.put("numRxCircularBufferElements", outductElementConfig.numRxCircularBufferElements);
             outductElementConfigPt.put("numRxCircularBufferBytesPerElement", outductElementConfig.numRxCircularBufferBytesPerElement);
+            outductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", outductElementConfig.ltpMaxRetriesPerSerialNumber);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);
         }
         if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl")) {
             outductElementConfigPt.put("keepAliveIntervalSeconds", outductElementConfig.keepAliveIntervalSeconds);
+        }
+        if (outductElementConfig.convergenceLayer == "tcpcl") {
+            outductElementConfigPt.put("tcpclAutoFragmentSizeBytes", outductElementConfig.tcpclAutoFragmentSizeBytes);
         }
     }
 

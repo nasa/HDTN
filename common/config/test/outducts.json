@@ -19,7 +19,8 @@
             "oneWayMarginTimeMs": 205,
             "clientServiceId": 2,
             "numRxCircularBufferElements": 101,
-            "numRxCircularBufferBytesPerElement": 65532
+            "numRxCircularBufferBytesPerElement": 65532,
+            "ltpMaxRetriesPerSerialNumber": 5
         },
         {
             "name": "o2",
@@ -45,7 +46,8 @@
                 10,
                 26
             ],
-            "keepAliveIntervalSeconds": 16
+            "keepAliveIntervalSeconds": 16,
+            "tcpclAutoFragmentSizeBytes": 200000
         },
         {
             "name": "o4",

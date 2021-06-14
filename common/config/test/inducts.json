@@ -13,7 +13,8 @@
             "oneWayLightTimeMs": 1004,
             "oneWayMarginTimeMs": 205,
             "clientServiceId": 2,
-            "preallocatedRedDataBytes": 200006
+            "preallocatedRedDataBytes": 200006,
+            "ltpMaxRetriesPerSerialNumber": 5
         },
         {
             "name": "i2",

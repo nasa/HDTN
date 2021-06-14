@@ -26,6 +26,7 @@ struct induct_element_config_t {
     uint64_t oneWayMarginTimeMs;
     uint64_t clientServiceId;
     uint64_t preallocatedRedDataBytes;
+    uint32_t ltpMaxRetriesPerSerialNumber;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
