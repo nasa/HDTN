@@ -16,8 +16,8 @@ add_executable(unit-tests
 	../../common/util/test/TestRateManagerAsync.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
+	../../common/config/test/TestStorageConfig.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
-    ../../module/storage/unit_tests/StorageConfigTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
