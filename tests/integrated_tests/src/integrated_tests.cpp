@@ -1223,8 +1223,7 @@ bool TestStorage() {
     // Run Storage
     Delay(DELAY_THREAD);
     static const std::string storageConfigArg =
-            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "unit_tests" / "storageConfigRelativePaths.json").string();
+            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string();
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
     std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
@@ -1367,8 +1366,7 @@ bool TestStorageSlowBpSink() {
     Delay(DELAY_THREAD);
 
     static const std::string storageConfigArg =
-            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "unit_tests" / "storageConfigRelativePaths.json").string();
+            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string();
 
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
@@ -1513,8 +1511,7 @@ bool TestStorageMulti() {
     // Run Storage
     Delay(1);
     static const std::string storageConfigArg =
-            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "unit_tests" / "storageConfigRelativePaths.json").string();
+            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string();
     static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
     std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);

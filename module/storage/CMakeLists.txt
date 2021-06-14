@@ -95,11 +95,10 @@ target_include_directories(hdtn-multiple-release-message-sender PUBLIC
 add_library(storage_lib STATIC
         src/MemoryManagerTreeArray.cpp
         src/BundleStorageManagerMT.cpp
-        src/StorageConfig.cpp
         src/ZmqStorageInterface.cpp
 )
 
-target_link_libraries(storage_lib hdtn_util hdtn_reg bpcodec ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
+target_link_libraries(storage_lib hdtn_util hdtn_reg config_lib bpcodec ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
 target_include_directories(storage_lib PUBLIC
         include
         ../../common/include

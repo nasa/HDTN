@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_library(config_lib STATIC
     src/InductsConfig.cpp
 	src/OutductsConfig.cpp
+    src/StorageConfig.cpp
 )
 
 target_link_libraries(config_lib hdtn_util ${Boost_LIBRARIES})
