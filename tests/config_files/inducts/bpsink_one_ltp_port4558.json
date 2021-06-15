@@ -12,7 +12,8 @@
             "oneWayLightTimeMs": 1000,
             "oneWayMarginTimeMs": 200,
             "clientServiceId": 400,
-            "preallocatedRedDataBytes": 200000
+            "preallocatedRedDataBytes": 200000,
+            "ltpMaxRetriesPerSerialNumber": 5
         }
     ]
 }

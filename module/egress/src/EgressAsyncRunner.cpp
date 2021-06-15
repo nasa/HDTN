@@ -30,13 +30,13 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&EgressAsyncRunner::MonitorExitKeypressThreadFunction, this));
-        OutductsConfig_ptr outductsConfig;
+        HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("outducts-config-file", boost::program_options::value<std::string>()->default_value("outducts.json"), "Outducts Configuration File.")
+                ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ;
 
             boost::program_options::variables_map vm;
@@ -48,10 +48,10 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 return false;
             }
 
-            const std::string configFileName = vm["outducts-config-file"].as<std::string>();
+            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
 
-            outductsConfig = OutductsConfig::CreateFromJsonFile(configFileName);
-            if (!outductsConfig) {
+            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+            if (!hdtnConfig) {
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
@@ -77,7 +77,12 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         std::cout << "starting EgressAsync.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("egress", "Starting EgressAsync");
         hdtn::HdtnRegsvr regsvr;
-        regsvr.Init(HDTN_REG_SERVER_PATH, "egress", 10100, "PULL");
+        const std::string connect_regServerPath(
+            std::string("tcp://") +
+            hdtnConfig->m_zmqRegistrationServerAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
+        regsvr.Init(connect_regServerPath, "egress", 10100, "PULL");
         regsvr.Reg();
         if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
             const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
@@ -93,7 +98,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             return 1;
         }
         hdtn::HegrManagerAsync egress;
-        egress.Init(*outductsConfig);
+        egress.Init(*hdtnConfig);
 
         printf("Announcing presence of egress ...\n");
         hdtn::Logger::getInstance()->logNotification("egress", "Egress Present");

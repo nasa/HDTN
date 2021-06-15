@@ -31,6 +31,7 @@ outduct_element_config_t::outduct_element_config_t() :
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
     ltpMaxRetriesPerSerialNumber(0),
+    ltpCheckpointEveryNthDataSegment(0),
 
     udpRateBps(0),
 
@@ -58,6 +59,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
+    ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
 
     udpRateBps(o.udpRateBps),
 
@@ -83,6 +85,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
+    ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
 
     udpRateBps(o.udpRateBps),
 
@@ -108,6 +111,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
+    ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
 
     udpRateBps = o.udpRateBps;
 
@@ -136,6 +140,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
+    ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
 
     udpRateBps = o.udpRateBps;
 
@@ -163,6 +168,7 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
+        (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -260,6 +266,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements", 100); //non-throw version
             outductElementConfig.numRxCircularBufferBytesPerElement = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement", UINT16_MAX); //non-throw version
             outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
+            outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment", 0); //non-throw version
         }
 
         if (outductElementConfig.convergenceLayer == "udp") {
@@ -339,6 +346,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("numRxCircularBufferElements", outductElementConfig.numRxCircularBufferElements);
             outductElementConfigPt.put("numRxCircularBufferBytesPerElement", outductElementConfig.numRxCircularBufferBytesPerElement);
             outductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", outductElementConfig.ltpMaxRetriesPerSerialNumber);
+            outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);

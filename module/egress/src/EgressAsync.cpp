@@ -29,14 +29,16 @@ void hdtn::HegrManagerAsync::Stop() {
     }
 }
 
-void hdtn::HegrManagerAsync::Init(const OutductsConfig & outductsConfig) {
+void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig) {
 
     if (m_running) {
         std::cerr << "error: HegrManagerAsync::Init called while Egress is already running" << std::endl;
         return;
     }
 
-    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig)) {
+    m_hdtnConfig = hdtnConfig;
+
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig)) {
         return;
     }
 
@@ -60,15 +62,29 @@ void hdtn::HegrManagerAsync::Init(const OutductsConfig & outductsConfig) {
     // socket for cut-through mode straight to egress
     m_zmqCtx_ingressEgressPtr = boost::make_unique<zmq::context_t>();
     m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
-    m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH);
+    const std::string connect_boundIngressToConnectingEgressPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqIngressAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
+    m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(connect_boundIngressToConnectingEgressPath);
     m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
-    m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH);
+    const std::string connect_connectingEgressToBoundIngressPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqIngressAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundIngressPortPath));
+    m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(connect_connectingEgressToBoundIngressPath);
     // socket for sending bundles to storage
     m_zmqCtx_storageEgressPtr = boost::make_unique<zmq::context_t>();
     m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::pull);
-    m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH);
+    const std::string bind_connectingStorageToBoundEgressPath(
+        std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
+    m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(bind_connectingStorageToBoundEgressPath);
     m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::push);
-    m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH);
+    const std::string bind_boundEgressToConnectingStoragePath(
+        std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
+    m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(bind_boundEgressToConnectingStoragePath);
 
     
     if (!m_running) {

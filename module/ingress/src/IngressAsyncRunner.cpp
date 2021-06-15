@@ -41,14 +41,14 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&IngressAsyncRunner::MonitorExitKeypressThreadFunction, this));
         bool alwaysSendToStorage = false;
-        InductsConfig_ptr inductsConfig;
+        HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")                
                 ("always-send-to-storage", "Don't send straight to egress (for testing).")
-                ("inducts-config-file", boost::program_options::value<std::string>()->default_value("inducts.json"), "Inducts Configuration File.")
+                ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ;
 
             boost::program_options::variables_map vm;
@@ -60,10 +60,10 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
                 return false;
             }
 
-            const std::string configFileName = vm["inducts-config-file"].as<std::string>();
+            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
 
-            inductsConfig = InductsConfig::CreateFromJsonFile(configFileName);
-            if (!inductsConfig) {
+            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+            if (!hdtnConfig) {
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
@@ -94,12 +94,17 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         std::cout << "starting ingress.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
         hdtn::Ingress ingress;
-        ingress.Init(*inductsConfig, alwaysSendToStorage);
+        ingress.Init(*hdtnConfig, alwaysSendToStorage);
 
         // finish registration stuff -ingress will find out what egress services have
         // registered
         hdtn::HdtnRegsvr regsvr;
-        regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
+        const std::string connect_regServerPath(
+            std::string("tcp://") +
+            hdtnConfig->m_zmqRegistrationServerAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
+        regsvr.Init(connect_regServerPath, "ingress", 10100, "PUSH");
         regsvr.Reg();
 
         if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {

@@ -20,7 +20,8 @@
             "clientServiceId": 2,
             "numRxCircularBufferElements": 101,
             "numRxCircularBufferBytesPerElement": 65532,
-            "ltpMaxRetriesPerSerialNumber": 5
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpCheckpointEveryNthDataSegment": 0
         },
         {
             "name": "o2",

@@ -13,7 +13,8 @@
                 2,
                 3
             ],
-            "keepAliveIntervalSeconds": 17
+            "keepAliveIntervalSeconds": 17,
+            "tcpclAutoFragmentSizeBytes": 200000
         }
     ]
 }

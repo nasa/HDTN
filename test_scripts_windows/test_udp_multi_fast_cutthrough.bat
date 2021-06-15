@@ -7,9 +7,9 @@ START "BpSink1" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcode
 timeout /t 3
 START "BpSink2" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpsink-async.exe" "--inducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\inducts\bpsink_one_udp_port4558.json"
 timeout /t 3
-START "Egress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\egress\hdtn-egress-async.exe" "--outducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\outducts\egress_two_udp_port4557flowid1_port4558flowid2_0.8Mbps.json"
+START "Egress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\egress\hdtn-egress-async.exe" "--hdtn-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\hdtn\hdtn_ingress1udp_port4556_egress2udp_port4557flowid1_port4558flowid2_0.8Mbps.json"
 timeout /t 3
-START "Ingress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\ingress\hdtn-ingress.exe" "--inducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\inducts\ingress_one_udp_port4556.json"
+START "Ingress" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\ingress\hdtn-ingress.exe" "--hdtn-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\hdtn\hdtn_ingress1udp_port4556_egress2udp_port4557flowid1_port4558flowid2_0.8Mbps.json"
 timeout /t 3
 START "BpGen2" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--duration=10" "--flow-id=2" "--outducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\outducts\bpgen_one_udp_port4556_0.05Mbps.json"
 timeout /t 1

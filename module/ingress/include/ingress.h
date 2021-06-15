@@ -11,6 +11,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include "HdtnConfig.h"
 #include "InductManager.h"
 #include <list>
 #include <queue>
@@ -42,7 +43,7 @@ public:
     Ingress();  // initialize message buffers
     ~Ingress();
     void Stop();
-    int Init(const InductsConfig & inductsConfig, bool alwaysSendToStorage);
+    int Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage);
 private:
     int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
@@ -104,6 +105,7 @@ private:
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
 
     InductManager m_inductManager;
+    HdtnConfig m_hdtnConfig;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
     std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;

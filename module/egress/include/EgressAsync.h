@@ -12,6 +12,7 @@
 #include <boost/asio.hpp>
 #include <map>
 #include <queue>
+#include "HdtnConfig.h"
 #include "OutductManager.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "Logger.h"
@@ -35,7 +36,7 @@ public:
     HegrManagerAsync();
     ~HegrManagerAsync();
     void Stop();
-    void Init(const OutductsConfig & outductsConfig);
+    void Init(const HdtnConfig & hdtnConfig);
 
     uint64_t m_bundleCount;
     uint64_t m_bundleData;
@@ -57,6 +58,7 @@ private:
         std::vector<bool> & isFromStorage,
         std::vector<zmq::message_t> & payloadMessages);
     OutductManager m_outductManager;
+    HdtnConfig m_hdtnConfig;
     
     boost::condition_variable m_conditionVariableProcessZmqMessages;
 

@@ -20,7 +20,9 @@
             "oneWayMarginTimeMs": 200,
             "clientServiceId": 400,
             "numRxCircularBufferElements": 100,
-            "numRxCircularBufferBytesPerElement": 65535
+            "numRxCircularBufferBytesPerElement": 65535,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpCheckpointEveryNthDataSegment": 0
         }
     ]
 }

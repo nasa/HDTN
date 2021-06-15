@@ -31,6 +31,7 @@ struct outduct_element_config_t {
     uint32_t numRxCircularBufferElements;
     uint32_t numRxCircularBufferBytesPerElement;
     uint32_t ltpMaxRetriesPerSerialNumber;
+    uint32_t ltpCheckpointEveryNthDataSegment;
 
     //specific to udp
     uint64_t udpRateBps;
