@@ -13,6 +13,7 @@
 #include <boost/thread.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BundleStorageConfig.h"
+#include "Logger.h"
 #include "MemoryManagerTreeArray.h"
 #include "StorageConfig.h"
 

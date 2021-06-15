@@ -19,6 +19,10 @@ int main(int argc, const char* argv[]) {
     runner.Run(argc, argv, running, true);
     std::cout << "totalBundlesErasedFromStorage: " << runner.m_totalBundlesErasedFromStorage << std::endl;
     std::cout << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage << std::endl;
+    hdtn::Logger::getInstance()->logInfo("storage", "totalBundlesErasedFromStorage: " + 
+        std::to_string(runner.m_totalBundlesErasedFromStorage));
+    hdtn::Logger::getInstance()->logInfo("storage", "totalBundlesSentToEgressFromStorage: " + 
+        std::to_string(runner.m_totalBundlesSentToEgressFromStorage));
     return 0;
 
 }

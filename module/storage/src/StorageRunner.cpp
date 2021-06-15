@@ -19,6 +19,7 @@
 
 void StorageRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
+    hdtn::Logger::getInstance()->logNotification("storage", "Keyboard Interrupt.. exiting");
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -93,7 +94,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //config.storePath = storePath;
         m_storagePtr = boost::make_unique<hdtn::storage>();
         std::cout << "[store] Initializing storage manager ..." << std::endl;
-
+        hdtn::Logger::getInstance()->logNotification("storage", "[store] Initializing storage manager ...");
         if (!m_storagePtr->Init(*hdtnConfig)) {
             return false;
         }

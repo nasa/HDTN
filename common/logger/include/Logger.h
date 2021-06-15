@@ -42,6 +42,16 @@ enum severity_level
     critical
 };
 
+static const char* severity_strings[] =
+{
+    "Info",
+    "Notification",
+    "Warning",
+    "Error",
+    "Critical"
+};
+
+
 //Module Tags
 /*enum module
 {
@@ -50,7 +60,8 @@ enum severity_level
     storage
 };*/
 
-typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend> text_sink;
+//typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend> text_sink;
+typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sink_t;
 
 class Logger
 {
@@ -70,6 +81,7 @@ private:
 
     void init();
     void createModuleLogFile(std::string module);
+    void createSeverityLogFile(hdtn::severity_level level);
     boost::log::sources::severity_logger_mt<severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance
 };

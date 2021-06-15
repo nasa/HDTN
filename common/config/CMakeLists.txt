@@ -11,7 +11,7 @@ add_library(config_lib STATIC
 	src/HdtnConfig.cpp
 )
 
-target_link_libraries(config_lib hdtn_util ${Boost_LIBRARIES})
+target_link_libraries(config_lib hdtn_util log_lib ${Boost_LIBRARIES})
 target_include_directories(config_lib PUBLIC include ${Boost_INCLUDE_DIRS})
 
 

@@ -10,6 +10,7 @@
 #include "codec/bpv6-ext-block.h"
 #include "codec/bpv6.h"
 #include "ingress.h"
+#include "Logger.h"
 #include "message.hpp"
 #include <boost/bind.hpp>
 #include <boost/make_unique.hpp>
@@ -31,6 +32,7 @@ Ingress::~Ingress() {
 void Ingress::Stop() {
     m_inductManager.Clear();
 
+
     m_running = false; //thread stopping criteria
 
     if (m_threadZmqAckReaderPtr) {
@@ -41,6 +43,8 @@ void Ingress::Stop() {
     
     
     std::cout << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue << std::endl;
+    hdtn::Logger::getInstance()->logNotification("ingress", 
+        "m_eventsTooManyInStorageQueue: " + std::to_string(m_eventsTooManyInStorageQueue));
 }
 
 int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage) {
@@ -86,7 +90,6 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage) {
 }
 
 
-
 void Ingress::ReadZmqAcksThreadFunc() {
 
     static const unsigned int NUM_SOCKETS = 2;
@@ -106,10 +109,16 @@ void Ingress::ReadZmqAcksThreadFunc() {
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmq::mutable_buffer(&rblk, sizeof(hdtn::BlockHdr)), zmq::recv_flags::dontwait);
                 if (!res) {
                     std::cerr << "error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack" << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", 
+                        "Error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack");
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::BlockHdr))) {
                     std::cerr << "egress blockhdr message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(hdtn::BlockHdr) << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", 
+                        "Egress blockhdr message mismatch: untruncated = " + std::to_string(res->untruncated_size)
+                        + " truncated = " + std::to_string(res->size) + " expected = " + 
+                        std::to_string(sizeof(hdtn::BlockHdr)));
                 }
                 else {
                     m_egressAckMapQueueMutex.lock();
@@ -121,6 +130,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                     }
                     else {
                         std::cerr << "error didn't receive expected egress ack" << std::endl;
+                        hdtn::Logger::getInstance()->logError("ingress", "Error didn't receive expected egress ack");
                     }
                     
                 }
@@ -129,10 +139,17 @@ void Ingress::ReadZmqAcksThreadFunc() {
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingStorageToBoundIngressPtr->recv(zmq::mutable_buffer(&rblk, sizeof(hdtn::BlockHdr)), zmq::recv_flags::dontwait);
                 if (!res) {
                     std::cerr << "error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read storage BlockHdr ack" << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", 
+                        "Error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read storage BlockHdr ack");
+
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::BlockHdr))) {
                     std::cerr << "egress blockhdr message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(hdtn::BlockHdr) << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress",                    
+                        "Egress blockhdr message mismatch: untruncated = " + std::to_string(res->untruncated_size)
+                        + " truncated = " + std::to_string(res->size) + " expected = " + 
+                        std::to_string(sizeof(hdtn::BlockHdr)));
                 }
                 else {
                     bool needsNotify = false;
@@ -140,6 +157,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                         boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
                         if (m_storageAckQueue.empty()) {
                             std::cerr << "error m_storageAckQueue is empty" << std::endl;
+                            hdtn::Logger::getInstance()->logError("ingress", "Error m_storageAckQueue is empty");
                         }
                         else if (*m_storageAckQueue.front() == rblk) {
                             m_storageAckQueue.pop();
@@ -148,6 +166,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                         }
                         else {
                             std::cerr << "error didn't receive expected storage ack" << std::endl;
+                            hdtn::Logger::getInstance()->logError("ingress", "Error didn't receive expected storage ack");
                         }
                     }
                     if (needsNotify) {
@@ -164,6 +183,12 @@ void Ingress::ReadZmqAcksThreadFunc() {
     m_bundleCount = m_bundleCountStorage + m_bundleCountEgress;
     std::cout << "m_bundleCount: " << m_bundleCount << std::endl;
     std::cout << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting\n";
+    hdtn::Logger::getInstance()->logInfo("ingress", "totalAcksFromEgress: " + std::to_string(totalAcksFromEgress));
+    hdtn::Logger::getInstance()->logInfo("ingress", "totalAcksFromStorage: " + std::to_string(totalAcksFromStorage));
+    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountStorage: " + std::to_string(m_bundleCountStorage));
+    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountEgress: " + std::to_string(m_bundleCountEgress));
+    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCount: " + std::to_string(m_bundleCount));
+    hdtn::Logger::getInstance()->logNotification("ingress", "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting");
 }
 
 static void CustomCleanup(void *data, void *hint) {
@@ -236,6 +261,8 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                     if (egressToIngressAckingObj.GetQueueSize() > 5) {
                         if (attempt == 7) {
                             std::cerr << "error: too many pending egress acks in the queue for flow id " << hdr.flowId << std::endl;
+                            hdtn::Logger::getInstance()->logError("ingress", 
+                                "Error: too many pending egress acks in the queue for flow id " + std::to_string(hdr.flowId));
                         }
                         egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
                         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -247,6 +274,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                         boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
                         if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(messageWithDataStolen, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                             std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
+                            hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
                         }
                         else {
                             egressToIngressAckingObj.PushMove_ThreadSafe(hdrPtr);
@@ -261,6 +289,8 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                                 zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanup, rxBufRawPointer);
                                 if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                     std::cerr << "ingress can't send bundle to egress" << std::endl;
+                                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
+
                                 }
                                 else {
                                     //success                            
@@ -270,6 +300,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                             else {
                                 if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
                                     std::cerr << "ingress can't send bundle to egress" << std::endl;
+                                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
                                 }
                                 else {
                                     //success                            
@@ -288,6 +319,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                     if (m_storageAckQueue.size() > 5) {
                         if (attempt == 7) {
                             std::cerr << "error: too many pending storage acks in the queue" << std::endl;
+                            hdtn::Logger::getInstance()->logError("ingress", "Error: too many pending storage acks in the queue");
                         }
                         m_conditionVariableStorageAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
                         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -300,6 +332,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                     //zmq threads not thread safe but protected by mutex above
                     if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(messageWithDataStolen, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                         std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
+                        hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to storage");
                     }
                     else {
                         m_storageAckQueue.push(std::move(hdrPtr));
@@ -314,6 +347,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                             zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanup, rxBufRawPointer);
                             if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cerr << "ingress can't send bundle to storage" << std::endl;
+                                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");
                             }
                             else {
                                 //success                            
@@ -323,6 +357,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                         else {
                             if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(zmq::const_buffer(&tbuf[CHUNK_SIZE * j], bytesToSend), zmq::send_flags::dontwait)) {
                                 std::cerr << "ingress can't send bundle to storage" << std::endl;
+                                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");
                             }
                             else {
                                 //success                            
@@ -351,6 +386,5 @@ void Ingress::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //its own processing thread that calls this callback
     Process(std::move(wholeBundleVec));
 }
-
 
 }  // namespace hdtn

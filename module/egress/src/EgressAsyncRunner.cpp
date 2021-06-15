@@ -16,6 +16,7 @@
 
 void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
+    hdtn::Logger::getInstance()->logNotification("egress", "Keyboard Interrupt.. exiting");
     m_runningFromSigHandler = false; //do this first
 }
 
