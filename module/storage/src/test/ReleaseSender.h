@@ -29,7 +29,7 @@ public:
     ReleaseSender();
     ~ReleaseSender();
     int ProcessEventFile(std::string jsonEventFileName);
-    int ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName);
+    int ProcessComandLine(int argc, const char *argv[], std::string& jsonEventFileName);
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/storage/src/test/").string() + filename;
     }

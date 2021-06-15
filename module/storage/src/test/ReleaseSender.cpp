@@ -92,7 +92,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     return 0;
 }
 
-int ReleaseSender::ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName) {
+int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& jsonEventFileName) {
     jsonEventFileName = "";
     std::string eventsFile = ReleaseSender::DEFAULT_FILE;
     boost::program_options::options_description desc("Allowed options");

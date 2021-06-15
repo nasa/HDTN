@@ -127,7 +127,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         std::cout<< "BpGenAsyncRunner::Run: exiting cleanly..\n";
         bpGen.Stop();
         m_bundleCount = bpGen.m_bundleCount;
-        m_FinalStats = bpGen.m_FinalStats;
+        m_outductFinalStats = bpGen.m_outductFinalStats;
     }
     std::cout<< "BpGenAsyncRunner::Run: exited cleanly\n";
     return true;

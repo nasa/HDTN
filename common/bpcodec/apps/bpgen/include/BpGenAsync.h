@@ -6,23 +6,6 @@
 #include <boost/asio.hpp>
 #include "OutductManager.h"
 
-struct FinalStats {
-    bool useTcpcl;
-    bool useStcp;
-
-    // udp stats
-    uint64_t bundleCount;
-    std::size_t m_totalUdpPacketsAckedByUdpSendCallback;
-    std::size_t m_totalUdpPacketsAckedByRate;
-    std::size_t m_totalUdpPacketsSent;
-
-    //stcp stats
-    std::size_t m_totalDataSegmentsAckedByTcpSendCallback;
-
-    //tcpcl stats
-    std::size_t m_totalDataSegmentsAcked;
-
-};
 
 
 class BpGenAsync {
@@ -35,7 +18,6 @@ public:
     uint64_t m_bundleCount;
 
     OutductFinalStats m_outductFinalStats;
-    FinalStats m_FinalStats;
 
 
 private:
