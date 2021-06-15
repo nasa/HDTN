@@ -42,13 +42,13 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&StorageRunner::MonitorExitKeypressThreadFunction, this));
 
-        std::string storePath;
+        HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("storage-config-json-file", boost::program_options::value<std::string>()->default_value("storageConfig.json"), "Listen on this TCP or UDP port.");
+                ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.");
 
             boost::program_options::variables_map vm;
             boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
@@ -59,7 +59,13 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
                 return false;
             }
 
-            storePath = vm["storage-config-json-file"].as<std::string>();
+            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+
+            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+            if (!hdtnConfig) {
+                std::cerr << "error loading config file: " << configFileName << std::endl;
+                return false;
+            }
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -79,15 +85,16 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //timeval tv;
         //gettimeofday(&tv, NULL);
         //last = (tv.tv_sec + (tv.tv_usec / 1000000.0));
-        hdtn::storageConfig config;
-        config.regsvr = HDTN_REG_SERVER_PATH;
-        config.local = HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH;
-        config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
-        config.storePath = storePath;
+        //hdtn::storageConfig config;
+        //config.regsvr = HDTN_REG_SERVER_PATH;
+        //config.local = HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH;
+        //config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
+        //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
+        //config.storePath = storePath;
         m_storagePtr = boost::make_unique<hdtn::storage>();
         std::cout << "[store] Initializing storage manager ..." << std::endl;
 
-        if (!m_storagePtr->init(config)) {
+        if (!m_storagePtr->Init(*hdtnConfig)) {
             return false;
         }
 

@@ -82,7 +82,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             hdtnConfig->m_zmqRegistrationServerAddress +
             std::string(":") +
             boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
-        regsvr.Init(connect_regServerPath, "egress", 10100, "PULL");
+        regsvr.Init(connect_regServerPath, "egress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PULL");
         regsvr.Reg();
         if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
             const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;

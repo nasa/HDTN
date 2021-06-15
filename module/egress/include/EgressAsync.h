@@ -6,7 +6,6 @@
 #include <string>
 
 #include "message.hpp"
-#include "paths.hpp"
 #include "zmq.hpp"
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>

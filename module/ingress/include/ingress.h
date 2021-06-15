@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #include "message.hpp"
-#include "paths.hpp"
 //#include "util/tsc.h"
 #include "zmq.hpp"
 

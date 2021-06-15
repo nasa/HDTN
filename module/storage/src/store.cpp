@@ -10,7 +10,6 @@
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 #include <iostream>
-#include "cache.hpp"
 #include "message.hpp"
 #include "Logger.h"
 
@@ -28,30 +27,21 @@ void hdtn::storage::Stop() {
     m_totalBundlesSentToEgressFromStorage = worker.m_totalBundlesSentToEgressFromStorage;
 }
 
-bool hdtn::storage::init(const storageConfig & config) {
-    if (config.local.find(":") == std::string::npos) {
-        return false;// throw error_t();
-    }
-    std::string path = config.local.substr(config.local.find(":") + 1);
-    if (path.find(":") == std::string::npos) {
-        return false;// throw error_t();
-    }
-    int port = atoi(path.substr(path.find(":") + 1).c_str());
-    if (port < 1024) {
-        return false;//throw error_t();
-    }
-    std::string telem_path = config.telem.substr(config.telem.find(":") + 1);
-    if (telem_path.find(":") == std::string::npos) {
-        return false;//throw error_t();
-    }
-    int telem_port = atoi(telem_path.substr(telem_path.find(":") + 1).c_str());
+bool hdtn::storage::Init(const HdtnConfig & hdtnConfig) {
+    m_hdtnConfig = hdtnConfig;
+
 
     std::cout << "[storage] Executing registration ..." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "Executing Registration");
     hdtn::HdtnRegsvr storeReg;
     hdtn::HdtnRegsvr telemReg;
-    storeReg.Init(config.regsvr, "storage", port, "push");
-    telemReg.Init(config.regsvr, "c2/telem", telem_port, "rep");
+    const std::string connect_regServerPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqRegistrationServerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqRegistrationServerPortPath));
+    storeReg.Init(connect_regServerPath, "storage", m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath, "push");
+    telemReg.Init(connect_regServerPath, "c2/telem", 10460, "rep"); //TODO FIX
     storeReg.Reg();
     telemReg.Reg();
     std::cout << "[storage] Registration completed." << std::endl;
@@ -60,7 +50,7 @@ bool hdtn::storage::init(const storageConfig & config) {
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
     //telemetry not implemnted yet
     m_telemetrySockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
-    m_telemetrySockPtr->bind(config.telem);
+    m_telemetrySockPtr->bind(HDTN_STORAGE_TELEM_PATH);
 
     hdtn::HdtnEntries_ptr entries = storeReg.Query("ingress");
     while (!entries || entries->m_hdtnEntryList.empty()) {
@@ -74,9 +64,14 @@ bool hdtn::storage::init(const storageConfig & config) {
     std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
 
     m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
+    const std::string connect_boundIngressToConnectingStoragePath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqIngressAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
     try {
         //m_ingressSockPtr->connect(remote);
-        m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH);
+        m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
     }
     catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect ingress socket: " << ex.what() << std::endl;
@@ -84,10 +79,15 @@ bool hdtn::storage::init(const storageConfig & config) {
     }
 
     m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
+    const std::string connect_boundSchedulerPubSubPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqSchedulerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
     try {
-        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);// config.releaseWorker);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundSchedulerPubSubPath);// config.releaseWorker);
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "");
-        std::cout << "release sock connected to " << config.releaseWorker << std::endl;
+        std::cout << "release sock connected to " << connect_boundSchedulerPubSubPath << std::endl;
     } catch (const zmq::error_t & ex) {
         std::cerr << "error: cannot connect release socket: " << ex.what() << std::endl;
         return false;
@@ -95,8 +95,8 @@ bool hdtn::storage::init(const storageConfig & config) {
 
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
     m_workerSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
-    m_workerSockPtr->bind(config.worker);
-    worker.init(m_zmqContextPtr.get(), config);
+    m_workerSockPtr->bind(HDTN_STORAGE_WORKER_PATH);
+    worker.Init(m_zmqContextPtr.get(), m_hdtnConfig);
     worker.launch();
     zmq::message_t tmsg;
     if (!m_workerSockPtr->recv(tmsg, zmq::recv_flags::none)) {

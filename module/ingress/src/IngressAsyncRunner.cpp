@@ -104,7 +104,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             hdtnConfig->m_zmqRegistrationServerAddress +
             std::string(":") +
             boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
-        regsvr.Init(connect_regServerPath, "ingress", 10100, "PUSH");
+        regsvr.Init(connect_regServerPath, "ingress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PUSH");
         regsvr.Reg();
 
         if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {

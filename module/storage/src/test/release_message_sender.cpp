@@ -4,9 +4,9 @@
 #include <boost/algorithm/string.hpp>
 #include <cstdlib>
 #include <iostream>
+#include "HdtnConfig.h"
 
 #include "message.hpp"
-#include "paths.hpp"
 #include "reg.hpp"
 
 
@@ -20,6 +20,7 @@ int main(int argc, char *argv[]) {
     bool isStartMessage = false;
     unsigned int flowId = 0;
     unsigned int delayBeforeSendSeconds = 0;
+    HdtnConfig_ptr hdtnConfig;
 
     boost::program_options::options_description desc("Allowed options");
     try {
@@ -28,6 +29,7 @@ int main(int argc, char *argv[]) {
             ("release-message-type", boost::program_options::value<std::string>()->default_value("start"), "Send a start or stop message.")
             ("flow-id", boost::program_options::value<unsigned int>()->default_value(1), "Flow Id for message.")
             ("delay-before-send", boost::program_options::value<unsigned int>()->default_value(0), "Seconds before send.")
+            ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
             ;
 
         boost::program_options::variables_map vm;
@@ -39,6 +41,13 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
+        const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+
+        hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+        if (!hdtnConfig) {
+            std::cerr << "error loading config file: " << configFileName << std::endl;
+            return false;
+        }
 
         const std::string msgType = vm["release-message-type"].as<std::string>();
         if (boost::iequals(msgType, "start")) {
@@ -71,7 +80,9 @@ int main(int argc, char *argv[]) {
    
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    socket.bind(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
+    const std::string bind_boundSchedulerPubSubPath(
+        std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnConfig->m_zmqBoundSchedulerPubSubPortPath));
+    socket.bind(bind_boundSchedulerPubSubPath);
 
     std::cout << "waiting " << delayBeforeSendSeconds << " seconds..." << std::endl;
     boost::this_thread::sleep(boost::posix_time::seconds(delayBeforeSendSeconds));
