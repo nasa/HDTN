@@ -20,6 +20,15 @@ RateManagerAsync::RateManagerAsync(boost::asio::io_service & ioService, const ui
 
 RateManagerAsync::~RateManagerAsync() {
     //Reset();
+
+    
+    //print stats
+    std::cout << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback << std::endl;
+    std::cout << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback << std::endl;
+    std::cout << "m_totalPacketsSentByRate " << m_totalPacketsSentByRate << std::endl;
+    std::cout << "m_totalBytesSentByRate " << m_totalBytesSentByRate << std::endl;
+    std::cout << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend << std::endl;
+    std::cout << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend << std::endl;
 }
 
 void RateManagerAsync::Reset() {
@@ -73,13 +82,13 @@ std::size_t RateManagerAsync::GetTotalBytesBeingSent() {
 bool RateManagerAsync::SignalNewPacketDequeuedForSend(uint64_t packetSizeBytes) {
     const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexRate == UINT32_MAX) { //push check
-        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by rate" << std::endl;
+        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by rate" << std::endl;
         return false;
     }
 
     const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexSentCallback == UINT32_MAX) { //push check
-        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
+        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
         return false;
     }
 
@@ -149,6 +158,10 @@ void RateManagerAsync::OnRate_TimerExpired(const boost::system::error_code& e) {
     }
 }
 
+void RateManagerAsync::NotifyPacketSentFromCallback_ThreadSafe(std::size_t bytes_transferred) {
+    boost::asio::post(m_ioServiceRef, boost::bind(&RateManagerAsync::IoServiceThreadNotifyPacketSentCallback, this, bytes_transferred));
+}
+
 bool RateManagerAsync::IoServiceThreadNotifyPacketSentCallback(std::size_t bytes_transferred) {
    
     const unsigned int readIndex = m_bytesToAckBySentCallbackCb.GetIndexForRead();
@@ -202,7 +215,7 @@ void RateManagerAsync::WaitForAvailabilityToSendPacket_Blocking(unsigned int tim
     for (unsigned int attempt = 0; attempt < maxAttempts; ++attempt) {
         const std::size_t numPacketsBeingSent = GetTotalPacketsBeingSent();
         
-        if (!HasAvailabilityToSendPacket_Blocking()) {
+        if (!HasAvailabilityToSendPacket()) {
             boost::mutex::scoped_lock lock(m_cvMutex);
             m_conditionVariablePacketSent.timed_wait(lock, boost::posix_time::milliseconds(500)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -212,6 +225,6 @@ void RateManagerAsync::WaitForAvailabilityToSendPacket_Blocking(unsigned int tim
     }
 }
 
-bool RateManagerAsync::HasAvailabilityToSendPacket_Blocking() {
+bool RateManagerAsync::HasAvailabilityToSendPacket() {
     return (GetTotalPacketsBeingSent() <= m_maxPacketsBeingSent);
 }

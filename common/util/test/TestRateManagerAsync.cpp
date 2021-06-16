@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(RateManagerAsyncTestCase, *boost::unit_test::disabled())
             
             for (std::size_t i = 0; i < numPacketsToSend; ++i) {
                 m_rateManagerAsync.WaitForAvailabilityToSendPacket_Blocking();
-                BOOST_REQUIRE(m_rateManagerAsync.HasAvailabilityToSendPacket_Blocking());
+                BOOST_REQUIRE(m_rateManagerAsync.HasAvailabilityToSendPacket());
                 BOOST_REQUIRE(m_rateManagerAsync.SignalNewPacketDequeuedForSend(packetSizeBytes));
                 boost::asio::post(m_ioService, boost::bind(&RateManagerAsync::IoServiceThreadNotifyPacketSentCallback, &m_rateManagerAsync, packetSizeBytes));
             }

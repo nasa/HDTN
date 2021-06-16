@@ -82,6 +82,7 @@ class BundleStorageManagerMT {
 public:
 	BundleStorageManagerMT();
     BundleStorageManagerMT(const std::string & jsonConfigFileName);
+    BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr);
 	~BundleStorageManagerMT();
 	void Start(bool autoDeleteFilesOnExit = true);
 

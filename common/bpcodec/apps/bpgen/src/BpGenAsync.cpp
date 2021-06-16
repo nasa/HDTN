@@ -38,98 +38,48 @@ void BpGenAsync::Stop() {
         m_bpGenThreadPtr.reset(); //delete it
     }
 
-    // Get the final stats
-    if (this->m_udpBundleSourcePtr) {
-        m_udpBundleSourcePtr->Stop();
-        m_FinalStats.m_totalUdpPacketsSent = m_udpBundleSourcePtr->m_totalUdpPacketsSent;
-        m_FinalStats.m_totalUdpPacketsAckedByRate = m_udpBundleSourcePtr->m_totalUdpPacketsAckedByRate;
-        m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = m_udpBundleSourcePtr->m_totalUdpPacketsAckedByUdpSendCallback;
-    } else if (this->m_tcpclBundleSourcePtr) {
-        m_tcpclBundleSourcePtr->Stop();
-        m_FinalStats.m_totalDataSegmentsAcked = m_tcpclBundleSourcePtr->m_totalDataSegmentsAcked;
-    } else if (this->m_stcpBundleSourcePtr) {
-        m_stcpBundleSourcePtr->Stop();
-        m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByTcpSendCallback;
-        m_FinalStats.m_totalDataSegmentsAckedByRate = m_stcpBundleSourcePtr->m_totalDataSegmentsAckedByRate;
+    m_outductManager.StopAllOutducts();
+    if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+        outduct->GetOutductFinalStats(m_outductFinalStats);
     }
-
-    m_tcpclBundleSourcePtr.reset(); //delete it
-    m_stcpBundleSourcePtr.reset(); //delete it
-    m_udpBundleSourcePtr.reset(); //delete it
+    
 }
 
-void BpGenAsync::Start(const std::string & hostname, const std::string & port, bool useTcpcl, bool useStcp, uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, const std::string & thisLocalEidString, uint64_t destFlowId, uint64_t stcpRateBitsPerSec) {
+void BpGenAsync::Start(const OutductsConfig & outductsConfig, uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
     }
 
-    // Init final stats
-    m_FinalStats.useStcp = useStcp;
-    m_FinalStats.useTcpcl = useTcpcl;
-    m_FinalStats.bundleCount = m_bundleCount;
-    m_FinalStats.m_totalUdpPacketsSent = 0;
-    m_FinalStats.m_totalUdpPacketsAckedByRate = 0;
-    m_FinalStats.m_totalUdpPacketsAckedByUdpSendCallback = 0;
-    m_FinalStats.m_totalDataSegmentsAcked = 0;
-    m_FinalStats.m_totalDataSegmentsAckedByTcpSendCallback = 0;
-    m_FinalStats.m_totalDataSegmentsAckedByRate = 0;
-
-    if(useTcpcl) {
-        m_tcpclBundleSourcePtr = boost::make_unique<TcpclBundleSource>(30, thisLocalEidString);
-        m_tcpclBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
-        m_tcpclBundleSourcePtr->Connect(hostname, port);
-        for(unsigned int i = 0; i<10; ++i) {
-            std::cout << "Waiting for TCPCL to become ready to forward..." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-            if(m_tcpclBundleSourcePtr->ReadyToForward()) {
-                std::cout << "TCPCL ready to forward" << std::endl;
-                break;
-            }
-        }
-    }
-    else if (useStcp) {
-        m_stcpBundleSourcePtr = boost::make_unique<StcpBundleSource>(15, stcpRateBitsPerSec);
-        m_stcpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
-        m_stcpBundleSourcePtr->Connect(hostname, port);
-        for (unsigned int i = 0; i < 10; ++i) {
-            std::cout << "Waiting for STCP to become ready to forward..." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-            if (m_stcpBundleSourcePtr->ReadyToForward()) {
-                std::cout << "STCP ready to forward" << std::endl;
-                break;
-            }
-        }
-    }
-    else {
-        m_udpBundleSourcePtr = boost::make_unique<UdpBundleSource>(stcpRateBitsPerSec);
-        m_udpBundleSourcePtr->SetOnSuccessfulAckCallback(boost::bind(&BpGenAsync::OnSuccessfulBundleAck, this));
-        m_udpBundleSourcePtr->Connect(hostname, port);
-        for (unsigned int i = 0; i < 10; ++i) {
-            std::cout << "Waiting for UDP to become ready to forward..." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-            if (m_udpBundleSourcePtr->ReadyToForward()) {
-                std::cout << "UDP ready to forward" << std::endl;
-                break;
-            }
-        }
+    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig)) {
+        return;
     }
 
+    for (unsigned int i = 0; i <= 10; ++i) {
+        std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
+        boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+        if (m_outductManager.AllReadyToForward()) {
+            std::cout << "Outduct ready to forward" << std::endl;
+            break;
+        }
+        if (i == 10) {
+            std::cerr << "Bpgen Outduct unable to connect" << std::endl;
+            return;
+        }
+    }
+   
 
 
     m_running = true;
     m_bpGenThreadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, tcpclFragmentSize, destFlowId)); //create and start the worker thread
+        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, destFlowId)); //create and start the worker thread
 
 
 
 }
 
-void BpGenAsync::OnSuccessfulBundleAck() {
-    m_conditionVariableAckReceived.notify_one();
-}
 
-void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint32_t tcpclFragmentSize, uint64_t destFlowId) {
+void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
 
 
 
@@ -179,6 +129,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     boost::asio::io_service ioService;
     boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::microseconds(sValU64));
     std::vector<uint8_t> bundleToSend;
+    boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     while (m_running) { //keep thread alive if running
         /*if (doStepSize) {
             bundleSizeBytes = bundleSizeBytesStep;
@@ -201,23 +152,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             }
             deadlineTimer.expires_at(deadlineTimer.expires_at() + boost::posix_time::microseconds(sValU64));
         }
-        else {
-            const std::size_t numAckedRemaining = 
-                (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalDataSegmentsUnacked() :
-                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalDataSegmentsUnacked() :
-                (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalUdpPacketsUnacked() : 0;
-            const std::size_t numUnackedBundleBytesRemaining = 
-                (m_tcpclBundleSourcePtr) ? m_tcpclBundleSourcePtr->GetTotalBundleBytesUnacked() :
-                (m_stcpBundleSourcePtr) ? m_stcpBundleSourcePtr->GetTotalBundleBytesUnacked() :
-                (m_udpBundleSourcePtr) ? m_udpBundleSourcePtr->GetTotalBundleBytesUnacked() : 0; //TODO, FIGURE OUT WHAT'S APPROPRIATE
-            if (numAckedRemaining > 5) {
-                ++numEventsTooManyUnackedBundles;
-                m_conditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-                continue;
-            }
-        }
-        //boost::this_thread::sleep(boost::posix_time::microseconds(sValU64));
+        
 
         
         bundleToSend.resize(bundleSizeBytes + 1000);
@@ -285,31 +220,19 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             bundleToSend.resize(bundle_length);
         }
 
-
-
         //send message
-        if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
-            if (!m_tcpclBundleSourcePtr->Forward(bundleToSend)) {
-                m_running = false;
-            }
+        if (!m_outductManager.Forward_Blocking(destFlowId, bundleToSend, 3)) {
+            std::cerr << "bpgen was unable to send a bundle for 3 seconds.. exiting" << std::endl;
+            m_running = false;
         }
-        else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
-            if (!m_stcpBundleSourcePtr->Forward(bundleToSend)) {
-                m_running = false;
-            }
-        }
-        else if (m_udpBundleSourcePtr) { //udp
-            if (!m_udpBundleSourcePtr->Forward(bundleToSend)) {
-                m_running = false;
-            }
-        }
-
+       
         if (bundleToSend.size() != 0) {
             std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
             std::cerr << "bundleToSend.size() : " << bundleToSend.size() << std::endl;
         }
 
     }
+    boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
 
 //    std::cout << "bundle_count: " << bundle_count << std::endl;
     std::cout << "bundle_count: " << m_bundleCount << std::endl;
@@ -319,19 +242,22 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "numEventsTooManyUnackedBundles: " << numEventsTooManyUnackedBundles << std::endl;
     }
 
+    if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+        if (outduct->GetConvergenceLayerName() == "ltp_over_udp") {
+            std::cout << "Bpgen Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
+            boost::this_thread::sleep(boost::posix_time::seconds(4));
+        }
+    }
+
+    boost::posix_time::time_duration diff = finishedTime - startTime;
+    {
+        const double rateMbps = (bundle_data * 8.0) / (diff.total_microseconds());
+        printf("Sent bundle_data (payload data) at %0.4f Mbits/sec\n", rateMbps);
+    }
+    {
+        const double rateMbps = (raw_data * 8.0) / (diff.total_microseconds());
+        printf("Sent raw_data (bundle overhead + payload data) at %0.4f Mbits/sec\n", rateMbps);
+    }
+
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
 }
-
-std::size_t BpGenAsync::GetTotalBundlesAcked() {
-    if(m_tcpclBundleSourcePtr) { //using tcpcl (not udp)
-        return m_tcpclBundleSourcePtr->GetTotalDataSegmentsAcked();
-    }
-    else if (m_stcpBundleSourcePtr) { //using stcp (not udp)
-        return m_stcpBundleSourcePtr->GetTotalDataSegmentsAcked();
-    }
-    else if (m_udpBundleSourcePtr) { //udp
-        return m_udpBundleSourcePtr->GetTotalUdpPacketsAcked();
-    }
-    return 0;
-}
-

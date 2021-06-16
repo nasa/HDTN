@@ -10,7 +10,6 @@ m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
-m_handleSocketShutdownCancelOnlyTimer(m_ioService),
 m_sendShutdownMessageTimeoutTimer(m_ioService),
 m_keepAliveIntervalSeconds(desiredKeeAliveIntervlSeconds),
 MAX_UNACKED(maxUnacked),
@@ -18,8 +17,7 @@ m_bytesToAckCb(MAX_UNACKED),
 m_bytesToAckCbVec(MAX_UNACKED),
 m_readyToForward(false),
 m_tcpclShutdownComplete(true),
-m_sendShutdownMessage(false),
-m_reasonWasTimeOut(false),
+m_shutdownCalled(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 M_THIS_EID_STRING(thisEidString),
@@ -33,9 +31,6 @@ m_totalBundleBytesSent(0)
     m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
-
-    m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
-    m_handleSocketShutdownCancelOnlyTimer.async_wait(boost::bind(&TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled, this, boost::asio::placeholders::error));
 
 
     m_tcpcl.SetContactHeaderReadCallback(boost::bind(&TcpclBundleSource::ContactHeaderCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
@@ -411,22 +406,21 @@ void TcpclBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::s
 }
 
 void TcpclBundleSource::DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
-    m_sendShutdownMessage = sendShutdownMessage;
-    m_reasonWasTimeOut = reasonWasTimeOut;
-    m_handleSocketShutdownCancelOnlyTimer.cancel();
+    boost::asio::post(m_ioService, boost::bind(&TcpclBundleSource::DoHandleSocketShutdown, this, sendShutdownMessage, reasonWasTimeOut));
 }
 
-void TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e) {
-    if (e == boost::asio::error::operation_aborted) {
+void TcpclBundleSource::DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
+    if (!m_shutdownCalled) {
+        m_shutdownCalled = true;
         // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
 
         m_readyToForward = false;
-        if (m_sendShutdownMessage) {
+        if (sendShutdownMessage) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
             std::unique_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_unique<std::vector<uint8_t> >();
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
             //i.e., that the connecting node MUST NOT re - establish the connection.
-            if (m_reasonWasTimeOut) {
+            if (reasonWasTimeOut) {
                 Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 0);
             }
             else {
@@ -443,9 +437,6 @@ void TcpclBundleSource::OnHandleSocketShutdown_TimerCancelled(const boost::syste
             m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(0));
         }
         m_sendShutdownMessageTimeoutTimer.async_wait(boost::bind(&TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired, this, boost::asio::placeholders::error));
-    }
-    else {
-        std::cerr << "Critical error in OnHandleSocketShutdown_TimerCancelled: timer was not cancelled" << std::endl;
     }
 }
 

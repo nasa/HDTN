@@ -31,10 +31,9 @@ void hdtn::ZmqStorageInterface::Stop() {
     }
 }
 
-void hdtn::ZmqStorageInterface::init(zmq::context_t *ctx, const storageConfig & config) {
+void hdtn::ZmqStorageInterface::Init(zmq::context_t *ctx, const HdtnConfig & hdtnConfig) {
     m_zmqContextPtr = ctx;
-    m_storageConfigFilePath = config.storePath;
-    m_queue = config.worker;
+    m_hdtnConfig = hdtnConfig;
 }
 
 static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageManagerMT & bsm) {
@@ -261,13 +260,28 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 
     zmq::socket_t workerSock(*m_zmqContextPtr, zmq::socket_type::pair);
-    workerSock.connect(m_queue.c_str());
+    workerSock.connect(HDTN_STORAGE_WORKER_PATH);
     zmq::socket_t egressSock(*m_zmqContextPtr, zmq::socket_type::push);
-    egressSock.connect(HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH); // egress should bind
+    const std::string connect_connectingStorageToBoundEgressPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqEgressAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
+    egressSock.connect(connect_connectingStorageToBoundEgressPath); // egress should bind
     zmq::socket_t fromEgressSock(*m_zmqContextPtr, zmq::socket_type::pull);
-    fromEgressSock.connect(HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH); // egress should bind
+    const std::string connect_boundEgressToConnectingStoragePath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqEgressAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
+    fromEgressSock.connect(connect_boundEgressToConnectingStoragePath); // egress should bind
     zmq::socket_t toIngressSock(*m_zmqContextPtr, zmq::socket_type::push);
-    toIngressSock.connect(HDTN_CONNECTING_STORAGE_TO_BOUND_INGRESS_PATH);
+    const std::string connect_connectingStorageToBoundIngressPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqIngressAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundIngressPortPath));
+    toIngressSock.connect(connect_connectingStorageToBoundIngressPath);
 
     zmq::pollitem_t pollItems[2] = {
         {fromEgressSock.handle(), 0, ZMQ_POLLIN, 0},
@@ -285,7 +299,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     CommonHdr startupNotify = {
         HDTN_MSGTYPE_IOK,
         0};
-    BundleStorageManagerMT bsm(m_storageConfigFilePath);
+    BundleStorageManagerMT bsm(boost::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
     bsm.Start();
     //if (!m_storeFlow.init(m_root)) {
     //    startupNotify.type = HDTN_MSGTYPE_IABORT;

@@ -3,7 +3,7 @@
 int main(int argc, char *argv[]) {
     ReleaseSender releaseSender;
     std::string jsonFileName;
-    int returnCode = releaseSender.ProcessComandLine(argc,argv,jsonFileName);
+    int returnCode = releaseSender.ProcessComandLine(argc,(const char **)argv,jsonFileName);
     if (returnCode == 0) {
         returnCode = releaseSender.ProcessEventFile(jsonFileName);
     }

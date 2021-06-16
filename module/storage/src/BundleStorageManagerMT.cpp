@@ -25,8 +25,16 @@
 
 BundleStorageManagerMT::BundleStorageManagerMT() : BundleStorageManagerMT("storageConfig.json") {}
 
-BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFileName) :
-	m_storageConfigPtr(StorageConfig::CreateFromJsonFile(jsonConfigFileName)),
+BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFileName) : BundleStorageManagerMT(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
+    if (!m_storageConfigPtr) {
+        std::cerr << "cannot open storage json config file: " << jsonConfigFileName << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "cannot open storage json config file: " + jsonConfigFileName);
+        return;
+    }
+}
+
+BundleStorageManagerMT::BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr) :
+	m_storageConfigPtr(storageConfigPtr),
 	M_NUM_STORAGE_THREADS((m_storageConfigPtr) ? static_cast<unsigned int>(m_storageConfigPtr->m_storageDiskConfigVector.size()) : 1),
 	M_TOTAL_STORAGE_CAPACITY_BYTES((m_storageConfigPtr) ? m_storageConfigPtr->m_totalStorageCapacityBytes : 1),
 	M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
@@ -40,8 +48,6 @@ BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFil
 	m_autoDeleteFilesOnExit(true)	
 {
 	if (!m_storageConfigPtr) {
-        std::cerr << "cannot open storage json config file: " << jsonConfigFileName << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "cannot open storage json config file: " + jsonConfigFileName);
 		return;
 	}
 

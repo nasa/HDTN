@@ -4,28 +4,30 @@
 #include "TcpclBundleSink.h"
 #include <boost/make_unique.hpp>
 
-TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
-                                 boost::asio::io_service & tcpSocketIoServiceRef,
-                                 WholeBundleReadyCallback_t wholeBundleReadyCallback,
-                                 //ConnectionClosedCallback_t connectionClosedCallback,
-                                 const unsigned int numCircularBufferVectors,
-                                 const unsigned int circularBufferBytesPerVector,
-                                 const std::string & thisEid) :
+TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+    boost::asio::io_service & tcpSocketIoServiceRef,
+    const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
+    //ConnectionClosedCallback_t connectionClosedCallback,
+    const unsigned int numCircularBufferVectors,
+    const unsigned int circularBufferBytesPerVector,
+    const std::string & thisEid,
+    const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
+
     M_THIS_EID(thisEid),
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
-    //m_connectionClosedCallback(connectionClosedCallback),
+    m_notifyReadyToDeleteCallback(notifyReadyToDeleteCallback),
     m_tcpSocketPtr(tcpSocketPtr),
+    m_tcpSocketIoServiceRef(tcpSocketIoServiceRef),
     m_noKeepAlivePacketReceivedTimer(tcpSocketIoServiceRef),
     m_needToSendKeepAliveMessageTimer(tcpSocketIoServiceRef),
-    m_handleSocketShutdownCancelOnlyTimer(tcpSocketIoServiceRef),
     m_sendShutdownMessageTimeoutTimer(tcpSocketIoServiceRef),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
     M_CIRCULAR_BUFFER_BYTES_PER_VECTOR(circularBufferBytesPerVector),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
-    m_sendShutdownMessage(false),
-    m_reasonWasTimeOut(false),
+    m_stateTcpReadActive(false),
+    m_printedCbTooSmallNotice(false),
     m_running(false),
     m_safeToDelete(false)
 {
@@ -50,17 +52,15 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
 
-    m_handleSocketShutdownCancelOnlyTimer.expires_from_now(boost::posix_time::pos_infin);
-    m_handleSocketShutdownCancelOnlyTimer.async_wait(boost::bind(&TcpclBundleSink::OnHandleSocketShutdown_TimerCancelled, this, boost::asio::placeholders::error));
-
-    StartTcpReceive();
+    TryStartTcpReceive();
 }
 
 TcpclBundleSink::~TcpclBundleSink() {
-
-    DoTcpclShutdown(true, false);
-    while (!m_safeToDelete) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+    if (!m_safeToDelete) {
+        DoTcpclShutdown(true, false);
+        while (!m_safeToDelete) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
     }
 
     m_running = false; //thread stopping criteria
@@ -75,28 +75,33 @@ TcpclBundleSink::~TcpclBundleSink() {
 
 
 
-void TcpclBundleSink::StartTcpReceive() {
-    const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-    if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in TcpclBundleSink::StartTcpReceive(): buffers full.. TCP receiving on TcpclBundleSink will now stop!\n";
-        DoTcpclShutdown(true, false);
-        return;
-    }
-    if(m_tcpSocketPtr) {
-        m_tcpSocketPtr->async_read_some(
-            boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
-            boost::bind(&TcpclBundleSink::HandleTcpReceiveSome, this,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred,
-                writeIndex));
+void TcpclBundleSink::TryStartTcpReceive() {
+    if ((!m_stateTcpReadActive) && (m_tcpSocketPtr)) {
+        const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
+        if (writeIndex == UINT32_MAX) {
+            if (!m_printedCbTooSmallNotice) {
+                m_printedCbTooSmallNotice = true;
+                std::cout << "notice in TcpclBundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
+            }
+        }
+        else {
+            m_stateTcpReadActive = true;
+            m_tcpSocketPtr->async_read_some(
+                boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
+                boost::bind(&TcpclBundleSink::HandleTcpReceiveSome, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred,
+                    writeIndex));
+        }
     }
 }
 void TcpclBundleSink::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
     if (!error) {
         m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
+        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
         m_conditionVariableCb.notify_one();
-        StartTcpReceive(); //restart operation only if there was no error
+        TryStartTcpReceive(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "Tcp connection closed cleanly by peer" << std::endl;
@@ -116,7 +121,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
 
 
         const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-
+        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == UINT32_MAX) { //if empty
             m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -286,28 +291,23 @@ void TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sys
 }
 
 void TcpclBundleSink::DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
-    m_sendShutdownMessage = sendShutdownMessage;
-    m_reasonWasTimeOut = reasonWasTimeOut;
-    m_handleSocketShutdownCancelOnlyTimer.cancel();
+    boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::HandleSocketShutdown, this, sendShutdownMessage, reasonWasTimeOut));
 }
 
-void TcpclBundleSink::OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e) {
-    if (e == boost::asio::error::operation_aborted) {
-        // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
-
-       
-        if (m_sendShutdownMessage) {
+void TcpclBundleSink::HandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
+    if (!m_safeToDelete) {
+        if (sendShutdownMessage) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
             std::unique_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_unique<std::vector<uint8_t> >();
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
             //i.e., that the connecting node MUST NOT re - establish the connection.
-            if (m_reasonWasTimeOut) {
+            if (reasonWasTimeOut) {
                 Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 0);
             }
             else {
                 Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 0);
             }
-            
+
             std::unique_ptr<TcpAsyncSenderElement> el;
             TcpAsyncSenderElement::Create(el, std::move(shutdownPtr), &m_handleTcpSendShutdownCallback);
             m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
@@ -319,9 +319,7 @@ void TcpclBundleSink::OnHandleSocketShutdown_TimerCancelled(const boost::system:
         }
         m_sendShutdownMessageTimeoutTimer.async_wait(boost::bind(&TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired, this, boost::asio::placeholders::error));
     }
-    else {
-        std::cerr << "Critical error in OnHandleSocketShutdown_TimerCancelled: timer was not cancelled" << std::endl;
-    }
+   
 }
 
 void TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e) {
@@ -364,6 +362,9 @@ void TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired(const boost::sys
     m_noKeepAlivePacketReceivedTimer.cancel();
     m_tcpcl.InitRx(); //reset states
     m_safeToDelete = true;
+    if (m_notifyReadyToDeleteCallback) {
+        m_notifyReadyToDeleteCallback();
+    }
 }
 
 

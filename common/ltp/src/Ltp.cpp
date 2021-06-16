@@ -335,11 +335,13 @@ void Ltp::SetBeginningState() {
     m_headerRxState = LTP_HEADER_RX_STATE::READ_CONTROL_BYTE;
 }
 
+
 void Ltp::HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage) {
     HandleReceivedChars(&rxVal, 1, errorMessage);
 }
 
-bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage) {
+
+bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
     while (numChars) {
         --numChars;
         const uint8_t rxVal = *rxVals++;
@@ -372,6 +374,9 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                         return false;
                     }
                     else {
+                        if (sessionOriginatorEngineIdDecodedCallbackPtr) {
+                            (*sessionOriginatorEngineIdDecodedCallbackPtr)(m_sessionId.sessionOriginatorEngineId);
+                        }
                         m_sdnvTempVec.clear();
                         m_headerRxState = LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV;
                     }

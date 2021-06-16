@@ -6,17 +6,13 @@ set(CMAKE_CXX_STANDARD 11)
 add_library(egress_async_lib STATIC
 	src/EgressAsync.cpp
 	src/EgressAsyncRunner.cpp
-        src/EgressAsyncTcpcl.cpp
-	src/EgressAsyncStcp.cpp
 )
 
 target_link_libraries(egress_async_lib
     hdtn_reg
     hdtn_util
     log_lib
-    tcpcl_lib
-    stcp_lib
-    udp_lib
+    outduct_manager_lib
     ${libzmq_LIB}
     ${pthread_LIB}
     ${blosc_LIB}
@@ -36,7 +32,7 @@ add_executable(hdtn-egress-async
 	       src/egress.cpp
 )
 
-target_link_libraries(hdtn-egress-async hdtn_reg hdtn_util tcpcl_lib stcp_lib udp_lib egress_async_lib ${libzmq_LIB} ${pthread_LIB} bpcodec ${Boost_LIBRARIES})
+target_link_libraries(hdtn-egress-async egress_async_lib)
 target_include_directories(hdtn-egress-async PUBLIC 
 	../../common/pool/include
 	../../common/include

@@ -9,7 +9,7 @@
 #include <boost/shared_ptr.hpp>
 #include "LtpTimerManager.h"
 #include "LtpNoticesToClientService.h"
-
+#include "LtpClientServiceDataToSend.h"
 
 
 
@@ -36,7 +36,7 @@ public:
         uint8_t retryCount;
     };
     ~LtpSessionSender();
-    LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
+    LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
@@ -58,7 +58,7 @@ private:
     LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
-    std::vector<uint8_t> m_dataToSend;
+    LtpClientServiceDataToSend m_dataToSend;
     uint64_t M_LENGTH_OF_RED_PART;
     uint64_t m_dataIndexFirstPass;
     bool m_didNotifyForDeletion;

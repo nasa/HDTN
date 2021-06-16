@@ -79,9 +79,9 @@ void LtpEngine::SetMtuReportSegment(uint64_t mtuReportSegment) {
     std::cout << "max reception claims = " << m_maxReceptionClaims << std::endl;
 }
 
-bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size) {
+bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
     std::string errorMessage;
-    const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage);
+    const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage, sessionOriginatorEngineIdDecodedCallbackPtr);
     if (!success) {
         std::cerr << "error in LtpEngine::PacketIn: " << errorMessage << std::endl;
         m_ltpRxStateMachine.InitRx();
@@ -100,8 +100,8 @@ bool LtpEngine::PacketIn(const std::vector<boost::asio::const_buffer> & constBuf
     return true;
 }
 
-void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size) {
-    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, data, size));
+void LtpEngine::PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, data, size, sessionOriginatorEngineIdDecodedCallbackPtr));
 }
 void LtpEngine::PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec) { //for testing
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::PacketIn, this, constBufferVec));
@@ -115,21 +115,23 @@ void LtpEngine::TrySendPacketIfAvailable() {
     if (m_ioServiceLtpEngineThreadPtr) { //if not running inside a unit test
         std::vector<boost::asio::const_buffer> constBufferVec;
         boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
-        if (NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback)) {
-            SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback); //virtual call to child implementation
+        uint64_t sessionOriginatorEngineId;
+        if (NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
+            SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId); //virtual call to child implementation
         }
     }
 }
 
 void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
 
-void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {}
+void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId) {}
 
-bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
+bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId) {
     while (!m_listSendersNeedingDeleted.empty()) {
         std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_listSendersNeedingDeleted.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
             if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+                sessionOriginatorEngineId = M_THIS_ENGINE_ID;
                 return true;
             }
             else {
@@ -137,7 +139,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
                 //revalidate iterator
                 m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
-                std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
+                ////std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
             }
         }
         else {
@@ -150,6 +152,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
         std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(m_listReceiversNeedingDeleted.front());
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found rx Session
             if (rxSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+                sessionOriginatorEngineId = rxSessionIt->first.sessionOriginatorEngineId;
                 return true;
             }
             else {
@@ -158,7 +161,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
                 //revalidate iterator
                 m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
-                std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
+                ////std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
             }
         }
         else {
@@ -183,6 +186,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             info.sessionId, info.reasonCode, info.isFromSender, NULL, NULL);
         constBufferVec.resize(1);
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
+        sessionOriginatorEngineId = info.sessionId.sessionOriginatorEngineId;
 
         const uint8_t * const infoPtr = (uint8_t*)&info;
         m_timeManagerOfCancelSegments.StartTimer(info.sessionId, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
@@ -194,7 +198,8 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
     if (!m_closedSessionDataToSend.empty()) { //includes report ack segments and cancel ack segments from closed sessions (which do not require timers)
         //highest priority
         underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
-        (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_closedSessionDataToSend.front());
+        (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_closedSessionDataToSend.front().second);
+        sessionOriginatorEngineId = m_closedSessionDataToSend.front().first;
         m_closedSessionDataToSend.pop_front();
         constBufferVec.resize(1);
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
@@ -205,10 +210,12 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
     for (unsigned int i = 0; i < 2; ++i) {
         while ((m_sendersIterator != m_mapSessionNumberToSessionSender.end()) && !foundDataToSend) {
             foundDataToSend = m_sendersIterator->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback);
+            sessionOriginatorEngineId = M_THIS_ENGINE_ID;
             ++m_sendersIterator;
         }
         while ((m_receiversIterator != m_mapSessionIdToSessionReceiver.end()) && !foundDataToSend) {
             foundDataToSend = m_receiversIterator->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback);
+            sessionOriginatorEngineId = m_receiversIterator->first.sessionOriginatorEngineId;
             ++m_receiversIterator;
         }
         if ((m_sendersIterator == m_mapSessionNumberToSessionSender.end()) && (m_receiversIterator == m_mapSessionIdToSessionReceiver.end())) {
@@ -242,7 +249,7 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
    On reception of a valid transmission request from a client service,
    LTP proceeds as follows.
    */
-void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart) { //only called directly by unit test (not thread safe)
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, LtpClientServiceDataToSend && clientServiceDataToSend, uint64_t lengthOfRedPart) { //only called directly by unit test (not thread safe)
 
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
@@ -436,8 +443,9 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     }
     //send CAx to receiver or sender (whether or not session exists) (here because all data in session is erased)
     m_closedSessionDataToSend.emplace_back();
-    Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(m_closedSessionDataToSend.back(),
+    Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(m_closedSessionDataToSend.back().second,
         sessionId, isFromSender, NULL, NULL);
+    m_closedSessionDataToSend.back().first = sessionId.sessionOriginatorEngineId;
     TrySendPacketIfAvailable();
 }
 
@@ -559,7 +567,7 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in RS received: sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID\n";
+        std::cerr << "error in RS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ")  != M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")" << std::endl;
         return;
     }
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
@@ -573,8 +581,9 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
         //prematurely), in which case it retransmits an acknowledging RA
         //segment and stays in the CLOSED state.
         m_closedSessionDataToSend.emplace_back();
-        Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_closedSessionDataToSend.back(),
+        Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_closedSessionDataToSend.back().second,
             sessionId, reportSegment.reportSerialNumber, NULL, NULL);
+        m_closedSessionDataToSend.back().first = sessionId.sessionOriginatorEngineId;
     }
     TrySendPacketIfAvailable();
 }

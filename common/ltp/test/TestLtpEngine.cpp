@@ -104,7 +104,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         static bool SendData(LtpEngine & src, LtpEngine & dest, bool simulateDrop = false, bool swapHeader = false, LTP_SEGMENT_TYPE_FLAGS headerReplacement = LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
             std::vector<boost::asio::const_buffer> constBufferVec;
             boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
-            if (src.NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback)) {
+            uint64_t sessionOriginatorEngineId;
+            if (src.NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
                 if (swapHeader) {
                     uint8_t *data = static_cast<uint8_t*>(const_cast<void*>(constBufferVec[0].data()));
                     data[0] = static_cast<uint8_t>(headerReplacement);

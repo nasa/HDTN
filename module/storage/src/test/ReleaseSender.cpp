@@ -69,7 +69,9 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
 
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    socket.bind(HDTN_BOUND_SCHEDULER_PUBSUB_PATH);
+    const std::string bind_boundSchedulerPubSubPath(
+        std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+    socket.bind(bind_boundSchedulerPubSubPath);
 
     boost::asio::io_service ioService;
     std::vector<SmartDeadlineTimer> vectorTimers;
@@ -90,13 +92,14 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     return 0;
 }
 
-int ReleaseSender::ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName) {
+int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& jsonEventFileName) {
     jsonEventFileName = "";
     std::string eventsFile = ReleaseSender::DEFAULT_FILE;
     boost::program_options::options_description desc("Allowed options");
     try {
         desc.add_options()
             ("help", "Produce help message.")
+            ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
             ("events-file", boost::program_options::value<std::string>()->default_value(ReleaseSender::DEFAULT_FILE),
              "Name of events file.");
         boost::program_options::variables_map vm;
@@ -112,6 +115,15 @@ int ReleaseSender::ProcessComandLine(int argc, char *argv[], std::string& jsonEv
         if (eventsFile.length() < 1) {
             std::cout << desc << "\n";
             return 1;
+        }
+        const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+
+        if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
+            m_hdtnConfig = *ptrConfig;
+        }
+        else {
+            std::cerr << "error loading config file: " << configFileName << std::endl;
+            return false;
         }
     }
     catch (std::exception& e) {
