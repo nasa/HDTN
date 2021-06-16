@@ -8,13 +8,15 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-    const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisReceiversTimersProducedDataFunction) :
+    const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisReceiversTimersProducedDataFunction,
+    const uint32_t maxRetriesPerSerialNumber) :
     m_timeManagerOfReportSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
     M_MAX_RECEPTION_CLAIMS(MAX_RECEPTION_CLAIMS),
     M_ESTIMATED_BYTES_TO_RECEIVE(ESTIMATED_BYTES_TO_RECEIVE),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
+    M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
     m_lengthOfRedPart(UINT64_MAX),
     m_lowestGreenOffsetReceived(UINT64_MAX),
     m_currentRedLength(0),
@@ -60,7 +62,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
     }
     const uint8_t retryCount = userData[0];
 
-    if (retryCount <= 5) {
+    if (retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         //resend 
         m_reportSerialNumbersToSendList.push_back(std::pair<uint64_t, uint8_t>(reportSerialNumber, retryCount + 1)); //initial retryCount of 1
         m_notifyEngineThatThisReceiversTimersProducedDataFunction();

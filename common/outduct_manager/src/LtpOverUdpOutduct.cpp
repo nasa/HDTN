@@ -8,7 +8,7 @@ LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductCon
     Outduct(outductConfig, outductUuid),
     m_ltpBundleSource(outductConfig.clientServiceId, outductConfig.remoteLtpEngineId, outductConfig.thisLtpEngineId, outductConfig.ltpDataSegmentMtu, 1,
         boost::posix_time::milliseconds(outductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(outductConfig.oneWayMarginTimeMs), 0, outductConfig.numRxCircularBufferElements,
-        outductConfig.numRxCircularBufferBytesPerElement, 0)
+        outductConfig.numRxCircularBufferBytesPerElement, 0, outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber)
 {}
 LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 
