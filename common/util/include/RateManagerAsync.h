@@ -30,7 +30,6 @@ public:
     bool HasAvailabilityToSendPacket();
     void SetPacketsSentCallback(const PacketsSentCallback_t & callback);
     void SetRate(uint64_t rateBitsPerSec);
-    void SetMaxPacketsBeingSent(uint64_t maxPacketsBeingSent);
     void NotifyPacketSentFromCallback_ThreadSafe(std::size_t bytes_transferred);
     bool IoServiceThreadNotifyPacketSentCallback(std::size_t bytes_transferred);
     bool SignalNewPacketDequeuedForSend(uint64_t packetSizeBytes);

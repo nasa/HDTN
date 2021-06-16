@@ -1,0 +1,20 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen",
+            "convergenceLayer": "tcpcl",
+            "endpointIdStr": "ipn1:4",
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "bundlePipelineLimit": 60,
+            "flowIds": [
+                1,
+                2,
+                3
+            ],
+            "keepAliveIntervalSeconds": 17,
+            "tcpclAutoFragmentSizeBytes": 200000
+        }
+    ]
+}

@@ -10,7 +10,7 @@
 UdpBundleSource::UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
-m_rateManagerAsync(m_ioService, rateBps, 5),
+m_rateManagerAsync(m_ioService, rateBps, maxUnacked),
 m_udpSocket(m_ioService),
 m_readyToForward(false),
 m_useLocalConditionVariableAckReceived(false) //for destructor only

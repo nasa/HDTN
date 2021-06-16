@@ -85,6 +85,8 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage) {
 
         m_alwaysSendToStorage = alwaysSendToStorage;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig);
+
+        std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
     }
     return 0;
 }
@@ -258,7 +260,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
                 EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[hdr.flowId];
                 m_egressAckMapQueueMutex.unlock();
                 for (unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
-                    if (egressToIngressAckingObj.GetQueueSize() > 5) {
+                    if (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) {
                         if (attempt == 7) {
                             std::cerr << "error: too many pending egress acks in the queue for flow id " << hdr.flowId << std::endl;
                             hdtn::Logger::getInstance()->logError("ingress", 
@@ -316,7 +318,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
             else { //storage
                 boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
                 for(unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
-                    if (m_storageAckQueue.size() > 5) {
+                    if (m_storageAckQueue.size() > m_hdtnConfig.m_zmqMaxMessagesPerPath) {
                         if (attempt == 7) {
                             std::cerr << "error: too many pending storage acks in the queue" << std::endl;
                             hdtn::Logger::getInstance()->logError("ingress", "Error: too many pending storage acks in the queue");
