@@ -44,7 +44,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);
     }
 
-    m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(100, m_tcpSocketPtr);
+    m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_tcpSocketPtr, m_tcpSocketIoServiceRef);
     m_handleTcpSendCallback = boost::bind(&TcpclBundleSink::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSink::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
@@ -166,11 +166,12 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
     //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header
     //use the same keepalive interval
     if(m_tcpSocketPtr) {
-        std::unique_ptr<std::vector<uint8_t> > contactHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
-        Tcpcl::GenerateContactHeader(*contactHeaderPtr, static_cast<CONTACT_HEADER_FLAGS>(0), keepAliveIntervalSeconds, M_THIS_EID);
-        std::unique_ptr<TcpAsyncSenderElement> el;
-        TcpAsyncSenderElement::Create(el, std::move(contactHeaderPtr), &m_handleTcpSendCallback);
-        m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingData.resize(1);
+        Tcpcl::GenerateContactHeader(el->m_underlyingData[0], static_cast<CONTACT_HEADER_FLAGS>(0), keepAliveIntervalSeconds, M_THIS_EID);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+        m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 
         if(m_keepAliveIntervalSeconds) { //non-zero
             std::cout << "using " << keepAliveIntervalSeconds << " seconds for keepalive\n";
@@ -211,11 +212,12 @@ void TcpclBundleSink::DataSegmentCallback(std::vector<uint8_t> & dataSegmentData
     //send ack
     if((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS)) & (static_cast<unsigned int>(m_contactHeaderFlags))) {
         if(m_tcpSocketPtr) {
-            std::unique_ptr<std::vector<uint8_t> > ackPtr = boost::make_unique<std::vector<uint8_t> >();
-            Tcpcl::GenerateAckSegment(*ackPtr, bytesToAck);
-            std::unique_ptr<TcpAsyncSenderElement> el;
-            TcpAsyncSenderElement::Create(el, std::move(ackPtr), &m_handleTcpSendCallback);
-            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingData.resize(1);
+            Tcpcl::GenerateAckSegment(el->m_underlyingData[0], bytesToAck);
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
         }
     }
 }
@@ -274,11 +276,12 @@ void TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sys
         // Timer was not cancelled, take necessary action.
         //SEND KEEPALIVE PACKET
         if (m_tcpSocketPtr) {
-            std::unique_ptr<std::vector<uint8_t> > keepAlivePtr = boost::make_unique<std::vector<uint8_t> >();
-            Tcpcl::GenerateKeepAliveMessage(*keepAlivePtr);
-            std::unique_ptr<TcpAsyncSenderElement> el;
-            TcpAsyncSenderElement::Create(el, std::move(keepAlivePtr), &m_handleTcpSendCallback);
-            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingData.resize(1);
+            Tcpcl::GenerateKeepAliveMessage(el->m_underlyingData[0]);
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+            m_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
 
 
             m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_keepAliveIntervalSeconds));
@@ -298,19 +301,20 @@ void TcpclBundleSink::HandleSocketShutdown(bool sendShutdownMessage, bool reason
     if (!m_safeToDelete) {
         if (sendShutdownMessage) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
-            std::unique_ptr<std::vector<uint8_t> > shutdownPtr = boost::make_unique<std::vector<uint8_t> >();
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingData.resize(1);
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
             //i.e., that the connecting node MUST NOT re - establish the connection.
             if (reasonWasTimeOut) {
-                Tcpcl::GenerateShutdownMessage(*shutdownPtr, true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 0);
+                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 0);
             }
             else {
-                Tcpcl::GenerateShutdownMessage(*shutdownPtr, false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 0);
+                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 0);
             }
 
-            std::unique_ptr<TcpAsyncSenderElement> el;
-            TcpAsyncSenderElement::Create(el, std::move(shutdownPtr), &m_handleTcpSendShutdownCallback);
-            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendShutdownCallback;
+            m_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //HandleSocketShutdown runs in same thread as socket so special thread safety not needed
 
             m_sendShutdownMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(3));
         }

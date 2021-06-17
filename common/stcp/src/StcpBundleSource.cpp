@@ -141,12 +141,16 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
 
     m_dataServedAsKeepAlive = true;
 
-    std::unique_ptr<std::vector<uint8_t> > dataUnitHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
 
-    StcpBundleSource::GenerateDataUnitHeaderOnly(*dataUnitHeaderPtr, static_cast<uint32_t>(dataZmq.size()));
-    std::unique_ptr<TcpAsyncSenderElement> el;
-    TcpAsyncSenderElement::Create(el, std::move(dataUnitHeaderPtr), boost::make_unique<zmq::message_t>(std::move(dataZmq)), &m_handleTcpSendCallback);
-    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+    TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+    el->m_underlyingData.resize(1);
+    StcpBundleSource::GenerateDataUnitHeaderOnly(el->m_underlyingData[0], static_cast<uint32_t>(dataZmq.size()));
+    el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
+    el->m_constBufferVec.resize(2);
+    el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+    el->m_constBufferVec[1] = boost::asio::buffer(boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size()));
+    el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 
     return true;
 }
@@ -177,12 +181,15 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     m_dataServedAsKeepAlive = true;
 
-    std::unique_ptr<std::vector<uint8_t> > dataUnitHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
-
-    StcpBundleSource::GenerateDataUnitHeaderOnly(*dataUnitHeaderPtr, static_cast<uint32_t>(dataVec.size()));
-    std::unique_ptr<TcpAsyncSenderElement> el;
-    TcpAsyncSenderElement::Create(el, std::move(dataUnitHeaderPtr), boost::make_unique<std::vector<uint8_t> >(std::move(dataVec)), &m_handleTcpSendCallback);
-    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+    TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+    el->m_underlyingData.resize(2);
+    StcpBundleSource::GenerateDataUnitHeaderOnly(el->m_underlyingData[0], static_cast<uint32_t>(dataVec.size()));
+    el->m_underlyingData[1] = std::move(dataVec);
+    el->m_constBufferVec.resize(2);
+    el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+    el->m_constBufferVec[1] = boost::asio::buffer(el->m_underlyingData[1]);
+    el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 
     return true;
 }
@@ -262,7 +269,7 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
     m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
 
     if(m_tcpSocketPtr) {
-        m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(100, m_tcpSocketPtr);
+        m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_tcpSocketPtr, m_ioService);
 
         StartTcpReceive();
     }
@@ -343,9 +350,10 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
             if (!m_dataServedAsKeepAlive) {
                 static const uint32_t keepAliveData = 0; //0 is the keep alive signal 
 
-                std::unique_ptr<TcpAsyncSenderElement> el;
-                TcpAsyncSenderElement::Create(el, (const uint8_t *) &keepAliveData, sizeof(keepAliveData), &m_handleTcpSendKeepAliveCallback);
-                m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(std::move(el));
+                TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+                el->m_constBufferVec.emplace_back(boost::asio::buffer((const uint8_t *)&keepAliveData, sizeof(keepAliveData))); //only one element so resize not needed
+                el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendKeepAliveCallback;
+                m_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
             }
             else {
                 std::cout << "notice: stcp keepalive packet not needed" << std::endl;
