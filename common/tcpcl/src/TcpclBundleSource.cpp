@@ -15,6 +15,8 @@ m_keepAliveIntervalSeconds(desiredKeeAliveIntervlSeconds),
 MAX_UNACKED(maxUnacked),
 m_bytesToAckCb(MAX_UNACKED),
 m_bytesToAckCbVec(MAX_UNACKED),
+m_fragmentBytesToAckCbVec(MAX_UNACKED),
+m_fragmentVectorIndexCbVec(MAX_UNACKED),
 M_MAX_FRAGMENT_SIZE(maxFragmentSize),
 m_readyToForward(false),
 m_tcpclShutdownComplete(true),
@@ -26,8 +28,14 @@ M_THIS_EID_STRING(thisEidString),
 m_totalDataSegmentsAcked(0),
 m_totalBytesAcked(0),
 m_totalDataSegmentsSent(0),
+m_totalFragmentedAcked(0),
+m_totalFragmentedSent(0),
 m_totalBundleBytesSent(0)
 {
+    for (unsigned int i = 0; i < MAX_UNACKED; ++i) {
+        m_fragmentBytesToAckCbVec[i].reserve(100);
+    }
+
     m_handleTcpSendCallback = boost::bind(&TcpclBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendShutdownCallback = boost::bind(&TcpclBundleSource::HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
@@ -89,6 +97,8 @@ void TcpclBundleSource::Stop() {
     std::cout << "m_totalDataSegmentsAcked " << m_totalDataSegmentsAcked << std::endl;
     std::cout << "m_totalBytesAcked " << m_totalBytesAcked << std::endl;
     std::cout << "m_totalDataSegmentsSent " << m_totalDataSegmentsSent << std::endl;
+    std::cout << "m_totalFragmentedAcked " << m_totalFragmentedAcked << std::endl;
+    std::cout << "m_totalFragmentedSent " << m_totalFragmentedSent << std::endl;
     std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
 }
 
@@ -130,30 +140,57 @@ bool TcpclBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         return false;
     }
     m_bytesToAckCbVec[writeIndex] = dataVec.size();
-    m_bytesToAckCb.CommitWrite(); //pushed
+   
 
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += dataVec.size();
 
-    //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
+    std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[writeIndex];
+    currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
+    m_fragmentVectorIndexCbVec[writeIndex] = 0; //used by the ack callback
+    std::vector<TcpAsyncSenderElement*> elements;
 
     if (M_MAX_FRAGMENT_SIZE && (dataVec.size() > M_MAX_FRAGMENT_SIZE)) {
-        /*uint64_t dataIndexFirstPass = 0;
-        while (dataIndexFirstPass < dataVec.size()) {
-            uint64_t bytesToSend = std::min(dataVec.size() - dataIndexFirstPass, M_MAX_FRAGMENT_SIZE);
-            const bool isStartSegment = (dataIndexFirstPass == 0);
-            const bool isEndSegment = ((bytesToSend + dataIndexFirstPass) == M_MAX_FRAGMENT_SIZE);
+        elements.reserve((dataVec.size() / M_MAX_FRAGMENT_SIZE) + 2);
+        uint64_t dataIndex = 0;
+        const std::size_t dataVecSize = dataVec.size();
+        while (true) {
+            uint64_t bytesToSend = std::min(dataVecSize - dataIndex, M_MAX_FRAGMENT_SIZE);
+            const bool isStartSegment = (dataIndex == 0);
+            const bool isEndSegment = ((bytesToSend + dataIndex) == dataVecSize);
+
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingData.resize(1 + isEndSegment);
+            el->m_constBufferVec.resize(2);
+            Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], isStartSegment, isEndSegment, bytesToSend);
+            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+            el->m_constBufferVec[1] = boost::asio::buffer(dataVec.data() + dataIndex, bytesToSend);
+            if (isEndSegment) {
+                el->m_underlyingData[1] = std::move(dataVec);
+            }
+
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+            elements.push_back(el);
             
-            constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-            constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendRed);
-            m_dataIndexFirstPass += bytesToSend;
-        }*/
-        std::cout << "frag\n";
+
+            dataIndex += bytesToSend;
+            currentFragmentBytesVec.push_back(dataIndex); //bytes to ack must be cumulative of fragments
+
+            if (isEndSegment) {
+                break;
+            }
+        }
+    }
+
+    m_bytesToAckCb.CommitWrite(); //pushed
+
+    if(elements.size()) { //is fragmented
+        m_totalFragmentedSent += elements.size();
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(elements[i]);
+        }
     }
     else {
-        std::unique_ptr<std::vector<uint8_t> > dataSegmentHeaderPtr = boost::make_unique<std::vector<uint8_t> >();
-
-        
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingData.resize(2);
         Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], true, true, dataVec.size());
@@ -182,22 +219,66 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
         return false;
     }
     m_bytesToAckCbVec[writeIndex] = dataZmq.size();
-    m_bytesToAckCb.CommitWrite(); //pushed
 
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += dataZmq.size();
 
-    //numUnackedBundles = m_bytesToAckCb.NumInBuffer();
+    std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[writeIndex];
+    currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
+    m_fragmentVectorIndexCbVec[writeIndex] = 0; //used by the ack callback
+    std::vector<TcpAsyncSenderElement*> elements;
 
-    TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-    el->m_underlyingData.resize(1);
-    Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], true, true, dataZmq.size());
-    el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
-    el->m_constBufferVec.resize(2);
-    el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
-    el->m_constBufferVec[1] = boost::asio::buffer(boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size()));
-    el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
-    m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+    if (M_MAX_FRAGMENT_SIZE && (dataZmq.size() > M_MAX_FRAGMENT_SIZE)) {
+        elements.reserve((dataZmq.size() / M_MAX_FRAGMENT_SIZE) + 2);
+        uint64_t dataIndex = 0;
+        const std::size_t dataZmqSize = dataZmq.size();
+        while (true) {
+            uint64_t bytesToSend = std::min(dataZmq.size() - dataIndex, M_MAX_FRAGMENT_SIZE);
+            const bool isStartSegment = (dataIndex == 0);
+            const bool isEndSegment = ((bytesToSend + dataIndex) == dataZmqSize);
+
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingData.resize(1);
+            el->m_constBufferVec.resize(2);
+            Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], isStartSegment, isEndSegment, bytesToSend);
+            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+            el->m_constBufferVec[1] = boost::asio::buffer((static_cast<uint8_t*>(dataZmq.data())) + dataIndex, bytesToSend);
+            if (isEndSegment) {
+                el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
+            }
+
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+            elements.push_back(el);
+
+
+            dataIndex += bytesToSend;
+            currentFragmentBytesVec.push_back(dataIndex); //bytes to ack must be cumulative of fragments
+
+            if (isEndSegment) {
+                break;
+            }
+        }
+    }
+
+    m_bytesToAckCb.CommitWrite(); //pushed
+
+    if (elements.size()) { //is fragmented
+        m_totalFragmentedSent += elements.size();
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(elements[i]);
+        }
+    }
+    else {
+        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingData.resize(1);
+        Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], true, true, dataZmq.size());
+        el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
+        el->m_constBufferVec.resize(2);
+        el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+        el->m_constBufferVec[1] = boost::asio::buffer(boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size()));
+        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+        m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+    }
 
     return true;
 }
@@ -349,20 +430,41 @@ void TcpclBundleSource::AckCallback(uint64_t totalBytesAcknowledged) {
     if(readIndex == UINT32_MAX) { //empty
         std::cerr << "error: AckCallback called with empty queue" << std::endl;
     }
-    else if (m_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
-        ++m_totalDataSegmentsAcked;
-        m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
-        m_bytesToAckCb.CommitRead();
-        if (m_onSuccessfulAckCallback) {
-            m_onSuccessfulAckCallback();
-        }
-        if (m_useLocalConditionVariableAckReceived) {
-            m_localConditionVariableAckReceived.notify_one();
-        }
-    }
     else {
-        std::cerr << "error in TcpclBundleSource::AckCallback: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
+        std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[readIndex];
+        if (currentFragmentBytesVec.size()) { //this was fragmented
+            uint64_t & fragIdxRef = m_fragmentVectorIndexCbVec[readIndex];
+            const uint64_t expectedFragByteToAck = currentFragmentBytesVec[fragIdxRef++];
+            if (fragIdxRef == currentFragmentBytesVec.size()) {
+                currentFragmentBytesVec.resize(0);
+            }
+            if (expectedFragByteToAck == totalBytesAcknowledged) {
+                ++m_totalFragmentedAcked;
+            }
+            else {
+                std::cerr << "error in TcpclBundleSource::AckCallback: wrong fragment bytes acked: expected " << expectedFragByteToAck << " but got " << totalBytesAcknowledged << std::endl;
+            }
+        }
+        
+        //now ack the entire bundle
+        if (currentFragmentBytesVec.empty()) {
+            if (m_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
+                ++m_totalDataSegmentsAcked;
+                m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
+                m_bytesToAckCb.CommitRead();
+                if (m_onSuccessfulAckCallback) {
+                    m_onSuccessfulAckCallback();
+                }
+                if (m_useLocalConditionVariableAckReceived) {
+                    m_localConditionVariableAckReceived.notify_one();
+                }
+            }
+            else {
+                std::cerr << "error in TcpclBundleSource::AckCallback: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
+            }
+        }
     }
+    
     
 }
 
