@@ -122,7 +122,7 @@ bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
     hdtn::Logger::getInstance()->logNotification("storage", "[storage] Spinning up worker thread ...");
     m_workerSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
     m_workerSockPtr->bind(HDTN_STORAGE_WORKER_PATH);
-    worker.Init(m_zmqContextPtr.get(), m_hdtnConfig);
+    worker.Init(m_zmqContextPtr.get(), m_hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
     worker.launch();
     zmq::message_t tmsg;
     if (!m_workerSockPtr->recv(tmsg, zmq::recv_flags::none)) {
