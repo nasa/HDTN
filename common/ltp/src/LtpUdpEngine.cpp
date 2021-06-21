@@ -3,8 +3,11 @@
 
 LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION) :
-    LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true),
+    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes,
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber) :
+    LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
+        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber),
     M_MY_BOUND_UDP_PORT(udpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
@@ -18,13 +21,11 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     m_readyToForward(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0)
-    //m_udpDestinationNullEndpoint(boost::asio::ip::make_address_v4("127.0.0.1"), 55555) //for unit testing
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
         m_sessionOriginatorEngineIdDecodedCallbackCbVec[i] = boost::bind(&LtpUdpEngine::SessionOriginatorEngineIdDecodedCallbackFromThisUdpEndpoint, this, &m_remoteEndpointsCbVec[i], boost::placeholders::_1);
     }
-
 
     //Receiver UDP
     try {
@@ -46,6 +47,7 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
 LtpUdpEngine::~LtpUdpEngine() {
     Stop();
     //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
+    std::cout << "~LtpUdpEngine m_countAsyncSendCalls " << m_countAsyncSendCalls << std::endl;
 }
 
 void LtpUdpEngine::Stop() {

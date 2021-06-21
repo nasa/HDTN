@@ -121,6 +121,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         void Reset() {
             engineSrc.Reset();
             engineDest.Reset();
+            engineSrc.SetCheckpointEveryNthDataPacketForSenders(0);
+            engineDest.SetCheckpointEveryNthDataPacketForSenders(0);
             numSrcToDestDataExchanged = 0;
             numDestToSrcDataExchanged = 0;
             numRedPartReceptionCallbacks = 0;

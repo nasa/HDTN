@@ -6,7 +6,7 @@
 
 TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     Outduct(outductConfig, outductUuid),
-    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, outductConfig.endpointIdStr, outductConfig.bundlePipelineLimit + 5)
+    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, outductConfig.endpointIdStr, outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclAutoFragmentSizeBytes)
 {}
 TcpclOutduct::~TcpclOutduct() {}
 

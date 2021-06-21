@@ -7,11 +7,12 @@
 LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
     const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION) :
+    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes,
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, uint32_t ltpMaxRetriesPerSerialNumber) :
 
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     m_ltpUdpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        udpPort, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION)
+        udpPort, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, 0, ltpMaxRetriesPerSerialNumber)
 {
     m_ltpUdpEngine.SetRedPartReceptionCallback(boost::bind(&LtpBundleSink::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
         boost::placeholders::_4, boost::placeholders::_5));

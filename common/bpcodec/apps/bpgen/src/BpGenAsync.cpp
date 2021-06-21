@@ -95,7 +95,14 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "Sleeping for " << sValU64 << " usec between bursts" << std::endl;
     }
     else {
-        std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to 5 unacked bundles"  << std::endl;
+
+        if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+            std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to " << outduct->GetOutductMaxBundlesInPipeline() << " unacked bundles" << std::endl;
+        }
+        else {
+            std::cerr << "error: null outduct" << std::endl;
+            return;
+        }
     }
 
     std::size_t numEventsTooManyUnackedBundles = 0;

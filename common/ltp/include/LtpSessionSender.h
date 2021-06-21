@@ -42,7 +42,7 @@ public:
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
         const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
-        const uint64_t checkpointEveryNthDataPacket = 0);
+        const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
 
@@ -67,6 +67,7 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
     uint64_t m_checkpointEveryNthDataPacketCounter;
+    const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
     const NotifyEngineThatThisSendersTimersProducedDataFunction_t m_notifyEngineThatThisSendersTimersProducedDataFunction;

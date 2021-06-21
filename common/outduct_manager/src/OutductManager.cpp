@@ -95,15 +95,13 @@ void OutductManager::StopAllOutducts() {
 
 bool OutductManager::Forward(uint64_t flowId, const uint8_t* bundleData, const std::size_t size) {
     try {
-        if(boost::shared_ptr<Outduct> & outductPtr = m_flowIdToOutductMap.at(flowId)) {
-            if (boost::shared_ptr<Outduct> & outductPtr = m_flowIdToOutductMap.at(flowId)) {
-                if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                    std::cerr << "bundle pipeline limit exceeded" << std::endl;
-                    return false;
-                }
-                else {
-                    return outductPtr->Forward(bundleData, size);
-                }
+        if (boost::shared_ptr<Outduct> & outductPtr = m_flowIdToOutductMap.at(flowId)) {
+            if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+                std::cerr << "bundle pipeline limit exceeded" << std::endl;
+                return false;
+            }
+            else {
+                return outductPtr->Forward(bundleData, size);
             }
         }
     }

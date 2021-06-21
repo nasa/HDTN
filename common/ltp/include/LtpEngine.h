@@ -29,7 +29,9 @@ public:
     };
     
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false);
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
+        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false,
+        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5);
 
     virtual ~LtpEngine();
 
@@ -117,6 +119,7 @@ private:
 
     uint64_t m_checkpointEveryNthDataPacketSender;
     uint64_t m_maxReceptionClaims;
+    uint32_t m_maxRetriesPerSerialNumber;
 
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;

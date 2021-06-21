@@ -5,17 +5,20 @@
 #include <boost/make_unique.hpp>
 
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread) :
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread,
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
+    m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
+    m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_timeManagerOfCancelSegments(m_ioServiceLtpEngine, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2))
 {
-
     m_ltpRxStateMachine.SetCancelSegmentContentsReadCallback(boost::bind(&LtpEngine::CancelSegmentReceivedCallback, this,
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
         boost::placeholders::_4, boost::placeholders::_5));
@@ -55,7 +58,6 @@ void LtpEngine::Reset() {
     m_ltpRxStateMachine.InitRx();
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
     m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
-    m_checkpointEveryNthDataPacketSender = 0;
     m_closedSessionDataToSend.clear();
     m_timeManagerOfCancelSegments.Reset();
     m_listCancelSegmentTimerInfo.clear();
@@ -264,7 +266,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
         boost::bind(&LtpEngine::TrySendPacketIfAvailable, this),
-        boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1), m_checkpointEveryNthDataPacketSender);
+        boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1), m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber);
     //revalidate iterator
     m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 
@@ -487,7 +489,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     }
     memcpy(&info, userData.data(), sizeof(info));
 
-    if (info.retryCount <= 5) {
+    if (info.retryCount <= m_maxRetriesPerSerialNumber) {
         //resend Cancel Segment to receiver (NextPacketToSendRoundRobin() will create the packet and start the timer)
         ++info.retryCount;
         m_listCancelSegmentTimerInfo.push_back(info);
@@ -612,7 +614,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-            boost::bind(&LtpEngine::TrySendPacketIfAvailable, this));
+            boost::bind(&LtpEngine::TrySendPacketIfAvailable, this), m_maxRetriesPerSerialNumber);
 
         std::pair<std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator, bool> res =
             m_mapSessionIdToSessionReceiver.insert(std::pair< Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >(sessionId, std::move(session)));

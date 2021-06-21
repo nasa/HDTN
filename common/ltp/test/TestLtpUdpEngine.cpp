@@ -118,6 +118,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void Reset() {
             engineSrc.Reset();
             engineDest.Reset();
+            engineSrc.SetCheckpointEveryNthDataPacketForSenders(0);
+            engineDest.SetCheckpointEveryNthDataPacketForSenders(0);
             engineSrc.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             engineDest.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             numRedPartReceptionCallbacks = 0;

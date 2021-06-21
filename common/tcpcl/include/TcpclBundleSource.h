@@ -16,7 +16,7 @@ private:
     TcpclBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100);
+    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
 
     ~TcpclBundleSource();
     void Stop();
@@ -78,6 +78,9 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
     std::vector<uint64_t> m_bytesToAckCbVec;
+    std::vector<std::vector<uint64_t> > m_fragmentBytesToAckCbVec;
+    std::vector<uint64_t> m_fragmentVectorIndexCbVec;
+    const uint64_t M_MAX_FRAGMENT_SIZE;
     volatile bool m_readyToForward;
     volatile bool m_tcpclShutdownComplete;
     bool m_shutdownCalled;
@@ -93,6 +96,8 @@ public:
     std::size_t m_totalDataSegmentsAcked;
     std::size_t m_totalBytesAcked;
     std::size_t m_totalDataSegmentsSent;
+    std::size_t m_totalFragmentedAcked;
+    std::size_t m_totalFragmentedSent;
     std::size_t m_totalBundleBytesSent;
 };
 

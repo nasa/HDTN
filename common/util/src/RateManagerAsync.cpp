@@ -2,16 +2,15 @@
 #include <iostream>
 #include <boost/bind.hpp>
 
-#define MAX_UNSENT_PACKETS_CB_SIZE 200
 RateManagerAsync::RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent) :
     m_ioServiceRef(ioService),
     m_rateTimer(ioService),
     m_rateBitsPerSec(rateBitsPerSec),
     m_maxPacketsBeingSent(maxPacketsBeingSent),
-    m_bytesToAckByRateCb(MAX_UNSENT_PACKETS_CB_SIZE),
-    m_bytesToAckByRateCbVec(MAX_UNSENT_PACKETS_CB_SIZE),
-    m_bytesToAckBySentCallbackCb(MAX_UNSENT_PACKETS_CB_SIZE),
-    m_bytesToAckBySentCallbackCbVec(MAX_UNSENT_PACKETS_CB_SIZE)
+    m_bytesToAckByRateCb(static_cast<uint32_t>(m_maxPacketsBeingSent + 10)),
+    m_bytesToAckByRateCbVec(m_maxPacketsBeingSent + 10),
+    m_bytesToAckBySentCallbackCb(static_cast<uint32_t>(m_maxPacketsBeingSent + 10)),
+    m_bytesToAckBySentCallbackCbVec(m_maxPacketsBeingSent + 10)
     
 {
 
@@ -42,9 +41,6 @@ void RateManagerAsync::Reset() {
 }
 void RateManagerAsync::SetRate(uint64_t rateBitsPerSec) {
     m_rateBitsPerSec = rateBitsPerSec;
-}
-void RateManagerAsync::SetMaxPacketsBeingSent(uint64_t maxPacketsBeingSent) {
-    m_maxPacketsBeingSent = maxPacketsBeingSent;
 }
 
 void RateManagerAsync::SetPacketsSentCallback(const PacketsSentCallback_t & callback) {

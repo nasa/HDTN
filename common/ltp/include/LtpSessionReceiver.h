@@ -26,7 +26,8 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-        const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction);
+        const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
+        const uint32_t maxRetriesPerSerialNumber = 5);
 
     ~LtpSessionReceiver();
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
@@ -52,6 +53,7 @@ private:
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
+    const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
     uint64_t m_lengthOfRedPart;
     uint64_t m_lowestGreenOffsetReceived;
     uint64_t m_currentRedLength;

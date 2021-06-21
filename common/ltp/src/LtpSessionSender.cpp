@@ -13,7 +13,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
     const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
     const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
-    const uint64_t checkpointEveryNthDataPacket) :
+    const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber) :
     m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
@@ -26,6 +26,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_CLIENT_SERVICE_ID(clientServiceId),
     M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
     m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
+    M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
     m_notifyEngineThatThisSendersTimersProducedDataFunction(notifyEngineThatThisSendersTimersProducedDataFunction),
@@ -64,7 +65,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     resend_fragment_t resendFragment;
     memcpy(&resendFragment, userData.data(), sizeof(resendFragment));
 
-    if (resendFragment.retryCount <= 5) {
+    if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         //resend 
         ++resendFragment.retryCount;
         m_resendFragmentsList.push_back(resendFragment);
