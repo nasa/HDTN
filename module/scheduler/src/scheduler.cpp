@@ -65,8 +65,6 @@ int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
             errorMessage += " Invalid id: " + boost::lexical_cast<std::string>(linkEvent.id) + ".";
         }
 
-      //@nk add more checks
-      //
 	if (errorMessage.length() > 0) {
             std::cerr << errorMessage << std::endl << std::flush;
             return 1;
@@ -85,7 +83,7 @@ int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
     socket.bind(bind_boundSchedulerPubSubPath);
 
     boost::asio::io_service ioService;
-   // boost::asio::io_service io;
+
     std::vector<SmartDeadlineTimer> vectorTimers;
     vectorTimers.reserve(contactsVector.size());
 
@@ -96,8 +94,8 @@ int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
     for(std::size_t i=0; i < contactsVector.size(); ++i) {
   	SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
 	SmartDeadlineTimer dt2 = boost::make_unique<boost::asio::deadline_timer>(ioService);
-	std::cout << "Expiration time for available links: flowid " << contactsVector[i].id << "is " << epochTime + boost::posix_time::seconds(contactsVector[i].start) << std::endl << std::flush;
-        std::cout << "Expiration time for unavailable links: flowid " << contactsVector[i].id << "is " << epochTime + boost::posix_time::seconds(contactsVector[i].end+1) << std::endl << std::flush;
+	std::cout << "Expiration time for available links for flowid " << contactsVector[i].id << "is " << epochTime + boost::posix_time::seconds(contactsVector[i].start) << std::endl << std::flush;
+        std::cout << "Expiration time for unavailable links for flowid " << contactsVector[i].id << "is " << epochTime + boost::posix_time::seconds(contactsVector[i].end+1) << std::endl << std::flush;
 
  	dt->expires_from_now(boost::posix_time::seconds(contactsVector[i].start));
    	dt->async_wait(boost::bind(&Scheduler::ProcessLinkUp,this,boost::asio::placeholders::error, contactsVector[i].id,
@@ -110,7 +108,6 @@ int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
 	vectorTimers2.push_back(std::move(dt2));
     }
     ioService.run();
-    //io.poll();
     socket.close();
 
     m_timersFinished = true;
