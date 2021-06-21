@@ -29,7 +29,7 @@ void Scheduler::ProcessLinkDown(const boost::system::error_code&, int id, std::s
     stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
     stopMsg.flowId = id;
     ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-    std::cout << " -- Stop Release message sent. for flow id" << stopMsg.flowId << std::endl;
+    std::cout << " -- Link unavailable event sent for flow id" << stopMsg.flowId << std::endl;
 }
 
 void Scheduler::ProcessLinkUp(const boost::system::error_code&, int id, std::string event, zmq::socket_t * ptrSocket) {
@@ -40,7 +40,7 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code&, int id, std::str
     releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
     releaseMsg.flowId = id;
     ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-    std::cout << " -- Start Release message sent. for flow id" << releaseMsg.flowId << std::endl;
+    std::cout << " -- Link available event sent for flow id" << releaseMsg.flowId << std::endl;
 }
 
 int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
