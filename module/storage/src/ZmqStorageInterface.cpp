@@ -409,7 +409,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                         }
                     }
                 }
-                else if(type == HDTN_MSGTYPE_IRELSTART) {
+                else if(type == HDTN_MSGTYPE_ILINKUP) {
                     hdtn::IreleaseStartHdr iReleaseStartHdr;
                     memcpy(&iReleaseStartHdr, rhdr.data(), sizeof(hdtn::IreleaseStartHdr));
                     //ReleaseData(iReleaseStartHdr.flowId, iReleaseStartHdr.rate, iReleaseStartHdr.duration, &egressSock, bsm);
@@ -431,7 +431,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
 
                     //storageStillHasData = true;
                 }
-                else if(type == HDTN_MSGTYPE_IRELSTOP) {
+                else if(type == HDTN_MSGTYPE_ILINKDOWN) {
                     hdtn::IreleaseStopHdr iReleaseStoptHdr;
                     memcpy(&iReleaseStoptHdr, rhdr.data(), sizeof(hdtn::IreleaseStopHdr));
                     const uint64_t flowId = iReleaseStoptHdr.flowId;
