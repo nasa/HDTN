@@ -3,7 +3,8 @@
  * Released under the NASA Open Source Agreement (NOSA)
  * May  2021
  *
- * Scheduler -
+ * Scheduler - sends events on link availability based on contact plan 
+ * schedule to storage and ingress
  ****************************************************************************
  */
 
