@@ -66,10 +66,16 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     memcpy(&resendFragment, userData.data(), sizeof(resendFragment));
 
     if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
-        //resend 
-        ++resendFragment.retryCount;
-        m_resendFragmentsList.push_back(resendFragment);
-        m_notifyEngineThatThisSendersTimersProducedDataFunction();
+        const bool isDiscretionaryCheckpoint = (resendFragment.flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
+        if (isDiscretionaryCheckpoint && LtpFragmentMap::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentMap::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1))) {
+            std::cout << "  Discretionary checkpoint not being resent because its data was already received successfully by the receiver." << std::endl;
+        }
+        else {
+            //resend 
+            ++resendFragment.retryCount;
+            m_resendFragmentsList.push_back(resendFragment);
+            m_notifyEngineThatThisSendersTimersProducedDataFunction();
+        }
     }
     else {
         if (!m_didNotifyForDeletion) {

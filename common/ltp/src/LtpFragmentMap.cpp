@@ -58,6 +58,16 @@ void LtpFragmentMap::InsertFragment(std::set<data_fragment_t> & fragmentSet, dat
     }
 }
 
+bool LtpFragmentMap::ContainsFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, data_fragment_t key) {
+    std::set<data_fragment_t>::const_iterator res = fragmentSet.find(key);
+    if (res == fragmentSet.cend()) { //not found (nothing that overlaps or abuts)
+        return false;
+    }
+    const uint64_t keyInMapBeginIndex = res->beginIndex;
+    const uint64_t keyInMapEndIndex = res->endIndex;
+    return ((key.beginIndex >= keyInMapBeginIndex) && (key.endIndex <= keyInMapEndIndex)); //new key fits entirely inside existing key (set needs no modification)
+}
+
 bool LtpFragmentMap::PopulateReportSegment(const std::set<data_fragment_t> & fragmentSet, Ltp::report_segment_t & reportSegment, uint64_t lowerBound, uint64_t upperBound) {
     if (fragmentSet.empty()) {
         return false;
