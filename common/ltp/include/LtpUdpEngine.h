@@ -61,6 +61,7 @@ private:
 public:
     volatile uint64_t m_countAsyncSendCalls;
     volatile uint64_t m_countAsyncSendCallbackCalls;
+    uint64_t m_countCircularBufferOverruns;
 
     //unit testing drop packet simulation stuff
     UdpDropSimulatorFunction_t m_udpDropSimulatorFunction;

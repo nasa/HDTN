@@ -21,7 +21,8 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     m_readyToForward(false),
     m_printedCbTooSmallNotice(false),
     m_countAsyncSendCalls(0),
-    m_countAsyncSendCallbackCalls(0)
+    m_countAsyncSendCallbackCalls(0),
+    m_countCircularBufferOverruns(0)
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
@@ -48,7 +49,7 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
 LtpUdpEngine::~LtpUdpEngine() {
     Stop();
     //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
-    std::cout << "~LtpUdpEngine m_countAsyncSendCalls " << m_countAsyncSendCalls << std::endl;
+    std::cout << "~LtpUdpEngine m_countAsyncSendCalls " << m_countAsyncSendCalls << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
 }
 
 void LtpUdpEngine::Stop() {
@@ -66,11 +67,13 @@ void LtpUdpEngine::Reset() {
     LtpEngine::Reset();
     m_countAsyncSendCalls = 0;
     m_countAsyncSendCallbackCalls = 0;
+    m_countCircularBufferOverruns = 0;
 }
 
 void LtpUdpEngine::StartUdpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
+        ++m_countCircularBufferOverruns;
         if (!m_printedCbTooSmallNotice) {
             m_printedCbTooSmallNotice = true;
             std::cout << "notice in LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! Next UDP packet will be dropped!" << std::endl;
