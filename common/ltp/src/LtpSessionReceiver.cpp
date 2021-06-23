@@ -26,7 +26,10 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisReceiverNeedsDeletedCallback(notifyEngineThatThisReceiverNeedsDeletedCallback),
     m_notifyEngineThatThisReceiversTimersProducedDataFunction(notifyEngineThatThisReceiversTimersProducedDataFunction),
-    m_numTimerExpiredCallbacks(0)
+    m_numReportSegmentTimerExpiredCallbacks(0),
+    m_numReportSegmentsUnableToBeIssued(0),
+    m_numReportSegmentsTooLargeAndNeedingSplit(0),
+    m_numReportSegmentsCreatedViaSplit(0)
 {
     m_dataReceivedRed.reserve(ESTIMATED_BYTES_TO_RECEIVE);
 }
@@ -34,7 +37,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
 LtpSessionReceiver::~LtpSessionReceiver() {}
 
 void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData) {
-    std::cout << "LtpReportSegmentTimerExpiredCallback reportSerialNumber " << reportSerialNumber << std::endl;
+    //std::cout << "LtpReportSegmentTimerExpiredCallback reportSerialNumber " << reportSerialNumber << std::endl;
     
     //6.8.  Retransmit RS
     //
@@ -55,7 +58,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
     //
     //Otherwise, a new copy of each affected RS segment is queued for
     //transmission to the LTP engine that originated the session.
-    ++m_numTimerExpiredCallbacks;
+    ++m_numReportSegmentTimerExpiredCallbacks;
     if (userData.size() != sizeof(uint8_t)) {
         std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(uint8_t)\n";
         return;
@@ -275,10 +278,11 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             //bound(for example, due to out - of - order arrival of discretionary
             //checkpoints) then the reception report MUST NOT be issued.
             if (lowerBound >= upperBound) {
-                std::cout << "Notice: this receiver not issuing RS to checkpoint sn " << *dataSegmentMetadata.checkpointSerialNumber 
-                    << " containing report sn " << *dataSegmentMetadata.reportSerialNumber 
-                    << " due to lowerBound(" << lowerBound << ") >= upperBound(" << upperBound
-                    << ") probably due to out-of-order arrival of discretionary checkpoints." << std::endl;
+                ++m_numReportSegmentsUnableToBeIssued;
+                //std::cout << "Notice: this receiver not issuing RS to checkpoint sn " << *dataSegmentMetadata.checkpointSerialNumber 
+                //    << " containing report sn " << *dataSegmentMetadata.reportSerialNumber 
+                //    << " due to lowerBound(" << lowerBound << ") >= upperBound(" << upperBound
+                //    << ") probably due to out-of-order arrival of discretionary checkpoints." << std::endl;
             }
             else {
                 std::vector<Ltp::report_segment_t> reportSegmentsVec(1);
@@ -304,8 +308,10 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     //the reception report.
                     std::vector<Ltp::report_segment_t> reportSegmentsSplitVec;
                     LtpFragmentMap::SplitReportSegment(reportSegmentsVec[0], reportSegmentsSplitVec, M_MAX_RECEPTION_CLAIMS);
-                    std::cout << "splitting 1 report segment with " << reportSegmentsVec[0].receptionClaims.size() << " reception claims into "
-                        << reportSegmentsSplitVec.size() << " report segments with no more than " << M_MAX_RECEPTION_CLAIMS << " reception claims per report segment" << std::endl;
+                    //std::cout << "splitting 1 report segment with " << reportSegmentsVec[0].receptionClaims.size() << " reception claims into "
+                    //    << reportSegmentsSplitVec.size() << " report segments with no more than " << M_MAX_RECEPTION_CLAIMS << " reception claims per report segment" << std::endl;
+                    ++m_numReportSegmentsTooLargeAndNeedingSplit;
+                    m_numReportSegmentsCreatedViaSplit += reportSegmentsSplitVec.size();
                     reportSegmentsVec = std::move(reportSegmentsSplitVec);
                 }
 

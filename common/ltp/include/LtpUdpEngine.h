@@ -57,6 +57,7 @@ private:
     std::map<uint64_t, boost::asio::ip::udp::endpoint> m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly;
 
     volatile bool m_readyToForward;
+    bool m_printedCbTooSmallNotice;
 public:
     volatile uint64_t m_countAsyncSendCalls;
     volatile uint64_t m_countAsyncSendCallbackCalls;

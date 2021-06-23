@@ -19,6 +19,7 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     m_sessionOriginatorEngineIdDecodedCallbackCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveDiscardBuffer(M_MAX_UDP_PACKET_SIZE_BYTES),
     m_readyToForward(false),
+    m_printedCbTooSmallNotice(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0)
 {
@@ -70,7 +71,10 @@ void LtpUdpEngine::Reset() {
 void LtpUdpEngine::StartUdpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
-        std::cerr << "LtpUdpEngine::StartUdpReceive(): buffers full.. Next UDP packet will be dropped!\n";
+        if (!m_printedCbTooSmallNotice) {
+            m_printedCbTooSmallNotice = true;
+            std::cout << "notice in LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! Next UDP packet will be dropped!" << std::endl;
+        }
         m_udpSocket.async_receive_from(
             boost::asio::buffer(m_udpReceiveDiscardBuffer),
             m_remoteEndpointDiscard,
