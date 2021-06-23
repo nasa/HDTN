@@ -42,7 +42,7 @@ public:
     Ingress();  // initialize message buffers
     ~Ingress();
     void Stop();
-    int Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage);
+    int Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();

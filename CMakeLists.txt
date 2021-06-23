@@ -56,6 +56,7 @@ add_subdirectory(common/regsvr/lib)
 add_subdirectory(module/storage)
 add_subdirectory(module/ingress)
 add_subdirectory(module/egress)
+add_subdirectory(module/hdtn_one_process)
 add_subdirectory(tests/unit_tests)
 add_subdirectory(tests/integrated_tests)
 
