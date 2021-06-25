@@ -37,7 +37,7 @@ void Tcpcl::InitRx() {
 	m_mainRxState = TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER;
 	m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
 	m_keepAliveInterval = 0;
-	m_sdnvTempVec.reserve(10); //critical for hardware accelerated decode (min size 10) to prevent out of bounds
+    m_sdnvTempVec.reserve(32); //critical for hardware accelerated decode (min size 16 (sizeof(__m128i)) to prevent out of bounds
 	m_sdnvTempVec.resize(0);
 	m_localEidLength = 0;
 	m_localEidStr = "";

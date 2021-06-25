@@ -322,7 +322,7 @@ void Ltp::InitRx() {
     m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV;
     m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV;
     //m_reportAcknowledgementSegmentRxState = LTP_REPORT_ACKNOWLEDGEMENT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV;
-    m_sdnvTempVec.reserve(32); //critical for hardware accelerated decode (min size 10) to prevent out of bounds
+    m_sdnvTempVec.reserve(32); //critical for hardware accelerated decode (min size 16 (sizeof(__m128i)) to prevent out of bounds
     m_sdnvTempVec.clear();
 }
 
