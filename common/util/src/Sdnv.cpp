@@ -486,7 +486,7 @@ uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
     //PDEP          0xff00fff0       0x00012567   0x12005670
 
 
-    __m128i sdnvEncoded = _mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
+    __m128i sdnvEncoded = _mm_loadl_epi64((__m128i const*)(data)); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
     int significantBitsSetMask = _mm_movemask_epi8(sdnvEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
     const uint8_t maskIndex = static_cast<uint8_t>(boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask));
     const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
