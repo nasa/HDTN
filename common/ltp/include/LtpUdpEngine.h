@@ -17,7 +17,7 @@ public:
     
     LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
-        const uint16_t udpPort = 0, const unsigned int numUdpRxCircularBufferVectors = 100, const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX,
+        const uint16_t udpPort, const bool isReceiver, const bool senderRequireRemoteEndpointMatchOnReceivePacket, const unsigned int numUdpRxCircularBufferVectors = 100, const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5);
 
     virtual ~LtpUdpEngine();
@@ -40,6 +40,8 @@ private:
 
 
     const uint16_t M_MY_BOUND_UDP_PORT;
+    const bool M_IS_RECEIVER;
+    const bool M_SENDER_REQUIRE_REMOTE_ENDPOINT_MATCH_ON_RECEIVE_PACKET;
     boost::asio::io_service m_ioServiceUdp;
     boost::asio::ip::udp::resolver m_resolver;
     boost::asio::ip::udp::socket m_udpSocket;

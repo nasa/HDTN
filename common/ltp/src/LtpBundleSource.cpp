@@ -12,7 +12,7 @@ LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t 
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 m_ltpUdpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-    udpPort, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, checkpointEveryNthDataPacketSender, ltpMaxRetriesPerSerialNumber),
+    udpPort, false, true, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, checkpointEveryNthDataPacketSender, ltpMaxRetriesPerSerialNumber),
 
 M_CLIENT_SERVICE_ID(clientServiceId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
