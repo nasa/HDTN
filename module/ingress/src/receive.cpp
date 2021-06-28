@@ -233,7 +233,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
         ////timer = rdtsc();
         //memcpy(tbuf, m_bufs[i], recvlen);
         //hdr.ts = timer;
-        offset = bpv6_primary_block_decode(&bpv6Primary, (const char*)rxBuf.data(), offset, messageSize);
+        offset = cbhe_bpv6_primary_block_decode(&bpv6Primary, (const char*)rxBuf.data(), offset, messageSize);
         const uint64_t absExpirationUsec = (bpv6Primary.creation * 1000000) + bpv6Primary.sequence + bpv6Primary.lifetime;
         const uint32_t priority = bpv6_bundle_get_priority(bpv6Primary.flags);
         //std::cout << "p: " << priority << " lt " << bpv6Primary.lifetime << " c " << bpv6Primary.creation << ":" << bpv6Primary.sequence << " a: " << absExpirationUsec <<  std::endl;

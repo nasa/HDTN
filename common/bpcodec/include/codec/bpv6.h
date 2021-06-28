@@ -15,6 +15,12 @@
 extern "C" {
 #endif
 
+// (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
+#define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
+
+// (1-byte block type) + (2 10-byte sdnvs) + primary
+#define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_PLUS_CANONICAL_HEADER_ENCODE_SIZE (1 + (2*10) + CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE)
+
 #define BPV6_CCSDS_VERSION        (6)
 #define BPV6_5050_TIME_OFFSET     (946684800)
 
@@ -71,8 +77,7 @@ extern "C" {
  */
 typedef struct bpv6_primary_block {
     uint8_t  version;
-    uint8_t  eidlen;    // synthetic: not directly encoded or decoded, but used for IF conversion
-    uint8_t  vpad[6];
+    uint8_t  vpad[7];
     uint64_t flags;
     uint64_t block_length;
     uint64_t creation;
@@ -121,27 +126,6 @@ typedef struct bpv6_canonical_block {
     uint64_t length;
 } bpv6_canonical_block;
 
-/**
- * Encodes up to a 64-bit value as an SDNV.  Resulting SDNV can be up to 10 bytes long.
- *
- * @param target value to encode
- * @param buffer buffer into which encoded value will be written
- * @param offset offset into buffer at which encoded value will be written
- * @param bufsz maximum size of the buffer
- * @return the number of bytes the SDNV was encoded as, or 0 on failure to encode
- */
-uint8_t  bpv6_sdnv_encode(const uint64_t target, char* buffer, const size_t offset, const size_t bufsz);
-
-/**
- * Decodes up to a 56-bit value from an SDNV - SDNV can only be up to 8 bytes in length.
- *
- * @param target address to which decoded value should be written - field must be 64 bits in length
- * @param buffer buffer from which encoded value will be read
- * @param offset offset into buffer at which encoded value will be read
- * @param bufsz maximum size of the buffer
- * @return the number of bytes the SDNV was decoded from, or 0 on failure to decode
- */
-uint8_t  bpv6_sdnv_decode(uint64_t* target, const char* buffer, const size_t offset, const size_t bufsz);
 
 /**
  * Dumps a primary block to stdout in a human-readable way
@@ -151,7 +135,7 @@ uint8_t  bpv6_sdnv_decode(uint64_t* target, const char* buffer, const size_t off
 void bpv6_primary_block_print(bpv6_primary_block* primary);
 
 /**
- * Reads an RFC5050 primary block from a buffer and decodes it into 'primary'
+ * Reads an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block from a buffer and decodes it into 'primary'
  *
  * @param primary structure into which values should be decoded
  * @param buffer target from which values should be decoded
@@ -159,10 +143,10 @@ void bpv6_primary_block_print(bpv6_primary_block* primary);
  * @param bufsz maximum size of the buffer
  * @return the number of bytes the primary block was decoded from, or 0 on failure to decode
  */
-uint32_t bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buffer, const size_t offset, const size_t bufsz);
+uint32_t cbhe_bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buffer, const size_t offset, const size_t bufsz);
 
 /**
- * Writes an RFC5050 primary block into a buffer as encoded from 'primary'.  Note that block length is automatically
+ * Writes an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block into a buffer as encoded from 'primary'.  Note that block length is automatically
  * computed based on the encoded length of other fields ... but that the block length cannot exceed 128 bytes, or
  * encoding will fail.
  *
@@ -172,7 +156,7 @@ uint32_t bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buff
  * @param bufsz maximum size of the buffer
  * @return the number of bytes the primary block was encoded into, or 0 on failure to encode
  */
-uint32_t bpv6_primary_block_encode(const bpv6_primary_block* primary, char* buffer, const size_t offset, const size_t bufsz);
+uint32_t cbhe_bpv6_primary_block_encode(const bpv6_primary_block* primary, char* buffer, const size_t offset, const size_t bufsz);
 
 /**
  * Dumps a canonical block to stdout in a human-readable fashion

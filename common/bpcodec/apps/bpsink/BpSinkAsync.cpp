@@ -93,7 +93,7 @@ int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t m
         uint64_t curr_seq = 0;
 
         int32_t offset = 0;
-        offset += bpv6_primary_block_decode(&primary, mbuf, offset, messageSize);
+        offset += cbhe_bpv6_primary_block_decode(&primary, mbuf, offset, messageSize);
         if(0 == offset) {
             printf("Malformed bundle received - aborting.\n");
             return -2;
