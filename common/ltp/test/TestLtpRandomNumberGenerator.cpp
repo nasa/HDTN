@@ -10,13 +10,15 @@ BOOST_AUTO_TEST_CASE(LtpRandomNumberGeneratorTestCase)
         for (uint64_t i = 1; i <= 65535; ++i) {
             uint64_t randomNumber = rng.GetRandom();
             BOOST_REQUIRE(randomNumber > 0);
-            BOOST_REQUIRE_EQUAL(randomNumber & 0xffffu, i);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0xffff0000u, i << 16);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0x0000ffffu, 0);
             BOOST_REQUIRE_EQUAL(randomNumber >> 63, 0);
         }
         for (uint64_t i = 1; i <= 10; ++i) { //incremental part should have rolled around at this point
             uint64_t randomNumber = rng.GetRandom();
             BOOST_REQUIRE(randomNumber > 0);
-            BOOST_REQUIRE_EQUAL(randomNumber & 0xffffu, i);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0xffff0000u, i << 16);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0x0000ffffu, 0);
             BOOST_REQUIRE_EQUAL(randomNumber >> 63, 0);
         }
     }
@@ -28,13 +30,15 @@ BOOST_AUTO_TEST_CASE(LtpRandomNumberGeneratorTestCase)
         for (uint64_t i = 1; i <= 65535; ++i) {
             uint64_t randomNumber = rng.GetRandom(rd);
             BOOST_REQUIRE(randomNumber > 0);
-            BOOST_REQUIRE_EQUAL(randomNumber & 0xffffu, i);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0xffff0000u, i << 16);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0x0000ffffu, 0);
             BOOST_REQUIRE_EQUAL(randomNumber >> 63, 0);
         }
         for (uint64_t i = 1; i <= 10; ++i) { //incremental part should have rolled around at this point
             uint64_t randomNumber = rng.GetRandom(rd);
             BOOST_REQUIRE(randomNumber > 0);
-            BOOST_REQUIRE_EQUAL(randomNumber & 0xffffu, i);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0xffff0000u, i << 16);
+            BOOST_REQUIRE_EQUAL(randomNumber & 0x0000ffffu, 0);
             BOOST_REQUIRE_EQUAL(randomNumber >> 63, 0);
         }
     }

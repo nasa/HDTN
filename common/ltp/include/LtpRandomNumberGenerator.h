@@ -9,7 +9,7 @@
 class LtpRandomNumberGenerator {
 public:
     LtpRandomNumberGenerator();
-    uint64_t GetRandom(const uint64_t additionalRandomness = 0);
+    uint64_t GetRandom(const uint32_t additionalRandomness32Bit = 0);
     uint64_t GetRandom(boost::random_device & randomDevice);
 private:
     uint16_t m_birthdayParadoxPreventer_incrementalPart_U16;
