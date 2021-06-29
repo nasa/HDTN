@@ -97,6 +97,7 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
+    const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     boost::random_device m_randomDevice;
     //boost::mutex m_randomDeviceMutex;
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> > m_mapSessionNumberToSessionSender;
