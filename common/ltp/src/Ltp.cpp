@@ -1059,7 +1059,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         }
         else if (m_dataSegmentMetadata.length == 0) { //not sure if this is correct
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, length == 0";
-            return false;
+            return NULL;
         }
         else { //success READ_LENGTH_SDNV 
             numChars -= sdnvSize;
