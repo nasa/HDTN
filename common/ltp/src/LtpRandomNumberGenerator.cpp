@@ -49,7 +49,7 @@ uint64_t LtpRandomNumberGenerator::GetRandomSession64(boost::random_device & ran
 //return a hardware random generated number with:
 //    - bit 63 set to 0 to leave room for incrementing without rolling back around to zero
 //    - bit 62..16 a random part (47 bits of randomness)
-//    - bits 15..0 set to 0 for incrementing ltp serial numbers by 1
+//    - bits 15..0 set to 1 for incrementing ltp serial numbers by 1 (never want a serial number to be 0)
 uint64_t LtpRandomNumberGenerator::GetRandomSerialNumber64(const uint64_t additionalRandomness) const {
     const uint64_t random1 = TimestampUtil::GetMicrosecondsSinceEpochRfc5050() << 16;
     uint64_t random2 = 0;
@@ -60,6 +60,7 @@ uint64_t LtpRandomNumberGenerator::GetRandomSerialNumber64(const uint64_t additi
 #endif
     uint64_t randomNumber = (random1 ^ random2) ^ additionalRandomness;
     randomNumber &= (static_cast<uint64_t>(0x7fffffffffff0000u));
+    randomNumber |= 1u;
     
     return randomNumber;
 }
@@ -106,7 +107,7 @@ uint32_t LtpRandomNumberGenerator::GetRandomSession32(boost::random_device & ran
 //return a hardware random generated number with:
 //    - bit 31 set to 0 to leave room for incrementing without rolling back around to zero
 //    - bit 30..16 a random part (15 bits of randomness)
-//    - bits 15..0 set to 0 for incrementing ltp serial numbers by 1
+//    - bits 15..0 set to 1 for incrementing ltp serial numbers by 1 (never want a serial number to be 0)
 uint32_t LtpRandomNumberGenerator::GetRandomSerialNumber32(const uint32_t additionalRandomness32Bit) const {
     const uint64_t random1 = TimestampUtil::GetMicrosecondsSinceEpochRfc5050() << 16;
     uint64_t random2 = 0;
@@ -115,10 +116,10 @@ uint32_t LtpRandomNumberGenerator::GetRandomSerialNumber32(const uint32_t additi
         std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
     }
 #endif
-    uint64_t additionalRandomness = additionalRandomness32Bit;
-    additionalRandomness <<= 16;
+    const uint64_t additionalRandomness = additionalRandomness32Bit;
     uint64_t randomNumber = (random1 ^ random2) ^ additionalRandomness;
     randomNumber &= (static_cast<uint64_t>(0x7fff0000u));
+    randomNumber |= 1u;
     
     return static_cast<uint32_t>(randomNumber);
 }

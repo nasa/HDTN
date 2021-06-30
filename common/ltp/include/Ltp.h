@@ -254,8 +254,9 @@ public:
 
 private:
     void SetBeginningState();
-    bool NextStateAfterHeaderExtensions(std::string & errorMessage);
+    const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
     bool NextStateAfterTrailerExtensions(std::string & errorMessage);
+    const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
 public:
 	std::vector<uint8_t> m_sdnvTempVec;
     LTP_MAIN_RX_STATE m_mainRxState;

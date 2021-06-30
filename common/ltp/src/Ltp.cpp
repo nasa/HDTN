@@ -357,7 +357,47 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 else {
                     m_segmentTypeFlags = rxVal & 0x0f;
                     m_sdnvTempVec.clear();
-                    m_headerRxState = LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV;
+
+                    //shortcut READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV (and then maybe READ_SESSION_NUMBER_SDNV)
+                    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+                        uint8_t sdnvSize;
+                        m_sessionId.sessionOriginatorEngineId = SdnvDecodeU64(rxVals, &sdnvSize);
+                        if (sdnvSize == 0) {
+                            errorMessage = "error in shortcut LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, sdnvSize is 0";
+                            return false;
+                        }
+                        else { //success READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV 
+                            numChars -= sdnvSize;
+                            rxVals += sdnvSize;
+                            if (sessionOriginatorEngineIdDecodedCallbackPtr) {
+                                (*sessionOriginatorEngineIdDecodedCallbackPtr)(m_sessionId.sessionOriginatorEngineId);
+                            }
+                            //std::cout << "success ltp read session originator engine id sdnv shortcut" << std::endl;
+                            //shortcut READ_SESSION_NUMBER_SDNV
+                            if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+                                m_sessionId.sessionNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+                                if (sdnvSize == 0) {
+                                    errorMessage = "error in shortcut LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV, sdnvSize is 0";
+                                    return false;
+                                }
+                                else { //success READ_SESSION_NUMBER_SDNV
+                                    //std::cout << "success ltp read session number sdnv shortcut" << std::endl;
+                                    numChars -= sdnvSize;
+                                    rxVals += sdnvSize;
+                                    m_headerRxState = LTP_HEADER_RX_STATE::READ_NUM_EXTENSIONS_BYTE;
+                                }
+                            }
+                            else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+                                //std::cout << "skipping ltp read session number sdnv shortcut" << std::endl;
+                                m_headerRxState = LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV;
+                            }
+                        }
+                    }
+                    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+                        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
+                        m_headerRxState = LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV;
+                    }
+                    
                 }
             }
             else if (headerRxState == LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV) {
@@ -411,7 +451,12 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     m_headerRxState = LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_TAG_BYTE;
                 }
                 else {
-                    if (!NextStateAfterHeaderExtensions(errorMessage)) return false;
+                    if (const uint8_t * newRxVals = NextStateAfterHeaderExtensions(rxVals, numChars, errorMessage)) {
+                        rxVals = newRxVals;
+                    }
+                    else {
+                        return false;
+                    }
                 }
             }
             else if (headerRxState == LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_TAG_BYTE) {
@@ -440,7 +485,12 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     }
                     else if (m_currentHeaderExtensionLength == 0) {
                         if (m_headerExtensions.extensionsVec.size() == m_numHeaderExtensionTlvs) {
-                            if(!NextStateAfterHeaderExtensions(errorMessage)) return false;
+                            if (const uint8_t * newRxVals = NextStateAfterHeaderExtensions(rxVals, numChars, errorMessage)) {
+                                rxVals = newRxVals;
+                            }
+                            else {
+                                return false;
+                            }
                         }
                         else {
                             m_headerRxState = LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_TAG_BYTE;
@@ -457,7 +507,12 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 valueVec.push_back(rxVal);
                 if (valueVec.size() == m_currentHeaderExtensionLength) {
                     if (m_headerExtensions.extensionsVec.size() == m_numHeaderExtensionTlvs) {
-                        if (!NextStateAfterHeaderExtensions(errorMessage)) return false;
+                        if (const uint8_t * newRxVals = NextStateAfterHeaderExtensions(rxVals, numChars, errorMessage)) {
+                            rxVals = newRxVals;
+                        }
+                        else {
+                            return false;
+                        }
                     }
                     else {
                         m_headerRxState = LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_TAG_BYTE;
@@ -864,7 +919,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
     return true;
 }
 
-bool Ltp::NextStateAfterHeaderExtensions(std::string & errorMessage) {
+const uint8_t * Ltp::NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
     if ((m_segmentTypeFlags & 0xd) == 0xd) { //CAx (cancel ack) with no contents
         if (m_numTrailerExtensionTlvs) {
             m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE;
@@ -880,12 +935,13 @@ bool Ltp::NextStateAfterHeaderExtensions(std::string & errorMessage) {
     }
     else if ((m_segmentTypeFlags == 5) || (m_segmentTypeFlags == 6) || (m_segmentTypeFlags == 10) || (m_segmentTypeFlags == 11)) { // undefined
         errorMessage = "error in NextStateAfterHeaderExtensions: undefined segment type flags: " + boost::lexical_cast<std::string>((int)m_segmentTypeFlags);
-        return false;
+        return NULL;
     }
     else if (m_segmentTypeFlags <= 7) {
         m_sdnvTempVec.clear();
         m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV;
         m_mainRxState = LTP_MAIN_RX_STATE::READ_DATA_SEGMENT_CONTENT;
+        return Ltp::TryShortcutReadDataSegmentSdnvs(rxVals, numChars, errorMessage);
     }
     else if (m_segmentTypeFlags == 8) {
         m_sdnvTempVec.clear();
@@ -899,7 +955,7 @@ bool Ltp::NextStateAfterHeaderExtensions(std::string & errorMessage) {
     else { //12 or 14 => cancel segment
         m_mainRxState = LTP_MAIN_RX_STATE::READ_CANCEL_SEGMENT_CONTENT_BYTE;
     }
-    return true;
+    return rxVals;
 }
 
 bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
@@ -944,6 +1000,133 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
     }
     SetBeginningState();
     return true;
+}
+
+//Preconditions before call:
+//m_sdnvTempVec.clear();
+//m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV;
+//m_mainRxState = LTP_MAIN_RX_STATE::READ_DATA_SEGMENT_CONTENT;
+//
+//After call:
+//Leaves m_dataSegmentRxState in proper state not exceeding last state READ_CLIENT_SERVICE_DATA
+const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
+
+    uint8_t sdnvSize;
+
+    //shortcut READ_CLIENT_SERVICE_ID_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+        m_dataSegmentMetadata.clientServiceId = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_CLIENT_SERVICE_ID_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV;
+            //std::cout << "shortcut csid" << std::endl;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
+        return rxVals;
+    }
+
+    //shortcut READ_OFFSET_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
+        m_dataSegmentMetadata.offset = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_OFFSET_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV;
+            //std::cout << "shortcut offset" << std::endl;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
+        return rxVals;
+    }
+
+    //shortcut READ_LENGTH_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
+        m_dataSegmentMetadata.length = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else if (m_dataSegmentMetadata.length == 0) { //not sure if this is correct
+            errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, length == 0";
+            return false;
+        }
+        else { //success READ_LENGTH_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            if ((m_segmentTypeFlags >= 1) && (m_segmentTypeFlags <= 3)) { //checkpoint
+                m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV;
+                m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegment_checkpointSerialNumber;
+                m_dataSegmentMetadata.reportSerialNumber = &m_dataSegment_reportSerialNumber;
+                //std::cout << "shortcut length" << std::endl;
+            }
+            else {
+                m_dataSegment_clientServiceData.clear();
+                m_dataSegment_clientServiceData.reserve(m_dataSegmentMetadata.length); //todo make sure cant crash
+                m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_DATA;
+                m_dataSegmentMetadata.checkpointSerialNumber = NULL;
+                m_dataSegmentMetadata.reportSerialNumber = NULL;
+                //std::cout << "shortcut1" << std::endl;
+                return rxVals;
+            }
+
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
+        return rxVals;
+    }
+
+    //shortcut READ_CHECKPOINT_SERIAL_NUMBER_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
+        m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_CHECKPOINT_SERIAL_NUMBER_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
+        return rxVals;
+    }
+
+    //shortcut READ_REPORT_SERIAL_NUMBER_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
+        m_dataSegment_reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_REPORT_SERIAL_NUMBER_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_dataSegment_clientServiceData.clear();
+            m_dataSegment_clientServiceData.reserve(m_dataSegmentMetadata.length); //todo make sure cant crash
+            m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_DATA;
+            //std::cout << "shortcut2" << std::endl;
+            return rxVals;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
+        return rxVals;
+    }
 }
 
 
