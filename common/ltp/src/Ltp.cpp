@@ -947,6 +947,7 @@ const uint8_t * Ltp::NextStateAfterHeaderExtensions(const uint8_t * rxVals, std:
         m_sdnvTempVec.clear();
         m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV;
         m_mainRxState = LTP_MAIN_RX_STATE::READ_REPORT_SEGMENT_CONTENT;
+        return Ltp::TryShortcutReadReportSegmentSdnvs(rxVals, numChars, errorMessage);
     }
     else if (m_segmentTypeFlags == 9) {
         m_sdnvTempVec.clear();
@@ -1028,7 +1029,6 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         }
     }
     else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
-        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
         return rxVals;
     }
 
@@ -1047,7 +1047,6 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         }
     }
     else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
-        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
         return rxVals;
     }
 
@@ -1084,7 +1083,6 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         }
     }
     else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
-        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
         return rxVals;
     }
 
@@ -1102,7 +1100,6 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         }
     }
     else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
-        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
         return rxVals;
     }
 
@@ -1124,10 +1121,181 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         }
     }
     else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
-        //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
         return rxVals;
     }
 }
+
+//Preconditions before call:
+//m_sdnvTempVec.clear();
+//m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV;
+//m_mainRxState = LTP_MAIN_RX_STATE::READ_REPORT_SEGMENT_CONTENT;
+const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
+
+    uint8_t sdnvSize;
+
+    //shortcut READ_REPORT_SERIAL_NUMBER_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+        m_reportSegment.reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_REPORT_SERIAL_NUMBER_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV;
+            //std::cout << "shortcut rsn" << std::endl;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        return rxVals;
+    }
+
+    //shortcut READ_CHECKPOINT_SERIAL_NUMBER_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+        m_reportSegment.checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_CHECKPOINT_SERIAL_NUMBER_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV;
+            //std::cout << "shortcut csn" << std::endl;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        return rxVals;
+    }
+
+    //shortcut READ_UPPER_BOUND_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+        m_reportSegment.upperBound = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_UPPER_BOUND_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV;
+            //std::cout << "shortcut ub" << std::endl;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        return rxVals;
+    }
+
+    //shortcut READ_LOWER_BOUND_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+        m_reportSegment.lowerBound = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_LOWER_BOUND_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV;
+            //std::cout << "shortcut lb" << std::endl;
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        return rxVals;
+    }
+
+    //shortcut READ_RECEPTION_CLAIM_COUNT_SDNV
+    if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+        m_reportSegment_receptionClaimCount = SdnvDecodeU64(rxVals, &sdnvSize);
+        if (sdnvSize == 0) {
+            errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize is 0";
+            return NULL;
+        }
+        else { //success READ_RECEPTION_CLAIM_COUNT_SDNV 
+            numChars -= sdnvSize;
+            rxVals += sdnvSize;
+            if (m_reportSegment_receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
+                errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, count == 0";
+                return NULL;
+            }
+            else {
+                m_reportSegment.receptionClaims.clear();
+                m_reportSegment.receptionClaims.reserve(m_reportSegment_receptionClaimCount);
+                m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
+                //std::cout << "shortcut rcc" << std::endl;
+            }
+        }
+    }
+    else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+        return rxVals;
+    }
+
+    while (true) {
+        //shortcut READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV
+        if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+            const uint64_t claimOffset = SdnvDecodeU64(rxVals, &sdnvSize);
+            if (sdnvSize == 0) {
+                errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV, sdnvSize is 0";
+                return NULL;
+            }
+            else { //success READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV 
+                numChars -= sdnvSize;
+                rxVals += sdnvSize;
+                m_reportSegment.receptionClaims.resize(m_reportSegment.receptionClaims.size() + 1);
+                m_reportSegment.receptionClaims.back().offset = claimOffset;
+                m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV;
+                //std::cout << "shortcut rco" << std::endl;
+            }
+        }
+        else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+            return rxVals;
+        }
+
+        //shortcut READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV
+        if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+            const uint64_t claimLength = SdnvDecodeU64(rxVals, &sdnvSize);
+            if (sdnvSize == 0) {
+                errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, sdnvSize is 0";
+                return NULL;
+            }
+            else { //success READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV 
+                numChars -= sdnvSize;
+                rxVals += sdnvSize;
+                if (claimLength == 0) { //must be 1 or more (A reception claim's length shall never be less than 1)
+                    errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, count == 0";
+                    return NULL;
+                }
+                else {
+                    m_reportSegment.receptionClaims.back().length = claimLength;
+                    if (m_reportSegment.receptionClaims.size() < m_reportSegment_receptionClaimCount) {
+                        m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
+                        //std::cout << "shortcut rcl" << std::endl;
+                    }
+                    else if (m_numTrailerExtensionTlvs) {
+                        m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE;
+                        m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
+                        return rxVals;
+                    }
+                    else {
+                        //callback report segment
+                        if (m_reportSegmentContentsReadCallback) {
+                            m_reportSegmentContentsReadCallback(m_sessionId, m_reportSegment, m_headerExtensions, m_trailerExtensions);
+                        }
+                        SetBeginningState();
+                        //std::cout << "shortcut rcl cb" << std::endl;
+                        return rxVals;
+                    }
+                }
+            }
+        }
+        else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+            return rxVals;
+        }
+    }
+
+}
+
 
 
 
