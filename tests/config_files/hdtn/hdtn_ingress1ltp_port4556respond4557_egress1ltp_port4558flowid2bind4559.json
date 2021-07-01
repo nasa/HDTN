@@ -32,9 +32,9 @@
                 "clientServiceId": 400,
                 "preallocatedRedDataBytes": 200000,
                 "ltpMaxRetriesPerSerialNumber": 5,
-                "ltpRandomNumberSizeBits": 64,
-                "ltpRemoteUdpHostname": "",
-                "ltpRemoteUdpPort": 0
+                "ltpRandomNumberSizeBits": 32,
+                "ltpRemoteUdpHostname": "localhost",
+                "ltpRemoteUdpPort": 4557
             }
         ]
     },
@@ -61,9 +61,9 @@
                 "numRxCircularBufferBytesPerElement": 65535,
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpCheckpointEveryNthDataSegment": 0,
-                "ltpRandomNumberSizeBits": 64,
-                "ltpSenderBoundPort": 0,
-                "ltpSenderIgnoreEndpointCheckOnRx": false
+                "ltpRandomNumberSizeBits": 32,
+                "ltpSenderBoundPort": 4559,
+                "ltpSenderIgnoreEndpointCheckOnRx": true
             }
         ]
     },

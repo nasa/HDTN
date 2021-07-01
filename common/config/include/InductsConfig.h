@@ -27,6 +27,9 @@ struct induct_element_config_t {
     uint64_t clientServiceId;
     uint64_t preallocatedRedDataBytes;
     uint32_t ltpMaxRetriesPerSerialNumber;
+    uint32_t ltpRandomNumberSizeBits;
+    std::string ltpRemoteUdpHostname;
+    uint16_t ltpRemoteUdpPort;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;

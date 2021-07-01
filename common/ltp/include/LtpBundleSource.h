@@ -17,8 +17,9 @@ public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
     LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const uint16_t udpPort = 0, const unsigned int numUdpRxCircularBufferVectors = 100,
-        const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t ltpMaxRetriesPerSerialNumber = 5);
+        const uint16_t udpPort = 0, const bool senderRequireRemoteEndpointMatchOnReceivePacket = true, const unsigned int numUdpRxCircularBufferVectors = 100,
+        const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0,
+        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t ltpMaxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
 
     ~LtpBundleSource();
     void Stop();

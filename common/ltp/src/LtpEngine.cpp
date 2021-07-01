@@ -7,14 +7,14 @@
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber) :
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
-    M_FORCE_32_BIT_RANDOM_NUMBERS(true),
+    M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
     m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
     m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),

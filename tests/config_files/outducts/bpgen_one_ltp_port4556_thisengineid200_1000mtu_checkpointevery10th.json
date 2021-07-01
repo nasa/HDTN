@@ -22,7 +22,10 @@
             "numRxCircularBufferElements": 100,
             "numRxCircularBufferBytesPerElement": 65535,
             "ltpMaxRetriesPerSerialNumber": 5,
-            "ltpCheckpointEveryNthDataSegment": 10
+            "ltpCheckpointEveryNthDataSegment": 10,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpSenderBoundPort": 0,
+            "ltpSenderIgnoreEndpointCheckOnRx": false
         }
     ]
 }

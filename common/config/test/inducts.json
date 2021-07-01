@@ -14,7 +14,10 @@
             "oneWayMarginTimeMs": 205,
             "clientServiceId": 2,
             "preallocatedRedDataBytes": 200006,
-            "ltpMaxRetriesPerSerialNumber": 5
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 32,
+            "ltpRemoteUdpHostname": "",
+            "ltpRemoteUdpPort": 0
         },
         {
             "name": "i2",

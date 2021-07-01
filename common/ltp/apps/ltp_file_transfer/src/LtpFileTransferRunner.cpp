@@ -50,6 +50,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         bool useReceiveFile = false;
         bool dontSaveFile = false;
         bool senderIgnoreEndpointCheckOnRx = false;
+        bool force32BitRandomNumbers;
         std::string remoteUdpHostname;
         uint16_t remoteUdpPort;
         uint16_t myBoundUdpPort;
@@ -77,6 +78,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("remote-udp-port", boost::program_options::value<uint16_t>()->default_value(0), "Remote UDP port. (receivers 0=> use Reply Endpoint, !0=> always reply to this port")
                 ("my-bound-udp-port", boost::program_options::value<uint16_t>()->default_value(0), "My bound UDP port. (default 0 for senders)")
                 ("sender-ignore-endpoint-check-on-rx", "Set this when a sender knows that the receiver will respond on a different port number.")
+                ("random-number-size-bits", boost::program_options::value<uint32_t>()->default_value(32), "LTP can use either 32-bit or 64-bit random numbers (only 32-bit supported by ion).")
 
                 ("this-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "My LTP engine ID.")
                 ("remote-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "Remote LTP engine ID.")
@@ -100,6 +102,12 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 std::cout << desc << "\n";
                 return false;
             }
+            const uint32_t randomNumberSizeBits = vm["random-number-size-bits"].as<uint32_t>();
+            if ((randomNumberSizeBits != 32) && (randomNumberSizeBits != 64)) {
+                std::cerr << "error: randomNumberSizeBits (" << randomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                return false;
+            }
+            force32BitRandomNumbers = (randomNumberSizeBits == 32);
 
             if (!(vm.count("receive-file") ^ vm.count("send-file"))) {
                 std::cerr << "error, receive-file or send-file must be specified, but not both\n";
@@ -202,7 +210,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             SenderHelper senderHelper;
 
             LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, myBoundUdpPort, false, !senderIgnoreEndpointCheckOnRx, numUdpRxPacketsCircularBufferSize,
-                maxRxUdpPacketSizeBytes, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber);
+                maxRxUdpPacketSizeBytes, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers);
             engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&SenderHelper::InitialTransmissionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&SenderHelper::TransmissionSessionCancelledCallback, &senderHelper, boost::placeholders::_1, boost::placeholders::_2));
@@ -269,7 +277,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
             LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, myBoundUdpPort, true, false, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes,
-                estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber);
+                estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers);
             engineDest.SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));

@@ -86,12 +86,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void GreenPartSegmentArrivalCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t offsetStartOfBlock, uint64_t clientServiceId, bool isEndOfBlock) {
             ++numGreenPartReceptionCallbacks;
             BOOST_REQUIRE_EQUAL(movableClientServiceDataVec.size(), 1);
-            if (isEndOfBlock) {
-                BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], 'E');
-            }
-            else {
-                BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], 'G');
-            }
+            BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], (isEndOfBlock) ? 'E' : 'G');
+
             BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             cv.notify_one();
         }

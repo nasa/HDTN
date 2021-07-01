@@ -5,9 +5,9 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint16_t udpPort, const bool isReceiver, const bool senderRequireRemoteEndpointMatchOnReceivePacket, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber) :
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
     LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber),
+        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber, force32BitRandomNumbers),
     M_MY_BOUND_UDP_PORT(udpPort),
     M_IS_RECEIVER(isReceiver),
     M_SENDER_REQUIRE_REMOTE_ENDPOINT_MATCH_ON_RECEIVE_PACKET(senderRequireRemoteEndpointMatchOnReceivePacket),

@@ -32,6 +32,9 @@ outduct_element_config_t::outduct_element_config_t() :
     numRxCircularBufferBytesPerElement(0),
     ltpMaxRetriesPerSerialNumber(0),
     ltpCheckpointEveryNthDataSegment(0),
+    ltpRandomNumberSizeBits(0),
+    ltpSenderBoundPort(0),
+    ltpSenderIgnoreEndpointCheckOnRx(false),
 
     udpRateBps(0),
 
@@ -60,6 +63,9 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
+    ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpSenderBoundPort(o.ltpSenderBoundPort),
+    ltpSenderIgnoreEndpointCheckOnRx(o.ltpSenderIgnoreEndpointCheckOnRx),
 
     udpRateBps(o.udpRateBps),
 
@@ -86,6 +92,9 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
+    ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpSenderBoundPort(o.ltpSenderBoundPort),
+    ltpSenderIgnoreEndpointCheckOnRx(o.ltpSenderIgnoreEndpointCheckOnRx),
 
     udpRateBps(o.udpRateBps),
 
@@ -112,6 +121,9 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
+    ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpSenderBoundPort = o.ltpSenderBoundPort;
+    ltpSenderIgnoreEndpointCheckOnRx = o.ltpSenderIgnoreEndpointCheckOnRx;
 
     udpRateBps = o.udpRateBps;
 
@@ -141,6 +153,9 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
+    ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpSenderBoundPort = o.ltpSenderBoundPort;
+    ltpSenderIgnoreEndpointCheckOnRx = o.ltpSenderIgnoreEndpointCheckOnRx;
 
     udpRateBps = o.udpRateBps;
 
@@ -169,6 +184,9 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
+        (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
+        (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
+        (ltpSenderIgnoreEndpointCheckOnRx == o.ltpSenderIgnoreEndpointCheckOnRx) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -267,6 +285,13 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             outductElementConfig.numRxCircularBufferBytesPerElement = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement", UINT16_MAX); //non-throw version
             outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
             outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment", 0); //non-throw version
+            outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits", 0); //non-throw version
+            if ((outductElementConfig.ltpRandomNumberSizeBits != 32 ) && (outductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
+                std::cerr << "error: ltpRandomNumberSizeBits (" << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                return false;
+            }
+            outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort", 0); //non-throw version
+            outductElementConfig.ltpSenderIgnoreEndpointCheckOnRx = outductElementConfigPt.second.get<bool>("ltpSenderIgnoreEndpointCheckOnRx", false); //non-throw version
         }
 
         if (outductElementConfig.convergenceLayer == "udp") {
@@ -347,6 +372,9 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("numRxCircularBufferBytesPerElement", outductElementConfig.numRxCircularBufferBytesPerElement);
             outductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", outductElementConfig.ltpMaxRetriesPerSerialNumber);
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
+            outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
+            outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
+            outductElementConfigPt.put("ltpSenderIgnoreEndpointCheckOnRx", outductElementConfig.ltpSenderIgnoreEndpointCheckOnRx);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);

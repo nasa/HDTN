@@ -31,7 +31,7 @@ public:
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false,
-        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5);
+        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
 
     virtual ~LtpEngine();
 

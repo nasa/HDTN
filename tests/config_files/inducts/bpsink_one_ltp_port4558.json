@@ -13,7 +13,10 @@
             "oneWayMarginTimeMs": 200,
             "clientServiceId": 400,
             "preallocatedRedDataBytes": 200000,
-            "ltpMaxRetriesPerSerialNumber": 5
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpRemoteUdpHostname": "",
+            "ltpRemoteUdpPort": 0
         }
     ]
 }

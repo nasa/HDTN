@@ -7,12 +7,14 @@
 
 LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors,
-    const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber) :
+    const uint16_t udpPort, const bool senderRequireRemoteEndpointMatchOnReceivePacket, const unsigned int numUdpRxCircularBufferVectors,
+    const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 m_ltpUdpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-    udpPort, false, true, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, checkpointEveryNthDataPacketSender, ltpMaxRetriesPerSerialNumber),
+    udpPort, false, senderRequireRemoteEndpointMatchOnReceivePacket, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+    checkpointEveryNthDataPacketSender, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers),
 
 M_CLIENT_SERVICE_ID(clientServiceId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),

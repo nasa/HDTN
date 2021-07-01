@@ -31,7 +31,10 @@
                 "oneWayMarginTimeMs": 200,
                 "clientServiceId": 400,
                 "preallocatedRedDataBytes": 200000,
-                "ltpMaxRetriesPerSerialNumber": 5
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpRemoteUdpHostname": "",
+                "ltpRemoteUdpPort": 0
             }
         ]
     },
@@ -57,7 +60,10 @@
                 "numRxCircularBufferElements": 100,
                 "numRxCircularBufferBytesPerElement": 65535,
                 "ltpMaxRetriesPerSerialNumber": 5,
-                "ltpCheckpointEveryNthDataSegment": 0
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 0,
+                "ltpSenderIgnoreEndpointCheckOnRx": false
             },
             {
                 "name": "for egress",
@@ -78,7 +84,10 @@
                 "numRxCircularBufferElements": 100,
                 "numRxCircularBufferBytesPerElement": 65535,
                 "ltpMaxRetriesPerSerialNumber": 5,
-                "ltpCheckpointEveryNthDataSegment": 0
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 0,
+                "ltpSenderIgnoreEndpointCheckOnRx": false
             }
         ]
     },

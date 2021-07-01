@@ -12,7 +12,8 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
         inductConfig.thisLtpEngineId, 1, inductConfig.ltpReportSegmentMtu,
         boost::posix_time::milliseconds(inductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(inductConfig.oneWayMarginTimeMs),
         inductConfig.boundPort, inductConfig.numRxCircularBufferElements,
-        inductConfig.numRxCircularBufferBytesPerElement, inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber);
+        inductConfig.numRxCircularBufferBytesPerElement, inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber,
+        (inductConfig.ltpRandomNumberSizeBits == 32), inductConfig.ltpRemoteUdpPort, inductConfig.ltpRemoteUdpHostname);
 
 }
 LtpOverUdpInduct::~LtpOverUdpInduct() {

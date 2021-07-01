@@ -18,7 +18,7 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint16_t udpPort = 0, const unsigned int numUdpRxCircularBufferVectors = 100,
         const unsigned int maxUdpRxPacketSizeBytes = UINT16_MAX, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0,
-        uint32_t ltpMaxRetriesPerSerialNumber = 5);
+        uint32_t ltpMaxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false, const uint16_t remoteUdpPort = 0, const std::string & remoteUdpHostname = "localhost");
     ~LtpBundleSink();
     bool ReadyToBeDeleted();
 private:
