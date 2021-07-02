@@ -51,6 +51,8 @@ target_include_directories(hdtn-multiple-release-message-sender PUBLIC
 add_library(storage_lib STATIC
         src/MemoryManagerTreeArray.cpp
         src/BundleStorageManagerMT.cpp
+		src/BundleStorageManagerAsio.cpp
+		src/BundleStorageManagerBase.cpp
         src/ZmqStorageInterface.cpp
 		src/store.cpp
 )
