@@ -5,6 +5,13 @@
  *
  ****************************************************************************
  */
+#ifdef _WIN32
+#include <windows.h>
+#else
+#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64
+#include <fcntl.h>
+#endif
 
 #include "BundleStorageManagerAsio.h"
 #include <iostream>
@@ -12,7 +19,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
-#include <windows.h>
 
 
 BundleStorageManagerAsio::BundleStorageManagerAsio() : BundleStorageManagerAsio("storageConfig.json") {}
@@ -70,7 +76,7 @@ void BundleStorageManagerAsio::Start(bool autoDeleteFilesOnExit) {
             const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[diskId].storeFilePath.c_str();
             m_filePathsVec[diskId] = boost::filesystem::path(filePath);
             std::cout << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath << "\n";
-
+#ifdef _WIN32
             //
             //https://docs.microsoft.com/en-us/windows/win32/fileio/synchronous-and-asynchronous-i-o
             //In synchronous file I/O, a thread starts an I/O operation and immediately enters a wait state until the I/O request has completed.
@@ -95,24 +101,32 @@ void BundleStorageManagerAsio::Start(bool autoDeleteFilesOnExit) {
             //
             //FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
             m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::windows::random_access_handle>(m_ioService, hFile);
+#else
+            int file_desc = open(filePath, (m_successfullyRestoredFromDisk) ? (O_RDWR|O_LARGEFILE) : (O_CREAT|O_RDWR|O_TRUNC|O_LARGEFILE), DEFFILEMODE);
+            if(file_desc < 0) {
+                std::cerr << "error opening " << filePath << std::endl;
+                return;
+            }
+            m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::posix::stream_descriptor>(m_ioService, file_desc);
+#endif
             m_diskOperationInProgressVec[diskId] = false;
         }
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     }
 }
 
-void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsigned int threadIndex) {
-    if (!m_diskOperationInProgressVec[threadIndex]) {
-        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
+void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsigned int diskId) {
+    if (!m_diskOperationInProgressVec[diskId]) {
+        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskId];
         const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
 
         if (consumeIndex != UINT32_MAX) { //if not empty
-            m_diskOperationInProgressVec[threadIndex] = true;
+            m_diskOperationInProgressVec[diskId] = true;
 
-            segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
+            segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[diskId * CIRCULAR_INDEX_BUFFER_SIZE];
 
             const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
-            volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+            volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
 
             const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
             if (segmentId == UINT32_MAX) {
@@ -122,33 +136,39 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
             }
 
             const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;
-            /*
-#ifdef _MSC_VER
-            _fseeki64_nolock(fileHandle, offsetBytes, SEEK_SET);
-#elif __APPLE__
-            fseeko(fileHandle, offsetBytes, SEEK_SET);
+
+#ifdef _WIN32
+
 #else
-            fseeko64(fileHandle, offsetBytes, SEEK_SET);
+            lseek64(m_asioHandlePtrsVec[diskId]->native_handle(), offsetBytes, SEEK_SET);
 #endif
-*/
+
             if (isWriteToDisk) {
-                boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
+                boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[diskId * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
                 boost::uint8_t * const data = &circularBufferBlockDataPtr[consumeIndex * SEGMENT_SIZE]; //expected data for testing when reading
-                boost::asio::async_write_at(*m_asioHandlePtrsVec[threadIndex], offsetBytes,
+#ifdef _WIN32
+                boost::asio::async_write_at(*m_asioHandlePtrsVec[diskId], offsetBytes,
+#else
+                boost::asio::async_write(*m_asioHandlePtrsVec[diskId],
+#endif
                     boost::asio::buffer(data, SEGMENT_SIZE),
                     boost::bind(&BundleStorageManagerAsio::HandleDiskOperationCompleted, this,
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred,
-                        threadIndex, consumeIndex, false));
+                        diskId, consumeIndex, false));
 
             }
             else { //read from disk
-                boost::asio::async_read_at(*m_asioHandlePtrsVec[threadIndex], offsetBytes,
+#ifdef _WIN32
+                boost::asio::async_read_at(*m_asioHandlePtrsVec[diskId], offsetBytes,
+#else
+                boost::asio::async_read(*m_asioHandlePtrsVec[diskId],
+#endif
                     boost::asio::buffer((void*)readFromStorageDestPointer, SEGMENT_SIZE),
                     boost::bind(&BundleStorageManagerAsio::HandleDiskOperationCompleted, this,
                         boost::asio::placeholders::error,
                         boost::asio::placeholders::bytes_transferred,
-                        threadIndex, consumeIndex, true));
+                        diskId, consumeIndex, true));
             }
         }
     }
@@ -160,8 +180,8 @@ void BundleStorageManagerAsio::NotifyDiskOfWorkToDo_ThreadSafe(const unsigned in
 }
 
 
-void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int threadIndex, const unsigned int consumeIndex, const bool wasReadOperation) {
-    m_diskOperationInProgressVec[threadIndex] = false;
+void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int diskId, const unsigned int consumeIndex, const bool wasReadOperation) {
+    m_diskOperationInProgressVec[diskId] = false;
     if (error) {
         std::cerr << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: " << error.message() << std::endl;
     }
@@ -170,12 +190,12 @@ void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system:
     }
     else {
         if (wasReadOperation) {
-            volatile bool * const isReadCompletedPointer = m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
+            volatile bool * const isReadCompletedPointer = m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
             *isReadCompletedPointer = true;
         }
-        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
+        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskId];
         cb.CommitRead();
         m_conditionVariableMainThread.notify_one();
-        TryDiskOperation_Consume_NotThreadSafe(threadIndex);
+        TryDiskOperation_Consume_NotThreadSafe(diskId);
     }
 }

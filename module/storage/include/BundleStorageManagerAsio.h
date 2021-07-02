@@ -16,9 +16,9 @@ public:
 
 
 private:
-    void TryDiskOperation_Consume_NotThreadSafe(const unsigned int threadIndex);
+    void TryDiskOperation_Consume_NotThreadSafe(const unsigned int diskId);
     void HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
-        const unsigned int threadIndex, const unsigned int consumeIndex, const bool wasReadOperation);
+        const unsigned int diskId, const unsigned int consumeIndex, const bool wasReadOperation);
 
     virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
 
@@ -28,7 +28,12 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::vector<boost::filesystem::path> m_filePathsVec;
+#ifdef _WIN32
     std::vector<std::unique_ptr<boost::asio::windows::random_access_handle> > m_asioHandlePtrsVec;
+#else
+    std::vector<std::unique_ptr<boost::asio::posix::stream_descriptor> > m_asioHandlePtrsVec;
+#endif
+
     std::vector<bool> m_diskOperationInProgressVec;
 
     volatile bool m_autoDeleteFilesOnExit;
