@@ -12,7 +12,7 @@ public:
     BundleStorageManagerAsio(const std::string & jsonConfigFileName);
     BundleStorageManagerAsio(const StorageConfig_ptr & storageConfigPtr);
     virtual ~BundleStorageManagerAsio();
-    virtual void Start(bool autoDeleteFilesOnExit = true);
+    virtual void Start();
 
 
 private:
@@ -27,7 +27,7 @@ private:
     boost::asio::io_service m_ioService;
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    std::vector<boost::filesystem::path> m_filePathsVec;
+    
 #ifdef _WIN32
     std::vector<std::unique_ptr<boost::asio::windows::random_access_handle> > m_asioHandlePtrsVec;
 #else
@@ -35,9 +35,6 @@ private:
 #endif
 
     std::vector<bool> m_diskOperationInProgressVec;
-
-    volatile bool m_autoDeleteFilesOnExit;
-
 };
 
 

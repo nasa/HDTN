@@ -40,11 +40,27 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
     m_memoryManager(M_MAX_SEGMENTS),
     m_lockMainThread(m_mutexMainThread),
+    m_filePathsVec(M_NUM_STORAGE_DISKS),
+    m_filePathsAsStringVec(M_NUM_STORAGE_DISKS),
     m_circularIndexBuffersVec(M_NUM_STORAGE_DISKS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
-    m_successfullyRestoredFromDisk(false)
+    m_autoDeleteFilesOnExit((m_storageConfigPtr) ? m_storageConfigPtr->m_autoDeleteFilesOnExit : false),
+    m_successfullyRestoredFromDisk(false),
+    m_totalBundlesRestored(0),
+    m_totalBytesRestored(0),
+    m_totalSegmentsRestored(0)
 {
     if (!m_storageConfigPtr) {
         return;
+    }
+
+    if (m_storageConfigPtr->m_tryToRestoreFromDisk) {
+        m_successfullyRestoredFromDisk = RestoreFromDisk(&m_totalBundlesRestored, &m_totalBytesRestored, &m_totalSegmentsRestored);
+    }
+
+
+    for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
+        m_filePathsVec[diskId] = boost::filesystem::path(m_storageConfigPtr->m_storageDiskConfigVector[diskId].storeFilePath);
+        m_filePathsAsStringVec[diskId] = m_filePathsVec[diskId].string();
     }
 
 
@@ -65,6 +81,14 @@ BundleStorageManagerBase::~BundleStorageManagerBase() {
     free(m_circularBufferBlockDataPtr);
     free(m_circularBufferSegmentIdsPtr);
 
+    for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
+        const boost::filesystem::path & p = m_filePathsVec[diskId];
+
+        if (m_autoDeleteFilesOnExit && boost::filesystem::exists(p)) {
+            boost::filesystem::remove(p);
+            std::cout << "deleted " << p.string() << std::endl;
+        }
+    }
 }
 
 

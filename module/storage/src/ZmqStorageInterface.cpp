@@ -12,6 +12,7 @@
 #include "message.hpp"
 #include "store.hpp"
 #include "BundleStorageManagerMT.h"
+#include "BundleStorageManagerAsio.h"
 #include "../../../common/logger/include/Logger.h"
 #include <set>
 #include <boost/lexical_cast.hpp>
@@ -37,7 +38,7 @@ void hdtn::ZmqStorageInterface::Init(zmq::context_t *ctx, const HdtnConfig & hdt
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
 }
 
-static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageManagerMT & bsm) {
+static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageManagerBase & bsm) {
     //res = blosc_compress_ctx(9, 0, 4, message->size(), message->data(), outBuf, HDTN_BLOSC_MAXBLOCKSZ, "lz4", 0, 1);
         //storeFlow.write(hdr->flow_id, outBuf, res);
 
@@ -82,7 +83,7 @@ static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageMan
     }
 }
 /*
-static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock, BundleStorageManagerMT & bsm) {
+static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock, BundleStorageManagerBase & bsm) {
     std::cout << "release worker triggered." << std::endl;
     //int dataReturned = 0;
     //uint64_t totalReturned = 0;
@@ -161,7 +162,7 @@ static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::so
 }
 */
 //return number of bytes to read for specified links
-static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks, BundleStorageManagerMT & bsm) {
+static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks, BundleStorageManagerBase & bsm) {
     BundleStorageManagerSession_ReadFromDisk  sessionRead;
     const boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
     if (bytesToReadFromDisk == 0) { //no more of these links to read
@@ -174,7 +175,7 @@ static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks,
     
 }
 
-static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBlock(const std::vector<boost::uint64_t> & availableDestLinks, zmq::socket_t *egressSock, BundleStorageManagerMT & bsm, const uint64_t maxBundleSizeToRead) {
+static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBlock(const std::vector<boost::uint64_t> & availableDestLinks, zmq::socket_t *egressSock, BundleStorageManagerBase & bsm, const uint64_t maxBundleSizeToRead) {
     
     //std::cout << "reading\n";
     std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> sessionReadPtr = boost::make_unique<BundleStorageManagerSession_ReadFromDisk>();
@@ -310,13 +311,28 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     workerSock.set(zmq::sockopt::rcvtimeo, timeout);
     fromEgressSockPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
-    std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... " << std::endl;
-    hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... ");
+    
 
     CommonHdr startupNotify = {
         HDTN_MSGTYPE_IOK,
         0};
-    BundleStorageManagerMT bsm(boost::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
+    
+    std::unique_ptr<BundleStorageManagerBase> bsmPtr;
+    if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "stdio_multi_threaded") {
+        std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... " << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... ");
+        bsmPtr = boost::make_unique<BundleStorageManagerMT>(boost::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
+    }
+    else if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "asio_single_threaded") {
+        std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerAsio ... " << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Initializing BundleStorageManagerAsio ... ");
+        bsmPtr = boost::make_unique<BundleStorageManagerAsio>(boost::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
+    }
+    else {
+        std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc: invalid storage implementation " << m_hdtnConfig.m_storageConfig.m_storageImplementation << std::endl;
+        return;
+    }
+    BundleStorageManagerBase & bsm = *bsmPtr;
     bsm.Start();
     //if (!m_storeFlow.init(m_root)) {
     //    startupNotify.type = HDTN_MSGTYPE_IABORT;

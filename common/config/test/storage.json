@@ -1,4 +1,7 @@
 {
+    "storageImplementation": "stdio_multi_threaded",
+    "tryToRestoreFromDisk": false,
+    "autoDeleteFilesOnExit": true,
     "totalStorageCapacityBytes": 8192000000,
     "storageDiskConfigVector": [
         {

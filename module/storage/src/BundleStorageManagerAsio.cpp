@@ -5,9 +5,7 @@
  *
  ****************************************************************************
  */
-#ifdef _WIN32
-#include <windows.h>
-#else
+#ifndef _WIN32
 #define _LARGEFILE64_SOURCE
 #define _FILE_OFFSET_BITS 64
 #include <fcntl.h>
@@ -19,7 +17,9 @@
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
-
+#ifdef _WIN32
+#include <windows.h> //must be included after boost
+#endif
 
 BundleStorageManagerAsio::BundleStorageManagerAsio() : BundleStorageManagerAsio("storageConfig.json") {}
 
@@ -35,10 +35,8 @@ BundleStorageManagerAsio::BundleStorageManagerAsio(const StorageConfig_ptr & sto
     BundleStorageManagerBase(storageConfigPtr),
 
     m_workPtr(boost::make_unique< boost::asio::io_service::work>(m_ioService)),
-    m_filePathsVec(M_NUM_STORAGE_DISKS),
     m_asioHandlePtrsVec(M_NUM_STORAGE_DISKS),
-    m_diskOperationInProgressVec(M_NUM_STORAGE_DISKS),
-    m_autoDeleteFilesOnExit(true)
+    m_diskOperationInProgressVec(M_NUM_STORAGE_DISKS)
 {
 
 
@@ -53,28 +51,18 @@ BundleStorageManagerAsio::~BundleStorageManagerAsio() {
     }
 
     for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
-
         if (m_asioHandlePtrsVec[diskId]) {
             m_asioHandlePtrsVec[diskId]->close();
             m_asioHandlePtrsVec[diskId].reset(); //delete it
-        }
-
-        const boost::filesystem::path & p = m_filePathsVec[diskId];
-
-        if (m_autoDeleteFilesOnExit && boost::filesystem::exists(p)) {
-            boost::filesystem::remove(p);
-            std::cout << "deleted " << p.string() << "\n";
         }
     }
 
 }
 
-void BundleStorageManagerAsio::Start(bool autoDeleteFilesOnExit) {
+void BundleStorageManagerAsio::Start() {
     if (m_storageConfigPtr) {
-        m_autoDeleteFilesOnExit = autoDeleteFilesOnExit;
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
-            const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[diskId].storeFilePath.c_str();
-            m_filePathsVec[diskId] = boost::filesystem::path(filePath);
+            const char * const filePath = m_filePathsAsStringVec[diskId].c_str();
             std::cout << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath << "\n";
 #ifdef _WIN32
             //

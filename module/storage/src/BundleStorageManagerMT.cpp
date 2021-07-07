@@ -29,8 +29,7 @@ BundleStorageManagerMT::BundleStorageManagerMT(const StorageConfig_ptr & storage
 
     m_conditionVariablesVec(M_NUM_STORAGE_DISKS),
     m_threadPtrsVec(M_NUM_STORAGE_DISKS),
-    m_running(false),
-    m_autoDeleteFilesOnExit(true)
+    m_running(false)
 {
 
 }
@@ -46,9 +45,8 @@ BundleStorageManagerMT::~BundleStorageManagerMT() {
 
 }
 
-void BundleStorageManagerMT::Start(bool autoDeleteFilesOnExit) {
+void BundleStorageManagerMT::Start() {
     if ((!m_running) && (m_storageConfigPtr)) {
-        m_autoDeleteFilesOnExit = autoDeleteFilesOnExit;
         m_running = true;
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
             m_threadPtrsVec[diskId] = boost::make_unique<boost::thread>(
@@ -126,21 +124,13 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
         cb.CommitRead();
         m_conditionVariableMainThread.notify_one();
-        }
+    }
 
     if (fileHandle) {
         fclose(fileHandle);
         fileHandle = NULL;
     }
-
-    const boost::filesystem::path p(filePath);
-
-    if (m_autoDeleteFilesOnExit && boost::filesystem::exists(p)) {
-        boost::filesystem::remove(p);
-        std::cout << "deleted " << p.string() << "\n";
-    }
-
-    }
+}
 
 //virtual function to be called immediately after a disk's circular buffer CommitWrite();
 void BundleStorageManagerMT::NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) {

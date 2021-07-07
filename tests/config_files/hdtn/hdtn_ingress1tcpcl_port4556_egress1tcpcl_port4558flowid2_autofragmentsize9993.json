@@ -48,6 +48,9 @@
         ]
     },
     "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
         "totalStorageCapacityBytes": 8192000000,
         "storageDiskConfigVector": [
             {

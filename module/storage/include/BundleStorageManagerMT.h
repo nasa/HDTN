@@ -10,7 +10,7 @@ public:
     BundleStorageManagerMT(const std::string & jsonConfigFileName);
     BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr);
     virtual ~BundleStorageManagerMT();
-    virtual void Start(bool autoDeleteFilesOnExit = true);
+    virtual void Start();
 
 
 private:
@@ -25,8 +25,6 @@ private:
     std::vector<std::unique_ptr<boost::thread> > m_threadPtrsVec;
 
     volatile bool m_running;
-    volatile bool m_autoDeleteFilesOnExit;
-
 };
 
 

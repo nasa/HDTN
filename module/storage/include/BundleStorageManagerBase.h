@@ -85,7 +85,7 @@ protected:
 public:
 
     virtual ~BundleStorageManagerBase();
-    virtual void Start(bool autoDeleteFilesOnExit = true) = 0;
+    virtual void Start() = 0;
 
     //write
     boost::uint64_t Push(BundleStorageManagerSession_WriteToDisk & session, bp_primary_if_base_t & bundleMetaData); //return totalSegmentsRequired
@@ -121,6 +121,8 @@ protected:
     boost::mutex m_mutexMainThread;
     boost::mutex::scoped_lock m_lockMainThread;
     boost::condition_variable m_conditionVariableMainThread;
+    std::vector<boost::filesystem::path> m_filePathsVec;
+    std::vector<std::string> m_filePathsAsStringVec;
     std::vector<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_circularIndexBuffersVec;
 
     boost::uint8_t * m_circularBufferBlockDataPtr;
@@ -129,7 +131,13 @@ protected:
     //volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * NUM_STORAGE_THREADS];
     volatile bool * volatile m_circularBufferIsReadCompletedPointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
     volatile boost::uint8_t * volatile m_circularBufferReadFromStoragePointers[CIRCULAR_INDEX_BUFFER_SIZE * MAX_NUM_STORAGE_THREADS];
-    volatile bool m_successfullyRestoredFromDisk;
+    volatile bool m_autoDeleteFilesOnExit;
+    
+public:
+    bool m_successfullyRestoredFromDisk;
+    uint64_t m_totalBundlesRestored;
+    uint64_t m_totalBytesRestored;
+    uint64_t m_totalSegmentsRestored;
 };
 
 
