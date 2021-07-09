@@ -1,39 +1,38 @@
-cd $HDTN_SOURCE_ROOT/common/regsvr
-`python3 main.py` &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpsink-async "--use-tcpcl" "--port=4558" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/egress
-./hdtn-egress-async "--use-tcpcl" "--port1=0" "--port2=4558" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/ingress 
-./hdtn-ingress "--always-send-to-storage" & 
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/storage
-./hdtn-release-message-sender "--release-message-type=start" "--flow-id=2" "--delay-before-send=14" &
-sleep 1
-cd $HDTN_SOURCE_ROOT/build/module/storage
-./hdtn-storage "--storage-config-json-file=$HDTN_SOURCE_ROOT/module/storage/unit_tests/storageConfigRelativePaths.json" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpgen-async "--bundle-rate=100" "--use-tcpcl" "--flow-id=2" "--duration=5" &
-sleep 8
+#!/bin/sh
 
-PID1=`pgrep bpgen-async`
-PID2=`pgrep hdtn-storage`
-PID3=`pgrep hdtn-release-message-sender`
-PID4=`pgrep hdtn-ingress`
-PID5=`pgrep hdtn-egress-async`
-PID6=`pgrep bpsink-async`
-sleep 60
-(kill  $PID1)
-(kill -INT $PID2)
-(kill -INT $PID3)
-(kill -INT $PID4)
-(kill -INT $PID5)
-(kill -INT $PID6)
+# path variables
+config_files=$HDTN_SOURCE_ROOT/tests/config_files
+hdtn_config=$config_files/hdtn/hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json
+sink_config=$config_files/inducts/bpsink_one_udp_port4558.json
+gen_config=$config_files/outducts/bpgen_one_udp_port4556_0.5Mbps.json
 
-kill $(pgrep -f 'python3 main.py')
+cd $HDTN_SOURCE_ROOT
 
+# registration server
+python3 ./common/regsvr/main.py &
+sleep 3
+
+# bpsink
+./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink_config &
+bpsink_PID=$!
+sleep 3
+
+# HDTN one process
+./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config &
+one_process_PID=$!
+sleep 3
+
+# bpgen
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=10 --flow-id=2 --outducts-config-file=$gen_config &
+bpgen_PID=$!
+sleep 10
+
+# cleanup
+echo "\nkilling bpgen..." && kill -2 $bpgen_PID
+sleep 2
+echo "\nkilling HDTN one process..." && kill -2 $one_process_PID
+sleep 2
+echo "\nkilling bpsink..." && kill -2 $bpsink_PID
+sleep 2
+echo "\nkilling registration server..." && pkill -9 -f main.py
 
