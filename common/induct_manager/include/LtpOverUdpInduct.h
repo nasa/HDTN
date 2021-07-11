@@ -12,8 +12,6 @@ public:
     
 private:
     LtpOverUdpInduct();
-    void ConnectionReadyToBeDeletedNotificationReceived();
-    void RemoveInactiveConnection();
 
     std::unique_ptr<LtpBundleSink> m_ltpBundleSinkPtr;
 };

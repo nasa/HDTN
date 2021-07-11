@@ -6,9 +6,11 @@
 
 LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     Outduct(outductConfig, outductUuid),
-    m_ltpBundleSource(outductConfig.clientServiceId, outductConfig.remoteLtpEngineId, outductConfig.thisLtpEngineId, outductConfig.ltpDataSegmentMtu, 1,
-        boost::posix_time::milliseconds(outductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(outductConfig.oneWayMarginTimeMs), outductConfig.ltpSenderBoundPort, !outductConfig.ltpSenderIgnoreEndpointCheckOnRx, outductConfig.numRxCircularBufferElements,
-        outductConfig.numRxCircularBufferBytesPerElement, 0, outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber, (outductConfig.ltpRandomNumberSizeBits == 32))
+    m_ltpBundleSource(outductConfig.clientServiceId, outductConfig.remoteLtpEngineId, outductConfig.thisLtpEngineId, outductConfig.ltpDataSegmentMtu,
+        boost::posix_time::milliseconds(outductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(outductConfig.oneWayMarginTimeMs),
+        outductConfig.ltpSenderBoundPort, outductConfig.numRxCircularBufferElements,
+        outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber, (outductConfig.ltpRandomNumberSizeBits == 32),
+        m_outductConfig.remoteHostname, m_outductConfig.remotePort)
 {}
 LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 
@@ -30,10 +32,10 @@ void LtpOverUdpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckC
 }
 
 void LtpOverUdpOutduct::Connect() {
-    m_ltpBundleSource.Connect(m_outductConfig.remoteHostname, boost::lexical_cast<std::string>(m_outductConfig.remotePort));
+
 }
 bool LtpOverUdpOutduct::ReadyToForward() {
-    return m_ltpBundleSource.ReadyToForward();
+    return true;
 }
 void LtpOverUdpOutduct::Stop() {
     m_ltpBundleSource.Stop();

@@ -1,5 +1,5 @@
 #include <boost/test/unit_test.hpp>
-#include "LtpUdpEngine.h"
+#include "LtpUdpEngineManager.h"
 #include <boost/bind.hpp>
 
 BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
@@ -9,9 +9,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
         const uint64_t ENGINE_ID_SRC;
         const uint64_t ENGINE_ID_DEST;
+        const uint64_t EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
         const uint64_t CLIENT_SERVICE_ID_DEST;
-        LtpUdpEngine engineSrc;
-        LtpUdpEngine engineDest;
+        const uint16_t BOUND_UDP_PORT_SRC;
+        const uint16_t BOUND_UDP_PORT_DEST;
+        LtpUdpEngineManager * const ltpUdpEngineManagerSrcPtr;
+        LtpUdpEngineManager * const ltpUdpEngineManagerDestPtr;
+        LtpUdpEngine * ltpUdpEngineSrcPtr;
+        LtpUdpEngine * ltpUdpEngineDestPtr;
         const std::string DESIRED_RED_DATA_TO_SEND;
         const std::string DESIRED_RED_AND_GREEN_DATA_TO_SEND;
         const std::string DESIRED_FULLY_GREEN_DATA_TO_SEND;
@@ -28,6 +33,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         uint64_t numInitialTransmissionCompletedCallbacks;
         uint64_t numTransmissionSessionCancelledCallbacks;
 
+        volatile bool removeCallbackCalled;
+
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_receptionSessionCancelledCallback;
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_transmissionSessionCancelledCallback;
         Ltp::session_id_t lastSessionId_sessionStartSenderCallback;
@@ -37,30 +44,74 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(250)),
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
+            EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ENGINE_ID_SRC),
             CLIENT_SERVICE_ID_DEST(300),
-            engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, false, true),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
-            engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345, true, true),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+            BOUND_UDP_PORT_SRC(12345),
+            BOUND_UDP_PORT_DEST(1113),
+            ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_SRC)),
+            ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_DEST)),
+            //engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, false, true),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
+            //engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345, true, true),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
             cvLock(cvMutex)
         {
-            engineDest.SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
-            engineDest.SetRedPartReceptionCallback(boost::bind(&Test::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5));
-            engineDest.SetGreenPartSegmentArrivalCallback(boost::bind(&Test::GreenPartSegmentArrivalCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
-                boost::placeholders::_4, boost::placeholders::_5));
-            engineDest.SetReceptionSessionCancelledCallback(boost::bind(&Test::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
-            engineSrc.SetSessionStartCallback(boost::bind(&Test::SessionStartSenderCallback, this, boost::placeholders::_1));
-            engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
-            engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
-            engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
-
-            engineSrc.Connect("localhost", "12345");
-            while (!engineSrc.ReadyToForward()) {
-                std::cout << "connecting\n";
-                boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
+            if (ltpUdpEngineDestPtr == NULL) {
+                ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+                    "localhost", BOUND_UDP_PORT_SRC, 100, 0, 0, 5, false);
+                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
+            ltpUdpEngineDestPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
+            ltpUdpEngineDestPtr->SetRedPartReceptionCallback(boost::bind(&Test::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5));
+            ltpUdpEngineDestPtr->SetGreenPartSegmentArrivalCallback(boost::bind(&Test::GreenPartSegmentArrivalCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5));
+            ltpUdpEngineDestPtr->SetReceptionSessionCancelledCallback(boost::bind(&Test::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+
+            ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false);
+            if (ltpUdpEngineSrcPtr == NULL) {
+                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+                    "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 5, false);
+                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false);
+            }
+
+            ltpUdpEngineSrcPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartSenderCallback, this, boost::placeholders::_1));
+            ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
+            ltpUdpEngineSrcPtr->SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
+            ltpUdpEngineSrcPtr->SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+
+        }
+
+        void RemoveCallback() {
+            removeCallbackCalled = true;
+        }
+
+        ~Test() {
+            removeCallbackCalled = false;
+            ltpUdpEngineManagerDestPtr->RemoveLtpUdpEngine_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&Test::RemoveCallback, this));
+            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+            for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+                if (removeCallbackCalled) {
+                    break;
+                }
+                std::cout << "waiting to remove ltp dest for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+                boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+            }
+            std::cout << "removed ltp dest for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+
+            removeCallbackCalled = false;
+            ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngine_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false, boost::bind(&Test::RemoveCallback, this));
+            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+            for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+                if (removeCallbackCalled) {
+                    break;
+                }
+                std::cout << "waiting to remove ltp src for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+                boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+            }
+            std::cout << "removed ltp src for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
         }
 
         void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {
@@ -112,12 +163,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         }
 
         void Reset() {
-            engineSrc.Reset();
-            engineDest.Reset();
-            engineSrc.SetCheckpointEveryNthDataPacketForSenders(0);
-            engineDest.SetCheckpointEveryNthDataPacketForSenders(0);
-            engineSrc.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
-            engineDest.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
+            ltpUdpEngineSrcPtr->Reset();
+            ltpUdpEngineDestPtr->Reset();
+            ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(0);
+            ltpUdpEngineDestPtr->SetCheckpointEveryNthDataPacketForSenders(0);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
+            ltpUdpEngineDestPtr->m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             numRedPartReceptionCallbacks = 0;
             numSessionStartSenderCallbacks = 0;
             numSessionStartReceiverCallbacks = 0;
@@ -129,13 +180,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             lastSessionId_sessionStartSenderCallback = 0; //sets all fields to 0
         }
         void AssertNoActiveSendersAndReceivers() {
-            BOOST_REQUIRE_EQUAL(engineSrc.NumActiveSenders(), 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.NumActiveReceivers(), 0);
-            BOOST_REQUIRE_EQUAL(engineDest.NumActiveSenders(), 0);
-            BOOST_REQUIRE_EQUAL(engineDest.NumActiveReceivers(), 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->NumActiveSenders(), 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->NumActiveReceivers(), 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->NumActiveSenders(), 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->NumActiveReceivers(), 0);
         }
         bool HasActiveSendersAndReceivers() {
-            return engineSrc.NumActiveSenders() || engineSrc.NumActiveReceivers() || engineDest.NumActiveSenders() || engineDest.NumActiveReceivers();
+            return ltpUdpEngineSrcPtr->NumActiveSenders() || ltpUdpEngineSrcPtr->NumActiveReceivers() || ltpUdpEngineDestPtr->NumActiveSenders() || ltpUdpEngineDestPtr->NumActiveReceivers();
         }
         void TryWaitForNoActiveSendersAndReceivers() {
             for(unsigned int i=0; i<20; ++i) {
@@ -155,7 +206,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -175,10 +226,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for Report ack
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 for Report segment
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for Report ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 for Report segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
         }
 
         void DoTestRedAndGreenData() {
@@ -189,7 +240,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_AND_GREEN_DATA_TO_SEND.data(), DESIRED_RED_AND_GREEN_DATA_TO_SEND.data() + DESIRED_RED_AND_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= 3)) {
                     break;
@@ -209,10 +260,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_AND_GREEN_DATA_TO_SEND.size() + 1); //+1 for Report ack
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 for Report segment
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_AND_GREEN_DATA_TO_SEND.size() + 1); //+1 for Report ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 for Report segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
         }
 
         void DoTestFullyGreenData() {
@@ -223,7 +274,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = 0;
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= DESIRED_FULLY_GREEN_DATA_TO_SEND.size())) {
                     break;
@@ -243,10 +294,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 0);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
         }
 
         
@@ -268,13 +319,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropOneSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -284,10 +335,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 3); //+3 for 2 Report acks and 1 resend
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 2); //2 for 2 Report segments
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 3); //+3 for 2 Report acks and 1 resend
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 2); //2 for 2 Report segments
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -319,13 +370,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropTwoSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -335,10 +386,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 2); //2 for 2 Report segments
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 2); //2 for 2 Report segments
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -368,14 +419,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropTwoSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.SetCheckpointEveryNthDataPacketForSenders(5);
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(5);
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -385,8 +436,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 13); //+13 for 11 Report acks (see next line) and 2 resends
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 13); //+13 for 11 Report acks (see next line) and 2 resends
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
             //primary first LB: 0, UB: 5
             //primary subsequent LB : 5, UB : 10
@@ -399,9 +450,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //primary subsequent LB : 30, UB : 35
             //primary subsequent LB : 35, UB : 40
             //primary subsequent LB : 40, UB : 44
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 11); // 44/5=8 + (1 eobCp at 44) + 2 retrans report 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 11); // 44/5=8 + (1 eobCp at 44) + 2 retrans report 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -433,14 +484,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.SetCheckpointEveryNthDataPacketForSenders(5);
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(5);
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -450,8 +501,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
             //primary first LB: 0, UB: 5
             //primary subsequent LB : 5, UB : 15
@@ -462,9 +513,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //primary subsequent LB : 30, UB : 35
             //primary subsequent LB : 35, UB : 40
             //primary subsequent LB : 40, UB : 44
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 9); // 44/5-1=7 + (1 eobCp at 44) + 1 retrans report 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 9); // 44/5-1=7 + (1 eobCp at 44) + 1 retrans report 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -493,13 +544,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -509,13 +560,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 for 1 Report segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 for 1 Report segment
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -525,10 +576,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 1);
         }
 
         void DoTestDropRaSrcToDest() {
@@ -550,15 +601,15 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (engineDest.m_numReportSegmentTimerExpiredCallbacks == 1)) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks == 1)) {
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -566,13 +617,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend Report Ack
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend Report Ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 2); //2 for 1 Report segment + 1 Resend Report Segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 2); //2 for 1 Report segment + 1 Resend Report Segment
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -582,10 +633,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 1);
-            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
         }
         /*
         void DoTestDropReportSegmentDestToSrc() {
@@ -621,40 +672,40 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             AssertNoActiveSendersAndReceivers();
             DropSimulationSecondEob simEob;
             DropSimulationFirstRs simRs;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulationSecondEob::DoSim, &simEob, boost::placeholders::_1);
-            engineDest.m_udpDropSimulatorFunction = boost::bind(&DropSimulationFirstRs::DoSim, &simRs, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulationSecondEob::DoSim, &simEob, boost::placeholders::_1);
+            ltpUdpEngineDestPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulationFirstRs::DoSim, &simRs, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
-                //engineSrc.SignalReadyForSend_ThreadSafe();
-                //engineDest.SignalReadyForSend_ThreadSafe();
+                //ltpUdpEngineSrcPtr->SignalReadyForSend_ThreadSafe();
+                //ltpUdpEngineDestPtr->SignalReadyForSend_ThreadSafe();
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 for 1 Report segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 for 1 Report segment
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numTimerExpiredCallbacks, 1);
         }
         */
 
@@ -671,13 +722,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
                 if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks) {
                     break;
@@ -687,13 +738,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
           
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 6); //+6 for 5 resend EOB and 1 cancel segment
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 6); //+6 for 5 resend EOB and 1 cancel segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
             
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); // 1 for cancel ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); // 1 for cancel ack
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -704,10 +755,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 6);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 6);
         }
 
         //dest RS timer should expire until limit then send cancel segment to sender
@@ -722,13 +773,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
                 if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -738,13 +789,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 7); //+7 for 6 RA and 1 CA
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 7); //+7 for 6 RA and 1 CA
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 7); //7 for 1 RS, 5 resend RS, and 1 cancel segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 7); //7 for 1 RS, 5 resend RS, and 1 cancel segment
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -754,10 +805,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 6);
-            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 6);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
         }
 
         //src checkpoint should never make it to receiver, giving receiver time to cancel session
@@ -772,29 +823,29 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numInitialTransmissionCompletedCallbacks) {
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
             }
-            engineDest.CancellationRequest_ThreadSafe(lastSessionId_sessionStartSenderCallback); //cancel from receiver
+            ltpUdpEngineDestPtr->CancellationRequest_ThreadSafe(lastSessionId_sessionStartSenderCallback); //cancel from receiver
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel ack
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 cancel segment
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 cancel segment
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -806,10 +857,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
         }
 
         //src checkpoint should never make it to receiver, giving sender time to cancel session
@@ -824,29 +875,29 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numInitialTransmissionCompletedCallbacks) {
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
             }
-            engineSrc.CancellationRequest_ThreadSafe(lastSessionId_sessionStartSenderCallback); //cancel from sender
+            ltpUdpEngineSrcPtr->CancellationRequest_ThreadSafe(lastSessionId_sessionStartSenderCallback); //cancel from sender
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel req
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel req
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 1); //1 cancel ack
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 cancel ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
 
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
@@ -858,10 +909,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
             //BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numCheckpointTimerExpiredCallbacks, 0);
         }
 
         void DoTestDropOddDataSegmentWithRsMtu() {
@@ -885,16 +936,16 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //  drop odd (printed 15x)                
             //  splitting 1 report segment with 15 reception claims into 5 report segments with no more than 3 reception claims per report segment
             Reset();
-            engineDest.SetMtuReportSegment(110); // 110 bytes will result in 3 reception claims max
+            ltpUdpEngineDestPtr->SetMtuReportSegment(110); // 110 bytes will result in 3 reception claims max
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            engineSrc.m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
             boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
                     break;
@@ -904,10 +955,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 25); //+25 for 10 Report acks (see below) and 15 resends
-            BOOST_REQUIRE_EQUAL(engineSrc.m_countAsyncSendCallbackCalls, engineSrc.m_countAsyncSendCalls);
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, 10); //10 for 5 initial separately sentReport segments + 5 report segments of data complete as response to resends
-            BOOST_REQUIRE_EQUAL(engineDest.m_countAsyncSendCallbackCalls, engineDest.m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 25); //+25 for 10 Report acks (see below) and 15 resends
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 10); //10 for 5 initial separately sentReport segments + 5 report segments of data complete as response to resends
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -917,7 +968,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            engineDest.SetMtuReportSegment(UINT64_MAX); //restore to default unlimited reception claims
+            ltpUdpEngineDestPtr->SetMtuReportSegment(UINT64_MAX); //restore to default unlimited reception claims
         }
         
     };

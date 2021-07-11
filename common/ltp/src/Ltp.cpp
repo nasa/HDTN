@@ -1445,3 +1445,26 @@ void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
     }
     ltpCancelAcknowledgementSegmentPacket.resize(encodedPtr - ltpCancelAcknowledgementSegmentPacket.data());
 }
+
+//return true if valid message
+bool Ltp::GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver) {
+    switch (static_cast<LTP_SEGMENT_TYPE_FLAGS>(segmentFlags)) {
+        case LTP_SEGMENT_TYPE_FLAGS::REDDATA:
+        case LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT:
+        case LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART:
+        case LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK:
+        case LTP_SEGMENT_TYPE_FLAGS::GREENDATA:
+        case LTP_SEGMENT_TYPE_FLAGS::GREENDATA_ENDOFBLOCK:
+        case LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT:
+        case LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER:
+        case LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER:
+            isSenderToReceiver = true;
+            return true;
+        case LTP_SEGMENT_TYPE_FLAGS::REPORT_SEGMENT:
+        case LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER:
+        case LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_RECEIVER:
+            isSenderToReceiver = false;
+            return true;
+    }
+    return false;
+}

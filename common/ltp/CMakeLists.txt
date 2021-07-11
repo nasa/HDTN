@@ -13,6 +13,7 @@ add_library(ltp_lib STATIC
 	src/LtpEngine.cpp
 	src/LtpTimerManager.cpp
 	src/LtpUdpEngine.cpp
+	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
 	src/LtpBundleSource.cpp
 	src/LtpClientServiceDataToSend.cpp

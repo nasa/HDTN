@@ -5,18 +5,17 @@
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 
-LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
+LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t udpPort, const bool senderRequireRemoteEndpointMatchOnReceivePacket, const unsigned int numUdpRxCircularBufferVectors,
-    const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
+    const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
+    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
-m_ltpUdpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-    udpPort, false, senderRequireRemoteEndpointMatchOnReceivePacket, numUdpRxCircularBufferVectors, maxUdpRxPacketSizeBytes, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
-    checkpointEveryNthDataPacketSender, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers),
 
+m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort)),
 M_CLIENT_SERVICE_ID(clientServiceId),
+M_THIS_ENGINE_ID(thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
 
 m_totalDataSegmentsSentSuccessfullyWithAck(0),
@@ -24,43 +23,68 @@ m_totalDataSegmentsFailedToSend(0),
 m_totalDataSegmentsSent(0),
 m_totalBundleBytesSent(0)
 {
-    m_ltpUdpEngine.SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));
-    m_ltpUdpEngine.SetTransmissionSessionCompletedCallback(boost::bind(&LtpBundleSource::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
-    m_ltpUdpEngine.SetInitialTransmissionCompletedCallback(boost::bind(&LtpBundleSource::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
-    m_ltpUdpEngine.SetTransmissionSessionCancelledCallback(boost::bind(&LtpBundleSource::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, false);
+    if (m_ltpUdpEnginePtr == NULL) {
+        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, thisEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
+            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
+        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, false);
+    }
+
+    m_ltpUdpEnginePtr->SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));
+    m_ltpUdpEnginePtr->SetTransmissionSessionCompletedCallback(boost::bind(&LtpBundleSource::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
+    m_ltpUdpEnginePtr->SetInitialTransmissionCompletedCallback(boost::bind(&LtpBundleSource::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
+    m_ltpUdpEnginePtr->SetTransmissionSessionCancelledCallback(boost::bind(&LtpBundleSource::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
 }
 
 LtpBundleSource::~LtpBundleSource() {
     Stop();
 }
 
+void LtpBundleSource::RemoveCallback() {
+    m_removeCallbackCalled = true;
+}
+
 void LtpBundleSource::Stop() {
-    //prevent TcpclBundleSource from exiting before all bundles sent and acked
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    m_useLocalConditionVariableAckReceived = true;
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-        const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
-        if (numUnacked) {
-            std::cout << "notice: LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+    if (m_ltpUdpEnginePtr) {
+        //prevent TcpclBundleSource from exiting before all bundles sent and acked
+        boost::mutex localMutex;
+        boost::mutex::scoped_lock lock(localMutex);
+        m_useLocalConditionVariableAckReceived = true;
+        std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+        for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+            const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
+            if (numUnacked) {
+                std::cout << "notice: LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
 
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
+                if (previousUnacked > numUnacked) {
+                    previousUnacked = numUnacked;
+                    attempt = 0;
+                }
+                m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
             }
-            m_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            break;
         }
-        break;
-    }
 
-    //print stats
-    std::cout << "m_totalDataSegmentsSentSuccessfullyWithAck " << m_totalDataSegmentsSentSuccessfullyWithAck << std::endl;
-    std::cout << "m_totalDataSegmentsFailedToSend " << m_totalDataSegmentsFailedToSend << std::endl;
-    std::cout << "m_totalDataSegmentsSent " << m_totalDataSegmentsSent << std::endl;
-    std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
+        m_removeCallbackCalled = false;
+        m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngine_ThreadSafe(M_THIS_ENGINE_ID, true, boost::bind(&LtpBundleSource::RemoveCallback, this));
+        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        for (unsigned int attempt = 0; attempt < 20; ++attempt) {
+            if (m_removeCallbackCalled) {
+                break;
+            }
+            std::cout << "waiting to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+        }
+        m_ltpUdpEnginePtr = NULL;
+
+        //print stats
+        std::cout << "m_totalDataSegmentsSentSuccessfullyWithAck " << m_totalDataSegmentsSentSuccessfullyWithAck << std::endl;
+        std::cout << "m_totalDataSegmentsFailedToSend " << m_totalDataSegmentsFailedToSend << std::endl;
+        std::cout << "m_totalDataSegmentsSent " << m_totalDataSegmentsSent << std::endl;
+        std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
+    }
 }
 
 std::size_t LtpBundleSource::GetTotalDataSegmentsAcked() {
@@ -88,12 +112,6 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 //}
 
 bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
-
-    if(!m_ltpUdpEngine.ReadyToForward()) {
-        std::cerr << "link not ready to forward yet" << std::endl;
-        return false;
-    }
-    
     
     if (m_activeSessionsSet.size() > 100) {
         std::cerr << "Error in LtpBundleSource::Forward.. too many unacked sessions" << std::endl;
@@ -107,7 +125,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     tReq->clientServiceDataToSend = std::move(dataVec);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
-    m_ltpUdpEngine.TransmissionRequest_ThreadSafe(std::move(tReq));
+    m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += bundleBytesToSend;
@@ -116,11 +134,6 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 }
 
 bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
-
-    if (!m_ltpUdpEngine.ReadyToForward()) {
-        std::cerr << "link not ready to forward yet" << std::endl;
-        return false;
-    }
 
 
     if (m_activeSessionsSet.size() > 100) {
@@ -135,7 +148,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
     tReq->clientServiceDataToSend = std::move(dataZmq);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
-    m_ltpUdpEngine.TransmissionRequest_ThreadSafe(std::move(tReq));
+    m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += bundleBytesToSend;
@@ -148,10 +161,6 @@ bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size)
     return Forward(vec);
 }
 
-
-void LtpBundleSource::Connect(const std::string & hostname, const std::string & port) {
-    m_ltpUdpEngine.Connect(hostname, port);
-}
 
 
 void LtpBundleSource::SessionStartCallback(const Ltp::session_id_t & sessionId) {
@@ -201,9 +210,6 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
     }
 }
 
-bool LtpBundleSource::ReadyToForward() {
-    return m_ltpUdpEngine.ReadyToForward();
-}
 
 void LtpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
     m_onSuccessfulAckCallback = callback;

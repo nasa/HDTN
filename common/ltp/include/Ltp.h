@@ -252,6 +252,8 @@ public:
     static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, const session_id_t & sessionId,
         bool isToSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
 
+    static bool GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver);
+
 private:
     void SetBeginningState();
     const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
