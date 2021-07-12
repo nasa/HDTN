@@ -48,25 +48,25 @@ void LtpUdpEngineManager::Start() {
     m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceUdp));
 }
 
-LtpUdpEngine * LtpUdpEngineManager::GetLtpUdpEnginePtr(const uint64_t engineId, const bool isInduct) {
-    const std::pair<uint64_t, bool> mapKey(engineId, isInduct);
+LtpUdpEngine * LtpUdpEngineManager::GetLtpUdpEnginePtr(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct) {
+    const std::pair<uint64_t, bool> mapKey(expectedSessionOriginatorEngineId, isInduct);
     std::map<std::pair<uint64_t, bool>, std::unique_ptr<LtpUdpEngine> >::iterator it = m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr.find(mapKey);
     return (it == m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr.end()) ? NULL : it->second.get();
 }
 
-void LtpUdpEngineManager::RemoveLtpUdpEngine_ThreadSafe(const uint64_t engineId, const bool isInduct, const boost::function<void()> & callback) {
-    boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe, this, engineId, isInduct, callback));
+void LtpUdpEngineManager::RemoveLtpUdpEngine_ThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback) {
+    boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe, this, expectedSessionOriginatorEngineId, isInduct, callback));
 }
-void LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe(const uint64_t engineId, const bool isInduct, const boost::function<void()> & callback) {
-    const std::pair<uint64_t, bool> mapKey(engineId, isInduct);
+void LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback) {
+    const std::pair<uint64_t, bool> mapKey(expectedSessionOriginatorEngineId, isInduct);
     std::map<std::pair<uint64_t, bool>, std::unique_ptr<LtpUdpEngine> >::iterator it = m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr.find(mapKey);
     if (it == m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr.end()) {
-        std::cerr << "error in LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe: engine Id " << engineId
+        std::cerr << "error in LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe: expectedSessionOriginatorEngineId " << expectedSessionOriginatorEngineId
             << " for type " << ((isInduct) ? "induct" : "outduct") << " does not exist" << std::endl;
     }
     else {
         m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr.erase(it);
-        std::cout << "engine Id " << engineId << " for type " << ((isInduct) ? "induct" : "outduct") << " successfully removed" << std::endl;
+        std::cout << "expectedSessionOriginatorEngineId " << expectedSessionOriginatorEngineId << " for type " << ((isInduct) ? "induct" : "outduct") << " successfully removed" << std::endl;
     }
     if (callback) {
         callback();

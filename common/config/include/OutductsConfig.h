@@ -29,7 +29,6 @@ struct outduct_element_config_t {
     uint64_t oneWayMarginTimeMs;
     uint64_t clientServiceId;
     uint32_t numRxCircularBufferElements;
-    uint32_t numRxCircularBufferBytesPerElement;
     uint32_t ltpMaxRetriesPerSerialNumber;
     uint32_t ltpCheckpointEveryNthDataSegment;
     uint32_t ltpRandomNumberSizeBits;

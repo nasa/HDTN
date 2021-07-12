@@ -21,6 +21,7 @@ struct induct_element_config_t {
 
     //specific to ltp
     uint64_t thisLtpEngineId;
+    uint64_t remoteLtpEngineId;
     uint32_t ltpReportSegmentMtu;
     uint64_t oneWayLightTimeMs;
     uint64_t oneWayMarginTimeMs;

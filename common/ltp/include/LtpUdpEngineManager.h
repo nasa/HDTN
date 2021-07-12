@@ -25,9 +25,9 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, uint32_t checkpointEveryNthDataPacketSender = 0,
         uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
 
-    LtpUdpEngine * GetLtpUdpEnginePtr(const uint64_t engineId, const bool isInduct);
-    void RemoveLtpUdpEngine_ThreadSafe(const uint64_t engineId, const bool isInduct, const boost::function<void()> & callback);
-    void RemoveLtpUdpEngine_NotThreadSafe(const uint64_t engineId, const bool isInduct, const boost::function<void()> & callback);
+    LtpUdpEngine * GetLtpUdpEnginePtr(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct);
+    void RemoveLtpUdpEngine_ThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback);
+    void RemoveLtpUdpEngine_NotThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback);
     void Stop();
     void DoUdpShutdown();
     

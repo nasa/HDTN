@@ -9,6 +9,7 @@
             "numRxCircularBufferElements": 101,
             "numRxCircularBufferBytesPerElement": 65532,
             "thisLtpEngineId": 102,
+            "remoteLtpEngineId": 103,
             "ltpReportSegmentMtu": 1003,
             "oneWayLightTimeMs": 1004,
             "oneWayMarginTimeMs": 205,

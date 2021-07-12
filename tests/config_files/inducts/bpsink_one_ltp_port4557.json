@@ -8,6 +8,7 @@
             "numRxCircularBufferElements": 100,
             "numRxCircularBufferBytesPerElement": 65535,
             "thisLtpEngineId": 10004557,
+            "remoteLtpEngineId": 20004557,
             "ltpReportSegmentMtu": 1000,
             "oneWayLightTimeMs": 1000,
             "oneWayMarginTimeMs": 200,
@@ -15,8 +16,8 @@
             "preallocatedRedDataBytes": 200000,
             "ltpMaxRetriesPerSerialNumber": 5,
             "ltpRandomNumberSizeBits": 64,
-            "ltpRemoteUdpHostname": "",
-            "ltpRemoteUdpPort": 0
+            "ltpRemoteUdpHostname": "localhost",
+            "ltpRemoteUdpPort": 4556
         }
     ]
 }

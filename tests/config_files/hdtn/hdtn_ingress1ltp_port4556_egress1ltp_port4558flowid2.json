@@ -26,6 +26,7 @@
                 "numRxCircularBufferElements": 100,
                 "numRxCircularBufferBytesPerElement": 65535,
                 "thisLtpEngineId": 100,
+                "remoteLtpEngineId": 200,
                 "ltpReportSegmentMtu": 1000,
                 "oneWayLightTimeMs": 1000,
                 "oneWayMarginTimeMs": 200,
@@ -33,8 +34,8 @@
                 "preallocatedRedDataBytes": 200000,
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpRandomNumberSizeBits": 64,
-                "ltpRemoteUdpHostname": "",
-                "ltpRemoteUdpPort": 0
+                "ltpRemoteUdpHostname": "localhost",
+                "ltpRemoteUdpPort": 1113
             }
         ]
     },
@@ -58,11 +59,10 @@
                 "oneWayMarginTimeMs": 200,
                 "clientServiceId": 400,
                 "numRxCircularBufferElements": 100,
-                "numRxCircularBufferBytesPerElement": 65535,
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpCheckpointEveryNthDataSegment": 0,
                 "ltpRandomNumberSizeBits": 64,
-                "ltpSenderBoundPort": 0,
+                "ltpSenderBoundPort": 4556,
                 "ltpSenderIgnoreEndpointCheckOnRx": false
             }
         ]

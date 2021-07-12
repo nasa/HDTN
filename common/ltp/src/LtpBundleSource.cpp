@@ -68,7 +68,7 @@ void LtpBundleSource::Stop() {
         }
 
         m_removeCallbackCalled = false;
-        m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngine_ThreadSafe(M_THIS_ENGINE_ID, true, boost::bind(&LtpBundleSource::RemoveCallback, this));
+        m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngine_ThreadSafe(M_THIS_ENGINE_ID, false, boost::bind(&LtpBundleSource::RemoveCallback, this));
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
         for (unsigned int attempt = 0; attempt < 20; ++attempt) {
             if (m_removeCallbackCalled) {

@@ -15,14 +15,15 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
 
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     M_THIS_ENGINE_ID(thisEngineId),
+    M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(expectedSessionOriginatorEngineId),
     m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort))
    
 {
-    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, true);
+    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(expectedSessionOriginatorEngineId, true);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, expectedSessionOriginatorEngineId, true, 1, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
-        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, true);
+        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(expectedSessionOriginatorEngineId, true);
     }
     
     m_ltpUdpEnginePtr->SetRedPartReceptionCallback(boost::bind(&LtpBundleSink::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -40,13 +41,13 @@ void LtpBundleSink::RemoveCallback() {
 
 LtpBundleSink::~LtpBundleSink() {
     m_removeCallbackCalled = false;
-    m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngine_ThreadSafe(M_THIS_ENGINE_ID, true, boost::bind(&LtpBundleSink::RemoveCallback, this));
+    m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngine_ThreadSafe(M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&LtpBundleSink::RemoveCallback, this));
     boost::this_thread::sleep(boost::posix_time::milliseconds(100));
     for (unsigned int attempt = 0; attempt < 20; ++attempt) {
         if (m_removeCallbackCalled) {
             break;
         }
-        std::cout << "waiting to remove ltp bundle sink for engine ID " << M_THIS_ENGINE_ID << std::endl;
+        std::cout << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
     }
 }

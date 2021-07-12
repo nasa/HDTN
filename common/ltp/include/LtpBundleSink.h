@@ -34,6 +34,7 @@ private:
 
     //ltp vars
     const uint64_t M_THIS_ENGINE_ID;
+    const uint64_t M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
     LtpUdpEngineManager * const m_ltpUdpEngineManagerPtr;
     LtpUdpEngine * m_ltpUdpEnginePtr;
 

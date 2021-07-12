@@ -116,6 +116,7 @@ public:
         session_id_t& operator=(session_id_t&& o); //a move assignment: operator=(X&&)
         session_id_t& operator=(const uint64_t o); //assign to uint64 (for template code in LtpTimerManager)
         bool operator==(const session_id_t & o) const; //operator ==
+        bool operator==(const uint64_t o) const; //operator == (for template code in LtpTimerManager)
         bool operator!=(const session_id_t & o) const; //operator !=
         bool operator<(const session_id_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const session_id_t& o);

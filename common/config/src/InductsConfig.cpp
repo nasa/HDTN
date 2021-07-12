@@ -20,6 +20,7 @@ induct_element_config_t::induct_element_config_t() :
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
     thisLtpEngineId(0),
+    remoteLtpEngineId(0),
     ltpReportSegmentMtu(0),
     oneWayLightTimeMs(0),
     oneWayMarginTimeMs(0),
@@ -42,6 +43,7 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     thisLtpEngineId(o.thisLtpEngineId),
+    remoteLtpEngineId(o.remoteLtpEngineId),
     ltpReportSegmentMtu(o.ltpReportSegmentMtu),
     oneWayLightTimeMs(o.oneWayLightTimeMs),
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
@@ -62,6 +64,7 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     thisLtpEngineId(o.thisLtpEngineId),
+    remoteLtpEngineId(o.remoteLtpEngineId),
     ltpReportSegmentMtu(o.ltpReportSegmentMtu),
     oneWayLightTimeMs(o.oneWayLightTimeMs),
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
@@ -82,6 +85,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     thisLtpEngineId = o.thisLtpEngineId;
+    remoteLtpEngineId = o.remoteLtpEngineId;
     ltpReportSegmentMtu = o.ltpReportSegmentMtu;
     oneWayLightTimeMs = o.oneWayLightTimeMs;
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
@@ -104,6 +108,7 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     thisLtpEngineId = o.thisLtpEngineId;
+    remoteLtpEngineId = o.remoteLtpEngineId;
     ltpReportSegmentMtu = o.ltpReportSegmentMtu;
     oneWayLightTimeMs = o.oneWayLightTimeMs;
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
@@ -125,6 +130,7 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
         (thisLtpEngineId == o.thisLtpEngineId) &&
+        (remoteLtpEngineId == o.remoteLtpEngineId) &&
         (ltpReportSegmentMtu == o.ltpReportSegmentMtu) &&
         (oneWayLightTimeMs == o.oneWayLightTimeMs) &&
         (oneWayMarginTimeMs == o.oneWayMarginTimeMs) &&
@@ -206,6 +212,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
 
         if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
             inductElementConfig.thisLtpEngineId = inductElementConfigPt.second.get<uint64_t>("thisLtpEngineId", 0); //non-throw version
+            inductElementConfig.remoteLtpEngineId = inductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId", 0); //non-throw version
             inductElementConfig.ltpReportSegmentMtu = inductElementConfigPt.second.get<uint32_t>("ltpReportSegmentMtu", 1000); //non-throw version
             inductElementConfig.oneWayLightTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs", 1000); //non-throw version
             inductElementConfig.oneWayMarginTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
@@ -277,6 +284,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
         if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
             inductElementConfigPt.put("thisLtpEngineId", inductElementConfig.thisLtpEngineId);
+            inductElementConfigPt.put("remoteLtpEngineId", inductElementConfig.remoteLtpEngineId);
             inductElementConfigPt.put("ltpReportSegmentMtu", inductElementConfig.ltpReportSegmentMtu);
             inductElementConfigPt.put("oneWayLightTimeMs", inductElementConfig.oneWayLightTimeMs);
             inductElementConfigPt.put("oneWayMarginTimeMs", inductElementConfig.oneWayMarginTimeMs);

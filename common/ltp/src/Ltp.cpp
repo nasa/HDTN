@@ -31,6 +31,9 @@ Ltp::session_id_t& Ltp::session_id_t::operator=(const uint64_t o) { //assign to 
 bool Ltp::session_id_t::operator==(const session_id_t & o) const {
     return (sessionOriginatorEngineId == o.sessionOriginatorEngineId) && (sessionNumber == o.sessionNumber);
 }
+bool Ltp::session_id_t::operator==(const uint64_t o) const { //(for template code in LtpTimerManager)
+    return (sessionOriginatorEngineId == o) && (sessionNumber == o);
+}
 bool Ltp::session_id_t::operator!=(const session_id_t & o) const {
     return (sessionOriginatorEngineId != o.sessionOriginatorEngineId) || (sessionNumber != o.sessionNumber);
 }

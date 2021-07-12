@@ -29,7 +29,6 @@ outduct_element_config_t::outduct_element_config_t() :
     oneWayMarginTimeMs(0),
     clientServiceId(0),
     numRxCircularBufferElements(0),
-    numRxCircularBufferBytesPerElement(0),
     ltpMaxRetriesPerSerialNumber(0),
     ltpCheckpointEveryNthDataSegment(0),
     ltpRandomNumberSizeBits(0),
@@ -60,7 +59,6 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
-    numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
@@ -89,7 +87,6 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
-    numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
@@ -118,7 +115,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
-    numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
@@ -150,7 +146,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
-    numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
@@ -181,7 +176,6 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (oneWayMarginTimeMs == o.oneWayMarginTimeMs) &&
         (clientServiceId == o.clientServiceId) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
-        (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
@@ -282,7 +276,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             outductElementConfig.oneWayMarginTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
             outductElementConfig.clientServiceId = outductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
             outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements", 100); //non-throw version
-            outductElementConfig.numRxCircularBufferBytesPerElement = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement", UINT16_MAX); //non-throw version
             outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
             outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment", 0); //non-throw version
             outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits", 0); //non-throw version
@@ -369,7 +362,6 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("oneWayMarginTimeMs", outductElementConfig.oneWayMarginTimeMs);
             outductElementConfigPt.put("clientServiceId", outductElementConfig.clientServiceId);
             outductElementConfigPt.put("numRxCircularBufferElements", outductElementConfig.numRxCircularBufferElements);
-            outductElementConfigPt.put("numRxCircularBufferBytesPerElement", outductElementConfig.numRxCircularBufferBytesPerElement);
             outductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", outductElementConfig.ltpMaxRetriesPerSerialNumber);
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
             outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
