@@ -49,7 +49,6 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         bool useSendFile = false;
         bool useReceiveFile = false;
         bool dontSaveFile = false;
-        bool senderIgnoreEndpointCheckOnRx = false;
         bool force32BitRandomNumbers;
         std::string remoteUdpHostname;
         uint16_t remoteUdpPort;
@@ -77,7 +76,6 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("remote-udp-hostname", boost::program_options::value<std::string>()->default_value("localhost"), "Ltp destination UDP hostname. (receivers when remote port !=0)")
                 ("remote-udp-port", boost::program_options::value<uint16_t>()->default_value(1113), "Remote UDP port.")
                 ("my-bound-udp-port", boost::program_options::value<uint16_t>()->default_value(1113), "My bound UDP port. (default 1113 for senders)")
-                ("sender-ignore-endpoint-check-on-rx", "Set this when a sender knows that the receiver will respond on a different port number.")
                 ("random-number-size-bits", boost::program_options::value<uint32_t>()->default_value(32), "LTP can use either 32-bit or 64-bit random numbers (only 32-bit supported by ion).")
 
                 ("this-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "My LTP engine ID.")
@@ -125,7 +123,6 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             remoteUdpHostname = vm["remote-udp-hostname"].as<std::string>();
             remoteUdpPort = vm["remote-udp-port"].as<boost::uint16_t>();
             myBoundUdpPort = vm["my-bound-udp-port"].as<boost::uint16_t>();
-            senderIgnoreEndpointCheckOnRx = vm.count("sender-ignore-endpoint-check-on-rx");
             thisLtpEngineId = vm["this-ltp-engine-id"].as<uint64_t>();
             remoteLtpEngineId = vm["remote-ltp-engine-id"].as<uint64_t>();
             ltpDataSegmentMtu = vm["ltp-data-segment-mtu"].as<uint64_t>();

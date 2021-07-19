@@ -33,7 +33,6 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpCheckpointEveryNthDataSegment(0),
     ltpRandomNumberSizeBits(0),
     ltpSenderBoundPort(0),
-    ltpSenderIgnoreEndpointCheckOnRx(false),
 
     udpRateBps(0),
 
@@ -63,7 +62,6 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
-    ltpSenderIgnoreEndpointCheckOnRx(o.ltpSenderIgnoreEndpointCheckOnRx),
 
     udpRateBps(o.udpRateBps),
 
@@ -91,7 +89,6 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
-    ltpSenderIgnoreEndpointCheckOnRx(o.ltpSenderIgnoreEndpointCheckOnRx),
 
     udpRateBps(o.udpRateBps),
 
@@ -119,7 +116,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
-    ltpSenderIgnoreEndpointCheckOnRx = o.ltpSenderIgnoreEndpointCheckOnRx;
 
     udpRateBps = o.udpRateBps;
 
@@ -150,7 +146,6 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
-    ltpSenderIgnoreEndpointCheckOnRx = o.ltpSenderIgnoreEndpointCheckOnRx;
 
     udpRateBps = o.udpRateBps;
 
@@ -180,7 +175,6 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
         (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
-        (ltpSenderIgnoreEndpointCheckOnRx == o.ltpSenderIgnoreEndpointCheckOnRx) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -284,7 +278,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
             outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort", 0); //non-throw version
-            outductElementConfig.ltpSenderIgnoreEndpointCheckOnRx = outductElementConfigPt.second.get<bool>("ltpSenderIgnoreEndpointCheckOnRx", false); //non-throw version
         }
 
         if (outductElementConfig.convergenceLayer == "udp") {
@@ -366,7 +359,6 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
             outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
             outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
-            outductElementConfigPt.put("ltpSenderIgnoreEndpointCheckOnRx", outductElementConfig.ltpSenderIgnoreEndpointCheckOnRx);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);

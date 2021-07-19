@@ -62,8 +62,7 @@
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpCheckpointEveryNthDataSegment": 0,
                 "ltpRandomNumberSizeBits": 64,
-                "ltpSenderBoundPort": 4556,
-                "ltpSenderIgnoreEndpointCheckOnRx": false
+                "ltpSenderBoundPort": 4556
             }
         ]
     },
