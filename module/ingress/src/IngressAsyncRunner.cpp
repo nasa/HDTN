@@ -22,7 +22,6 @@
 #define BP_INGRESS_TELEM_FREQ (0.10)
 #define INGRESS_PORT (4556)
 
-namespace opt = boost::program_options;
 
 void IngressAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
@@ -41,37 +40,39 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&IngressAsyncRunner::MonitorExitKeypressThreadFunction, this));
-        bool useStcp = false;
         bool alwaysSendToStorage = false;
+        HdtnConfig_ptr hdtnConfig;
 
-        opt::options_description desc("Allowed options");
+        boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
-                ("help", "Produce help message.")
-                //("port", opt::value<boost::uint16_t>()->default_value(4557), "Listen on this TCP or UDP port.")
-                ("use-stcp", "Use STCP instead of TCPCL.")
+                ("help", "Produce help message.")                
                 ("always-send-to-storage", "Don't send straight to egress (for testing).")
+                ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ;
 
-            opt::variables_map vm; 
-            opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
-            opt::notify(vm);
+            boost::program_options::variables_map vm;
+            boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc, boost::program_options::command_line_style::unix_style | boost::program_options::command_line_style::case_insensitive), vm);
+            boost::program_options::notify(vm);
 
             if (vm.count("help")) {
                 std::cout << desc << "\n";
                 return false;
             }
 
+            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
 
-            if (vm.count("use-stcp")) {
-                useStcp = true;
+            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+            if (!hdtnConfig) {
+                std::cerr << "error loading config file: " << configFileName << std::endl;
+                return false;
             }
+
 
             if (vm.count("always-send-to-storage")) {
                 alwaysSendToStorage = true;
             }
 
-            //port = vm["port"].as<boost::uint16_t>();
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -92,13 +93,18 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 
         std::cout << "starting ingress.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
-        hdtn::BpIngress ingress;
-        ingress.Init(BP_INGRESS_TYPE_UDP);
+        hdtn::Ingress ingress;
+        ingress.Init(*hdtnConfig, alwaysSendToStorage);
 
         // finish registration stuff -ingress will find out what egress services have
         // registered
         hdtn::HdtnRegsvr regsvr;
-        regsvr.Init(HDTN_REG_SERVER_PATH, "ingress", 10100, "PUSH");
+        const std::string connect_regServerPath(
+            std::string("tcp://") +
+            hdtnConfig->m_zmqRegistrationServerAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
+        regsvr.Init(connect_regServerPath, "ingress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PUSH");
         regsvr.Reg();
 
         if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
@@ -116,10 +122,6 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             return false;
         }
 
-
-        printf("Announcing presence of ingress engine ...\n");
-
-        ingress.Netstart(INGRESS_PORT, !useStcp, useStcp, alwaysSendToStorage);
 
         if (useSignalHandler) {
             sigHandler.Start(false);

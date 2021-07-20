@@ -3,8 +3,11 @@
 
 LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION) :
-    LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true),
+    const uint16_t udpPort, const unsigned int numUdpRxCircularBufferVectors, const unsigned int maxUdpRxPacketSizeBytes,
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber) :
+    LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
+        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber),
     M_MY_BOUND_UDP_PORT(udpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
@@ -13,16 +16,18 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_remoteEndpointsCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
+    m_sessionOriginatorEngineIdDecodedCallbackCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveDiscardBuffer(M_MAX_UDP_PACKET_SIZE_BYTES),
     m_readyToForward(false),
+    m_printedCbTooSmallNotice(false),
     m_countAsyncSendCalls(0),
-    m_countAsyncSendCallbackCalls(0)
-    //m_udpDestinationNullEndpoint(boost::asio::ip::make_address_v4("127.0.0.1"), 55555) //for unit testing
+    m_countAsyncSendCallbackCalls(0),
+    m_countCircularBufferOverruns(0)
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
+        m_sessionOriginatorEngineIdDecodedCallbackCbVec[i] = boost::bind(&LtpUdpEngine::SessionOriginatorEngineIdDecodedCallbackFromThisUdpEndpoint, this, &m_remoteEndpointsCbVec[i], boost::placeholders::_1);
     }
-
 
     //Receiver UDP
     try {
@@ -44,6 +49,7 @@ LtpUdpEngine::LtpUdpEngine(const uint64_t thisEngineId, const uint64_t mtuClient
 LtpUdpEngine::~LtpUdpEngine() {
     Stop();
     //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
+    std::cout << "~LtpUdpEngine m_countAsyncSendCalls " << m_countAsyncSendCalls << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
 }
 
 void LtpUdpEngine::Stop() {
@@ -61,12 +67,17 @@ void LtpUdpEngine::Reset() {
     LtpEngine::Reset();
     m_countAsyncSendCalls = 0;
     m_countAsyncSendCallbackCalls = 0;
+    m_countCircularBufferOverruns = 0;
 }
 
 void LtpUdpEngine::StartUdpReceive() {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == UINT32_MAX) {
-        std::cerr << "LtpUdpEngine::StartUdpReceive(): buffers full.. Next UDP packet will be dropped!\n";
+        ++m_countCircularBufferOverruns;
+        if (!m_printedCbTooSmallNotice) {
+            m_printedCbTooSmallNotice = true;
+            std::cout << "notice in LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! Next UDP packet will be dropped!" << std::endl;
+        }
         m_udpSocket.async_receive_from(
             boost::asio::buffer(m_udpReceiveDiscardBuffer),
             m_remoteEndpointDiscard,
@@ -85,37 +96,52 @@ void LtpUdpEngine::StartUdpReceive() {
     }
 }
 
-void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
+void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId) {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
     if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(*((uint8_t*)constBufferVec[0].data()))) {
         boost::asio::post(m_ioServiceUdp, boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback, boost::system::error_code(), 0));
     }
     else {
-        m_udpSocket.async_send_to(constBufferVec, m_udpDestinationEndpoint,
-            boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
+        if (M_MY_BOUND_UDP_PORT != 0) { //i am the receiver/destination/server
+            std::map<uint64_t, boost::asio::ip::udp::endpoint>::iterator it = m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly.find(sessionOriginatorEngineId);
+            if (it != m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly.end()) { //found
+                m_udpSocket.async_send_to(constBufferVec, it->second,
+                    boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+            }
+            else {
+                std::cerr << "error in LtpUdpEngine::SendPacket: sessionOriginatorEngineId " << sessionOriginatorEngineId << " not found" << std::endl;
+            }
+        }
+        else { //i am the source/client
+            m_udpSocket.async_send_to(constBufferVec, m_udpDestinationResolvedEndpointDataSourceToDataSink,
+                boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));           
+        }
     }
 }
 
 void LtpUdpEngine::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
-
     if (!error) {
-        if (m_udpDestinationEndpoint != m_remoteEndpointsCbVec[writeIndex]) {
-            if (M_MY_BOUND_UDP_PORT != 0) { //i am the destination/server and don't know who i'm sending to yet
-                m_udpDestinationEndpoint = m_remoteEndpointsCbVec[writeIndex];
-                std::cout << "notice: destination/server received udp from new client endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
-            }
-            else {
-                std::cerr << "error: source/client received udp from unexpected server endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+        Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL;
+        if (M_MY_BOUND_UDP_PORT != 0) { //i am the receiver/destination/server
+            //call this function during beginning stages of Ltp packet decode to compare ltp engine id to the udp endpoint to see if there are changes or new additions
+            sessionOriginatorEngineIdDecodedCallbackPtr = &m_sessionOriginatorEngineIdDecodedCallbackCbVec[writeIndex];
+        }
+        else { //i am the source/client
+            const boost::asio::ip::udp::endpoint & rxEndpoint = m_remoteEndpointsCbVec[writeIndex];
+            if (m_udpDestinationResolvedEndpointDataSourceToDataSink != rxEndpoint) { //and my received server endpoint doesnt match what i resolved from the Connect function
+                std::cerr << "error in LtpUdpEngine::HandleUdpReceive: source/client received udp from unexpected server endpoint " << rxEndpoint.address() << ":" << rxEndpoint.port() << std::endl;
                 DoUdpShutdown();
                 return;
             }
         }
-
+        
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
-        PacketIn_ThreadSafe(m_udpReceiveBuffersCbVec[writeIndex].data(), bytesTransferred); //Post to the LtpEngine IoService so its thread will process
+        PacketIn_ThreadSafe(m_udpReceiveBuffersCbVec[writeIndex].data(), bytesTransferred, sessionOriginatorEngineIdDecodedCallbackPtr); //Post to the LtpEngine IoService so its thread will process
         StartUdpReceive(); //restart operation only if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
@@ -126,16 +152,10 @@ void LtpUdpEngine::HandleUdpReceive(const boost::system::error_code & error, std
 
 void LtpUdpEngine::HandleUdpReceiveDiscard(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        if (m_udpDestinationEndpoint != m_remoteEndpointDiscard) {
-            if (M_MY_BOUND_UDP_PORT != 0) { //i am the destination/server and don't know who i'm sending to yet
-                m_udpDestinationEndpoint = m_remoteEndpointDiscard;
-                std::cout << "notice: destination/server received udp from new client endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
-            }
-            else {
-                std::cerr << "error: source/client received udp from unexpected server endpoint " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
-                DoUdpShutdown();
-                return;
-            }
+        if ((M_MY_BOUND_UDP_PORT == 0) && (m_udpDestinationResolvedEndpointDataSourceToDataSink != m_remoteEndpointDiscard)) { //i am the source/client and received udp from unexpected server endpoint
+            std::cerr << "error in LtpUdpEngine::HandleUdpReceiveDiscard: source/client received udp from unexpected server endpoint " << m_remoteEndpointDiscard.address() << ":" << m_remoteEndpointDiscard.port() << std::endl;
+            DoUdpShutdown();
+            return;            
         }
 
         StartUdpReceive(); //restart operation only if there was no error
@@ -146,7 +166,24 @@ void LtpUdpEngine::HandleUdpReceiveDiscard(const boost::system::error_code & err
     }
 }
 
+void LtpUdpEngine::SessionOriginatorEngineIdDecodedCallbackFromThisUdpEndpoint(const boost::asio::ip::udp::endpoint * const udpEndpointPtr, const uint64_t sessionOriginatorEngineId) {
+    //Called by LTP Engine thread
+    std::map<uint64_t, boost::asio::ip::udp::endpoint>::iterator it = m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly.find(sessionOriginatorEngineId);
+    if (it == m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly.end()) { //not found
+        std::cout << "notice: receiver/destination/server received udp from new session originator engine id "
+            << sessionOriginatorEngineId << " with address " << udpEndpointPtr->address() << ":" << udpEndpointPtr->port() << std::endl;
+        m_mapSessionOriginatorEngineIdToReceiverReplyEndpointsToSender_usedByLtpEngineThreadOnly[sessionOriginatorEngineId] = *udpEndpointPtr;
+
+    }
+    else if (it->second != (*udpEndpointPtr)) {
+        std::cout << "notice: receiver/destination/server received udp from old session originator engine id "
+            << sessionOriginatorEngineId << " with updated address " << udpEndpointPtr->address() << ":" << udpEndpointPtr->port() << std::endl;
+        it->second = *udpEndpointPtr;
+    }
+}
+
 void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
+    //Called by LTP Engine thread
     //std::cout << "PacketInFullyProcessedCallback " << std::endl;
     m_circularIndexBuffer.CommitRead(); //LtpEngine IoService thread will CommitRead
 }
@@ -166,8 +203,8 @@ void LtpUdpEngine::OnResolve(const boost::system::error_code & ec, boost::asio::
         std::cerr << "Error resolving: " << ec.message() << std::endl;
     }
     else {
-        m_udpDestinationEndpoint = *results;
-        std::cout << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << std::endl;
+        m_udpDestinationResolvedEndpointDataSourceToDataSink = *results;
+        std::cout << "resolved host to " << m_udpDestinationResolvedEndpointDataSourceToDataSink.address() << ":" << m_udpDestinationResolvedEndpointDataSourceToDataSink.port() << std::endl;
         std::cout << "UDP READY" << std::endl;
         m_readyToForward = true;
     }

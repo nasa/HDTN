@@ -17,37 +17,18 @@ that perform writes) until this operation completes.
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <vector>
-#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include <queue>
 #include <boost/function.hpp>
 #include <zmq.hpp>
 
-//#define TCP_ASYNC_SENDER_USE_VECTOR 1
 struct TcpAsyncSenderElement {
     typedef boost::function<void(const boost::system::error_code& error, std::size_t bytes_transferred)> OnSuccessfulSendCallbackByIoServiceThread_t;
     TcpAsyncSenderElement();
-    static void Create(std::unique_ptr<TcpAsyncSenderElement> & el,
-        std::unique_ptr<std::vector<boost::uint8_t> > && data1,
-        std::unique_ptr<std::vector<boost::uint8_t> > && data2,
-        OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr);
-    static void Create(std::unique_ptr<TcpAsyncSenderElement> & el,
-        std::unique_ptr<std::vector<boost::uint8_t> > && dataVector,
-        std::unique_ptr<zmq::message_t> && dataZmq,
-        OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr);
-    static void Create(std::unique_ptr<TcpAsyncSenderElement> & el,
-        std::unique_ptr<std::vector<boost::uint8_t> > && data1,
-        OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr);
-    static void Create(std::unique_ptr<TcpAsyncSenderElement> & el,
-        const uint8_t * staticData, std::size_t staticDataSize,
-        OnSuccessfulSendCallbackByIoServiceThread_t * onSuccessfulSendCallbackByIoServiceThreadPtr);
-
+    
     void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
 
     std::vector<boost::asio::const_buffer> m_constBufferVec;
-#ifdef TCP_ASYNC_SENDER_USE_VECTOR
-    std::vector<std::unique_ptr<std::vector<boost::uint8_t> > > m_underlyingData;
-#else
-    std::unique_ptr<std::vector<boost::uint8_t> >  m_underlyingData[2];
-#endif // TCP_ASYNC_SENDER_USE_VECTOR
+    std::vector<std::vector<boost::uint8_t> > m_underlyingData;
     std::unique_ptr<zmq::message_t>  m_underlyingDataZmq;
     OnSuccessfulSendCallbackByIoServiceThread_t * m_onSuccessfulSendCallbackByIoServiceThreadPtr;
 };
@@ -57,28 +38,25 @@ private:
     TcpAsyncSender();
 public:
     
-    TcpAsyncSender(const unsigned int circularBufferSize, boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr);
+    TcpAsyncSender(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef);
 
     ~TcpAsyncSender();
-    bool AsyncSend_NotThreadSafe(std::unique_ptr<TcpAsyncSenderElement> && senderElement);
-    bool AsyncSend_ThreadSafe(std::unique_ptr<TcpAsyncSenderElement> && senderElement);
+    
+    void AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    void AsyncSend_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    void PopCbThreadFunc();
-    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int readIndex);
-
-
-
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
-    const unsigned int M_CIRCULAR_BUFFER_SIZE;
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
-    std::vector<std::unique_ptr<TcpAsyncSenderElement> > m_circularBufferElementsVec;
     
-    volatile bool m_running;
+    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+
+
+    boost::asio::io_service & m_ioServiceRef;
+    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
+
+    
     volatile bool m_writeInProgress;
-    std::unique_ptr<boost::thread> m_threadCbReaderPtr;
-    boost::condition_variable m_conditionVariableCb;
-    boost::mutex m_mutex;
+
 };
 
 

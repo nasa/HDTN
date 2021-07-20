@@ -9,6 +9,7 @@
 #include "LtpSessionReceiver.h"
 #include "LtpSessionSender.h"
 #include "LtpNoticesToClientService.h"
+#include "LtpClientServiceDataToSend.h"
 
 class LtpEngine {
 private:
@@ -17,7 +18,7 @@ public:
     struct transmission_request_t {
         uint64_t destinationClientServiceId;
         uint64_t destinationLtpEngineId;
-        std::vector<uint8_t> clientServiceDataToSend;
+        LtpClientServiceDataToSend clientServiceDataToSend;
         uint64_t lengthOfRedPart;
     };
     struct cancel_segment_timer_info_t {
@@ -28,7 +29,9 @@ public:
     };
     
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false);
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
+        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false,
+        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5);
 
     virtual ~LtpEngine();
 
@@ -38,7 +41,7 @@ public:
 
     void TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest);
     void TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest);
-    void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, std::vector<uint8_t> && clientServiceDataToSend, uint64_t lengthOfRedPart);
+    void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, LtpClientServiceDataToSend && clientServiceDataToSend, uint64_t lengthOfRedPart);
     void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart);
 
     bool CancellationRequest(const Ltp::session_id_t & sessionId);
@@ -52,19 +55,19 @@ public:
     void SetInitialTransmissionCompletedCallback(const InitialTransmissionCompletedCallback_t & callback);
     void SetTransmissionSessionCancelledCallback(const TransmissionSessionCancelledCallback_t & callback);
 
-    bool PacketIn(const uint8_t * data, const std::size_t size);
+    bool PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     bool PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
-    void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size);
+    void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
-    bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId);
 
     std::size_t NumActiveReceivers() const;
     std::size_t NumActiveSenders() const;
 protected:
     virtual void PacketInFullyProcessedCallback(bool success);
-    virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
     void SignalReadyForSend_ThreadSafe();
 private:
     void TrySendPacketIfAvailable();
@@ -98,7 +101,7 @@ private:
     //boost::mutex m_randomDeviceMutex;
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> > m_mapSessionNumberToSessionSender;
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> > m_mapSessionIdToSessionReceiver;
-    std::list<std::vector<uint8_t> > m_closedSessionDataToSend;
+    std::list<std::pair<uint64_t, std::vector<uint8_t> > > m_closedSessionDataToSend; //sessionOriginatorEngineId, data
     std::list<cancel_segment_timer_info_t> m_listCancelSegmentTimerInfo;
     std::list<uint64_t> m_listSendersNeedingDeleted;
     std::list<Ltp::session_id_t> m_listReceiversNeedingDeleted;
@@ -116,6 +119,7 @@ private:
 
     uint64_t m_checkpointEveryNthDataPacketSender;
     uint64_t m_maxReceptionClaims;
+    uint32_t m_maxRetriesPerSerialNumber;
 
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
@@ -124,8 +128,16 @@ private:
 
 public:
     //stats
-    uint64_t m_numTimerExpiredCallbacks;
 
+    //session sender stats
+    uint64_t m_numCheckpointTimerExpiredCallbacks;
+    uint64_t m_numDiscretionaryCheckpointsNotResent;
+
+    //session receiver stats
+    uint64_t m_numReportSegmentTimerExpiredCallbacks;
+    uint64_t m_numReportSegmentsUnableToBeIssued;
+    uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
+    uint64_t m_numReportSegmentsCreatedViaSplit;
 };
 
 #endif // LTP_ENGINE_H

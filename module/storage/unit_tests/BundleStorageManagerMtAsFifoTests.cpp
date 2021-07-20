@@ -11,8 +11,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtAsFifoTestCase)
 {
 
 //	BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-    BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
-      "module/storage/unit_tests/storageConfigRelativePaths.json").string());
+    BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
     bsm.Start();
 
 
@@ -122,8 +121,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtAsFifo_RestoreFromDisk_TestCase)
 	
 	{ //scope this bsm instance (deleted when going out of scope)
 //        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
-          "module/storage/unit_tests/storageConfigRelativePaths.json").string());
+        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
         bsm.Start(false); //false => disable autodelete files on exit
 		//SEND 10 BUNDLES
 		for (unsigned int bundleI = 0; bundleI < BUNDLES_TO_SEND; ++bundleI) {
@@ -178,8 +176,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtAsFifo_RestoreFromDisk_TestCase)
 
 	{
 //        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
-          "module/storage/unit_tests/storageConfigRelativePaths.json").string());
+        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
         uint64_t totalBundlesRestored, totalBytesRestored, totalSegmentsRestored;
 		BOOST_REQUIRE_MESSAGE(bsm.RestoreFromDisk(&totalBundlesRestored, &totalBytesRestored, &totalSegmentsRestored), "error restoring from disk");
 		

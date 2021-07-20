@@ -6,12 +6,15 @@
 #include <boost/make_unique.hpp>
 
 UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
-                                 uint16_t udpPort,
-                                 const WholeBundleReadyCallbackUdp_t & wholeBundleReadyCallback,
-                                 const unsigned int numCircularBufferVectors,
-                                 const unsigned int maxUdpPacketSizeBytes) :
+    uint16_t udpPort,
+    const WholeBundleReadyCallbackUdp_t & wholeBundleReadyCallback,
+    const unsigned int numCircularBufferVectors,
+    const unsigned int maxUdpPacketSizeBytes,
+    const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
+    m_notifyReadyToDeleteCallback(notifyReadyToDeleteCallback),
     m_udpSocket(ioService),
+    m_ioServiceRef(ioService),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
     M_MAX_UDP_PACKET_SIZE_BYTES(maxUdpPacketSizeBytes),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
@@ -47,7 +50,13 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
 
 UdpBundleSink::~UdpBundleSink() {
 
-    DoUdpShutdown();
+    if (!m_safeToDelete) {
+        DoUdpShutdown();
+        while (!m_safeToDelete) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        }
+    }
+    
     
     m_running = false; //thread stopping criteria
 
@@ -121,18 +130,13 @@ void UdpBundleSink::PopCbThreadFunc() {
 
 }
 
-
-
 void UdpBundleSink::DoUdpShutdown() {
+    boost::asio::post(m_ioServiceRef, boost::bind(&UdpBundleSink::HandleSocketShutdown, this));
+}
+
+void UdpBundleSink::HandleSocketShutdown() {
     //final code to shut down tcp sockets
     if (m_udpSocket.is_open()) {
-        try {
-            std::cout << "shutting down UdpBundleSink UDP socket.." << std::endl;
-            m_udpSocket.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-        }
-        catch (const boost::system::system_error & e) {
-            std::cerr << "error in UdpBundleSink::DoUdpShutdown: " << e.what() << std::endl;
-        }
         try {
             std::cout << "closing UdpBundleSink UDP socket.." << std::endl;
             m_udpSocket.close();
@@ -142,6 +146,9 @@ void UdpBundleSink::DoUdpShutdown() {
         }
     }
     m_safeToDelete = true;
+    if (m_notifyReadyToDeleteCallback) {
+        m_notifyReadyToDeleteCallback();
+    }
 }
 
 bool UdpBundleSink::ReadyToBeDeleted() {

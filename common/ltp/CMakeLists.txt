@@ -13,7 +13,9 @@ add_library(ltp_lib STATIC
 	src/LtpEngine.cpp
 	src/LtpTimerManager.cpp
 	src/LtpUdpEngine.cpp
-	#src/LtpBundleSource.cpp
+	src/LtpBundleSink.cpp
+	src/LtpBundleSource.cpp
+	src/LtpClientServiceDataToSend.cpp
 )
 
 target_link_libraries(ltp_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
@@ -27,5 +29,6 @@ add_executable(ltp-file-transfer
 target_include_directories(ltp-file-transfer PUBLIC 
 	apps/ltp_file_transfer/include
 	${Boost_INCLUDE_DIRS}
+	${libzmq_INCLUDE}
 )
-target_link_libraries(ltp-file-transfer PUBLIC ltp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
+target_link_libraries(ltp-file-transfer PUBLIC ltp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES} ${libzmq_LIB})

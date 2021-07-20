@@ -25,8 +25,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMtTestCase)
 
 
 //    BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-    BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
-      "module/storage/unit_tests/storageConfigRelativePaths.json").string());
+    BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
     
     
 	bsm.Start();
@@ -171,8 +170,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 
 	{
 //        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
-          "module/storage/unit_tests/storageConfigRelativePaths.json").string());
+        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
         bsm.Start(false);
 		
 		for (unsigned int sizeI = 0; sizeI < 15; ++sizeI) {
@@ -230,8 +228,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerMt_RestoreFromDisk_TestCase)
 	std::cout << "restoring...\n";
 	{
 //        BundleStorageManagerMT bsm("storageConfigRelativePaths.json");
-        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() /
-          "module/storage/unit_tests/storageConfigRelativePaths.json").string());
+        BundleStorageManagerMT bsm((Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
         uint64_t totalBundlesRestored, totalBytesRestored, totalSegmentsRestored;
 		BOOST_REQUIRE(!bsm.GetMemoryManagerConstRef().IsBackupEqual(backup));
 		BOOST_REQUIRE_MESSAGE(bsm.RestoreFromDisk(&totalBundlesRestored, &totalBytesRestored, &totalSegmentsRestored), "error restoring from disk");

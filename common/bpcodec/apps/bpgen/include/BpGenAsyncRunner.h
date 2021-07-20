@@ -13,7 +13,7 @@ public:
     uint64_t m_bundleCount;
     uint64_t m_totalBundlesAcked;
 
-    FinalStats m_FinalStats;
+    OutductFinalStats m_outductFinalStats;
 
 
 private:

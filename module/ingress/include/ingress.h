@@ -4,16 +4,14 @@
 #include <stdint.h>
 
 #include "message.hpp"
-#include "paths.hpp"
 //#include "util/tsc.h"
 #include "zmq.hpp"
 
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include "TcpclBundleSink.h"
-#include "StcpBundleSink.h"
-#include "UdpBundleSink.h"
+#include "HdtnConfig.h"
+#include "InductManager.h"
 #include <list>
 #include <queue>
 
@@ -27,14 +25,6 @@
 
 namespace hdtn {
 
-typedef struct BpMmsgbuf {
-    uint32_t nbuf;
-    uint32_t bufsz;
-    struct mmsghdr *hdr;
-    struct iovec *io;
-    char *srcbuf;
-} BpMmsgbuf;
-
 typedef struct IngressTelemetry {
     uint64_t totalBundles;
     uint64_t totalBytes;
@@ -47,22 +37,17 @@ typedef struct IngressTelemetry {
     double elapsed;
 } IngressTelemetry;
 
-class BpIngressSyscall {
+class Ingress {
 public:
-    BpIngressSyscall();  // initialize message buffers
-    ~BpIngressSyscall();
+    Ingress();  // initialize message buffers
+    ~Ingress();
     void Stop();
-    int Init(uint32_t type);
-    int Netstart(uint16_t port, bool useTcpcl, bool useStcp, bool alwaysSendToStorage);
-    int send_telemetry();
-    void RemoveInactiveTcpConnections();
+    int Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
 
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-    void StartTcpAccept();
-    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr, const boost::system::error_code& error);
 
 public:
     uint64_t m_bundleCountStorage = 0;
@@ -73,7 +58,6 @@ public:
     uint64_t m_zmsgsOut = 0;
     uint64_t m_ingSequenceNum = 0;
     double m_elapsed = 0;
-    bool m_forceStorage = false;
 
 private:
     struct EgressToIngressAckingQueue {
@@ -118,16 +102,11 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
-    int m_type;
-    boost::asio::io_service m_ioService;
-    std::unique_ptr<boost::asio::ip::tcp::acceptor> m_tcpAcceptorPtr;
 
-    std::list<std::unique_ptr<TcpclBundleSink> > m_listTcpclBundleSinkPtrs;
-    std::list<std::unique_ptr<StcpBundleSink> > m_listStcpBundleSinkPtrs;
-    std::unique_ptr<UdpBundleSink> m_udpBundleSinkPtr;
+    InductManager m_inductManager;
+    HdtnConfig m_hdtnConfig;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;
@@ -137,15 +116,9 @@ private:
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
-    bool m_useTcpcl;
-    bool m_useStcp;
     bool m_alwaysSendToStorage;
 };
 
-// use an explicit typedef to avoid runtime vcall overhead
-#ifdef BP_INGRESS_USE_SYSCALL
-typedef BpIngressSyscall BpIngress;
-#endif
 
 }  // namespace hdtn
 

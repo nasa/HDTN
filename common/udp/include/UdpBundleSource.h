@@ -7,6 +7,7 @@
 #include <map>
 #include <queue>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "RateManagerAsync.h"
 #include <zmq.hpp>
 
 class UdpBundleSource {
@@ -37,13 +38,9 @@ private:
     void HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
 
-    void RestartNewDataSignaler();
-    void SignalNewDataForwarded();
-    void OnNewData_TimerCancelled(const boost::system::error_code& e);
-    void TryRestartRateTimer();
-    void OnRate_TimerExpired(const boost::system::error_code& e);
     void DoUdpShutdown();
-
+    void DoHandleSocketShutdown();
+    void PacketsSentCallback();
     
 
 
@@ -52,35 +49,16 @@ private:
     boost::asio::io_service m_ioService;
     boost::asio::io_service::work m_work;
     boost::asio::ip::udp::resolver m_resolver;
-    boost::asio::deadline_timer m_rateTimer;
-    boost::asio::deadline_timer m_newDataSignalerTimer;
+    RateManagerAsync m_rateManagerAsync;
     boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::condition_variable m_localConditionVariableAckReceived;
 
-    uint64_t m_rateBitsPerSec;
-    const unsigned int MAX_UNACKED;
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByRateCb;
-    std::vector<uint32_t> m_bytesToAckByRateCbVec;
-    std::vector<uint32_t> m_groupingOfBytesToAckByRateVec;
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByUdpSendCallbackCb;
-    std::vector<uint32_t> m_bytesToAckByUdpSendCallbackCbVec;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
-    volatile bool m_rateTimerIsRunning;
-    volatile bool m_newDataSignalerTimerIsRunning;
     volatile bool m_useLocalConditionVariableAckReceived;
 
-
-public:
-    //udp stats
-    std::size_t m_totalUdpPacketsAckedByUdpSendCallback;
-    std::size_t m_totalBytesAckedByUdpSendCallback;
-    std::size_t m_totalUdpPacketsAckedByRate;
-    std::size_t m_totalBytesAckedByRate;
-    std::size_t m_totalUdpPacketsSent;
-    std::size_t m_totalBundleBytesSent;
 };
 
 

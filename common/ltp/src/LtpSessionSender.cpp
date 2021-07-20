@@ -8,12 +8,12 @@
 
 
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
-    std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+    LtpClientServiceDataToSend && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, 
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
     const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
     const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
-    const uint64_t checkpointEveryNthDataPacket) :
+    const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber) :
     m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
@@ -26,11 +26,13 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_CLIENT_SERVICE_ID(clientServiceId),
     M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
     m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
+    M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
     m_notifyEngineThatThisSendersTimersProducedDataFunction(notifyEngineThatThisSendersTimersProducedDataFunction),
     m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback),
-    m_numTimerExpiredCallbacks(0)
+    m_numCheckpointTimerExpiredCallbacks(0),
+    m_numDiscretionaryCheckpointsNotResent(0)
 {
 
 }
@@ -55,8 +57,8 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-    std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!! checkpointSerialNumber = " << checkpointSerialNumber << std::endl;
-    ++m_numTimerExpiredCallbacks;
+    //std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!! checkpointSerialNumber = " << checkpointSerialNumber << std::endl;
+    ++m_numCheckpointTimerExpiredCallbacks;
     if (userData.size() != sizeof(resend_fragment_t)) {
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
         return;
@@ -64,11 +66,18 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     resend_fragment_t resendFragment;
     memcpy(&resendFragment, userData.data(), sizeof(resendFragment));
 
-    if (resendFragment.retryCount <= 5) {
-        //resend 
-        ++resendFragment.retryCount;
-        m_resendFragmentsList.push_back(resendFragment);
-        m_notifyEngineThatThisSendersTimersProducedDataFunction();
+    if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+        const bool isDiscretionaryCheckpoint = (resendFragment.flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
+        if (isDiscretionaryCheckpoint && LtpFragmentMap::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentMap::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1))) {
+            //std::cout << "  Discretionary checkpoint not being resent because its data was already received successfully by the receiver." << std::endl;
+            ++m_numDiscretionaryCheckpointsNotResent;
+        }
+        else {
+            //resend 
+            ++resendFragment.retryCount;
+            m_resendFragmentsList.push_back(resendFragment);
+            m_notifyEngineThatThisSendersTimersProducedDataFunction();
+        }
     }
     else {
         if (!m_didNotifyForDeletion) {

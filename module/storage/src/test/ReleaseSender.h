@@ -10,9 +10,9 @@
 #include <cstdlib>
 #include <iostream>
 #include "message.hpp"
-#include "paths.hpp"
 #include "Environment.h"
 #include "JsonSerializable.h"
+#include "HdtnConfig.h"
 #include "reg.hpp"
 
 typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
@@ -29,13 +29,15 @@ public:
     ReleaseSender();
     ~ReleaseSender();
     int ProcessEventFile(std::string jsonEventFileName);
-    int ProcessComandLine(int argc, char *argv[], std::string& jsonEventFileName);
+    int ProcessComandLine(int argc, const char *argv[], std::string& jsonEventFileName);
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/storage/src/test/").string() + filename;
     }
     volatile bool m_timersFinished;
 private:
     void ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket);
+
+    HdtnConfig m_hdtnConfig;
 };
 
 #endif // RELEASESENDER_H

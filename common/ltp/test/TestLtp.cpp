@@ -1086,6 +1086,8 @@ BOOST_AUTO_TEST_CASE(LtpFullTestCase)
                 m_desired_sessionId, m_desired_dataSegmentMetadata,
                 (m_desired_headerExtensions.extensionsVec.empty()) ? NULL : &m_desired_headerExtensions,
                 static_cast<uint8_t>(m_desired_trailerExtensions.extensionsVec.size()));
+
+
             for (unsigned int i = 1; i <= 5; ++i) {
                 std::string errorMessage;
                 BOOST_REQUIRE(m_ltp.HandleReceivedChars(ltpHeaderPlusDataSegmentMetadata.data(), ltpHeaderPlusDataSegmentMetadata.size(), errorMessage));

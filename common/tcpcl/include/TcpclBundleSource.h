@@ -16,7 +16,7 @@ private:
     TcpclBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100);
+    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
 
     ~TcpclBundleSource();
     void Stop();
@@ -41,7 +41,7 @@ private:
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    void OnHandleSocketShutdown_TimerCancelled(const boost::system::error_code& e);
+    void DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
 
@@ -66,7 +66,6 @@ private:
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
-    boost::asio::deadline_timer m_handleSocketShutdownCancelOnlyTimer;
     boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
@@ -79,10 +78,12 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
     std::vector<uint64_t> m_bytesToAckCbVec;
+    std::vector<std::vector<uint64_t> > m_fragmentBytesToAckCbVec;
+    std::vector<uint64_t> m_fragmentVectorIndexCbVec;
+    const uint64_t M_MAX_FRAGMENT_SIZE;
     volatile bool m_readyToForward;
     volatile bool m_tcpclShutdownComplete;
-    volatile bool m_sendShutdownMessage;
-    volatile bool m_reasonWasTimeOut;
+    bool m_shutdownCalled;
     volatile bool m_useLocalConditionVariableAckReceived;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;
@@ -95,6 +96,8 @@ public:
     std::size_t m_totalDataSegmentsAcked;
     std::size_t m_totalBytesAcked;
     std::size_t m_totalDataSegmentsSent;
+    std::size_t m_totalFragmentedAcked;
+    std::size_t m_totalFragmentedSent;
     std::size_t m_totalBundleBytesSent;
 };
 

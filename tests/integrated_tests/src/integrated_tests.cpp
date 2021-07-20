@@ -5,19 +5,6 @@
  ****************************************************************************
  */
 
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <util/tsc.h>
-#include <fcntl.h>
-#include <signal.h> /* for SIGTERM, SIGKILL */
-#include <sys/types.h> /* for pid_t            */
-#include <sys/wait.h>  /* for waitpid          */
-#include <unistd.h>    /* for fork, exec, kill */
-#include <egress.h>
-#endif // !_WIN32
-
 
 #include <codec/bpv6.h>
 #include <ingress.h>
@@ -58,7 +45,7 @@
 
 // Prototypes
 
-int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStats * ptrFinalStats);
+int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
 int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, hdtn::FinalStatsBpSink * ptrFinalStatsBpSink);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
@@ -130,12 +117,12 @@ void Delay(uint64_t seconds) {
 }
 
 int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount,
-                 FinalStats * ptrFinalStats) {
+    OutductFinalStats * ptrFinalStats) {
     {
         BpGenAsyncRunner runner;
         runner.Run(argc, argv, running, false);
         *ptrBundleCount = runner.m_bundleCount;
-        *ptrFinalStats = runner.m_FinalStats;
+        *ptrFinalStats = runner.m_outductFinalStats;
     }
     return 0;
 }
@@ -186,7 +173,7 @@ bool TestCutThroughTcpcl() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t totalBundlesBpsink = 0;
     uint64_t bundleCountEgress = 0;
@@ -194,17 +181,20 @@ bool TestCutThroughTcpcl() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink[] = { "bpsink", "--use-tcpcl", "--port=4558", NULL };
-    std::thread threadBpsink(RunBpsinkAsync,argsBpsink,3,std::ref(runningBpsink),&totalBundlesBpsink,
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const char * argsBpsink[] = { "storage",bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink(RunBpsinkAsync,argsBpsink,2,std::ref(runningBpsink),&totalBundlesBpsink,
                              &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = { "egress", "--use-tcpcl", "--port1=0", "--port2=4558", NULL };
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress", NULL };
-    std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100", "--use-tcpcl", "--flow-id=2", NULL };
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100","--flow-id=2",bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen(RunBpgenAsync,argsBpgen,4,std::ref(runningBpgen),&bundlesSentBpgen[0],&finalStats[0]);
 
     // Allow time for data to flow
@@ -223,7 +213,7 @@ bool TestCutThroughTcpcl() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -280,7 +270,7 @@ bool TestTcpclFastCutThrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t totalBundlesBpsink = 0;
     uint64_t bundleCountEgress = 0;
@@ -288,19 +278,22 @@ bool TestTcpclFastCutThrough() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink[] = { "bpsink", "--use-tcpcl", "--port=4558", NULL };
-    std::thread threadBpsink(RunBpsinkAsync,argsBpsink, 3,std::ref(runningBpsink),&totalBundlesBpsink,
-                             &finalStatsBpSink[0]);
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const char * argsBpsink[] = { "storage",bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink(RunBpsinkAsync, argsBpsink, 2, std::ref(runningBpsink), &totalBundlesBpsink,
+        &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = { "egress", "--use-tcpcl", "--port1=0", "--port2=4558", NULL };
-    std::thread threadEgress(RunEgressAsync,argsEgress, 4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress", NULL };
-    std::thread threadIngress(RunIngress,argsIngress, 1,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 2, std::ref(runningIngress), &bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=0", "--use-tcpcl", "--flow-id=2", "--duration=3",NULL};
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=0","--flow-id=2","--bundle-size=100000","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen(RunBpgenAsync, argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
 
-    std::thread threadBpgen(RunBpgenAsync,argsBpgen,5,std::ref(runningBpgen),&bundlesSentBpgen[0],&finalStats[0]);
     // Stop threads
     //runningBpgen = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen.join();
@@ -314,7 +307,7 @@ bool TestTcpclFastCutThrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -371,33 +364,39 @@ bool TestTcpclMultiFastCutThrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[2];
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
 
+
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = { "bpsink0", "--use-tcpcl", "--port=4557", NULL };
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0, 3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
+    static const std::string bpsink0ConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4557.json").string();
+    static const char * argsBpsink0[] = { "bpsink0",bpsink0ConfigArg.c_str(), NULL };
+    
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0, 2,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
             &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsBpsink1[] = { "bpsink1", "--use-tcpcl", "--port=4558", NULL };
-    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1, 3, std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],
+    static const std::string bpsink1ConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const char * argsBpsink1[] = { "bpsink1",bpsink1ConfigArg.c_str(), NULL };
+    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1, 2, std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],
             &finalStatsBpSink[1]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = { "egress", "--use-tcpcl", "--port1=4557", "--port2=4558", NULL };
-    std::thread threadEgress(RunEgressAsync,argsEgress, 4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync,argsEgress, 2,std::ref(runningEgress),&bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress", NULL };
-    std::thread threadIngress(RunIngress,argsIngress, 1,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress,argsIngress, 2,std::ref(runningIngress),&bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = { "bpgen0", "--bundle-rate=0","--use-tcpcl", "--flow-id=2","--duration=3",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+    static const char * argsBpgen1[] = { "bpgen1", "--bundle-rate=0","--flow-id=2","--bundle-size=100000","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync,argsBpgen1,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen1[] = { "bpgen1", "--bundle-rate=0", "--use-tcpcl","--flow-id=1","--duration=3",NULL};
-    std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,5,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
+    static const char * argsBpgen0[] = { "bpgen0", "--bundle-rate=0", "--flow-id=1","--bundle-size=100000","--duration=3",bpgenConfigArg.c_str(),NULL};
+    std::thread threadBpgen1(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
     // Stop threads
 //    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen1.join();
@@ -415,7 +414,7 @@ bool TestTcpclMultiFastCutThrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -467,110 +466,6 @@ bool TestTcpclMultiFastCutThrough() {
     return true;
 }
 
-bool TestCutThroughMulti() {
-
-    Delay(DELAY_TEST);
-
-    bool runningBpgen[2] = {true,true};
-    bool runningBpsink[2] = {true,true};
-    bool runningIngress = true;
-    bool runningEgress = true;
-    uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
-    hdtn::FinalStatsBpSink finalStatsBpSink[2];
-    uint64_t bundlesReceivedBpsink[2] = {0,0};
-    uint64_t bundleCountEgress = 0;
-    uint64_t bundleCountIngress = 0;
-
-    // Start threads
-    Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = { "bpsink0", "--use-tcpcl", "--port=4557", NULL };
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0, 3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
-            &finalStatsBpSink[0]);
-    Delay(DELAY_THREAD);
-    static const char * argsBpsink1[] = { "bpsink1", "--use-tcpcl", "--port=4558", NULL };
-    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1, 3, std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],
-            &finalStatsBpSink[1]);
-    Delay(DELAY_THREAD);
-    static const char * argsEgress[] = { "egress", "--use-tcpcl", "--port1=4557", "--port2=4558", NULL };
-    std::thread threadEgress(RunEgressAsync,argsEgress, 4,std::ref(runningEgress),&bundleCountEgress);
-    Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress", NULL };
-    std::thread threadIngress(RunIngress,argsIngress, 1,std::ref(runningIngress),&bundleCountIngress);
-    Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = { "bpgen0","--bundle-rate=100", "--use-tcpcl","--flow-id=2","--duration=3",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
-    Delay(DELAY_THREAD);
-    static const char * argsBpgen1[] = { "bpgen1","--bundle-rate=100","--use-tcpcl", "--flow-id=1","--duration=3",NULL};
-    std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,5,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
-    // Stop threads
-//    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
-    threadBpgen1.join();
-//    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
-    threadBpgen0.join();
-    runningIngress = false;
-    threadIngress.join();
-    runningEgress = false;
-    threadEgress.join();
-    runningBpsink[1] = false;
-    threadBpsink1.join();
-    runningBpsink[0] = false;
-    threadBpsink0.join();
-
-    // Get stats
-    uint64_t bundlesAckedBpgen[2] = {0,0};
-    for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
-    }
-    uint64_t bundlesAckedBpsink[2] = {0,0};
-    for(int i=0; i<2; i++) {
-        bundlesAckedBpsink[i] = finalStatsBpSink[i].m_receivedCount;
-    }
-    // Verify results
-    uint64_t totalBundlesBpgen = 0;
-    for(int i=0; i<2; i++) {
-        totalBundlesBpgen += bundlesSentBpgen[i];
-    }
-    uint64_t totalBundlesBpsink = 0;
-    for(int i=0; i<2; i++) {
-        totalBundlesBpsink += bundlesReceivedBpsink[i];
-    }
-    uint64_t totalBundlesAckedBpgen = 0;
-    for(int i=0; i<2; i++) {
-        totalBundlesAckedBpgen += bundlesAckedBpgen[i];
-    }
-    uint64_t totalBundlesAckedBpsink = 0;
-    for(int i=0; i<2; i++) {
-        totalBundlesAckedBpsink += bundlesAckedBpsink[i];
-    }
-
-    if (totalBundlesBpgen != bundleCountIngress) {
-        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") !=  bundles received by ingress "
-                + std::to_string(bundleCountIngress) + ").");
-        return false;
-    }
-    if (totalBundlesBpgen != bundleCountEgress) {
-        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by egress "
-                + std::to_string(bundleCountEgress) + ").");
-        return false;
-    }
-    if (totalBundlesBpgen != totalBundlesBpsink) {
-        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
-                + std::to_string(totalBundlesBpsink) + ").");
-        return false;
-    }
-    if (totalBundlesBpgen != totalBundlesAckedBpgen) {
-        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
-                + std::to_string(totalBundlesAckedBpgen) + ").");
-        return false;
-    }
-    if (totalBundlesBpgen != totalBundlesAckedBpsink) {
-        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPSINK "
-                + std::to_string(totalBundlesAckedBpsink) + ").");
-        return false;
-    }
-    return true;
-}
 
 bool TestUdp() {
 
@@ -581,7 +476,7 @@ bool TestUdp() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -589,22 +484,24 @@ bool TestUdp() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--port=4558",NULL};
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
+    static const char * argsBpsink0[] = { "bpsink",bpsinkConfigArg.c_str(), NULL };
     std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2, std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
             &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558",MAX_RATE,NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress", NULL};
-    std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2",MAX_RATE_DIV_3,
-                                        "--bundle-size=1000",NULL};
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.5Mbps.json").string();
+    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=100","--flow-id=2","--bundle-size=1000",bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
     // Allow time for data to flow
-    Delay(DELAY_THREAD);
+    Delay(5);
     // Stop threads
     runningBpgen[0] = false;
     threadBpgen0.join();
@@ -618,10 +515,7 @@ bool TestUdp() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByRate;
-        if (finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback > finalStats[i].m_totalUdpPacketsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -682,7 +576,7 @@ bool TestUdpFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -690,19 +584,22 @@ bool TestUdpFastCutthrough() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--port=4558",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2, std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
-            &finalStatsBpSink[0]);
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
+    static const char * argsBpsink0[] = { "bpsink",bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 2, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--port1=0","--port2=4558",MAX_RATE,NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress", NULL};
-    std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 2, std::ref(runningIngress), &bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=5",
-                                        MAX_RATE_DIV_3,"--bundle-size=1000",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
+    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=0","--flow-id=2","--bundle-size=1000","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync, argsBpgen0, 6, std::ref(runningBpgen[0]), &bundlesSentBpgen[0], &finalStats[0]);
+
     // Stop threads
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
@@ -716,10 +613,7 @@ bool TestUdpFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByRate;
-        if (finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback > finalStats[i].m_totalUdpPacketsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -780,7 +674,7 @@ bool TestUdpMultiFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[2];
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
@@ -788,27 +682,32 @@ bool TestUdpMultiFastCutthrough() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--port=4557",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
-            &finalStatsBpSink[0]);
+    static const std::string bpsink0ConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_udp_port4557.json").string();
+    static const char * argsBpsink0[] = { "bpsink0",bpsink0ConfigArg.c_str(), NULL };
+
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 2, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsBpsink1[] = {"bpsink","--port=4558",NULL};
-    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,2,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],
-            &finalStatsBpSink[1]);
+    static const std::string bpsink1ConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_udp_port4558.json").string();
+    static const char * argsBpsink1[] = { "bpsink1",bpsink1ConfigArg.c_str(), NULL };
+    std::thread threadBpsink1(RunBpsinkAsync, argsBpsink1, 2, std::ref(runningBpsink[1]), &bundlesReceivedBpsink[1],
+        &finalStatsBpSink[1]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--port1=4557","--port2=4558",MAX_RATE,NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1udp_port4556_egress2udp_port4557flowid1_port4558flowid2_0.8Mbps.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress", NULL};
-    std::thread threadIngress(RunIngress,argsIngress,1,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 2, std::ref(runningIngress), &bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--flow-id=2","--duration=3",
-                                        MAX_RATE_DIV_6,"--bundle-size=1000",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_udp_port4556_0.05Mbps.json").string();
+    static const char * argsBpgen1[] = { "bpgen1", "--bundle-rate=0","--flow-id=2","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync, argsBpgen1, 5, std::ref(runningBpgen[0]), &bundlesSentBpgen[0], &finalStats[0]);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen1[] = {"bpgen","--bundle-rate=0","--flow-id=1","--duration=3",
-                                        MAX_RATE_DIV_6,"--bundle-size=1000",NULL};
-    std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,6,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
+    static const char * argsBpgen0[] = { "bpgen0", "--bundle-rate=0", "--flow-id=1","--duration=3",bpgenConfigArg.c_str(),NULL };
+    std::thread threadBpgen1(RunBpgenAsync, argsBpgen0, 5, std::ref(runningBpgen[1]), &bundlesSentBpgen[1], &finalStats[1]);
+
+   
     // Stop threads
     //    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen1.join();
@@ -826,10 +725,7 @@ bool TestUdpMultiFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByRate;
-        if (finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback > finalStats[i].m_totalUdpPacketsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalUdpPacketsAckedByUdpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -885,12 +781,12 @@ bool TestStcp() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen[1] = {true};
-    bool runningBpsink[1] = {true};
+    bool runningBpgen = true;
+    bool runningBpsink = {true};
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -898,39 +794,37 @@ bool TestStcp() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--use-stcp","--port=4558",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
-            &finalStatsBpSink[0]);
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_stcp_port4558.json").string();
+    static const char * argsBpsink[] = { "storage",bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink, 2, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--use-stcp","--port1=0","--port2=4558",
-                                        MAX_RATE,NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,5,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1stcp_port4556_egress1stcp_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress","--use-stcp",NULL};
-    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 2, std::ref(runningIngress), &bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=0","--use-stcp","--flow-id=2",
-                                        MAX_RATE_DIV_3,"--bundle-size=1000",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_stcp_port4556.json").string();
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=100","--flow-id=2",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync, argsBpgen, 4, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
     // Allow time for data to flow
-    Delay(DELAY_THREAD);
+    Delay(5);
     // Stop threads
-    runningBpgen[0] = false;
+    runningBpgen = false;
     threadBpgen0.join();
     runningIngress = false;
     threadIngress.join();
     runningEgress = false;
     threadEgress.join();
-    runningBpsink[0] = false;
+    runningBpsink = false;
     threadBpsink0.join();
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByRate;
-        if (finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback > finalStats[i].m_totalDataSegmentsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -986,12 +880,12 @@ bool TestStcpFastCutthrough() {
 
     Delay(DELAY_TEST);
 
-    bool runningBpgen[1] = {true};
-    bool runningBpsink[1] = {true};
+    bool runningBpgen = true;
+    bool runningBpsink = true;
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -999,20 +893,21 @@ bool TestStcpFastCutthrough() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = { "bpsink",  "--use-stcp", "--port=4558",  NULL };
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0, 3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
-            &finalStatsBpSink[0]);
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_stcp_port4558.json").string();
+    static const char * argsBpsink[] = { "storage",bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink, 2, std::ref(runningBpsink), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = { "egress",  "--use-stcp", "--port1=0",
-                                         "--port2=4558",MAX_RATE, NULL };
-    std::thread threadEgress(RunEgressAsync,argsEgress, 5,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1stcp_port4556_egress1stcp_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress", "--use-stcp", NULL };
-    std::thread threadIngress(RunIngress,argsIngress, 2,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 2, std::ref(runningIngress), &bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=2","--duration=3",
-                                         MAX_RATE_DIV_3,"--bundle-size=1000",NULL };
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,7,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_stcp_port4556.json").string();
+    static const char * argsBpgen[] = { "bpgen", "--bundle-rate=0","--flow-id=2","--bundle-size=100000","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync, argsBpgen, 6, std::ref(runningBpgen), &bundlesSentBpgen[0], &finalStats[0]);
     // Stop threads
     //    runningBpgen[0] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen0.join();
@@ -1020,16 +915,13 @@ bool TestStcpFastCutthrough() {
     threadIngress.join();
     runningEgress = false;
     threadEgress.join();
-    runningBpsink[0] = false;
+    runningBpsink = false;
     threadBpsink0.join();
 
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByRate;
-        if (finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback > finalStats[i].m_totalDataSegmentsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1090,7 +982,7 @@ bool TestStcpMultiFastCutthrough() {
     bool runningIngress = true;
     bool runningEgress = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[2];
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
@@ -1098,28 +990,30 @@ bool TestStcpMultiFastCutthrough() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = { "bpsink",  "--use-stcp", "--port=4557",  NULL };
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
-            &finalStatsBpSink[0]);
+    static const std::string bpsink0ConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_stcp_port4557.json").string();
+    static const char * argsBpsink0[] = { "bpsink0",bpsink0ConfigArg.c_str(), NULL };
+
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 2, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
-    static const char * argsBpsink1[] = { "bpsink",  "--use-stcp", "--port=4558",  NULL };
-    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,3,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],
-            &finalStatsBpSink[1]);
+    static const std::string bpsink1ConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_stcp_port4558.json").string();
+    static const char * argsBpsink1[] = { "bpsink1",bpsink1ConfigArg.c_str(), NULL };
+    std::thread threadBpsink1(RunBpsinkAsync, argsBpsink1, 2, std::ref(runningBpsink[1]), &bundlesReceivedBpsink[1],
+        &finalStatsBpSink[1]);
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = { "egress",  "--use-stcp", "--port1=4557", "--port2=4558",
-                                         MAX_RATE, NULL };
-    std::thread threadEgress(RunEgressAsync,argsEgress, 5,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1stcp_port4556_egress2stcp_port4557flowid1_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress", "--use-stcp", NULL };
-    std::thread threadIngress(RunIngress,argsIngress, 2,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 2, std::ref(runningIngress), &bundleCountIngress);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=2","--duration=3",
-                                         MAX_RATE_DIV_6,"--bundle-size=1000",NULL };
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,7,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_stcp_port4556.json").string();
+    static const char * argsBpgen1[] = { "bpgen1", "--bundle-rate=0","--flow-id=2","--bundle-size=100000","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync, argsBpgen1, 6, std::ref(runningBpgen[0]), &bundlesSentBpgen[0], &finalStats[0]);
     Delay(DELAY_THREAD);
-    static const char * argsBpgen1[] = { "bpgen",  "--bundle-rate=0", "--use-stcp",  "--flow-id=1","--duration=3",
-                                         MAX_RATE_DIV_6, "--bundle-size=1000",NULL };
-    std::thread threadBpgen1(RunBpgenAsync,argsBpgen1,7,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
+    static const char * argsBpgen0[] = { "bpgen0", "--bundle-rate=0", "--flow-id=1","--bundle-size=100000","--duration=3",bpgenConfigArg.c_str(),NULL };
+    std::thread threadBpgen1(RunBpgenAsync, argsBpgen0, 6, std::ref(runningBpgen[1]), &bundlesSentBpgen[1], &finalStats[1]);
     // Stop threads
     //    runningBpgen[1] = false; // Do not set this for multi case due to the duration parameter.
     threadBpgen1.join();
@@ -1137,10 +1031,7 @@ bool TestStcpMultiFastCutthrough() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByRate;
-        if (finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback > finalStats[i].m_totalDataSegmentsAckedByRate) {
-            bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAckedByTcpSendCallback;
-        }
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -1202,7 +1093,7 @@ bool TestStorage() {
     bool runningEgress = true;
     bool runningStorage = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
@@ -1211,35 +1102,38 @@ bool TestStorage() {
 
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4558",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const char * argsBpsink0[] = { "bpsink",bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,2,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],
             &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
 
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
-    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress","--always-send-to-storage",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress,argsIngress,3,std::ref(runningIngress),&bundleCountIngress);
 
     // Run Release Message Sender
     Delay(DELAY_THREAD);
     ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
+    static const char * argsRelease[] = { "release",hdtnConfigArg.c_str(), NULL };
+    std::string junk;
+    releaseSender.ProcessComandLine(2, argsRelease, junk); //just to set m_hdtnConfig
     std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,&releaseSender,eventFile);
 
     // Run Storage
     Delay(DELAY_THREAD);
-    static const std::string storageConfigArg =
-            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "unit_tests" / "storageConfigRelativePaths.json").string();
-    static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
+    static const char * argsStorage[] = {"storage",hdtnConfigArg.c_str(),NULL};
     StorageRunner storageRunner;
     std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
 
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=100","--flow-id=2","--duration=5",bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
     // Stop threads
@@ -1281,7 +1175,7 @@ bool TestStorage() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-      bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+      bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1344,48 +1238,48 @@ bool TestStorageSlowBpSink() {
     bool runningEgress = true;
     bool runningStorage = true;
     uint64_t bundlesSentBpgen[1] = {0};
-    FinalStats finalStats[1] = {{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[1];
     hdtn::FinalStatsBpSink finalStatsBpSink[1];
     uint64_t bundlesReceivedBpsink[1] = {0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
     uint64_t bundleCountStorage = 0;
-
+    //
     // Start threads
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4558","--simulate-processing-lag-ms=10",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,4,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],&finalStatsBpSink[0]);
+    static const std::string bpsinkConfigArg = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const char * argsBpsink0[] = { "bpsink","--simulate-processing-lag-ms=10", bpsinkConfigArg.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 3, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=0","--port2=4558",NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
 
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
-    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress","--always-send-to-storage",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 3, std::ref(runningIngress), &bundleCountIngress);
 
     // Run Release Message Sender
     Delay(DELAY_THREAD);
-    //ReleaseSender releaseSender;
     ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest1.json");
-    //    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,&releaseSender,eventFile);
+    static const char * argsRelease[] = { "release",hdtnConfigArg.c_str(), NULL };
+    std::string junk;
+    releaseSender.ProcessComandLine(2, argsRelease, junk); //just to set m_hdtnConfig
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile, &releaseSender, eventFile);
 
     // Run Storage
     Delay(DELAY_THREAD);
-
-    static const std::string storageConfigArg =
-            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "unit_tests" / "storageConfigRelativePaths.json").string();
-
-    static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
+    static const char * argsStorage[] = { "storage",hdtnConfigArg.c_str(),NULL };
     StorageRunner storageRunner;
-    std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
+    std::thread threadStorage(&StorageRunner::Run, &storageRunner, 2, argsStorage, std::ref(runningStorage), false);
 
     Delay(DELAY_THREAD);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0,5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=100","--flow-id=2","--duration=5",bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync, argsBpgen0, 5, std::ref(runningBpgen[0]), &bundlesSentBpgen[0], &finalStats[0]);
 
     // Stop threads
     //runningBpgen[0] = false;  // Do not set due to the duration parameter
@@ -1423,7 +1317,7 @@ bool TestStorageSlowBpSink() {
     // Get stats
     uint64_t bundlesAckedBpgen[1] = {0};
     for(int i=0; i<1; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[1] = {0};
     for(int i=0; i<1; i++) {
@@ -1486,54 +1380,61 @@ bool TestStorageMulti() {
     bool runningEgress = true;
     bool runningStorage = true;
     uint64_t bundlesSentBpgen[2] = {0,0};
-    FinalStats finalStats[2] = {{false,false,0,0,0,0,0,0,0},{false,false,0,0,0,0,0,0,0}};
+    OutductFinalStats finalStats[2];
     hdtn::FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;
     uint64_t bundleCountStorage = 0;
 
+    
     // Start threads
 
     Delay(DELAY_THREAD);
-    static const char * argsBpsink0[] = {"bpsink","--use-tcpcl","--port=4557",NULL};
-    std::thread threadBpsink0(RunBpsinkAsync,argsBpsink0,3,std::ref(runningBpsink[0]),&bundlesReceivedBpsink[0],&finalStatsBpSink[0]);
+    static const std::string bpsinkConfigArg0 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4557.json").string();
+    static const char * argsBpsink0[] = { "bpsink",bpsinkConfigArg0.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 2, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
+        &finalStatsBpSink[0]);
 
     Delay(DELAY_THREAD);
-    static const char * argsBpsink1[] = {"bpsink","--use-tcpcl","--port=4558",NULL};
-    std::thread threadBpsink1(RunBpsinkAsync,argsBpsink1,3,std::ref(runningBpsink[1]),&bundlesReceivedBpsink[1],&finalStatsBpSink[1]);
+    static const std::string bpsinkConfigArg1 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const char * argsBpsink1[] = { "bpsink",bpsinkConfigArg1.c_str(), NULL };
+    std::thread threadBpsink1(RunBpsinkAsync, argsBpsink1, 2, std::ref(runningBpsink[1]), &bundlesReceivedBpsink[1],
+        &finalStatsBpSink[1]);
 
     Delay(DELAY_THREAD);
-    static const char * argsEgress[] = {"egress","--use-tcpcl","--port1=4557","--port2=4558",NULL};
-    std::thread threadEgress(RunEgressAsync,argsEgress,4,std::ref(runningEgress),&bundleCountEgress);
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json").string();
+    static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
+    std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
 
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = {"ingress","--always-send-to-storage",NULL};
-    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+    static const char * argsIngress[] = { "ingress","--always-send-to-storage",hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress, argsIngress, 3, std::ref(runningIngress), &bundleCountIngress);
 
     // Run Release Message Sender
     Delay(DELAY_THREAD);
-    //ReleaseSender releaseSender;
     ReleaseSender releaseSender;
     std::string eventFile = ReleaseSender::GetFullyQualifiedFilename("releaseMessagesIntegratedTest2.json");
-    //    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,releaseSender,eventFile);
-    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile,&releaseSender,eventFile);
+    static const char * argsRelease[] = { "release",hdtnConfigArg.c_str(), NULL };
+    std::string junk;
+    releaseSender.ProcessComandLine(2, argsRelease, junk); //just to set m_hdtnConfig
+    std::thread threadReleaseSender(&ReleaseSender::ProcessEventFile, &releaseSender, eventFile);
 
     // Run Storage
     Delay(1);
-    static const std::string storageConfigArg =
-            "--storage-config-json-file=" + (Environment::GetPathHdtnSourceRoot() / "module" / "storage"
-            / "unit_tests" / "storageConfigRelativePaths.json").string();
-    static const char * argsStorage[] = {"storage",storageConfigArg.c_str(),NULL};
+    // Run Storage
+    Delay(DELAY_THREAD);
+    static const char * argsStorage[] = { "storage",hdtnConfigArg.c_str(),NULL };
     StorageRunner storageRunner;
-    std::thread threadStorage(&StorageRunner::Run,&storageRunner,2,argsStorage,std::ref(runningStorage),false);
+    std::thread threadStorage(&StorageRunner::Run, &storageRunner, 2, argsStorage, std::ref(runningStorage), false);
 
     Delay(DELAY_THREAD);
-    static const char * argsBpgen1[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=5","--flow-id=2",NULL};
+    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+    static const char * argsBpgen1[] = { "bpgen", "--bundle-rate=100","--flow-id=2","--duration=5",bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen1(RunBpgenAsync,argsBpgen1, 5,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
 
     Delay(1);
-    static const char * argsBpgen0[] = {"bpgen","--bundle-rate=100","--use-tcpcl","--duration=3","--flow-id=1",NULL};
+    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=100","--flow-id=1","--duration=5",bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
     // Stop threads
@@ -1585,7 +1486,7 @@ bool TestStorageMulti() {
     // Get stats
     uint64_t bundlesAckedBpgen[2] = {0,0};
     for(int i=0; i<2; i++) {
-        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsAcked;
+        bundlesAckedBpgen[i] = finalStats[i].m_totalDataSegmentsOrPacketsAcked;
     }
     uint64_t bundlesAckedBpsink[2] = {0,0};
     for(int i=0; i<2; i++) {
@@ -1661,12 +1562,7 @@ BOOST_AUTO_TEST_CASE(it_TestTcpclMultiFastCutThrough, * boost::unit_test::enable
     BOOST_CHECK(result == true);
 }
 
-//   Fails ACK test -- test_cutthrough_multi.bat
-BOOST_AUTO_TEST_CASE(it_TestCutThroughMulti, * boost::unit_test::enabled()) {
-    std::cout << std::endl << ">>>>>> Running: " << "it_TestCutThroughMulti" << std::endl << std::flush;
-    bool result = TestCutThroughMulti();
-    BOOST_CHECK(result == true);
-}
+
 
 //  Passes ACK test -- test_udp.bat
 BOOST_AUTO_TEST_CASE(it_TestUdp, * boost::unit_test::enabled()) {
@@ -1718,7 +1614,7 @@ BOOST_AUTO_TEST_CASE(it_TestStorage, * boost::unit_test::enabled()) {
 }
 
 //    Fails ACK test -- test_storage_multi.bat
-BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::disabled()) {
+BOOST_AUTO_TEST_CASE(it_TestStorageMulti, * boost::unit_test::enabled()) {
     std::cout << std::endl << ">>>>>> Running: " << "it_TestStorageMulti" << std::endl << std::flush;
     bool result = TestStorageMulti();
     BOOST_CHECK(result == true);

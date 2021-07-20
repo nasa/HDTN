@@ -1,0 +1,19 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "convergenceLayer": "ltp_over_udp",
+            "endpointIdStr": "ipn1:1",
+            "boundPort": 4558,
+            "numRxCircularBufferElements": 100,
+            "numRxCircularBufferBytesPerElement": 65535,
+            "thisLtpEngineId": 10004558,
+            "ltpReportSegmentMtu": 1000,
+            "oneWayLightTimeMs": 1000,
+            "oneWayMarginTimeMs": 200,
+            "clientServiceId": 400,
+            "preallocatedRedDataBytes": 200000,
+            "ltpMaxRetriesPerSerialNumber": 5
+        }
+    ]
+}

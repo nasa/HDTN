@@ -9,7 +9,7 @@
 #include <boost/shared_ptr.hpp>
 #include "LtpTimerManager.h"
 #include "LtpNoticesToClientService.h"
-
+#include "LtpClientServiceDataToSend.h"
 
 
 
@@ -36,13 +36,13 @@ public:
         uint8_t retryCount;
     };
     ~LtpSessionSender();
-    LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, std::vector<uint8_t> && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
+    LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
         const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
-        const uint64_t checkpointEveryNthDataPacket = 0);
+        const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
     bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     
 
@@ -58,7 +58,7 @@ private:
     LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
-    std::vector<uint8_t> m_dataToSend;
+    LtpClientServiceDataToSend m_dataToSend;
     uint64_t M_LENGTH_OF_RED_PART;
     uint64_t m_dataIndexFirstPass;
     bool m_didNotifyForDeletion;
@@ -67,6 +67,7 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
     uint64_t m_checkpointEveryNthDataPacketCounter;
+    const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
     const NotifyEngineThatThisSendersTimersProducedDataFunction_t m_notifyEngineThatThisSendersTimersProducedDataFunction;
@@ -74,7 +75,8 @@ private:
 
 public:
     //stats
-    uint64_t m_numTimerExpiredCallbacks;
+    uint64_t m_numCheckpointTimerExpiredCallbacks;
+    uint64_t m_numDiscretionaryCheckpointsNotResent;
 };
 
 #endif // LTP_SESSION_SENDER_H

@@ -33,8 +33,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         Ltp::session_id_t lastSessionId_sessionStartSenderCallback;
 
         Test() :
-            ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(500)),
-            ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(500)),
+            ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(250)),
+            ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(250)),
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
             CLIENT_SERVICE_ID_DEST(300),
@@ -118,6 +118,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void Reset() {
             engineSrc.Reset();
             engineDest.Reset();
+            engineSrc.SetCheckpointEveryNthDataPacketForSenders(0);
+            engineDest.SetCheckpointEveryNthDataPacketForSenders(0);
             engineSrc.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             engineDest.m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
             numRedPartReceptionCallbacks = 0;
@@ -527,8 +529,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 1);
         }
 
         void DoTestDropRaSrcToDest() {
@@ -558,7 +562,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (engineDest.m_numTimerExpiredCallbacks == 1)) {
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (engineDest.m_numReportSegmentTimerExpiredCallbacks == 1)) {
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -582,8 +586,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 1);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
         }
         /*
         void DoTestDropReportSegmentDestToSrc() {
@@ -702,8 +708,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::RLEXC);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 6);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 6);
         }
 
         //dest RS timer should expire until limit then send cancel segment to sender
@@ -750,8 +758,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 6);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 6);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
         }
 
         //src checkpoint should never make it to receiver, giving receiver time to cancel session
@@ -800,8 +810,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
         }
 
         //src checkpoint should never make it to receiver, giving sender time to cancel session
@@ -850,8 +862,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
             //BOOST_REQUIRE(lastReasonCode_transmissionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
 
-            BOOST_REQUIRE_EQUAL(engineDest.m_numTimerExpiredCallbacks, 0);
-            BOOST_REQUIRE_EQUAL(engineSrc.m_numTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineDest.m_numCheckpointTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numReportSegmentTimerExpiredCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(engineSrc.m_numCheckpointTimerExpiredCallbacks, 0);
         }
 
         void DoTestDropOddDataSegmentWithRsMtu() {

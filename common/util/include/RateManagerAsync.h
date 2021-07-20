@@ -27,10 +27,10 @@ public:
 
     void WaitForAllDequeuedPacketsToFullySend_Blocking(unsigned int timeoutSeconds = 1000, bool printStats = false);
     void WaitForAvailabilityToSendPacket_Blocking(unsigned int timeoutSeconds = 1000);
-    bool HasAvailabilityToSendPacket_Blocking();
+    bool HasAvailabilityToSendPacket();
     void SetPacketsSentCallback(const PacketsSentCallback_t & callback);
     void SetRate(uint64_t rateBitsPerSec);
-    void SetMaxPacketsBeingSent(uint64_t maxPacketsBeingSent);
+    void NotifyPacketSentFromCallback_ThreadSafe(std::size_t bytes_transferred);
     bool IoServiceThreadNotifyPacketSentCallback(std::size_t bytes_transferred);
     bool SignalNewPacketDequeuedForSend(uint64_t packetSizeBytes);
 private:

@@ -39,8 +39,11 @@ target_link_libraries(integrated-tests
 	tcpcl_lib
 	stcp_lib
 	udp_lib
+	ltp_lib
 	egress_async_lib
 	ingress_async_lib
+	induct_manager_lib
+	outduct_manager_lib
 	bpcodec
 	${Boost_LIBRARIES}
 )

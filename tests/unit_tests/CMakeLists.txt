@@ -14,8 +14,11 @@ add_executable(unit-tests
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
 	../../common/util/test/TestRateManagerAsync.cpp
+	../../common/config/test/TestInductsConfig.cpp
+	../../common/config/test/TestOutductsConfig.cpp
+	../../common/config/test/TestStorageConfig.cpp
+	../../common/config/test/TestHdtnConfig.cpp
     ../../common/regsvr/lib/test/TestHdtnEntries.cpp
-    ../../module/storage/unit_tests/StorageConfigTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
@@ -43,6 +46,7 @@ target_link_libraries(unit-tests
 	stcp_lib
 	ltp_lib
 	storage_lib
+	config_lib
     ingress_async_lib
 	bpcodec
 	${Boost_LIBRARIES}
