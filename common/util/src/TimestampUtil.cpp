@@ -1,5 +1,6 @@
 #include <sstream>
 #include "TimestampUtil.h"
+#include "Sdnv.h"
 
 static const boost::posix_time::ptime EPOCH_START_TIME_UNIX(boost::gregorian::date(1970, 1, 1));
 
@@ -11,10 +12,10 @@ static const boost::posix_time::ptime EPOCH_START_TIME_RFC5050(boost::gregorian:
 
 
 const boost::posix_time::ptime & TimestampUtil::GetRfc5050Epoch() {
-	return EPOCH_START_TIME_RFC5050;
+    return EPOCH_START_TIME_RFC5050;
 }
 const boost::posix_time::ptime & TimestampUtil::GetUnixEpoch() {
-	return EPOCH_START_TIME_UNIX;
+    return EPOCH_START_TIME_UNIX;
 }
 
 uint64_t TimestampUtil::GetMillisecondsSinceEpochUnix() {
@@ -77,7 +78,7 @@ uint64_t TimestampUtil::GetMicrosecondsSinceEpoch(const boost::posix_time::ptime
 
 
 std::string TimestampUtil::GetUtcTimestampStringNow(bool forFileName) {
-	return GetUtcTimestampStringFromPtime(boost::posix_time::microsec_clock::universal_time(), forFileName);
+    return GetUtcTimestampStringFromPtime(boost::posix_time::microsec_clock::universal_time(), forFileName);
 }
 
 // %Y = Four digit year
@@ -94,25 +95,96 @@ std::string TimestampUtil::GetUtcTimestampStringNow(bool forFileName) {
 
 
 std::string TimestampUtil::GetUtcTimestampStringFromPtime(const boost::posix_time::ptime & posixTimeValue, bool forFileName) {
-	static const std::locale DATE_TIME_FORMAT_OUT_UTC = std::locale(std::locale::classic(), new boost::posix_time::time_facet("%Y-%m-%dT%H:%M:%sZ"));
-	static const std::locale DATE_TIME_FORMAT_OUT_UTC_FILENAME = std::locale(std::locale::classic(), new boost::posix_time::time_facet("%Y_%m_%dT%H_%M_%sZ"));
-	std::ostringstream os;
-	os.imbue((forFileName) ? DATE_TIME_FORMAT_OUT_UTC_FILENAME : DATE_TIME_FORMAT_OUT_UTC);
-	os << posixTimeValue;
-	return os.str();
+    static const std::locale DATE_TIME_FORMAT_OUT_UTC = std::locale(std::locale::classic(), new boost::posix_time::time_facet("%Y-%m-%dT%H:%M:%sZ"));
+    static const std::locale DATE_TIME_FORMAT_OUT_UTC_FILENAME = std::locale(std::locale::classic(), new boost::posix_time::time_facet("%Y_%m_%dT%H_%M_%sZ"));
+    std::ostringstream os;
+    os.imbue((forFileName) ? DATE_TIME_FORMAT_OUT_UTC_FILENAME : DATE_TIME_FORMAT_OUT_UTC);
+    os << posixTimeValue;
+    return os.str();
 }
 
 
 bool TimestampUtil::SetPtimeFromUtcTimestampString(const std::string & stringvalue, boost::posix_time::ptime & pt) {
-	//"2020-02-06T20:25:11.493Z"
-	static const std::locale DATE_TIME_FORMAT_IN = std::locale(std::locale::classic(), new boost::posix_time::time_input_facet("%Y-%m-%dT%H:%M:%sZ"));
+    //"2020-02-06T20:25:11.493Z"
+    static const std::locale DATE_TIME_FORMAT_IN = std::locale(std::locale::classic(), new boost::posix_time::time_input_facet("%Y-%m-%dT%H:%M:%sZ"));
 
-	std::istringstream is(stringvalue);
-	is.imbue(DATE_TIME_FORMAT_IN);
-	is >> pt;
-	if (pt.is_not_a_date_time()) {
-		return false;
-	}
-	return true;
+    std::istringstream is(stringvalue);
+    is.imbue(DATE_TIME_FORMAT_IN);
+    is >> pt;
+    if (pt.is_not_a_date_time()) {
+        return false;
+    }
+    return true;
 
+}
+
+
+TimestampUtil::dtn_time_t::dtn_time_t() : secondsSinceStartOfYear2000(0), nanosecondsSinceStartOfIndicatedSecond(0) { } //a default constructor: X()
+TimestampUtil::dtn_time_t::dtn_time_t(uint64_t paramSecondsSinceStartOfYear2000, uint32_t paramNanosecondsSinceStartOfIndicatedSecond) :
+    secondsSinceStartOfYear2000(paramSecondsSinceStartOfYear2000), nanosecondsSinceStartOfIndicatedSecond(paramNanosecondsSinceStartOfIndicatedSecond) { }
+TimestampUtil::dtn_time_t::~dtn_time_t() { } //a destructor: ~X()
+TimestampUtil::dtn_time_t::dtn_time_t(const dtn_time_t& o) : secondsSinceStartOfYear2000(o.secondsSinceStartOfYear2000), nanosecondsSinceStartOfIndicatedSecond(o.nanosecondsSinceStartOfIndicatedSecond) { } //a copy constructor: X(const X&)
+TimestampUtil::dtn_time_t::dtn_time_t(dtn_time_t&& o) : secondsSinceStartOfYear2000(o.secondsSinceStartOfYear2000), nanosecondsSinceStartOfIndicatedSecond(o.nanosecondsSinceStartOfIndicatedSecond) { } //a move constructor: X(X&&)
+TimestampUtil::dtn_time_t& TimestampUtil::dtn_time_t::operator=(const dtn_time_t& o) { //a copy assignment: operator=(const X&)
+    secondsSinceStartOfYear2000 = o.secondsSinceStartOfYear2000;
+    nanosecondsSinceStartOfIndicatedSecond = o.nanosecondsSinceStartOfIndicatedSecond;
+    return *this;
+}
+TimestampUtil::dtn_time_t& TimestampUtil::dtn_time_t::operator=(dtn_time_t && o) { //a move assignment: operator=(X&&)
+    secondsSinceStartOfYear2000 = o.secondsSinceStartOfYear2000;
+    nanosecondsSinceStartOfIndicatedSecond = o.nanosecondsSinceStartOfIndicatedSecond;
+    return *this;
+}
+bool TimestampUtil::dtn_time_t::operator==(const dtn_time_t & o) const {
+    return (secondsSinceStartOfYear2000 == o.secondsSinceStartOfYear2000) && (nanosecondsSinceStartOfIndicatedSecond == o.nanosecondsSinceStartOfIndicatedSecond);
+}
+bool TimestampUtil::dtn_time_t::operator!=(const dtn_time_t & o) const {
+    return (secondsSinceStartOfYear2000 != o.secondsSinceStartOfYear2000) || (nanosecondsSinceStartOfIndicatedSecond != o.nanosecondsSinceStartOfIndicatedSecond);
+}
+bool TimestampUtil::dtn_time_t::operator<(const dtn_time_t & o) const {
+    if (secondsSinceStartOfYear2000 == o.secondsSinceStartOfYear2000) {
+        return (nanosecondsSinceStartOfIndicatedSecond < o.nanosecondsSinceStartOfIndicatedSecond);
+    }
+    return (secondsSinceStartOfYear2000 < o.secondsSinceStartOfYear2000);
+}
+std::ostream& operator<<(std::ostream& os, const TimestampUtil::dtn_time_t & o) {
+    os << "secondsSinceStartOfYear2000: " << o.secondsSinceStartOfYear2000 << ", nanosecondsSinceStartOfIndicatedSecond: " << o.nanosecondsSinceStartOfIndicatedSecond;
+    return os;
+}
+uint64_t TimestampUtil::dtn_time_t::Serialize(uint8_t * serialization) const {
+    uint8_t * serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, secondsSinceStartOfYear2000);
+    serialization += SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond);
+    return serialization - serializationBase;
+}
+void TimestampUtil::dtn_time_t::SetZero() {
+    secondsSinceStartOfYear2000 = 0;
+    nanosecondsSinceStartOfIndicatedSecond = 0;
+}
+
+boost::posix_time::ptime TimestampUtil::DtnTimeToPtimeLossy(const TimestampUtil::dtn_time_t & dtnTime) {
+    //Note the returned ptime will lose the nanosecond precision and be truncated to microseconds
+    return TimestampUtil::GetRfc5050Epoch() + boost::posix_time::seconds(dtnTime.secondsSinceStartOfYear2000) +
+#ifdef BOOST_DATE_TIME_HAS_NANOSECONDS
+        boost::posix_time::nanoseconds(dtnTime.nanosecondsSinceStartOfIndicatedSecond);
+#else
+        boost::posix_time::microseconds(dtnTime.nanosecondsSinceStartOfIndicatedSecond / 1000);
+#endif // BOOST_DATE_TIME_HAS_NANOSECONDS
+}
+
+TimestampUtil::dtn_time_t TimestampUtil::PtimeToDtnTime(const boost::posix_time::ptime & posixTimeValue) {
+    const boost::posix_time::time_duration diff = posixTimeValue - TimestampUtil::GetRfc5050Epoch();
+    return TimestampUtil::dtn_time_t(
+        static_cast<uint64_t>(diff.total_seconds()),
+        static_cast<uint32_t>(diff.fractional_seconds() * (1000000000 / boost::posix_time::time_res_traits::ticks_per_second)) //convert to nanoseconds
+    );
+}
+
+
+std::string TimestampUtil::GetUtcTimestampStringFromDtnTimeLossy(const TimestampUtil::dtn_time_t & dtnTime, bool forFileName) {
+    return TimestampUtil::GetUtcTimestampStringFromPtime(DtnTimeToPtimeLossy(dtnTime), forFileName);
+}
+
+TimestampUtil::dtn_time_t TimestampUtil::GenerateDtnTimeNow() {
+    return PtimeToDtnTime(boost::posix_time::microsec_clock::universal_time());
 }

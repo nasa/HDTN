@@ -14,6 +14,7 @@ add_executable(unit-tests
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
 	../../common/util/test/TestRateManagerAsync.cpp
+	../../common/util/test/TestTimestampUtil.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
