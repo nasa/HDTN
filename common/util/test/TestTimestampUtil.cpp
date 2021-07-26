@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(TimestampUtilTestCase)
         //std::cout << "time: " << timestampStr << "\n";
     }
 
-    //Dtn Tim
+    //Dtn Time
     {
         TimestampUtil::dtn_time_t t1 = TimestampUtil::GenerateDtnTimeNow();
         boost::this_thread::sleep(boost::posix_time::milliseconds(1));

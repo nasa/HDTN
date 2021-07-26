@@ -4,7 +4,6 @@
 #include <string>
 #include <ctime>
 #include <boost/date_time.hpp>
-#include <boost/chrono.hpp>
 
 class TimestampUtil {
 private:
