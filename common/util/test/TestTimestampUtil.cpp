@@ -59,5 +59,18 @@ BOOST_AUTO_TEST_CASE(TimestampUtilTestCase)
             //BOOST_REQUIRE(pt == pt2);
         }
     }
+
+    //Dtn Time Serialization/Deserialization
+    {
+        TimestampUtil::dtn_time_t t1(1000, 65537);
+        std::vector<uint8_t> serialization(TimestampUtil::dtn_time_t::MAX_BUFFER_SIZE);
+        const uint64_t size = t1.Serialize(&serialization[0]);
+        BOOST_REQUIRE_EQUAL(size, 5);
+        TimestampUtil::dtn_time_t t2;
+        uint8_t numBytesTakenToDecode;
+        BOOST_REQUIRE(t2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 5);
+        BOOST_REQUIRE_EQUAL(t1, t2);
+    }
 }
 

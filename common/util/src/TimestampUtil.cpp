@@ -157,6 +157,25 @@ uint64_t TimestampUtil::dtn_time_t::Serialize(uint8_t * serialization) const {
     serialization += SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond);
     return serialization - serializationBase;
 }
+bool TimestampUtil::dtn_time_t::Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
+    uint8_t sdnvSize;
+    const uint8_t * const serializationBase = serialization;
+
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false; //failure
+    }
+    serialization += sdnvSize;
+
+    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false; //failure
+    }
+    serialization += sdnvSize;
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
+}
 void TimestampUtil::dtn_time_t::SetZero() {
     secondsSinceStartOfYear2000 = 0;
     nanosecondsSinceStartOfIndicatedSecond = 0;

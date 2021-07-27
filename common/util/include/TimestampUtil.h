@@ -21,6 +21,8 @@ public:
         uint64_t secondsSinceStartOfYear2000;
         uint32_t nanosecondsSinceStartOfIndicatedSecond;
 
+        static constexpr unsigned int MAX_BUFFER_SIZE = 18; //MAX(sizeof(__m128i), 10 + sizeof(__m64i)) 
+
         dtn_time_t(); //a default constructor: X()
         dtn_time_t(uint64_t paramSecondsSinceStartOfYear2000, uint32_t paramNanosecondsSinceStartOfIndicatedSecond);
         ~dtn_time_t(); //a destructor: ~X()
@@ -33,6 +35,7 @@ public:
         bool operator<(const dtn_time_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const dtn_time_t& o);
         uint64_t Serialize(uint8_t * serialization) const;
+        bool Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode);
         void SetZero();
     };
 
