@@ -3,7 +3,7 @@
 
 #include <boost/random/random_device.hpp>
 #include <boost/thread.hpp>
-#include "LtpFragmentMap.h"
+#include "LtpFragmentSet.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include "LtpSessionReceiver.h"

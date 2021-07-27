@@ -10,6 +10,7 @@ add_library(hdtn_util STATIC
 	src/JsonSerializable.cpp
 	src/SignalHandler.cpp
 	src/TimestampUtil.cpp
+	src/FragmentSet.cpp
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
 	src/RateManagerAsync.cpp

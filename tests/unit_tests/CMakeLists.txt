@@ -6,7 +6,7 @@ add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
 	../../common/ltp/test/TestLtp.cpp
-	../../common/ltp/test/TestLtpFragmentMap.cpp
+	../../common/ltp/test/TestLtpFragmentSet.cpp
 	../../common/ltp/test/TestLtpRandomNumberGenerator.cpp
 	../../common/ltp/test/TestLtpEngine.cpp
 	../../common/ltp/test/TestLtpUdpEngine.cpp
