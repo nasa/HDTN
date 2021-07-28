@@ -10,6 +10,7 @@ add_library(bpcodec STATIC
         src/codec/bpv6.cpp
         src/codec/bpv6-ext-block.cpp
 		src/codec/Bpv6AdministrativeRecords.cpp
+		src/codec/AggregateCustodySignal.cpp
         src/codec/cbor/cgoto/codec.cpp
         src/codec/cbor/standard/codec.cpp
         src/codec/cbor/memo/codec.cpp

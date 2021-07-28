@@ -16,7 +16,8 @@ add_executable(unit-tests
 	../../common/util/test/TestRateManagerAsync.cpp
 	../../common/util/test/TestTimestampUtil.cpp
 	../../common/util/test/TestUri.cpp
-	../../common/bpcodec/test/TestBpv6AdministrativeRecords
+	../../common/bpcodec/test/TestBpv6AdministrativeRecords.cpp
+	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
