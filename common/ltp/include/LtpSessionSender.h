@@ -75,7 +75,8 @@ private:
 
 public:
     //stats
-    uint64_t m_numTimerExpiredCallbacks;
+    uint64_t m_numCheckpointTimerExpiredCallbacks;
+    uint64_t m_numDiscretionaryCheckpointsNotResent;
 };
 
 #endif // LTP_SESSION_SENDER_H

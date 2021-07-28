@@ -205,6 +205,22 @@ BOOST_AUTO_TEST_CASE(LtpFragmentMapTestCase)
         BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 3001, std::vector<rc>({ rc(999,500) })));
     }
 
+    //TEST ContainsFragmentEntirely
+    {
+        std::set<df> fragmentSet;
+        LtpFragmentMap::InsertFragment(fragmentSet, df(100, 200));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200) }));
+        BOOST_REQUIRE(LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(100, 200)));
+        BOOST_REQUIRE(LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(101, 199)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(10, 20)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(100, 201)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(100, 202)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(99, 200)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(98, 200)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(98, 150)));
+        BOOST_REQUIRE(!LtpFragmentMap::ContainsFragmentEntirely(fragmentSet, df(150, 250)));
+    }
+
 
     //LARGE REPORT SEGMENTS NEEDING SPLIT UP
     {

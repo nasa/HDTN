@@ -44,6 +44,14 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServic
 }
 
 LtpEngine::~LtpEngine() {
+    std::cout << "LtpEngine Stats:" << std::endl; //print before reset
+    std::cout << "m_numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacks << std::endl;
+    std::cout << "m_numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResent << std::endl;
+    std::cout << "m_numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacks << std::endl;
+    std::cout << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued << std::endl;
+    std::cout << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit << std::endl;
+    std::cout << "m_numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplit << std::endl;
+
     if (m_ioServiceLtpEngineThreadPtr) {
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
         m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
@@ -63,7 +71,13 @@ void LtpEngine::Reset() {
     m_listCancelSegmentTimerInfo.clear();
     m_listSendersNeedingDeleted.clear();
     m_listReceiversNeedingDeleted.clear();
-    m_numTimerExpiredCallbacks = 0;
+
+    m_numCheckpointTimerExpiredCallbacks = 0;
+    m_numDiscretionaryCheckpointsNotResent = 0;
+    m_numReportSegmentTimerExpiredCallbacks = 0;
+    m_numReportSegmentsUnableToBeIssued = 0;
+    m_numReportSegmentsTooLargeAndNeedingSplit = 0;
+    m_numReportSegmentsCreatedViaSplit = 0;
 }
 
 void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender) {
@@ -137,7 +151,8 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 return true;
             }
             else {
-                m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
+                m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
+                m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
                 //revalidate iterator
                 m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
@@ -159,7 +174,10 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             }
             else {
                 //erase session
-                m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
+                m_numReportSegmentTimerExpiredCallbacks += rxSessionIt->second->m_numReportSegmentTimerExpiredCallbacks;
+                m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
+                m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
+                m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
                 m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
                 //revalidate iterator
                 m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
@@ -333,7 +351,8 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //destination LTP engine specified in the transmission request
             //that started this session.
             //erase session
-            m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
+            m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
+            m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
             std::cout << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
@@ -366,7 +385,10 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //sender.
 
             //erase session
-            m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
+            m_numReportSegmentTimerExpiredCallbacks += rxSessionIt->second->m_numReportSegmentTimerExpiredCallbacks;
+            m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
+            m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
+            m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
             std::cout << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
@@ -400,7 +422,10 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                 m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
             }
             //erase session
-            m_numTimerExpiredCallbacks += rxSessionIt->second->m_numTimerExpiredCallbacks;
+            m_numReportSegmentTimerExpiredCallbacks += rxSessionIt->second->m_numReportSegmentTimerExpiredCallbacks;
+            m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
+            m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
+            m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
             std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator
@@ -424,7 +449,8 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                 m_transmissionSessionCancelledCallback(sessionId, reasonCode);
             }
             //erase session
-            m_numTimerExpiredCallbacks += txSessionIt->second->m_numTimerExpiredCallbacks;
+            m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
+            m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
             std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber << std::endl;
             //revalidate iterator

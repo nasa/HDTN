@@ -128,8 +128,16 @@ private:
 
 public:
     //stats
-    uint64_t m_numTimerExpiredCallbacks;
 
+    //session sender stats
+    uint64_t m_numCheckpointTimerExpiredCallbacks;
+    uint64_t m_numDiscretionaryCheckpointsNotResent;
+
+    //session receiver stats
+    uint64_t m_numReportSegmentTimerExpiredCallbacks;
+    uint64_t m_numReportSegmentsUnableToBeIssued;
+    uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
+    uint64_t m_numReportSegmentsCreatedViaSplit;
 };
 
 #endif // LTP_ENGINE_H
