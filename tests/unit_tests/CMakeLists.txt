@@ -18,6 +18,7 @@ add_executable(unit-tests
 	../../common/util/test/TestUri.cpp
 	../../common/bpcodec/test/TestBpv6AdministrativeRecords.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
+	../../common/bpcodec/test/TestCustodyTransferEnhancementBlock.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp

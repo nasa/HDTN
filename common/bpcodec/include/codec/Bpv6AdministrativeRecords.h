@@ -173,7 +173,7 @@ public:
     bool operator==(const BundleStatusReport & o) const;
     bool operator!=(const BundleStatusReport & o) const;
     uint64_t Serialize(uint8_t * buffer) const; //use MAX_SERIALIZATION_SIZE sized buffer
-    bool Deserialize(const uint8_t * serialization, uint16_t * numBytesTakenToDecode);
+    uint16_t Deserialize(const uint8_t * serialization);
     void Reset();
 
     void SetTimeOfReceiptOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
@@ -276,7 +276,7 @@ public:
     bool operator==(const CustodySignal & o) const;
     bool operator!=(const CustodySignal & o) const;
     uint64_t Serialize(uint8_t * buffer) const; //use MAX_SERIALIZATION_SIZE sized buffer
-    bool Deserialize(const uint8_t * serialization, uint16_t * numBytesTakenToDecode);
+    uint16_t Deserialize(const uint8_t * serialization);
     void Reset();
 
     void SetTimeOfSignalGeneration(const TimestampUtil::dtn_time_t & dtnTime);

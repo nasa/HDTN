@@ -147,21 +147,26 @@ uint64_t BundleStatusReport::Serialize(uint8_t * buffer) const { //use MAX_SERIA
     buffer += SdnvEncodeU64(buffer, m_copyOfBundleCreationTimestampSequenceNumber);
 
     const uint32_t lengthEidStr = static_cast<uint32_t>(m_bundleSourceEid.length());
-    buffer += SdnvEncodeU32(buffer, lengthEidStr); //work with both dtn and ipn scheme
+    if (lengthEidStr <= 127) {
+        *buffer++ = static_cast<uint8_t>(lengthEidStr);
+    }
+    else {
+        buffer += SdnvEncodeU32(buffer, lengthEidStr); //work with both dtn and ipn scheme
+    }
     //*buffer++ = static_cast<uint8_t>(lengthEidStr); //will always be a 1 byte sdnv
     memcpy(buffer, m_bundleSourceEid.data(), lengthEidStr);
     buffer += lengthEidStr;
     return buffer - serializationBase;
 }
 
-bool BundleStatusReport::Deserialize(const uint8_t * serialization, uint16_t * numBytesTakenToDecode) {
+uint16_t BundleStatusReport::Deserialize(const uint8_t * serialization) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
     Reset();
 
     const BPV6_ADMINISTRATIVE_RECORD_TYPES adminRecordType = static_cast<BPV6_ADMINISTRATIVE_RECORD_TYPES>(*serialization >> 4);
     if (adminRecordType != BPV6_ADMINISTRATIVE_RECORD_TYPES::STATUS_REPORT) {
-        return false; //failure
+        return 0; //failure
     }
     m_isFragment = ((*serialization & 1) != 0); // works because BUNDLE_IS_A_FRAGMENT == 1
     ++serialization;
@@ -172,13 +177,13 @@ bool BundleStatusReport::Deserialize(const uint8_t * serialization, uint16_t * n
     if (m_isFragment) {
         m_fragmentOffsetIfPresent = SdnvDecodeU64(serialization, &sdnvSize);
         if (sdnvSize == 0) {
-            return false; //failure
+            return 0; //failure
         }
         serialization += sdnvSize;
 
         m_fragmentLengthIfPresent = SdnvDecodeU64(serialization, &sdnvSize);
         if (sdnvSize == 0) {
-            return false; //failure
+            return 0; //failure
         }
         serialization += sdnvSize;
     }
@@ -186,61 +191,60 @@ bool BundleStatusReport::Deserialize(const uint8_t * serialization, uint16_t * n
     const uint8_t statusFlagsAsUint8 = static_cast<uint8_t>(m_statusFlags);
     if ((static_cast<uint8_t>(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_RECEIVED_BUNDLE)) & statusFlagsAsUint8) {
         if (!m_timeOfReceiptOfBundle.Deserialize(serialization, &sdnvSize)) {
-            return false;
+            return 0;
         }
         serialization += sdnvSize;
     }
     if ((static_cast<uint8_t>(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE)) & statusFlagsAsUint8) {
         if (!m_timeOfCustodyAcceptanceOfBundle.Deserialize(serialization, &sdnvSize)) {
-            return false;
+            return 0;
         }
         serialization += sdnvSize;
     }
     if ((static_cast<uint8_t>(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_FORWARDED_BUNDLE)) & statusFlagsAsUint8) {
         if (!m_timeOfForwardingOfBundle.Deserialize(serialization, &sdnvSize)) {
-            return false;
+            return 0;
         }
         serialization += sdnvSize;
     }
     if ((static_cast<uint8_t>(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELIVERED_BUNDLE)) & statusFlagsAsUint8) {
         if (!m_timeOfDeliveryOfBundle.Deserialize(serialization, &sdnvSize)) {
-            return false;
+            return 0;
         }
         serialization += sdnvSize;
     }
     if ((static_cast<uint8_t>(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS::REPORTING_NODE_DELETED_BUNDLE)) & statusFlagsAsUint8) {
         if (!m_timeOfDeletionOfBundle.Deserialize(serialization, &sdnvSize)) {
-            return false;
+            return 0;
         }
         serialization += sdnvSize;
     }
 
     m_copyOfBundleCreationTimestampTimeSeconds = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return false; //failure
+        return 0; //failure
     }
     serialization += sdnvSize;
 
     m_copyOfBundleCreationTimestampSequenceNumber = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return false; //failure
+        return 0; //failure
     }
     serialization += sdnvSize;
 
     const uint32_t lengthEidStr = SdnvDecodeU32(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return false; //failure
+        return 0; //failure
     }
     if ((lengthEidStr > UINT16_MAX) || (lengthEidStr < 5)) {
-        return false; //failure
+        return 0; //failure
     }
     serialization += sdnvSize;
     m_bundleSourceEid.assign((const char *)serialization, lengthEidStr);
     serialization += lengthEidStr;
 
 
-    *numBytesTakenToDecode = static_cast<uint16_t>(serialization - serializationBase);
-    return true;
+    return static_cast<uint16_t>(serialization - serializationBase);
 }
 
 void BundleStatusReport::SetTimeOfReceiptOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime) {
@@ -366,21 +370,26 @@ uint64_t CustodySignal::Serialize(uint8_t * buffer) const { //use MAX_SERIALIZAT
     buffer += SdnvEncodeU64(buffer, m_copyOfBundleCreationTimestampSequenceNumber);
 
     const uint32_t lengthEidStr = static_cast<uint32_t>(m_bundleSourceEid.length());
-    buffer += SdnvEncodeU32(buffer, lengthEidStr); //work with both dtn and ipn scheme
+    if (lengthEidStr <= 127) {
+        *buffer++ = static_cast<uint8_t>(lengthEidStr);
+    }
+    else {
+        buffer += SdnvEncodeU32(buffer, lengthEidStr); //work with both dtn and ipn scheme
+    }
     //*buffer++ = static_cast<uint8_t>(lengthEidStr); //will always be a 1 byte sdnv
     memcpy(buffer, m_bundleSourceEid.data(), lengthEidStr);
     buffer += lengthEidStr;
     return buffer - serializationBase;
 }
 
-bool CustodySignal::Deserialize(const uint8_t * serialization, uint16_t * numBytesTakenToDecode) {
+uint16_t CustodySignal::Deserialize(const uint8_t * serialization) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
     Reset();
 
     const BPV6_ADMINISTRATIVE_RECORD_TYPES adminRecordType = static_cast<BPV6_ADMINISTRATIVE_RECORD_TYPES>(*serialization >> 4);
     if (adminRecordType != BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL) {
-        return false; //failure
+        return 0; //failure
     }
     m_isFragment = ((*serialization & 1) != 0); // works because BUNDLE_IS_A_FRAGMENT == 1
     ++serialization;
@@ -390,50 +399,49 @@ bool CustodySignal::Deserialize(const uint8_t * serialization, uint16_t * numByt
     if (m_isFragment) {
         m_fragmentOffsetIfPresent = SdnvDecodeU64(serialization, &sdnvSize);
         if (sdnvSize == 0) {
-            return false; //failure
+            return 0; //failure
         }
         serialization += sdnvSize;
 
         m_fragmentLengthIfPresent = SdnvDecodeU64(serialization, &sdnvSize);
         if (sdnvSize == 0) {
-            return false; //failure
+            return 0; //failure
         }
         serialization += sdnvSize;
     }
 
 
     if (!m_timeOfSignalGeneration.Deserialize(serialization, &sdnvSize)) {
-        return false;
+        return 0;
     }
     serialization += sdnvSize;
     
 
     m_copyOfBundleCreationTimestampTimeSeconds = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return false; //failure
+        return 0; //failure
     }
     serialization += sdnvSize;
 
     m_copyOfBundleCreationTimestampSequenceNumber = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return false; //failure
+        return 0; //failure
     }
     serialization += sdnvSize;
 
     const uint32_t lengthEidStr = SdnvDecodeU32(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return false; //failure
+        return 0; //failure
     }
     if ((lengthEidStr > UINT16_MAX) || (lengthEidStr < 5)) {
-        return false; //failure
+        return 0; //failure
     }
     serialization += sdnvSize;
     m_bundleSourceEid.assign((const char *)serialization, lengthEidStr);
     serialization += lengthEidStr;
 
 
-    *numBytesTakenToDecode = static_cast<uint16_t>(serialization - serializationBase);
-    return true;
+    return static_cast<uint16_t>(serialization - serializationBase);
 }
 
 void CustodySignal::SetTimeOfSignalGeneration(const TimestampUtil::dtn_time_t & dtnTime) {

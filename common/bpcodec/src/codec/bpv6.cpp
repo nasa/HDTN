@@ -214,14 +214,20 @@ uint32_t cbhe_bpv6_primary_block_encode(const bpv6_primary_block* primary, char*
 uint32_t bpv6_canonical_block_decode(bpv6_canonical_block* block, const char* buffer, const size_t offset, const size_t bufsz) {
     uint64_t index = offset;
     uint8_t sdnvSize;
-    block->type = buffer[index];
-    ++index;
+    block->type = buffer[index++];
 
-    block->flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
+    const uint8_t flag8bit = buffer[index];
+    if (flag8bit <= 127) {
+        block->flags = flag8bit;
+        ++index;
     }
-    index += sdnvSize;
+    else {
+        block->flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+        if (sdnvSize == 0) {
+            return 0; //return 0 on failure
+        }
+        index += sdnvSize;
+    }
 
     block->length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
     if (sdnvSize == 0) {
@@ -235,11 +241,15 @@ uint32_t bpv6_canonical_block_decode(bpv6_canonical_block* block, const char* bu
 uint32_t bpv6_canonical_block_encode(const bpv6_canonical_block* block, char* buffer, const size_t offset, const size_t bufsz) {
     uint64_t index = offset;
     uint64_t sdnvSize;
-    buffer[index] = block->type;
-    ++index;
+    buffer[index++] = block->type;
 
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], block->flags);
-    index += sdnvSize;
+    if (block->flags <= 127) {
+        buffer[index++] = static_cast<uint8_t>(block->flags);
+    }
+    else {
+        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], block->flags);
+        index += sdnvSize;
+    }
 
     sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], block->length);
     index += sdnvSize;

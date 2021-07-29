@@ -24,8 +24,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         uint16_t expectedSerializationSize = 4 + 5 + 5 + static_cast<uint16_t>(eidStr.length()); // 4=>admin flags + status flags + reason code + eidLenSdnv
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
         BundleStatusReport rpt2;
-        uint16_t numBytesTakenToDecode;
-        BOOST_REQUIRE(rpt2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        uint16_t numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
 
@@ -37,7 +37,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        BOOST_REQUIRE(rpt2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
 
@@ -47,7 +48,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        BOOST_REQUIRE(rpt2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
 
@@ -57,7 +59,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        BOOST_REQUIRE(rpt2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
 
@@ -67,7 +70,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        BOOST_REQUIRE(rpt2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
 
@@ -77,7 +81,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        BOOST_REQUIRE(rpt2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
 
@@ -116,8 +121,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         uint16_t expectedSerializationSize = 3 + 5 + 5 + static_cast<uint16_t>(eidStr.length()); // 3=>admin flags + (status | reason) + eidLenSdnv
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
         CustodySignal sig2;
-        uint16_t numBytesTakenToDecode;
-        BOOST_REQUIRE(sig2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        uint16_t numBytesTakenToDecode = sig2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(sig == sig2);
 
