@@ -1,6 +1,7 @@
 import sys
 import copy
 from random import randint
+import json
 
 # This library contains prototype clases and methods to evaluate
 # Contact Graph Routing (CGR) routines as follows.
@@ -217,9 +218,33 @@ class Bundle:
         self.sender = sender
 
 
+#new contact plan loading function for JSON files
+def cp_load(json_file, max_contacts=None):
+    __contact_plan = []
+    nodes = set()
+    with open(json_file) as cf:
+        cgr_table = json.load(f)
+        for contact in cgr_table['contacts']:
+            nodes.add(contact['source'])
+            nodes.add(contact['dest'])
+            __contact_plan.append(
+                Contact(start=contact['start_time'], \
+                        end=contact['end_time'], \
+                        frm=contact['source'], \
+                        to=contact['dest'], \
+                        rate=contact['rate'], \
+                        owlt=1)) #range
+            if len(__contact_plan) == max_contacts:
+                break
+
+    print('Load contact plan: %s contacts were read.' % len(__contact_plan))
+    # print(__contact_plan)
+    return __contact_plan
+
+#OLD CODE
 # load contact plan file with the format:
 # a contact +<start> +<end> <from> <to> <rate> <range>
-def cp_load(file_name, max_contacts=None):
+def old_cp_load(file_name, max_contacts=None):
     __contact_plan = []
     nodes = set()
     with open(file_name, 'r') as cf:
@@ -239,9 +264,34 @@ def cp_load(file_name, max_contacts=None):
             if len(__contact_plan) == max_contacts:
                 break
 
-    print('Load contact plan: %s contacts were read.' % len(__contact_plan))
-    # print(__contact_plan)
-    return __contact_plan
+def convert_cp_to_json(file_name):
+    contacts = []
+    with open(file_name, 'r') as cf:
+        count = 0
+        for contact in cf.readlines():
+            print(contact)
+            if contact[0] == '#':
+                continue
+            if not contact.startswith('a contact'):
+                continue
+
+            contact = contact.translate(str.maketrans('', '', '+'))
+            contact = re.sub(' +', ' ', contact)
+            fields = contact.split(' ')[2:]  # ignore "a contact"
+            start, end, frm, to, rate = map(int, fields)
+            #owlt (one-way light time) is in ION ranges, not contacts
+            contacts.append({"contact": count, "source": frm, "dest": to, \
+                             "flowId": "1", "startTime": start, "endTime": end, \
+                             "rate": rate})
+            count += 1
+    __contact_plan = {"contacts": contacts}
+    with open('cgrTable.json', 'w') as outfile:
+        json.dump(__contact_plan, outfile, default=set_default)
+
+def set_default(obj):
+    if isinstance(obj, set):
+        return list(obj)
+    raise TypeError
 
 
 # construct a random contact plan
