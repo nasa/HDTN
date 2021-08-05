@@ -51,23 +51,34 @@ void CustodyTransferEnhancementBlock::Reset() { //a copy assignment: operator=(c
 }
 
 uint64_t CustodyTransferEnhancementBlock::SerializeCtebCanonicalBlock(uint8_t * buffer) const { //use MAX_SERIALIZATION_SIZE sized buffer
+    bpv6_canonical_block returnedCanonicalBlock;
+    return StaticSerializeCtebCanonicalBlock(buffer, m_blockProcessingControlFlags, m_custodyId, m_ctebCreatorCustodianEidString, returnedCanonicalBlock);
+}
+
+//static function
+uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const uint64_t blockProcessingControlFlags,
+    const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock)
+{
     uint8_t * const serializationBase = buffer;
+
+    returnedCanonicalBlock.type = static_cast<uint8_t>(CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK);
+    returnedCanonicalBlock.flags = blockProcessingControlFlags;
 
     *buffer++ = static_cast<uint8_t>(CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK);
 
-    if (m_blockProcessingControlFlags <= 127) {
-        *buffer++ = static_cast<uint8_t>(m_blockProcessingControlFlags);
+    if (blockProcessingControlFlags <= 127) {
+        *buffer++ = static_cast<uint8_t>(blockProcessingControlFlags);
     }
     else {
-        buffer += SdnvEncodeU64(buffer, m_blockProcessingControlFlags);
+        buffer += SdnvEncodeU64(buffer, blockProcessingControlFlags);
     }
 
     uint8_t* const blockLengthPtr = buffer++; //write in later
 
-    buffer += SdnvEncodeU64(buffer, m_custodyId);
+    buffer += SdnvEncodeU64(buffer, custodyId);
 
-    const std::size_t lengthEidStr = m_ctebCreatorCustodianEidString.length();
-    memcpy(buffer, m_ctebCreatorCustodianEidString.data(), lengthEidStr);
+    const std::size_t lengthEidStr = ctebCreatorCustodianEidString.length();
+    memcpy(buffer, ctebCreatorCustodianEidString.data(), lengthEidStr);
     buffer += lengthEidStr;
 
     const uint64_t blockLength = buffer - (blockLengthPtr + 1);
@@ -75,6 +86,7 @@ uint64_t CustodyTransferEnhancementBlock::SerializeCtebCanonicalBlock(uint8_t * 
         return 0; //failure
     }
     *blockLengthPtr = static_cast<uint8_t>(blockLength);
+    returnedCanonicalBlock.length = blockLength;
     return buffer - serializationBase;
 }
 

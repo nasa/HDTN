@@ -145,6 +145,10 @@ uint32_t cbhe_bpv6_primary_block_decode(bpv6_primary_block* primary, const char*
         }
         index += sdnvSize;
     }
+    else {
+        primary->fragment_offset = 0;
+        primary->data_length = 0;
+    }
 
     return static_cast<uint32_t>(index - offset);
 }
@@ -366,4 +370,97 @@ void bpv6_canonical_block_print(bpv6_canonical_block* block) {
         printf("* This block was forwarded without being processed.\n");
     }
     printf("Block length: %" PRIu64 " bytes\n", block->length);
+}
+
+
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t() : 
+    creationSeconds(0),
+    sequence(0),
+    srcNodeId(0),
+    srcServiceId(0),
+    fragmentOffset(0),
+    dataLength(0) { } //a default constructor: X()
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
+    uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength) :
+    creationSeconds(paramCreationSeconds),
+    sequence(paramSequence),
+    srcNodeId(paramSrcNodeId),
+    srcServiceId(paramSrcServiceId),
+    fragmentOffset(paramFragmentOffset),
+    dataLength(paramDataLength) { }
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(const bpv6_primary_block & primary) :
+    creationSeconds(primary.creation),
+    sequence(primary.sequence),
+    srcNodeId(primary.src_node),
+    srcServiceId(primary.src_svc),
+    fragmentOffset(primary.fragment_offset),
+    dataLength(primary.data_length) { }
+cbhe_bundle_uuid_t::~cbhe_bundle_uuid_t() { } //a destructor: ~X()
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o) : 
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcNodeId(o.srcNodeId),
+    srcServiceId(o.srcServiceId),
+    fragmentOffset(o.fragmentOffset),
+    dataLength(o.dataLength) { } //a copy constructor: X(const X&)
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o) : 
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcNodeId(o.srcNodeId),
+    srcServiceId(o.srcServiceId),
+    fragmentOffset(o.fragmentOffset),
+    dataLength(o.dataLength) { } //a move constructor: X(X&&)
+cbhe_bundle_uuid_t& cbhe_bundle_uuid_t::operator=(const cbhe_bundle_uuid_t& o) { //a copy assignment: operator=(const X&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcNodeId = o.srcNodeId;
+    srcServiceId = o.srcServiceId;
+    fragmentOffset = o.fragmentOffset;
+    dataLength = o.dataLength;
+    return *this;
+}
+cbhe_bundle_uuid_t& cbhe_bundle_uuid_t::operator=(cbhe_bundle_uuid_t && o) { //a move assignment: operator=(X&&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcNodeId = o.srcNodeId;
+    srcServiceId = o.srcServiceId;
+    fragmentOffset = o.fragmentOffset;
+    dataLength = o.dataLength;
+    return *this;
+}
+bool cbhe_bundle_uuid_t::operator==(const cbhe_bundle_uuid_t & o) const {
+    return 
+        (creationSeconds == o.creationSeconds) &&
+        (sequence == o.sequence) &&
+        (srcNodeId == o.srcNodeId) &&
+        (srcServiceId == o.srcServiceId) &&
+        (fragmentOffset == o.fragmentOffset) &&
+        (dataLength == o.dataLength);
+}
+bool cbhe_bundle_uuid_t::operator!=(const cbhe_bundle_uuid_t & o) const {
+    return 
+        (creationSeconds != o.creationSeconds) ||
+        (sequence != o.sequence) ||
+        (srcNodeId != o.srcNodeId) ||
+        (srcServiceId != o.srcServiceId) ||
+        (fragmentOffset != o.fragmentOffset) ||
+        (dataLength != o.dataLength);
+}
+bool cbhe_bundle_uuid_t::operator<(const cbhe_bundle_uuid_t & o) const {
+    if (creationSeconds == o.creationSeconds) {
+        if (sequence == o.sequence) {
+            if (srcNodeId == o.srcNodeId) {
+                if (srcServiceId == o.srcServiceId) {
+                    if (fragmentOffset == o.fragmentOffset) {
+                        return (dataLength < o.dataLength);
+                    }
+                    return (fragmentOffset < o.fragmentOffset);
+                }
+                return (srcServiceId < o.srcServiceId);
+            }
+            return (srcNodeId < o.srcNodeId);
+        }
+        return (sequence < o.sequence);
+    }
+    return (creationSeconds < o.creationSeconds);
 }

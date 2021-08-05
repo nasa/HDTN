@@ -10,6 +10,28 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+ 
+/*
+#ifdef __cplusplus
+#include <vector>
+#include <boost/asio/buffer.hpp>
+struct Bpv6CanonicalBlockView {
+    CANONICAL_BLOCK_TYPE_CODES m_typeCode;
+    uint64_t m_blockProcessingControlFlags;
+    boost::asio::const_buffer m_actualSerializedBodyPtr; //includes length
+
+    boost::asio::const_buffer m_actualSerializedHeaderAndBodyPtr;
+    std::vector<uint8_t> m_optionalSerializedStorage;
+
+    void AddCanonicalBlockProcessingControlFlag(BLOCK_PROCESSING_CONTROL_FLAGS flag);
+    bool HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS flag) const;
+};
+struct CbheBundleV6 {
+    bpv6_primary_block m_primary;
+    std::vector<bpv6_canonical_block> m_canonicalBlockHeadersVec;
+};
+#endif
+ */
 
 #ifdef __cplusplus
 enum class CANONICAL_BLOCK_TYPE_CODES : uint8_t {
@@ -26,6 +48,7 @@ enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
     BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED = 1 << 5,
     BLOCK_CONTAINS_AN_EID_REFERENCE_FIELD = 1 << 6
 };
+
 #endif
 
 #ifdef __cplusplus
@@ -34,6 +57,9 @@ extern "C" {
 
 // (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
+
+// (1-byte block type) + (2 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
+#define BPV6_MINIMUM_SAFE_CANONICAL_HEADER_ENCODE_SIZE (1 + (2*10) + 32)
 
 // (1-byte block type) + (2 10-byte sdnvs) + primary
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_PLUS_CANONICAL_HEADER_ENCODE_SIZE (1 + (2*10) + CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE)
@@ -203,6 +229,45 @@ uint32_t bpv6_canonical_block_decode(bpv6_canonical_block* block, const char* bu
  * @return the number of bytes the canonical block was encoded into, or 0 on failure to encode
  */
 uint32_t bpv6_canonical_block_encode(const bpv6_canonical_block* block, char* buffer, const size_t offset, const size_t bufsz);
+
+#ifdef __cplusplus
+struct cbhe_bundle_uuid_t {
+
+    //The creation timestamp is a pair of SDNVs that,
+    //together with the source endpoint ID and (if the bundle is a
+    //fragment) the fragment offset and payload length, serve to
+    //identify the bundle.
+    //A source Bundle Protocol Agent must never create two distinct bundles with the same source
+    //endpoint ID and bundle creation timestamp.The combination of
+    //source endpoint ID and bundle creation timestamp therefore serves
+    //to identify a single transmission request, enabling it to be
+    //acknowledged by the receiving application
+
+    uint64_t creationSeconds;
+    uint64_t sequence;
+    uint64_t srcNodeId;
+    uint64_t srcServiceId;
+    //below if isFragment (default 0 if not a fragment)
+    uint64_t fragmentOffset;
+    uint64_t dataLength;      // 64 bytes
+
+
+
+    cbhe_bundle_uuid_t(); //a default constructor: X()
+    cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
+        uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength);
+    cbhe_bundle_uuid_t(const bpv6_primary_block & primary);
+    ~cbhe_bundle_uuid_t(); //a destructor: ~X()
+    cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
+    cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
+    cbhe_bundle_uuid_t& operator=(const cbhe_bundle_uuid_t& o); //a copy assignment: operator=(const X&)
+    cbhe_bundle_uuid_t& operator=(cbhe_bundle_uuid_t&& o); //a move assignment: operator=(X&&)
+    bool operator==(const cbhe_bundle_uuid_t & o) const; //operator ==
+    bool operator!=(const cbhe_bundle_uuid_t & o) const; //operator !=
+    bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
+};
+#endif
+
 
 #ifdef __cplusplus
 }

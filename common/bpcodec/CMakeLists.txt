@@ -12,6 +12,8 @@ add_library(bpcodec STATIC
 		src/codec/Bpv6AdministrativeRecords.cpp
 		src/codec/AggregateCustodySignal.cpp
 		src/codec/CustodyTransferEnhancementBlock.cpp
+		src/codec/CustodyTransferManager.cpp
+		src/codec/BundleViewV6.cpp
         src/codec/cbor/cgoto/codec.cpp
         src/codec/cbor/standard/codec.cpp
         src/codec/cbor/memo/codec.cpp
