@@ -35,7 +35,7 @@ public:
     HegrManagerAsync();
     ~HegrManagerAsync();
     void Stop();
-    void Init(const HdtnConfig & hdtnConfig);
+    void Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 
     uint64_t m_bundleCount;
     uint64_t m_bundleData;

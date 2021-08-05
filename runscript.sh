@@ -1,44 +1,38 @@
-cd $HDTN_SOURCE_ROOT/common/regsvr
-`python3 main.py` &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpsink-async "--inducts-config-file=$HDTN_SOURCE_ROOT/tests/config_files/inducts/bpsink_one_tcpcl_port4557.json" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpsink-async "--inducts-config-file=$HDTN_SOURCE_ROOT/tests/config_files/inducts/bpsink_one_tcpcl_port4558.json" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/egress
-./hdtn-egress-async "--hdtn-config-file=$HDTN_SOURCE_ROOT/tests/config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/scheduler
-./hdtn-scheduler "--contact-plan-file=contactPlan.json" "--hdtn-config-file=$HDTN_SOURCE_ROOT/tests/config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json" &
-sleep 1
-cd $HDTN_SOURCE_ROOT/build/module/ingress
-./hdtn-ingress "--hdtn-config-file=$HDTN_SOURCE_ROOT/tests/config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/storage
-./hdtn-storage "--hdtn-config-file=$HDTN_SOURCE_ROOT/tests/config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json" &
-sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpgen-async "--bundle-rate=0" "--flow-id=2" "--duration=20" "--bundle-size=100000" "--outducts-config-file=$HDTN_SOURCE_ROOT/tests/config_files/outducts/bpgen_one_tcpcl_port4556.json" &
-sleep 1
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpgen-async "--bundle-rate=0" "--flow-id=1" "--duration=20" "--bundle-size=100000" "--outducts-config-file=$HDTN_SOURCE_ROOT/tests/config_files/outducts/bpgen_one_tcpcl_port4556.json" &
-sleep 8
+#!/bin/sh
 
-PID1=`pgrep bpgen-async`
-PID2=`pgrep hdtn-ingress`
-PID3=`pgrep hdtn-egress-async`
-PID4=`pgrep bpsink-async`
-PID5=`pgrep hdtn-storage`
-PID6=`pgrep hdtn-scheduler`
-sleep 60
-(kill  $PID1)
-(kill -INT $PID2)
-(kill -INT $PID3)
-(kill -INT $PID4)
-(kill -INT $PID5)
-(kill -INT $PID6)
+# path variables
+config_files=$HDTN_SOURCE_ROOT/tests/config_files
+hdtn_config=$config_files/hdtn/hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json
+sink_config=$config_files/inducts/bpsink_one_udp_port4558.json
+gen_config=$config_files/outducts/bpgen_one_udp_port4556_0.5Mbps.json
 
-kill $(pgrep -f 'python3 main.py')
+cd $HDTN_SOURCE_ROOT
+
+# registration server
+python3 ./common/regsvr/main.py &
+sleep 3
+
+# bpsink
+./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink_config &
+bpsink_PID=$!
+sleep 3
+
+# HDTN one process
+./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config &
+one_process_PID=$!
+sleep 3
+
+# bpgen
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=10 --flow-id=2 --outducts-config-file=$gen_config &
+bpgen_PID=$!
+sleep 10
+
+# cleanup
+echo "\nkilling bpgen..." && kill -2 $bpgen_PID
+sleep 2
+echo "\nkilling HDTN one process..." && kill -2 $one_process_PID
+sleep 2
+echo "\nkilling bpsink..." && kill -2 $bpsink_PID
+sleep 2
+echo "\nkilling registration server..." && pkill -9 -f main.py
 

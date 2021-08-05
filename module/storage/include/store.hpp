@@ -38,7 +38,7 @@ class ZmqStorageInterface {
     ZmqStorageInterface();
     ~ZmqStorageInterface();
     void Stop();
-    void Init(zmq::context_t *ctx, const HdtnConfig & hdtnConfig);
+    void Init(zmq::context_t *ctx, const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
     void launch();
     //pthread_t *thread() { return &storageThread; }
 
@@ -54,6 +54,7 @@ private:
 
    private:
     zmq::context_t *m_zmqContextPtr;
+    zmq::context_t * m_hdtnOneProcessZmqInprocContextPtr;
     std::unique_ptr<boost::thread> m_threadPtr;
     volatile bool m_running;
     WorkerStats m_workerStats;
@@ -66,7 +67,7 @@ public:
     storage();
     ~storage();
     void Stop();
-    bool Init(const HdtnConfig & hdtnConfig);
+    bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
     void update();
     void dispatch();
     void scheduleRelease();

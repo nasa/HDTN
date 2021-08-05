@@ -66,7 +66,10 @@ private:
 
 public:
     //stats
-    uint64_t m_numTimerExpiredCallbacks;
+    uint64_t m_numReportSegmentTimerExpiredCallbacks;
+    uint64_t m_numReportSegmentsUnableToBeIssued;
+    uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
+    uint64_t m_numReportSegmentsCreatedViaSplit;
 };
 
 #endif // LTP_SESSION_RECEIVER_H

@@ -29,7 +29,7 @@ void Scheduler::ProcessLinkDown(const boost::system::error_code& e, int id, std:
          stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
          stopMsg.flowId = id;
          ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-         std::cout << " -- Stop Release message sent. for flow id" << stopMsg.flowId << std::endl;
+         std::cout << " -- Stop Release message sent for flow id" << stopMsg.flowId << std::endl;
      } else {
         std::cout << "timer dt2 cancelled\n";
     }
@@ -39,13 +39,13 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, int id, std::s
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-    std::cout <<  "Processing Event at Expiry time: " << timeLocal << " , for flow id: " << id << " , Event is " << event;
-    hdtn::IreleaseStartHdr releaseMsg;
-    memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-    releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-    releaseMsg.flowId = id;
-    ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-    std::cout << " -- Start Release message sent. for flow id" << releaseMsg.flowId << std::endl;
+        std::cout <<  "Processing Event at Expiry time: " << timeLocal << " , for flow id: " << id << " , Event is " << event;
+    	hdtn::IreleaseStartHdr releaseMsg;
+    	memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+    	releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
+    	releaseMsg.flowId = id;
+    	ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
+    	std::cout << " -- Start Release message sent. for flow id" << releaseMsg.flowId << std::endl;
     } else {
         std::cout << "timer dt cancelled\n";
     }

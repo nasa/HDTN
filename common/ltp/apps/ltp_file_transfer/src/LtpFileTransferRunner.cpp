@@ -48,6 +48,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         std::string receiveFilePath;
         bool useSendFile = false;
         bool useReceiveFile = false;
+        bool dontSaveFile = false;
         std::string destUdpHostname;
         uint16_t destUdpPort;
         uint64_t thisLtpEngineId;
@@ -58,6 +59,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         uint64_t oneWayMarginTimeMs;
         uint64_t clientServiceId;
         uint64_t estimatedFileSizeToReceive;
+        uint32_t checkpointEveryNthTxPacket;
+        uint32_t maxRetriesPerSerialNumber;
         unsigned int numUdpRxPacketsCircularBufferSize;
         unsigned int maxRxUdpPacketSizeBytes;
 
@@ -67,6 +70,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("help", "Produce help message.")
                 ("receive-file", boost::program_options::value<std::string>(), "Receive a file to this file name.")
                 ("send-file", boost::program_options::value<std::string>(), "Send this file name.")
+                ("dont-save-file", "When receiving, don't write file to disk.")
                 ("dest-udp-hostname", boost::program_options::value<std::string>()->default_value("localhost"), "Ltp destination UDP hostname.")
                 ("dest-udp-port", boost::program_options::value<uint16_t>()->default_value(4556), "Ltp destination UDP port.")
 
@@ -80,6 +84,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("one-way-margin-time-ms", boost::program_options::value<uint64_t>()->default_value(1), "One way light time in milliseconds")
                 ("client-service-id", boost::program_options::value<uint64_t>()->default_value(2), "LTP Client Service ID.")
                 ("estimated-rx-filesize", boost::program_options::value<uint64_t>()->default_value(50000000), "How many bytes to initially reserve for rx (default 50MB).")
+                ("checkpoint-every-nth-tx-packet", boost::program_options::value<uint32_t>()->default_value(0), "Make every nth packet a checkpoint. (default 0 = disabled).")
+                ("max-retries-per-serial-number", boost::program_options::value<uint32_t>()->default_value(5), "Try to resend a serial number up to this many times. (default 5).")
                 ;
 
             boost::program_options::variables_map vm;
@@ -98,6 +104,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             if (vm.count("receive-file")) {
                 useReceiveFile = true;
                 receiveFilePath = vm["receive-file"].as<std::string>();
+                dontSaveFile = (vm.count("dont-save-file") != 0);
             }
             else {
                 useSendFile = true;
@@ -113,6 +120,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             oneWayMarginTimeMs = vm["one-way-margin-time-ms"].as<uint64_t>();
             clientServiceId = vm["client-service-id"].as<uint64_t>();
             estimatedFileSizeToReceive = vm["estimated-rx-filesize"].as<uint64_t>();
+            checkpointEveryNthTxPacket = vm["checkpoint-every-nth-tx-packet"].as<uint32_t>();
+            maxRetriesPerSerialNumber = vm["max-retries-per-serial-number"].as<uint32_t>();
             numUdpRxPacketsCircularBufferSize = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
@@ -186,7 +195,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             };
             SenderHelper senderHelper;
 
-            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes);
+            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, numUdpRxPacketsCircularBufferSize,
+                maxRxUdpPacketSizeBytes, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber);
             engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&SenderHelper::InitialTransmissionCompletedCallback, &senderHelper, boost::placeholders::_1));
             engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&SenderHelper::TransmissionSessionCancelledCallback, &senderHelper, boost::placeholders::_1, boost::placeholders::_2));
@@ -252,7 +262,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             ReceiverHelper receiverHelper;
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
-            LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes, estimatedFileSizeToReceive);
+            LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes,
+                estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber);
             engineDest.SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
             engineDest.SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));
@@ -275,14 +286,16 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 std::string sha1Str;
                 GetSha1(receiverHelper.receivedFileContents, sha1Str);
                 std::cout << "SHA1: " << sha1Str << std::endl;
-                std::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);
-                if (!ofs.good()) {
-                    std::cout << "error, unable to open file " << receiveFilePath << " for writing\n";
-                    return false;
+                if (!dontSaveFile) {
+                    std::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);
+                    if (!ofs.good()) {
+                        std::cout << "error, unable to open file " << receiveFilePath << " for writing\n";
+                        return false;
+                    }
+                    ofs.write((char*)receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size());
+                    ofs.close();
+                    std::cout << "wrote " << receiveFilePath << "\n";
                 }
-                ofs.write((char*)receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size());
-                ofs.close();
-                std::cout << "wrote " << receiveFilePath << "\n";
                 
             }
             boost::this_thread::sleep(boost::posix_time::seconds(2));

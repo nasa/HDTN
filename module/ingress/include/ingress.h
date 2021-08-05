@@ -42,12 +42,12 @@ public:
     Ingress();  // initialize message buffers
     ~Ingress();
     void Stop();
-    int Init(const HdtnConfig & hdtnConfig);
     void SchedulerEventHandler();
+    int Init(const HdtnConfig & hdtnConfig, 
+             zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
-
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 public:
