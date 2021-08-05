@@ -42,11 +42,12 @@ public:
     Ingress();  // initialize message buffers
     ~Ingress();
     void Stop();
-    int Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    void SchedulerEventHandler();
+    int Init(const HdtnConfig & hdtnConfig, 
+             zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     int Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
-
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 public:
@@ -100,6 +101,10 @@ private:
     std::unique_ptr<zmq::context_t> m_zmqCtx_ingressStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
+   
+     std::unique_ptr<zmq::context_t> m_zmqCtx_schedulerIngressPtr;
+     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
+
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
 
@@ -116,7 +121,7 @@ private:
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
-    bool m_alwaysSendToStorage;
+    std::map<uint64_t, bool> m_sendToStorage;
 };
 
 

@@ -47,8 +47,7 @@ void Ingress::Stop() {
         "m_eventsTooManyInStorageQueue: " + std::to_string(m_eventsTooManyInStorageQueue));
 }
 
-int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
-    
+int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (!m_running) {
         m_running = true;
@@ -99,10 +98,28 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::
         m_zmqPullSock_connectingStorageToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
         m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
+
+	// socket for receiving events from scheduler
+        m_zmqCtx_schedulerIngressPtr = boost::make_unique<zmq::context_t>();
+        m_zmqSubSock_boundSchedulerToConnectingIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_schedulerIngressPtr, 
+											      zmq::socket_type::sub);
+        const std::string connect_boundSchedulerPubSubPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqSchedulerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+        try {
+            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
+            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "");
+            std::cout << "Ingress connected and listening to events from scheduler " << connect_boundSchedulerPubSubPath << std::endl;
+        } catch (const zmq::error_t & ex) {
+            std::cerr << "error: ingress cannot connect to scheduler socket: " << ex.what() << std::endl;
+            return false;
+        }
+
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
 
-        m_alwaysSendToStorage = alwaysSendToStorage;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
@@ -113,11 +130,12 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::
 
 void Ingress::ReadZmqAcksThreadFunc() {
 
-    static const unsigned int NUM_SOCKETS = 2;
+    static const unsigned int NUM_SOCKETS = 3;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
+	{m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     std::size_t totalAcksFromStorage = 0;
@@ -194,7 +212,11 @@ void Ingress::ReadZmqAcksThreadFunc() {
                         m_conditionVariableStorageAckReceived.notify_all();
                     }
                 }
+	    }
+	    if (items[2].revents & ZMQ_POLLIN) { //events from Scheduler
+                SchedulerEventHandler();
             }
+
         }
     }
     std::cout << "totalAcksFromEgress: " << totalAcksFromEgress << std::endl;
@@ -210,6 +232,33 @@ void Ingress::ReadZmqAcksThreadFunc() {
     hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountEgress: " + std::to_string(m_bundleCountEgress));
     hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCount: " + std::to_string(m_bundleCount));
     hdtn::Logger::getInstance()->logNotification("ingress", "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting");
+}
+
+void Ingress::SchedulerEventHandler() {
+    zmq::message_t message;
+    if (!m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(message, zmq::recv_flags::none)) {
+	 std::cerr << "Ingress didn't receive event from scheduler" << std::endl;
+         return;
+     }
+     if (message.size() < sizeof(CommonHdr)) {
+         return;
+     }
+     CommonHdr *common = (CommonHdr *)message.data();
+
+     hdtn::BlockHdr blockHdr;
+     memcpy(&blockHdr, message.data(), sizeof(hdtn::BlockHdr));
+
+     switch (common->type) {
+     	case HDTN_MSGTYPE_ILINKUP:
+            std::cout << "Link available send bundles to egress for flowId" << blockHdr.flowId << std::endl;
+	    m_sendToStorage[blockHdr.flowId] = false;
+	    
+            break;
+        case HDTN_MSGTYPE_ILINKDOWN:
+            std::cout << "Link unavailable Send bundles to storage for flowId " << blockHdr.flowId << std::endl;
+            m_sendToStorage[blockHdr.flowId] = true;
+            break;
+    }
 }
 
 static void CustomCleanup(void *data, void *hint) {
@@ -250,14 +299,15 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         hdr.flowId = static_cast<uint32_t>(dst.node);  // for now
         hdr.base.flags = static_cast<uint16_t>(bpv6Primary.flags);
-        hdr.base.type = (m_alwaysSendToStorage) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
+	hdr.base.type = (m_sendToStorage[hdr.flowId]) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
         hdr.ts = absExpirationUsec; //use ts for now
         hdr.ttl = priority; //use ttl for now
         // hdr.ts=recvlen;
         std::size_t numChunks = 1;
         std::size_t bytesToSend = messageSize;
         std::size_t remainder = 0;
-
+	
+	//std::cout << "@nadia Ingress hdr type for flowId " << hdr.base.type  << std::endl; 
         
         
         zframeSeq = 0;

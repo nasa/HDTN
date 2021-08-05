@@ -203,13 +203,13 @@ void hdtn::storage::scheduleRelease() {
     hdtn::Logger::getInstance()->logNotification("storage", "Message received");
     CommonHdr *common = (CommonHdr *)message.data();
     switch (common->type) {
-        case HDTN_MSGTYPE_IRELSTART:
+        case HDTN_MSGTYPE_ILINKUP:
             std::cout << "release data\n";
             hdtn::Logger::getInstance()->logNotification("storage", "Release data");
             m_workerSockPtr->send(message, zmq::send_flags::none); //VERIFY this works over const_buffer message.data(), message.size(), 0); (tested and apparently it does)
             storageStats.worker = worker.stats();
             break;
-        case HDTN_MSGTYPE_IRELSTOP:
+        case HDTN_MSGTYPE_ILINKDOWN:
             std::cout << "stop releasing data\n";
             hdtn::Logger::getInstance()->logNotification("storage", "Stop releasing data");
             break;

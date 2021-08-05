@@ -34,8 +34,8 @@
 #define HDTN_MSGTYPE_IABORT \
     (0xFC01)  // indicates that the worker encountered a critical failure and will // immediately terminate
 #define HDTN_MSGTYPE_ISHUTDOWN (0xFC02)   // tells the worker to shut down
-#define HDTN_MSGTYPE_IRELSTART (0xFC03)   // tells the worker to begin releasing data for forwarding
-#define HDTN_MSGTYPE_IRELSTOP (0xFC04)    // tells the worker to stop releasing data
+#define HDTN_MSGTYPE_ILINKUP (0xFC03)     // Link available event from scheduler
+#define HDTN_MSGTYPE_ILINKDOWN (0xFC04)    // Link unavailable event from scheduler
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 

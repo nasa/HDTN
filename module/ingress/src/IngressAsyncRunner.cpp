@@ -40,14 +40,12 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&IngressAsyncRunner::MonitorExitKeypressThreadFunction, this));
-        bool alwaysSendToStorage = false;
         HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")                
-                ("always-send-to-storage", "Don't send straight to egress (for testing).")
                 ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ;
 
@@ -68,10 +66,6 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
                 return false;
             }
 
-
-            if (vm.count("always-send-to-storage")) {
-                alwaysSendToStorage = true;
-            }
 
         }
         catch (boost::bad_any_cast & e) {
@@ -94,7 +88,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         std::cout << "starting ingress.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
         hdtn::Ingress ingress;
-        ingress.Init(*hdtnConfig, alwaysSendToStorage);
+        ingress.Init(*hdtnConfig);
 
         // finish registration stuff -ingress will find out what egress services have
         // registered
