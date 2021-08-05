@@ -121,7 +121,7 @@ private:
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
-    bool m_sendToStorage;
+    std::map<uint64_t, bool> m_sendToStorage;
 };
 
 

@@ -105,7 +105,8 @@ int Ingress::Init(const HdtnConfig & hdtnConfig) {
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
-    	m_sendToStorage = true;
+    	//m_sendToStorage[1] = true;
+	//m_sendToStorage[2] = true;
     }
     return 0;
 }
@@ -227,14 +228,19 @@ void Ingress::SchedulerEventHandler() {
          return;
      }
      CommonHdr *common = (CommonHdr *)message.data();
+
+     hdtn::BlockHdr blockHdr;
+     memcpy(&blockHdr, message.data(), sizeof(hdtn::BlockHdr));
+
      switch (common->type) {
      	case HDTN_MSGTYPE_ILINKUP:
-            std::cout << "Link available send bundles to egress\n";
-	    m_sendToStorage = false;
+            std::cout << "Link available send bundles to egress for flowId" << blockHdr.flowId << std::endl;
+	    m_sendToStorage[blockHdr.flowId] = false;
+	    
             break;
         case HDTN_MSGTYPE_ILINKDOWN:
-            std::cout << "Link unavailable Send bundles to storage\n";
-            m_sendToStorage = true;
+            std::cout << "Link unavailable Send bundles to storage for flowId " << blockHdr.flowId << std::endl;
+            m_sendToStorage[blockHdr.flowId] = true;
             break;
     }
 }
@@ -277,14 +283,15 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         hdr.flowId = static_cast<uint32_t>(dst.node);  // for now
         hdr.base.flags = static_cast<uint16_t>(bpv6Primary.flags);
-	hdr.base.type = (m_sendToStorage) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
+	hdr.base.type = (m_sendToStorage[hdr.flowId]) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
         hdr.ts = absExpirationUsec; //use ts for now
         hdr.ttl = priority; //use ttl for now
         // hdr.ts=recvlen;
         std::size_t numChunks = 1;
         std::size_t bytesToSend = messageSize;
         std::size_t remainder = 0;
-
+	
+	//std::cout << "@nadia Ingress hdr type for flowId " << hdr.base.type  << std::endl; 
         
         
         zframeSeq = 0;

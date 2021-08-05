@@ -22,9 +22,7 @@ Scheduler::~Scheduler() {
 
 void Scheduler::ProcessLinkDown(const boost::system::error_code& e, int id, std::string event, zmq::socket_t * ptrSocket) {
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    m_dt2TimerIsRunning = false;
     if (e != boost::asio::error::operation_aborted) {
-        // Timer was not cancelled, take necessary action.
          std::cout <<  "Processing Event at Expiry time: " << timeLocal << " , for flow id: " << id << " , Event is " << event;
          hdtn::IreleaseStopHdr stopMsg;
          memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
@@ -38,9 +36,7 @@ void Scheduler::ProcessLinkDown(const boost::system::error_code& e, int id, std:
 }
 
 void Scheduler::ProcessLinkUp(const boost::system::error_code& e, int id, std::string event, zmq::socket_t * ptrSocket) {
-    m_dtTimerIsRunning = false;
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
     std::cout <<  "Processing Event at Expiry time: " << timeLocal << " , for flow id: " << id << " , Event is " << event;
@@ -68,9 +64,9 @@ int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
         linkEvent.contact = eventPt.second.get<int>("contact",0);
 	linkEvent.source = eventPt.second.get<int>("source",0);
 	linkEvent.dest = eventPt.second.get<int>("dest",0);
-	linkEvent.id = eventPt.second.get<int>("flow id",0);
-	linkEvent.start = eventPt.second.get<int>("start time",0);
-        linkEvent.end = eventPt.second.get<int>("end time",0);
+	linkEvent.id = eventPt.second.get<int>("flowId",0);
+	linkEvent.start = eventPt.second.get<int>("start",0);
+        linkEvent.end = eventPt.second.get<int>("end",0);
 	linkEvent.rate = eventPt.second.get<int>("rate",0);
 
         std::string errorMessage = "";
@@ -113,13 +109,11 @@ int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
         dt->expires_from_now(boost::posix_time::seconds(contactsVector[i].start));
         dt->async_wait(boost::bind(&Scheduler::ProcessLinkUp,this,boost::asio::placeholders::error, contactsVector[i].id,
                        "Link available",&socket));
-        m_dtTimerIsRunning = true;
         vectorTimers.push_back(std::move(dt));
 
         dt2->expires_from_now(boost::posix_time::seconds(contactsVector[i].end + 1));                     
         dt2->async_wait(boost::bind(&Scheduler::ProcessLinkDown,this,boost::asio::placeholders::error, contactsVector[i].id,
                                    "Link unavailable",&socket));
-        m_dt2TimerIsRunning = true;
         vectorTimers2.push_back(std::move(dt2));
     }
 

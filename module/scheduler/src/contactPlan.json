@@ -2,29 +2,22 @@
     "contacts": [
        {
             "contact": 0,
-            "source": 1,
-            "dest": 2,
-            "flow id": 1,
-            "start time": 0,
-            "end time": 15,
+            "source": 3,
+            "dest": 1,
+            "flowId": 1,
+            "start": 0,
+            "end": 10,
             "rate": "1000"
         },
-        {
+	{
             "contact": 1,
             "source": 3,
-            "dest": 4,
-            "flow id": 2,
-            "start time": 16,
-            "end time": 26,
-            "rate": "1000"
-        },
-	{   "contact": 3,
-            "source": 1,
             "dest": 2,
-            "flow id": 1,
-            "start time": 27,
-            "end time": 40,
+            "flowId": 2,
+            "start": 10,
+            "end": 20,
             "rate": "1000"
         }
+
     ]
 }
