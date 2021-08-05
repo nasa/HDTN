@@ -123,8 +123,6 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcess
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
-    	//m_sendToStorage[1] = true;
-	//m_sendToStorage[2] = true;
     }
     return 0;
 }
