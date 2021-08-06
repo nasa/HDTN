@@ -42,7 +42,7 @@ Build HDTN
 * mkdir build
 * cd build
 * cmake ..
-* make
+* make -j8
 
 Run HDTN
 =========

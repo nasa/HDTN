@@ -44,12 +44,12 @@ storage_PID=$!
 sleep 3
 
 # bpgen1
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --flow-id=2 --duration=20 --bundle-size=100000 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --flow-id=2 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
 bpgen1_PID=$!
 sleep 1
 
 # bpgen2
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --flow-id=1 --duration=20 --bundle-size=100000 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --flow-id=1 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
 bpgen2_PID=$!
 sleep 8
 
