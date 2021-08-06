@@ -10,8 +10,13 @@
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
-static const uint64_t PRIMARY_DEST_NODE = 200;
-static const uint64_t PRIMARY_DEST_SVC = 2;
+static const std::string PRIMARY_SRC_URI = "ipn:100.1";
+static const uint64_t PRIMARY_HDTN_NODE = 200;
+static const uint64_t PRIMARY_HDTN_SVC = 2;
+static const std::string PRIMARY_HDTN_URI = "ipn:200.2";
+static const uint64_t PRIMARY_DEST_NODE = 300;
+static const uint64_t PRIMARY_DEST_SVC = 3;
+static const std::string PRIMARY_DEST_URI = "ipn:300.3";
 static const uint64_t PRIMARY_TIME = 1000;
 static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
@@ -78,36 +83,65 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
 {
     
     {
-        uint64_t primaryCustodianNode = 100;
-        uint64_t primaryCustodianService = 5;
-        uint64_t ctebCustodianNode = 100;
-        uint64_t ctebCustodianService = 5;
-        uint64_t ctebCustodyId = 45;
+        //create bundle from bundle originator
+        const uint64_t ctebCustodyId = 10;
         const std::string bundleDataStr = "bundle data!!!";
-        std::vector<uint8_t> buffer(2000);
-        uint64_t len = GenerateBundleWithCteb(primaryCustodianNode, primaryCustodianService,
-            ctebCustodianNode, ctebCustodianService, ctebCustodyId,
-            bundleDataStr, &buffer[0]);
-        
+        std::vector<uint8_t> bundleData(2000);
+        //make valid cteb (primary custodian matches cteb custodian) from bundle originator
+        uint64_t len = GenerateBundleWithCteb(
+            PRIMARY_SRC_NODE, PRIMARY_SRC_SVC, //primary custodian
+            PRIMARY_SRC_NODE, PRIMARY_SRC_SVC, ctebCustodyId, //cteb custodian
+            bundleDataStr, &bundleData[0]);
         BOOST_REQUIRE_GT(len, 0);
+        bundleData.resize(len);
+        BundleViewV6 bv;
+        //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
+        { //check primary
+            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+            BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
+            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_SRC_NODE);
+            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_SRC_SVC);
+        }
+        { //check cteb
+            BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            CustodyTransferEnhancementBlock cteb;
+            BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
+                blocks[0]->actualSerializedHeaderAndBodyPtr.size());
+            BOOST_REQUIRE_EQUAL(cteb.m_ctebCreatorCustodianEidString, PRIMARY_SRC_URI); //cteb matches primary custodian
+        }
 
-        bpv6_primary_block primary;
-        CustodyTransferEnhancementBlock cteb;
-        BOOST_REQUIRE(CustodyTransferManager::GetCtebAndPrimaryFromBundleData(buffer.data(), len, primary, cteb));
-        BOOST_REQUIRE_EQUAL(primary.custodian_node, primaryCustodianNode);
-        BOOST_REQUIRE_EQUAL(primary.custodian_svc, primaryCustodianService);
-        BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_SRC_NODE);
-        BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_SRC_SVC);
-        BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_DEST_NODE);
-        BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_DEST_SVC);
-        BOOST_REQUIRE_EQUAL(primary.creation, PRIMARY_TIME);
-        BOOST_REQUIRE_EQUAL(primary.lifetime, PRIMARY_LIFETIME);
-        BOOST_REQUIRE_EQUAL(primary.sequence, PRIMARY_SEQ);
-        BOOST_REQUIRE_EQUAL(cteb.m_custodyId, ctebCustodyId);
-        uint64_t ctebRxCustEid, ctebRxCustSvc;
-        BOOST_REQUIRE(Uri::ParseIpnUriString(cteb.m_ctebCreatorCustodianEidString, ctebRxCustEid, ctebRxCustSvc));
-        BOOST_REQUIRE_EQUAL(ctebRxCustEid, ctebCustodianNode);
-        BOOST_REQUIRE_EQUAL(ctebRxCustSvc, ctebCustodianService);
+        //hdtn node accept custody with acs
+        const bool isAcsAware = true;
+        CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
+        BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0);
+        ctmHdtn.ProcessCustodyOfBundle(bv, true, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION);
+        BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 1);
+        //hdtn modifies bundle for next hop
+        BOOST_REQUIRE(bv.Render(2000));
+        bundleData.swap(bv.m_frontBuffer); //bundleData is now hdtn's modified bundle for next hop
+        BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData)); //bv is now hdtn's
+        { //check new primary
+            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+            BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
+            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_HDTN_NODE); //hdtn is new custodian
+            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_HDTN_SVC);
+        }
+        { //check new cteb
+            BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            CustodyTransferEnhancementBlock cteb;
+            BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
+                blocks[0]->actualSerializedHeaderAndBodyPtr.size());
+            BOOST_REQUIRE_EQUAL(cteb.m_ctebCreatorCustodianEidString, PRIMARY_HDTN_URI); //cteb matches new hdtn custodian
+        }
     }
 
 

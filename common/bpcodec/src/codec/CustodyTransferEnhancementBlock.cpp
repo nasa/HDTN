@@ -90,6 +90,27 @@ uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint
     return buffer - serializationBase;
 }
 
+//static function
+uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(uint8_t * buffer,
+    const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock)
+{
+    uint8_t * const serializationBase = buffer;
+
+    returnedCanonicalBlock.type = static_cast<uint8_t>(CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK);
+    returnedCanonicalBlock.flags = 0;
+
+    
+    buffer += SdnvEncodeU64(buffer, custodyId);
+
+    const std::size_t lengthEidStr = ctebCreatorCustodianEidString.length();
+    memcpy(buffer, ctebCreatorCustodianEidString.data(), lengthEidStr);
+    buffer += lengthEidStr;
+
+    const uint64_t bodyLength = buffer - serializationBase;
+    returnedCanonicalBlock.length = bodyLength;
+    return bodyLength;
+}
+
 uint32_t CustodyTransferEnhancementBlock::DeserializeCtebCanonicalBlock(const uint8_t * serialization) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;

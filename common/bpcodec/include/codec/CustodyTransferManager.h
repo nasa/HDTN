@@ -24,19 +24,17 @@ enum class BPV6_ACS_STATUS_REASON_INDICES : uint8_t {
 static constexpr unsigned int NUM_ACS_STATUS_INDICES = static_cast<unsigned int>(BPV6_ACS_STATUS_REASON_INDICES::NUM_INDICES);
 
 class CustodyTransferManager {
-
-public:
+private:
     CustodyTransferManager();
+public:
+    
+    CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId);
     ~CustodyTransferManager();
 
-    static bool GetCtebAndPrimaryFromBundleData(const uint8_t * bundleData, const std::size_t size,
-        bpv6_primary_block & primary, CustodyTransferEnhancementBlock & cteb);
-    bool TakeCustodyOfBundle(const uint8_t * bundleData, const std::size_t size);
-    bool ProcessCustodyOfBundle(std::vector<uint8_t> & bundleData, bool acceptCustody, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     void Reset();
     bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
-    
+    const AggregateCustodySignal & GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;

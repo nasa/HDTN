@@ -24,20 +24,8 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t newType, co
     block.type = newType;
     block.flags = 0; //don't worry about block.flags as last block because Render will take care of that automatically
     block.length = newBlockBody.length();
-        
-    std::vector<uint8_t> tempCanonicalSerialization;
-    tempCanonicalSerialization.resize(100);
-    uint8_t * buffer = &tempCanonicalSerialization[0];
 
-    uint64_t retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
-    BOOST_REQUIRE_GT(retVal, 2);
-    buffer += retVal;
-
-    memcpy(buffer, newBlockBody.data(), newBlockBody.length());
-    buffer += newBlockBody.length();
-
-    tempCanonicalSerialization.resize(retVal + newBlockBody.length());
-    bv.AppendPreserializedCanonicalBlock(block, tempCanonicalSerialization);
+    bv.AppendCanonicalBlock(block, std::vector<uint8_t>(newBlockBody.data(), newBlockBody.data() + newBlockBody.size()));
     BOOST_REQUIRE(bv.Render(5000));
     
 }
@@ -52,18 +40,7 @@ static void ChangeCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t oldType, ui
     block.type = newType;
     //don't worry about block.flags as last block because Render will take care of that automatically
     block.length = newBlockBody.length();
-    std::vector<uint8_t> & tempCanonicalSerialization = blocks[0]->temporarySerialization;
-    tempCanonicalSerialization.resize(100);
-    uint8_t * buffer = &tempCanonicalSerialization[0];
-
-    uint64_t retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
-    BOOST_REQUIRE_GT(retVal, 2);
-    buffer += retVal;
-
-    memcpy(buffer, newBlockBody.data(), newBlockBody.length());
-    buffer += newBlockBody.length();
-
-    tempCanonicalSerialization.resize(retVal + newBlockBody.length());
+    blocks[0]->replacementBlockBodyData = std::vector<uint8_t>(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
     blocks[0]->SetManuallyModified();
 
     BOOST_REQUIRE(bv.Render(5000));

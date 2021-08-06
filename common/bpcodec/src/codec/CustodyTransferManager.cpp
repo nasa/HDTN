@@ -64,11 +64,10 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     serializedBundle.resize(buffer - serializationBase);
     return true;
 }
-
-CustodyTransferManager::CustodyTransferManager() : 
-    m_isAcsAware(true),
-    m_myCustodianNodeId(4),
-    m_myCustodianServiceId(1),
+CustodyTransferManager::CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId) : 
+    m_isAcsAware(isAcsAware),
+    m_myCustodianNodeId(myCustodianNodeId),
+    m_myCustodianServiceId(myCustodianServiceId),
     m_myCtebCreatorCustodianEidString(Uri::GetIpnUriString(m_myCustodianNodeId, m_myCustodianServiceId)),
     m_myNextCustodyIdForNextHopCtebToSend(0)
 {
@@ -87,77 +86,9 @@ CustodyTransferManager::CustodyTransferManager() :
     m_acsArray[static_cast<uint8_t>(BPV6_ACS_STATUS_REASON_INDICES::FAIL__BLOCK_UNINTELLIGIBLE)].SetCustodyTransferStatusAndReason(
         false, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::BLOCK_UNINTELLIGIBLE);
 }
+CustodyTransferManager::~CustodyTransferManager() {}
 
-bool CustodyTransferManager::GetCtebAndPrimaryFromBundleData(const uint8_t * bundleData, const std::size_t size,
-    bpv6_primary_block & primary, CustodyTransferEnhancementBlock & cteb)
-{
-    bpv6_canonical_block canonical;
 
-    int32_t offset = cbhe_bpv6_primary_block_decode(&primary, (const char*)bundleData, 0, size);
-    if (offset == 0) {
-        return false;//Malformed bundle received
-    }
-    if (offset >= size) {
-        return false;
-    }
-    if ((primary.flags & BPV6_BUNDLEFLAG_CUSTODY) == 0) {
-        return false;
-    }
-    while (true) {
-        uint32_t canonicalBlockHeaderSize = bpv6_canonical_block_decode(&canonical, (const char*)bundleData, offset, size);
-        if (canonicalBlockHeaderSize == 0) {
-            return false;
-        }
-        if (canonical.type == BPV6_BLOCKTYPE_CUST_TRANSFER_EXT) {
-            uint32_t ctebLength = cteb.DeserializeCtebCanonicalBlock(bundleData + offset);
-            offset += ctebLength;
-            return (canonical.flags & BPV6_BLOCKFLAG_LAST_BLOCK) ? (offset == size) : (offset < size);
-        }
-        else if (canonical.flags & BPV6_BLOCKFLAG_LAST_BLOCK) {
-            return false;
-        }
-        else {
-            std::string data((const char*)(bundleData + offset + canonicalBlockHeaderSize), (const char*)(bundleData + offset + canonicalBlockHeaderSize + canonical.length));
-            offset += canonicalBlockHeaderSize + static_cast<uint32_t>(canonical.length);
-            if (offset >= size) {
-                return false;
-            }
-        }
-    }
-
-}
-
-bool CustodyTransferManager::TakeCustodyOfBundle(const uint8_t * bundleData, const std::size_t size) {
-    bpv6_primary_block primary;
-    CustodyTransferEnhancementBlock cteb;
-    if (!GetCtebAndPrimaryFromBundleData(bundleData, size, primary, cteb)) {
-        return false;
-    }
-
-    std::pair<uint64_t, uint64_t> custodianEidFromPrimary(primary.custodian_node, primary.custodian_svc);
-
-    uint64_t ctebNodeNumber;
-    uint64_t ctebServiceNumber;
-    if (!Uri::ParseIpnUriString(cteb.m_ctebCreatorCustodianEidString, ctebNodeNumber, ctebServiceNumber)) {
-        return false;
-    }
-    std::pair<uint64_t, uint64_t> custodianEidFromCteb(ctebNodeNumber, ctebServiceNumber);
-    if (custodianEidFromPrimary == custodianEidFromCteb) {
-
-    }
-    return true;
-        
-    
-}
-
-bool CustodyTransferManager::ProcessCustodyOfBundle(std::vector<uint8_t> & bundleData, bool acceptCustody, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
-    BundleViewV6 bv;
-    //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
-    if (!bv.SwapInAndLoadBundle(bundleData)) {
-        return false;
-    }
-    return ProcessCustodyOfBundle(bv, acceptCustody, statusReasonIndex);
-}
 
 bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     bpv6_primary_block & primary = bv.m_primaryBlockView.header;
@@ -206,27 +137,27 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             bv.m_primaryBlockView.SetManuallyModified(); //will update after render
 
             const uint64_t custodyId = m_myNextCustodyIdForNextHopCtebToSend++;
-            bpv6_canonical_block returnedCanonicalBlock;
+            
             if (blocks.size() == 1) { //cteb present
                 //update (reuse existing) CTEB with new custodian
                 blocks[0]->markedForDeletion = false;
-                std::vector<uint8_t> & tempCanonicalSerialization = blocks[0]->temporarySerialization;
-                tempCanonicalSerialization.resize(100);
-                const uint64_t sizeSerialized = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(&tempCanonicalSerialization[0],
-                    static_cast<uint64_t>(BLOCK_PROCESSING_CONTROL_FLAGS::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED),
-                    custodyId, m_myCtebCreatorCustodianEidString, returnedCanonicalBlock);
-                tempCanonicalSerialization.resize(sizeSerialized);
+                std::vector<uint8_t> & newCtebBody = blocks[0]->replacementBlockBodyData;
+                newCtebBody.resize(100);
+                const uint64_t sizeSerialized = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(&newCtebBody[0],
+                    custodyId, m_myCtebCreatorCustodianEidString, blocks[0]->header);
+                newCtebBody.resize(sizeSerialized);
                 blocks[0]->SetManuallyModified(); //bundle needs rerendered
+                //std::cout << "cteb present\n";
             }
             else { //non-existing cteb present.. append a new one to the bundle
                 //https://cwe.ccsds.org/sis/docs/SIS-DTN/Meeting%20Materials/2011/Fall%20(Colorado)/jenkins-sisdtn-aggregate-custody-signals.pdf
                 //slide 20 - ACS-enabled nodes add CTEBs when they become custodian.
-                std::vector<uint8_t> tempCanonicalSerialization(100);
-                const uint64_t sizeSerialized = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(&tempCanonicalSerialization[0],
-                    static_cast<uint64_t>(BLOCK_PROCESSING_CONTROL_FLAGS::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED),
+                bpv6_canonical_block returnedCanonicalBlock;
+                std::vector<uint8_t> newCtebBody(100);
+                const uint64_t sizeSerialized = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(&newCtebBody[0],
                     custodyId, m_myCtebCreatorCustodianEidString, returnedCanonicalBlock);
-                tempCanonicalSerialization.resize(sizeSerialized);
-                bv.AppendPreserializedCanonicalBlock(returnedCanonicalBlock, tempCanonicalSerialization); //bundle needs rerendered
+                newCtebBody.resize(sizeSerialized);
+                bv.AppendCanonicalBlock(returnedCanonicalBlock, newCtebBody); //bundle needs rerendered
             }
 
             if (validCtebPresent) { //identical custodians
@@ -299,4 +230,8 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
         }
     }
     return true;
+}
+
+const AggregateCustodySignal & CustodyTransferManager::GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+    return m_acsArray[static_cast<uint8_t>(statusReasonIndex)];
 }

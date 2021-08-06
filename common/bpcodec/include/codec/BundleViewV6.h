@@ -57,7 +57,7 @@ public:
         bpv6_canonical_block header;
         boost::asio::const_buffer actualSerializedHeaderAndBodyPtr;
         boost::asio::const_buffer actualSerializedBodyPtr;
-        std::vector<uint8_t> temporarySerialization;
+        std::vector<uint8_t> replacementBlockBodyData;
         bool dirty;
         bool markedForDeletion;
 
@@ -73,7 +73,7 @@ public:
     BundleViewV6();
     ~BundleViewV6();
 
-    void AppendPreserializedCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & serialized);
+    void AppendCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & blockBody);
     //canonical_block_view_range_t GetCanonicalBlockRangeByType(const uint8_t canonicalBlockTypeCode);
     std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
