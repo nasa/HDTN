@@ -1113,7 +1113,7 @@ bool TestStorage() {
     std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
 
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress","--always-send-to-storage",hdtnConfigArg.c_str(), NULL };
+    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
     std::thread threadIngress(RunIngress,argsIngress,3,std::ref(runningIngress),&bundleCountIngress);
 
     // Run Release Message Sender
@@ -1258,7 +1258,7 @@ bool TestStorageSlowBpSink() {
     std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
 
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress","--always-send-to-storage",hdtnConfigArg.c_str(), NULL };
+    static const char * argsIngress[] = { "ingress", hdtnConfigArg.c_str(), NULL };
     std::thread threadIngress(RunIngress, argsIngress, 3, std::ref(runningIngress), &bundleCountIngress);
 
     // Run Release Message Sender
@@ -1408,7 +1408,7 @@ bool TestStorageMulti() {
     std::thread threadEgress(RunEgressAsync, argsEgress, 2, std::ref(runningEgress), &bundleCountEgress);
 
     Delay(DELAY_THREAD);
-    static const char * argsIngress[] = { "ingress","--always-send-to-storage",hdtnConfigArg.c_str(), NULL };
+    static const char * argsIngress[] = { "ingress", hdtnConfigArg.c_str(), NULL };
     std::thread threadIngress(RunIngress, argsIngress, 3, std::ref(runningIngress), &bundleCountIngress);
 
     // Run Release Message Sender
