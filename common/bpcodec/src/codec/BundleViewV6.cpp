@@ -46,11 +46,15 @@ bool BundleViewV6::Load() {
     if (offset >= m_renderedBundle.size()) {
         return false;
     }
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_FRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
+    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_FRAGMENT)) {
         return false;
     }
     m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(m_renderedBundle.data(), offset);
     m_primaryBlockView.dirty = false;
+    m_applicationDataUnitStartPtr = (static_cast<const uint8_t*>(m_renderedBundle.data())) + offset;
+    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
+        return true;
+    }
 
     while (true) {
         m_listCanonicalBlockView.emplace_back();
@@ -229,7 +233,7 @@ bool BundleViewV6::IsValid() const {
 void BundleViewV6::Reset() {
     memset(&m_primaryBlockView.header, 0, sizeof(bpv6_primary_block));
     m_listCanonicalBlockView.clear();
-
+    m_applicationDataUnitStartPtr = NULL;
 
     m_renderedBundle = boost::asio::buffer((void*)NULL, 0);
     m_frontBuffer.clear();

@@ -90,7 +90,7 @@ private:
     
 public:
     Bpv6PrimaryBlockView m_primaryBlockView;
-    //std::multimap<uint8_t, Bpv6CanonicalBlockView*> m_mapCanonicalBlockTypeToPreexistingCanonicalBlockViews;
+    const uint8_t * m_applicationDataUnitStartPtr;
     std::list<Bpv6CanonicalBlockView> m_listCanonicalBlockView; //list will maintain block relative order
 
 

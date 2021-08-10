@@ -55,6 +55,8 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     sig.m_copyOfBundleCreationTimestampTimeSeconds = primaryFromSender.creation;
     sig.m_copyOfBundleCreationTimestampSequenceNumber = primaryFromSender.sequence;
     sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.custodian_node, primaryFromSender.custodian_svc);
+    //REQ D4.2.2.7 An ACS-aware bundle protocol agent shall utilize the ACS bundle timestamp
+    //time as the ‘Time of Signal’ when executing RFC 5050 section 6.3
     sig.SetTimeOfSignalGeneration(TimestampUtil::GenerateDtnTimeNow());//add custody
     const uint8_t sri = static_cast<uint8_t>(statusReasonIndex);
     sig.SetCustodyTransferStatusAndReason(INDEX_TO_IS_SUCCESS[sri], INDEX_TO_REASON_CODE[sri]);
@@ -64,6 +66,46 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     serializedBundle.resize(buffer - serializationBase);
     return true;
 }
+bool CustodyTransferManager::GenerateAcsBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const {
+    const AggregateCustodySignal & currentAcs = m_acsArray[static_cast<uint8_t>(statusReasonIndex)];
+    if (currentAcs.m_custodyIdFills.size() == 0) {
+        return false;
+    }
+    serializedBundle.resize(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + 2000); //todo size
+    uint8_t * const serializationBase = &serializedBundle[0];
+    uint8_t * buffer = serializationBase;
+
+    bpv6_primary_block primary;
+    memset(&primary, 0, sizeof(bpv6_primary_block));
+    primary.version = 6;
+    bpv6_canonical_block block;
+    memset(&block, 0, sizeof(bpv6_canonical_block));
+
+    primary.flags = bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
+        bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
+    primary.src_node = m_myCustodianNodeId;
+    primary.src_svc = m_myCustodianServiceId;
+    primary.dst_node = primaryFromSender.custodian_node;
+    primary.dst_svc = primaryFromSender.custodian_svc;
+    primary.custodian_node = 0;
+    primary.custodian_svc = 0;
+    primary.creation = 1000;//TODO //(uint64_t)bpv6_unix_to_5050(curr_time);
+    primary.lifetime = 1000;
+    primary.sequence = 1;
+    uint64_t retVal;
+    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, 0);
+    if (retVal == 0) {
+        return false;
+    }
+    buffer += retVal;
+
+    uint64_t sizeSerialized = currentAcs.Serialize(buffer);
+    buffer += sizeSerialized;
+
+    serializedBundle.resize(buffer - serializationBase);
+    return true;
+}
+
 CustodyTransferManager::CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId) : 
     m_isAcsAware(isAcsAware),
     m_myCustodianNodeId(myCustodianNodeId),
@@ -90,8 +132,12 @@ CustodyTransferManager::~CustodyTransferManager() {}
 
 
 
-bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody,
+    const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, std::vector<uint8_t> & custodySignalRfc5050SerializedBundle)
+{
+    custodySignalRfc5050SerializedBundle.resize(0);
     bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+    //bpv6_primary_block originalPrimaryFromSender = primary; //make a copy
     std::pair<uint64_t, uint64_t> custodianEidFromPrimary(primary.custodian_node, primary.custodian_svc);
 
     if (m_isAcsAware) {
@@ -128,10 +174,44 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             
         }
         if (acceptCustody) {
+            if (validCtebPresent) { //identical custodians
+                //acs capable ba, ba accepts custody, valid cteb => pending succeeded acs for custodian
+
+                //d continued) For an intermediate node which is ACS capable and accepts custody...
+                //For identical custodians, the primary bundle block and CTEB are updated with the new custodian
+                //by the bundle protocol agent, and custody aggregation is utilized to improve link
+                //efficiency
+                //Item d) bounds the defining set of capabilities unique to ACS. By accepting a bundle for
+                //custody transfer, an ACS - capable bundle protocol agent will process the bundle per RFC
+                //5050, section 5.10.1.However, instead of the normal custody signaling, the CTEB identifies
+                //in shortened form the specific bundle by custody ID.
+
+                //REQUIREMENT D4.2.2.3c For ACS-aware bundle protocol agents which do accept custody of ACS:
+                //  c) for bundles with a valid CTEB: 
+                //      1) the bundle protocol agent shall aggregate ‘Succeeded’ status into a single bundle
+                //      as identified in D3.2:
+                //          i) the aggregation of ‘Succeeded’ status shall not exceed maximum allowed
+                //          bundle size;
+                //          ii) the time period for aggregation of bundle status shall not exceed the
+                //          maximum allowed;
+                //      2) the bundle protocol agent shall delete, upon successful transmission of an ACS
+                //      signal, the associated timer and pending ACS ‘Succeeded’.
+
+                //aggregate succeeded status
+                m_acsArray[static_cast<uint8_t>(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)].AddCustodyIdToFill(receivedCtebCustodyId);
+            }
+            else { //invalid cteb
+                //acs capable ba, ba accepts custody, invalid cteb => generate succeeded and follow 5.10
+                //invalid cteb was deleted above
+                if (!GenerateCustodySignalBundle(custodySignalRfc5050SerializedBundle, primary, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
+                    return false;
+                }
+            }
+
             //REQUIREMENT D4.2.2.3b For ACS-aware bundle protocol agents which do accept custody of ACS: (regardless of valid or invalid cteb)
             //  b) the bundle protocol agent shall update the custodian of the Primary Bundle Block and the CTEB as identified in D3.3;
 
-            //update primary bundle block (pbb) with new custodian
+            //update primary bundle block (pbb) with new custodian (do this after creating a custody signal to avoid copying the primary)
             primary.custodian_node = m_myCustodianNodeId;
             primary.custodian_svc = m_myCustodianServiceId;
             bv.m_primaryBlockView.SetManuallyModified(); //will update after render
@@ -160,33 +240,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 bv.AppendCanonicalBlock(returnedCanonicalBlock, newCtebBody); //bundle needs rerendered
             }
 
-            if (validCtebPresent) { //identical custodians
-                //d continued) For an intermediate node which is ACS capable and accepts custody...
-                //For identical custodians, the primary bundle block and CTEB are updated with the new custodian
-                //by the bundle protocol agent, and custody aggregation is utilized to improve link
-                //efficiency
-                //Item d) bounds the defining set of capabilities unique to ACS. By accepting a bundle for
-                //custody transfer, an ACS - capable bundle protocol agent will process the bundle per RFC
-                //5050, section 5.10.1.However, instead of the normal custody signaling, the CTEB identifies
-                //in shortened form the specific bundle by custody ID.
-
-                //REQUIREMENT D4.2.2.3c For ACS-aware bundle protocol agents which do accept custody of ACS:
-                //  c) for bundles with a valid CTEB: 
-                //      1) the bundle protocol agent shall aggregate ‘Succeeded’ status into a single bundle
-                //      as identified in D3.2:
-                //          i) the aggregation of ‘Succeeded’ status shall not exceed maximum allowed
-                //          bundle size;
-                //          ii) the time period for aggregation of bundle status shall not exceed the
-                //          maximum allowed;
-                //      2) the bundle protocol agent shall delete, upon successful transmission of an ACS
-                //      signal, the associated timer and pending ACS ‘Succeeded’.
-
-                //aggregate succeeded status
-                m_acsArray[static_cast<uint8_t>(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)].AddCustodyIdToFill(receivedCtebCustodyId);
-            }
-            else { //invalid cteb
-
-            }
+            
         }
         else { //acs aware and don't accept custody
             //c) For an intermediate node which is ACS capable and does not accept custody,
@@ -196,6 +250,8 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             
             //REQ D4.2.2.2 For ACS-aware bundle protocol agents which do not accept custody of ACS:
             if (validCtebPresent) { //identical custodians
+                //acs capable ba, ba refuses custody, valid cteb => pending failed acs for custodian
+
                 //b) for bundles with a valid CTEB:
                 //  1) the bundle protocol agent shall aggregate ‘Failed’ status into a single bundle as identified in D3.2:
                 //      i) the aggregation of ‘Failed’ status shall not exceed the maximum allowed bundle size;
@@ -208,8 +264,13 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 m_acsArray[static_cast<uint8_t>(statusReasonIndex)].AddCustodyIdToFill(receivedCtebCustodyId);
             }
             else { //invalid cteb
+                //acs capable ba, ba refuses custody, invalid cteb => generate failed and follow 5.10
+
                 //a) for bundles without a valid CTEB block as identified in RFC 5050 section 5.10, the
                 //  bundle protocol agent shall generate a ‘Failed’ status;
+                if (!GenerateCustodySignalBundle(custodySignalRfc5050SerializedBundle, primary, statusReasonIndex)) {
+                    return false;
+                }
             }
             
 
@@ -222,11 +283,28 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             //protocol agent ignores the CTEB and updates the custodian field in the primary
             //bundle block.Since the CTEB custodian is not updated, the CTEB is invalid, and the
             //next ACS - capable bundle protocol agent will delete the CTEB.
+
+            //acs unsupported ba, ba accepts custody => update pbb with custodian and generate succeeded and follow 5.10
+                //invalid cteb was deleted above
+            if (!GenerateCustodySignalBundle(custodySignalRfc5050SerializedBundle, primary, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)) {
+                return false;
+            }
+
+            //update primary bundle block (pbb) with new custodian (do this after creating a custody signal to avoid copying the primary)
+            primary.custodian_node = m_myCustodianNodeId;
+            primary.custodian_svc = m_myCustodianServiceId;
+            bv.m_primaryBlockView.SetManuallyModified(); //will update after render
         }
         else {
             //b) For an intermediate node which is not ACS capable and does not accept custody, the
             //bundle protocol agent forwards the bundle without change.The CTEB is not
             //recognized.
+
+            //acs unsupported ba, ba refuses custody => generate failed and follow 5.10
+
+            if (!GenerateCustodySignalBundle(custodySignalRfc5050SerializedBundle, primary, statusReasonIndex)) {
+                return false;
+            }
         }
     }
     return true;

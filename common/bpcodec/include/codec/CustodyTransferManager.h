@@ -31,9 +31,11 @@ public:
     CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId);
     ~CustodyTransferManager();
 
-    bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody,
+        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, std::vector<uint8_t> & custodySignalRfc5050SerializedBundle);
     void Reset();
     bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
+    bool GenerateAcsBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
     const AggregateCustodySignal & GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
 private:
     const bool m_isAcsAware;
