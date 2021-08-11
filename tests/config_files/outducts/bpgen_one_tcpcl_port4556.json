@@ -4,7 +4,7 @@
         {
             "name": "bpgen",
             "convergenceLayer": "tcpcl",
-            "endpointIdStr": "ipn1:4",
+            "endpointIdStr": "ipn:1.1",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,

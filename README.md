@@ -20,6 +20,7 @@ HDTN build environment requires:
 
 ## Packages installation ## 
 * Ubuntu
+$ sudo apt  install cmake
 $ sudo apt-get install build-essential
 $ sudo apt-get install libzmq3-dev
 $ sudo apt-get install python3-zmq
@@ -41,7 +42,7 @@ Build HDTN
 * mkdir build
 * cd build
 * cmake ..
-* make
+* make -j8
 
 Run HDTN
 =========
