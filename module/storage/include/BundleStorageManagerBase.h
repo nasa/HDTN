@@ -104,18 +104,20 @@ public:
 
     const MemoryManagerTreeArray & GetMemoryManagerConstRef();
 
-    static bool TestSpeed(BundleStorageManagerBase & bsm);
+    void AddLink(boost::uint64_t linkName);
 
 protected:
 
-    void AddLink(boost::uint64_t linkName);
+    
     virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) = 0;
 
 protected:
     StorageConfig_ptr m_storageConfigPtr;
+public:
     const unsigned int M_NUM_STORAGE_DISKS;
     const boost::uint64_t M_TOTAL_STORAGE_CAPACITY_BYTES; //old FILE_SIZE
     const boost::uint64_t M_MAX_SEGMENTS;
+protected:
     MemoryManagerTreeArray m_memoryManager;
     destination_map_t m_destMap;
     boost::mutex m_mutexMainThread;

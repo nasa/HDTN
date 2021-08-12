@@ -66,7 +66,7 @@ target_include_directories(storage_lib PUBLIC
 )
 
 add_executable(storage-speedtest
-        src/speedtest.cpp
+        src/test/StorageSpeedTestMain.cpp
 )
 target_link_libraries(storage-speedtest hdtn_reg bpcodec hdtn_util storage_lib ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(storage-speedtest PUBLIC ${Boost_INCLUDE_DIRS})
