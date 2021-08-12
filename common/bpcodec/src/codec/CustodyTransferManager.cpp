@@ -111,7 +111,7 @@ CustodyTransferManager::CustodyTransferManager(const bool isAcsAware, const uint
     m_myCustodianNodeId(myCustodianNodeId),
     m_myCustodianServiceId(myCustodianServiceId),
     m_myCtebCreatorCustodianEidString(Uri::GetIpnUriString(m_myCustodianNodeId, m_myCustodianServiceId)),
-    m_myNextCustodyIdForNextHopCtebToSend(0)
+    m_myNextCustodyIdAllocationBeginForNextHopCtebToSend(0)
 {
     m_acsArray[static_cast<uint8_t>(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)].SetCustodyTransferStatusAndReason(
         true, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::NO_ADDITIONAL_INFORMATION);
@@ -216,7 +216,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             primary.custodian_svc = m_myCustodianServiceId;
             bv.m_primaryBlockView.SetManuallyModified(); //will update after render
 
-            const uint64_t custodyId = m_myNextCustodyIdForNextHopCtebToSend++;
+            const uint64_t custodyId = GetNextCustodyIdForNextHopCtebToSend(cbhe_eid_t(primary.src_node, primary.src_svc));
             
             if (blocks.size() == 1) { //cteb present
                 //update (reuse existing) CTEB with new custodian
@@ -312,4 +312,28 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
 
 const AggregateCustodySignal & CustodyTransferManager::GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     return m_acsArray[static_cast<uint8_t>(statusReasonIndex)];
+}
+
+//bundle sources should have as much contiguous custody ids as possible
+//in case of interleaving from multiple bundle sources,
+//allocate integer range from [N*256+0, N*256+1, ... ,  N*256+255]
+uint64_t CustodyTransferManager::GetNextCustodyIdForNextHopCtebToSend(const cbhe_eid_t & bundleSrcEid) {
+    //uint64_t m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;
+    std::pair<std::map<cbhe_eid_t, uint64_t>::iterator, bool> res = m_mapBundleSrcEidToNextCtebCustodyId.insert(
+        std::pair<cbhe_eid_t, uint64_t>(bundleSrcEid, m_myNextCustodyIdAllocationBeginForNextHopCtebToSend + 1)); //+1 because it's the next
+    if (res.second == true) { //insertion due to first bundleSrcEid
+        const uint64_t retVal = m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;
+        m_myNextCustodyIdAllocationBeginForNextHopCtebToSend += 256;
+        return retVal;
+    }
+    else {
+        //found but not inserted
+        uint64_t & nextCtebCustodyId = res.first->second;
+        const uint64_t retVal = nextCtebCustodyId;
+        if ((++nextCtebCustodyId & 0xff) == 0) {
+            nextCtebCustodyId = m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;
+            m_myNextCustodyIdAllocationBeginForNextHopCtebToSend += 256;
+        }
+        return retVal;
+    }
 }

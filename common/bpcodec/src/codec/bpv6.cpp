@@ -372,6 +372,42 @@ void bpv6_canonical_block_print(bpv6_canonical_block* block) {
     printf("Block length: %" PRIu64 " bytes\n", block->length);
 }
 
+cbhe_eid_t::cbhe_eid_t() :
+    nodeId(0),
+    serviceId(0) { } //a default constructor: X()
+cbhe_eid_t::cbhe_eid_t(uint64_t paramNodeId, uint64_t paramServiceId) :
+    nodeId(paramNodeId),
+    serviceId(paramServiceId) { }
+cbhe_eid_t::~cbhe_eid_t() { } //a destructor: ~X()
+cbhe_eid_t::cbhe_eid_t(const cbhe_eid_t& o) :
+    nodeId(o.nodeId),
+    serviceId(o.serviceId) { } //a copy constructor: X(const X&)
+cbhe_eid_t::cbhe_eid_t(cbhe_eid_t&& o) :
+    nodeId(o.nodeId),
+    serviceId(o.serviceId) { } //a move constructor: X(X&&)
+cbhe_eid_t& cbhe_eid_t::operator=(const cbhe_eid_t& o) { //a copy assignment: operator=(const X&)
+    nodeId = o.nodeId;
+    serviceId = o.serviceId;
+    return *this;
+}
+cbhe_eid_t& cbhe_eid_t::operator=(cbhe_eid_t && o) { //a move assignment: operator=(X&&)
+    nodeId = o.nodeId;
+    serviceId = o.serviceId;
+    return *this;
+}
+bool cbhe_eid_t::operator==(const cbhe_eid_t & o) const {
+    return (nodeId == o.nodeId) && (serviceId == o.serviceId);
+}
+bool cbhe_eid_t::operator!=(const cbhe_eid_t & o) const {
+    return (nodeId != o.nodeId) || (serviceId != o.serviceId);
+}
+bool cbhe_eid_t::operator<(const cbhe_eid_t & o) const {
+    if (nodeId == o.nodeId) {
+        return (serviceId < o.serviceId);
+    }
+    return (nodeId < o.nodeId);
+}
+
 
 cbhe_bundle_uuid_t::cbhe_bundle_uuid_t() : 
     creationSeconds(0),

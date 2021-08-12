@@ -231,6 +231,22 @@ uint32_t bpv6_canonical_block_decode(bpv6_canonical_block* block, const char* bu
 uint32_t bpv6_canonical_block_encode(const bpv6_canonical_block* block, char* buffer, const size_t offset, const size_t bufsz);
 
 #ifdef __cplusplus
+struct cbhe_eid_t {
+    uint64_t nodeId;
+    uint64_t serviceId;
+    
+    cbhe_eid_t(); //a default constructor: X()
+    cbhe_eid_t(uint64_t paramNodeId, uint64_t paramServiceId);
+    ~cbhe_eid_t(); //a destructor: ~X()
+    cbhe_eid_t(const cbhe_eid_t& o); //a copy constructor: X(const X&)
+    cbhe_eid_t(cbhe_eid_t&& o); //a move constructor: X(X&&)
+    cbhe_eid_t& operator=(const cbhe_eid_t& o); //a copy assignment: operator=(const X&)
+    cbhe_eid_t& operator=(cbhe_eid_t&& o); //a move assignment: operator=(X&&)
+    bool operator==(const cbhe_eid_t & o) const; //operator ==
+    bool operator!=(const cbhe_eid_t & o) const; //operator !=
+    bool operator<(const cbhe_eid_t & o) const; //operator < so it can be used as a map key
+};
+
 struct cbhe_bundle_uuid_t {
 
     //The creation timestamp is a pair of SDNVs that,

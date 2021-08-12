@@ -37,12 +37,14 @@ public:
     bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
     bool GenerateAcsBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
     const AggregateCustodySignal & GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    uint64_t GetNextCustodyIdForNextHopCtebToSend(const cbhe_eid_t & bundleSrcEid);
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;
     const uint64_t m_myCustodianServiceId;
     const std::string m_myCtebCreatorCustodianEidString;
-    uint64_t m_myNextCustodyIdForNextHopCtebToSend;
+    uint64_t m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;
+    std::map<cbhe_eid_t, uint64_t> m_mapBundleSrcEidToNextCtebCustodyId;
 
     AggregateCustodySignal m_acsArray[NUM_ACS_STATUS_INDICES];
 };
