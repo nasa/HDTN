@@ -261,8 +261,7 @@ struct cbhe_bundle_uuid_t {
 
     uint64_t creationSeconds;
     uint64_t sequence;
-    uint64_t srcNodeId;
-    uint64_t srcServiceId;
+    cbhe_eid_t srcEid;
     //below if isFragment (default 0 if not a fragment)
     uint64_t fragmentOffset;
     uint64_t dataLength;      // 64 bytes

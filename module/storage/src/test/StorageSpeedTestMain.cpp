@@ -65,11 +65,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
     bsm.Start();
 
-    for (int i = 0; i < 10; ++i) {
-        bsm.AddLink(DEST_LINKS[i]);
-    }
-
-
+    
 
     static const boost::uint64_t sizes[10] = {
 

@@ -93,9 +93,6 @@ const MemoryManagerTreeArray & BundleStorageManagerBase::GetMemoryManagerConstRe
     return m_memoryManager;
 }
 
-void BundleStorageManagerBase::AddLink(boost::uint64_t linkName) {
-    m_destMap[linkName] = priority_vec_t(NUMBER_OF_PRIORITIES);
-}
 
 boost::uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, bpv6_primary_block & bundlePrimaryBlock, const boost::uint64_t bundleSizeBytes) {
     chain_info_t & chainInfo = session.chainInfo;
@@ -155,13 +152,10 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     NotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
     //std::cout << "writing " << size << " bytes\n";
     if (session.nextLogicalSegment == segmentIdChainVec.size()) {
-        if (m_destMap.count(session.destLinkId) == 0) {
-            AddLink(session.destLinkId);
-        }
-        priority_vec_t & priorityVec = m_destMap[session.destLinkId];
-        expiration_map_t & expirationMap = priorityVec[session.priorityIndex];
-        chain_info_vec_t & chainInfoVec = expirationMap[session.absExpiration];
-        chainInfoVec.push_back(std::move(chainInfo));
+        priority_array_t & priorityArray = m_destMap[session.destLinkId]; //created if not exist
+        expiration_map_t & expirationMap = priorityArray[session.priorityIndex];
+        chain_info_flist_t & chainInfoFlist = expirationMap[session.absExpiration];
+        chainInfoFlist.push_front(std::move(chainInfo));
         //std::cout << "write complete\n";
     }
 
@@ -170,14 +164,17 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
 
 
 uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestLinks) { //0 if empty, size if entry
-    std::vector<priority_vec_t *> priorityVecPtrs;
+    std::vector<priority_array_t *> priorityArrayPtrs;
     std::vector<uint64_t> priorityIndexToLinkIdVec;
-    priorityVecPtrs.reserve(availableDestLinks.size());
+    priorityArrayPtrs.reserve(availableDestLinks.size());
     priorityIndexToLinkIdVec.reserve(availableDestLinks.size());
     for (std::size_t i = 0; i < availableDestLinks.size(); ++i) {
-        if (m_destMap.count(availableDestLinks[i]) > 0) {
-            priorityVecPtrs.push_back(&m_destMap[availableDestLinks[i]]);
-            priorityIndexToLinkIdVec.push_back(availableDestLinks[i]);
+        const uint64_t currentAvailableLink = availableDestLinks[i];
+        destination_map_t::iterator dmIt = m_destMap.find(currentAvailableLink);
+        if (dmIt != m_destMap.end()) {
+            priority_array_t & priorityArrayRef = (dmIt->second);
+            priorityArrayPtrs.push_back(&(dmIt->second));
+            priorityIndexToLinkIdVec.push_back(currentAvailableLink);
         }
     }
     session.nextLogicalSegment = 0;
@@ -189,12 +186,12 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
     for (int i = NUMBER_OF_PRIORITIES - 1; i >= 0; --i) { //00 = bulk, 01 = normal, 10 = expedited
         abs_expiration_t lowestExpiration = UINT64_MAX;
         session.expirationMapPtr = NULL;
-        session.chainInfoVecPtr = NULL;
+        session.chainInfoFlistPtr = NULL;
 
-        for (std::size_t j = 0; j < priorityVecPtrs.size(); ++j) {
-            priority_vec_t * priorityVec = priorityVecPtrs[j];
+        for (std::size_t j = 0; j < priorityArrayPtrs.size(); ++j) {
+            priority_array_t * priorityArray = priorityArrayPtrs[j];
             //std::cout << "size " << (*priorityVec).size() << "\n";
-            expiration_map_t & expirationMap = (*priorityVec)[i];
+            expiration_map_t & expirationMap = (*priorityArray)[i];
             expiration_map_t::iterator it = expirationMap.begin();
             if (it != expirationMap.end()) {
                 const abs_expiration_t thisExpiration = it->first;
@@ -203,7 +200,7 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
                     lowestExpiration = thisExpiration;
                     //linkIndex = j;
                     session.expirationMapPtr = &expirationMap;
-                    session.chainInfoVecPtr = &it->second;
+                    session.chainInfoFlistPtr = &it->second;
                     session.expirationMapIterator = it;
                     session.absExpiration = it->first;
                     session.destLinkId = priorityIndexToLinkIdVec[j];
@@ -211,12 +208,12 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
                 }
             }
         }
-        if (session.chainInfoVecPtr) {
+        if (session.chainInfoFlistPtr) {
             //have session take custody of data structure
-            session.chainInfo = std::move(session.chainInfoVecPtr->front());
-            session.chainInfoVecPtr->erase(session.chainInfoVecPtr->begin());
+            session.chainInfo = std::move(session.chainInfoFlistPtr->front());
+            session.chainInfoFlistPtr->pop_front();
 
-            if (session.chainInfoVecPtr->size() == 0) {
+            if (session.chainInfoFlistPtr->empty()) {
                 session.expirationMapPtr->erase(session.expirationMapIterator);
             }
             else {
@@ -231,7 +228,7 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
 }
 
 bool BundleStorageManagerBase::ReturnTop(BundleStorageManagerSession_ReadFromDisk & session) { //0 if empty, size if entry
-    (*session.expirationMapPtr)[session.absExpiration].push_back(std::move(session.chainInfo));
+    (*session.expirationMapPtr)[session.absExpiration].push_front(std::move(session.chainInfo));
     return true;
 }
 
@@ -471,13 +468,10 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                     hdtn::Logger::getInstance()->logError("storage", "Error: at the last logical segment but nextSegmentId != UINT32_MAX");
                     return false;
                 }
-                if (m_destMap.count(session.destLinkId) == 0) {
-                    AddLink(session.destLinkId);
-                }
-                priority_vec_t & priorityVec = m_destMap[session.destLinkId];
-                expiration_map_t & expirationMap = priorityVec[session.priorityIndex];
-                chain_info_vec_t & chainInfoVec = expirationMap[session.absExpiration];
-                chainInfoVec.push_back(std::move(chainInfo));
+                priority_array_t & priorityArray = m_destMap[session.destLinkId]; //created if not exist
+                expiration_map_t & expirationMap = priorityArray[session.priorityIndex];
+                chain_info_flist_t & chainInfoFlist = expirationMap[session.absExpiration];
+                chainInfoFlist.push_front(std::move(chainInfo));
                 *totalBundlesRestored += 1;
                 break;
                 //std::cout << "write complete\n";

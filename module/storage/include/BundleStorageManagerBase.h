@@ -4,12 +4,15 @@
 #include <boost/integer.hpp>
 #include <stdint.h>
 #include <map>
+#include <forward_list>
+#include <array>
 #include <vector>
 #include <utility>
 #include <string>
 #include <cstdio>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
+#include <boost/bimap.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BundleStorageConfig.h"
 #include "Logger.h"
@@ -17,15 +20,42 @@
 #include "StorageConfig.h"
 #include "codec/bpv6.h"
 
+
+
 typedef boost::uint64_t abs_expiration_t;
 typedef std::pair<boost::uint64_t, segment_id_chain_vec_t> chain_info_t; //bundleSizeBytes, segment_id_chain_vec_t
 
-typedef std::vector<chain_info_t> chain_info_vec_t;
-typedef std::map<abs_expiration_t, chain_info_vec_t> expiration_map_t;
-typedef std::vector<expiration_map_t> priority_vec_t;
-typedef std::map<uint64_t, priority_vec_t> destination_map_t; //dst_node, priority_vec
+typedef std::forward_list<chain_info_t> chain_info_flist_t;
+typedef std::map<abs_expiration_t, chain_info_flist_t> expiration_map_t;
+typedef std::array<expiration_map_t, NUMBER_OF_PRIORITIES> priority_array_t;
+typedef std::map<uint64_t, priority_array_t> destination_map_t; //dst_node, priority_vec
+/*
+struct cbhe_bundle_uuid_storage_t {
+    cbhe_bundle_uuid_t bundleUuid;
+
+    uint64_t creationSeconds;
+    uint64_t sequence;
+    cbhe_eid_t destEid;
+    //below if isFragment (default 0 if not a fragment)
+    uint64_t fragmentOffset;
+    uint64_t priority;      // 64 bytes
 
 
+
+    cbhe_bundle_uuid_t(); //a default constructor: X()
+    cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
+        uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength);
+    cbhe_bundle_uuid_t(const bpv6_primary_block & primary);
+    ~cbhe_bundle_uuid_t(); //a destructor: ~X()
+    cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
+    cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
+    cbhe_bundle_uuid_t& operator=(const cbhe_bundle_uuid_t& o); //a copy assignment: operator=(const X&)
+    cbhe_bundle_uuid_t& operator=(cbhe_bundle_uuid_t&& o); //a move assignment: operator=(X&&)
+    bool operator==(const cbhe_bundle_uuid_t & o) const; //operator ==
+    bool operator!=(const cbhe_bundle_uuid_t & o) const; //operator !=
+    bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
+};*/
+typedef boost::bimap<cbhe_bundle_uuid_t, uint64_t> uuid_to_custid_bimap_t; //get the cteb custody id
 
 struct BundleStorageManagerSession_WriteToDisk {
     chain_info_t chainInfo;
@@ -44,7 +74,7 @@ struct BundleStorageManagerSession_ReadFromDisk {
     boost::uint32_t cacheWriteIndex;
 
     expiration_map_t * expirationMapPtr;
-    chain_info_vec_t * chainInfoVecPtr;
+    chain_info_flist_t * chainInfoFlistPtr;
     expiration_map_t::iterator expirationMapIterator;
 
     uint64_t destLinkId;
@@ -81,7 +111,6 @@ public:
 
     const MemoryManagerTreeArray & GetMemoryManagerConstRef();
 
-    void AddLink(boost::uint64_t linkName);
 
 protected:
 
