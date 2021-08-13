@@ -16,6 +16,14 @@
 #include <boost/timer/timer.hpp>
 #include "SignalHandler.h"
 
+static const uint64_t PRIMARY_SRC_NODE = 100;
+static const uint64_t PRIMARY_SRC_SVC = 1;
+//static const uint64_t PRIMARY_DEST_NODE = 300;
+static const uint64_t PRIMARY_DEST_SVC = 3;
+//static const uint64_t PRIMARY_TIME = 1000;
+//static const uint64_t PRIMARY_LIFETIME = 2000;
+static const uint64_t PRIMARY_SEQ = 1;
+
 static volatile bool g_running = true;
 
 static void MonitorExitKeypressThreadFunction() {
@@ -112,14 +120,22 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 const abs_expiration_t absExpiration = distAbsExpiration(gen);
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
-                bp_primary_if_base_t bundleMetaData;
-                bundleMetaData.flags = (priorityIndex & 3) << 7;
-                bundleMetaData.dst_node = DEST_LINKS[linkId];
-                bundleMetaData.length = size;
-                bundleMetaData.creation = 0;
-                bundleMetaData.lifetime = absExpiration;
+                bpv6_primary_block primary;
+                memset(&primary, 0, sizeof(bpv6_primary_block));
+                primary.version = 6;
+                primary.flags = bpv6_bundle_set_priority(priorityIndex) |
+                    bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+                primary.src_node = PRIMARY_SRC_NODE;
+                primary.src_svc = PRIMARY_SRC_SVC;
+                primary.dst_node = DEST_LINKS[linkId];
+                primary.dst_svc = PRIMARY_DEST_SVC;
+                primary.custodian_node = 0;
+                primary.custodian_svc = 0;
+                primary.creation = 0;
+                primary.lifetime = absExpiration;
+                primary.sequence = PRIMARY_SEQ;
 
-                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
+                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
                 //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
                 if (totalSegmentsRequired == 0) break;
                 totalSegmentsStoredOnDisk += totalSegmentsRequired;

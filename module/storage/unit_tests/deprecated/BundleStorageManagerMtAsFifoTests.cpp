@@ -273,4 +273,3 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllAsFifo_RestoreFromDisk_TestCase)
         }
     }
 }
-

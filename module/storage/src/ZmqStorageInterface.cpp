@@ -53,14 +53,21 @@ static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageMan
     const uint64_t absExpirationUsec = hdr->ts; //use ts for now
 
     BundleStorageManagerSession_WriteToDisk sessionWrite;
+    bpv6_primary_block primary;
+    std::size_t offset = cbhe_bpv6_primary_block_decode(&primary, (const char*)(data), 0, size);
+    if (offset == 0) {
+        std::cerr << "malformed bundle\n";//Malformed bundle
+        return;
+    }
+    /*
     bp_primary_if_base_t bundleMetaData;
     bundleMetaData.flags = (priorityIndex & 3) << 7;
     bundleMetaData.dst_node = linkId;
     bundleMetaData.length = size;
     bundleMetaData.creation = 0;
     bundleMetaData.lifetime = absExpirationUsec;
-
-    boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
+    */
+    boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
     //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
     if (totalSegmentsRequired == 0) {
         std::cerr << "out of space\n";

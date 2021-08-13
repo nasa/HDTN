@@ -11,6 +11,50 @@
 #include <boost/make_unique.hpp>
 #include "SignalHandler.h"
 #include "Environment.h"
+#include "Sdnv.h"
+
+static const uint64_t PRIMARY_SRC_NODE = 100;
+static const uint64_t PRIMARY_SRC_SVC = 1;
+//static const uint64_t PRIMARY_DEST_NODE = 300;
+static const uint64_t PRIMARY_DEST_SVC = 3;
+//static const uint64_t PRIMARY_TIME = 1000;
+//static const uint64_t PRIMARY_LIFETIME = 2000;
+static const uint64_t PRIMARY_SEQ = 1;
+static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_block & primary, const uint64_t targetBundleSize, uint8_t startChar) {
+    bundle.resize(targetBundleSize + 1000);
+    uint8_t * buffer = &bundle[0];
+    uint64_t payloadSize = targetBundleSize;
+    uint8_t * const serializationBase = buffer;
+    
+    
+    bpv6_canonical_block block;
+    memset(&block, 0, sizeof(bpv6_canonical_block));
+
+    
+    uint64_t retVal;
+    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, 0);
+    BOOST_REQUIRE_GT(retVal, 0);
+    buffer += retVal;
+    payloadSize -= retVal;
+
+    block.type = BPV6_BLOCKTYPE_PAYLOAD;
+    block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
+    payloadSize -= 2;
+    payloadSize -= SdnvGetNumBytesRequiredToEncode(payloadSize - 1); //as close as possible
+    block.length = payloadSize;
+
+    retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, 0);
+    BOOST_REQUIRE_GT(retVal, 0);
+    buffer += retVal;
+    for (uint64_t i = 0; i < payloadSize; ++i) {
+        *buffer++ = startChar++;
+    }
+
+    const uint64_t bundleSize = buffer - serializationBase;
+    BOOST_REQUIRE_GT(bundle.size(), bundleSize);
+    bundle.resize(bundleSize);
+    return (targetBundleSize == bundleSize);
+}
 
 BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
 {
@@ -78,14 +122,23 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             const abs_expiration_t absExpiration = distAbsExpiration(gen);
 
             BundleStorageManagerSession_WriteToDisk sessionWrite;
-            bp_primary_if_base_t bundleMetaData;
-            bundleMetaData.flags = (priorityIndex & 3) << 7;
-            bundleMetaData.dst_node = DEST_LINKS[linkId];
-            bundleMetaData.length = size;
-            bundleMetaData.creation = 0;
-            bundleMetaData.lifetime = absExpiration;
+            bpv6_primary_block primary;
+            memset(&primary, 0, sizeof(bpv6_primary_block));
+            primary.version = 6;
+            primary.flags = bpv6_bundle_set_priority(priorityIndex) |
+                bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+            primary.src_node = PRIMARY_SRC_NODE;
+            primary.src_svc = PRIMARY_SRC_SVC;
+            primary.dst_node = DEST_LINKS[linkId];
+            primary.dst_svc = PRIMARY_DEST_SVC;
+            primary.custodian_node = 0;
+            primary.custodian_svc = 0;
+            primary.creation = 0;
+            primary.lifetime = absExpiration;
+            primary.sequence = PRIMARY_SEQ;
+
             //std::cout << "writing\n";
-            boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
+            boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
             //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
             BOOST_REQUIRE_NE(totalSegmentsRequired, 0);
 
@@ -161,24 +214,26 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
 
 
         static const boost::uint64_t sizes[15] = {
-            BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
-            BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+            BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2,
+            BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1,
             BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
             BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
             BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 
-            2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
-            2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+            2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2,
+            2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1,
             2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
             2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
             2 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
 
-            1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
-            1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1 ,
+            1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2,
+            1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 1,
             1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 0,
             1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 1,
             1000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
         };
+        std::map < uint64_t, std::vector<uint8_t> > mapBundleSizeToBundleData;
+        std::map < uint64_t, bpv6_primary_block > mapBundleSizeToPrimary;
 
         boost::uint64_t bytesWritten = 0, totalSegmentsWritten = 0;
         backup_memmanager_t backup;
@@ -200,52 +255,67 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
 
             bsm.Start();
 
-            
+            uint64_t deletedMiddleBundleSize = 0;
 
             for (unsigned int sizeI = 0; sizeI < 15; ++sizeI) {
-                const boost::uint64_t size = sizes[sizeI];
-                //std::cout << "testing size " << size << "\n";
-                std::vector<boost::uint8_t> data(size);
-
-                for (std::size_t i = 0; i < size; ++i) {
-                    data[i] = distRandomData(gen);
-                }
+                const uint64_t targetBundleSize = sizes[sizeI];
+                
                 const unsigned int linkId = (sizeI == 12) ? 1 : 0;
-                if (sizeI != 12) bytesWritten += size;
+                
                 const unsigned int priorityIndex = distPriorityIndex(gen);
                 const abs_expiration_t absExpiration = sizeI;
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
-                bp_primary_if_base_t bundleMetaData;
-                bundleMetaData.flags = (priorityIndex & 3) << 7;
-                bundleMetaData.dst_node = DEST_LINKS[linkId];
-                bundleMetaData.length = size;
-                bundleMetaData.creation = 0;
-                bundleMetaData.lifetime = absExpiration;
-                memcpy(&data[0], &bundleMetaData, sizeof(bundleMetaData));
+                bpv6_primary_block primary;
+                memset(&primary, 0, sizeof(bpv6_primary_block));
+                primary.version = 6;
+                primary.flags = bpv6_bundle_set_priority(priorityIndex) |
+                    bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+                primary.src_node = PRIMARY_SRC_NODE;
+                primary.src_svc = PRIMARY_SRC_SVC;
+                primary.dst_node = DEST_LINKS[linkId];
+                primary.dst_svc = PRIMARY_DEST_SVC;
+                primary.custodian_node = 0;
+                primary.custodian_svc = 0;
+                primary.creation = 0;
+                primary.lifetime = absExpiration;
+                primary.sequence = PRIMARY_SEQ;
+                std::vector<uint8_t> bundle;
+                BOOST_REQUIRE(GenerateBundle(bundle, primary, targetBundleSize, static_cast<uint8_t>(sizeI)));
+                //std::cout << "generate bundle of size " << bundle.size() << std::endl;
                 //std::cout << "writing\n";
-                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, bundleMetaData);
-                if (sizeI != 12) totalSegmentsWritten += totalSegmentsRequired;
+                boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, bundle.size());
+                
                 //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
                 BOOST_REQUIRE_NE(totalSegmentsRequired, 0);
 
                 for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
                     std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
                     if (i == totalSegmentsRequired - 1) {
-                        boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+                        boost::uint64_t modBytes = (bundle.size() % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
                         if (modBytes != 0) {
                             bytesToCopy = modBytes;
                         }
                     }
 
-                    BOOST_REQUIRE(bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy));
+                    BOOST_REQUIRE(bsm.PushSegment(sessionWrite, &bundle[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy));
+                }
+                if (sizeI != 12) {
+                    bytesWritten += bundle.size();
+                    totalSegmentsWritten += totalSegmentsRequired;
+                    const uint64_t bundleSize = bundle.size();
+                    mapBundleSizeToBundleData[bundleSize] = std::move(bundle);
+                    mapBundleSizeToPrimary[bundleSize] = primary;
+                }
+                else {
+                    deletedMiddleBundleSize = bundle.size();
                 }
             }
 
             //delete a middle out
             BundleStorageManagerSession_ReadFromDisk sessionRead;
             boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks2);
-            BOOST_REQUIRE_EQUAL(bytesToReadFromDisk, sizes[12]);
+            BOOST_REQUIRE_EQUAL(bytesToReadFromDisk, deletedMiddleBundleSize);
             BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead, true), "error force freeing bundle from disk");
 
             bsm.GetMemoryManagerConstRef().BackupDataToVector(backup);
@@ -283,7 +353,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
             bsm.Start();
 
 
-
+            BOOST_REQUIRE_EQUAL(mapBundleSizeToBundleData.size(), 15-1);
 
             uint64_t totalBytesReadFromRestored = 0, totalSegmentsReadFromRestored = 0;
             for (unsigned int sizeI = 0; sizeI < (15 - 1); ++sizeI) {
@@ -291,7 +361,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
 
                 //std::cout << "reading\n";
                 BundleStorageManagerSession_ReadFromDisk sessionRead;
-                boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
+                const uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
                 //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
                 BOOST_REQUIRE_NE(bytesToReadFromDisk, 0);
                 std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
@@ -305,6 +375,11 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                 }
                 //std::cout << "totalBytesRead " << totalBytesRead << "\n";
                 BOOST_REQUIRE_EQUAL(totalBytesRead, bytesToReadFromDisk);
+                BOOST_REQUIRE_EQUAL(mapBundleSizeToBundleData.count(totalBytesRead), 1);
+                BOOST_REQUIRE_EQUAL(mapBundleSizeToBundleData[totalBytesRead].size(), totalBytesRead);
+                BOOST_REQUIRE(mapBundleSizeToBundleData[totalBytesRead] == dataReadBack);
+                BOOST_REQUIRE_EQUAL(sessionRead.destLinkId, mapBundleSizeToPrimary[totalBytesRead].dst_node);
+                BOOST_REQUIRE_EQUAL(sessionRead.priorityIndex, bpv6_bundle_get_priority(mapBundleSizeToPrimary[totalBytesRead].flags));
 
                 BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead), "error freeing bundle from disk");
 

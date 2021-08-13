@@ -97,21 +97,20 @@ void BundleStorageManagerBase::AddLink(boost::uint64_t linkName) {
     m_destMap[linkName] = priority_vec_t(NUMBER_OF_PRIORITIES);
 }
 
-boost::uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, bp_primary_if_base_t & bundleMetaData) {
+boost::uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, bpv6_primary_block & bundlePrimaryBlock, const boost::uint64_t bundleSizeBytes) {
     chain_info_t & chainInfo = session.chainInfo;
     segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
-    const boost::uint64_t bundleSizeBytes = bundleMetaData.length;
     const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 
     chainInfo.first = bundleSizeBytes;
     segmentIdChainVec.resize(totalSegmentsRequired);
     session.nextLogicalSegment = 0;
 
-    session.destLinkId = bundleMetaData.dst_node;
+    session.destLinkId = bundlePrimaryBlock.dst_node;
     //The bits in positions 8 and 7 constitute a two-bit priority field indicating the bundle's priority, with higher values
     //being of higher priority : 00 = bulk, 01 = normal, 10 = expedited, 11 is reserved for future use.
-    session.priorityIndex = (bundleMetaData.flags >> 7) & 3;
-    session.absExpiration = bundleMetaData.creation + bundleMetaData.lifetime;
+    session.priorityIndex = (bundlePrimaryBlock.flags >> 7) & 3;
+    session.absExpiration = bundlePrimaryBlock.creation + bundlePrimaryBlock.lifetime;
 
     if (m_memoryManager.AllocateSegments_ThreadSafe(segmentIdChainVec)) {
         //std::cout << "firstseg " << segmentIdChainVec[0] << "\n";
@@ -208,6 +207,7 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
                     session.expirationMapIterator = it;
                     session.absExpiration = it->first;
                     session.destLinkId = priorityIndexToLinkIdVec[j];
+                    session.priorityIndex = i;
                 }
             }
         }
@@ -427,28 +427,25 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 headSegmentFound = true;
 
                 //copy bundle header and store to maps, push segmentId to chain vec
-                bp_primary_if_base_t bundleMetaData;
-                memcpy(&bundleMetaData, dataReadBuf + SEGMENT_RESERVED_SPACE, sizeof(bundleMetaData));
-                //////////////fix this
+                bpv6_primary_block primary;
+                std::size_t offset = cbhe_bpv6_primary_block_decode(&primary, (const char*)(dataReadBuf + SEGMENT_RESERVED_SPACE), 0, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+                if (offset == 0) {
+                    return false;//Malformed bundle
+                }
 
                 const boost::uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 
-                if (bundleSizeBytes != bundleMetaData.length) {
-                    std::cout << "error: bundleSizeBytes != bundleMetaData.length\n";
-                    hdtn::Logger::getInstance()->logError("storage", "Error: bundleSizeBytes != bundleMetaData.length");
-                    return false;
-                }
                 //std::cout << "tot segs req " << totalSegmentsRequired << "\n";
                 *totalBytesRestored += bundleSizeBytes;
                 *totalSegmentsRestored += totalSegmentsRequired;
-                chainInfo.first = bundleMetaData.length; //bundleSizeBytes;
+                chainInfo.first = bundleSizeBytes;
                 segmentIdChainVec.resize(totalSegmentsRequired);
 
-                session.destLinkId = bundleMetaData.dst_node;
+                session.destLinkId = primary.dst_node;
                 //The bits in positions 8 and 7 constitute a two-bit priority field indicating the bundle's priority, with higher values
                 //being of higher priority : 00 = bulk, 01 = normal, 10 = expedited, 11 is reserved for future use.
-                session.priorityIndex = (bundleMetaData.flags >> 7) & 3;
-                session.absExpiration = bundleMetaData.creation + bundleMetaData.lifetime;
+                session.priorityIndex = (primary.flags >> 7) & 3;
+                session.absExpiration = primary.creation + primary.lifetime;
 
 
             }

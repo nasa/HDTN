@@ -10,6 +10,9 @@
 #include <stdint.h>
 
 //return output size
+unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64);
+
+//return output size
 unsigned int SdnvEncodeU32(uint8_t * outputEncoded, const uint32_t valToEncodeU32);
 
 //return output size

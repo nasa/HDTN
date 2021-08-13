@@ -15,7 +15,7 @@
 #include "Logger.h"
 #include "MemoryManagerTreeArray.h"
 #include "StorageConfig.h"
-
+#include "codec/bpv6.h"
 
 typedef boost::uint64_t abs_expiration_t;
 typedef std::pair<boost::uint64_t, segment_id_chain_vec_t> chain_info_t; //bundleSizeBytes, segment_id_chain_vec_t
@@ -25,29 +25,6 @@ typedef std::map<abs_expiration_t, chain_info_vec_t> expiration_map_t;
 typedef std::vector<expiration_map_t> priority_vec_t;
 typedef std::map<uint64_t, priority_vec_t> destination_map_t; //dst_node, priority_vec
 
-typedef struct bp_primary_if_base_t {
-    uint8_t version;
-    uint8_t type;
-    uint16_t blocklen;
-    uint32_t flags;
-    uint64_t framelen;
-    uint64_t creation; // creation time in usec
-    uint64_t sequence; // sequence
-    uint64_t lifetime; // lifetime of this bundle in usec
-    uint64_t offset; // only used for fragments
-    uint64_t length;
-
-    uint64_t dst_node;
-    uint64_t dst_svc;
-    uint64_t src_node;
-    uint64_t src_svc;
-    uint64_t custodian_node;
-    uint64_t custodian_svc;
-    uint64_t report_node;
-    uint64_t report_svc;
-
-    uint64_t flowid;
-} bp_primary_if_base_t;
 
 
 struct BundleStorageManagerSession_WriteToDisk {
@@ -88,7 +65,7 @@ public:
     virtual void Start() = 0;
 
     //write
-    boost::uint64_t Push(BundleStorageManagerSession_WriteToDisk & session, bp_primary_if_base_t & bundleMetaData); //return totalSegmentsRequired
+    boost::uint64_t Push(BundleStorageManagerSession_WriteToDisk & session, bpv6_primary_block & bundlePrimaryBlock, const boost::uint64_t bundleSizeBytes); //return totalSegmentsRequired
     int PushSegment(BundleStorageManagerSession_WriteToDisk & session, void * buf, std::size_t size);
 
     //Read

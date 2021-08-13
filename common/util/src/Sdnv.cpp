@@ -747,3 +747,13 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
 }
 
 #endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
+
+//return output size
+unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
+
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
+    //bitscan seems to have undefined behavior on a value of zero
+    const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+
+    return mask0x80Indices[msb] + 1; //(msb / 7);
+}
