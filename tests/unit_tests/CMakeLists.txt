@@ -29,6 +29,7 @@ add_executable(unit-tests
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
+	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
     ../../common/logger/src/Logger.cpp
 )
