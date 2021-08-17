@@ -281,6 +281,26 @@ struct cbhe_bundle_uuid_t {
     bool operator!=(const cbhe_bundle_uuid_t & o) const; //operator !=
     bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
 };
+
+struct cbhe_bundle_uuid_nofragment_t {
+
+    uint64_t creationSeconds;
+    uint64_t sequence;
+    cbhe_eid_t srcEid;
+
+    cbhe_bundle_uuid_nofragment_t(); //a default constructor: X()
+    cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId);
+    cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary);
+    cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment);
+    ~cbhe_bundle_uuid_nofragment_t(); //a destructor: ~X()
+    cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o); //a copy constructor: X(const X&)
+    cbhe_bundle_uuid_nofragment_t(cbhe_bundle_uuid_nofragment_t&& o); //a move constructor: X(X&&)
+    cbhe_bundle_uuid_nofragment_t& operator=(const cbhe_bundle_uuid_nofragment_t& o); //a copy assignment: operator=(const X&)
+    cbhe_bundle_uuid_nofragment_t& operator=(cbhe_bundle_uuid_nofragment_t&& o); //a move assignment: operator=(X&&)
+    bool operator==(const cbhe_bundle_uuid_nofragment_t & o) const; //operator ==
+    bool operator!=(const cbhe_bundle_uuid_nofragment_t & o) const; //operator !=
+    bool operator<(const cbhe_bundle_uuid_nofragment_t & o) const; //operator < so it can be used as a map key
+};
 #endif
 
 

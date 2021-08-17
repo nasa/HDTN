@@ -126,6 +126,19 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(sig == sig2);
 
+        //add fragment
+        sig.m_isFragment = true;
+        sig.m_fragmentOffsetIfPresent = 65539; //3 bytes
+        sig.m_fragmentLengthIfPresent = 65540; //3 bytes
+        expectedSerializationSize += 6;
+        //re-serialize/deserialize
+        sizeSerialized = sig.Serialize(&serialization[0]);
+        BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
+        numBytesTakenToDecode = sig2.Deserialize(serialization.data());
+        BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
+        BOOST_REQUIRE(sig == sig2);
+
         //misc
         BOOST_REQUIRE(!(sig != sig2));
         CustodySignal sigCopy = sig;

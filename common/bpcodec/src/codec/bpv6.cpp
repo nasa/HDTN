@@ -488,3 +488,63 @@ bool cbhe_bundle_uuid_t::operator<(const cbhe_bundle_uuid_t & o) const {
     }
     return (creationSeconds < o.creationSeconds);
 }
+
+
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t() :
+    creationSeconds(0),
+    sequence(0) { } //a default constructor: X()
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId) :
+    creationSeconds(paramCreationSeconds),
+    sequence(paramSequence),
+    srcEid(paramSrcNodeId, paramSrcServiceId) { }
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary) :
+    creationSeconds(primary.creation),
+    sequence(primary.sequence),
+    srcEid(primary.src_node, primary.src_svc) { }
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment) :
+    creationSeconds(bundleUuidWithFragment.creationSeconds),
+    sequence(bundleUuidWithFragment.sequence),
+    srcEid(bundleUuidWithFragment.srcEid) { }
+cbhe_bundle_uuid_nofragment_t::~cbhe_bundle_uuid_nofragment_t() { } //a destructor: ~X()
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o) :
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcEid(o.srcEid) { } //a copy constructor: X(const X&)
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(cbhe_bundle_uuid_nofragment_t&& o) :
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcEid(std::move(o.srcEid)) { } //a move constructor: X(X&&)
+cbhe_bundle_uuid_nofragment_t& cbhe_bundle_uuid_nofragment_t::operator=(const cbhe_bundle_uuid_nofragment_t& o) { //a copy assignment: operator=(const X&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcEid = o.srcEid;
+    return *this;
+}
+cbhe_bundle_uuid_nofragment_t& cbhe_bundle_uuid_nofragment_t::operator=(cbhe_bundle_uuid_nofragment_t && o) { //a move assignment: operator=(X&&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcEid = std::move(o.srcEid);
+    return *this;
+}
+bool cbhe_bundle_uuid_nofragment_t::operator==(const cbhe_bundle_uuid_nofragment_t & o) const {
+    return
+        (creationSeconds == o.creationSeconds) &&
+        (sequence == o.sequence) &&
+        (srcEid == o.srcEid);
+}
+bool cbhe_bundle_uuid_nofragment_t::operator!=(const cbhe_bundle_uuid_nofragment_t & o) const {
+    return
+        (creationSeconds != o.creationSeconds) ||
+        (sequence != o.sequence) ||
+        (srcEid != o.srcEid);
+}
+bool cbhe_bundle_uuid_nofragment_t::operator<(const cbhe_bundle_uuid_nofragment_t & o) const {
+    if (creationSeconds == o.creationSeconds) {
+        if (sequence == o.sequence) {
+            return (srcEid < o.srcEid);
+        }
+        return (sequence < o.sequence);
+    }
+    return (creationSeconds < o.creationSeconds);
+}
+
