@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_executable(hdtn-scheduler 
     src/scheduler.cpp
     src/main.cpp
+    src/cgrServer.cpp
 )
 
 target_link_libraries(hdtn-scheduler

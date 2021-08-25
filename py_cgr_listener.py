@@ -15,7 +15,7 @@ curr_time = 0
 
 while True:
     msg = socket.recv()
-    socket.send("message received by client")
+    print("message received by server")
     root_contact = Contact(msg.sourceId, msg.sourceId, 0, sys.maxsize, 100, 1, 0)
     root_contact.arrival_time = curr_time #Does this need to be iterated
 
