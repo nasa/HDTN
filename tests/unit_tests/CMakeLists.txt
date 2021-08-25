@@ -20,6 +20,7 @@ add_executable(unit-tests
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransferEnhancementBlock.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
+	../../common/bpcodec/test/TestCustodyIdAllocator.cpp
 	../../common/bpcodec/test/TestBundleViewV6.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
@@ -29,6 +30,7 @@ add_executable(unit-tests
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
+	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
     ../../common/logger/src/Logger.cpp

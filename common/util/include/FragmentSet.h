@@ -33,7 +33,9 @@ public:
 public:
     
     static void InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
-    static bool ContainsFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
+    static bool ContainsFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+    static bool DoesNotContainFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+    static void RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
     static void PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet);
 
     FragmentSet(); //a default constructor: X()

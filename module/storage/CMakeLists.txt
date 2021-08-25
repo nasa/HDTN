@@ -53,7 +53,9 @@ add_library(storage_lib STATIC
         src/BundleStorageManagerMT.cpp
 		src/BundleStorageManagerAsio.cpp
 		src/BundleStorageManagerBase.cpp
-		src/BundleUuidToUint64HashMap.cpp
+		src/HashMap16BitFixedSize.cpp
+		src/BundleStorageCatalog.cpp
+		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
 		src/store.cpp
 )

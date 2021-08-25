@@ -1,5 +1,5 @@
 #include <boost/test/unit_test.hpp>
-#include "BundleUuidToUint64HashMap.h"
+#include "HashMap16BitFixedSize.h"
 #include <iostream>
 #include <string>
 #include <inttypes.h>
@@ -7,7 +7,7 @@
 
 template <class uuidType>
 static void DoTest() {
-    typedef BundleUuidToUint64HashMap<uuidType>::pair_uuid_uint64_t uuid_u64_t;
+    typedef HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t uuid_u64_t;
     const std::vector<uuid_u64_t> bundleUuidPlusU64Vec({
         uuid_u64_t(cbhe_bundle_uuid_t(
             1000, //creationSeconds
@@ -47,7 +47,7 @@ static void DoTest() {
     {
         std::set<uint16_t> hashSet;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            uint16_t hash = BundleUuidToUint64HashMap<uuidType>::GetHash(bundleUuidPlusU64Vec[i].first);
+            uint16_t hash = HashMap16BitFixedSize<uuidType, uint64_t>::GetHash(bundleUuidPlusU64Vec[i].first);
             std::cout << hash << std::endl;
             BOOST_REQUIRE(hashSet.insert(hash).second);
         }
@@ -57,7 +57,7 @@ static void DoTest() {
     //insert into bucket 1 in order, make sure values in bucket are read back in order
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename BundleUuidToUint64HashMap<uuidType> hm;
+        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
             BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
         }
@@ -69,7 +69,7 @@ static void DoTest() {
     //insert into bucket 1 out-of-order, make sure values in bucket are read back in order
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename BundleUuidToUint64HashMap<uuidType> hm;
+        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (int64_t i = static_cast<int64_t>(bundleUuidPlusU64Vec.size() - 1); i >= 0; --i) {
             BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
         }
@@ -81,7 +81,7 @@ static void DoTest() {
     //insert into bucket 1 in order (two times), second time failing, make sure values in bucket are read back in order
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename BundleUuidToUint64HashMap<uuidType> hm;
+        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
             BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
         }
@@ -95,7 +95,7 @@ static void DoTest() {
 
     //insert into bucket 1 in order (two times), second time failing, using real hash (will be 1 elem per bucket)
     {
-        typename BundleUuidToUint64HashMap<uuidType> hm;
+        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
             BOOST_REQUIRE(hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
         }
@@ -107,7 +107,7 @@ static void DoTest() {
     //insert and deletion tests
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename BundleUuidToUint64HashMap<uuidType> hm;
+        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         uint64_t value = 0;
         std::vector<uuid_u64_t> bucketAsVector;
 
@@ -279,6 +279,23 @@ static void DoTest() {
         BOOST_REQUIRE_EQUAL(bundleUuidPlusU64Vec[3].second, value); //verify value 3
         BOOST_REQUIRE_EQUAL(hm.GetBucketSize(HASH), 0); //verify size 0
 
+        //insert elem 0,2,3 and GetValuePtr 1(fail), 0, 3, 2
+        BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[0].first, bundleUuidPlusU64Vec[0].second)); //insert 0
+        BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[2].first, bundleUuidPlusU64Vec[2].second)); //insert 2
+        BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[3].first, bundleUuidPlusU64Vec[3].second)); //insert 3
+        BOOST_REQUIRE_EQUAL(hm.GetBucketSize(HASH), 3); //verify size 3
+        uint64_t * valuePtr = hm.GetValuePtr(HASH, bundleUuidPlusU64Vec[1].first);
+        BOOST_REQUIRE(valuePtr == NULL);
+        valuePtr = hm.GetValuePtr(HASH, bundleUuidPlusU64Vec[0].first);
+        BOOST_REQUIRE(valuePtr != NULL);
+        BOOST_REQUIRE_EQUAL(*valuePtr, bundleUuidPlusU64Vec[0].second);
+        valuePtr = hm.GetValuePtr(HASH, bundleUuidPlusU64Vec[3].first);
+        BOOST_REQUIRE(valuePtr != NULL);
+        BOOST_REQUIRE_EQUAL(*valuePtr, bundleUuidPlusU64Vec[3].second);
+        valuePtr = hm.GetValuePtr(HASH, bundleUuidPlusU64Vec[2].first);
+        BOOST_REQUIRE(valuePtr != NULL);
+        BOOST_REQUIRE_EQUAL(*valuePtr, bundleUuidPlusU64Vec[2].second);
+        BOOST_REQUIRE_EQUAL(hm.GetBucketSize(HASH), 3); //verify size 3 still (no deletions)
     }
 }
     

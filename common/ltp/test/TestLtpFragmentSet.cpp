@@ -66,6 +66,62 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(50, 600) }));
     }
 
+    //test removing fragments (not used in ltp)
+    {
+        std::set<df> fragmentSet;
+        FragmentSet::InsertFragment(fragmentSet, df(0, 0));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 0)}));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 0));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+
+        FragmentSet::InsertFragment(fragmentSet, df(0, 100));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 100) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 100));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+
+        FragmentSet::InsertFragment(fragmentSet, df(0, 100));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 100) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(100, 100));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 99) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 0));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(1, 99) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(50, 50)); //split
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(1, 49), df(51, 99) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 3)); //rm left
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 49), df(51, 99) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(90, 1000)); //rm right
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 49), df(51, 89) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(45, 55)); //span across
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 44), df(56, 89) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(10, 12)); //split left
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 9), df(13, 44), df(56, 89) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(60, 70)); //split right
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 9), df(13, 44), df(56, 59), df(71, 89) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 1000)); //delete all
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+
+        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 70));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+
+        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(60, 1000));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+
+        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(0, 69));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(70, 70) }));
+        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(61, 1000));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 60) }));
+        FragmentSet::RemoveFragment(fragmentSet, df(60, 60));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+    }
+
     {
         //FROM RFC:
         //If on the other hand, the scope of a report segment has lower bound
@@ -210,8 +266,10 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         std::set<df> fragmentSet;
         LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200) }));
+        //contains
         BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 200)));
         BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(101, 199)));
+        //does not contain
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(10, 20)));
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 201)));
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 202)));
@@ -219,6 +277,154 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(98, 200)));
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(98, 150)));
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(150, 250)));
+
+        fragmentSet.clear();
+        LtpFragmentSet::InsertFragment(fragmentSet, df(0, 200));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 200) }));
+        //contains
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 0)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 200)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(200, 200)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(101, 199)));
+        //does not contain
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(199, 201)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(200, 201)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(201, 201)));
+
+        fragmentSet.clear();
+        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400) }));
+        //contains
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 100)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 200)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(101, 200)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 199)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(101, 199)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(200, 200)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(300, 300)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(300, 400)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(301, 400)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(300, 399)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(400, 400)));
+        BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(301, 399)));
+        //does not contain
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 0)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 99)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 100)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 101)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(201, 299)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(200, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(201, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(200, 299)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(401, 401)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(400, 401)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(300, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(299, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(299, 400)));
+        BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(299, 401)));
+    }
+
+    //TEST DoesNotContainFragmentEntirely (not used in ltp)
+    {
+        std::set<df> fragmentSet;
+        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200) }));
+        //overlap
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(100, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(101, 199)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(10, 100)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(100, 100)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(100, 201)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(100, 202)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(99, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(99, 100)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(98, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(98, 150)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(150, 250)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 1000)));
+        //not contained (may abut)
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(10, 20)));        
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(10, 99)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(99, 99)));        
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 201)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 300)));
+
+        fragmentSet.clear();
+        LtpFragmentSet::InsertFragment(fragmentSet, df(0, 200));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 200) }));
+        //overlap
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 199)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 201)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 0)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 1)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(1, 199)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(1, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(1, 201)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(1, 1)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(1, 2)));
+
+        fragmentSet.clear();
+        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400) }));
+        //overlap
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 100)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 101)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 299)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 301)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(400, 400)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(400, 1000)));
+        //not contained (may abut)
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 0)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 1)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 99)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 201)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 299)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(299, 299)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(401, 401)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(401, 1000)));
+
+        LtpFragmentSet::InsertFragment(fragmentSet, df(500, 600));
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400), df(500, 600) }));
+        //overlap 
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 100)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 101)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 299)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(200, 200)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 300)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 301)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(400, 400)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(400, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(400, 401)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(401, 1000)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(499, 500)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(600, 601)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(600, 600)));
+        BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(500, 500)));
+        //not contained (may abut)
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 0)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 1)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 99)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 201)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 299)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(299, 299)));
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(401, 401)));        
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(499, 499)));        
+        BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(601, 601)));
+        
     }
 
 
