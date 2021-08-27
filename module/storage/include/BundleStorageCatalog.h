@@ -48,7 +48,7 @@ public:
     bool AddEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
     bool ReturnEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId);
     bool RemoveEntryFromAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId);
-    std::pair<bool, uint16_t> Remove(const uint64_t custodyId, const bpv6_primary_block & primary, bool alsoNeedsRemovedFromAwaitingSend);
+    std::pair<bool, uint16_t> Remove(const uint64_t custodyId, bool alsoNeedsRemovedFromAwaitingSend);
     catalog_entry_t * GetEntryFromCustodyId(const uint64_t custodyId);
     uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_t & bundleUuid);
     uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);

@@ -18,7 +18,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, int id, std::
       hdtn::IreleaseStartHdr releaseMsg;
       memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
       releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
-      releaseMsg.flowId = id;
+      releaseMsg.finalDestinationEid = cbhe_eid_t(id, 1); //todo use service id
       releaseMsg.rate = 0;  //not implemented
       releaseMsg.duration = 20;  //not implemented
       ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
@@ -28,7 +28,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, int id, std::
       hdtn::IreleaseStopHdr stopMsg;
       memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
       stopMsg.base.type = HDTN_MSGTYPE_IRELSTOP;
-      stopMsg.flowId = id;
+      stopMsg.finalDestinationEid = cbhe_eid_t(id, 1); //todo use service id
       ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
       std::cout << " -- Stop Release message sent.";
   }

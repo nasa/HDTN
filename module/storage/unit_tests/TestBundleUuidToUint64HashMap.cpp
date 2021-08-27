@@ -59,7 +59,10 @@ static void DoTest() {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
         typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
+            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            BOOST_REQUIRE(p != NULL);
+            BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
+            BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
         }
         std::vector<uuid_u64_t> bucketAsVector;
         hm.BucketToVector(HASH, bucketAsVector);
@@ -71,7 +74,10 @@ static void DoTest() {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
         typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (int64_t i = static_cast<int64_t>(bundleUuidPlusU64Vec.size() - 1); i >= 0; --i) {
-            BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
+            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            BOOST_REQUIRE(p != NULL);
+            BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
+            BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
         }
         std::vector<uuid_u64_t> bucketAsVector;
         hm.BucketToVector(HASH, bucketAsVector);
@@ -83,10 +89,14 @@ static void DoTest() {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
         typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            BOOST_REQUIRE(hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
+            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            BOOST_REQUIRE(p != NULL);
+            BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
+            BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
         }
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            BOOST_REQUIRE(!hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
+            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            BOOST_REQUIRE(p == NULL);
         }
         std::vector<uuid_u64_t> bucketAsVector;
         hm.BucketToVector(HASH, bucketAsVector);
@@ -97,11 +107,29 @@ static void DoTest() {
     {
         typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            BOOST_REQUIRE(hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
+            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            BOOST_REQUIRE(p != NULL);
+            BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
+            BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
         }
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            BOOST_REQUIRE(!hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second));
+            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            BOOST_REQUIRE(p == NULL);
         }
+    }
+
+    //insert elem 0 using real hash and remove it using pointer returned by insert
+    {
+        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        uint64_t value = 0;
+        BOOST_REQUIRE(!hm.GetValueAndRemove(bundleUuidPlusU64Vec[0].first, value)); //nothing here
+        const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[0].first, bundleUuidPlusU64Vec[0].second); //insert 0
+        BOOST_REQUIRE(p != NULL);
+        BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[0].first);
+        BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[0].second);
+        BOOST_REQUIRE(hm.GetValueAndRemove(p->first, value)); //remove 0
+        BOOST_REQUIRE_EQUAL(bundleUuidPlusU64Vec[0].second, value); //verify value 0
+        BOOST_REQUIRE(!hm.GetValueAndRemove(bundleUuidPlusU64Vec[0].first, value)); //fail remove 0 since already removed
     }
 
     //insert and deletion tests
@@ -118,6 +146,8 @@ static void DoTest() {
         BOOST_REQUIRE(hm.GetValueAndRemove(HASH, bundleUuidPlusU64Vec[0].first, value)); //remove 0
         BOOST_REQUIRE_EQUAL(bundleUuidPlusU64Vec[0].second, value); //verify value 0
         BOOST_REQUIRE_EQUAL(hm.GetBucketSize(HASH), 0); //verify size 0
+
+        
 
         //insert elem 0,1 and remove 0,1
         BOOST_REQUIRE(!hm.GetValueAndRemove(HASH, bundleUuidPlusU64Vec[0].first, value)); //nothing here

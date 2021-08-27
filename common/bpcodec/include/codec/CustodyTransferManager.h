@@ -23,6 +23,10 @@ enum class BPV6_ACS_STATUS_REASON_INDICES : uint8_t {
 };
 static constexpr unsigned int NUM_ACS_STATUS_INDICES = static_cast<unsigned int>(BPV6_ACS_STATUS_REASON_INDICES::NUM_INDICES);
 
+struct acs_array_t : public std::array<AggregateCustodySignal, NUM_ACS_STATUS_INDICES> {
+    acs_array_t();
+};
+
 class CustodyTransferManager {
 private:
     CustodyTransferManager();
@@ -31,22 +35,22 @@ public:
     CustodyTransferManager(const bool isAcsAware, const uint64_t myCustodianNodeId, const uint64_t myCustodianServiceId);
     ~CustodyTransferManager();
 
-    bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody,
-        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, std::vector<uint8_t> & custodySignalRfc5050SerializedBundle);
+    bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
+        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary);
     void Reset();
-    bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
+    void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
+    bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, bpv6_primary_block & newPrimary, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     bool GenerateAcsBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
     const AggregateCustodySignal & GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
-    uint64_t GetNextCustodyIdForNextHopCtebToSend(const cbhe_eid_t & bundleSrcEid);
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;
     const uint64_t m_myCustodianServiceId;
     const std::string m_myCtebCreatorCustodianEidString;
-    uint64_t m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;
-    std::map<cbhe_eid_t, uint64_t> m_mapBundleSrcEidToNextCtebCustodyId;
-
-    AggregateCustodySignal m_acsArray[NUM_ACS_STATUS_INDICES];
+    //std::map<cbhe_eid_t, acs_array_t> m_mapCustodianToAcsArray;
+    acs_array_t m_acsArray;
+    uint64_t m_lastCreation;
+    uint64_t m_sequence;
 };
 
 #endif // CUSTODY_TRANSFER_MANAGER_H

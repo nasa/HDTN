@@ -22,17 +22,17 @@ public:
     static uint16_t GetHash(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
     static uint16_t GetHash(const uint64_t key);
 
-    //return true if inserted, false if already exists
-    bool Insert(const keyType & key, const valueType & value);
-    bool Insert(const keyType & key, valueType && value);
-    bool Insert(const uint16_t hash, const keyType & key, const valueType & value);
-    bool Insert(const uint16_t hash, const keyType & key, valueType && value);
+    //return ptr of inserted pair if inserted, NULL if already exists
+    const key_value_pair_t * Insert(const keyType & key, const valueType & value);
+    const key_value_pair_t * Insert(const keyType & key, valueType && value);
+    const key_value_pair_t * Insert(const uint16_t hash, const keyType & key, const valueType & value);
+    const key_value_pair_t * Insert(const uint16_t hash, const keyType & key, valueType && value);
 
     //return true if exists, false if key doesn't exist in the map
     bool GetValueAndRemove(const keyType & key, valueType & value);
     bool GetValueAndRemove(const uint16_t hash, const keyType & key, valueType & value);
 
-    //return true if exists, false if key doesn't exist in the map
+    //return ptr if exists, NULL if key doesn't exist in the map
     valueType * GetValuePtr(const keyType & key);
     valueType * GetValuePtr(const uint16_t hash, const keyType & key);
 

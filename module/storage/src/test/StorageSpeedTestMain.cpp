@@ -19,7 +19,7 @@
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
 //static const uint64_t PRIMARY_DEST_NODE = 300;
-static const uint64_t PRIMARY_DEST_SVC = 3;
+//static const uint64_t PRIMARY_DEST_SVC = 3;
 //static const uint64_t PRIMARY_TIME = 1000;
 //static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
@@ -48,6 +48,9 @@ struct TestFile {
     std::vector<boost::uint8_t> m_data;
 };
 
+//two days
+#define NUMBER_OF_EXPIRATIONS (86400*2)
+
 bool TestSpeed(BundleStorageManagerBase & bsm) {
     boost::random::mt19937 gen(static_cast<unsigned int>(std::time(0)));
     const boost::random::uniform_int_distribution<> distLinkId(0, 9);
@@ -58,8 +61,30 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
     g_sigHandler.Start();
 
-    static const boost::uint64_t DEST_LINKS[10] = { 1,2,3,4,5,6,7,8,9,10 };
-    std::vector<boost::uint64_t> availableDestLinks = { 1,2,3,4,5,6,7,8,9,10 };
+    static const cbhe_eid_t DEST_LINKS[10] = {
+        cbhe_eid_t(1,1),
+        cbhe_eid_t(2,1),
+        cbhe_eid_t(3,1),
+        cbhe_eid_t(4,1),
+        cbhe_eid_t(5,1),
+        cbhe_eid_t(6,1),
+        cbhe_eid_t(7,1),
+        cbhe_eid_t(8,1),
+        cbhe_eid_t(9,1),
+        cbhe_eid_t(10,1)
+    };
+    const std::vector<cbhe_eid_t> availableDestLinks = {
+        cbhe_eid_t(1,1),
+        cbhe_eid_t(2,1),
+        cbhe_eid_t(3,1),
+        cbhe_eid_t(4,1),
+        cbhe_eid_t(5,1),
+        cbhe_eid_t(6,1),
+        cbhe_eid_t(7,1),
+        cbhe_eid_t(8,1),
+        cbhe_eid_t(9,1),
+        cbhe_eid_t(10,1)
+    };
 
 
 
@@ -98,6 +123,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
     boost::uint64_t totalSegmentsStoredOnDisk = 0;
     double gigaBitsPerSecReadDoubleAvg = 0.0, gigaBitsPerSecWriteDoubleAvg = 0.0;
     const unsigned int NUM_TESTS = 5;
+    uint64_t custodyId = 0;
     for (unsigned int testI = 0; testI < NUM_TESTS; ++testI) {
 
         {
@@ -113,7 +139,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
                 const unsigned int linkId = distLinkId(gen);
                 const unsigned int priorityIndex = distPriorityIndex(gen);
-                const abs_expiration_t absExpiration = distAbsExpiration(gen);
+                const uint64_t absExpiration = distAbsExpiration(gen);
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
                 bpv6_primary_block primary;
@@ -123,8 +149,8 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                     bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
                 primary.src_node = PRIMARY_SRC_NODE;
                 primary.src_svc = PRIMARY_SRC_SVC;
-                primary.dst_node = DEST_LINKS[linkId];
-                primary.dst_svc = PRIMARY_DEST_SVC;
+                primary.dst_node = DEST_LINKS[linkId].nodeId;
+                primary.dst_svc = DEST_LINKS[linkId].serviceId;
                 primary.custodian_node = 0;
                 primary.custodian_svc = 0;
                 primary.creation = 0;
@@ -137,17 +163,9 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 totalSegmentsStoredOnDisk += totalSegmentsRequired;
                 totalBytesWrittenThisTest += size;
 
-                for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
-                    std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
-                    if (i == totalSegmentsRequired - 1) {
-                        boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
-                        if (modBytes != 0) {
-                            bytesToCopy = modBytes;
-                        }
-                    }
-
-                    bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
-                }
+                ++custodyId;
+                const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary, custodyId, data.data(), data.size());
+                
             }
             const boost::uint64_t nanoSecWall = timer.elapsed().wall;
             //std::cout << "nanosec=" << nanoSecWall << "\n";
@@ -164,19 +182,19 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
             hdtn::Logger::getInstance()->logNotification("storage", "Reading half of the stored");
             boost::uint64_t totalBytesReadThisTest = 0;
             boost::timer::cpu_timer timer;
+            BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse (heap allocated)
             while (g_running) {
 
-                BundleStorageManagerSession_ReadFromDisk sessionRead;
+                
                 boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
                 //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
                 std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
                 TestFile & originalFile = *fileMap[bytesToReadFromDisk];
 
-                const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
-                std::size_t totalBytesRead = 0;
-                for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
-                    totalBytesRead += bsm.TopSegment(sessionRead, &dataReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
-                }
+                const std::size_t numSegmentsToRead = sessionRead.catalogEntryPtr->segmentIdChainVec.size();
+                bsm.ReadAllSegments(sessionRead, dataReadBack);
+                const std::size_t totalBytesRead = dataReadBack.size();
+                
                 //std::cout << "totalBytesRead " << totalBytesRead << "\n";
                 if (totalBytesRead != bytesToReadFromDisk) return false;
                 totalBytesReadThisTest += totalBytesRead;

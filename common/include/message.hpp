@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "stats.hpp"
+#include "codec/bpv6.h"
 
 #define HMSG_MSG_MAX (65536)
 #define CHUNK_SIZE (65536 * 100) //TODO
@@ -42,7 +43,7 @@
 #define HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (0x5555)
 
 namespace hdtn {
-#pragma pack (push, 1)
+//#pragma pack (push, 1)
 struct CommonHdr {
     uint16_t type;
     uint16_t flags;
@@ -65,6 +66,34 @@ struct BlockHdr {
     }
 };// __attribute__((packed));
 
+struct ToEgressHdr {
+    CommonHdr base;
+    uint8_t hasCustody;
+    uint8_t unused2;
+    uint8_t unused3;
+    uint8_t unused4;
+    cbhe_eid_t finalDestEid;
+    uint64_t custodyId;
+
+    //bool operator==(const ToEgressHdr & o) const {
+    //    return (base == o.base) && (custodyId == o.custodyId);
+    //}
+};
+
+struct EgressAckHdr {
+    CommonHdr base;
+    uint8_t error;
+    uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
+    uint8_t unused1;
+    uint8_t unused2;
+    cbhe_eid_t finalDestEid;
+    uint64_t custodyId;
+
+    //bool operator==(const EgressAckHdr & o) const {
+    //    return (base == o.base) && (custodyId == o.custodyId);
+    //}
+};
+
 struct StoreHdr {
     BlockHdr base;
 };// __attribute__((packed));
@@ -84,15 +113,15 @@ struct CscheduleHdr {
 
 struct IreleaseStartHdr {
     CommonHdr base;
-    uint32_t flowId;   // flow ID
+    cbhe_eid_t finalDestinationEid;   // formerly flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
 };// __attribute__((packed));
 
 struct IreleaseStopHdr {
     CommonHdr base;
-    uint32_t flowId;
+    cbhe_eid_t finalDestinationEid;
 };// __attribute__((packed));
 };  // namespace hdtn
-#pragma pack (pop)
+//#pragma pack (pop)
 #endif

@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
         hdtn::IreleaseStartHdr releaseMsg;
         memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
         releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
-        releaseMsg.flowId = flowId;
+        releaseMsg.finalDestinationEid = cbhe_eid_t(flowId, 1); //todo use service id
         releaseMsg.rate = 0;  //not implemented
         releaseMsg.duration = 20;//not implemented
         socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
         hdtn::IreleaseStopHdr stopMsg;
         memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
         stopMsg.base.type = HDTN_MSGTYPE_IRELSTOP;
-        stopMsg.flowId = flowId;
+        stopMsg.finalDestinationEid = cbhe_eid_t(flowId, 1); //todo use service id
         socket.send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
         std::cout << "Stop Release message sent \n";
         boost::this_thread::sleep(boost::posix_time::seconds(1));

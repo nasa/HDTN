@@ -52,34 +52,34 @@ uint16_t HashMap16BitFixedSize<keyType, valueType>::GetHash(const uint64_t key) 
 }
 
 //insert into buckets in order
-//return true if inserted, false if already exists
+//return ptr of inserted pair if inserted, NULL if already exists
 template <typename keyType, typename valueType>
-bool HashMap16BitFixedSize<keyType, valueType>::Insert(const keyType & key, const valueType & value) {
+const typename HashMap16BitFixedSize<keyType, valueType>::key_value_pair_t * HashMap16BitFixedSize<keyType, valueType>::Insert(const keyType & key, const valueType & value) {
     return Insert(GetHash(key), key, std::move(valueType(value)));
 }
 
 //insert into buckets in order
-//return true if inserted, false if already exists
+//return ptr of inserted pair if inserted, NULL if already exists
 template <typename keyType, typename valueType>
-bool HashMap16BitFixedSize<keyType, valueType>::Insert(const keyType & key, valueType && value) {
+const typename HashMap16BitFixedSize<keyType, valueType>::key_value_pair_t * HashMap16BitFixedSize<keyType, valueType>::Insert(const keyType & key, valueType && value) {
     return Insert(GetHash(key), key, std::move(value));
 }
 
 //insert into buckets in order
-//return true if inserted, false if already exists
+//return ptr of inserted pair if inserted, NULL if already exists
 template <typename keyType, typename valueType>
-bool HashMap16BitFixedSize<keyType, valueType>::Insert(const uint16_t hash, const keyType & key, const valueType & value) {
+const typename HashMap16BitFixedSize<keyType, valueType>::key_value_pair_t * HashMap16BitFixedSize<keyType, valueType>::Insert(const uint16_t hash, const keyType & key, const valueType & value) {
     return Insert(hash, key, std::move(valueType(value)));
 }
 
 //insert into buckets in order
-//return true if inserted, false if already exists
+//return ptr of inserted pair if inserted, NULL if already exists
 template <typename keyType, typename valueType>
-bool HashMap16BitFixedSize<keyType, valueType>::Insert(const uint16_t hash, const keyType & key, valueType && value) {
+const typename HashMap16BitFixedSize<keyType, valueType>::key_value_pair_t * HashMap16BitFixedSize<keyType, valueType>::Insert(const uint16_t hash, const keyType & key, valueType && value) {
     bucket_t & bucket = m_buckets[hash];
     if (bucket.empty()) {
         bucket.emplace_front(key, std::move(value));
-        return true;
+        return &(bucket.front());
     }
     else {
         bucket_t::const_iterator itPrev = bucket.cbefore_begin();
@@ -92,12 +92,11 @@ bool HashMap16BitFixedSize<keyType, valueType>::Insert(const uint16_t hash, cons
                 continue;
             }
             else { //equal, already exists
-                return false;
+                return NULL;
             }
         }
         //uuid is greater than every element in the bucket, insert at the end
-        bucket.emplace_after(itPrev, key, std::move(value));
-        return true;
+        return &(*bucket.emplace_after(itPrev, key, std::move(value)));
     }
 }
 
@@ -135,13 +134,13 @@ bool HashMap16BitFixedSize<keyType, valueType>::GetValueAndRemove(const uint16_t
     }
 }
 
-//return true if exists, false if key doesn't exist in the map
+//return ptr if exists, NULL if key doesn't exist in the map
 template <typename keyType, typename valueType>
 valueType *  HashMap16BitFixedSize<keyType, valueType>::GetValuePtr(const keyType & key) {
     return GetValuePtr(GetHash(key), key);
 }
 
-//return true if exists, false if key doesn't exist in the map
+//return ptr if exists, NULL if key doesn't exist in the map
 template <typename keyType, typename valueType>
 valueType * HashMap16BitFixedSize<keyType, valueType>::GetValuePtr(const uint16_t hash, const keyType & key) {
     bucket_t & bucket = m_buckets[hash];

@@ -13,10 +13,13 @@
 #include "store.hpp"
 #include "BundleStorageManagerMT.h"
 #include "BundleStorageManagerAsio.h"
-#include "../../../common/logger/include/Logger.h"
+#include "Logger.h"
 #include <set>
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
+#include "codec/CustodyIdAllocator.h"
+#include "codec/CustodyTransferManager.h"
+#include "Uri.h"
 
 hdtn::ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
@@ -38,138 +41,82 @@ void hdtn::ZmqStorageInterface::Init(zmq::context_t *ctx, const HdtnConfig & hdt
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
 }
 
-static void Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageManagerBase & bsm) {
-    //res = blosc_compress_ctx(9, 0, 4, message->size(), message->data(), outBuf, HDTN_BLOSC_MAXBLOCKSZ, "lz4", 0, 1);
-        //storeFlow.write(hdr->flow_id, outBuf, res);
-
-    const boost::uint64_t size = message->size();
-    boost::uint8_t * data = (boost::uint8_t *) message->data();
-
-
-    const unsigned int linkId = hdr->flowId; //std::cout << "linkIdWrite: " << linkId << " sz " << size << std::endl;
-    const unsigned int priorityIndex = hdr->ttl; //use ttl for now.. could be 0, 1, or 2, but keep constant for fifo mode
-    //static abs_expiration_t bundleI = 0;
-    //const abs_expiration_t absExpiration = bundleI++; //increment this every time for fifo mode
-    const uint64_t absExpirationUsec = hdr->ts; //use ts for now
-
-    BundleStorageManagerSession_WriteToDisk sessionWrite;
-    bpv6_primary_block primary;
-    std::size_t offset = cbhe_bpv6_primary_block_decode(&primary, (const char*)(data), 0, size);
-    if (offset == 0) {
-        std::cerr << "malformed bundle\n";//Malformed bundle
-        return;
+static bool Write(hdtn::BlockHdr *hdr, zmq::message_t *message, BundleStorageManagerBase & bsm,
+    CustodyIdAllocator & custodyIdAllocator, CustodyTransferManager & ctm,
+    std::vector<uint8_t> & bufferSpaceForCustodySignalRfc5050SerializedBundle)
+{
+    BundleViewV6 bv;
+    if (!bv.LoadBundle((uint8_t *)message->data(), message->size())) { //invalid bundle
+        std::cerr << "malformed bundle\n";
+        return false;
     }
-    /*
-    bp_primary_if_base_t bundleMetaData;
-    bundleMetaData.flags = (priorityIndex & 3) << 7;
-    bundleMetaData.dst_node = linkId;
-    bundleMetaData.length = size;
-    bundleMetaData.creation = 0;
-    bundleMetaData.lifetime = absExpirationUsec;
-    */
-    boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
+    bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+    const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
+    const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
+    const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(srcEid);
+    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+    if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+        bpv6_primary_block primaryForCustodySignalRfc5050;
+        if (!ctm.ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
+            bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050)) {
+            std::cerr << "error unable to process custody\n";
+        }
+        else if (!bv.Render(message->size() + 200)) { //hdtn modifies bundle for next hop
+            std::cerr << "error unable to render new bundle\n";
+        }
+        else {
+            if (!bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
+                const cbhe_eid_t hdtnSrcEid(primaryForCustodySignalRfc5050.src_node, primaryForCustodySignalRfc5050.src_svc);
+                const uint64_t newCustodyIdFor5050CustodySignal = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
+
+                //write custody signal to disk
+                BundleStorageManagerSession_WriteToDisk sessionWrite;
+                const uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primaryForCustodySignalRfc5050, bufferSpaceForCustodySignalRfc5050SerializedBundle.size());
+                //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
+                if (totalSegmentsRequired == 0) {
+                    const std::string msg = "out of space for custody signal";
+                    std::cerr << msg << "\n";
+                    hdtn::Logger::getInstance()->logError("storage", msg);
+                    return false;
+                }
+                
+                const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primaryForCustodySignalRfc5050,
+                    newCustodyIdFor5050CustodySignal, bufferSpaceForCustodySignalRfc5050SerializedBundle.data(), bufferSpaceForCustodySignalRfc5050SerializedBundle.size());
+                if (totalBytesPushed != bufferSpaceForCustodySignalRfc5050SerializedBundle.size()) {
+                    const std::string msg = "totalBytesPushed != bufferSpaceForCustodySignalRfc5050SerializedBundle.size";
+                    std::cerr << msg << "\n";
+                    hdtn::Logger::getInstance()->logError("storage", msg);
+                    return false;
+                }
+            }
+        }
+    }
+    
+
+    //write bundle (modified by hdtn if custody requested) to disk
+    BundleStorageManagerSession_WriteToDisk sessionWrite;
+    boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, bv.m_renderedBundle.size());
     //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
     if (totalSegmentsRequired == 0) {
         std::cerr << "out of space\n";
         hdtn::Logger::getInstance()->logError("storage", "Out of space");
-        return;
+        return false;
     }
     //totalSegmentsStoredOnDisk += totalSegmentsRequired;
     //totalBytesWrittenThisTest += size;
 
-    for (boost::uint64_t i = 0; i < totalSegmentsRequired; ++i) {
-        std::size_t bytesToCopy = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
-        if (i == totalSegmentsRequired - 1) {
-            boost::uint64_t modBytes = (size % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
-            if (modBytes != 0) {
-                bytesToCopy = modBytes;
-            }
-        }
-
-        bsm.PushSegment(sessionWrite, &data[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE], bytesToCopy);
+    const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+    if (totalBytesPushed != bv.m_renderedBundle.size()) {
+        const std::string msg = "totalBytesPushed != size";
+        std::cerr << msg << "\n";
+        hdtn::Logger::getInstance()->logError("storage", msg);
+        return false;
     }
+    return true;
 }
-/*
-static void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock, BundleStorageManagerBase & bsm) {
-    std::cout << "release worker triggered." << std::endl;
-    //int dataReturned = 0;
-    //uint64_t totalReturned = 0;
-    hdtn::BlockHdr block;
-    memset(&block, 0, sizeof(hdtn::BlockHdr));
-    const boost::uint64_t largestBundleSize = HDTN_BLOSC_MAXBLOCKSZ * 2;
-    std::vector<boost::uint8_t> bundleReadBack(largestBundleSize, 0); //initialize it to zero
 
-    //timeval tv;
-    //gettimeofday(&tv, NULL);
-    //double start = (tv.tv_sec + (tv.tv_usec / 1000000.0));
-
-    unsigned int numBundlesReadBack = 0;
-    while(1) {
-
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //TODO: storage reads too fast for egress to send data.. need an acking mechanism.
-            std::vector<boost::uint64_t> availableDestLinks = { flow }; //fifo mode, only put in the one link you want to read (could be more tho)
-
-
-            //std::cout << "reading\n";
-            BundleStorageManagerSession_ReadFromDisk sessionRead;
-            boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
-            //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
-            if (bytesToReadFromDisk == 0) { //no more of these links to read
-                    break;
-            }
-            else {//this link has a bundle in the fifo
-
-
-                    //USE THIS COMMENTED OUT CODE IF YOU DECIDE YOU DON'T WANT TO READ THE BUNDLE AFTER PEEKING AT IT (MAYBE IT'S TOO BIG RIGHT NOW)
-                    //return top then take out again
-                    //bsm.ReturnTop(sessionRead);
-                    //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
-
-
-                    const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
-                    std::size_t totalBytesRead = 0;
-                    for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
-                            totalBytesRead += bsm.TopSegment(sessionRead, &bundleReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
-                    }
-                    //std::cout << "totalBytesRead " << totalBytesRead << "\n";
-                    if(totalBytesRead != bytesToReadFromDisk){
-                        std::cout << "error: totalBytesRead != bytesToReadFromDisk\n";
-                    }
-
-
-
-
-                    //if you're happy with the bundle data you read back, then officially remove it from the disk
-                    bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(sessionRead);
-                    if(!successRemoveBundle) {
-                        std::cout << "error freeing bundle from disk\n";
-                    }
-                    ++numBundlesReadBack;
-                    block.base.type = HDTN_MSGTYPE_EGRESS;
-                    block.flowId = flow;
-                    egressSock->send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::none);// 0 ZMQ_MORE
-                    egressSock->send(zmq::const_buffer(bundleReadBack.data(), bytesToReadFromDisk), zmq::send_flags::none);
-            }
-
-
-    }
-
-
-
-    //gettimeofday(&tv, NULL);
-    //double end = (tv.tv_sec + (tv.tv_usec / 1000000.0));
-    std::cout << "numBundlesReadBack = " << numBundlesReadBack << std::endl;
-    //workerStats.flow.read_rate = ((totalReturned * 8.0) / (1024.0 * 1024)) / (end - start);
-    //workerStats.flow.read_ts = end - start;
-    //std::cout << "Total bytes returned: " << totalReturned << ", Mbps released: " << workerStats.flow.read_rate << " in " << workerStats.flow.read_ts << " sec" << std::endl;
-    //hdtn::flow_stats stats = storeFlow.stats();
-    //workerStats.flow.disk_rbytes=stats.disk_rbytes;
-    //workerStats.flow.disk_rcount=stats.disk_rcount;
-    //std::cout << "[storage-worker] " <<  stats.disk_wcount << " w count " << stats.disk_wbytes << " w bytes " << stats.disk_rcount << " r count " << stats.disk_rbytes << " r bytes \n";
-}
-*/
 //return number of bytes to read for specified links
-static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks, BundleStorageManagerBase & bsm) {
+static uint64_t PeekOne(const std::vector<cbhe_eid_t> & availableDestLinks, BundleStorageManagerBase & bsm) {
     BundleStorageManagerSession_ReadFromDisk  sessionRead;
     const boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
     if (bytesToReadFromDisk == 0) { //no more of these links to read
@@ -179,18 +126,17 @@ static uint64_t PeekOne(const std::vector<boost::uint64_t> & availableDestLinks,
     //this link has a bundle in the fifo
     bsm.ReturnTop(sessionRead);
     return bytesToReadFromDisk;
-    
 }
 
-static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBlock(const std::vector<boost::uint64_t> & availableDestLinks, zmq::socket_t *egressSock, BundleStorageManagerBase & bsm, const uint64_t maxBundleSizeToRead) {
-    
+static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessionRead,
+    const std::vector<cbhe_eid_t> & availableDestLinks,
+    zmq::socket_t *egressSock, BundleStorageManagerBase & bsm, const uint64_t maxBundleSizeToRead)
+{
     //std::cout << "reading\n";
-    std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> sessionReadPtr = boost::make_unique<BundleStorageManagerSession_ReadFromDisk>();
-    BundleStorageManagerSession_ReadFromDisk & sessionRead = *sessionReadPtr;
     const boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
     //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
     if (bytesToReadFromDisk == 0) { //no more of these links to read
-        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return false;
     }
 
     //this link has a bundle in the fifo
@@ -201,15 +147,15 @@ static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBl
         std::cerr << "error: bundle to read from disk is too large right now" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "Error: bundle to read from disk is too large right now");
         bsm.ReturnTop(sessionRead);
-        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return false;
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
     }
         
     zmq::message_t zmqMsg(bytesToReadFromDisk);
-    boost::uint8_t * bundleReadBack = (uint8_t*)zmqMsg.data();
+    uint8_t * bundleReadBack = (uint8_t*)zmqMsg.data();
 
 
-    const std::size_t numSegmentsToRead = sessionRead.chainInfo.second.size();
+    const std::size_t numSegmentsToRead = sessionRead.catalogEntryPtr->segmentIdChainVec.size();
     std::size_t totalBytesRead = 0;
     for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
         totalBytesRead += bsm.TopSegment(sessionRead, &bundleReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
@@ -218,32 +164,34 @@ static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBl
     if (totalBytesRead != bytesToReadFromDisk) {
         std::cout << "error: totalBytesRead != bytesToReadFromDisk\n";
         hdtn::Logger::getInstance()->logError("storage", "Error: totalBytesRead != bytesToReadFromDisk");
-        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return false;
     }
 
 
-    hdtn::BlockHdr block;
-    memset(&block, 0, sizeof(hdtn::BlockHdr));
-    block.base.type = HDTN_MSGTYPE_EGRESS;
-    block.flowId = static_cast<uint32_t>(sessionRead.destLinkId);
-    //get the first logical segment id for the bundle unique id
-    {
-        const chain_info_t & chainInfo = sessionRead.chainInfo;
-        const segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
-        const segment_id_t segmentId = segmentIdChainVec[0];
-        block.zframe = segmentId;
+    zmq::message_t zmqToEgressHdr(sizeof(hdtn::ToEgressHdr));
+    if (((uintptr_t)zmqToEgressHdr.data()) & 7) {
+        std::cerr << "error zmq data not aligned on 8-byte boundary" << std::endl;
+        bsm.ReturnTop(sessionRead);
+        return false;
     }
-    if (!egressSock->send(zmq::const_buffer(&block, sizeof(hdtn::BlockHdr)), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+    hdtn::ToEgressHdr * toEgressHdr = (hdtn::ToEgressHdr *)zmqToEgressHdr.data();
+    memset(toEgressHdr, 0, sizeof(hdtn::ToEgressHdr));
+    toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
+    toEgressHdr->finalDestEid = sessionRead.catalogEntryPtr->destEid;
+    toEgressHdr->hasCustody = sessionRead.catalogEntryPtr->HasCustody();
+    toEgressHdr->custodyId = sessionRead.custodyId;
+    
+    if (!egressSock->send(std::move(zmqToEgressHdr), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
         std::cout << "error: zmq could not send" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send");
         bsm.ReturnTop(sessionRead);
-        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return false;
     }
     if (!egressSock->send(std::move(zmqMsg), zmq::send_flags::dontwait)) {
         std::cout << "error: zmq could not send bundle" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send bundle");
         bsm.ReturnTop(sessionRead);
-        return std::unique_ptr<BundleStorageManagerSession_ReadFromDisk>(); //null
+        return false;
     }
     /*
     //if you're happy with the bundle data you read back, then officially remove it from the disk
@@ -257,14 +205,21 @@ static std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> ReleaseOne_NoBl
         */
         
         
-    return std::move(sessionReadPtr);
-    
+    return true;
 
 }
 
 void hdtn::ZmqStorageInterface::ThreadFunc() {
     zmq::message_t rhdr;
     zmq::message_t rmsg;
+    BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse this due to expensive heap allocation
+    std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
+    bufferSpaceForCustodySignalRfc5050SerializedBundle.reserve(2000);
+    CustodyIdAllocator custodyIdAllocator;
+    const bool isAcsAware = true;
+    const uint64_t PRIMARY_HDTN_NODE = 10; //todo
+    const uint64_t PRIMARY_HDTN_SVC = 10; //todo
+    CustodyTransferManager ctm(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 
@@ -350,18 +305,17 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Notified parent that startup is complete.");
 
-    typedef std::unique_ptr<BundleStorageManagerSession_ReadFromDisk> session_read_ptr;
-    typedef std::map<segment_id_t, session_read_ptr> segid_session_map_t;
-    typedef std::map<uint64_t, segid_session_map_t> flowid_opensessions_map_t;
-    
+    typedef std::set<uint64_t> custodyid_set_t;
+    typedef std::map<cbhe_eid_t, custodyid_set_t> finaldesteid_opencustids_map_t;
+
     m_totalBundlesErasedFromStorage = 0;
     m_totalBundlesSentToEgressFromStorage = 0;
     std::size_t totalEventsAllLinksClogged = 0;
     std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
     std::size_t totalEventsDataInStorageForCloggedLinks = 0;
 
-    std::set<uint64_t> availableDestLinksSet;
-    flowid_opensessions_map_t flowIdToOpenSessionsMap;
+    std::set<cbhe_eid_t> availableDestLinksSet;
+    finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
@@ -371,36 +325,42 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                 if (!fromEgressSockPtr->recv(rhdr, zmq::recv_flags::none)) {
                     continue;
                 }
+                if (((uintptr_t)rhdr.data()) & 7) {
+                    std::cerr << "error zmq data not aligned on 8-byte boundary" << std::endl;
+                    continue;
+                }
                 if (rhdr.size() < sizeof(hdtn::CommonHdr)) {
                     std::cerr << "[storage-worker] Invalid message format - header size too small (" << rhdr.size() << ")" << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", 
                         "[storage-worker] Invalid message format - header size too small (" + std::to_string(rhdr.size()) + ")");
                     continue;
                 }
-                hdtn::CommonHdr commonHdr;
-                memcpy(&commonHdr, rhdr.data(), sizeof(hdtn::CommonHdr));
-                const uint16_t type = commonHdr.type;
-                if (type == HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY) {
-                    if (rhdr.size() != sizeof(hdtn::BlockHdr)) {
+                hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *) rhdr.data(); //rhdr verified above aligned on 8-byte boundary
+                if (commonHdr->type == HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY) {
+                    if (rhdr.size() != sizeof(hdtn::EgressAckHdr)) {
                         std::cerr << "[storage-worker] Invalid message format - header size mismatch HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (" << rhdr.size() << ")" << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", 
                         "[storage-worker] Invalid message format - header size mismatch HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (" 
                         + std::to_string(rhdr.size()) + ")");
                     }
                     else {
-                        hdtn::BlockHdr blockHdr;
-                        memcpy(&blockHdr, rhdr.data(), sizeof(hdtn::BlockHdr));
-                        segid_session_map_t & segIdToSessionMap = flowIdToOpenSessionsMap[blockHdr.flowId];
-                        segid_session_map_t::iterator it = segIdToSessionMap.find(blockHdr.zframe);
-                        if (it != segIdToSessionMap.end()) {                            
-                            bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(*(it->second));
-                            if (!successRemoveBundle) {
-                                std::cout << "error freeing bundle from disk\n";
-                                hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
+                        hdtn::EgressAckHdr * egressAckHdr = (hdtn::EgressAckHdr *) rhdr.data(); //rhdr verified above aligned on 8-byte boundary
+                        custodyid_set_t & custodyIdSet = finalDestEidToOpenCustIdsMap[egressAckHdr->finalDestEid];
+                        custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr->custodyId);
+                        if (it != custodyIdSet.end()) {
+                            if (egressAckHdr->deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                                bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr->custodyId);
+                                if (!successRemoveBundle) {
+                                    std::cout << "error freeing bundle from disk\n";
+                                    hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
+                                }
+                                else {
+                                    ++m_totalBundlesErasedFromStorage;
+                                }
                             }
-                            segIdToSessionMap.erase(it);
+                            custodyIdSet.erase(it);
                             //std::cout << "remove flow " << blockHdr.flowId << " sz " << flowIdToOpenSessionsMap[blockHdr.flowId].size() << std::endl;
-                            ++m_totalBundlesErasedFromStorage;
+                            
                         }
                     }
                 }
@@ -415,9 +375,12 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     "[storage-worker] Invalid message format - header size too small (" + std::to_string(rhdr.size()) + ")");
                     continue;
                 }
-                hdtn::CommonHdr commonHdr;
-                memcpy(&commonHdr, rhdr.data(), sizeof(hdtn::CommonHdr));
-                const uint16_t type = commonHdr.type;
+                if (((uintptr_t)rhdr.data()) & 7) {
+                    std::cerr << "error zmq data not aligned on 8-byte boundary" << std::endl;
+                    continue;
+                }
+                hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *) rhdr.data(); //rhdr verified above aligned on 8-byte boundary
+                const uint16_t type = commonHdr->type;
                 if(type == HDTN_MSGTYPE_STORE) {
                     for (unsigned int attempt = 0; attempt < 10; ++attempt) {
                         if (workerSock.recv(rmsg, zmq::recv_flags::none)) {
@@ -433,7 +396,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                         }
                     }
 
-                    hdtn::BlockHdr *block = (hdtn::BlockHdr *)rhdr.data();
+                    hdtn::BlockHdr *block = (hdtn::BlockHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
                     if (rhdr.size() != sizeof(hdtn::BlockHdr)) {
                         std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
                         hdtn::Logger::getInstance()->logError("storage", 
@@ -441,7 +404,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     }
                     if (rmsg.size() > 100) { //need to fix problem of writing message header as bundles
                         //std::cout << "inptr: " << (std::uintptr_t)(rmsg.data()) << std::endl;
-                        Write(block, &rmsg, bsm);
+                        Write(block, &rmsg, bsm, custodyIdAllocator, ctm, bufferSpaceForCustodySignalRfc5050SerializedBundle);
                         //send ack message by echoing back the block
                         if (!toIngressSockPtr->send(zmq::const_buffer(block, sizeof(hdtn::BlockHdr)), zmq::send_flags::dontwait)) {
                             std::cout << "error: zmq could not send ingress an ack from storage" << std::endl;
@@ -450,44 +413,44 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     }
                 }
                 else if(type == HDTN_MSGTYPE_IRELSTART) {
-                    hdtn::IreleaseStartHdr iReleaseStartHdr;
-                    memcpy(&iReleaseStartHdr, rhdr.data(), sizeof(hdtn::IreleaseStartHdr));
+                    hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
                     //ReleaseData(iReleaseStartHdr.flowId, iReleaseStartHdr.rate, iReleaseStartHdr.duration, &egressSock, bsm);
-                    const uint64_t flowId = iReleaseStartHdr.flowId;
-                    availableDestLinksSet.insert(flowId);
-                    std::cout << "flow ID " << flowId << " will be released from storage" << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "flow ID " + std::to_string(flowId) + 
-                        " will be released from storage");
+                    availableDestLinksSet.insert(iReleaseStartHdr->finalDestinationEid);
+                    const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStartHdr->finalDestinationEid.nodeId) + ","
+                        + boost::lexical_cast<std::string>(iReleaseStartHdr->finalDestinationEid.serviceId) + ") will be released from storage";
+                    std::cout << msg << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", msg);
 
                     //availableDestLinksVec.clear();
                     std::string strVals = "[";
-                    for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
+                    for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
                         //availableDestLinksVec.push_back(*it);
-                        strVals += boost::lexical_cast<std::string>(*it) + ", ";
+                        strVals += "(" + boost::lexical_cast<std::string>((*it).nodeId) + ","
+                            + boost::lexical_cast<std::string>((*it).serviceId) + "), ";
                     }
                     strVals += "]";
-                    std::cout << "Currently Releasing Flow Ids: " << strVals << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Flow Ids: " + strVals);
+                    std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
 
                     //storageStillHasData = true;
                 }
                 else if(type == HDTN_MSGTYPE_IRELSTOP) {
-                    hdtn::IreleaseStopHdr iReleaseStoptHdr;
-                    memcpy(&iReleaseStoptHdr, rhdr.data(), sizeof(hdtn::IreleaseStopHdr));
-                    const uint64_t flowId = iReleaseStoptHdr.flowId;
-                    std::cout << "flow ID " << flowId << " will STOP BEING released from storage" << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "flow ID " + std::to_string(flowId) + 
-                        " will STOP BEING released from storage");
-                    availableDestLinksSet.erase(flowId);
+                    hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
+                    const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
+                        + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
+                    std::cout << msg << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", msg);
+                    availableDestLinksSet.erase(iReleaseStoptHdr->finalDestinationEid);
                     //availableDestLinksVec.clear();
                     std::string strVals = "[";
-                    for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
+                    for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
                         //availableDestLinksVec.push_back(*it);
-                        strVals += boost::lexical_cast<std::string>(*it) + ", ";
+                        strVals += "(" + boost::lexical_cast<std::string>((*it).nodeId) + ","
+                            + boost::lexical_cast<std::string>((*it).serviceId) + "), ";
                     }
                     strVals += "]";
-                    std::cout << "Currently Releasing Flow Ids: " << strVals << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Flow Ids: " + strVals);
+                    std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
                 }
                 
             }            
@@ -495,34 +458,31 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
         
         //Send and maintain a maximum of 5 unacked bundles (per flow id) to Egress.
         //When a bundle is acked from egress using the head segment Id, the bundle is deleted from disk and a new bundle can be sent.
-        static const uint64_t maxBundleSizeToRead = 65535 * 10;
+        static const uint64_t maxBundleSizeToRead = UINT64_MAX;// 65535 * 10;
         if (availableDestLinksSet.empty()) {
             timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         }
         else {
-            std::vector<uint64_t> availableDestLinksNotCloggedVec;
-            std::vector<uint64_t> availableDestLinksCloggedVec;
-            for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                const uint64_t flowId = *it;
+            std::vector<cbhe_eid_t> availableDestLinksNotCloggedVec;
+            std::vector<cbhe_eid_t> availableDestLinksCloggedVec;
+            for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
                 //std::cout << "flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
-                if (flowIdToOpenSessionsMap[flowId].size() < 5) {
-                    availableDestLinksNotCloggedVec.push_back(flowId);
+                if (finalDestEidToOpenCustIdsMap[*it].size() < 5) {//finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
+                    availableDestLinksNotCloggedVec.push_back(*it);
                 }
                 else {
-                    availableDestLinksCloggedVec.push_back(flowId);
+                    availableDestLinksCloggedVec.push_back(*it);
                 }
             }
             if (availableDestLinksNotCloggedVec.size() > 0) {
-                if (session_read_ptr sessionPtr = ReleaseOne_NoBlock(availableDestLinksNotCloggedVec, egressSockPtr.get(), bsm, maxBundleSizeToRead)) { //not null (successfully sent to egress)
-                    const uint64_t flowId = sessionPtr->destLinkId;
-                    //get the first logical segment id for the map key
-                    const chain_info_t & chainInfo = sessionPtr->chainInfo;
-                    const segment_id_chain_vec_t & segmentIdChainVec = chainInfo.second;
-                    const segment_id_t segmentId = segmentIdChainVec[0];
-                    flowIdToOpenSessionsMap[flowId][segmentId] = std::move(sessionPtr);
-                    //std::cout << "add flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
-                    timeoutPoll = 0; //no timeout as we need to keep feeding to egress
-                    ++m_totalBundlesSentToEgressFromStorage;
+                if (ReleaseOne_NoBlock(sessionRead, availableDestLinksNotCloggedVec, egressSockPtr.get(), bsm, maxBundleSizeToRead)) { //true => (successfully sent to egress)
+                    if (finalDestEidToOpenCustIdsMap[sessionRead.catalogEntryPtr->destEid].insert(sessionRead.custodyId).second) {
+                        timeoutPoll = 0; //no timeout as we need to keep feeding to egress
+                        ++m_totalBundlesSentToEgressFromStorage;
+                    }
+                    else {
+                        std::cerr << "could not insert custody id into finalDestEidToOpenCustIdsMap\n";
+                    }
                 }
                 else if (PeekOne(availableDestLinksCloggedVec, bsm) > 0) { //data available in storage for clogged links
                     timeoutPoll = 1; //shortest timeout 1ms as we wait for acks

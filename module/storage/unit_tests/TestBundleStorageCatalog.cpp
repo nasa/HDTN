@@ -45,13 +45,14 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
         std::vector<catalog_entry_t> catalogEntryCopiesForVerification;
         for (std::size_t i = 0; i < 10; ++i) {
             primaries.push_back(CreatePrimary(cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, 1000, i));
-            catalog_entry_t catalogEntryToTake(primaries[i]);
+            catalog_entry_t catalogEntryToTake;
+            catalogEntryToTake.Init(primaries[i], 1000 + i, 1, NULL);
             catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };
-            catalogEntryToTake.bundleSizeBytes = 1000 + i;
             catalogEntryCopiesForVerification.push_back(catalogEntryToTake); //make a copy for verification
             const uint64_t custodyId = i;
             BOOST_REQUIRE_EQUAL(catalogEntryToTake.segmentIdChainVec.size(), 1); //verify before move
             BOOST_REQUIRE(bsc.CatalogIncomingBundleForStore(catalogEntryToTake, primaries[i], custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO));
+            catalogEntryCopiesForVerification.back().ptrUuidKeyInMap = catalogEntryToTake.ptrUuidKeyInMap; //was potentially modified at CatalogIncomingBundleForStore
             BOOST_REQUIRE_EQUAL(catalogEntryToTake.segmentIdChainVec.size(), 0); //verify was moved
         }
         const std::vector<cbhe_eid_t> availableDestinationEids({ cbhe_eid_t(501, 501) });
@@ -82,10 +83,10 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
             //In actual storage implementation, the primary must be retrieved from actual storage
             //return pair<success, numSuccessfulRemovals>
             std::pair<bool, uint16_t> expectedRet(true, 2); //2 removals, m_custodyIdToCatalogEntryHashmap and m_uuidNoFragToCustodyIdHashMap
-            BOOST_REQUIRE(expectedRet == bsc.Remove(expectedCustodyId, primaries[i], false));
+            BOOST_REQUIRE(expectedRet == bsc.Remove(expectedCustodyId, false));
             //make sure remove again fails
             std::pair<bool, uint16_t> expectedRetFail(false, 0);
-            BOOST_REQUIRE(expectedRetFail == bsc.Remove(expectedCustodyId, primaries[i], false));
+            BOOST_REQUIRE(expectedRetFail == bsc.Remove(expectedCustodyId, false));
 
         }
         {
