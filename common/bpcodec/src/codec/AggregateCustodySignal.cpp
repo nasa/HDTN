@@ -39,7 +39,7 @@ bool AggregateCustodySignal::operator!=(const AggregateCustodySignal & o) const 
     return !(*this == o);
 }
 void AggregateCustodySignal::Reset() { //a copy assignment: operator=(const X&)
-    m_statusFlagsPlus7bitReasonCode = 0;
+    //m_statusFlagsPlus7bitReasonCode = 0;
     m_custodyIdFills.clear();
 }
 
@@ -85,11 +85,15 @@ bool AggregateCustodySignal::DidCustodyTransferSucceed() const {
 BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT AggregateCustodySignal::GetReasonCode() const {
     return static_cast<BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT>(m_statusFlagsPlus7bitReasonCode & 0x7f);
 }
-void AggregateCustodySignal::AddCustodyIdToFill(const uint64_t custodyId) {
+//return number of fills
+uint64_t AggregateCustodySignal::AddCustodyIdToFill(const uint64_t custodyId) {
     FragmentSet::InsertFragment(m_custodyIdFills, FragmentSet::data_fragment_t(custodyId, custodyId));
+    return m_custodyIdFills.size();
 }
-void AggregateCustodySignal::AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId) {
+//return number of fills
+uint64_t AggregateCustodySignal::AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId) {
     FragmentSet::InsertFragment(m_custodyIdFills, FragmentSet::data_fragment_t(firstCustodyId, lastCustodyId));
+    return m_custodyIdFills.size();
 }
 uint64_t AggregateCustodySignal::SerializeFills(uint8_t * buffer) const {
     uint8_t * const serializationBase = buffer;

@@ -53,8 +53,10 @@ public:
     void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
     bool DidCustodyTransferSucceed() const;
     BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
-    void AddCustodyIdToFill(const uint64_t custodyId);
-    void AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId);
+    //return number of fills
+    uint64_t AddCustodyIdToFill(const uint64_t custodyId);
+    //return number of fills
+    uint64_t AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId);
 public: //only public for unit testing
     uint64_t SerializeFills(uint8_t * buffer) const;
     bool DeserializeFills(const uint8_t * serialization, const uint64_t serializationSizeBytes);

@@ -36,21 +36,24 @@ public:
     ~CustodyTransferManager();
 
     bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
-        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary);
-    void Reset();
+        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex,
+        std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary);
     void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
     bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, bpv6_primary_block & newPrimary, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
-    bool GenerateAcsBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const;
-    const AggregateCustodySignal & GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    bool GenerateAllAcsBundlesAndClear(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList);
+    bool GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs);
+    bool GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    const AggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    uint64_t GetLargestNumberOfFills() const;
 private:
     const bool m_isAcsAware;
     const uint64_t m_myCustodianNodeId;
     const uint64_t m_myCustodianServiceId;
     const std::string m_myCtebCreatorCustodianEidString;
-    //std::map<cbhe_eid_t, acs_array_t> m_mapCustodianToAcsArray;
-    acs_array_t m_acsArray;
+    std::map<cbhe_eid_t, acs_array_t> m_mapCustodianToAcsArray;
     uint64_t m_lastCreation;
     uint64_t m_sequence;
+    uint64_t m_largestNumberOfFills;
 };
 
 #endif // CUSTODY_TRANSFER_MANAGER_H

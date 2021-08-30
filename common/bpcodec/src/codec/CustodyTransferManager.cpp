@@ -71,44 +71,75 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     serializedBundle.resize(buffer - serializationBase);
     return true;
 }
-bool CustodyTransferManager::GenerateAcsBundle(std::vector<uint8_t> & serializedBundle, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) const {
-    const AggregateCustodySignal & currentAcs = m_acsArray[static_cast<uint8_t>(statusReasonIndex)];
-    if (currentAcs.m_custodyIdFills.size() == 0) {
+bool CustodyTransferManager::GenerateAllAcsBundlesAndClear(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList) {
+    serializedPrimariesAndBundlesList.clear();
+    m_largestNumberOfFills = 0;
+    for (std::map<cbhe_eid_t, acs_array_t>::iterator it = m_mapCustodianToAcsArray.begin(); it != m_mapCustodianToAcsArray.end(); ++it) {
+        const cbhe_eid_t & custodianEid = it->first;
+        acs_array_t & acsArray = it->second;
+        for (unsigned int statusReasonIndex = 0; statusReasonIndex < NUM_ACS_STATUS_INDICES; ++statusReasonIndex) {
+            AggregateCustodySignal & currentAcs = acsArray[statusReasonIndex];
+            if (!currentAcs.m_custodyIdFills.empty()) {
+                std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
+                if (GenerateAcsBundle(primaryPlusSerializedBundle, custodianEid, currentAcs)) {
+                    serializedPrimariesAndBundlesList.push_back(std::move(primaryPlusSerializedBundle)); //todo size
+                    currentAcs.Reset();
+                }
+            }
+        }
+    }
+    return true;
+}
+uint64_t CustodyTransferManager::GetLargestNumberOfFills() const {
+    return m_largestNumberOfFills;
+}
+bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs) {
+    
+    if (acs.m_custodyIdFills.size() == 0) {
         return false;
     }
+    bpv6_primary_block & newPrimary = primaryPlusSerializedBundle.first;
+    std::vector<uint8_t> & serializedBundle = primaryPlusSerializedBundle.second;
     serializedBundle.resize(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + 2000); //todo size
     uint8_t * const serializationBase = &serializedBundle[0];
     uint8_t * buffer = serializationBase;
 
-    bpv6_primary_block primary;
-    memset(&primary, 0, sizeof(bpv6_primary_block));
-    primary.version = 6;
+    
+    memset(&newPrimary, 0, sizeof(bpv6_primary_block));
+    newPrimary.version = 6;
     bpv6_canonical_block block;
     memset(&block, 0, sizeof(bpv6_canonical_block));
 
-    primary.flags = bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
+    newPrimary.flags = //bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
-    primary.src_node = m_myCustodianNodeId;
-    primary.src_svc = m_myCustodianServiceId;
-    primary.dst_node = primaryFromSender.custodian_node;
-    primary.dst_svc = primaryFromSender.custodian_svc;
-    primary.custodian_node = 0;
-    primary.custodian_svc = 0;
-    primary.creation = 1000;//TODO //(uint64_t)bpv6_unix_to_5050(curr_time);
-    primary.lifetime = 1000;
-    primary.sequence = 1;
+    newPrimary.src_node = m_myCustodianNodeId;
+    newPrimary.src_svc = m_myCustodianServiceId;
+    newPrimary.dst_node = custodianEid.nodeId;
+    newPrimary.dst_svc = custodianEid.serviceId;
+    SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
+    newPrimary.lifetime = 1000; //todo
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, 0);
+    retVal = cbhe_bpv6_primary_block_encode(&newPrimary, (char *)buffer, 0, 0);
     if (retVal == 0) {
         return false;
     }
     buffer += retVal;
 
-    uint64_t sizeSerialized = currentAcs.Serialize(buffer);
+    uint64_t sizeSerialized = acs.Serialize(buffer);
     buffer += sizeSerialized;
 
     serializedBundle.resize(buffer - serializationBase);
     return true;
+}
+bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+    //const cbhe_eid_t custodianEidFromPrimary(primaryFromSender.custodian_node, primaryFromSender.custodian_svc);
+    std::map<cbhe_eid_t, acs_array_t>::const_iterator it = m_mapCustodianToAcsArray.find(custodianEid);
+    if (it == m_mapCustodianToAcsArray.cend()) {
+        return false;
+    }
+    const acs_array_t & acsArray = it->second;
+    const AggregateCustodySignal & currentAcs = acsArray[static_cast<uint8_t>(statusReasonIndex)];
+    return GenerateAcsBundle(primaryPlusSerializedBundle, custodianEid, currentAcs);
 }
 
 acs_array_t::acs_array_t() {
@@ -134,7 +165,8 @@ CustodyTransferManager::CustodyTransferManager(const bool isAcsAware, const uint
     m_myCustodianServiceId(myCustodianServiceId),
     m_myCtebCreatorCustodianEidString(Uri::GetIpnUriString(m_myCustodianNodeId, m_myCustodianServiceId)),
     m_lastCreation(0),
-    m_sequence(0)
+    m_sequence(0),
+    m_largestNumberOfFills(0)
 {
  
 }
@@ -143,7 +175,8 @@ CustodyTransferManager::~CustodyTransferManager() {}
 
 
 bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
-    const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary)
+    const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex,
+    std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary)
 {
     custodySignalRfc5050SerializedBundle.resize(0);
     bpv6_primary_block & primary = bv.m_primaryBlockView.header;
@@ -208,7 +241,8 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 //      signal, the associated timer and pending ACS ‘Succeeded’.
 
                 //aggregate succeeded status
-                m_acsArray[static_cast<uint8_t>(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)].AddCustodyIdToFill(receivedCtebCustodyId);
+                acs_array_t & acsArray = m_mapCustodianToAcsArray[custodianEidFromPrimary];
+                m_largestNumberOfFills = std::max(acsArray[static_cast<uint8_t>(BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION)].AddCustodyIdToFill(receivedCtebCustodyId), m_largestNumberOfFills);
             }
             else { //invalid cteb
                 //acs capable ba, ba accepts custody, invalid cteb => generate succeeded and follow 5.10
@@ -270,7 +304,8 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 //  signal, the associated timer and pending ACS ‘Failed’.
 
                 //aggregate failed status
-                m_acsArray[static_cast<uint8_t>(statusReasonIndex)].AddCustodyIdToFill(receivedCtebCustodyId);
+                acs_array_t & acsArray = m_mapCustodianToAcsArray[custodianEidFromPrimary];
+                m_largestNumberOfFills = std::max(acsArray[static_cast<uint8_t>(statusReasonIndex)].AddCustodyIdToFill(receivedCtebCustodyId), m_largestNumberOfFills);
             }
             else { //invalid cteb
                 //acs capable ba, ba refuses custody, invalid cteb => generate failed and follow 5.10
@@ -319,6 +354,6 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
     return true;
 }
 
-const AggregateCustodySignal & CustodyTransferManager::GetAcsConstRef(const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
-    return m_acsArray[static_cast<uint8_t>(statusReasonIndex)];
+const AggregateCustodySignal & CustodyTransferManager::GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+    return m_mapCustodianToAcsArray[custodianEid][static_cast<uint8_t>(statusReasonIndex)];
 }
