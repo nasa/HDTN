@@ -2,9 +2,10 @@
 
 # path variables
 config_files=$HDTN_SOURCE_ROOT/tests/config_files
-hdtn_config=$config_files/hdtn/hdtn_ingress1udp_port4556_egress1udp_port4558flowid2_0.8Mbps.json
-sink_config=$config_files/inducts/bpsink_one_udp_port4558.json
-gen_config=$config_files/outducts/bpgen_one_udp_port4556_0.5Mbps.json
+hdtn_config=$config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json
+sink1_config=$config_files/inducts/bpsink_one_tcpcl_port4557.json
+sink2_config=$config_files/inducts/bpsink_one_tcpcl_port4558.json
+gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json
 
 cd $HDTN_SOURCE_ROOT
 
@@ -12,27 +13,65 @@ cd $HDTN_SOURCE_ROOT
 python3 ./common/regsvr/main.py &
 sleep 3
 
-# bpsink
-./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink_config &
-bpsink_PID=$!
+# bpsink1
+./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink1_config &
+bpsink1_PID=$!
 sleep 3
 
-# HDTN one process
-./build/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=$hdtn_config &
-one_process_PID=$!
+# bpsink2
+./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink2_config &
+bpsink2_PID=$!
 sleep 3
 
-# bpgen
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=10 --flow-id=2 --outducts-config-file=$gen_config &
-bpgen_PID=$!
-sleep 10
+#Egress
+./build/module/egress/hdtn-egress-async --hdtn-config-file=$hdtn_config &
+egress_PID=$!
+sleep 3
+
+#Scheduler
+./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
+scheduler_PID=$!
+sleep 1
+
+#Ingress
+./build/module/ingress/hdtn-ingress --hdtn-config-file=$hdtn_config  &
+ingress_PID=$!
+sleep 3
+
+#storage 
+./build/module/storage/hdtn-storage --hdtn-config-file=$hdtn_config &
+storage_PID=$!
+sleep 3
+
+# bpgen1
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --flow-id=2 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
+bpgen1_PID=$!
+sleep 1
+
+# bpgen2
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --flow-id=1 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
+bpgen2_PID=$!
+sleep 8
 
 # cleanup
-echo "\nkilling bpgen..." && kill -2 $bpgen_PID
+sleep 30
+echo "\nkilling bpgen..." && kill -2 $bpgen1_PID
 sleep 2
-echo "\nkilling HDTN one process..." && kill -2 $one_process_PID
+echo "\nkilling bpgen..." && kill -2 $bpgen2_PID
 sleep 2
-echo "\nkilling bpsink..." && kill -2 $bpsink_PID
+echo "\nkilling HDTN storage..." && kill -2 $storage_PID
+sleep 2
+echo "\nkilling HDTN release-message..." && kill -2 $ingress_PID
+sleep 2
+echo "\nkilling ingress..." && kill -2 $scheduler_PID
+sleep 2
+echo "\nkilling egress..." && kill -2 $egress_PID
+sleep 2
+echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
+sleep 2
+echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
 sleep 2
 echo "\nkilling registration server..." && pkill -9 -f main.py
+
+
 

@@ -56,6 +56,9 @@ You can use tcpdump to test the HDTN ingress storage and egress. The generated p
 In another terminal, run:
 * ./runscript.sh
 
+Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable Ingress sends the bundles to storage. When the Storage receives Link Available event, it releases the bundles from storage  for the corresponding destination  and when the Link is Unavailable storage will stop releasing the budles. 
+
+
 Run Unit Tests
 ===============
 After building HDTN (see above), the unit tests can be run with the following command within the build directory:

@@ -337,7 +337,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
     std::size_t totalEventsDataInStorageForCloggedLinks = 0;
 
-    std::set<uint64_t> availableDestLinksSet;
+   // std::set<uint64_t> availableDestLinksSet;
     flowid_opensessions_map_t flowIdToOpenSessionsMap;
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
@@ -395,7 +395,11 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                 hdtn::CommonHdr commonHdr;
                 memcpy(&commonHdr, rhdr.data(), sizeof(hdtn::CommonHdr));
                 const uint16_t type = commonHdr.type;
-                if(type == HDTN_MSGTYPE_STORE) {
+                
+		hdtn::BlockHdr blockHdr;
+                memcpy(&blockHdr, rhdr.data(), sizeof(hdtn::BlockHdr));
+
+		if (type == HDTN_MSGTYPE_STORE) {
                     for (unsigned int attempt = 0; attempt < 10; ++attempt) {
                         if (workerSock.recv(rmsg, zmq::recv_flags::none)) {
                             break;
@@ -425,64 +429,45 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                             hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
                         }
                     }
-                }
-                else if(type == HDTN_MSGTYPE_ILINKUP) {
-                    hdtn::IreleaseStartHdr iReleaseStartHdr;
+                } else if (type == HDTN_MSGTYPE_ILINKUP) {
+		    hdtn::IreleaseStartHdr iReleaseStartHdr;
                     memcpy(&iReleaseStartHdr, rhdr.data(), sizeof(hdtn::IreleaseStartHdr));
-                    //ReleaseData(iReleaseStartHdr.flowId, iReleaseStartHdr.rate, iReleaseStartHdr.duration, &egressSock, bsm);
-                    const uint64_t flowId = iReleaseStartHdr.flowId;
-                    availableDestLinksSet.insert(flowId);
-                    std::cout << "flow ID " << flowId << " will be released from storage" << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "flow ID " + std::to_string(flowId) + 
+		    const uint64_t flowId = iReleaseStartHdr.flowId;
+		    hdtn::storage::availableDestLinksMap[flowId] = true;
+                    std::cout << "flow id " << flowId << " will be released from storage" << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", "flow ID " + std::to_string(blockHdr.flowId) + 
                         " will be released from storage");
-
-                    //availableDestLinksVec.clear();
-                    std::string strVals = "[";
-                    for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                        //availableDestLinksVec.push_back(*it);
-                        strVals += boost::lexical_cast<std::string>(*it) + ", ";
-                    }
-                    strVals += "]";
-                    std::cout << "Currently Releasing Flow Ids: " << strVals << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Flow Ids: " + strVals);
-
-                    //storageStillHasData = true;
-                }
-                else if(type == HDTN_MSGTYPE_ILINKDOWN) {
+                
+		} else if (type == HDTN_MSGTYPE_ILINKDOWN) {
                     hdtn::IreleaseStopHdr iReleaseStoptHdr;
                     memcpy(&iReleaseStoptHdr, rhdr.data(), sizeof(hdtn::IreleaseStopHdr));
                     const uint64_t flowId = iReleaseStoptHdr.flowId;
-                    std::cout << "flow ID " << flowId << " will STOP BEING released from storage" << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "flow ID " + std::to_string(flowId) + 
+		    hdtn::storage::availableDestLinksMap[flowId] = false;
+		    std::cout << "flow id " <<flowId << " will STOP being released from storage" << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", "flow ID " + std::to_string(blockHdr.flowId) + 
                         " will STOP BEING released from storage");
-                    availableDestLinksSet.erase(flowId);
-                    //availableDestLinksVec.clear();
-                    std::string strVals = "[";
-                    for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                        //availableDestLinksVec.push_back(*it);
-                        strVals += boost::lexical_cast<std::string>(*it) + ", ";
-                    }
-                    strVals += "]";
-                    std::cout << "Currently Releasing Flow Ids: " << strVals << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Flow Ids: " + strVals);
                 }
-                
             }            
         }
         
         //Send and maintain a maximum of 5 unacked bundles (per flow id) to Egress.
         //When a bundle is acked from egress using the head segment Id, the bundle is deleted from disk and a new bundle can be sent.
         static const uint64_t maxBundleSizeToRead = 65535 * 10;
-        if (availableDestLinksSet.empty()) {
+        
+	if (hdtn::storage::availableDestLinksMap.empty()) {
             timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         }
         else {
             std::vector<uint64_t> availableDestLinksNotCloggedVec;
             std::vector<uint64_t> availableDestLinksCloggedVec;
-            for (std::set<uint64_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                const uint64_t flowId = *it;
-                //std::cout << "flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
-                if (flowIdToOpenSessionsMap[flowId].size() < 5) {
+	    for (std::map<uint64_t, bool>::const_iterator it = hdtn::storage::availableDestLinksMap.cbegin(); 
+			    it != hdtn::storage::availableDestLinksMap.cend(); ++it) {
+	        if (it->second == false) {
+			continue;
+		}
+		const uint64_t flowId = it->first;
+
+		if (flowIdToOpenSessionsMap[flowId].size() < 5) {
                     availableDestLinksNotCloggedVec.push_back(flowId);
                 }
                 else {

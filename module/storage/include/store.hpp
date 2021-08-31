@@ -76,6 +76,7 @@ public:
     std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
     std::size_t m_totalBundlesErasedFromStorage = 0;
     std::size_t m_totalBundlesSentToEgressFromStorage = 0;
+    static std::map<uint64_t, bool> availableDestLinksMap;
 
 private:
     std::unique_ptr<zmq::context_t> m_zmqContextPtr;

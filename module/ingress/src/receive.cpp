@@ -114,8 +114,11 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcess
             std::cout << "Ingress connected and listening to events from scheduler " << connect_boundSchedulerPubSubPath << std::endl;
         } catch (const zmq::error_t & ex) {
             std::cerr << "error: ingress cannot connect to scheduler socket: " << ex.what() << std::endl;
-            return false;
+            return 0;
         }
+
+        m_linkAvailable.insert(std::pair<uint64_t, bool>{ 1, false });
+        m_linkAvailable.insert(std::pair<uint64_t, bool>{ 2, false }); 	
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
@@ -250,13 +253,13 @@ void Ingress::SchedulerEventHandler() {
 
      switch (common->type) {
      	case HDTN_MSGTYPE_ILINKUP:
-            std::cout << "Link available send bundles to egress for flowId" << blockHdr.flowId << std::endl;
-	    m_sendToStorage[blockHdr.flowId] = false;
+            std::cout << "Ingress sending bundles to egress for flow id " << blockHdr.flowId << std::endl;
+	    m_linkAvailable[blockHdr.flowId] = true;
 	    
             break;
         case HDTN_MSGTYPE_ILINKDOWN:
-            std::cout << "Link unavailable Send bundles to storage for flowId " << blockHdr.flowId << std::endl;
-            m_sendToStorage[blockHdr.flowId] = true;
+            std::cout << "Ingress sending bundles to storage for flow id " << blockHdr.flowId << std::endl;
+            m_linkAvailable[blockHdr.flowId] = false;
             break;
     }
 }
@@ -287,8 +290,6 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
         const uint32_t priority = bpv6_bundle_get_priority(bpv6Primary.flags);
         //std::cout << "p: " << priority << " lt " << bpv6Primary.lifetime << " c " << bpv6Primary.creation << ":" << bpv6Primary.sequence << " a: " << absExpirationUsec <<  std::endl;
         dst.node = bpv6Primary.dst_node;
-
-        
         
         //m_storageAckQueueMutex.lock();
         //m_storageAckQueue.
@@ -299,7 +300,7 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
         memset(&hdr, 0, sizeof(hdtn::BlockHdr));
         hdr.flowId = static_cast<uint32_t>(dst.node);  // for now
         hdr.base.flags = static_cast<uint16_t>(bpv6Primary.flags);
-	hdr.base.type = (m_sendToStorage[hdr.flowId]) ? HDTN_MSGTYPE_STORE : HDTN_MSGTYPE_EGRESS;
+	hdr.base.type = (m_linkAvailable[hdr.flowId]) ? HDTN_MSGTYPE_EGRESS : HDTN_MSGTYPE_STORE; 
         hdr.ts = absExpirationUsec; //use ts for now
         hdr.ttl = priority; //use ttl for now
         // hdr.ts=recvlen;
@@ -307,8 +308,14 @@ int Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq m
         std::size_t bytesToSend = messageSize;
         std::size_t remainder = 0;
 	
-	//std::cout << "@nadia Ingress hdr type for flowId " << hdr.base.type  << std::endl; 
-        
+        //std::map<uint64_t, bool>::iterator it;
+        //std::cout << "\n Ingress map of available Links is : \n";
+        //std::cout << "\tFlowId\tLink Available\n";
+        //for (it = m_linkAvailable.begin(); it != m_linkAvailable.end(); ++it) {
+          //    std::cout << '\t' << it->first
+            // << '\t' << it->second << '\n';
+        //}
+ 
         
         zframeSeq = 0;
         if (messageSize > CHUNK_SIZE)  // the bundle is bigger than internal message size limit

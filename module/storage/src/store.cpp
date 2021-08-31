@@ -27,6 +27,10 @@ void hdtn::storage::Stop() {
     m_totalBundlesSentToEgressFromStorage = worker.m_totalBundlesSentToEgressFromStorage;
 }
 
+std::map<uint64_t, bool> hdtn::storage::availableDestLinksMap {
+         {1, false}, {2, false}
+ };
+
 bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
     m_hdtnConfig = hdtnConfig;
 
@@ -117,7 +121,8 @@ bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
         hdtn::Logger::getInstance()->logError("storage", "Error: cannot connect release socket: " + std::string(ex.what()));
         return false;
     }
-    
+   
+
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "[storage] Spinning up worker thread ...");
     m_workerSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
@@ -155,7 +160,6 @@ void hdtn::storage::update() {
             dispatch();
         }
         if (items[1].revents & ZMQ_POLLIN) {
-            std::cout << "release" << std::endl;
             hdtn::Logger::getInstance()->logNotification("storage", "release");
             scheduleRelease();
         }
@@ -199,22 +203,28 @@ void hdtn::storage::scheduleRelease() {
         hdtn::Logger::getInstance()->logError("storage", "[schedule release] message too short: " + std::to_string(message.size()));
         return;
     }
-    std::cout << "message received\n";
     hdtn::Logger::getInstance()->logNotification("storage", "Message received");
     CommonHdr *common = (CommonHdr *)message.data();
+
+    hdtn::BlockHdr blockHdr;
+    memcpy(&blockHdr, message.data(), sizeof(hdtn::BlockHdr));
+   
     switch (common->type) {
         case HDTN_MSGTYPE_ILINKUP:
-            std::cout << "release data\n";
+            std::cout << "Storage received a LINK UP event and started releasing bundles for flow id " << blockHdr.flowId << std::endl;
             hdtn::Logger::getInstance()->logNotification("storage", "Release data");
             m_workerSockPtr->send(message, zmq::send_flags::none); //VERIFY this works over const_buffer message.data(), message.size(), 0); (tested and apparently it does)
             storageStats.worker = worker.stats();
+	    availableDestLinksMap[blockHdr.flowId] = true;
             break;
         case HDTN_MSGTYPE_ILINKDOWN:
-            std::cout << "stop releasing data\n";
+            std::cout << "Storage received a LINK DOWN event and stopped releasing bundles for flow id " << blockHdr.flowId << std::endl;
             hdtn::Logger::getInstance()->logNotification("storage", "Stop releasing data");
+	    availableDestLinksMap[blockHdr.flowId] = false;
             break;
     }
 }
+
 void hdtn::storage::dispatch() {
     zmq::message_t hdr;
     zmq::message_t message;
