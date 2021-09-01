@@ -40,7 +40,9 @@
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
-#define HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (0x5555)
+#define HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE (0x5555)
+#define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
+#define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
 
 namespace hdtn {
 //#pragma pack (push, 1)
@@ -53,23 +55,11 @@ struct CommonHdr {
     }
 };// __attribute__((packed));
 
-struct BlockHdr {
-    CommonHdr base;
-    uint32_t flowId;
-    uint64_t ts;
-    uint32_t ttl;
-    uint32_t zframe;
-    uint64_t bundleSeq;
-
-    bool operator==(const BlockHdr & o) const {
-        return (base == o.base) && (flowId == o.flowId) && (ts == o.ts) && (ttl == o.ttl) && (zframe == o.zframe) && (bundleSeq == o.bundleSeq);
-    }
-};// __attribute__((packed));
 
 struct ToEgressHdr {
     CommonHdr base;
     uint8_t hasCustody;
-    uint8_t unused2;
+    uint8_t isCutThroughFromIngress;
     uint8_t unused3;
     uint8_t unused4;
     cbhe_eid_t finalDestEid;
@@ -84,8 +74,8 @@ struct EgressAckHdr {
     CommonHdr base;
     uint8_t error;
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
+    uint8_t isToStorage;
     uint8_t unused1;
-    uint8_t unused2;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
 
@@ -94,9 +84,28 @@ struct EgressAckHdr {
     //}
 };
 
-struct StoreHdr {
-    BlockHdr base;
+struct ToStorageHdr {
+    CommonHdr base;
+    uint8_t unused1;
+    uint8_t unused2;
+    uint8_t unused3;
+    uint8_t unused4;
+    uint64_t ingressUniqueId;
 };// __attribute__((packed));
+
+struct StorageAckHdr {
+    CommonHdr base;
+    uint8_t error;
+    uint8_t unused1;
+    uint8_t unused2;
+    uint8_t unused3;
+    cbhe_eid_t finalDestEid;
+    uint64_t ingressUniqueId;
+
+    //bool operator==(const EgressAckHdr & o) const {
+    //    return (base == o.base) && (custodyId == o.custodyId);
+    //}
+};
 
 struct TelemStorageHdr {
     CommonHdr base;

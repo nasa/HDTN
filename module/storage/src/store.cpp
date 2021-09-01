@@ -232,7 +232,6 @@ void hdtn::storage::dispatch() {
         return;
     }
     CommonHdr *common = (CommonHdr *)hdr.data();
-    BlockHdr *block = (BlockHdr *)common;
     switch (common->type) {
         case HDTN_MSGTYPE_STORE:
             if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
@@ -244,9 +243,9 @@ void hdtn::storage::dispatch() {
             /*if(message.size() < 7000){
                 std::cout<<"ingress sent less than 7000, type "<< common->type << "size " <<  message.size()<<"\n";
             }*/
-            m_workerSockPtr->send(hdr, zmq::send_flags::none);//m_workerSockPtr->send(hdr.data(), hdr.size(), ZMQ_MORE);
+            m_workerSockPtr->send(std::move(hdr), zmq::send_flags::sndmore);
             storageStats.inBytes += message.size();
-            m_workerSockPtr->send(message, zmq::send_flags::none);//m_workerSockPtr->send(message.data(), message.size(), 0);
+            m_workerSockPtr->send(std::move(message), zmq::send_flags::none);
             break;
     }
 }
