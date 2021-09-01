@@ -160,6 +160,13 @@ static uint64_t PeekOne(const std::vector<cbhe_eid_t> & availableDestLinks, Bund
     return bytesToReadFromDisk;
 }
 
+static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToEgressHdr*>(hint);
+}
+static void CustomCleanupStorageAckHdr(void *data, void *hint) {
+    delete static_cast<hdtn::StorageAckHdr*>(hint);
+}
+
 static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessionRead,
     const std::vector<cbhe_eid_t> & availableDestLinks,
     zmq::socket_t *egressSock, BundleStorageManagerBase & bsm, const uint64_t maxBundleSizeToRead)
@@ -200,13 +207,10 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
     }
 
 
-    zmq::message_t zmqToEgressHdr(sizeof(hdtn::ToEgressHdr));
-    if (((uintptr_t)zmqToEgressHdr.data()) & 7) {
-        std::cerr << "error in ReleaseOne_NoBlock: zmqToEgressHdr zmq data not aligned on 8-byte boundary" << std::endl;
-        bsm.ReturnTop(sessionRead);
-        return false;
-    }
-    hdtn::ToEgressHdr * toEgressHdr = (hdtn::ToEgressHdr *)zmqToEgressHdr.data();
+    //force natural/64-bit alignment
+    hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
+    zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+
     //memset 0 not needed because all values set below
     toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
     toEgressHdr->base.flags = 0;
@@ -215,7 +219,7 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
     toEgressHdr->isCutThroughFromIngress = 0;
     toEgressHdr->custodyId = sessionRead.custodyId;
     
-    if (!egressSock->send(std::move(zmqToEgressHdr), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+    if (!egressSock->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
         std::cout << "error: zmq could not send" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send");
         bsm.ReturnTop(sessionRead);
@@ -244,8 +248,6 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
 }
 
 void hdtn::ZmqStorageInterface::ThreadFunc() {
-    zmq::message_t rhdr;
-    zmq::message_t rmsg;
     BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse this due to expensive heap allocation
     std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
     bufferSpaceForCustodySignalRfc5050SerializedBundle.reserve(2000);
@@ -258,8 +260,10 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 
-    zmq::socket_t workerSock(*m_zmqContextPtr, zmq::socket_type::pair);
-    workerSock.connect(HDTN_STORAGE_WORKER_PATH);
+    zmq::socket_t inprocBundleDataSock(*m_zmqContextPtr, zmq::socket_type::pair);
+    inprocBundleDataSock.connect(HDTN_STORAGE_BUNDLE_DATA_INPROC_PATH);
+    zmq::socket_t inprocReleaseMessagesSock(*m_zmqContextPtr, zmq::socket_type::pair);
+    inprocReleaseMessagesSock.connect(HDTN_STORAGE_RELEASE_MESSAGES_INPROC_PATH);
 
     std::unique_ptr<zmq::socket_t> egressSockPtr;
     std::unique_ptr<zmq::socket_t> fromEgressSockPtr;
@@ -298,14 +302,16 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
         toIngressSockPtr->connect(connect_connectingStorageToBoundIngressPath);
     }
 
-    zmq::pollitem_t pollItems[2] = {
+    zmq::pollitem_t pollItems[3] = {
         {fromEgressSockPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {workerSock.handle(), 0, ZMQ_POLLIN, 0}
+        {inprocBundleDataSock.handle(), 0, ZMQ_POLLIN, 0},
+        {inprocReleaseMessagesSock.handle(), 0, ZMQ_POLLIN, 0}
     };
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
-    workerSock.set(zmq::sockopt::rcvtimeo, timeout);
+    inprocBundleDataSock.set(zmq::sockopt::rcvtimeo, timeout);
+    inprocReleaseMessagesSock.set(zmq::sockopt::rcvtimeo, timeout);
     fromEgressSockPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
     
@@ -336,7 +342,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     //    workerSock.send(&startupNotify, sizeof(common_hdr));
     //    return;
     //}
-    workerSock.send(zmq::const_buffer(&startupNotify, sizeof(CommonHdr)), zmq::send_flags::none);
+    inprocBundleDataSock.send(zmq::const_buffer(&startupNotify, sizeof(CommonHdr)), zmq::send_flags::none);
     std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Notified parent that startup is complete.");
 
@@ -356,113 +362,103 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
     while (m_running) {        
-        if (zmq::poll(pollItems, 2, timeoutPoll) > 0) {            
+        if (zmq::poll(pollItems, 3, timeoutPoll) > 0) {            
             if (pollItems[0].revents & ZMQ_POLLIN) { //from egress sock
-                if (!fromEgressSockPtr->recv(rhdr, zmq::recv_flags::none)) {
-                    continue;
+                hdtn::EgressAckHdr egressAckHdr;
+                const zmq::recv_buffer_result_t res = fromEgressSockPtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "[storage-worker] EgressAckHdr not received" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr not received");
+                    return;
                 }
-                if (((uintptr_t)rhdr.data()) & 7) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from egress sock): rhdr.data zmq data not aligned on 8-byte boundary" << std::endl;
-                    continue;
+                else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
+                    std::cerr << "[storage-worker] EgressAckHdr wrong size received" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr wrong size received");
+                    return;
                 }
-                if (rhdr.size() < sizeof(hdtn::CommonHdr)) {
-                    std::cerr << "[storage-worker] Invalid message format - header size too small (" << rhdr.size() << ")" << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage", 
-                        "[storage-worker] Invalid message format - header size too small (" + std::to_string(rhdr.size()) + ")");
-                    continue;
+                else if (egressAckHdr.base.type != HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
+                    std::cerr << "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE, got " << egressAckHdr.base.type << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE");
+                    return;
                 }
-                hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *) rhdr.data(); //rhdr verified above aligned on 8-byte boundary
-                if (commonHdr->type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
-                    if (rhdr.size() != sizeof(hdtn::EgressAckHdr)) {
-                        std::cerr << "[storage-worker] Invalid message format - header size mismatch HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (" << rhdr.size() << ")" << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage", 
-                        "[storage-worker] Invalid message format - header size mismatch HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY (" 
-                        + std::to_string(rhdr.size()) + ")");
-                    }
-                    else {
-                        hdtn::EgressAckHdr * egressAckHdr = (hdtn::EgressAckHdr *) rhdr.data(); //rhdr verified above aligned on 8-byte boundary
-                        custodyid_set_t & custodyIdSet = finalDestEidToOpenCustIdsMap[egressAckHdr->finalDestEid];
-                        custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr->custodyId);
-                        if (it != custodyIdSet.end()) {
-                            if (egressAckHdr->deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
-                                bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr->custodyId);
-                                if (!successRemoveBundle) {
-                                    std::cout << "error freeing bundle from disk\n";
-                                    hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
-                                }
-                                else {
-                                    ++m_totalBundlesErasedFromStorage;
-                                }
-                            }
-                            custodyIdSet.erase(it);
-                            //std::cout << "remove flow " << blockHdr.flowId << " sz " << flowIdToOpenSessionsMap[blockHdr.flowId].size() << std::endl;
-
-                        }
-                    }
-                }
-            }
-            if (pollItems[1].revents & ZMQ_POLLIN) { //worker inproc
-                if (!workerSock.recv(rhdr, zmq::recv_flags::none)) {
-                    continue;
-                }
-                if (rhdr.size() < sizeof(hdtn::CommonHdr)) {
-                    std::cerr << "[storage-worker] Invalid message format - header size too small (" << rhdr.size() << ")" << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage",
-                        "[storage-worker] Invalid message format - header size too small (" + std::to_string(rhdr.size()) + ")");
-                    continue;
-                }
-                if (((uintptr_t)rhdr.data()) & 7) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc) zmq data not aligned on 8-byte boundary with message size " << rhdr.size() << std::endl;
-                    continue;
-                }
-                hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *) rhdr.data(); //rhdr verified above aligned on 8-byte boundary
-                const uint16_t type = commonHdr->type;
-                if (type == HDTN_MSGTYPE_STORE) {
-                    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-                        if (workerSock.recv(rmsg, zmq::recv_flags::none)) {
-                            break;
+                custodyid_set_t & custodyIdSet = finalDestEidToOpenCustIdsMap[egressAckHdr.finalDestEid];
+                custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr.custodyId);
+                if (it != custodyIdSet.end()) {
+                    if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                        bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr.custodyId);
+                        if (!successRemoveBundle) {
+                            std::cout << "error freeing bundle from disk\n";
+                            hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
                         }
                         else {
-                            std::cerr << "error: timeout in ZmqStorageInterface::ThreadFunc() at workerSock.recv(rmsg)" << std::endl;
-                            hdtn::Logger::getInstance()->logError("storage",
-                                "Error: timeout in ZmqStorageInterface::ThreadFunc() at workerSock.recv(rmsg)");
-                            if (attempt == 9) {
-                                m_running = false;
-                            }
+                            ++m_totalBundlesErasedFromStorage;
                         }
                     }
-
-                    const hdtn::ToStorageHdr *toStorageHdr = (const hdtn::ToStorageHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
-                    if (rhdr.size() != sizeof(hdtn::ToStorageHdr)) {
-                        std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
-                        hdtn::Logger::getInstance()->logError("storage",
-                            "[storage-worker] Invalid message format - header size mismatch (" + std::to_string(rhdr.size()) + ")");
-                    }
-                    if (rmsg.size() > 100) { //need to fix problem of writing message header as bundles
-                        //std::cout << "inptr: " << (std::uintptr_t)(rmsg.data()) << std::endl;
-                        cbhe_eid_t finalDestEidReturnedFromWrite;
-                        Write(&rmsg, bsm, custodyIdAllocator, ctm, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite);
-                        //send ack message to ingress
-                        zmq::message_t zmqToEgressHdr(sizeof(hdtn::StorageAckHdr));
-                        if (((uintptr_t)zmqToEgressHdr.data()) & 7) {
-                            std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc zmqToEgressHdr: zmq data not aligned on 8-byte boundary" << std::endl;
-                            continue;
-                        }
-                        hdtn::StorageAckHdr * storageAckHdr = (hdtn::StorageAckHdr *)zmqToEgressHdr.data();
-                        //memset 0 not needed because all values set below
-                        storageAckHdr->base.type = HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS;
-                        storageAckHdr->base.flags = 0;
-                        storageAckHdr->error = 0;
-                        storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite;
-                        storageAckHdr->ingressUniqueId = toStorageHdr->ingressUniqueId;
-
-                        if (!toIngressSockPtr->send(std::move(zmqToEgressHdr), zmq::send_flags::dontwait)) {
-                            std::cout << "error: zmq could not send ingress an ack from storage" << std::endl;
-                            hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
-                        }
-                    }
+                    custodyIdSet.erase(it);
                 }
-                else if (type == HDTN_MSGTYPE_IRELSTART) {
+                    
+            }
+            if (pollItems[1].revents & ZMQ_POLLIN) { //worker inproc bundle data
+                zmq::message_t rhdr;
+                zmq::message_t rmsg;
+                if (!inprocBundleDataSock.recv(rhdr, zmq::recv_flags::none)) {
+                    continue;
+                }
+                //double check alignment (address should not have changed)
+                if (((uintptr_t)rhdr.data()) & 7) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc bundle data) zmq data not aligned on 8-byte boundary with message size " << rhdr.size() << std::endl;
+                    continue;
+                }
+                //double check size
+                if (rhdr.size() != sizeof(hdtn::ToStorageHdr)) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr) " << std::endl;
+                    continue;
+                }
+                //already verified (type == HDTN_MSGTYPE_STORE) in dispatch() step
+                if (!inprocBundleDataSock.recv(rmsg, zmq::recv_flags::none)) {
+                    continue;
+                }
+                const hdtn::ToStorageHdr *toStorageHdr = (const hdtn::ToStorageHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
+                if (rhdr.size() != sizeof(hdtn::ToStorageHdr)) {
+                    std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage",
+                        "[storage-worker] Invalid message format - header size mismatch (" + std::to_string(rhdr.size()) + ")");
+                }
+                
+                cbhe_eid_t finalDestEidReturnedFromWrite;
+                Write(&rmsg, bsm, custodyIdAllocator, ctm, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite);
+
+                //send ack message to ingress
+                //force natural/64-bit alignment
+                hdtn::StorageAckHdr * storageAckHdr = new hdtn::StorageAckHdr();
+                zmq::message_t zmqMessageStorageAckHdrWithDataStolen(storageAckHdr, sizeof(hdtn::StorageAckHdr), CustomCleanupStorageAckHdr, storageAckHdr);
+
+                //memset 0 not needed because all values set below
+                storageAckHdr->base.type = HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS;
+                storageAckHdr->base.flags = 0;
+                storageAckHdr->error = 0;
+                storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite;
+                storageAckHdr->ingressUniqueId = toStorageHdr->ingressUniqueId;
+
+                if (!toIngressSockPtr->send(std::move(zmqMessageStorageAckHdrWithDataStolen), zmq::send_flags::dontwait)) {
+                    std::cout << "error: zmq could not send ingress an ack from storage" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
+                }
+                
+                
+            }
+            if (pollItems[2].revents & ZMQ_POLLIN) { //worker inproc release messages
+                zmq::message_t rhdr;
+                if (!inprocReleaseMessagesSock.recv(rhdr, zmq::recv_flags::none)) {
+                    continue;
+                }
+                //double check alignment (address should not have changed)
+                if (((uintptr_t)rhdr.data()) & 7) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc release messages) zmq data not aligned on 8-byte boundary with message size " << rhdr.size() << std::endl;
+                    continue;
+                }
+                hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *)rhdr.data();
+                if (commonHdr->type == HDTN_MSGTYPE_IRELSTART) {
                     hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
                     //ReleaseData(iReleaseStartHdr.flowId, iReleaseStartHdr.rate, iReleaseStartHdr.duration, &egressSock, bsm);
                     availableDestLinksSet.insert(iReleaseStartHdr->finalDestinationEid);
@@ -484,7 +480,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
 
                     //storageStillHasData = true;
                 }
-                else if (type == HDTN_MSGTYPE_IRELSTOP) {
+                else if (commonHdr->type == HDTN_MSGTYPE_IRELSTOP) {
                     hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
                     const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
                         + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";

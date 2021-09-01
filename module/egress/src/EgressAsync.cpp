@@ -113,7 +113,8 @@ void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
     m_conditionVariableProcessZmqMessages.notify_one();
 }
 
-static void CustomCleanupEgressAckHdr(void *data, void *hint) {
+static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
+    (void)hint;
     //std::cout << "free " << static_cast<hdtn::BlockHdr *>(data)->flowId << std::endl;
     delete static_cast<hdtn::EgressAckHdr *>(data);
 }
@@ -189,7 +190,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                         //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
                         //If provided, the deallocation function ffn shall be called once the data buffer is no longer
                         //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-                        zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdr); //unique_ptr goes "null" with release()
+                        zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //unique_ptr goes "null" with release()
                         if (isToStorage) {
                             if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;

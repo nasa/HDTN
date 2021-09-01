@@ -18,7 +18,8 @@
 #define HDTN_FLOWCOUNT_MAX (16777216)
 
 //addresses for ZMQ IPC transport
-#define HDTN_STORAGE_WORKER_PATH "inproc://hdtn3.storage.worker"
+#define HDTN_STORAGE_BUNDLE_DATA_INPROC_PATH "inproc://hdtn.storage.bundledata"
+#define HDTN_STORAGE_RELEASE_MESSAGES_INPROC_PATH "inproc://hdtn.storage.releasemessages"
 #define HDTN_STORAGE_TELEM_PATH "tcp://127.0.0.1:10460"
 #define HDTN_RELEASE_TELEM_PATH "tcp://127.0.0.1:10461"
 
@@ -82,11 +83,13 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
     uint16_t port;
-    std::unique_ptr<zmq::socket_t> m_workerSockPtr;
+    std::unique_ptr<zmq::socket_t> m_inprocBundleDataSockPtr;
+    std::unique_ptr<zmq::socket_t> m_inprocReleaseMessagesSockPtr;
     std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
     ZmqStorageInterface worker;
     StorageStats storageStats;
     HdtnConfig m_hdtnConfig;
+    zmq::pollitem_t m_pollItems[3];
 };
 
 }  // namespace hdtn

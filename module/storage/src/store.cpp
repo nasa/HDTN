@@ -120,12 +120,17 @@ bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
     
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "[storage] Spinning up worker thread ...");
-    m_workerSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
-    m_workerSockPtr->bind(HDTN_STORAGE_WORKER_PATH);
+    m_inprocBundleDataSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
+    m_inprocBundleDataSockPtr->bind(HDTN_STORAGE_BUNDLE_DATA_INPROC_PATH);
+    m_inprocReleaseMessagesSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
+    m_inprocReleaseMessagesSockPtr->bind(HDTN_STORAGE_RELEASE_MESSAGES_INPROC_PATH);
+    m_pollItems[0] = { m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0 };
+    m_pollItems[1] = { m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0 };
+    m_pollItems[2] = { m_telemetrySockPtr->handle(), 0, ZMQ_POLLIN, 0 };
     worker.Init(m_zmqContextPtr.get(), m_hdtnConfig, hdtnOneProcessZmqInprocContextPtr);
     worker.launch();
     zmq::message_t tmsg;
-    if (!m_workerSockPtr->recv(tmsg, zmq::recv_flags::none)) {
+    if (!m_inprocBundleDataSockPtr->recv(tmsg, zmq::recv_flags::none)) {
         std::cerr << "[storage] Worker startup failed (no receive) - aborting ..." << std::endl;
         hdtn::Logger::getInstance()->logNotification("storage", "[storage] Worker startup failed (no receive) - aborting ...");
         return false;
@@ -145,21 +150,16 @@ bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
 
 
 void hdtn::storage::update() {
-    zmq::pollitem_t items[] = {
-        {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_telemetrySockPtr->handle(), 0, ZMQ_POLLIN, 0}
-    };
-    if (zmq::poll(&items[0], 3, 250) > 0) {
-        if (items[0].revents & ZMQ_POLLIN) {
+    if (zmq::poll(&m_pollItems[0], 3, 250) > 0) {
+        if (m_pollItems[0].revents & ZMQ_POLLIN) {
             dispatch();
         }
-        if (items[1].revents & ZMQ_POLLIN) {
+        if (m_pollItems[1].revents & ZMQ_POLLIN) {
             std::cout << "release" << std::endl;
             hdtn::Logger::getInstance()->logNotification("storage", "release");
             scheduleRelease();
         }
-        if (items[2].revents & ZMQ_POLLIN) {
+        if (m_pollItems[2].revents & ZMQ_POLLIN) {
             c2telem();  //not implemented yet
         }
     }
@@ -185,69 +185,93 @@ void hdtn::storage::c2telem() {
             break;
     }
 }
+static void CustomCleanupVec64(void *data, void *hint) {
+    //std::cout << "free " << static_cast<std::vector<uint64_t>*>(hint)->size() << std::endl;
+    delete static_cast<std::vector<uint64_t>*>(hint);
+}
 void hdtn::storage::scheduleRelease() {
-    //  storageStats.in_bytes += hdr.size();
-    //++storageStats.in_msg;
-    zmq::message_t message;
-    if (!m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
+    //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
+    static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + ((sizeof(IreleaseStartHdr) > sizeof(IreleaseStopHdr)) ? sizeof(IreleaseStartHdr) : sizeof(IreleaseStopHdr));
+    std::vector<uint64_t> * rxBufPtrToStdVec64 = new std::vector<uint64_t>(minBufSizeBytes / sizeof(uint64_t));
+    std::vector<uint64_t> & vec64Ref = *rxBufPtrToStdVec64;
+    uint64_t * rxBufRawPtrAlign64 = &vec64Ref[0];
+    zmq::message_t messageWithDataStolen(rxBufRawPtrAlign64, minBufSizeBytes, CustomCleanupVec64, rxBufPtrToStdVec64);
+    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
+    if (!res) {
         std::cerr << "[schedule release] message not received" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "[schedule release] message not received");
         return;
     }
-    if (message.size() < sizeof(CommonHdr)) {
-        std::cerr << "[schedule release] message too short: " << message.size() << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "[schedule release] message too short: " + std::to_string(message.size()));
+    else if (res->size < sizeof(hdtn::CommonHdr)) {
+        std::cerr << "[schedule release] res->size < sizeof(hdtn::CommonHdr)" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size < sizeof(hdtn::CommonHdr)");
         return;
     }
+    
     std::cout << "message received\n";
     hdtn::Logger::getInstance()->logNotification("storage", "Message received");
-    CommonHdr *common = (CommonHdr *)message.data();
+    CommonHdr *common = (CommonHdr *)rxBufRawPtrAlign64;
     switch (common->type) {
         case HDTN_MSGTYPE_IRELSTART:
+            if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
+                std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr" << std::endl;
+                hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr");
+                return;
+            }
             std::cout << "release data\n";
             hdtn::Logger::getInstance()->logNotification("storage", "Release data");
-            m_workerSockPtr->send(message, zmq::send_flags::none); //VERIFY this works over const_buffer message.data(), message.size(), 0); (tested and apparently it does)
+            m_inprocReleaseMessagesSockPtr->send(messageWithDataStolen, zmq::send_flags::none);
             storageStats.worker = worker.stats();
             break;
         case HDTN_MSGTYPE_IRELSTOP:
+            if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
+                std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr" << std::endl;
+                hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr");
+                return;
+            }
             std::cout << "stop releasing data\n";
             hdtn::Logger::getInstance()->logNotification("storage", "Stop releasing data");
+            m_inprocReleaseMessagesSockPtr->send(messageWithDataStolen, zmq::send_flags::none);
+            storageStats.worker = worker.stats();
             break;
     }
 }
+static void CustomCleanupToStorageHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToStorageHdr*>(hint);
+}
 void hdtn::storage::dispatch() {
-    zmq::message_t hdr;
-    zmq::message_t message;
-    if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(hdr, zmq::recv_flags::none)) {
+    hdtn::ToStorageHdr * toStorageHeader = new hdtn::ToStorageHdr();
+    zmq::message_t zmqMessageToStorageHdrWithDataStolen(toStorageHeader, sizeof(hdtn::ToStorageHdr), CustomCleanupToStorageHdr, toStorageHeader);
+    const zmq::recv_buffer_result_t res = m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmq::mutable_buffer(toStorageHeader, sizeof(hdtn::ToStorageHdr)), zmq::recv_flags::none);
+    if (!res) {
         std::cerr << "[dispatch] message hdr not received" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "[dispatch] message hdr not received");
         return;
     }
-    storageStats.inBytes += hdr.size();
-    ++storageStats.inMsg;
-
-    if (hdr.size() < sizeof(CommonHdr)) {
-        std::cerr << "[dispatch] message too short: " << hdr.size() << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "[dispatch] message too short: " + std::to_string(hdr.size()));
+    else if ((res->truncated()) || (res->size != sizeof(hdtn::ToStorageHdr))) {
+        std::cerr << "[dispatch] message hdr not sizeof(hdtn::ToStorageHdr)" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[dispatch] message hdr not sizeof(hdtn::ToStorageHdr)");
         return;
     }
-    CommonHdr *common = (CommonHdr *)hdr.data();
-    switch (common->type) {
-        case HDTN_MSGTYPE_STORE:
-            if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
-                std::cerr << "[dispatch] message not received" << std::endl;
-                hdtn::Logger::getInstance()->logError("storage", "[dispatch] message not received");
-                return;
-            }
-            //std::cout << "rxptr: " << (std::uintptr_t)(message.data()) << std::endl;
-            /*if(message.size() < 7000){
-                std::cout<<"ingress sent less than 7000, type "<< common->type << "size " <<  message.size()<<"\n";
-            }*/
-            m_workerSockPtr->send(std::move(hdr), zmq::send_flags::sndmore);
-            storageStats.inBytes += message.size();
-            m_workerSockPtr->send(std::move(message), zmq::send_flags::none);
-            break;
+    else if (toStorageHeader->base.type != HDTN_MSGTYPE_STORE) {
+        std::cerr << "[dispatch] message type not HDTN_MSGTYPE_STORE" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[dispatch] message type not HDTN_MSGTYPE_STORE");
+        return;
     }
+
+    storageStats.inBytes += sizeof(hdtn::ToStorageHdr);
+    ++storageStats.inMsg;
+
+    zmq::message_t message;
+    if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(message, zmq::recv_flags::none)) {
+        std::cerr << "[dispatch] message not received" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "[dispatch] message not received");
+        return;
+    }
+    m_inprocBundleDataSockPtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::sndmore);
+    storageStats.inBytes += message.size();
+    m_inprocBundleDataSockPtr->send(std::move(message), zmq::send_flags::none);
+            
 }
 
 std::size_t hdtn::storage::GetCurrentNumberOfBundlesDeletedFromStorage() {

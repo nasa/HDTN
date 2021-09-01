@@ -222,12 +222,20 @@ void Ingress::ReadZmqAcksThreadFunc() {
     hdtn::Logger::getInstance()->logNotification("ingress", "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting");
 }
 
-static void CustomCleanup(void *data, void *hint) {
+static void CustomCleanupStdVecUint8(void *data, void *hint) {
     //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
 
-static void CustomIgnoreCleanupBlockHdr(void *data, void *hint) {}
+//static void CustomIgnoreCleanupBlockHdr(void *data, void *hint) {}
+
+static void CustomCleanupToEgressHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToEgressHdr*>(hint);
+}
+
+static void CustomCleanupToStorageHdr(void *data, void *hint) {
+    delete static_cast<hdtn::ToStorageHdr*>(hint);
+}
 
 bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq message to reduce copy
     const std::size_t messageSize = rxBuf.size();
@@ -262,12 +270,11 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
             }
 
             const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
-            zmq::message_t zmqToEgressHdr(sizeof(hdtn::ToEgressHdr));
-            if (((uintptr_t)zmqToEgressHdr.data()) & 7) {
-                std::cerr << "error in Ingress::Process zmqToEgressHdr: zmq data not aligned on 8-byte boundary" << std::endl;
-                return false;
-            }
-            hdtn::ToEgressHdr * toEgressHdr = (hdtn::ToEgressHdr *)zmqToEgressHdr.data();
+
+            //force natural/64-bit alignment
+            hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
+            zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+            
             //memset 0 not needed because all values set below
             toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
             toEgressHdr->base.flags = static_cast<uint16_t>(primary.flags);
@@ -278,7 +285,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
             {
                 //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
                 boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
-                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqToEgressHdr), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                     std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
                     hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
                 }
@@ -292,7 +299,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
                     //If provided, the deallocation function ffn shall be called once the data buffer is no longer
                     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
                     std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
-                    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanup, rxBufRawPointer);
+                    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
                     if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                         std::cerr << "ingress can't send bundle to egress" << std::endl;
                         hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
@@ -324,12 +331,10 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
                 continue; //next attempt
             }
 
-            zmq::message_t zmqToStorageHdr(sizeof(hdtn::ToStorageHdr));
-            if (((uintptr_t)zmqToStorageHdr.data()) & 7) {
-                std::cerr << "error in Ingress::Process zmqToStorageHdr: zmq data not aligned on 8-byte boundary" << std::endl;
-                return false;
-            }
-            hdtn::ToStorageHdr * toStorageHdr = (hdtn::ToStorageHdr *)zmqToStorageHdr.data();
+            //force natural/64-bit alignment
+            hdtn::ToStorageHdr * toStorageHdr = new hdtn::ToStorageHdr();
+            zmq::message_t zmqMessageToStorageHdrWithDataStolen(toStorageHdr, sizeof(hdtn::ToStorageHdr), CustomCleanupToStorageHdr, toStorageHdr);
+
             //memset 0 not needed because all values set below
             toStorageHdr->base.type = HDTN_MSGTYPE_STORE;
             toStorageHdr->base.flags = static_cast<uint16_t>(primary.flags);
@@ -338,7 +343,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
             //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
 
             //zmq threads not thread safe but protected by mutex above
-            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqToStorageHdr), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                 std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
                 hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to storage");
             }
@@ -352,7 +357,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
                 //If provided, the deallocation function ffn shall be called once the data buffer is no longer
                 //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
                 std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
-                zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanup, rxBufRawPointer);
+                zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
                 if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                     std::cerr << "ingress can't send bundle to storage" << std::endl;
                     hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");

@@ -53,7 +53,7 @@ struct CommonHdr {
     bool operator==(const CommonHdr & o) const {
         return (type == o.type) && (flags == o.flags);
     }
-};// __attribute__((packed));
+};
 
 
 struct ToEgressHdr {
@@ -91,7 +91,7 @@ struct ToStorageHdr {
     uint8_t unused3;
     uint8_t unused4;
     uint64_t ingressUniqueId;
-};// __attribute__((packed));
+};
 
 struct StorageAckHdr {
     CommonHdr base;
@@ -110,7 +110,7 @@ struct StorageAckHdr {
 struct TelemStorageHdr {
     CommonHdr base;
     StorageStats stats;
-};// __attribute__((packed));
+};
 
 struct CscheduleHdr {
     CommonHdr base;
@@ -118,19 +118,27 @@ struct CscheduleHdr {
     uint64_t rate;      // bytes / sec
     uint64_t offset;    // msec
     uint64_t duration;  // msec
-};// __attribute__((packed));
+};
 
 struct IreleaseStartHdr {
     CommonHdr base;
+    uint8_t unused1;
+    uint8_t unused2;
+    uint8_t unused3;
+    uint8_t unused4;
     cbhe_eid_t finalDestinationEid;   // formerly flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
-};// __attribute__((packed));
+};
 
 struct IreleaseStopHdr {
     CommonHdr base;
+    uint8_t unused1;
+    uint8_t unused2;
+    uint8_t unused3;
+    uint8_t unused4;
     cbhe_eid_t finalDestinationEid;
-};// __attribute__((packed));
+};
 };  // namespace hdtn
 //#pragma pack (pop)
 #endif
