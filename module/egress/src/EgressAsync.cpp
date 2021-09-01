@@ -44,18 +44,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_outductManager.SetOutductManagerOnSuccessfulOutductAckCallback(boost::bind(&HegrManagerAsync::OnSuccessfulBundleAck, this, boost::placeholders::_1));
 
-    for (unsigned int i = 0; i <= 10; ++i) {
-        std::cout << "Waiting for all Outducts to become ready to forward..." << std::endl;
-        boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-        if (m_outductManager.AllReadyToForward()) {
-            std::cout << "Outducts ready to forward" << std::endl;
-            break;
-        }
-        if (i == 10) {
-            std::cerr << "Outducts unable to connect" << std::endl;
-            return;
-        }
-    }
+    
     m_bundleCount = 0;
     m_bundleData = 0;
     m_messageCount = 0;
@@ -230,6 +219,19 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
 }
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
+
+    while (m_running) {
+        std::cout << "Egress Waiting for Outduct to become ready to forward..." << std::endl;
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+        if (m_outductManager.AllReadyToForward()) {
+            std::cout << "Outduct ready to forward" << std::endl;
+            break;
+        }
+    }
+    if (!m_running) {
+        std::cout << "Egress Terminated before all outducts could connect" << std::endl;
+        return;
+    }
 
     static const unsigned int NUM_ZMQ_MESSAGES_CB = 40;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable cb(NUM_ZMQ_MESSAGES_CB);

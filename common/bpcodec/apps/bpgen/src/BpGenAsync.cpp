@@ -55,22 +55,10 @@ void BpGenAsync::Start(const OutductsConfig & outductsConfig, uint32_t bundleSiz
         return;
     }
 
-    for (unsigned int i = 0; i <= 10; ++i) {
-        std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
-        boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-        if (m_outductManager.AllReadyToForward()) {
-            std::cout << "Outduct ready to forward" << std::endl;
-            break;
-        }
-        if (i == 10) {
-            std::cerr << "Bpgen Outduct unable to connect" << std::endl;
-            return;
-        }
-    }
-   
-
-
     m_running = true;
+    
+   
+    
     m_bpGenThreadPtr = boost::make_unique<boost::thread>(
         boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, destFlowId)); //create and start the worker thread
 
@@ -81,6 +69,18 @@ void BpGenAsync::Start(const OutductsConfig & outductsConfig, uint32_t bundleSiz
 
 void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
 
+    while (m_running) {
+        std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+        if (m_outductManager.AllReadyToForward()) {
+            std::cout << "Outduct ready to forward" << std::endl;
+            break;
+        }
+    }
+    if (!m_running) {
+        std::cout << "BpGen Terminated before a connection could be made" << std::endl;
+        return;
+    }
 
 
     #define BP_MSG_BUFSZ             (65536 * 100) //todo
