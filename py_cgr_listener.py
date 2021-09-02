@@ -4,22 +4,29 @@ import time
 import sys
 import random
 import json
+import re
 
 port = "5556"
 context = zmq.Context()
-socket = context.socket(zmq.PAIR)
-socket.bind("tcp://*:%s" % port)
-contact_plan = cp_load(cp_file)
+socket = context.socket(zmq.PULL)
+socket.bind("tcp://127.0.0.1:%s" % port) #localhost caused error
+contact_plan = cp_load('cgrTable.json', 5000)
 
 curr_time = 0
 
 while True:
     msg = socket.recv()
     print("message received by server")
-    root_contact = Contact(msg.sourceId, msg.sourceId, 0, sys.maxsize, 100, 1, 0)
-    root_contact.arrival_time = curr_time #Does this need to be iterated
+    splitMessage = re.split('|', msg)
+    sourceId = splitMessage[0]
+    destinationId = splitMessage[1]
+    startTime = splitMessage[2]
+    root_contact = Contact(sourceId, sourceId, 0, sys.maxsize, 100, 1, 0)
 
-    route = cgr_dijkstra(root_contact, msg.destinationId, contact_plan)
+
+    root_contact.arrival_time = startTime
+
+    route = cgr_dijkstra(root_contact, destinationId, contact_plan)
 
     route.hops[1] #next hop shouldn be 2nd on route list
     print(route)

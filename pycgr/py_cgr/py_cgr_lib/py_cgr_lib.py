@@ -222,14 +222,14 @@ class Bundle:
 def cp_load(json_file, max_contacts=None):
     __contact_plan = []
     nodes = set()
-    with open(json_file) as cf:
+    with open(json_file) as f:
         cgr_table = json.load(f)
         for contact in cgr_table['contacts']:
             nodes.add(contact['source'])
             nodes.add(contact['dest'])
             __contact_plan.append(
-                Contact(start=contact['start_time'], \
-                        end=contact['end_time'], \
+                Contact(start=contact['startTime'], \
+                        end=contact['endTime'], \
                         frm=contact['source'], \
                         to=contact['dest'], \
                         rate=contact['rate'], \

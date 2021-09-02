@@ -4,7 +4,7 @@ void CgrServer::init(std::string address)
 {
     cgrSock.reset(); //delete existing
     cgrCtx = boost::make_unique<zmq::context_t>();
-    cgrSock = boost::make_unique<zmq::socket_t>(*cgrCtx, zmq::socket_type::req);
+    cgrSock = boost::make_unique<zmq::socket_t>(*cgrCtx, zmq::socket_type::push);
     char tbuf[255];
     memset(tbuf, 0, 255);
     cgrSock->set(zmq::sockopt::routing_id, tbuf);
@@ -15,10 +15,6 @@ void CgrServer::init(std::string address)
 
 int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTime)
 {
-    Message msg;
-    msg.current = currentNode;
-    msg.destination = destinationNode;
-    msg.start = startTime;
 
     std::string message = std::to_string(currentNode) + "|" + std::to_string(destinationNode) 
         + "|" + std::to_string(startTime);
