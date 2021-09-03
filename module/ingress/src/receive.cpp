@@ -16,6 +16,10 @@
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
 
+static const uint64_t PRIMARY_HDTN_NODE = 10; //todo
+static const uint64_t PRIMARY_HDTN_SVC = 10; //todo
+static const cbhe_eid_t HDTN_EID(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
+
 namespace hdtn {
 
 Ingress::Ingress() :
@@ -248,10 +252,11 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
     static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
     const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
+    //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
+    const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+    const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == HDTN_EID));
 
-
-
-    if ((!m_alwaysSendToStorage) && (!requestsCustody)) { //type egress cut through
+    if ((!m_alwaysSendToStorage) && (!requestsCustody) && (!isAdminRecordForHdtnStorage)) { //type egress cut through
         m_egressAckMapQueueMutex.lock();
         EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
         m_egressAckMapQueueMutex.unlock();

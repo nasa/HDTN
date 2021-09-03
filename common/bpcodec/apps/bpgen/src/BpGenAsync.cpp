@@ -4,6 +4,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
 #include <time.h>
 #include "TimestampUtil.h"
@@ -12,8 +13,7 @@
 #include "util/tsc.h"
 #endif
 
-#define BP_GEN_SRC_NODE_DEFAULT  (1)
-#define BP_GEN_DST_NODE_DEFAULT  (2)
+
 #define BP_GEN_LOGFILE           "bpgen.%lu.csv"
 
 struct bpgen_hdr {
@@ -45,18 +45,31 @@ void BpGenAsync::Stop() {
     
 }
 
-void BpGenAsync::Start(const OutductsConfig & outductsConfig, uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
+void BpGenAsync::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs, const cbhe_eid_t & myEid, uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
     }
+    m_myEid = myEid;
+    m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
+    m_detectedNextCustodianSupportsCteb = false;
 
     if (!m_outductManager.LoadOutductsFromConfig(outductsConfig)) {
         return;
     }
 
+
+    m_custodyTransferUseAcs = custodyTransferUseAcs;
+    if (inductsConfigPtr) {
+        m_useCustodyTransfer = true;
+        m_inductManager.LoadInductsFromConfig(boost::bind(&BpGenAsync::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1), *inductsConfigPtr);
+    }
+    else {
+        m_useCustodyTransfer = false;
+    }
+
     m_running = true;
-    
+    m_allOutductsReady = false;
    
     
     m_bpGenThreadPtr = boost::make_unique<boost::thread>(
@@ -81,7 +94,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "BpGen Terminated before a connection could be made" << std::endl;
         return;
     }
-
+    m_allOutductsReady = true;
 
     #define BP_MSG_BUFSZ             (65536 * 100) //todo
 
@@ -109,11 +122,12 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     //stats?
     //uint64_t bundle_count = 0;
     m_bundleCount = 0;
+    m_numRfc5050CustodyTransfers = 0;
+    m_numAcsCustodyTransfers = 0;
+    m_numAcsPacketsReceived = 0;
     uint64_t bundle_data = 0;
     uint64_t raw_data = 0;
 
-    int source_node = BP_GEN_SRC_NODE_DEFAULT;
-    //int dest_node = BP_GEN_DST_NODE_DEFAULT;
 
     std::vector<uint8_t> data_buffer(bundleSizeBytes);
     memset(data_buffer.data(), 0, bundleSizeBytes);
@@ -127,7 +141,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     uint64_t currentTimeRfc5050 = 0;
     uint64_t seq = 0;
     uint64_t bseq = 0;
-
+    uint64_t nextCtebCustodyId = 0;
 
 
     boost::mutex localMutex;
@@ -167,7 +181,8 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
 
         {
 
-            char* curr_buf = (char*)bundleToSend.data(); //(msgbuf[idx].msg_hdr.msg_iov->iov_base);
+            uint8_t * buffer = bundleToSend.data();
+            uint8_t * const serializationBase = buffer;
             currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
             
             if(currentTimeRfc5050 == lastTimeRfc5050) {
@@ -191,40 +206,88 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             bpv6_primary_block primary;
             memset(&primary, 0, sizeof(bpv6_primary_block));
             primary.version = 6;
-            bpv6_canonical_block block;
-            memset(&block, 0, sizeof(bpv6_canonical_block));
-            uint64_t bundle_length = 0;
             primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
-            primary.src_node = source_node;
-            primary.src_svc = 1;
+            if (m_useCustodyTransfer) {
+                primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
+                primary.custodian_node = m_myEid.nodeId;
+                primary.custodian_svc = m_myEid.serviceId;
+            }
+            primary.src_node = m_myEid.nodeId;
+            primary.src_svc = m_myEid.serviceId;
             primary.dst_node = destFlowId;
             primary.dst_svc = 1;
             primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
             primary.lifetime = 1000;
             primary.sequence = seq;
             ////uint64_t tsc_start = rdtsc();
-            bundle_length = cbhe_bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);
-            ////tsc_total += rdtsc() - tsc_start;
+            uint64_t retVal;
+            retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+            if (retVal == 0) {
+                std::cout << "primary encode error\n";
+                m_running = false;
+                continue;
+            }
+            buffer += retVal;
+
+            if (m_useCustodyTransfer) {
+                if (m_custodyTransferUseAcs) {
+                    const uint64_t ctebCustodyId = nextCtebCustodyId++;
+                    bpv6_canonical_block returnedCanonicalBlock;
+                    retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, 0, //0=> not last block
+                        ctebCustodyId, m_myEidUriString, returnedCanonicalBlock);
+
+                    if (retVal == 0) {
+                        std::cout << "cteb encode error\n";
+                        m_running = false;
+                        continue;
+                    }
+                    buffer += retVal;
+
+                    m_mutexCtebSet.lock();
+                    FragmentSet::InsertFragment(m_outstandingCtebCustodyIdsFragmentSet, FragmentSet::data_fragment_t(ctebCustodyId, ctebCustodyId));
+                    m_mutexCtebSet.unlock();
+                }
+                //always prepare for rfc5050 style custody transfer if next hop doesn't support acs
+                if (!m_detectedNextCustodianSupportsCteb) { //prevent map from filling up endlessly if we're using cteb
+                    cbhe_bundle_uuid_nofragment_t uuid(primary);
+                    m_mutexBundleUuidSet.lock();
+                    const bool success = m_cbheBundleUuidSet.insert(uuid).second;
+                    m_mutexBundleUuidSet.unlock();
+                    if (!success) {
+                        std::cerr << "error insert bundle uuid\n";
+                        m_running = false;
+                        continue;
+                    }
+                }
+                
+            }
+            bpv6_canonical_block block;
+            //memset 0 not needed because all fields set below
             block.type = BPV6_BLOCKTYPE_PAYLOAD;
             block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
             block.length = bundleSizeBytes;
-            ////tsc_start = rdtsc();
-            bundle_length += bpv6_canonical_block_encode(&block, curr_buf, bundle_length, BP_MSG_BUFSZ);
-            ////tsc_total += rdtsc() - tsc_start;
-#ifndef _WIN32
-            hdr->tsc = rdtsc();
-            clock_gettime(CLOCK_REALTIME, &hdr->abstime);
-#endif // !_WIN32
+
+            retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+            if (retVal == 0) {
+                std::cout << "payload canonical encode error\n";
+                m_running = false;
+                continue;
+            }
+            buffer += retVal;
+
+
+           
             hdr->seq = bseq++;
-            memcpy(curr_buf + bundle_length, data_buffer.data(), bundleSizeBytes);
-            bundle_length += bundleSizeBytes;
-            //msgbuf[idx].msg_hdr.msg_iov[0].iov_len = bundle_length;
-            //++bundle_count;
+            memcpy(buffer, data_buffer.data(), bundleSizeBytes);
+            buffer += bundleSizeBytes;
+
+            const uint64_t bundleLength = buffer - serializationBase;
+            
             ++m_bundleCount;
             bundle_data += bundleSizeBytes;     // payload data
-            raw_data += bundle_length; // bundle overhead + payload data
+            raw_data += bundleLength; // bundle overhead + payload data
 
-            bundleToSend.resize(bundle_length);
+            bundleToSend.resize(bundleLength);
         }
 
         //send message
@@ -254,7 +317,14 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             std::cout << "Bpgen Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(4));
         }
+        else if (m_useCustodyTransfer) {
+            std::cout << "Bpgen waiting for 10 seconds to receive custody transfers" << std::endl;
+            boost::this_thread::sleep(boost::posix_time::seconds(10));
+        }
     }
+    std::cout << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers << std::endl;
+    std::cout << "m_numAcsCustodyTransfers: " << m_numAcsCustodyTransfers << std::endl;
+    std::cout << "m_numAcsPacketsReceived: " << m_numAcsPacketsReceived << std::endl;
 
     boost::posix_time::time_duration diff = finishedTime - startTime;
     {
@@ -267,4 +337,95 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
     }
 
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
+}
+
+void BpGenAsync::WholeCustodySignalBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+    //if more than 1 Induct, must protect shared resources with mutex.  Each Induct has
+    //its own processing thread that calls this callback
+
+    BundleViewV6 bv;
+    if (!bv.SwapInAndLoadBundle(wholeBundleVec)) {
+        std::cerr << "malformed custody signal\n";
+        return;
+    }
+    //check primary
+    bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+    const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+    if ((primary.flags & requiredPrimaryFlags) != requiredPrimaryFlags) {
+        std::cerr << "custody signal has wrong primary flags\n";
+        return;
+    }
+    const cbhe_eid_t receivedFinalDestinationEid(primary.dst_node, primary.dst_svc);
+    if (receivedFinalDestinationEid != m_myEid) {
+        std::cerr << "custody signal has wrong destination\n";
+        return;
+    }
+
+    if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
+        std::cerr << "error admin record has canonical block\n";
+        return;
+    }
+    if (bv.m_applicationDataUnitStartPtr == NULL) { //admin record is not canonical
+        std::cerr << "error null application data unit\n";
+        return;
+    }
+    const uint8_t adminRecordType = (*bv.m_applicationDataUnitStartPtr >> 4);
+
+    if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::AGGREGATE_CUSTODY_SIGNAL)) {
+        m_detectedNextCustodianSupportsCteb = true;
+        ++m_numAcsPacketsReceived;
+        //check acs
+        AggregateCustodySignal acs;
+        if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_frontBuffer.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
+            std::cerr << "malformed ACS\n";
+            return;
+        }
+        if (!acs.DidCustodyTransferSucceed()) {
+            std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode()) << "\n";
+            return;
+        }
+
+        m_mutexCtebSet.lock();
+        for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+            m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+            FragmentSet::RemoveFragment(m_outstandingCtebCustodyIdsFragmentSet, *it);
+        }
+        m_mutexCtebSet.unlock();
+    }
+    else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
+        CustodySignal cs;
+        uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
+        if (numBytesTakenToDecode == 0) {
+            std::cerr << "malformed CustodySignal\n";
+            return;
+        }
+        if (!cs.DidCustodyTransferSucceed()) {
+            std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(cs.GetReasonCode()) << "\n";
+            return;
+        }
+        if (cs.m_isFragment) {
+            std::cerr << "error custody signal with fragmentation received\n";
+            return;
+        }
+        cbhe_bundle_uuid_nofragment_t uuid;
+        if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+            std::cerr << "error custody signal with bad ipn string\n";
+            return;
+        }
+        uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
+        uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+        m_mutexBundleUuidSet.lock();
+        const bool success = (m_cbheBundleUuidSet.erase(uuid) != 0);
+        m_mutexBundleUuidSet.unlock();
+        if (!success) {
+            std::cerr << "error rfc5050 custody signal received but bundle uuid not found\n";
+            return;
+        }
+        ++m_numRfc5050CustodyTransfers;
+    }
+    else { 
+        std::cerr << "error unknown admin record type\n";
+        return;
+    }
+    
 }

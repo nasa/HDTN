@@ -245,6 +245,7 @@ struct cbhe_eid_t {
     bool operator==(const cbhe_eid_t & o) const; //operator ==
     bool operator!=(const cbhe_eid_t & o) const; //operator !=
     bool operator<(const cbhe_eid_t & o) const; //operator < so it can be used as a map key
+    void Set(uint64_t paramNodeId, uint64_t paramServiceId);
 };
 
 struct cbhe_bundle_uuid_t {

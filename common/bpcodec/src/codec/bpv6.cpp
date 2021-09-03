@@ -408,6 +408,10 @@ bool cbhe_eid_t::operator<(const cbhe_eid_t & o) const {
     }
     return (nodeId < o.nodeId);
 }
+void cbhe_eid_t::Set(uint64_t paramNodeId, uint64_t paramServiceId) {
+    nodeId = paramNodeId;
+    serviceId = paramServiceId;
+}
 
 
 cbhe_bundle_uuid_t::cbhe_bundle_uuid_t() : 

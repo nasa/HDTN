@@ -23,7 +23,7 @@ hdtn::storage::~storage() {
 }
 void hdtn::storage::Stop() {
     worker.Stop();
-    m_totalBundlesErasedFromStorage = worker.m_totalBundlesErasedFromStorage;
+    m_totalBundlesErasedFromStorage = worker.m_totalBundlesErasedFromStorageNoCustodyTransfer + worker.m_totalBundlesErasedFromStorageWithCustodyTransfer;
     m_totalBundlesSentToEgressFromStorage = worker.m_totalBundlesSentToEgressFromStorage;
 }
 
@@ -275,6 +275,6 @@ void hdtn::storage::dispatch() {
 }
 
 std::size_t hdtn::storage::GetCurrentNumberOfBundlesDeletedFromStorage() {
-    return worker.m_totalBundlesErasedFromStorage;
+    return worker.m_totalBundlesErasedFromStorageNoCustodyTransfer + worker.m_totalBundlesErasedFromStorageWithCustodyTransfer;
 }
 

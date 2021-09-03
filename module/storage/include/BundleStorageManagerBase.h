@@ -73,7 +73,8 @@ public:
     bool RemoveReadBundleFromDisk(const uint64_t custodyId);
     bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);
     bool RemoveReadBundleFromDisk(const catalog_entry_t * catalogEntryPtr, const uint64_t custodyId);
-
+    uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_t & bundleUuid);
+    uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
 
 
 

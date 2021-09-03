@@ -45,8 +45,12 @@ class ZmqStorageInterface {
 
     WorkerStats stats() { return m_workerStats; }
 
-    std::size_t m_totalBundlesErasedFromStorage = 0;
-    std::size_t m_totalBundlesSentToEgressFromStorage = 0;
+    std::size_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    std::size_t m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    std::size_t m_totalBundlesSentToEgressFromStorage;
+    uint64_t m_numRfc5050CustodyTransfers;
+    uint64_t m_numAcsCustodyTransfers;
+    uint64_t m_numAcsPacketsReceived;
 
 private:
     void ThreadFunc();
