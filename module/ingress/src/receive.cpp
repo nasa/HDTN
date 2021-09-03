@@ -255,7 +255,9 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
     const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
     const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == HDTN_EID));
-
+    //if (isAdminRecordForHdtnStorage) {
+    //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
+    //}
     if ((!m_alwaysSendToStorage) && (!requestsCustody) && (!isAdminRecordForHdtnStorage)) { //type egress cut through
         m_egressAckMapQueueMutex.lock();
         EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];

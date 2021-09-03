@@ -94,6 +94,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         std::cout << "BpGen Terminated before a connection could be made" << std::endl;
         return;
     }
+    boost::this_thread::sleep(boost::posix_time::milliseconds(1000)); //todo make sure connection from hdtn to bpgen induct
     m_allOutductsReady = true;
 
     #define BP_MSG_BUFSZ             (65536 * 100) //todo

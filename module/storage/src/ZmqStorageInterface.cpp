@@ -107,7 +107,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             ++forStats->m_numAcsPacketsReceived;
             //check acs
             AggregateCustodySignal acs;
-            if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_frontBuffer.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
+            if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_renderedBundle.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
                 std::cerr << "malformed ACS\n";
                 return false;
             }
@@ -162,6 +162,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                 }
                 uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
                 uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+                //std::cout << "uuid: " << "cs " << uuid.creationSeconds << "  seq " << uuid.sequence << "  " << uuid.srcEid.nodeId << "," << uuid.srcEid.serviceId << std::endl;
                 custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
             }
             if (custodyIdPtr == NULL) {
@@ -608,7 +609,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
 
 
         if ((acsSendNowExpiry <= boost::posix_time::microsec_clock::universal_time()) || (ctm.GetLargestNumberOfFills() > 100)) { //todo
-            std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
+            //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
             //test with generate all
             std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
             if (ctm.GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList)) {

@@ -59,7 +59,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     CustodySignal sig;
     sig.m_copyOfBundleCreationTimestampTimeSeconds = primaryFromSender.creation;
     sig.m_copyOfBundleCreationTimestampSequenceNumber = primaryFromSender.sequence;
-    sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.custodian_node, primaryFromSender.custodian_svc);
+    sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.src_node, primaryFromSender.src_svc);
     //REQ D4.2.2.7 An ACS-aware bundle protocol agent shall utilize the ACS bundle timestamp
     //time as the ‘Time of Signal’ when executing RFC 5050 section 6.3
     sig.SetTimeOfSignalGeneration(TimestampUtil::GenerateDtnTimeNow());//add custody

@@ -1,0 +1,14 @@
+{
+    "releaseMessageEvents": [
+        {
+            "id": 1,
+            "delay": 20,
+            "message": "start"
+        },
+        {
+            "id": 2,
+            "delay": 25,
+            "message": "start"
+        }
+    ]
+}
