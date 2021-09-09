@@ -48,7 +48,6 @@ target_link_libraries(integrated-tests
 	${Boost_LIBRARIES}
 )
 
-
 add_executable(cgr-test
     src/cgr_tests.cpp
     ../../module/scheduler/src/cgrServer.cpp

@@ -227,13 +227,16 @@ def cp_load(json_file, max_contacts=None):
         for contact in cgr_table['contacts']:
             nodes.add(contact['source'])
             nodes.add(contact['dest'])
-            __contact_plan.append(
-                Contact(start=contact['startTime'], \
+            #__contact_plan.append(
+            new_contact = Contact(start=contact['startTime'], \
                         end=contact['endTime'], \
                         frm=contact['source'], \
                         to=contact['dest'], \
                         rate=contact['rate'], \
-                        owlt=1)) #range
+                        owlt=1)#) #range
+            #print(new_contact)
+            #print(new_contact.to)
+            __contact_plan.append(new_contact)
             if len(__contact_plan) == max_contacts:
                 break
 
@@ -261,6 +264,7 @@ def old_cp_load(file_name, max_contacts=None):
             nodes.add(to)
             __contact_plan.append(
                 Contact(start=start, end=end, frm=frm, to=to, rate=rate, owlt=owlt))
+
             if len(__contact_plan) == max_contacts:
                 break
 
@@ -330,12 +334,13 @@ def cgr_dijkstra(root_contact, destination, contact_plan):
         if contact.to not in contact_plan_hash:
             contact_plan_hash[contact.to] = []
         contact_plan_hash[contact.frm].append(contact)
-
+    #print(contact_plan_hash)
     route = None
     final_contact = None
     earliest_fin_arr_t = sys.maxsize
 
     current = root_contact
+
     if root_contact.to not in root_contact.visited_nodes:
         root_contact.visited_nodes.append(root_contact.to)
 
@@ -347,7 +352,6 @@ def cgr_dijkstra(root_contact, destination, contact_plan):
             print("\t\t\tCurrent contact: ", current)
         # Calculate cost of all proximate contacts
         for contact in contact_plan_hash[current.to]:
-
             if debug:
                 print("\t\t\t\tExplore contact: ", contact, " - ", end='')
 
