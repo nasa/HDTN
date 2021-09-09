@@ -7,7 +7,7 @@
 
 template <class uuidType>
 static void DoTest() {
-    typedef HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t uuid_u64_t;
+    typedef typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t uuid_u64_t;
     const std::vector<uuid_u64_t> bundleUuidPlusU64Vec({
         uuid_u64_t(cbhe_bundle_uuid_t(
             1000, //creationSeconds
@@ -57,9 +57,9 @@ static void DoTest() {
     //insert into bucket 1 in order, make sure values in bucket are read back in order
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
             BOOST_REQUIRE(p != NULL);
             BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
             BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
@@ -72,9 +72,9 @@ static void DoTest() {
     //insert into bucket 1 out-of-order, make sure values in bucket are read back in order
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (int64_t i = static_cast<int64_t>(bundleUuidPlusU64Vec.size() - 1); i >= 0; --i) {
-            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
             BOOST_REQUIRE(p != NULL);
             BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
             BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
@@ -87,15 +87,15 @@ static void DoTest() {
     //insert into bucket 1 in order (two times), second time failing, make sure values in bucket are read back in order
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
             BOOST_REQUIRE(p != NULL);
             BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
             BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
         }
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(HASH, bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
             BOOST_REQUIRE(p == NULL);
         }
         std::vector<uuid_u64_t> bucketAsVector;
@@ -105,25 +105,25 @@ static void DoTest() {
 
     //insert into bucket 1 in order (two times), second time failing, using real hash (will be 1 elem per bucket)
     {
-        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        HashMap16BitFixedSize<uuidType, uint64_t> hm;
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
             BOOST_REQUIRE(p != NULL);
             BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[i].first);
             BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[i].second);
         }
         for (std::size_t i = 0; i < bundleUuidPlusU64Vec.size(); ++i) {
-            const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
+            const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[i].first, bundleUuidPlusU64Vec[i].second);
             BOOST_REQUIRE(p == NULL);
         }
     }
 
     //insert elem 0 using real hash and remove it using pointer returned by insert
     {
-        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        HashMap16BitFixedSize<uuidType, uint64_t> hm;
         uint64_t value = 0;
         BOOST_REQUIRE(!hm.GetValueAndRemove(bundleUuidPlusU64Vec[0].first, value)); //nothing here
-        const HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[0].first, bundleUuidPlusU64Vec[0].second); //insert 0
+        const typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t * p = hm.Insert(bundleUuidPlusU64Vec[0].first, bundleUuidPlusU64Vec[0].second); //insert 0
         BOOST_REQUIRE(p != NULL);
         BOOST_REQUIRE(p->first == bundleUuidPlusU64Vec[0].first);
         BOOST_REQUIRE(p->second == bundleUuidPlusU64Vec[0].second);
@@ -135,7 +135,7 @@ static void DoTest() {
     //insert and deletion tests
     {
         const uint16_t HASH = 1; //bypass hashing algorithm (assume these go to the same bucket)
-        typename HashMap16BitFixedSize<uuidType, uint64_t> hm;
+        HashMap16BitFixedSize<uuidType, uint64_t> hm;
         uint64_t value = 0;
         std::vector<uuid_u64_t> bucketAsVector;
 

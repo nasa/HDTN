@@ -6,6 +6,7 @@
 #include <array>
 #include <vector>
 #include "codec/bpv6.h"
+#include <memory>
 
 template <typename keyType, typename valueType>
 class HashMap16BitFixedSize {

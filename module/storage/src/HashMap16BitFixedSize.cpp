@@ -82,8 +82,8 @@ const typename HashMap16BitFixedSize<keyType, valueType>::key_value_pair_t * Has
         return &(bucket.front());
     }
     else {
-        bucket_t::const_iterator itPrev = bucket.cbefore_begin();
-        for (bucket_t::const_iterator it = bucket.cbegin(); it != bucket.cend(); ++it, ++itPrev) {
+        typename bucket_t::const_iterator itPrev = bucket.cbefore_begin();
+        for (typename bucket_t::const_iterator it = bucket.cbegin(); it != bucket.cend(); ++it, ++itPrev) {
             const keyType & keyInList = it->first;
             if (key < keyInList) { //not in list, insert now
                 break; //will call bucket.emplace_after(itPrev, key, std::move(value)); and return true;
@@ -115,7 +115,7 @@ bool HashMap16BitFixedSize<keyType, valueType>::GetValueAndRemove(const uint16_t
     }
     else {
         //iterators must be non-const or the move below will just result in a copy (still compiles)
-        for (bucket_t::iterator itPrev = bucket.before_begin(), it = bucket.begin(); it != bucket.end(); ++it, ++itPrev) {
+        for (typename bucket_t::iterator itPrev = bucket.before_begin(), it = bucket.begin(); it != bucket.end(); ++it, ++itPrev) {
             const keyType & keyInList = it->first;
             if (key < keyInList) { //not in list, therefore not found
                 return false;
@@ -149,7 +149,7 @@ valueType * HashMap16BitFixedSize<keyType, valueType>::GetValuePtr(const uint16_
     }
     else {
         //iterators must be non-const or the move below will just result in a copy (still compiles)
-        for (bucket_t::iterator it = bucket.begin(); it != bucket.end(); ++it) {
+        for (typename bucket_t::iterator it = bucket.begin(); it != bucket.end(); ++it) {
             const keyType & keyInList = it->first;
             if (key < keyInList) { //not in list, therefore not found
                 return NULL;
@@ -162,7 +162,7 @@ valueType * HashMap16BitFixedSize<keyType, valueType>::GetValuePtr(const uint16_
             }
         }
         //uuid is greater than every element in the bucket, therefore not found
-        return false;
+        return NULL;
     }
 }
 
@@ -177,7 +177,7 @@ template <typename keyType, typename valueType>
 void HashMap16BitFixedSize<keyType, valueType>::BucketToVector(const uint16_t hash, std::vector<key_value_pair_t> & bucketAsVector) {
     bucketAsVector.resize(0);
     bucket_t & bucket = m_buckets[hash];
-    for (bucket_t::const_iterator it = bucket.cbegin(); it != bucket.cend(); ++it) {
+    for (typename bucket_t::const_iterator it = bucket.cbegin(); it != bucket.cend(); ++it) {
         bucketAsVector.push_back(*it);
     }
 }
@@ -186,7 +186,7 @@ template <typename keyType, typename valueType>
 std::size_t HashMap16BitFixedSize<keyType, valueType>::GetBucketSize(const uint16_t hash) {
     bucket_t & bucket = m_buckets[hash];
     std::size_t size = 0;
-    for (bucket_t::const_iterator it = bucket.cbegin(); it != bucket.cend(); ++it) {
+    for (typename bucket_t::const_iterator it = bucket.cbegin(); it != bucket.cend(); ++it) {
         ++size;
     }
     return size;

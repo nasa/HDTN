@@ -7,7 +7,7 @@
  */
 #include "codec/CustodyTransferEnhancementBlock.h"
 #include "Sdnv.h"
-
+#include <cstring>
 
 
 

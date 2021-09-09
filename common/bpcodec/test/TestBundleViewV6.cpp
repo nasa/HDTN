@@ -24,8 +24,8 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t newType, co
     block.type = newType;
     block.flags = 0; //don't worry about block.flags as last block because Render will take care of that automatically
     block.length = newBlockBody.length();
-
-    bv.AppendCanonicalBlock(block, std::vector<uint8_t>(newBlockBody.data(), newBlockBody.data() + newBlockBody.size()));
+    std::vector<uint8_t> blockBodyAsVecUint8(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
+    bv.AppendCanonicalBlock(block, blockBodyAsVecUint8);
     BOOST_REQUIRE(bv.Render(5000));
     
 }

@@ -20,6 +20,11 @@
 namespace hdtn {
 
 Ingress::Ingress() :
+    m_bundleCountStorage(0),
+    m_bundleCountEgress(0),
+    m_bundleCount(0),
+    m_bundleData(0),
+    m_elapsed(0),
     m_eventsTooManyInStorageQueue(0),
     m_eventsTooManyInEgressQueue(0),
     m_running(false),

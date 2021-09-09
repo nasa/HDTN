@@ -52,11 +52,11 @@ private:
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 public:
-    uint64_t m_bundleCountStorage = 0;
-    boost::atomic_uint64_t m_bundleCountEgress = 0;
-    uint64_t m_bundleCount = 0;
-    boost::atomic_uint64_t m_bundleData = 0;
-    double m_elapsed = 0;
+    uint64_t m_bundleCountStorage;
+    boost::atomic_uint64_t m_bundleCountEgress;
+    uint64_t m_bundleCount;
+    boost::atomic_uint64_t m_bundleData;
+    double m_elapsed;
 
 private:
     struct EgressToIngressAckingQueue {
