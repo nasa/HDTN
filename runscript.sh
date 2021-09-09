@@ -1,39 +1,77 @@
-cd $HDTN_SOURCE_ROOT/common/regsvr
-`python3 main.py` &
+#!/bin/sh
+
+# path variables
+config_files=$HDTN_SOURCE_ROOT/tests/config_files
+hdtn_config=$config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json
+sink1_config=$config_files/inducts/bpsink_one_tcpcl_port4557.json
+sink2_config=$config_files/inducts/bpsink_one_tcpcl_port4558.json
+gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json
+
+cd $HDTN_SOURCE_ROOT
+
+# registration server
+python3 ./common/regsvr/main.py &
 sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpsink-async "--use-tcpcl" "--port=4558" &
+
+# bpsink1
+./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink1_config &
+bpsink1_PID=$!
 sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/egress
-./hdtn-egress-async "--use-tcpcl" "--port1=0" "--port2=4558" &
+
+# bpsink2
+./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink2_config &
+bpsink2_PID=$!
 sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/ingress 
-./hdtn-ingress "--always-send-to-storage" & 
+
+#Egress
+./build/module/egress/hdtn-egress-async --hdtn-config-file=$hdtn_config &
+egress_PID=$!
 sleep 3
-cd $HDTN_SOURCE_ROOT/build/module/storage
-./hdtn-release-message-sender "--release-message-type=start" "--flow-id=2" "--delay-before-send=14" &
+
+#Scheduler
+./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
+scheduler_PID=$!
 sleep 1
-cd $HDTN_SOURCE_ROOT/build/module/storage
-./hdtn-storage "--storage-config-json-file=$HDTN_SOURCE_ROOT/module/storage/unit_tests/storageConfigRelativePaths.json" &
+
+#Ingress
+./build/module/ingress/hdtn-ingress --hdtn-config-file=$hdtn_config  &
+ingress_PID=$!
 sleep 3
-cd $HDTN_SOURCE_ROOT/build/common/bpcodec/apps
-./bpgen-async "--bundle-rate=100" "--use-tcpcl" "--flow-id=2" "--duration=5" &
+
+#storage 
+./build/module/storage/hdtn-storage --hdtn-config-file=$hdtn_config &
+storage_PID=$!
+sleep 3
+
+# bpgen1
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --flow-id=2 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
+bpgen1_PID=$!
+sleep 1
+
+# bpgen2
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --flow-id=1 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
+bpgen2_PID=$!
 sleep 8
 
-PID1=`pgrep bpgen-async`
-PID2=`pgrep hdtn-storage`
-PID3=`pgrep hdtn-release-message-sender`
-PID4=`pgrep hdtn-ingress`
-PID5=`pgrep hdtn-egress-async`
-PID6=`pgrep bpsink-async`
-sleep 60
-(kill  $PID1)
-(kill -INT $PID2)
-(kill -INT $PID3)
-(kill -INT $PID4)
-(kill -INT $PID5)
-(kill -INT $PID6)
+# cleanup
+sleep 30
+echo "\nkilling bpgen..." && kill -2 $bpgen1_PID
+sleep 2
+echo "\nkilling bpgen..." && kill -2 $bpgen2_PID
+sleep 2
+echo "\nkilling HDTN storage..." && kill -2 $storage_PID
+sleep 2
+echo "\nkilling HDTN release-message..." && kill -2 $ingress_PID
+sleep 2
+echo "\nkilling ingress..." && kill -2 $scheduler_PID
+sleep 2
+echo "\nkilling egress..." && kill -2 $egress_PID
+sleep 2
+echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
+sleep 2
+echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
+sleep 2
+echo "\nkilling registration server..." && pkill -9 -f main.py
 
-kill $(pgrep -f 'python3 main.py')
 
 

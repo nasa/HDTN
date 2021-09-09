@@ -50,8 +50,7 @@ void Ingress::Stop() {
         "m_eventsTooManyInStorageQueue: " + std::to_string(m_eventsTooManyInStorageQueue));
 }
 
-int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
-
+int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (!m_running) {
         m_running = true;
@@ -107,10 +106,29 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::
         m_zmqPullSock_connectingStorageToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
         m_zmqPullSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::rcvtimeo, timeout);
 
+
+	// socket for receiving events from scheduler
+        m_zmqCtx_schedulerIngressPtr = boost::make_unique<zmq::context_t>();
+        m_zmqSubSock_boundSchedulerToConnectingIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_schedulerIngressPtr, 
+											      zmq::socket_type::sub);
+        const std::string connect_boundSchedulerPubSubPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqSchedulerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+        try {
+            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
+            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "");
+            std::cout << "Ingress connected and listening to events from scheduler " << connect_boundSchedulerPubSubPath << std::endl;
+        } catch (const zmq::error_t & ex) {
+            std::cerr << "error: ingress cannot connect to scheduler socket: " << ex.what() << std::endl;
+            return 0;
+        }
+        
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
 
-        m_alwaysSendToStorage = alwaysSendToStorage;
+        m_isCutThroughOnlyTest = isCutThroughOnlyTest;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig, m_hdtnConfig.m_myNodeId);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
@@ -121,11 +139,12 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::
 
 void Ingress::ReadZmqAcksThreadFunc() {
 
-    static const unsigned int NUM_SOCKETS = 2;
+    static const unsigned int NUM_SOCKETS = 3;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     std::size_t totalAcksFromStorage = 0;
@@ -211,6 +230,9 @@ void Ingress::ReadZmqAcksThreadFunc() {
                     }
                 }
             }
+            if (items[2].revents & ZMQ_POLLIN) { //events from Scheduler
+                SchedulerEventHandler();
+            }
         }
     }
     std::cout << "totalAcksFromEgress: " << totalAcksFromEgress << std::endl;
@@ -228,12 +250,57 @@ void Ingress::ReadZmqAcksThreadFunc() {
     hdtn::Logger::getInstance()->logNotification("ingress", "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting");
 }
 
+void Ingress::SchedulerEventHandler() {
+    //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
+    static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + ((sizeof(IreleaseStartHdr) > sizeof(IreleaseStopHdr)) ? sizeof(IreleaseStartHdr) : sizeof(IreleaseStopHdr));
+    m_schedulerRxBufPtrToStdVec64.resize(minBufSizeBytes / sizeof(uint64_t));
+    uint64_t * rxBufRawPtrAlign64 = &m_schedulerRxBufPtrToStdVec64[0];
+    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
+    if (!res) {
+        std::cerr << "[Ingress::SchedulerEventHandler] message not received" << std::endl;
+        hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] message not received");
+        return;
+    }
+    else if (res->size < sizeof(hdtn::CommonHdr)) {
+        std::cerr << "[Ingress::SchedulerEventHandler] res->size < sizeof(hdtn::CommonHdr)" << std::endl;
+        hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size < sizeof(hdtn::CommonHdr)");
+        return;
+    }
+
+    CommonHdr *common = (CommonHdr *)rxBufRawPtrAlign64;
+    if (common->type == HDTN_MSGTYPE_ILINKUP) {
+        hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufRawPtrAlign64;
+        if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
+            std::cerr << "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStartHdr" << std::endl;
+            hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStartHdr");
+            return;
+        }
+        m_eidAvailableSetMutex.lock();
+        m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid);
+        m_eidAvailableSetMutex.unlock();
+        std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
+            << "," << iReleaseStartHdr->finalDestinationEid.serviceId << ")" << std::endl;
+    }
+    else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
+        hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
+        if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
+            std::cerr << "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr" << std::endl;
+            hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr");
+            return;
+        }
+        m_eidAvailableSetMutex.lock();
+        m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->finalDestinationEid);
+        m_eidAvailableSetMutex.unlock();
+        std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
+            << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ")" << std::endl;
+    }
+}
+
+
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
     //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
-
-//static void CustomIgnoreCleanupBlockHdr(void *data, void *hint) {}
 
 static void CustomCleanupToEgressHdr(void *data, void *hint) {
     delete static_cast<hdtn::ToEgressHdr*>(hint);
@@ -251,6 +318,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
         return 0;
     }
 
+
     const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
     static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
     const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
@@ -260,7 +328,10 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     //if (isAdminRecordForHdtnStorage) {
     //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
     //}
-    if ((!m_alwaysSendToStorage) && (!requestsCustody) && (!isAdminRecordForHdtnStorage)) { //type egress cut through
+    m_eidAvailableSetMutex.lock();
+    const bool linkIsUp = (m_finalDestEidAvailableSet.count(finalDestEid) != 0);
+    m_eidAvailableSetMutex.unlock();
+    if (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage))) { //type egress cut through
         m_egressAckMapQueueMutex.lock();
         EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
         m_egressAckMapQueueMutex.unlock();

@@ -565,7 +565,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     continue;
                 }
                 hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *)rhdr.data();
-                if (commonHdr->type == HDTN_MSGTYPE_IRELSTART) {
+                if (commonHdr->type == HDTN_MSGTYPE_ILINKUP) {
                     hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
                     //ReleaseData(iReleaseStartHdr.flowId, iReleaseStartHdr.rate, iReleaseStartHdr.duration, &egressSock, bsm);
                     availableDestLinksSet.insert(iReleaseStartHdr->finalDestinationEid);
@@ -587,7 +587,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
 
                     //storageStillHasData = true;
                 }
-                else if (commonHdr->type == HDTN_MSGTYPE_IRELSTOP) {
+                else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
                     const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
                         + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
@@ -622,6 +622,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                 }
             }
             acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
+
         }
         
         //Send and maintain a maximum of 5 unacked bundles (per flow id) to Egress.

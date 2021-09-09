@@ -18,7 +18,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
   if (message == "start") {
       hdtn::IreleaseStartHdr releaseMsg;
       memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-      releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
+      releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
       releaseMsg.finalDestinationEid = finalDestinationEid;
       releaseMsg.rate = 0;  //not implemented
       releaseMsg.duration = 20;  //not implemented
@@ -28,7 +28,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
   else if (message == "stop") {
       hdtn::IreleaseStopHdr stopMsg;
       memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
-      stopMsg.base.type = HDTN_MSGTYPE_IRELSTOP;
+      stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
       stopMsg.finalDestinationEid = finalDestinationEid;
       ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
       std::cout << " -- Stop Release message sent.";

@@ -117,7 +117,8 @@ bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
         hdtn::Logger::getInstance()->logError("storage", "Error: cannot connect release socket: " + std::string(ex.what()));
         return false;
     }
-    
+   
+
     std::cout << "[storage] Spinning up worker thread ..." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "[storage] Spinning up worker thread ...");
     m_inprocBundleDataSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pair);
@@ -207,12 +208,12 @@ void hdtn::storage::scheduleRelease() {
         hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size < sizeof(hdtn::CommonHdr)");
         return;
     }
-    
+
     std::cout << "message received\n";
     hdtn::Logger::getInstance()->logNotification("storage", "Message received");
     CommonHdr *common = (CommonHdr *)rxBufRawPtrAlign64;
     switch (common->type) {
-        case HDTN_MSGTYPE_IRELSTART:
+        case HDTN_MSGTYPE_ILINKUP:
             if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
                 std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr" << std::endl;
                 hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr");
@@ -223,7 +224,7 @@ void hdtn::storage::scheduleRelease() {
             m_inprocReleaseMessagesSockPtr->send(messageWithDataStolen, zmq::send_flags::none);
             storageStats.worker = worker.stats();
             break;
-        case HDTN_MSGTYPE_IRELSTOP:
+        case HDTN_MSGTYPE_ILINKDOWN:
             if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                 std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr" << std::endl;
                 hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr");
@@ -239,6 +240,7 @@ void hdtn::storage::scheduleRelease() {
 static void CustomCleanupToStorageHdr(void *data, void *hint) {
     delete static_cast<hdtn::ToStorageHdr*>(hint);
 }
+
 void hdtn::storage::dispatch() {
     hdtn::ToStorageHdr * toStorageHeader = new hdtn::ToStorageHdr();
     zmq::message_t zmqMessageToStorageHdrWithDataStolen(toStorageHeader, sizeof(hdtn::ToStorageHdr), CustomCleanupToStorageHdr, toStorageHeader);

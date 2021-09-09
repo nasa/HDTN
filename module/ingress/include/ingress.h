@@ -43,11 +43,12 @@ public:
     Ingress();  // initialize message buffers
     ~Ingress();
     void Stop();
-    int Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    void SchedulerEventHandler();
+    int Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest,
+             zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     bool Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
-
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 public:
@@ -98,6 +99,10 @@ private:
     std::unique_ptr<zmq::context_t> m_zmqCtx_ingressStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
+   
+     std::unique_ptr<zmq::context_t> m_zmqCtx_schedulerIngressPtr;
+     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
+
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
 
@@ -112,12 +117,15 @@ private:
     std::map<cbhe_eid_t, EgressToIngressAckingQueue> m_egressAckMapQueue; //final dest id to queue
     boost::mutex m_egressAckMapQueueMutex;
     boost::mutex m_ingressToEgressZmqSocketMutex;
+    boost::mutex m_eidAvailableSetMutex;
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
-    bool m_alwaysSendToStorage;
+    bool m_isCutThroughOnlyTest;
     boost::atomic_uint64_t m_ingressToEgressNextUniqueIdAtomic;
     uint64_t m_ingressToStorageNextUniqueId;
+    std::set<cbhe_eid_t> m_finalDestEidAvailableSet;
+    std::vector<uint64_t> m_schedulerRxBufPtrToStdVec64;
 };
 
 

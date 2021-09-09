@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
     if (isStartMessage) {
         hdtn::IreleaseStartHdr releaseMsg;
         memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-        releaseMsg.base.type = HDTN_MSGTYPE_IRELSTART;
+        releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
         releaseMsg.finalDestinationEid = finalDestEidToRelease;
         releaseMsg.rate = 0;  //not implemented
         releaseMsg.duration = 20;//not implemented
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
     else {
         hdtn::IreleaseStopHdr stopMsg;
         memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
-        stopMsg.base.type = HDTN_MSGTYPE_IRELSTOP;
+        stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
         stopMsg.finalDestinationEid = finalDestEidToRelease;
         socket.send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
         std::cout << "Stop Release message sent \n";

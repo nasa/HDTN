@@ -20,6 +20,8 @@ HDTN build environment requires:
 
 ## Packages installation ## 
 * Ubuntu
+$ sudo apt  install cmake
+$ sudo apt-get install build-essential
 $ sudo apt-get install libzmq3-dev
 $ sudo apt-get install python3-zmq
 $ sudo apt install libboost-dev
@@ -28,7 +30,7 @@ $ sudo apt install libboost-all-dev
 ## Known issue ##
 * Ubuntu distributions may install an older CMake version that is not compatible
 * Mac OS may not support recvmmsg and sendmmsg functions, recvmsg and sendmsg could be used
-
+* Some processors may not support hardware acceleration or the RDSEED instruction, both ON by default in the cmake file
 
 Getting Started
 ===============
@@ -40,17 +42,22 @@ Build HDTN
 * mkdir build
 * cd build
 * cmake ..
-* make
+* make -j8
 
 Run HDTN
 =========
 Note: You may need to increase the maximum number of files the operating system will allow to have open to run the storage component. On Debian, this can be done by setting the hard and soft limits for "nofile" to unlimited in /etc/security/limits.conf.
+
+Note: Ensure your config files are correct, e.g., The outduct remotePort is the same as the induct boundPort, a consistant convergenceLayer, and the outducts remoteHostname is pointed to the correct IP adress.
 
 You can use tcpdump to test the HDTN ingress storage and egress. The generated pcap file can be read using wireshark. 
 * sudo tcpdump -i lo -vv -s0 port 4558 -w hdtn-traffic.pcap
 
 In another terminal, run:
 * ./runscript.sh
+
+Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
+
 
 Run Unit Tests
 ===============
