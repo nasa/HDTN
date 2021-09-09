@@ -103,7 +103,7 @@ private:
 
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;
-    
+    cbhe_eid_t M_HDTN_EID_CUSTODY;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
     std::queue<uint64_t> m_storageAckQueue;

@@ -4,8 +4,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
-TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
+TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
@@ -25,7 +26,10 @@ m_tcpclShutdownComplete(true),
 m_shutdownCalled(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
-M_THIS_EID_STRING(thisEidString),
+
+//ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+//isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+M_THIS_EID_STRING(Uri::GetIpnUriString(myNodeId, 0)),
 
 m_totalDataSegmentsAcked(0),
 m_totalBytesAcked(0),

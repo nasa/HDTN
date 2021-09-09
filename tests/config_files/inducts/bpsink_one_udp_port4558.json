@@ -4,7 +4,6 @@
         {
             "name": "udp_bpsink",
             "convergenceLayer": "udp",
-            "endpointIdStr": "ipn1:3",
             "boundPort": 4558,
             "numRxCircularBufferElements": 200,
             "numRxCircularBufferBytesPerElement": 65535

@@ -4,13 +4,12 @@
         {
             "name": "o1",
             "convergenceLayer": "ltp_over_udp",
-            "endpointIdStr": "ipn1:1",
             "remoteHostname": "localhost",
             "remotePort": 1113,
             "bundlePipelineLimit": 5,
-            "flowIds": [
-                1,
-                2
+            "finalDestinationEidUris": [
+                "ipn:1.1",
+                "ipn:2.1"
             ],
             "thisLtpEngineId": 102,
             "remoteLtpEngineId": 103,
@@ -27,26 +26,24 @@
         {
             "name": "o2",
             "convergenceLayer": "udp",
-            "endpointIdStr": "ipn1:2",
             "remoteHostname": "localhost",
             "remotePort": 4557,
             "bundlePipelineLimit": 5,
-            "flowIds": [
-                4,
-                6
+            "finalDestinationEidUris": [
+                "ipn:4.1",
+                "ipn:6.1"
             ],
             "udpRateBps": 50000
         },
         {
             "name": "o3",
             "convergenceLayer": "tcpcl",
-            "endpointIdStr": "ipn1:3",
             "remoteHostname": "localhost",
             "remotePort": 4558,
             "bundlePipelineLimit": 5,
-            "flowIds": [
-                10,
-                26
+            "finalDestinationEidUris": [
+                "ipn:10.1",
+                "ipn:26.1"
             ],
             "keepAliveIntervalSeconds": 16,
             "tcpclAutoFragmentSizeBytes": 200000
@@ -54,14 +51,13 @@
         {
             "name": "o4",
             "convergenceLayer": "stcp",
-            "endpointIdStr": "ipn1:4",
             "remoteHostname": "localhost",
             "remotePort": 4559,
             "bundlePipelineLimit": 5,
-            "flowIds": [
-                100,
-                200,
-                300
+            "finalDestinationEidUris": [
+                "ipn:100.1",
+                "ipn:200.1",
+                "ipn:300.1"
             ],
             "keepAliveIntervalSeconds": 17
         }

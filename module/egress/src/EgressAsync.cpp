@@ -38,7 +38,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_hdtnConfig = hdtnConfig;
 
-    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig)) {
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId)) {
         return;
     }
 
@@ -135,7 +135,7 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
             const hdtn::ToEgressHdr & toEgressHeader = toEgressHeaderMessages[consumeIndex];
             zmq::message_t & zmqMessage = payloadMessages[consumeIndex];
             const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
-            if (Outduct * outduct = m_outductManager.GetOutductByFlowId(finalDestEid.nodeId)) { //TODO FIX THIS!!!!!!!!!!!!!
+            if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
                 std::unique_ptr<hdtn::EgressAckHdr> egressAckPtr = boost::make_unique<hdtn::EgressAckHdr>();
                 //memset 0 not needed because all values set below
                 egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;

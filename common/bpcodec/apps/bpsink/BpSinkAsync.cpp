@@ -70,11 +70,11 @@ bool BpSinkAsync::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr &
     m_nextCtebCustodyId = 0;
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig);
+    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId);
 
     if (outductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr);
+        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId);
         while (!m_outductManager.AllReadyToForward()) {
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
@@ -136,7 +136,7 @@ bool BpSinkAsync::Process(std::vector<uint8_t> & rxBuf, const std::size_t messag
                     //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
                     const cbhe_eid_t custodySignalDestEid(primaryForCustodySignalRfc5050.dst_node, primaryForCustodySignalRfc5050.dst_svc);
                     m_mutexForward.lock();
-                    bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid.nodeId, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
+                    bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
                     m_mutexForward.unlock();
                     if (!successForward) {
                         std::cerr << "error forwarding for 3 seconds for custody signal final dest eid (" << custodySignalDestEid.nodeId << "," << custodySignalDestEid.serviceId << ")\n";
@@ -214,7 +214,7 @@ void BpSinkAsync::SendAcsFromTimerThread() {
             //send an acs custody signal due to acs send timer
             const cbhe_eid_t custodySignalDestEid(it->first.dst_node, it->first.dst_svc);
             m_mutexForward.lock();
-            bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid.nodeId, it->second, 3); //TODO FIX THIS!!!!!!!!!!!!!
+            bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid, it->second, 3);
             m_mutexForward.unlock();
             if (!successForward) {
                 std::cerr << "error forwarding for 3 seconds\n";

@@ -7,6 +7,7 @@
 #include <vector>
 #include <zmq.hpp>
 #include <boost/thread.hpp>
+#include "codec/bpv6.h"
 
 class OutductManager {
 public:
@@ -14,22 +15,22 @@ public:
 
     OutductManager();
     ~OutductManager();
-    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig);
+    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId);
     void Clear();
     bool AllReadyToForward() const;
     void StopAllOutducts();
-    Outduct * GetOutductByFlowId(const uint64_t flowId);
+    Outduct * GetOutductByFinalDestinationEid(const cbhe_eid_t & finalDestEid);
     Outduct * GetOutductByOutductUuid(const uint64_t uuid);
 
     void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
 
-    bool Forward(uint64_t flowId, const uint8_t* bundleData, const std::size_t size);
-    bool Forward(uint64_t flowId, zmq::message_t & movableDataZmq);
-    bool Forward(uint64_t flowId, std::vector<uint8_t> & movableDataVec);
+    bool Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size);
+    bool Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq);
+    bool Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec);
 
-    bool Forward_Blocking(uint64_t flowId, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds);
-    bool Forward_Blocking(uint64_t flowId, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds);
-    bool Forward_Blocking(uint64_t flowId, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds);
+    bool Forward_Blocking(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds);
+    bool Forward_Blocking(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds);
+    bool Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds);
 private:
     void OnSuccessfulBundleAck(uint64_t uuidIndex);
 
@@ -47,7 +48,7 @@ private:
         }
     };
 
-    std::map<uint64_t, boost::shared_ptr<Outduct> > m_flowIdToOutductMap;
+    std::map<cbhe_eid_t, boost::shared_ptr<Outduct> > m_finalDestEidToOutductMap;
     std::vector<boost::shared_ptr<Outduct> > m_outductsVec;
     std::vector<std::unique_ptr<thread_communication_t> > m_threadCommunicationVec;
     uint64_t m_numEventsTooManyUnackedBundles;

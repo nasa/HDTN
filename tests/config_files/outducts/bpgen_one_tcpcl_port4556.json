@@ -4,14 +4,13 @@
         {
             "name": "bpgen",
             "convergenceLayer": "tcpcl",
-            "endpointIdStr": "ipn1:4",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,
-            "flowIds": [
-                1,
-                2,
-                3
+            "finalDestinationEidUris": [
+                "ipn:1.1",
+                "ipn:2.1",
+                "ipn:3.1"
             ],
             "keepAliveIntervalSeconds": 17,
             "tcpclAutoFragmentSizeBytes": 200000

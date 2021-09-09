@@ -3,7 +3,6 @@
     "inductVector": [
         {
             "convergenceLayer": "ltp_over_udp",
-            "endpointIdStr": "ipn1:1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 100,
             "numRxCircularBufferBytesPerElement": 65535,

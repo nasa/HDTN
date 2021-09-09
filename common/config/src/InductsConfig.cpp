@@ -15,7 +15,6 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 induct_element_config_t::induct_element_config_t() :
     name(""),
     convergenceLayer(""),
-    endpointIdStr(""),
     boundPort(0),
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
@@ -38,7 +37,6 @@ induct_element_config_t::~induct_element_config_t() {}
 induct_element_config_t::induct_element_config_t(const induct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
-    endpointIdStr(o.endpointIdStr),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
@@ -59,7 +57,6 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
 induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
-    endpointIdStr(std::move(o.endpointIdStr)),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
@@ -80,7 +77,6 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
 induct_element_config_t& induct_element_config_t::operator=(const induct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
-    endpointIdStr = o.endpointIdStr;
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
@@ -103,7 +99,6 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
 induct_element_config_t& induct_element_config_t::operator=(induct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
-    endpointIdStr = std::move(o.endpointIdStr);
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
@@ -125,7 +120,6 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
 bool induct_element_config_t::operator==(const induct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
-        (endpointIdStr == o.endpointIdStr) &&
         (boundPort == o.boundPort) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
@@ -201,7 +195,6 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 return false;
             }
         }
-        inductElementConfig.endpointIdStr = inductElementConfigPt.second.get<std::string>("endpointIdStr", "unnamed_endpoint_id"); //non-throw version
         inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort", 0); //non-throw version
         if (inductElementConfig.boundPort == 0) {
             std::cerr << "error: invalid boundPort must be non-zero";
@@ -278,7 +271,6 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & inductElementConfigPt = (inductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         inductElementConfigPt.put("name", inductElementConfig.name);
         inductElementConfigPt.put("convergenceLayer", inductElementConfig.convergenceLayer);
-        inductElementConfigPt.put("endpointIdStr", inductElementConfig.endpointIdStr);
         inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
         inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);

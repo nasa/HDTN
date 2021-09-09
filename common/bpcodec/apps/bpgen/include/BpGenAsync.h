@@ -15,7 +15,7 @@ public:
     BpGenAsync();
     ~BpGenAsync();
     void Stop();
-    void Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs, const cbhe_eid_t & myEid, uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId = 2);
+    void Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs, const cbhe_eid_t & myEid, uint32_t bundleSizeBytes, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId);
 
     uint64_t m_bundleCount;
     uint64_t m_numRfc5050CustodyTransfers;
@@ -26,7 +26,7 @@ public:
 
 
 private:
-    void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId);
+    void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, const cbhe_eid_t & destEid);
     void WholeCustodySignalBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 
@@ -37,7 +37,9 @@ private:
     bool m_useCustodyTransfer;
     bool m_custodyTransferUseAcs;
     cbhe_eid_t m_myEid;
-    std::string m_myEidUriString;
+    uint64_t m_myCustodianServiceId;
+    cbhe_eid_t m_myCustodianEid;
+    std::string m_myCustodianEidUriString;
     boost::mutex m_mutexCtebSet;
     boost::mutex m_mutexBundleUuidSet;
     std::set<FragmentSet::data_fragment_t> m_outstandingCtebCustodyIdsFragmentSet;

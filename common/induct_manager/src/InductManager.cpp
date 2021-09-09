@@ -11,13 +11,13 @@ InductManager::InductManager() {}
 
 InductManager::~InductManager() {}
 
-void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig) {
+void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig, const uint64_t myNodeId) {
     m_inductsList.clear();
     const induct_element_config_vector_t & configsVec = inductsConfig.m_inductElementConfigVector;
     for (induct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {
         const induct_element_config_t & thisInductConfig = *it;
         if (thisInductConfig.convergenceLayer == "tcpcl") {
-            m_inductsList.emplace_back(boost::make_unique<TcpclInduct>(inductProcessBundleCallback, thisInductConfig));
+            m_inductsList.emplace_back(boost::make_unique<TcpclInduct>(inductProcessBundleCallback, thisInductConfig, myNodeId));
         }
         else if (thisInductConfig.convergenceLayer == "stcp") {
             m_inductsList.emplace_back(boost::make_unique<StcpInduct>(inductProcessBundleCallback, thisInductConfig));

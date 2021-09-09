@@ -1,5 +1,9 @@
 {
     "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -21,11 +25,11 @@
             {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
-                "endpointIdStr": "ipn1:1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 100,
                 "numRxCircularBufferBytesPerElement": 65535,
                 "thisLtpEngineId": 100,
+                "remoteLtpEngineId": 200,
                 "ltpReportSegmentMtu": 1000,
                 "oneWayLightTimeMs": 1000,
                 "oneWayMarginTimeMs": 200,
@@ -33,8 +37,8 @@
                 "preallocatedRedDataBytes": 200000,
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpRandomNumberSizeBits": 64,
-                "ltpRemoteUdpHostname": "",
-                "ltpRemoteUdpPort": 0
+                "ltpRemoteUdpHostname": "localhost",
+                "ltpRemoteUdpPort": 1113
             }
         ]
     },
@@ -44,12 +48,11 @@
             {
                 "name": "tcpcl_egress",
                 "convergenceLayer": "tcpcl",
-                "endpointIdStr": "ipn1:4",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,
-                "flowIds": [
-                    2
+                "finalDestinationEidUris": [
+                    "ipn:2.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000

@@ -23,7 +23,7 @@ public:
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
         const unsigned int circularBufferBytesPerVector,
-        const std::string & thisEid,
+        const uint64_t myNodeId,
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     ~TcpclBundleSink();
     bool ReadyToBeDeleted();

@@ -16,11 +16,10 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
     convergenceLayer(""),
-    endpointIdStr(""),
     remoteHostname(""),
     remotePort(0),
     bundlePipelineLimit(0),
-    flowIds(),
+    finalDestinationEidUris(),
     
     thisLtpEngineId(0),
     remoteLtpEngineId(0),
@@ -45,11 +44,10 @@ outduct_element_config_t::~outduct_element_config_t() {}
 outduct_element_config_t::outduct_element_config_t(const outduct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
-    endpointIdStr(o.endpointIdStr),
     remoteHostname(o.remoteHostname),
     remotePort(o.remotePort),
     bundlePipelineLimit(o.bundlePipelineLimit),
-    flowIds(o.flowIds),
+    finalDestinationEidUris(o.finalDestinationEidUris),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -72,11 +70,10 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
 outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
-    endpointIdStr(std::move(o.endpointIdStr)),
     remoteHostname(std::move(o.remoteHostname)),
     remotePort(o.remotePort),
     bundlePipelineLimit(o.bundlePipelineLimit),
-    flowIds(std::move(o.flowIds)),
+    finalDestinationEidUris(std::move(o.finalDestinationEidUris)),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -99,11 +96,10 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
 outduct_element_config_t& outduct_element_config_t::operator=(const outduct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
-    endpointIdStr = o.endpointIdStr;
     remoteHostname = o.remoteHostname;
     remotePort = o.remotePort;
     bundlePipelineLimit = o.bundlePipelineLimit;
-    flowIds = o.flowIds;
+    finalDestinationEidUris = o.finalDestinationEidUris;
     
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -129,11 +125,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
 outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
-    endpointIdStr = std::move(o.endpointIdStr);
     remoteHostname = std::move(o.remoteHostname);
     remotePort = o.remotePort;
     bundlePipelineLimit = o.bundlePipelineLimit;
-    flowIds = std::move(o.flowIds);
+    finalDestinationEidUris = std::move(o.finalDestinationEidUris);
 
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -158,11 +153,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
 bool outduct_element_config_t::operator==(const outduct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
-        (endpointIdStr == o.endpointIdStr) &&
         (remoteHostname == o.remoteHostname) &&
         (remotePort == o.remotePort) &&
         (bundlePipelineLimit == o.bundlePipelineLimit) &&
-        (flowIds == o.flowIds) &&
+        (finalDestinationEidUris == o.finalDestinationEidUris) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
         (remoteLtpEngineId == o.remoteLtpEngineId) &&
@@ -241,7 +235,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
         }
-        outductElementConfig.endpointIdStr = outductElementConfigPt.second.get<std::string>("endpointIdStr", "unnamed_endpoint_id"); //non-throw version
         outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname", ""); //non-throw version
         if (outductElementConfig.remoteHostname == "") {
             std::cerr << "error: invalid remoteHostname, must not be empty" << std::endl;
@@ -253,11 +246,11 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             return false;
         }
         outductElementConfig.bundlePipelineLimit = outductElementConfigPt.second.get<uint32_t>("bundlePipelineLimit", 0); //non-throw version
-        const boost::property_tree::ptree & flowIdsPt = outductElementConfigPt.second.get_child("flowIds", boost::property_tree::ptree()); //non-throw version
-        outductElementConfig.flowIds.clear();
-        BOOST_FOREACH(const boost::property_tree::ptree::value_type & flowIdValuePt, flowIdsPt) {
-            if (outductElementConfig.flowIds.insert(flowIdValuePt.second.get_value<uint64_t>()).second == false) { //not inserted
-                std::cerr << "error: duplicate flow id " << flowIdValuePt.second.get_value<uint64_t>() << std::endl;
+        const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", boost::property_tree::ptree()); //non-throw version
+        outductElementConfig.finalDestinationEidUris.clear();
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
+            if (outductElementConfig.finalDestinationEidUris.insert(finalDestinationEidUriValuePt.second.get_value<std::string>()).second == false) { //not inserted
+                std::cerr << "error: duplicate final destination eid uri " << finalDestinationEidUriValuePt.second.get_value<std::string>() << std::endl;
                 return false;
             }
         }
@@ -338,13 +331,12 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & outductElementConfigPt = (outductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         outductElementConfigPt.put("name", outductElementConfig.name);
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
-        outductElementConfigPt.put("endpointIdStr", outductElementConfig.endpointIdStr);
         outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
         outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
         outductElementConfigPt.put("bundlePipelineLimit", outductElementConfig.bundlePipelineLimit);
-        boost::property_tree::ptree & flowIdsPt = outductElementConfigPt.put_child("flowIds", outductElementConfig.flowIds.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-        for (std::set<uint64_t>::const_iterator flowIdIt = outductElementConfig.flowIds.cbegin(); flowIdIt != outductElementConfig.flowIds.cend(); ++flowIdIt) {
-            flowIdsPt.push_back(std::make_pair("", boost::property_tree::ptree(boost::lexical_cast<std::string>((static_cast<unsigned int>(*flowIdIt)))))); //using "" as key creates json array
+        boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.put_child("finalDestinationEidUris", outductElementConfig.finalDestinationEidUris.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+        for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
+            finalDestinationEidUrisPt.push_back(std::make_pair("", boost::property_tree::ptree(*finalDestinationEidUriIt))); //using "" as key creates json array
         }
         
         if (outductElementConfig.convergenceLayer == "ltp_over_udp") {

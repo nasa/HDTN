@@ -35,7 +35,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 ("help", "Produce help message.")
                 ("simulate-processing-lag-ms", boost::program_options::value<boost::uint32_t>()->default_value(0), "Extra milliseconds to process bundle (testing purposes).")
                 ("inducts-config-file", boost::program_options::value<std::string>()->default_value("inducts.json"), "Inducts Configuration File.")
-                ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen Source Node Id.")
+                ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpSink Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
                 ;

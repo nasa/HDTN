@@ -21,9 +21,6 @@
 #include "codec/CustodyTransferManager.h"
 #include "Uri.h"
 
-static const uint64_t PRIMARY_HDTN_NODE = 10; //todo
-static const uint64_t PRIMARY_HDTN_SVC = 10; //todo
-static const cbhe_eid_t HDTN_EID(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
 
 hdtn::ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
@@ -42,6 +39,11 @@ void hdtn::ZmqStorageInterface::Stop() {
 void hdtn::ZmqStorageInterface::Init(zmq::context_t *ctx, const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
     m_zmqContextPtr = ctx;
     m_hdtnConfig = hdtnConfig;
+    //according to ION.pdf v4.0.1 on page 100 it says:
+    //  Remember that the format for this argument is ipn:element_number.0 and that
+    //  the final 0 is required, as custodial/administration service is always service 0.
+    //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
+    M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
 }
 
@@ -92,7 +94,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 
     //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
     const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    if (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == HDTN_EID)) {
+    if (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == forStats->M_HDTN_EID_CUSTODY)) {
         if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
             std::cerr << "error admin record has canonical block\n";
             return false;
@@ -357,7 +359,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     const bool isAcsAware = true;
     
     static const boost::posix_time::time_duration ACS_SEND_PERIOD = boost::posix_time::milliseconds(1000);
-    CustodyTransferManager ctm(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
+    CustodyTransferManager ctm(isAcsAware, M_HDTN_EID_CUSTODY.nodeId, M_HDTN_EID_CUSTODY.serviceId);
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 

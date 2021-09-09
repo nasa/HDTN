@@ -16,7 +16,7 @@ private:
     TcpclBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
+    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
 
     ~TcpclBundleSource();
     void Stop();

@@ -16,9 +16,6 @@
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
 
-static const uint64_t PRIMARY_HDTN_NODE = 10; //todo
-static const uint64_t PRIMARY_HDTN_SVC = 10; //todo
-static const cbhe_eid_t HDTN_EID(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
 
 namespace hdtn {
 
@@ -59,6 +56,11 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::
     if (!m_running) {
         m_running = true;
         m_hdtnConfig = hdtnConfig;
+        //according to ION.pdf v4.0.1 on page 100 it says:
+        //  Remember that the format for this argument is ipn:element_number.0 and that
+        //  the final 0 is required, as custodial/administration service is always service 0.
+        //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
+        M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
 
         if (hdtnOneProcessZmqInprocContextPtr) {
 
@@ -109,7 +111,7 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, bool alwaysSendToStorage, zmq::
             boost::bind(&Ingress::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
 
         m_alwaysSendToStorage = alwaysSendToStorage;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig);
+        m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig, m_hdtnConfig.m_myNodeId);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
     }
@@ -254,7 +256,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
     //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
     const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == HDTN_EID));
+    const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
     //if (isAdminRecordForHdtnStorage) {
     //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
     //}

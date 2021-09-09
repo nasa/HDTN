@@ -20,6 +20,7 @@ target_link_libraries(outduct_manager_lib
 	stcp_lib 
 	udp_lib 
 	ltp_lib
+	bpcodec
 	${Boost_LIBRARIES}
 	${pthread_LIB}
 )

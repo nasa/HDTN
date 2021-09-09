@@ -5,9 +5,10 @@
 
 
 //TCPCL INDUCT
-TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig) :
+TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId) :
     Induct(inductProcessBundleCallback, inductConfig),
-    m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort))
+    m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
+    M_MY_NODE_ID(myNodeId)
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -46,7 +47,7 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
             m_inductProcessBundleCallback,
             m_inductConfig.numRxCircularBufferElements,
             m_inductConfig.numRxCircularBufferBytesPerElement,
-            m_inductConfig.endpointIdStr,
+            M_MY_NODE_ID,
             boost::bind(&TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived, this));
 
         StartTcpAccept(); //only accept if there was no error

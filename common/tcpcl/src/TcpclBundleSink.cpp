@@ -3,6 +3,7 @@
 #include <iostream>
 #include "TcpclBundleSink.h"
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
 TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
     boost::asio::io_service & tcpSocketIoServiceRef,
@@ -10,10 +11,13 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     //ConnectionClosedCallback_t connectionClosedCallback,
     const unsigned int numCircularBufferVectors,
     const unsigned int circularBufferBytesPerVector,
-    const std::string & thisEid,
+    const uint64_t myNodeId,
     const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
 
-    M_THIS_EID(thisEid),
+    //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+    //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+    M_THIS_EID(Uri::GetIpnUriString(myNodeId, 0)),
+
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
     m_notifyReadyToDeleteCallback(notifyReadyToDeleteCallback),
     m_tcpSocketPtr(tcpSocketPtr),

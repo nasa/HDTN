@@ -45,16 +45,19 @@ void BpGenAsync::Stop() {
     
 }
 
-void BpGenAsync::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs, const cbhe_eid_t & myEid, uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
+void BpGenAsync::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
+    const cbhe_eid_t & myEid, uint32_t bundleSizeBytes, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId) {
     if (m_running) {
         std::cerr << "error: BpGenAsync::Start called while BpGenAsync is already running" << std::endl;
         return;
     }
     m_myEid = myEid;
-    m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
+    m_myCustodianServiceId = myCustodianServiceId;
+    m_myCustodianEid.Set(m_myEid.nodeId, myCustodianServiceId);
+    m_myCustodianEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, myCustodianServiceId);
     m_detectedNextCustodianSupportsCteb = false;
 
-    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig)) {
+    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId)) {
         return;
     }
 
@@ -62,7 +65,7 @@ void BpGenAsync::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr 
     m_custodyTransferUseAcs = custodyTransferUseAcs;
     if (inductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&BpGenAsync::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1), *inductsConfigPtr);
+        m_inductManager.LoadInductsFromConfig(boost::bind(&BpGenAsync::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1), *inductsConfigPtr, m_myEid.nodeId);
     }
     else {
         m_useCustodyTransfer = false;
@@ -73,14 +76,14 @@ void BpGenAsync::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr 
    
     
     m_bpGenThreadPtr = boost::make_unique<boost::thread>(
-        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, destFlowId)); //create and start the worker thread
+        boost::bind(&BpGenAsync::BpGenThreadFunc, this, bundleSizeBytes, bundleRate, finalDestEid)); //create and start the worker thread
 
 
 
 }
 
 
-void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId) {
+void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, const cbhe_eid_t & destEid) {
 
     while (m_running) {
         std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
@@ -211,12 +214,12 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
             if (m_useCustodyTransfer) {
                 primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
                 primary.custodian_node = m_myEid.nodeId;
-                primary.custodian_svc = m_myEid.serviceId;
+                primary.custodian_svc = m_myCustodianServiceId;
             }
             primary.src_node = m_myEid.nodeId;
             primary.src_svc = m_myEid.serviceId;
-            primary.dst_node = destFlowId;
-            primary.dst_svc = 1;
+            primary.dst_node = destEid.nodeId;
+            primary.dst_svc = destEid.serviceId;
             primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
             primary.lifetime = 1000;
             primary.sequence = seq;
@@ -235,7 +238,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
                     const uint64_t ctebCustodyId = nextCtebCustodyId++;
                     bpv6_canonical_block returnedCanonicalBlock;
                     retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, 0, //0=> not last block
-                        ctebCustodyId, m_myEidUriString, returnedCanonicalBlock);
+                        ctebCustodyId, m_myCustodianEidUriString, returnedCanonicalBlock);
 
                     if (retVal == 0) {
                         std::cout << "cteb encode error\n";
@@ -292,7 +295,7 @@ void BpGenAsync::BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, 
         }
 
         //send message
-        if (!m_outductManager.Forward_Blocking(destFlowId, bundleToSend, 3)) {
+        if (!m_outductManager.Forward_Blocking(destEid, bundleToSend, 3)) {
             std::cerr << "bpgen was unable to send a bundle for 3 seconds.. exiting" << std::endl;
             m_running = false;
         }
@@ -357,7 +360,7 @@ void BpGenAsync::WholeCustodySignalBundleReadyCallback(std::vector<uint8_t> & wh
         return;
     }
     const cbhe_eid_t receivedFinalDestinationEid(primary.dst_node, primary.dst_svc);
-    if (receivedFinalDestinationEid != m_myEid) {
+    if (receivedFinalDestinationEid != m_myCustodianEid) {
         std::cerr << "custody signal has wrong destination\n";
         return;
     }

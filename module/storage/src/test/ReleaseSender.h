@@ -17,7 +17,7 @@
 
 typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
 struct ReleaseMessageEvent_t {
-    int id;
+    cbhe_eid_t finalDestEid;
     int delay;
     std::string message;
 };
@@ -35,7 +35,7 @@ public:
     }
     volatile bool m_timersFinished;
 private:
-    void ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket);
+    void ProcessEvent(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string message, zmq::socket_t * ptrSocket);
 
     HdtnConfig m_hdtnConfig;
 };

@@ -11,6 +11,7 @@
 #include "reg.hpp"
 #include "stats.hpp"
 #include "zmq.hpp"
+#include "codec/bpv6.h"
 
 #define HDTN_STORAGE_TELEM_FLOWCOUNT (4)
 #define HDTN_STORAGE_PORT_DEFAULT (10425)
@@ -51,6 +52,7 @@ class ZmqStorageInterface {
     uint64_t m_numRfc5050CustodyTransfers;
     uint64_t m_numAcsCustodyTransfers;
     uint64_t m_numAcsPacketsReceived;
+    cbhe_eid_t M_HDTN_EID_CUSTODY;
 
 private:
     void ThreadFunc();
