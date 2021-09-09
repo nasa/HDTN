@@ -14,6 +14,7 @@
 #include "codec/crc.h"
 #include "codec/bpv6-ext-block.h"
 #include <inttypes.h>
+#include "Sdnv.h"
 
 void bpv6_block_flags_print(bpv6_canonical_block* block){
     printf("Flags: 0x%" PRIx64 "\n", block->flags);
@@ -69,9 +70,14 @@ uint8_t bpv6_cteb_decode(bpv6_cust_transfer_ext_block* block, const char* buffer
    uint64_t custodian_eid_len = 0;
    bpv6_eid custodian;
    memset(&custodian, 0, sizeof(bpv6_eid));
-   uint8_t  incr  = 0;
-   incr = bpv6_sdnv_decode(&block->cust_id, buffer, index, bufsz);
-   index += incr;
+   uint8_t sdnvSize;
+
+   block->cust_id = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+   if (sdnvSize == 0) {
+       return 0; //return 0 on failure TODO
+   }
+   index += sdnvSize;
+
    custodian_eid_len=block->length-index+block_start;//calculate the length of the custodian eid string
    char_to_bpv6_eid(&custodian, buffer,index, custodian_eid_len,bufsz);
    block->cteb_creator_node=custodian.node;
@@ -96,24 +102,57 @@ void bpv6_cteb_print(bpv6_cust_transfer_ext_block* block){
 
 uint8_t bpv6_bib_decode(bpv6_bplib_bib_block* block, const char* buffer,const size_t offset, const size_t bufsz) {
 	uint64_t index = offset;
-	uint8_t  incr  = 0;
 	uint16_t crc16=0;
-	incr = bpv6_sdnv_decode(&block->num_targets, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->target_type, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->target_sequence, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->cipher_suite_id, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->cipher_suite_flags, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->num_security_results, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->security_result_type, buffer, index, bufsz);
-	index += incr;
-	incr = bpv6_sdnv_decode(&block->security_result_len, buffer, index, bufsz);
-	index += incr;
+    uint8_t sdnvSize;
+
+    block->num_targets = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->target_type = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->target_sequence = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->cipher_suite_id = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->cipher_suite_flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->num_security_results = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->security_result_type = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
+    block->security_result_len = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
 	//uint8_t valptr[block->security_result_len];
 	//memcpy(&valptr, buffer+index,block->security_result_len);
 	const uint8_t * const valptr = (const uint8_t *)&buffer[index];
@@ -153,9 +192,14 @@ void bpv6_bib_print(bpv6_bplib_bib_block* block){
 uint8_t bpv6_bundle_age_decode(bpv6_bundle_age_ext_block* block,const char* buffer,const size_t offset, const size_t bufsz)
 {
 	uint64_t index = offset;
-	uint8_t  incr  = 0;
-	incr = bpv6_sdnv_decode(&block->bundle_age, buffer, index, bufsz);
-	index += incr;
+    uint8_t sdnvSize;
+
+    block->bundle_age = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure TODO
+    }
+    index += sdnvSize;
+
 	return 0;
 }
 

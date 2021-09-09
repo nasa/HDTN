@@ -1,8 +1,7 @@
 #ifndef _BUNDLE_STORAGE_CONFIG_H
 #define _BUNDLE_STORAGE_CONFIG_H
 
-#include <boost/integer.hpp>
-#include <stdint.h>
+#include <cstdint>
 
 ///////////////////////////
 //SEGMENT ALLOCATOR
@@ -17,7 +16,7 @@
 ///////////////////////////
 
 #define SEGMENT_SIZE 4096  
-#define SEGMENT_RESERVED_SPACE (sizeof(boost::uint64_t) + sizeof(boost::uint32_t))
+#define SEGMENT_RESERVED_SPACE (sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint64_t))
 #define BUNDLE_STORAGE_PER_SEGMENT_SIZE (SEGMENT_SIZE - SEGMENT_RESERVED_SPACE)
 #define READ_CACHE_NUM_SEGMENTS_PER_SESSION 50
 
@@ -40,8 +39,7 @@
 ////#error "MAX SEGMENTS GREATER THAN WHAT MEMORY MANAGER CAN HANDLE"
 ////#endif
 
-//two days
-#define NUMBER_OF_EXPIRATIONS (86400*2)
+
 #define NUMBER_OF_PRIORITIES (3)
 //#define USE_MEMORY_MAPPED_FILES 1
 ////#define NUM_STORAGE_THREADS 4

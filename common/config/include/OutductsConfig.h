@@ -14,11 +14,10 @@ struct outduct_element_config_t {
     //common to all outducts
     std::string name;
     std::string convergenceLayer;
-    std::string endpointIdStr;
     std::string remoteHostname;
     uint16_t remotePort;
     uint32_t bundlePipelineLimit;
-    std::set<uint64_t> flowIds;
+    std::set<std::string> finalDestinationEidUris;
     
 
     //specific to ltp
@@ -29,9 +28,10 @@ struct outduct_element_config_t {
     uint64_t oneWayMarginTimeMs;
     uint64_t clientServiceId;
     uint32_t numRxCircularBufferElements;
-    uint32_t numRxCircularBufferBytesPerElement;
     uint32_t ltpMaxRetriesPerSerialNumber;
     uint32_t ltpCheckpointEveryNthDataSegment;
+    uint32_t ltpRandomNumberSizeBits;
+    uint16_t ltpSenderBoundPort;
 
     //specific to udp
     uint64_t udpRateBps;

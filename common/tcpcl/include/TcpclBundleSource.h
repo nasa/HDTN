@@ -16,7 +16,7 @@ private:
     TcpclBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
+    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
 
     ~TcpclBundleSource();
     void Stop();
@@ -42,6 +42,7 @@ private:
     void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
     void DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
+    void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
 
@@ -67,7 +68,9 @@ private:
     boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
     boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
+    boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    boost::asio::ip::tcp::resolver::results_type m_resolverResults;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::condition_variable m_localConditionVariableAckReceived;
 
@@ -75,6 +78,7 @@ private:
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;
     std::string m_localEid;
     uint16_t m_keepAliveIntervalSeconds;
+    uint64_t m_reconnectionDelaySecondsIfNotZero;
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
     std::vector<uint64_t> m_bytesToAckCbVec;

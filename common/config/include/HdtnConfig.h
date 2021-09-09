@@ -46,6 +46,10 @@ public:
 public:
 
     std::string m_hdtnConfigName;
+    std::string m_mySchemeName;
+    uint64_t m_myNodeId;
+    std::string m_myCustodialSsp;
+    uint64_t m_myCustodialServiceId;
 
     std::string m_zmqIngressAddress;
     std::string m_zmqEgressAddress;

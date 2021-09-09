@@ -1,12 +1,12 @@
 {
     "releaseMessageEvents": [
         {
-            "id": 2,
+            "finalDestinationEid": "ipn:2.1",
             "delay": 15,
             "message": "start"
         },
         {
-            "id": 1,
+            "finalDestinationEid": "ipn:1.1",
             "delay": 16,
             "message": "start"
         }

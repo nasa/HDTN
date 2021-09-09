@@ -195,7 +195,7 @@ bool MemoryManagerTreeArray::AllocateSegments_ThreadSafe(segment_id_chain_vec_t 
 	return true;
 }
 
-bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec) {
+bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(const segment_id_chain_vec_t & segmentVec) {
 	boost::mutex::scoped_lock lock(m_mutex);
 	const std::size_t size = segmentVec.size();
 	bool success = true;
@@ -204,7 +204,7 @@ bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(segment_id_chain_vec_t & se
 			success = false;
 		}
 	}
-	segmentVec.resize(0);
+	//segmentVec.resize(0);
 	return success;
 }
 

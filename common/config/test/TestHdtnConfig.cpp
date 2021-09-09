@@ -10,6 +10,7 @@ BOOST_AUTO_TEST_CASE(HdtnConfigTestCase)
 
     HdtnConfig hdtnConfig;
     hdtnConfig.m_hdtnConfigName = "my hdtn config";
+    hdtnConfig.m_myNodeId = 10;
 
     const std::string jsonFileNameInducts = (jsonRootDir / "inducts.json").string();
     InductsConfig_ptr ic1 = InductsConfig::CreateFromJsonFile(jsonFileNameInducts);

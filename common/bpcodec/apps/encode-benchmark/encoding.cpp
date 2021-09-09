@@ -9,6 +9,7 @@
 #include "codec/bpv6.h"
 #include "util/tsc.h"
 #include <inttypes.h>
+#include "Sdnv.h"
 
 using namespace hdtn;
 using namespace std;
@@ -83,8 +84,10 @@ int main(int argc, char* argv[]) {
         for(int i = 0; i < BP_SANITY_COUNT; ++i) {
             uint64_t sanity_tmp = 0;
             uint8_t  sanity_adv[2] = {0, 0};
-            sanity_adv[0] = bpv6_sdnv_encode(sanity_encode[i], (char *)src, 0, 16);
-            sanity_adv[1] = bpv6_sdnv_decode(&sanity_tmp, (char *)src, 0, 16);
+            //sanity_adv[0] = bpv6_sdnv_encode(sanity_encode[i], (char *)src, 0, 16);
+            //sanity_adv[1] = bpv6_sdnv_decode(&sanity_tmp, (char *)src, 0, 16);
+            sanity_adv[0] = SdnvEncodeU64((uint8_t *)src, sanity_encode[i]);
+            sanity_tmp = SdnvDecodeU64((const uint8_t *)src, &sanity_adv[1]);
             if(sanity_tmp != sanity_encode[i]) {
                 std::cerr << "SDNV Sanity check failed ..." << std::endl;
                 std::cerr << "Encoded `" << sanity_encode[i] << "` into ";
@@ -169,9 +172,11 @@ int main(int argc, char* argv[]) {
         for(uint64_t i = 0; i < count; ++i) {
             uint64_t tmp;
             uint8_t adv;
-            adv = bpv6_sdnv_encode(to_encode[i], (char *)src, 0, 16);
+            //adv = bpv6_sdnv_encode(to_encode[i], (char *)src, 0, 16);
+            adv = SdnvEncodeU64((uint8_t *)src, to_encode[i]);
             sdnv_bytes_total += adv;
-            adv = bpv6_sdnv_decode(&tmp, (char *)src, 0, 16);
+            //adv = bpv6_sdnv_decode(&tmp, (char *)src, 0, 16);
+            tmp = SdnvDecodeU64((const uint8_t *)src, &adv);
             assert(tmp == to_encode[i]);
         }
     }

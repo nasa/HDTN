@@ -18,20 +18,7 @@
 #include <boost/thread.hpp>
 #include <boost/bind.hpp>
 #include <boost/make_unique.hpp>
-
-#define BP_MSG_BUFSZ             (65536)
-#define BP_BUNDLE_DEFAULT_SZ     (100)
-#define BP_GEN_BUNDLE_MAXSZ      (64000)
-#define BP_GEN_RATE_MAX          (1 << 30)
-#define BP_GEN_TARGET_DEFAULT    "127.0.0.1"
-#define BP_GEN_PORT_DEFAULT      (4556)
-#define BP_GEN_SRC_NODE_DEFAULT  (1)
-#define BP_GEN_DST_NODE_DEFAULT  (2)
-#define BP_GEN_BATCH_DEFAULT     (1 << 18)  // write out one entry per this many bundles.
-#define BP_GEN_LOGFILE           "bpsink.%lu.csv"
-
-#define BP_MSG_NBUF   (32)
-
+#include "Uri.h"
 
 namespace hdtn {
 
@@ -41,13 +28,19 @@ struct bpgen_hdr {
     timespec abstime;
 };
 
-BpSinkAsync::BpSinkAsync() {}
+BpSinkAsync::BpSinkAsync() : m_timerAcs(m_ioService) {}
 
 BpSinkAsync::~BpSinkAsync() {
     Stop();
 }
 
 void BpSinkAsync::Stop() {
+
+    if (m_ioServiceThreadPtr) {
+        m_timerAcs.cancel();
+        m_ioServiceThreadPtr->join();
+        m_ioServiceThreadPtr.reset(); //delete it
+    }
 
     m_inductManager.Clear();
 
@@ -60,9 +53,10 @@ void BpSinkAsync::Stop() {
     m_FinalStatsBpSink.m_duplicateCount = m_duplicateCount;
 }
 
-int BpSinkAsync::Init(const InductsConfig & inductsConfig, uint32_t processingLagMs) {
-    m_batch = BP_GEN_BATCH_DEFAULT;
+bool BpSinkAsync::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr, bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs) {
 
+    m_myEid = myEid;
+    m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
 
     m_tscTotal = 0;
     m_rtTotal = 0;
@@ -73,104 +67,119 @@ int BpSinkAsync::Init(const InductsConfig & inductsConfig, uint32_t processingLa
     m_seqHval = 0;
     m_seqBase = 0;
 
+    m_nextCtebCustodyId = 0;
+
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig);
+    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkAsync::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId);
+
+    if (outductsConfigPtr) {
+        m_useCustodyTransfer = true;
+        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId);
+        while (!m_outductManager.AllReadyToForward()) {
+            std::cout << "waiting for outduct to be ready...\n";
+            boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+        }
+        m_custodyTransferManagerPtr = boost::make_unique<CustodyTransferManager>(isAcsAware, myEid.nodeId, myEid.serviceId);
+        if (isAcsAware) {
+            m_timerAcs.expires_from_now(boost::posix_time::seconds(1));
+            m_timerAcs.async_wait(boost::bind(&BpSinkAsync::AcsNeedToSend_TimerExpired, this, boost::asio::placeholders::error));
+            m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+        }
+    }
+    else {
+        m_useCustodyTransfer = false;
+    }
     
-    return 0;
+    return true;
 }
 
 
 
-int BpSinkAsync::Process(const std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
+bool BpSinkAsync::Process(std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
+
     if (M_EXTRA_PROCESSING_TIME_MS) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(M_EXTRA_PROCESSING_TIME_MS));
     }
 
-    {
-        bpv6_primary_block primary;
-        bpv6_canonical_block payload;
-        const char * const mbuf = (const char*)rxBuf.data();
-        uint64_t curr_seq = 0;
-
-        int32_t offset = 0;
-        offset += bpv6_primary_block_decode(&primary, mbuf, offset, messageSize);
-        if(0 == offset) {
-            printf("Malformed bundle received - aborting.\n");
-            return -2;
-        }
-        bool is_payload = false;
-        while(!is_payload) {
-            int32_t tres = bpv6_canonical_block_decode(&payload, mbuf, offset, messageSize);
-            if(tres <= 0) {
-                printf("Failed to parse extension block - aborting.\n");
-                return -3;
-            }
-            offset += tres;
-            if(payload.type == BPV6_BLOCKTYPE_PAYLOAD) {
-                is_payload = true;
-            }
-        }
-        m_totalBytesRx += payload.length;
-        bpgen_hdr* data = (bpgen_hdr*)(mbuf + offset);
-        // offset by the first sequence number we see, so that we don't need to restart for each run ...
-        if(m_seqBase == 0) {
-            m_seqBase = data->seq;
-            m_seqHval = m_seqBase;
-            ++m_receivedCount; //brian added
-        }
-        else if(data->seq > m_seqHval) {
-            m_seqHval = data->seq;
-            ++m_receivedCount;
-        }
-        else {
-            ++m_duplicateCount;
-        }
-#ifndef _WIN32
-        timespec tp;
-        clock_gettime(CLOCK_REALTIME, &tp);
-        int64_t one_way = 1000000 * (((int64_t)tp.tv_sec) - ((int64_t)data->abstime.tv_sec));
-        one_way += (((int64_t)tp.tv_nsec) - ((int64_t)data->abstime.tv_nsec)) / 1000;
-
-        m_rtTotal += one_way;
-        m_tscTotal += rdtsc() - data->tsc;
-#endif // !_WIN32
+    
+    BundleViewV6 bv;
+    if (!bv.SwapInAndLoadBundle(rxBuf)) { //invalid bundle
+        std::cerr << "malformed bundle\n";
+        return false;
     }
-    //gettimeofday(&tv, NULL);
-    //double curr_time = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-    //curr_time -= start;
-/*
-    if(m_duplicateCount + m_receivedCount >= m_batch) {
-        if(m_receivedCount == 0) {
-            printf("BUG: batch was entirely duplicates - this shouldn't actually be possible.\n");
-        }
-        else if(use_one_way) {
-            fprintf(log, "%0.6f, %lu, %lu, %lu, %lu, %lu, %lu, %0.4f%%, %0.4f, one_way\n",
-                    curr_time, seq_base, seq_hval, received_count, duplicate_count,
-                    bytes_total, rt_total,
-                    100 - (100 * (received_count / (double)(seq_hval - seq_base))),
-                    1000 * ((rt_total / 1000000.0) / received_count) );
+    bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+    const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
+    const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
 
-        }
-        else {
-            fprintf(log, "%0.6f, %lu, %lu, %lu, %lu, %lu, %lu, %0.4f%%, %0.4f, rtt\n",
-                    curr_time, seq_base, seq_hval, received_count, duplicate_count,
-                    bytes_total, tsc_total,
-                    100 - (100 * (received_count / (double)(seq_hval - seq_base))),
-                    1000 * ((tsc_total / (double)freq_base) / received_count) );
-
-        }
-        fflush(log);
-
-        duplicate_count = 0;
-        received_count = 0;
-        bytes_total = 0;
-        seq_hval = 0;
-        seq_base = 0;
-        rt_total = 0;
-        tsc_total = 0;
+    if (finalDestEid != m_myEid) {
+        std::cerr << "bundle received has a destination that doesn't match my eid\n";
+        return false;
     }
-    */
-    return 0;
+
+    //accept custody
+    if (m_useCustodyTransfer) {
+        static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+        if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+            const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
+            bpv6_primary_block primaryForCustodySignalRfc5050;
+            m_mutexCtm.lock();
+            const bool successfullyProcessedCustody = m_custodyTransferManagerPtr->ProcessCustodyOfBundle(bv, true,
+                newCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
+                m_bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050);
+            m_mutexCtm.unlock();
+            if (!successfullyProcessedCustody) {
+                std::cerr << "error unable to process custody\n";
+                return false;
+            }
+            else {
+                if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
+                    //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
+                    const cbhe_eid_t custodySignalDestEid(primaryForCustodySignalRfc5050.dst_node, primaryForCustodySignalRfc5050.dst_svc);
+                    m_mutexForward.lock();
+                    bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
+                    m_mutexForward.unlock();
+                    if (!successForward) {
+                        std::cerr << "error forwarding for 3 seconds for custody signal final dest eid (" << custodySignalDestEid.nodeId << "," << custodySignalDestEid.serviceId << ")\n";
+                    }
+                    else {
+                        //std::cout << "success forwarding\n";
+                    }
+                }
+                else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
+                    boost::asio::post(m_ioService, boost::bind(&BpSinkAsync::SendAcsFromTimerThread, this));
+                }
+            }
+        }
+    }
+
+    std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+    bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+    if (blocks.size() != 1) {
+        std::cerr << "error payload block not found\n";
+        return false;
+    }
+    bpv6_canonical_block & payloadBlock = blocks[0]->header;
+    boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
+    bpgen_hdr bpGenHdr;
+    memcpy(&bpGenHdr, blockBodyBuffer.data(), sizeof(bpgen_hdr));
+    
+    m_totalBytesRx += payloadBlock.length;
+    
+    // offset by the first sequence number we see, so that we don't need to restart for each run ...
+    if(m_seqBase == 0) {
+        m_seqBase = bpGenHdr.seq;
+        m_seqHval = m_seqBase;
+        ++m_receivedCount; //brian added
+    }
+    else if(bpGenHdr.seq > m_seqHval) {
+        m_seqHval = bpGenHdr.seq;
+        ++m_receivedCount;
+    }
+    else {
+        ++m_duplicateCount;
+    }
+
+    return true;
 }
 
 void BpSinkAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
@@ -179,6 +188,43 @@ void BpSinkAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec
     Process(wholeBundleVec, wholeBundleVec.size());
 }
 
+void BpSinkAsync::AcsNeedToSend_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        SendAcsFromTimerThread();
+        
+        m_timerAcs.expires_from_now(boost::posix_time::seconds(1));
+        m_timerAcs.async_wait(boost::bind(&BpSinkAsync::AcsNeedToSend_TimerExpired, this, boost::asio::placeholders::error));
+    }
+    else {
+        std::cout << "timer stopped\n";
+    }
+}
 
+void BpSinkAsync::SendAcsFromTimerThread() {
+    //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
+    std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+    m_mutexCtm.lock();
+    const bool generatedSuccessfully = m_custodyTransferManagerPtr->GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList);
+    m_mutexCtm.unlock();
+    if (generatedSuccessfully) {
+        for (std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
+            it != serializedPrimariesAndBundlesList.end(); ++it)
+        {
+            //send an acs custody signal due to acs send timer
+            const cbhe_eid_t custodySignalDestEid(it->first.dst_node, it->first.dst_svc);
+            m_mutexForward.lock();
+            bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid, it->second, 3);
+            m_mutexForward.unlock();
+            if (!successForward) {
+                std::cerr << "error forwarding for 3 seconds\n";
+            }
+            else {
+                //std::cout << "success forwarding\n";
+            }
+            
+        }
+    }
+}
 
 }  // namespace hdtn

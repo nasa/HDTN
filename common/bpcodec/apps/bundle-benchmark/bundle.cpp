@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
     bpv6_primary.lifetime = 3600;
     bpv6_primary.creation = bpv6_unix_to_5050(time(0));
     bpv6_primary.sequence = 1;
-    offset = bpv6_primary_block_encode(&bpv6_primary, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+    offset = cbhe_bpv6_primary_block_encode(&bpv6_primary, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
 
     // write a previous hop insertion header ...
     bpv6_block.type = BPV6_BLOCKTYPE_PREV_HOP_INSERTION;

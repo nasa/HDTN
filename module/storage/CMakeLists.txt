@@ -37,7 +37,7 @@ add_executable(hdtn-multiple-release-message-sender
     src/test/ReleaseSender.cpp
     src/test/multiple_release_message_sender.cpp
 )
-target_link_libraries(hdtn-multiple-release-message-sender hdtn_reg config_lib bpcodec ${libzmq_LIB} ${pthread_LIB}  ${Boost_LIBRARIES})
+target_link_libraries(hdtn-multiple-release-message-sender hdtn_reg config_lib hdtn_util bpcodec ${libzmq_LIB} ${pthread_LIB}  ${Boost_LIBRARIES})
 target_include_directories(hdtn-multiple-release-message-sender PUBLIC
     include
     lib/include
@@ -51,6 +51,11 @@ target_include_directories(hdtn-multiple-release-message-sender PUBLIC
 add_library(storage_lib STATIC
         src/MemoryManagerTreeArray.cpp
         src/BundleStorageManagerMT.cpp
+		src/BundleStorageManagerAsio.cpp
+		src/BundleStorageManagerBase.cpp
+		src/HashMap16BitFixedSize.cpp
+		src/BundleStorageCatalog.cpp
+		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
 		src/store.cpp
 )
@@ -64,7 +69,7 @@ target_include_directories(storage_lib PUBLIC
 )
 
 add_executable(storage-speedtest
-        src/speedtest.cpp
+        src/test/StorageSpeedTestMain.cpp
 )
 target_link_libraries(storage-speedtest hdtn_reg bpcodec hdtn_util storage_lib ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(storage-speedtest PUBLIC ${Boost_INCLUDE_DIRS})

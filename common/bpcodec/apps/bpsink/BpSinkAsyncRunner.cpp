@@ -5,7 +5,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
-
+#include "Uri.h"
 
 void BpSinkAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
@@ -24,7 +24,10 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&BpSinkAsyncRunner::MonitorExitKeypressThreadFunction, this));
         uint32_t processingLagMs;
-        InductsConfig_ptr inductsConfig;
+        InductsConfig_ptr inductsConfigPtr;
+        OutductsConfig_ptr outductsConfigPtr;
+        cbhe_eid_t myEid;
+        bool isAcsAware;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -32,6 +35,9 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 ("help", "Produce help message.")
                 ("simulate-processing-lag-ms", boost::program_options::value<boost::uint32_t>()->default_value(0), "Extra milliseconds to process bundle (testing purposes).")
                 ("inducts-config-file", boost::program_options::value<std::string>()->default_value("inducts.json"), "Inducts Configuration File.")
+                ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpSink Eid.")
+                ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
+                ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
                 ;
 
             boost::program_options::variables_map vm;
@@ -42,17 +48,37 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 std::cout << desc << "\n";
                 return false;
             }
-            const std::string configFileName = vm["inducts-config-file"].as<std::string>();
-
-            inductsConfig = InductsConfig::CreateFromJsonFile(configFileName);
-            if (!inductsConfig) {
-                std::cerr << "error loading config file: " << configFileName << std::endl;
+            const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
+            if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
+                std::cerr << "error: bad bpsink uri string: " << myUriEid << std::endl;
                 return false;
             }
-            std::size_t numBpSinkInducts = inductsConfig->m_inductElementConfigVector.size();
+
+            const std::string configFileNameInducts = vm["inducts-config-file"].as<std::string>();
+            inductsConfigPtr = InductsConfig::CreateFromJsonFile(configFileNameInducts);
+            if (!inductsConfigPtr) {
+                std::cerr << "error loading config file: " << configFileNameInducts << std::endl;
+                return false;
+            }
+            std::size_t numBpSinkInducts = inductsConfigPtr->m_inductElementConfigVector.size();
             if (numBpSinkInducts != 1) {
                 std::cerr << "error: number of bp sink inducts is not 1: got " << numBpSinkInducts << std::endl;
             }
+
+            //create outduct for custody signals
+            const std::string outductsConfigFileName = vm["custody-transfer-outducts-config-file"].as<std::string>();
+            if (outductsConfigFileName.length()) {
+                outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
+                if (!outductsConfigPtr) {
+                    std::cerr << "error loading config file: " << outductsConfigFileName << std::endl;
+                    return false;
+                }
+                std::size_t numBpSinkOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
+                if (numBpSinkOutducts != 1) {
+                    std::cerr << "error: number of bpsink outducts is not 1: got " << numBpSinkOutducts << std::endl;
+                }
+            }
+            isAcsAware = (vm.count("acs-aware-bundle-agent"));
 
             processingLagMs = vm["simulate-processing-lag-ms"].as<boost::uint32_t>();
         }
@@ -73,7 +99,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         std::cout << "starting BpSink.." << std::endl;
         hdtn::BpSinkAsync bpSink;
-        bpSink.Init(*inductsConfig, processingLagMs);
+        bpSink.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, processingLagMs);
 
 
         if (useSignalHandler) {

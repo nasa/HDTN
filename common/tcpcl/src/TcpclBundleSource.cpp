@@ -4,14 +4,17 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
-TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const std::string & thisEidString, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
+TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
 m_sendShutdownMessageTimeoutTimer(m_ioService),
+m_reconnectAfterShutdownTimer(m_ioService),
 m_keepAliveIntervalSeconds(desiredKeeAliveIntervlSeconds),
+m_reconnectionDelaySecondsIfNotZero(3), //default 3 unless remote says 0 in shutdown message
 MAX_UNACKED(maxUnacked),
 m_bytesToAckCb(MAX_UNACKED),
 m_bytesToAckCbVec(MAX_UNACKED),
@@ -23,7 +26,10 @@ m_tcpclShutdownComplete(true),
 m_shutdownCalled(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
-M_THIS_EID_STRING(thisEidString),
+
+//ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+//isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+M_THIS_EID_STRING(Uri::GetIpnUriString(myNodeId, 0)),
 
 m_totalDataSegmentsAcked(0),
 m_totalBytesAcked(0),
@@ -304,9 +310,10 @@ void TcpclBundleSource::OnResolve(const boost::system::error_code & ec, boost::a
     else {
         std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
         m_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
+        m_resolverResults = results;
         boost::asio::async_connect(
             *m_tcpSocketPtr,
-            results,
+            m_resolverResults,
             boost::bind(
                 &TcpclBundleSource::OnConnect,
                 this,
@@ -319,6 +326,14 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
+            std::cout << "Trying to reconnect..." << std::endl;
+            boost::asio::async_connect(
+                *m_tcpSocketPtr,
+                m_resolverResults,
+                boost::bind(
+                    &TcpclBundleSource::OnConnect,
+                    this,
+                    boost::asio::placeholders::error));
         }
         return;
     }
@@ -498,6 +513,7 @@ void TcpclBundleSource::ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_COD
                      (shutdownReasonCode == SHUTDOWN_REASON_CODES::VERSION_MISMATCH) ? "version mismatch" :  "unassigned")   << std::endl;
     }
     if(hasReconnectionDelay) {
+        m_reconnectionDelaySecondsIfNotZero = reconnectionDelaySeconds;
         std::cout << "requested reconnection delay: " << reconnectionDelaySeconds << " seconds" << std::endl;
     }
     DoTcpclShutdown(false, false);
@@ -544,7 +560,7 @@ void TcpclBundleSource::DoHandleSocketShutdown(bool sendShutdownMessage, bool re
         // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
 
         m_readyToForward = false;
-        if (sendShutdownMessage) {
+        if (sendShutdownMessage && m_tcpAsyncSenderPtr && m_tcpSocketPtr) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingData.resize(1);
@@ -607,6 +623,27 @@ void TcpclBundleSource::OnSendShutdownMessageTimeout_TimerExpired(const boost::s
     m_noKeepAlivePacketReceivedTimer.cancel();
     m_tcpcl.InitRx(); //reset states
     m_tcpclShutdownComplete = true;
+    if (m_reconnectionDelaySecondsIfNotZero) {
+        m_reconnectAfterShutdownTimer.expires_from_now(boost::posix_time::seconds(m_reconnectionDelaySecondsIfNotZero));
+        m_reconnectAfterShutdownTimer.async_wait(boost::bind(&TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired, this, boost::asio::placeholders::error));
+    }
+}
+
+void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Trying to reconnect..." << std::endl;
+        m_tcpAsyncSenderPtr.reset();
+        m_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
+        m_shutdownCalled = false;
+        boost::asio::async_connect(
+            *m_tcpSocketPtr,
+            m_resolverResults,
+            boost::bind(
+                &TcpclBundleSource::OnConnect,
+                this,
+                boost::asio::placeholders::error));
+    }
 }
 
 bool TcpclBundleSource::ReadyToForward() {

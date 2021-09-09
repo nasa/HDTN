@@ -116,6 +116,7 @@ public:
         session_id_t& operator=(session_id_t&& o); //a move assignment: operator=(X&&)
         session_id_t& operator=(const uint64_t o); //assign to uint64 (for template code in LtpTimerManager)
         bool operator==(const session_id_t & o) const; //operator ==
+        bool operator==(const uint64_t o) const; //operator == (for template code in LtpTimerManager)
         bool operator!=(const session_id_t & o) const; //operator !=
         bool operator<(const session_id_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const session_id_t& o);
@@ -252,10 +253,14 @@ public:
     static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, const session_id_t & sessionId,
         bool isToSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
 
+    static bool GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver);
+
 private:
     void SetBeginningState();
-    bool NextStateAfterHeaderExtensions(std::string & errorMessage);
+    const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
     bool NextStateAfterTrailerExtensions(std::string & errorMessage);
+    const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    const uint8_t * TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
 public:
 	std::vector<uint8_t> m_sdnvTempVec;
     LTP_MAIN_RX_STATE m_mainRxState;

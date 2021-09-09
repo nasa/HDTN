@@ -1,7 +1,7 @@
 #ifndef LTP_SESSION_SENDER_H
 #define LTP_SESSION_SENDER_H 1
 
-#include "LtpFragmentMap.h"
+#include "LtpFragmentSet.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include <list>
@@ -51,7 +51,7 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     
 private:
-    std::set<LtpFragmentMap::data_fragment_t> m_dataFragmentsAckedByReceiver;
+    std::set<LtpFragmentSet::data_fragment_t> m_dataFragmentsAckedByReceiver;
     std::list<std::vector<uint8_t> > m_nonDataToSend;
     std::list<resend_fragment_t> m_resendFragmentsList;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;

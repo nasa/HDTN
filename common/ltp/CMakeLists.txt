@@ -6,13 +6,14 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_library(ltp_lib STATIC
     src/Ltp.cpp
-	src/LtpFragmentMap.cpp
+	src/LtpFragmentSet.cpp
 	src/LtpRandomNumberGenerator.cpp
 	src/LtpSessionReceiver.cpp
 	src/LtpSessionSender.cpp
 	src/LtpEngine.cpp
 	src/LtpTimerManager.cpp
 	src/LtpUdpEngine.cpp
+	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
 	src/LtpBundleSource.cpp
 	src/LtpClientServiceDataToSend.cpp

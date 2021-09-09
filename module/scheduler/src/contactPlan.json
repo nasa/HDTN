@@ -4,7 +4,7 @@
             "contact": 0,
             "source": 3,
             "dest": 1,
-            "flowId": 1,
+            "finalDestinationEid": "ipn:1.1",
             "start": 10,
             "end": 20,
             "rate": "1000"
@@ -13,7 +13,7 @@
             "contact": 1,
             "source": 3,
             "dest": 2,
-            "flowId": 2,
+            "finalDestinationEid": "ipn:2.1",
             "start": 25,
             "end": 30,
             "rate": "1000"

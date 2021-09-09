@@ -7,13 +7,14 @@
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber) :
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
+    M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
     m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
     m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),
@@ -273,10 +274,13 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
 
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
-    {
-        //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
-        randomSessionNumberGeneratedBySender = m_rng.GetRandom(m_randomDevice);
-        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandom(m_randomDevice);
+    if(M_FORCE_32_BIT_RANDOM_NUMBERS) {
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32(m_randomDevice);
+        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber32(m_randomDevice);
+    }
+    else {
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64(m_randomDevice);
+        randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber64(m_randomDevice);
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = boost::make_unique<LtpSessionSender>(
@@ -632,11 +636,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
 
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
     if (rxSessionIt == m_mapSessionIdToSessionReceiver.end()) { //not found.. new session started
-        uint64_t randomNextReportSegmentReportSerialNumber; //incremented by 1 for new
-        {
-            //boost::mutex::scoped_lock lock(m_randomDeviceMutex);
-            randomNextReportSegmentReportSerialNumber = m_rng.GetRandom(m_randomDevice);
-        }
+        const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
         std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),

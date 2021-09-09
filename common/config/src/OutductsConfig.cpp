@@ -16,11 +16,10 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
     convergenceLayer(""),
-    endpointIdStr(""),
     remoteHostname(""),
     remotePort(0),
     bundlePipelineLimit(0),
-    flowIds(),
+    finalDestinationEidUris(),
     
     thisLtpEngineId(0),
     remoteLtpEngineId(0),
@@ -29,9 +28,10 @@ outduct_element_config_t::outduct_element_config_t() :
     oneWayMarginTimeMs(0),
     clientServiceId(0),
     numRxCircularBufferElements(0),
-    numRxCircularBufferBytesPerElement(0),
     ltpMaxRetriesPerSerialNumber(0),
     ltpCheckpointEveryNthDataSegment(0),
+    ltpRandomNumberSizeBits(0),
+    ltpSenderBoundPort(0),
 
     udpRateBps(0),
 
@@ -44,11 +44,10 @@ outduct_element_config_t::~outduct_element_config_t() {}
 outduct_element_config_t::outduct_element_config_t(const outduct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
-    endpointIdStr(o.endpointIdStr),
     remoteHostname(o.remoteHostname),
     remotePort(o.remotePort),
     bundlePipelineLimit(o.bundlePipelineLimit),
-    flowIds(o.flowIds),
+    finalDestinationEidUris(o.finalDestinationEidUris),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -57,9 +56,10 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
-    numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
+    ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpSenderBoundPort(o.ltpSenderBoundPort),
 
     udpRateBps(o.udpRateBps),
 
@@ -70,11 +70,10 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
 outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
-    endpointIdStr(std::move(o.endpointIdStr)),
     remoteHostname(std::move(o.remoteHostname)),
     remotePort(o.remotePort),
     bundlePipelineLimit(o.bundlePipelineLimit),
-    flowIds(std::move(o.flowIds)),
+    finalDestinationEidUris(std::move(o.finalDestinationEidUris)),
     
     thisLtpEngineId(o.thisLtpEngineId),
     remoteLtpEngineId(o.remoteLtpEngineId),
@@ -83,9 +82,10 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
-    numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
     ltpCheckpointEveryNthDataSegment(o.ltpCheckpointEveryNthDataSegment),
+    ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpSenderBoundPort(o.ltpSenderBoundPort),
 
     udpRateBps(o.udpRateBps),
 
@@ -96,11 +96,10 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
 outduct_element_config_t& outduct_element_config_t::operator=(const outduct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
-    endpointIdStr = o.endpointIdStr;
     remoteHostname = o.remoteHostname;
     remotePort = o.remotePort;
     bundlePipelineLimit = o.bundlePipelineLimit;
-    flowIds = o.flowIds;
+    finalDestinationEidUris = o.finalDestinationEidUris;
     
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -109,9 +108,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
-    numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
+    ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpSenderBoundPort = o.ltpSenderBoundPort;
 
     udpRateBps = o.udpRateBps;
 
@@ -125,11 +125,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
 outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
-    endpointIdStr = std::move(o.endpointIdStr);
     remoteHostname = std::move(o.remoteHostname);
     remotePort = o.remotePort;
     bundlePipelineLimit = o.bundlePipelineLimit;
-    flowIds = std::move(o.flowIds);
+    finalDestinationEidUris = std::move(o.finalDestinationEidUris);
 
     thisLtpEngineId = o.thisLtpEngineId;
     remoteLtpEngineId = o.remoteLtpEngineId;
@@ -138,9 +137,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
-    numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
     ltpCheckpointEveryNthDataSegment = o.ltpCheckpointEveryNthDataSegment;
+    ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpSenderBoundPort = o.ltpSenderBoundPort;
 
     udpRateBps = o.udpRateBps;
 
@@ -153,11 +153,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
 bool outduct_element_config_t::operator==(const outduct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
-        (endpointIdStr == o.endpointIdStr) &&
         (remoteHostname == o.remoteHostname) &&
         (remotePort == o.remotePort) &&
         (bundlePipelineLimit == o.bundlePipelineLimit) &&
-        (flowIds == o.flowIds) &&
+        (finalDestinationEidUris == o.finalDestinationEidUris) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
         (remoteLtpEngineId == o.remoteLtpEngineId) &&
@@ -166,9 +165,10 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (oneWayMarginTimeMs == o.oneWayMarginTimeMs) &&
         (clientServiceId == o.clientServiceId) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
-        (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
         (ltpCheckpointEveryNthDataSegment == o.ltpCheckpointEveryNthDataSegment) &&
+        (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
+        (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -235,7 +235,6 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
         }
-        outductElementConfig.endpointIdStr = outductElementConfigPt.second.get<std::string>("endpointIdStr", "unnamed_endpoint_id"); //non-throw version
         outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname", ""); //non-throw version
         if (outductElementConfig.remoteHostname == "") {
             std::cerr << "error: invalid remoteHostname, must not be empty" << std::endl;
@@ -247,11 +246,11 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             return false;
         }
         outductElementConfig.bundlePipelineLimit = outductElementConfigPt.second.get<uint32_t>("bundlePipelineLimit", 0); //non-throw version
-        const boost::property_tree::ptree & flowIdsPt = outductElementConfigPt.second.get_child("flowIds", boost::property_tree::ptree()); //non-throw version
-        outductElementConfig.flowIds.clear();
-        BOOST_FOREACH(const boost::property_tree::ptree::value_type & flowIdValuePt, flowIdsPt) {
-            if (outductElementConfig.flowIds.insert(flowIdValuePt.second.get_value<uint64_t>()).second == false) { //not inserted
-                std::cerr << "error: duplicate flow id " << flowIdValuePt.second.get_value<uint64_t>() << std::endl;
+        const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", boost::property_tree::ptree()); //non-throw version
+        outductElementConfig.finalDestinationEidUris.clear();
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
+            if (outductElementConfig.finalDestinationEidUris.insert(finalDestinationEidUriValuePt.second.get_value<std::string>()).second == false) { //not inserted
+                std::cerr << "error: duplicate final destination eid uri " << finalDestinationEidUriValuePt.second.get_value<std::string>() << std::endl;
                 return false;
             }
         }
@@ -264,9 +263,14 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             outductElementConfig.oneWayMarginTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
             outductElementConfig.clientServiceId = outductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
             outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements", 100); //non-throw version
-            outductElementConfig.numRxCircularBufferBytesPerElement = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement", UINT16_MAX); //non-throw version
             outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
             outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment", 0); //non-throw version
+            outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits", 0); //non-throw version
+            if ((outductElementConfig.ltpRandomNumberSizeBits != 32 ) && (outductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
+                std::cerr << "error: ltpRandomNumberSizeBits (" << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                return false;
+            }
+            outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort", 0); //non-throw version
         }
 
         if (outductElementConfig.convergenceLayer == "udp") {
@@ -327,13 +331,12 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & outductElementConfigPt = (outductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         outductElementConfigPt.put("name", outductElementConfig.name);
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
-        outductElementConfigPt.put("endpointIdStr", outductElementConfig.endpointIdStr);
         outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
         outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
         outductElementConfigPt.put("bundlePipelineLimit", outductElementConfig.bundlePipelineLimit);
-        boost::property_tree::ptree & flowIdsPt = outductElementConfigPt.put_child("flowIds", outductElementConfig.flowIds.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
-        for (std::set<uint64_t>::const_iterator flowIdIt = outductElementConfig.flowIds.cbegin(); flowIdIt != outductElementConfig.flowIds.cend(); ++flowIdIt) {
-            flowIdsPt.push_back(std::make_pair("", boost::property_tree::ptree(boost::lexical_cast<std::string>((static_cast<unsigned int>(*flowIdIt)))))); //using "" as key creates json array
+        boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.put_child("finalDestinationEidUris", outductElementConfig.finalDestinationEidUris.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
+        for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
+            finalDestinationEidUrisPt.push_back(std::make_pair("", boost::property_tree::ptree(*finalDestinationEidUriIt))); //using "" as key creates json array
         }
         
         if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
@@ -344,9 +347,10 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("oneWayMarginTimeMs", outductElementConfig.oneWayMarginTimeMs);
             outductElementConfigPt.put("clientServiceId", outductElementConfig.clientServiceId);
             outductElementConfigPt.put("numRxCircularBufferElements", outductElementConfig.numRxCircularBufferElements);
-            outductElementConfigPt.put("numRxCircularBufferBytesPerElement", outductElementConfig.numRxCircularBufferBytesPerElement);
             outductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", outductElementConfig.ltpMaxRetriesPerSerialNumber);
             outductElementConfigPt.put("ltpCheckpointEveryNthDataSegment", outductElementConfig.ltpCheckpointEveryNthDataSegment);
+            outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
+            outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);

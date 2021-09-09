@@ -20,7 +20,7 @@ public:
 	~MemoryManagerTreeArray();
 	
 	bool AllocateSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec); //number of segments should be the vector size
-	bool FreeSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec);
+	bool FreeSegments_ThreadSafe(const segment_id_chain_vec_t & segmentVec);
 	bool IsSegmentFree(segment_id_t segmentId);
 	void AllocateSegmentId_NoCheck_NotThreadSafe(segment_id_t segmentId);
 	void BackupDataToVector(backup_memmanager_t & backup) const;

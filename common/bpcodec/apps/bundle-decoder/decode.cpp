@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
     int crc_result=0;
 
 
-    offset = bpv6_primary_block_decode(&bpv6_primary, (char *)bpv6_buf, 0,sz);
+    offset = cbhe_bpv6_primary_block_decode(&bpv6_primary, (char *)bpv6_buf, 0,sz);
     bpv6_primary_block_print(&bpv6_primary);
 
     while((bpv6_block.flags & BPV6_BLOCKFLAG_LAST_BLOCK) != BPV6_BLOCKFLAG_LAST_BLOCK){

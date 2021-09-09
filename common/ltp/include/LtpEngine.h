@@ -3,7 +3,7 @@
 
 #include <boost/random/random_device.hpp>
 #include <boost/thread.hpp>
-#include "LtpFragmentMap.h"
+#include "LtpFragmentSet.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include "LtpSessionReceiver.h"
@@ -31,7 +31,7 @@ public:
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false,
-        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5);
+        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
 
     virtual ~LtpEngine();
 
@@ -97,6 +97,7 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
+    const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     boost::random_device m_randomDevice;
     //boost::mutex m_randomDeviceMutex;
     std::map<uint64_t, std::unique_ptr<LtpSessionSender> > m_mapSessionNumberToSessionSender;

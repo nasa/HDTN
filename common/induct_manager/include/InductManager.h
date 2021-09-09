@@ -8,7 +8,7 @@ class InductManager {
 public:
     InductManager();
     ~InductManager();
-    void LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig);
+    void LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig, const uint64_t myNodeId);
     void Clear();
 public:
 

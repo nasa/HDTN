@@ -1,7 +1,7 @@
 #ifndef LTP_SESSION_RECEIVER_H
 #define LTP_SESSION_RECEIVER_H 1
 
-#include "LtpFragmentMap.h"
+#include "LtpFragmentSet.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include "LtpTimerManager.h"
@@ -40,10 +40,10 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions, const RedPartReceptionCallback_t & redPartReceptionCallback,
         const GreenPartSegmentArrivalCallback_t & greenPartSegmentArrivalCallback);
 private:
-    std::set<LtpFragmentMap::data_fragment_t> m_receivedDataFragmentsSet;
+    std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsSet;
     std::map<uint64_t, Ltp::report_segment_t> m_mapAllReportSegmentsSent;
     std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
-    std::set<LtpFragmentMap::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
+    std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     std::list<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendList; //pair<reportSerialNumber, retryCount>
     LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;

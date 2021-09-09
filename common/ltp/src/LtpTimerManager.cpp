@@ -78,6 +78,7 @@ bool LtpTimerManager<idType>::DeleteTimer(const idType serialNumber) {
         m_bimapCheckpointSerialNumberToExpiry.left.erase(it);
         if (m_isTimerActive && (m_activeSerialNumberBeingTimed == serialNumber)) { //if this is the one running, cancel it (which will automatically start the next)
             //std::cout << "delete is cancelling " << serialNumber << std::endl;
+            m_activeSerialNumberBeingTimed = 0; //prevent double delete and callback when cancelled externally after expiration
             m_deadlineTimer.cancel(); 
         }
         return true;
@@ -98,12 +99,14 @@ void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e,
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         const idType serialNumberThatExpired = m_activeSerialNumberBeingTimed;
-        std::vector<uint8_t> userData(std::move(m_mapSerialNumberToUserData[serialNumberThatExpired])); //grab any user data before DeleteTimer deletes it
-        //std::cout << "OnTimerExpired expired sn " << serialNumberThatExpired << std::endl;
-        m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
-        DeleteTimer(serialNumberThatExpired); //callback function can choose to readd it later
+        if (!(serialNumberThatExpired == 0)) { //if not deleted externally when active after expiration
+            std::vector<uint8_t> userData(std::move(m_mapSerialNumberToUserData[serialNumberThatExpired])); //grab any user data before DeleteTimer deletes it
+            //std::cout << "OnTimerExpired expired sn " << serialNumberThatExpired << std::endl;
+            m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
+            DeleteTimer(serialNumberThatExpired); //callback function can choose to readd it later
 
-        m_ltpTimerExpiredCallbackFunction(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
+            m_ltpTimerExpiredCallbackFunction(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
+        }
     }
     else {
         //std::cout << "timer cancelled\n";

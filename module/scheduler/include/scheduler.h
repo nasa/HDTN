@@ -20,7 +20,7 @@ struct contactPlan_t {
     int contact;
     int source; 
     int dest; 
-    int id;
+    cbhe_eid_t finalDestEid;
     int start;
     int end;
     int rate; 
@@ -39,8 +39,8 @@ public:
     }
     volatile bool m_timersFinished;
 private:
-    void ProcessLinkUp(const boost::system::error_code&, int id, std::string event, zmq::socket_t * ptrSocket);
-    void ProcessLinkDown(const boost::system::error_code&, int id, std::string event, zmq::socket_t * ptrSocket);
+    void ProcessLinkUp(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string event, zmq::socket_t * ptrSocket);
+    void ProcessLinkDown(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string event, zmq::socket_t * ptrSocket);
 
     HdtnConfig m_hdtnConfig;
 };

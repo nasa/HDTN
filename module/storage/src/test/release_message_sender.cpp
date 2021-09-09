@@ -8,7 +8,7 @@
 
 #include "message.hpp"
 #include "reg.hpp"
-
+#include "Uri.h"
 
 //This test code is used to send storage release messages
 //to enable development of the contact schedule and bundle
@@ -18,7 +18,7 @@
 int main(int argc, char *argv[]) {
 
     bool isStartMessage = false;
-    unsigned int flowId = 0;
+    cbhe_eid_t finalDestEidToRelease;
     unsigned int delayBeforeSendSeconds = 0;
     HdtnConfig_ptr hdtnConfig;
 
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
         desc.add_options()
             ("help", "Produce help message.")
             ("release-message-type", boost::program_options::value<std::string>()->default_value("start"), "Send a start or stop message.")
-            ("flow-id", boost::program_options::value<unsigned int>()->default_value(1), "Flow Id for message.")
+            ("dest-uri-eid-to-release-or-stop", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "IPN uri final destination to release or stop.")
             ("delay-before-send", boost::program_options::value<unsigned int>()->default_value(0), "Seconds before send.")
             ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
             ;
@@ -61,7 +61,11 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        flowId = vm["flow-id"].as<unsigned int>();
+        const std::string uriEid = vm["dest-uri-eid-to-release-or-stop"].as<std::string>();
+        if (!Uri::ParseIpnUriString(uriEid, finalDestEidToRelease.nodeId, finalDestEidToRelease.serviceId)) {
+            std::cerr << "error: bad uri string: " << uriEid << std::endl;
+            return false;
+        }
         delayBeforeSendSeconds = vm["delay-before-send"].as<unsigned int>();
     }
     catch (boost::bad_any_cast & e) {
@@ -91,7 +95,7 @@ int main(int argc, char *argv[]) {
         hdtn::IreleaseStartHdr releaseMsg;
         memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
         releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-        releaseMsg.flowId = flowId;
+        releaseMsg.finalDestinationEid = finalDestEidToRelease;
         releaseMsg.rate = 0;  //not implemented
         releaseMsg.duration = 20;//not implemented
         socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
@@ -102,7 +106,7 @@ int main(int argc, char *argv[]) {
         hdtn::IreleaseStopHdr stopMsg;
         memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
         stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-        stopMsg.flowId = flowId;
+        stopMsg.finalDestinationEid = finalDestEidToRelease;
         socket.send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
         std::cout << "Stop Release message sent \n";
         boost::this_thread::sleep(boost::posix_time::seconds(1));

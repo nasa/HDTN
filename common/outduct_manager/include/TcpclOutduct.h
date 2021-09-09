@@ -8,7 +8,7 @@
 
 class TcpclOutduct : public Outduct {
 public:
-    TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
+    TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid);
     virtual ~TcpclOutduct();
     virtual std::size_t GetTotalDataSegmentsUnacked();
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size);

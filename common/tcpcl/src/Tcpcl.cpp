@@ -37,7 +37,7 @@ void Tcpcl::InitRx() {
 	m_mainRxState = TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER;
 	m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
 	m_keepAliveInterval = 0;
-	m_sdnvTempVec.reserve(10); //critical for hardware accelerated decode (min size 10) to prevent out of bounds
+    m_sdnvTempVec.reserve(32); //critical for hardware accelerated decode (min size 16 (sizeof(__m128i)) to prevent out of bounds
 	m_sdnvTempVec.resize(0);
 	m_localEidLength = 0;
 	m_localEidStr = "";
@@ -163,8 +163,28 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 m_dataSegmentEndFlag = ((m_messageTypeFlags & (1U << 0)) != 0);
                 m_sdnvTempVec.resize(0);
                 m_dataSegmentLength = 0;
-                m_dataSegmentRxState = TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENT_LENGTH_SDNV;
                 m_mainRxState = TCPCL_MAIN_RX_STATE::READ_DATA_SEGMENT;
+                if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
+                    uint8_t sdnvSize;
+                    m_dataSegmentLength = SdnvDecodeU64(rxVals, &sdnvSize);
+                    if (sdnvSize == 0) {
+                        std::cout << "error in TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE (shortcut READ_CONTENT_LENGTH_SDNV), sdnvSize is 0\n";
+                        m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
+                        m_mainRxState = TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER;
+                    }
+                    else {
+                        numChars -= sdnvSize;
+                        rxVals += sdnvSize;
+                        m_dataSegmentDataVec.resize(0);
+                        m_dataSegmentDataVec.reserve(m_dataSegmentLength);
+                        //std::cout << "tcpcl sdnv shortcut" << std::endl;
+                        m_dataSegmentRxState = TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENTS;
+                    }
+                }
+                else { //not enough bytes, populate m_sdnvTempVec and then decode sdnv
+                    //std::cout << "skipping tcpcl sdnv shortcut" << std::endl;
+                    m_dataSegmentRxState = TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENT_LENGTH_SDNV;
+                }
             }
             else if (m_messageTypeByte == MESSAGE_TYPE_BYTE_CODES::ACK_SEGMENT) {
                 m_sdnvTempVec.resize(0);

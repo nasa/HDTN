@@ -14,6 +14,7 @@
 #include "InductManager.h"
 #include <list>
 #include <queue>
+#include <boost/atomic.hpp>
 
 // Used to receive multiple datagrams (e.g. recvmmsg)
 #define BP_INGRESS_STRBUF_SZ (8192)
@@ -43,22 +44,19 @@ public:
     ~Ingress();
     void Stop();
     void SchedulerEventHandler();
-    int Init(const HdtnConfig & hdtnConfig, 
+    int Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest,
              zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
-    int Process(std::vector<uint8_t> && rxBuf);
+    bool Process(std::vector<uint8_t> && rxBuf);
     void ReadZmqAcksThreadFunc();
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 public:
-    uint64_t m_bundleCountStorage = 0;
-    uint64_t m_bundleCountEgress = 0;
-    uint64_t m_bundleCount = 0;
-    uint64_t m_bundleData = 0;
-    uint64_t m_zmsgsIn = 0;
-    uint64_t m_zmsgsOut = 0;
-    uint64_t m_ingSequenceNum = 0;
-    double m_elapsed = 0;
+    uint64_t m_bundleCountStorage;
+    boost::atomic_uint64_t m_bundleCountEgress;
+    uint64_t m_bundleCount;
+    boost::atomic_uint64_t m_bundleData;
+    double m_elapsed;
 
 private:
     struct EgressToIngressAckingQueue {
@@ -66,19 +64,19 @@ private:
 
         }
         std::size_t GetQueueSize() {
-            return m_blockHdrQueue.size();
+            return m_ingressToEgressCustodyIdQueue.size();
         }
-        void PushMove_ThreadSafe(std::unique_ptr<BlockHdr> & blk) {
+        void PushMove_ThreadSafe(const uint64_t ingressToEgressCustody) {
             boost::mutex::scoped_lock lock(m_mutex);
-            m_blockHdrQueue.push(std::move(blk));
+            m_ingressToEgressCustodyIdQueue.push(ingressToEgressCustody);
         }
-        bool CompareAndPop_ThreadSafe(const BlockHdr & blk) {
+        bool CompareAndPop_ThreadSafe(const uint64_t ingressToEgressCustody) {
             boost::mutex::scoped_lock lock(m_mutex);
-            if (m_blockHdrQueue.empty()) {
+            if (m_ingressToEgressCustodyIdQueue.empty()) {
                 return false;
             }
-            else if (*m_blockHdrQueue.front() == blk) {
-                m_blockHdrQueue.pop();
+            else if (m_ingressToEgressCustodyIdQueue.front() == ingressToEgressCustody) {
+                m_ingressToEgressCustodyIdQueue.pop();
                 return true;
             }
             return false;
@@ -92,7 +90,7 @@ private:
         }
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
-        std::queue<std::unique_ptr<BlockHdr> > m_blockHdrQueue;
+        std::queue<uint64_t> m_ingressToEgressCustodyIdQueue;
     };
 
     std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
@@ -110,18 +108,24 @@ private:
 
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;
+    cbhe_eid_t M_HDTN_EID_CUSTODY;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    std::queue<std::unique_ptr<BlockHdr> > m_storageAckQueue;
+    std::queue<uint64_t> m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;
-    std::map<uint64_t, EgressToIngressAckingQueue> m_egressAckMapQueue; //flow id to queue
+    std::map<cbhe_eid_t, EgressToIngressAckingQueue> m_egressAckMapQueue; //final dest id to queue
     boost::mutex m_egressAckMapQueueMutex;
     boost::mutex m_ingressToEgressZmqSocketMutex;
+    boost::mutex m_eidAvailableSetMutex;
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
-    std::map<uint64_t, bool> m_linkAvailable;
+    bool m_isCutThroughOnlyTest;
+    boost::atomic_uint64_t m_ingressToEgressNextUniqueIdAtomic;
+    uint64_t m_ingressToStorageNextUniqueId;
+    std::set<cbhe_eid_t> m_finalDestEidAvailableSet;
+    std::vector<uint64_t> m_schedulerRxBufPtrToStdVec64;
 };
 
 

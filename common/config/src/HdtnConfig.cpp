@@ -13,6 +13,10 @@
 
 HdtnConfig::HdtnConfig() :
     m_hdtnConfigName("unnamed hdtn config"),
+    m_mySchemeName("unused_scheme_name"),
+    m_myNodeId(0),
+    m_myCustodialSsp("unused_custodial_ssp"),
+    m_myCustodialServiceId(0),
     m_zmqIngressAddress("localhost"),
     m_zmqEgressAddress("localhost"),
     m_zmqStorageAddress("localhost"),
@@ -39,6 +43,10 @@ HdtnConfig::~HdtnConfig() {
 //a copy constructor: X(const X&)
 HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_hdtnConfigName(o.m_hdtnConfigName),
+    m_mySchemeName(o.m_mySchemeName),
+    m_myNodeId(o.m_myNodeId),
+    m_myCustodialSsp(o.m_myCustodialSsp),
+    m_myCustodialServiceId(o.m_myCustodialServiceId),
     m_zmqIngressAddress(o.m_zmqIngressAddress),
     m_zmqEgressAddress(o.m_zmqEgressAddress),
     m_zmqStorageAddress(o.m_zmqStorageAddress),
@@ -62,6 +70,10 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
 //a move constructor: X(X&&)
 HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_hdtnConfigName(std::move(o.m_hdtnConfigName)),
+    m_mySchemeName(std::move(o.m_mySchemeName)),
+    m_myNodeId(o.m_myNodeId),
+    m_myCustodialSsp(std::move(o.m_myCustodialSsp)),
+    m_myCustodialServiceId(o.m_myCustodialServiceId),
     m_zmqIngressAddress(std::move(o.m_zmqIngressAddress)),
     m_zmqEgressAddress(std::move(o.m_zmqEgressAddress)),
     m_zmqStorageAddress(std::move(o.m_zmqStorageAddress)),
@@ -85,6 +97,10 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
 //a copy assignment: operator=(const X&)
 HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_hdtnConfigName = o.m_hdtnConfigName;
+    m_mySchemeName = o.m_mySchemeName;
+    m_myNodeId = o.m_myNodeId;
+    m_myCustodialSsp = o.m_myCustodialSsp;
+    m_myCustodialServiceId = o.m_myCustodialServiceId;
     m_zmqIngressAddress = o.m_zmqIngressAddress;
     m_zmqEgressAddress = o.m_zmqEgressAddress;
     m_zmqStorageAddress = o.m_zmqStorageAddress;
@@ -109,6 +125,10 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
 //a move assignment: operator=(X&&)
 HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_hdtnConfigName = std::move(o.m_hdtnConfigName);
+    m_mySchemeName = std::move(o.m_mySchemeName);
+    m_myNodeId = o.m_myNodeId;
+    m_myCustodialSsp = std::move(o.m_myCustodialSsp);
+    m_myCustodialServiceId = o.m_myCustodialServiceId;
     m_zmqIngressAddress = std::move(o.m_zmqIngressAddress);
     m_zmqEgressAddress = std::move(o.m_zmqEgressAddress);
     m_zmqStorageAddress = std::move(o.m_zmqStorageAddress);
@@ -132,6 +152,10 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
 
 bool HdtnConfig::operator==(const HdtnConfig & o) const {
     return (m_hdtnConfigName == o.m_hdtnConfigName) &&
+        (m_mySchemeName == o.m_mySchemeName) &&
+        (m_myNodeId == o.m_myNodeId) &&
+        (m_myCustodialSsp == o.m_myCustodialSsp) &&
+        (m_myCustodialServiceId == o.m_myCustodialServiceId) &&
         (m_zmqIngressAddress == o.m_zmqIngressAddress) &&
         (m_zmqEgressAddress == o.m_zmqEgressAddress) &&
         (m_zmqStorageAddress == o.m_zmqStorageAddress) &&
@@ -158,6 +182,14 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         std::cerr << "error: hdtnConfigName must be defined and not empty string\n";
         return false;
     }
+    m_mySchemeName = pt.get<std::string>("mySchemeName", "unused_scheme_name"); //non-throw version
+    m_myNodeId = pt.get<uint64_t>("myNodeId", 0); //non-throw version
+    if (m_myNodeId == 0) {
+        std::cerr << "error: myNodeId must be defined and not zero\n";
+        return false;
+    }
+    m_myCustodialSsp = pt.get<std::string>("myCustodialSsp", "unused_custodial_ssp"); //non-throw version
+    m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId", 0); //non-throw version
 
     m_zmqIngressAddress = pt.get<std::string>("zmqIngressAddress", "localhost"); //non-throw version
     m_zmqEgressAddress = pt.get<std::string>("zmqEgressAddress", "localhost"); //non-throw version
@@ -234,6 +266,10 @@ HdtnConfig_ptr HdtnConfig::CreateFromPtree(const boost::property_tree::ptree & p
 boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("hdtnConfigName", m_hdtnConfigName);
+    pt.put("mySchemeName", m_mySchemeName);
+    pt.put("myNodeId", m_myNodeId);
+    pt.put("myCustodialSsp", m_myCustodialSsp);
+    pt.put("myCustodialServiceId", m_myCustodialServiceId); //non-throw version
     pt.put("zmqIngressAddress", m_zmqIngressAddress);
     pt.put("zmqEgressAddress", m_zmqEgressAddress);
     pt.put("zmqStorageAddress", m_zmqStorageAddress);
