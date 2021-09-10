@@ -43,7 +43,7 @@ target_include_directories(bpgen-async PUBLIC
 	bpgen/include
 	${Boost_INCLUDE_DIRS}
 )
-target_link_libraries(bpgen-async PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
+target_link_libraries(bpgen-async PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib ${pthread_LIB} ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
 	add_executable(bpsink
@@ -65,7 +65,7 @@ target_include_directories(bpsink-async PUBLIC
 	bpsink/include
 	${Boost_INCLUDE_DIRS}
 )
-target_link_libraries(bpsink-async PUBLIC induct_manager_lib outduct_manager_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
+target_link_libraries(bpsink-async PUBLIC induct_manager_lib outduct_manager_lib bpcodec hdtn_util bp_app_patterns_lib ${pthread_LIB} ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
 	add_executable(bpreflect
@@ -76,3 +76,16 @@ if (NOT WIN32)
 	target_include_directories(bpreflect PUBLIC ../include)
 	target_link_libraries(bpreflect PUBLIC bpcodec)
 endif()
+
+#add_executable(bpsendfile
+#               bpsendfile/src/BpSendFile.cpp
+#    	       bpsendfile/src/BpSendFileMain.cpp
+#               bpsendfile/src/BpSendFileRunner.cpp
+#)
+
+#target_include_directories(bpgen-async PUBLIC 
+#	../include
+#	bpsendfile/include
+#	${Boost_INCLUDE_DIRS}
+#)
+#target_link_libraries(bpsendfile PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})

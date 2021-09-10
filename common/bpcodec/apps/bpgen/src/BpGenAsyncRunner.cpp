@@ -130,8 +130,8 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
 
         std::cout << "starting BpGenAsync.." << std::endl;
 
-        BpGenAsync bpGen;
-        bpGen.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, bundleSizeBytes, bundleRate, finalDestEid, myCustodianServiceId);
+        BpGenAsync bpGen(bundleSizeBytes);
+        bpGen.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);

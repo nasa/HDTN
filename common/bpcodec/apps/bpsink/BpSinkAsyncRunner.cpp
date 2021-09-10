@@ -98,7 +98,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
 
         std::cout << "starting BpSink.." << std::endl;
-        hdtn::BpSinkAsync bpSink;
+        BpSinkAsync bpSink;
         bpSink.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, processingLagMs);
 
 
@@ -116,9 +116,9 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         std::cout << "BpSinkAsyncRunner: exiting cleanly..\n";
         bpSink.Stop();
-        m_totalBytesRx = bpSink.m_totalBytesRx;
-        m_receivedCount = bpSink.m_receivedCount;
-        m_duplicateCount = bpSink.m_duplicateCount;
+        m_totalBytesRx = bpSink.m_FinalStatsBpSink.m_totalBytesRx;
+        m_receivedCount = bpSink.m_FinalStatsBpSink.m_receivedCount;
+        m_duplicateCount = bpSink.m_FinalStatsBpSink.m_duplicateCount;
         this->m_FinalStatsBpSink = bpSink.m_FinalStatsBpSink;
     }
     std::cout << "BpSinkAsyncRunner: exited cleanly\n";
