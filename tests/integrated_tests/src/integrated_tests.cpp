@@ -48,7 +48,7 @@
 
 int RunBpgenAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, OutductFinalStats * ptrFinalStats);
 int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, hdtn::FinalStatsBpSink * ptrFinalStatsBpSink);
+int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 void Delay(uint64_t seconds);
@@ -137,7 +137,7 @@ int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
     return 0;
 }
 
-int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, hdtn::FinalStatsBpSink * ptrFinalStatsBpSink) {
+int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink) {
     {
         BpSinkAsyncRunner runner;
         runner.Run(argc, argv, running, false);
@@ -177,7 +177,7 @@ bool TestSchedulerTcpcl() {
    // bool runningScheduler = true;  //@nk
     uint64_t bundlesSentBpgen[2] = {0,0};
     OutductFinalStats finalStats[2];
-    hdtn::FinalStatsBpSink finalStatsBpSink[2];
+    FinalStatsBpSink finalStatsBpSink[2];
     uint64_t bundlesReceivedBpsink[2] = {0,0};
     uint64_t bundleCountEgress = 0;
     uint64_t bundleCountIngress = 0;

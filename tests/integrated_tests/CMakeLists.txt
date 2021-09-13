@@ -47,5 +47,6 @@ target_link_libraries(integrated-tests
 	induct_manager_lib
 	outduct_manager_lib
 	bpcodec
+	bp_app_patterns_lib
 	${Boost_LIBRARIES}
 )

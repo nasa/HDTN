@@ -1,4 +1,4 @@
-#include "BpGenAsyncRunner.h"
+#include "BpSendFileRunner.h"
 #include <iostream>
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
@@ -6,38 +6,26 @@
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
-void BpGenAsyncRunner::MonitorExitKeypressThreadFunction() {
+void BpSendFileRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false; //do this first
 }
 
 
 
-static void DurationEndedThreadFunction(const boost::system::error_code& e, volatile bool * running) {
-    if (e != boost::asio::error::operation_aborted) {
-        // Timer was not cancelled, take necessary action.
-        std::cout << "BpGen reached duration.. exiting\n";
-    }
-    else {
-        std::cout << "Unknown error occurred in DurationEndedThreadFunction " << e.message() << std::endl;
-    }
-    *running = false;
-}
 
-BpGenAsyncRunner::BpGenAsyncRunner() {}
-BpGenAsyncRunner::~BpGenAsyncRunner() {}
+BpSendFileRunner::BpSendFileRunner() {}
+BpSendFileRunner::~BpSendFileRunner() {}
 
 
-bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;
         m_runningFromSigHandler = true;
-        SignalHandler sigHandler(boost::bind(&BpGenAsyncRunner::MonitorExitKeypressThreadFunction, this));
-        uint32_t bundleSizeBytes;
-        uint32_t bundleRate;
-        //uint32_t tcpclFragmentSize;
-        uint32_t durationSeconds;
+        SignalHandler sigHandler(boost::bind(&BpSendFileRunner::MonitorExitKeypressThreadFunction, this));
+        uint64_t maxBundleSizeBytes;
+        std::string fileOrFolderPath;
         cbhe_eid_t myEid;
         cbhe_eid_t finalDestEid;
         uint64_t myCustodianServiceId;
@@ -49,9 +37,8 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         try {
                 desc.add_options()
                     ("help", "Produce help message.")
-                    ("bundle-size", boost::program_options::value<uint32_t>()->default_value(100), "Bundle size bytes.")
-                    ("bundle-rate", boost::program_options::value<uint32_t>()->default_value(1500), "Bundle rate. (0=>as fast as possible)")
-                    ("duration", boost::program_options::value<uint32_t>()->default_value(0), "Seconds to send bundles for (0=>infinity).")
+                    ("max-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(4000000), "Max size bundle for file fragments (default 4MB).")
+                    ("file-or-folder-path", boost::program_options::value<std::string>()->default_value(""), "File or folder paths. Folders are recursive.")
                     ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
                     ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
                     ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
@@ -107,10 +94,8 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                     }
                 }
                 custodyTransferUseAcs = (vm.count("custody-transfer-use-acs"));
-
-                bundleSizeBytes = vm["bundle-size"].as<uint32_t>();
-                bundleRate = vm["bundle-rate"].as<uint32_t>();
-                durationSeconds = vm["duration"].as<uint32_t>();
+                fileOrFolderPath = vm["file-or-folder-path"].as<std::string>();
+                maxBundleSizeBytes = vm["max-bundle-size-bytes"].as<uint64_t>();
                 myCustodianServiceId = vm["my-custodian-service-id"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
@@ -128,14 +113,15 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         }
 
 
-        std::cout << "starting BpGenAsync.." << std::endl;
+        std::cout << "starting BpSendFile.." << std::endl;
 
-        BpGenAsync bpGen(bundleSizeBytes);
-        bpGen.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId);
+        BpSendFile bpSendFile(fileOrFolderPath, maxBundleSizeBytes);
+        if (bpSendFile.GetNumberOfFilesToSend() == 0) {
+            return false;
+        }
+        bpSendFile.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId);
 
-        boost::asio::io_service ioService;
-        boost::asio::deadline_timer deadlineTimer(ioService);
-        std::cout << "running bpgen for " << durationSeconds << " seconds\n";
+        std::cout << "running BpSendFile\n";
         
         bool startedTimer = false;
         
@@ -143,35 +129,20 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "BpGenAsync up and running" << std::endl;
+        std::cout << "BpSendFile up and running" << std::endl;
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
-            if (durationSeconds) {
-                if ((!startedTimer) && bpGen.m_allOutductsReady) {
-                    startedTimer = true;
-                    deadlineTimer.expires_from_now(boost::posix_time::seconds(durationSeconds));
-                    deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error, &running));
-                }
-                else {
-                    ioService.poll_one();
-                }
-            }
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
         }
 
-       //std::cout << "Msg Count, Bundle Count, Bundle data bytes\n";
-
-        //std::cout << egress.m_messageCount << "," << egress.m_bundleCount << "," << egress.m_bundleData << "\n";
-
-
-        std::cout<< "BpGenAsyncRunner::Run: exiting cleanly..\n";
-        bpGen.Stop();
-        m_bundleCount = bpGen.m_bundleCount;
-        m_outductFinalStats = bpGen.m_outductFinalStats;
+        std::cout<< "BpSendFileRunner::Run: exiting cleanly..\n";
+        bpSendFile.Stop();
+        m_bundleCount = bpSendFile.m_bundleCount;
+        m_outductFinalStats = bpSendFile.m_outductFinalStats;
     }
-    std::cout<< "BpGenAsyncRunner::Run: exited cleanly\n";
+    std::cout<< "BpSendFileRunner::Run: exited cleanly\n";
     return true;
 
 }

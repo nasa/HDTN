@@ -9,44 +9,21 @@
 #include "codec/bpv6.h"
 #include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/CustodyTransferManager.h"
+#include "app_patterns/BpSourcePattern.h"
 
-class BpGenAsync {
-public:
-    BpGenAsync();
-    ~BpGenAsync();
-    void Stop();
-    void Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs, const cbhe_eid_t & myEid, uint32_t bundleSizeBytes, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId);
-
-    uint64_t m_bundleCount;
-    uint64_t m_numRfc5050CustodyTransfers;
-    uint64_t m_numAcsCustodyTransfers;
-    uint64_t m_numAcsPacketsReceived;
-
-    OutductFinalStats m_outductFinalStats;
-
-
+class BpGenAsync : public BpSourcePattern {
 private:
-    void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, const cbhe_eid_t & destEid);
-    void WholeCustodySignalBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-
-
-    OutductManager m_outductManager;
-    InductManager m_inductManager;
-    std::unique_ptr<boost::thread> m_bpGenThreadPtr;
-    volatile bool m_running;
-    bool m_useCustodyTransfer;
-    bool m_custodyTransferUseAcs;
-    cbhe_eid_t m_myEid;
-    uint64_t m_myCustodianServiceId;
-    cbhe_eid_t m_myCustodianEid;
-    std::string m_myCustodianEidUriString;
-    boost::mutex m_mutexCtebSet;
-    boost::mutex m_mutexBundleUuidSet;
-    std::set<FragmentSet::data_fragment_t> m_outstandingCtebCustodyIdsFragmentSet;
-    std::set<cbhe_bundle_uuid_nofragment_t> m_cbheBundleUuidSet;
-    bool m_detectedNextCustodianSupportsCteb;
+    BpGenAsync();
 public:
-    volatile bool m_allOutductsReady;
+    BpGenAsync(uint64_t bundleSizeBytes);
+    virtual ~BpGenAsync();
+    
+protected:
+    virtual uint64_t GetNextPayloadLength_Step1();
+    virtual bool CopyPayload_Step2(uint8_t * destinationBuffer);
+private:
+    uint64_t m_bundleSizeBytes;
+    uint64_t m_bpGenSequenceNumber;
 };
 
 
