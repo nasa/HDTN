@@ -33,13 +33,15 @@ int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTim
     //cgrSock->send(&msg, zmq::send_flags::none);
     std::cout << "Sending CGR request" << std::endl;
     cgrSock->send(zmq::const_buffer(message.c_str(), strlen(message.c_str())), zmq::send_flags::none);
-    std::cout << "set to receive message back" << std::endl;
-    zmq::message_t recvMsg;
-    cgrSock->recv(recvMsg, zmq::recv_flags::none);
+    std::cout << "Waiting to receive message back" << std::endl;
+    zmq::message_t recvMessage;
+    cgrSock->recv(recvMessage, zmq::recv_flags::none);
 
-    std::cout << std::to_string((uintptr_t)recvMsg.data()) << std::endl;
-    uintptr_t nextNode = (uintptr_t)recvMsg.data();
-    std::cout << "Next hop is " << std::to_string(nextNode) << std::endl;
-    return nextNode;
+    std::string myReceivedAsString((const char *)recvMessage.data(), (const char *)recvMessage.data() + recvMessage.size());
+
+    //std::cout << std::to_string((uintptr_t)recvMsg.data()) << std::endl;
+    //uintptr_t nextNode = (uintptr_t)recvMsg.data();
+    std::cout << "Next hop is " << myReceivedAsString << std::endl;
+    return stoi(myReceivedAsString); //nextNode;
 }
 

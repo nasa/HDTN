@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(cgrTest)
     int nextHop = server.requestNextHop(32948, 32949, 0);
     std::cout << "Next hop is: " << std::to_string(nextHop) << std::endl;
 
-    BOOST_CHECK(nextHop == 32896);
+    BOOST_CHECK(nextHop == 32969);
 }
 
 
