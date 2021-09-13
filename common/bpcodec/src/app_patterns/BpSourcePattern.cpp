@@ -151,6 +151,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         }
         
         const uint64_t bundleSizeBytes = GetNextPayloadLength_Step1();
+        if (bundleSizeBytes == 0) {
+            std::cout << "bundleSizeBytes == 0... out of work.. exiting\n";
+            m_running = false;
+            continue;
+        }
         
         bundleToSend.resize(bundleSizeBytes + 1000);
         
@@ -280,6 +285,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         }
 
     }
+    //todo m_outductManager.StopAllOutducts(); //wait for all pipelined bundles to complete before getting a finishedTime
     boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
 
     std::cout << "bundle_count: " << m_bundleCount << std::endl;

@@ -1,24 +1,6 @@
-﻿#include <errno.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-
-#include <cassert>
-#include <iostream>
-
-#include "codec/bpv6-ext-block.h"
-#include "codec/bpv6.h"
-//#include "message.hpp"
-#ifndef _WIN32
-#include "util/tsc.h"
-#endif
+﻿#include <iostream>
 #include "BpSinkAsync.h"
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
 #include <boost/make_unique.hpp>
-#include "Uri.h"
 
 struct bpgen_hdr {
     uint64_t seq;
