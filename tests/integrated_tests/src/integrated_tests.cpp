@@ -189,15 +189,15 @@ bool TestSchedulerTcpcl() {
 
     //bpsink1
     static const std::string bpsinkConfigArg0 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4557.json").string();
-    static const char * argsBpsink0[] = { "bpsink",bpsinkConfigArg0.c_str(), NULL };
-    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 2, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
+    static const char * argsBpsink0[] = { "bpsink",  "--my-uri-eid=ipn:3.1", bpsinkConfigArg0.c_str(), NULL };
+    std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 3, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
 
     //bpsink2
     static const std::string bpsinkConfigArg1 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
-    static const char * argsBpsink1[] = { "bpsink",bpsinkConfigArg1.c_str(), NULL };
-    std::thread threadBpsink1(RunBpsinkAsync, argsBpsink1, 2, std::ref(runningBpsink[1]), &bundlesReceivedBpsink[1],
+    static const char * argsBpsink1[] = { "bpsink", "--my-uri-eid=ipn:2.1", bpsinkConfigArg1.c_str(), NULL };
+    std::thread threadBpsink1(RunBpsinkAsync, argsBpsink1, 3, std::ref(runningBpsink[1]), &bundlesReceivedBpsink[1],
         &finalStatsBpSink[1]);
     Delay(DELAY_THREAD);
 
@@ -209,7 +209,7 @@ bool TestSchedulerTcpcl() {
 
     //scheduler 
     Scheduler scheduler;
-    std::string eventFile = Scheduler::GetFullyQualifiedFilename("contactPlan.json");
+    std::string eventFile = Scheduler::GetFullyQualifiedFilename("contactPlanIpn2.1.json");
     std::thread threadScheduler(&Scheduler::ProcessContactsFile,&scheduler,eventFile);
     Delay(1);
     
@@ -228,13 +228,13 @@ bool TestSchedulerTcpcl() {
     
     //Bpgen1
    static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
-    static const char * argsBpgen1[] = { "bpgen", "--bundle-rate=100","--flow-id=2","--duration=30",bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen1(RunBpgenAsync,argsBpgen1, 5,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
+    static const char * argsBpgen1[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:3.1","--duration=40", bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen1(RunBpgenAsync,argsBpgen1, 6,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
     Delay(1);
 
     //Bpgen2
-    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=100","--flow-id=1","--duration=30",bpgenConfigArg.c_str(), NULL };
-    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 5,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
+    static const char * argsBpgen0[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:1.1", "--dest-uri-eid=ipn:2.1","--duration=40", bpgenConfigArg.c_str(), NULL };
+    std::thread threadBpgen0(RunBpgenAsync,argsBpgen0, 6,std::ref(runningBpgen[0]),&bundlesSentBpgen[0],&finalStats[0]);
 
 
     // Allow time for data to flow
@@ -321,10 +321,10 @@ bool TestSchedulerTcpcl() {
                      + std::to_string(bundleCountStorage) + ").");
         return false;
      }
-   //  if (totalBundlesBpgen != totalBundlesBpsink) {
-     //     BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
-       //         + std::to_string(totalBundlesBpsink) + ").");
-         // return false;
+    // if (totalBundlesBpgen != totalBundlesBpsink) {
+      //    BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
+        //        + std::to_string(totalBundlesBpsink) + ").");
+          //return false;
     //}
     if (totalBundlesBpgen != totalBundlesAckedBpgen) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "

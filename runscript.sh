@@ -14,12 +14,12 @@ python3 ./common/regsvr/main.py &
 sleep 3
 
 # bpsink1
-./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink1_config &
+./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:3.1 --inducts-config-file=$sink1_config &
 bpsink1_PID=$!
 sleep 3
 
 # bpsink2
-./build/common/bpcodec/apps/bpsink-async --inducts-config-file=$sink2_config &
+./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:2.1 --inducts-config-file=$sink2_config &
 bpsink2_PID=$!
 sleep 3
 
@@ -29,7 +29,7 @@ egress_PID=$!
 sleep 3
 
 #Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
+./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlanIpn2.1.json --hdtn-config-file=$hdtn_config &
 scheduler_PID=$!
 sleep 1
 
@@ -44,12 +44,12 @@ storage_PID=$!
 sleep 3
 
 # bpgen1
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --flow-id=2 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:3.1 --duration=40 --outducts-config-file=$gen_config &
 bpgen1_PID=$!
 sleep 1
 
-# bpgen2
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --flow-id=1 --duration=30 --bundle-size=100000 --outducts-config-file=$gen_config &
+#bpgen2
+./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
 bpgen2_PID=$!
 sleep 8
 
