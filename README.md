@@ -41,13 +41,11 @@ Build HDTN
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
-* cmake ..
+* cmake -DCMAKE_BUILD_TYPE=Release ..
 * make -j8
 
 Run HDTN
 =========
-Note: You may need to increase the maximum number of files the operating system will allow to have open to run the storage component. On Debian, this can be done by setting the hard and soft limits for "nofile" to unlimited in /etc/security/limits.conf.
-
 Note: Ensure your config files are correct, e.g., The outduct remotePort is the same as the induct boundPort, a consistant convergenceLayer, and the outducts remoteHostname is pointed to the correct IP adress.
 
 You can use tcpdump to test the HDTN ingress storage and egress. The generated pcap file can be read using wireshark. 

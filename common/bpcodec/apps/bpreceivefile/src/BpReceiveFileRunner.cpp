@@ -1,41 +1,41 @@
 #include <iostream>
-#include "BpSinkAsync.h"
-#include "BpSinkAsyncRunner.h"
+#include "BpReceiveFile.h"
+#include "BpReceiveFileRunner.h"
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
-void BpSinkAsyncRunner::MonitorExitKeypressThreadFunction() {
+void BpReceiveFileRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false; //do this first
 }
 
 
-BpSinkAsyncRunner::BpSinkAsyncRunner() {}
-BpSinkAsyncRunner::~BpSinkAsyncRunner() {}
+BpReceiveFileRunner::BpReceiveFileRunner() {}
+BpReceiveFileRunner::~BpReceiveFileRunner() {}
 
 
-bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //scope to ensure clean exit before return 0
     {
         running = true;
         m_runningFromSigHandler = true;
-        SignalHandler sigHandler(boost::bind(&BpSinkAsyncRunner::MonitorExitKeypressThreadFunction, this));
-        uint32_t processingLagMs;
+        SignalHandler sigHandler(boost::bind(&BpReceiveFileRunner::MonitorExitKeypressThreadFunction, this));
         InductsConfig_ptr inductsConfigPtr;
         OutductsConfig_ptr outductsConfigPtr;
         cbhe_eid_t myEid;
         bool isAcsAware;
+        std::string saveDirectory;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("simulate-processing-lag-ms", boost::program_options::value<boost::uint32_t>()->default_value(0), "Extra milliseconds to process bundle (testing purposes).")
+                ("save-directory", boost::program_options::value<std::string>()->default_value(""), "Directory to save file(s) to.  Empty=>DoNotSaveToDisk")
                 ("inducts-config-file", boost::program_options::value<std::string>()->default_value("inducts.json"), "Inducts Configuration File.")
-                ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpSink Eid.")
+                ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpReceiveFile Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
                 ;
@@ -50,7 +50,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             }
             const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
             if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
-                std::cerr << "error: bad bpsink uri string: " << myUriEid << std::endl;
+                std::cerr << "error: bad BpReceiveFile uri string: " << myUriEid << std::endl;
                 return false;
             }
 
@@ -60,9 +60,9 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 std::cerr << "error loading config file: " << configFileNameInducts << std::endl;
                 return false;
             }
-            std::size_t numBpSinkInducts = inductsConfigPtr->m_inductElementConfigVector.size();
-            if (numBpSinkInducts != 1) {
-                std::cerr << "error: number of bp sink inducts is not 1: got " << numBpSinkInducts << std::endl;
+            std::size_t numInducts = inductsConfigPtr->m_inductElementConfigVector.size();
+            if (numInducts != 1) {
+                std::cerr << "error: number of BpReceiveFile inducts is not 1: got " << numInducts << std::endl;
             }
 
             //create outduct for custody signals
@@ -73,14 +73,13 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                     std::cerr << "error loading config file: " << outductsConfigFileName << std::endl;
                     return false;
                 }
-                std::size_t numBpSinkOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
-                if (numBpSinkOutducts != 1) {
-                    std::cerr << "error: number of bpsink outducts is not 1: got " << numBpSinkOutducts << std::endl;
+                std::size_t numOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
+                if (numOutducts != 1) {
+                    std::cerr << "error: number of BpReceiveFile outducts is not 1: got " << numOutducts << std::endl;
                 }
             }
             isAcsAware = (vm.count("acs-aware-bundle-agent"));
-
-            processingLagMs = vm["simulate-processing-lag-ms"].as<boost::uint32_t>();
+            saveDirectory = vm["save-directory"].as<std::string>();
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -97,15 +96,15 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         }
 
 
-        std::cout << "starting BpSink.." << std::endl;
-        BpSinkAsync bpSink;
-        bpSink.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, processingLagMs);
+        std::cout << "starting BpReceiveFile.." << std::endl;
+        BpReceiveFile bpReceiveFile(saveDirectory);
+        bpReceiveFile.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0);
 
 
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "BpSink up and running" << std::endl;
+        std::cout << "BpReceiveFileRunner up and running" << std::endl;
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -114,14 +113,11 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         }
 
 
-        std::cout << "BpSinkAsyncRunner: exiting cleanly..\n";
-        bpSink.Stop();
-        m_totalBytesRx = bpSink.m_FinalStatsBpSink.m_totalBytesRx;
-        m_receivedCount = bpSink.m_FinalStatsBpSink.m_receivedCount;
-        m_duplicateCount = bpSink.m_FinalStatsBpSink.m_duplicateCount;
-        this->m_FinalStatsBpSink = bpSink.m_FinalStatsBpSink;
+        std::cout << "BpReceiveFileRunner: exiting cleanly..\n";
+        bpReceiveFile.Stop();
+        //safe to get any stats now if needed
     }
-    std::cout << "BpSinkAsyncRunner: exited cleanly\n";
+    std::cout << "BpReceiveFileRunner: exited cleanly\n";
     return true;
 
 }
