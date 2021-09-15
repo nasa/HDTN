@@ -12,6 +12,7 @@ add_executable(unit-tests
 	../../common/ltp/test/TestLtpUdpEngine.cpp
 	../../common/ltp/test/TestLtpTimerManager.cpp
     ../../common/util/test/TestSdnv.cpp
+	../../common/util/test/TestCborUint.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
 	../../common/util/test/TestRateManagerAsync.cpp
 	../../common/util/test/TestTimestampUtil.cpp
