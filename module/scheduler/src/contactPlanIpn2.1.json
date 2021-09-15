@@ -2,16 +2,16 @@
     "contacts": [
        {
             "contact": 0,
-            "source": 3,
-            "dest": 1,
-            "finalDestinationEid": "ipn:2.1",
+            "source": 1,
+            "dest": 3,
+            "finalDestinationEid": "ipn:3.1",
             "start": 10,
             "end": 20,
             "rate": "1000"
         },
         {
             "contact": 1,
-            "source": 3,
+            "source": 1,
             "dest": 2,
             "finalDestinationEid": "ipn:2.1",
             "start": 30,
