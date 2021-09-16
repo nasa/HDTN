@@ -13,6 +13,7 @@ m_noKeepAlivePacketReceivedTimer(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
 m_sendShutdownMessageTimeoutTimer(m_ioService),
 m_reconnectAfterShutdownTimer(m_ioService),
+m_reconnectAfterOnConnectErrorTimer(m_ioService),
 m_keepAliveIntervalSeconds(desiredKeeAliveIntervlSeconds),
 m_reconnectionDelaySecondsIfNotZero(3), //default 3 unless remote says 0 in shutdown message
 MAX_UNACKED(maxUnacked),
@@ -326,14 +327,9 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
-            std::cout << "Trying to reconnect..." << std::endl;
-            boost::asio::async_connect(
-                *m_tcpSocketPtr,
-                m_resolverResults,
-                boost::bind(
-                    &TcpclBundleSource::OnConnect,
-                    this,
-                    boost::asio::placeholders::error));
+            std::cout << "Will try to reconnect after 2 seconds" << std::endl;
+            m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
+            m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
         return;
     }
@@ -353,6 +349,20 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
         m_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
 
         StartTcpReceive();
+    }
+}
+
+void TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Trying to reconnect..." << std::endl;
+        boost::asio::async_connect(
+            *m_tcpSocketPtr,
+            m_resolverResults,
+            boost::bind(
+                &TcpclBundleSource::OnConnect,
+                this,
+                boost::asio::placeholders::error));
     }
 }
 
