@@ -151,9 +151,22 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         encodedClassic.resize(encodedSizeClassic);
         BOOST_REQUIRE(encodedClassic == expectedEncoding);
 
+        //encode classic buf size 9
+        encodedClassic.resize(9);
+        encodedClassic.assign(encodedClassic.size(), 0);
+        encodedSizeClassic = CborEncodeU64ClassicBufSize9(&encodedClassic[0], valueToEncode);
+        BOOST_REQUIRE_EQUAL(encodedSizeClassic, expectedEncoding.size());
+        encodedClassic.resize(encodedSizeClassic);
+        BOOST_REQUIRE(encodedClassic == expectedEncoding);
+
         //decode classic
         uint8_t numBytesTakenToDecode;
-        const uint64_t decodedValueClassic = CborDecodeU64Classic(expectedEncoding.data(), &numBytesTakenToDecode, 9);
+        uint64_t decodedValueClassic = CborDecodeU64Classic(expectedEncoding.data(), &numBytesTakenToDecode, 9);
+        BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
+        BOOST_REQUIRE_EQUAL(decodedValueClassic, valueToEncode);
+
+        //decode classic buf size 9
+        decodedValueClassic = CborDecodeU64ClassicBufSize9(expectedEncoding.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
         BOOST_REQUIRE_EQUAL(decodedValueClassic, valueToEncode);
 
@@ -167,8 +180,21 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         encodedFast.resize(encodedSizeFast);
         BOOST_REQUIRE(encodedFast == expectedEncoding);
 
+        //encode fast buf size 9
+        encodedFast.resize(9);
+        encodedFast.assign(encodedFast.size(), 0);
+        encodedSizeFast = CborEncodeU64FastBufSize9(&encodedFast[0], valueToEncode);
+        BOOST_REQUIRE_EQUAL(encodedSizeFast, expectedEncoding.size());
+        encodedFast.resize(encodedSizeFast);
+        BOOST_REQUIRE(encodedFast == expectedEncoding);
+
         //decode fast
-        const uint64_t decodedValueFast = CborDecodeU64Fast(expectedEncoding.data(), &numBytesTakenToDecode, 9);
+        uint64_t decodedValueFast = CborDecodeU64Fast(expectedEncoding.data(), &numBytesTakenToDecode, 9);
+        BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
+        BOOST_REQUIRE_EQUAL(decodedValueFast, valueToEncode);
+
+        //decode fast buf size 9
+        decodedValueFast = CborDecodeU64FastBufSize9(expectedEncoding.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
         BOOST_REQUIRE_EQUAL(decodedValueFast, valueToEncode);
 
@@ -189,15 +215,24 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
 
         //fail encoding if buffer too small (must return encoding size 0)
         BOOST_REQUIRE_EQUAL(CborEncodeU64Classic(&encodedClassic[0], valueToEncode, expectedEncodingSize - 1), 0);
+        //encode classic buf size 9
+        encodedClassic.assign(encodedClassic.size(), 0);
+        unsigned int encodedSizeClassic = CborEncodeU64ClassicBufSize9(&encodedClassic[0], valueToEncode);
+        BOOST_REQUIRE_EQUAL(encodedSizeClassic, expectedEncodingSize);
         //encode classic
         encodedClassic.assign(encodedClassic.size(), 0);
-        unsigned int encodedSizeClassic = CborEncodeU64Classic(&encodedClassic[0], valueToEncode, expectedEncodingSize);
+        encodedSizeClassic = CborEncodeU64Classic(&encodedClassic[0], valueToEncode, expectedEncodingSize);
         BOOST_REQUIRE_EQUAL(encodedSizeClassic, expectedEncodingSize);
+        
         
 
         //decode classic
         uint8_t numBytesTakenToDecode;
-        const uint64_t decodedValueClassic = CborDecodeU64Classic(encodedClassic.data(), &numBytesTakenToDecode, expectedEncodingSize);
+        uint64_t decodedValueClassic = CborDecodeU64Classic(encodedClassic.data(), &numBytesTakenToDecode, expectedEncodingSize);
+        BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncodingSize);
+        BOOST_REQUIRE_EQUAL(decodedValueClassic, valueToEncode);
+        //decode classic buf size 9
+        decodedValueClassic = CborDecodeU64ClassicBufSize9(encodedClassic.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncodingSize);
         BOOST_REQUIRE_EQUAL(decodedValueClassic, valueToEncode);
         //fail decoding if buffer too small (numBytesTakenToDecode must be 0)
@@ -213,10 +248,18 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
         encodedFast.assign(encodedFast.size(), 0);
         unsigned int encodedSizeFast = CborEncodeU64Fast(&encodedFast[0], valueToEncode, expectedEncodingSize);
         BOOST_REQUIRE_EQUAL(encodedSizeFast, expectedEncodingSize);
+        //encode fast buf size 9
+        encodedFast.assign(encodedFast.size(), 0);
+        encodedSizeFast = CborEncodeU64FastBufSize9(&encodedFast[0], valueToEncode);
+        BOOST_REQUIRE_EQUAL(encodedSizeFast, expectedEncodingSize);
         
 
         //decode fast
-        const uint64_t decodedValueFast = CborDecodeU64Fast(encodedFast.data(), &numBytesTakenToDecode, expectedEncodingSize);
+        uint64_t decodedValueFast = CborDecodeU64Fast(encodedFast.data(), &numBytesTakenToDecode, expectedEncodingSize);
+        BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncodingSize);
+        BOOST_REQUIRE_EQUAL(decodedValueFast, valueToEncode);
+        //decode fast buf size 9
+        decodedValueFast = CborDecodeU64FastBufSize9(encodedFast.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncodingSize);
         BOOST_REQUIRE_EQUAL(decodedValueFast, valueToEncode);
         //fail decoding if buffer too small (numBytesTakenToDecode must be 0)
@@ -243,7 +286,9 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     std::vector<uint8_t> allEncodedDataClassic(testValuesPlusEncodedSizes.size() * 9);
     std::vector<uint8_t> allEncodedDataFast(testValuesPlusEncodedSizes.size() * 9);
     std::size_t totalBytesEncodedClassic = 0;
+    std::size_t totalBytesEncodedClassicBufSize9 = 0;
     std::size_t totalBytesEncodedFast = 0;
+    std::size_t totalBytesEncodedFastBufSize9 = 0;
     std::cout << "starting speed test\n";
     std::cout << "testValuesPlusEncodedSizes size: " << testValuesPlusEncodedSizes.size() << std::endl;
 
@@ -266,6 +311,24 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE_EQUAL(totalBytesEncodedClassic, totalExpectedEncodingSize * LOOP_COUNT);
     }
 
+    //ENCODE ARRAY OF VALS (CLASSIC buf size 9)
+    {
+        std::cout << "encode classic buf size 9\n";
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            uint8_t * allEncodedDataPtr = allEncodedDataClassic.data();
+            for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
+                const uint64_t valueToEncode = testValuesPlusEncodedSizes[i].first;
+                //encode
+                const unsigned int encodedSize = CborEncodeU64ClassicBufSize9(allEncodedDataPtr, valueToEncode);
+                allEncodedDataPtr += encodedSize;
+                totalBytesEncodedClassicBufSize9 += encodedSize;
+            }
+        }
+        //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
+        BOOST_REQUIRE_EQUAL(totalBytesEncodedClassicBufSize9, totalExpectedEncodingSize * LOOP_COUNT);
+    }
+
     //ENCODE ARRAY OF VALS (FAST)
     {
         std::cout << "encode fast\n";
@@ -282,6 +345,24 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         }
         //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
         BOOST_REQUIRE_EQUAL(totalBytesEncodedFast, totalExpectedEncodingSize * LOOP_COUNT);
+    }
+
+    //ENCODE ARRAY OF VALS (FAST buf size 9)
+    {
+        std::cout << "encode fast buf size 9\n";
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            uint8_t * allEncodedDataPtr = allEncodedDataFast.data();
+            for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
+                const uint64_t valueToEncode = testValuesPlusEncodedSizes[i].first;
+                //encode
+                const unsigned int encodedSize = CborEncodeU64FastBufSize9(allEncodedDataPtr, valueToEncode);
+                allEncodedDataPtr += encodedSize;
+                totalBytesEncodedFastBufSize9 += encodedSize;
+            }
+        }
+        //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
+        BOOST_REQUIRE_EQUAL(totalBytesEncodedFastBufSize9, totalExpectedEncodingSize * LOOP_COUNT);
     }
 
 
@@ -311,6 +392,32 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE(allDecodedVals == allExpectedDecodedValues);
     }
 
+    //DECODE ARRAY OF VALS (CLASSIC buf size 9)
+    {
+        std::cout << "decode classic buf size 9\n";
+        std::size_t totalBytesDecoded = 0;
+        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes.size());
+        std::size_t j;
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            const uint8_t * allEncodedDataPtr = allEncodedDataClassic.data();
+            j = 0;
+            uint64_t * allDecodedDataPtr = allDecodedVals.data();
+            while (j < totalExpectedEncodingSize) {
+                //return decoded value (0 if failure), also set parameter numBytes taken to decode
+                uint8_t numBytesTakenToDecode;
+                const uint64_t decodedVal = CborDecodeU64ClassicBufSize9(allEncodedDataPtr, &numBytesTakenToDecode);
+                *allDecodedDataPtr++ = decodedVal;
+                allEncodedDataPtr += numBytesTakenToDecode;
+                totalBytesDecoded += numBytesTakenToDecode;
+                j += numBytesTakenToDecode;
+            }
+        }
+        BOOST_REQUIRE_EQUAL(j, totalExpectedEncodingSize);
+        BOOST_REQUIRE_EQUAL(totalBytesDecoded, totalExpectedEncodingSize * LOOP_COUNT);
+        BOOST_REQUIRE(allDecodedVals == allExpectedDecodedValues);
+    }
+
     //DECODE ARRAY OF VALS (FAST)
     {
         std::cout << "decode fast\n";
@@ -326,6 +433,32 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
                 //return decoded value (0 if failure), also set parameter numBytes taken to decode
                 uint8_t numBytesTakenToDecode;
                 const uint64_t decodedVal = CborDecodeU64Fast(allEncodedDataPtr, &numBytesTakenToDecode, 9);
+                *allDecodedDataPtr++ = decodedVal;
+                allEncodedDataPtr += numBytesTakenToDecode;
+                totalBytesDecoded += numBytesTakenToDecode;
+                j += numBytesTakenToDecode;
+            }
+        }
+        BOOST_REQUIRE_EQUAL(j, totalExpectedEncodingSize);
+        BOOST_REQUIRE_EQUAL(totalBytesDecoded, totalExpectedEncodingSize * LOOP_COUNT);
+        BOOST_REQUIRE(allDecodedVals == allExpectedDecodedValues);
+    }
+
+    //DECODE ARRAY OF VALS (FAST buf size 9)
+    {
+        std::cout << "decode fast buf size 9\n";
+        std::size_t totalBytesDecoded = 0;
+        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes.size());
+        std::size_t j;
+        boost::timer::auto_cpu_timer t;
+        for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
+            const uint8_t * allEncodedDataPtr = allEncodedDataClassic.data();
+            j = 0;
+            uint64_t * allDecodedDataPtr = allDecodedVals.data();
+            while (j < totalExpectedEncodingSize) {
+                //return decoded value (0 if failure), also set parameter numBytes taken to decode
+                uint8_t numBytesTakenToDecode;
+                const uint64_t decodedVal = CborDecodeU64FastBufSize9(allEncodedDataPtr, &numBytesTakenToDecode);
                 *allDecodedDataPtr++ = decodedVal;
                 allEncodedDataPtr += numBytesTakenToDecode;
                 totalBytesDecoded += numBytesTakenToDecode;
