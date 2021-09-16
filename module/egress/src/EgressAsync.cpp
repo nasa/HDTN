@@ -259,8 +259,16 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     };
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-    while (m_running) { //keep thread alive if running       
-        if (zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL) > 0) {
+    while (m_running) { //keep thread alive if running
+        int rc = 0;
+        try {
+            rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
+        }
+        catch (zmq::error_t & e) {
+            std::cout << "caught zmq::error_t in hdtn::HegrManagerAsync::ReadZmqThreadFunc: " << e.what() << std::endl;
+            continue;
+        }
+        if (rc > 0) {
             for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
                 if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                     continue;
