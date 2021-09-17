@@ -315,6 +315,21 @@ static const uint8_t encodingSizeToShifts[10] = {
     0, //size 8 = invalid
     0, //size 9
 };
+//encoding sizes with extra info to allow one lookup in a table
+#define ES2 ((CBOR_UINT8_TYPE << 8) | (56U << 16))
+#define ES3 ((CBOR_UINT16_TYPE << 8) | (48U << 16))
+#define ES5 ((CBOR_UINT32_TYPE << 8) | (32U << 16))
+#define ES9 ((CBOR_UINT64_TYPE << 8) | (0U << 16))
+static const uint32_t msbToRequiredEncodingSizePlusTypePlusShifts[64] = {
+    1,1,1,1,(2 | ES2),(2 | ES2),(2 | ES2),(2 | ES2),
+    (3 | ES3),(3 | ES3),(3 | ES3),(3 | ES3),(3 | ES3),(3 | ES3),(3 | ES3),(3 | ES3),
+    (5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),
+    (5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),(5 | ES5),
+    (9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),
+    (9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),
+    (9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),
+    (9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9),(9 | ES9)
+};
 
 //return output size
 unsigned int CborEncodeU64Fast(uint8_t * const outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
@@ -419,14 +434,22 @@ unsigned int CborEncodeU64FastBufSize9(uint8_t * const outputEncoded, const uint
     //bitscan seems to have undefined behavior on a value of zero
     //msb will be 0 if value to encode < 24
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 >= CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
-    const unsigned int encodingSize = msbToRequiredEncodingSize[msb];
-    const uint8_t firstByte = encodingSizeToType[encodingSize] | ((static_cast<bool>(encodingSize == 1)) * ((uint8_t)valToEncodeU64)); //byte in first location
+    const uint32_t requiredEncodingSizePlusTypePlusShifts = msbToRequiredEncodingSizePlusTypePlusShifts[msb];
+    const uint8_t encodingSize = (uint8_t)requiredEncodingSizePlusTypePlusShifts;
+    const uint8_t type = (uint8_t)(requiredEncodingSizePlusTypePlusShifts >> 8);
+    const uint8_t shift = (uint8_t)(requiredEncodingSizePlusTypePlusShifts >> 16);
+    const uint8_t firstByte = type | ((static_cast<bool>(encodingSize == 1)) * ((uint8_t)valToEncodeU64)); //byte in first location
+#if 0
+    outputEncoded[0] = firstByte;
+    *(reinterpret_cast<uint64_t*>(&outputEncoded[1])) = boost::endian::native_to_big(valToEncodeU64 << shift);
+#else
 #if 1
     _mm_stream_si32((int32_t *)outputEncoded, boost::endian::native_to_little((uint32_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
 #else
     _mm_stream_si64((long long int *)outputEncoded, boost::endian::native_to_little((uint64_t)firstByte)); //outputEncoded[0] = (uint8_t)valToEncodeU64;
 #endif
-    _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << encodingSizeToShifts[encodingSize]));
+    _mm_stream_si64((long long int *)(&outputEncoded[1]), boost::endian::native_to_big(valToEncodeU64 << shift));
+#endif
     return encodingSize;
 }
 
