@@ -275,22 +275,34 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
 
 BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
 {
+#define SPEED_TEST_LARGE_ENCODINGS 1
+#if SPEED_TEST_LARGE_ENCODINGS
+    std::vector<pairVS> testValuesPlusEncodedSizes2(testValuesPlusEncodedSizes.cbegin() + 45, testValuesPlusEncodedSizes.cend());
+    for (uint64_t i = 5; i < 70; ++i) {
+        testValuesPlusEncodedSizes2.push_back(pairVS(UINT64_MAX - i, 9));
+    }
+    
+#else
+    const std::vector<pairVS> testValuesPlusEncodedSizes2(testValuesPlusEncodedSizes.cbegin() + 21, testValuesPlusEncodedSizes.cend()); //create an even mix of various encoding sizes
+#endif
+    
+
     unsigned int totalExpectedEncodingSize = 0;
     std::vector<uint64_t> allExpectedDecodedValues;
-    allExpectedDecodedValues.reserve(testValuesPlusEncodedSizes.size());
-    for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
-        allExpectedDecodedValues.push_back(testValuesPlusEncodedSizes[i].first);
-        totalExpectedEncodingSize += testValuesPlusEncodedSizes[i].second;
+    allExpectedDecodedValues.reserve(testValuesPlusEncodedSizes2.size());
+    for (std::size_t i = 0; i < testValuesPlusEncodedSizes2.size(); ++i) {
+        allExpectedDecodedValues.push_back(testValuesPlusEncodedSizes2[i].first);
+        totalExpectedEncodingSize += testValuesPlusEncodedSizes2[i].second;
     }
 
-    std::vector<uint8_t> allEncodedDataClassic(testValuesPlusEncodedSizes.size() * 9);
-    std::vector<uint8_t> allEncodedDataFast(testValuesPlusEncodedSizes.size() * 9);
+    std::vector<uint8_t> allEncodedDataClassic(testValuesPlusEncodedSizes2.size() * 9);
+    std::vector<uint8_t> allEncodedDataFast(testValuesPlusEncodedSizes2.size() * 9);
     std::size_t totalBytesEncodedClassic = 0;
     std::size_t totalBytesEncodedClassicBufSize9 = 0;
     std::size_t totalBytesEncodedFast = 0;
     std::size_t totalBytesEncodedFastBufSize9 = 0;
     std::cout << "starting speed test\n";
-    std::cout << "testValuesPlusEncodedSizes size: " << testValuesPlusEncodedSizes.size() << std::endl;
+    std::cout << "testValuesPlusEncodedSizes2 size: " << testValuesPlusEncodedSizes2.size() << std::endl;
 
     static const std::size_t LOOP_COUNT = 5000000;
     //ENCODE ARRAY OF VALS (CLASSIC)
@@ -299,8 +311,8 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
             uint8_t * allEncodedDataPtr = allEncodedDataClassic.data();
-            for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
-                const uint64_t valueToEncode = testValuesPlusEncodedSizes[i].first;
+            for (std::size_t i = 0; i < testValuesPlusEncodedSizes2.size(); ++i) {
+                const uint64_t valueToEncode = testValuesPlusEncodedSizes2[i].first;
                 //encode
                 const unsigned int encodedSize = CborEncodeU64Classic(allEncodedDataPtr, valueToEncode, 9);
                 allEncodedDataPtr += encodedSize;
@@ -317,8 +329,8 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
             uint8_t * allEncodedDataPtr = allEncodedDataClassic.data();
-            for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
-                const uint64_t valueToEncode = testValuesPlusEncodedSizes[i].first;
+            for (std::size_t i = 0; i < testValuesPlusEncodedSizes2.size(); ++i) {
+                const uint64_t valueToEncode = testValuesPlusEncodedSizes2[i].first;
                 //encode
                 const unsigned int encodedSize = CborEncodeU64ClassicBufSize9(allEncodedDataPtr, valueToEncode);
                 allEncodedDataPtr += encodedSize;
@@ -335,8 +347,8 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
             uint8_t * allEncodedDataPtr = allEncodedDataFast.data();
-            for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
-                const uint64_t valueToEncode = testValuesPlusEncodedSizes[i].first;
+            for (std::size_t i = 0; i < testValuesPlusEncodedSizes2.size(); ++i) {
+                const uint64_t valueToEncode = testValuesPlusEncodedSizes2[i].first;
                 //encode
                 const unsigned int encodedSize = CborEncodeU64Fast(allEncodedDataPtr, valueToEncode, 9);
                 allEncodedDataPtr += encodedSize;
@@ -353,8 +365,8 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
             uint8_t * allEncodedDataPtr = allEncodedDataFast.data();
-            for (std::size_t i = 0; i < testValuesPlusEncodedSizes.size(); ++i) {
-                const uint64_t valueToEncode = testValuesPlusEncodedSizes[i].first;
+            for (std::size_t i = 0; i < testValuesPlusEncodedSizes2.size(); ++i) {
+                const uint64_t valueToEncode = testValuesPlusEncodedSizes2[i].first;
                 //encode
                 const unsigned int encodedSize = CborEncodeU64FastBufSize9(allEncodedDataPtr, valueToEncode);
                 allEncodedDataPtr += encodedSize;
@@ -370,7 +382,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     {
         std::cout << "decode classic\n";
         std::size_t totalBytesDecoded = 0;
-        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes.size());
+        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes2.size());
         std::size_t j;
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
@@ -396,7 +408,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     {
         std::cout << "decode classic buf size 9\n";
         std::size_t totalBytesDecoded = 0;
-        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes.size());
+        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes2.size());
         std::size_t j;
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
@@ -422,7 +434,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     {
         std::cout << "decode fast\n";
         std::size_t totalBytesDecoded = 0;
-        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes.size());
+        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes2.size());
         std::size_t j;
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {
@@ -448,7 +460,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     {
         std::cout << "decode fast buf size 9\n";
         std::size_t totalBytesDecoded = 0;
-        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes.size());
+        std::vector<uint64_t> allDecodedVals(testValuesPlusEncodedSizes2.size());
         std::size_t j;
         boost::timer::auto_cpu_timer t;
         for (std::size_t loopI = 0; loopI < LOOP_COUNT; ++loopI) {

@@ -240,6 +240,18 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
 }
 
 #ifdef SDNV_USE_HARDWARE_ACCELERATION
+//unsigned __int64 _bzhi_u64 (unsigned __int64 a, unsigned int index)
+//Copy all bits from unsigned 64-bit integer a to dst, and reset (set to 0) the high bits in dst starting at index.
+// n := index[7:0]
+// dst := a
+// IF(n < 64)
+//     dst[63:n] := 0
+//     CarryFlag=0
+// FI
+// IF(n > 63)
+//     CarryFlag=1
+// FI
+//mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, (mask0x80Index+1) << 3))
 static const uint64_t masksPdepPext1[17] = { //index 0 based for mask0x80Index //17 because mask index can be maximum 16
     0x7f00000000000000,
     0x7f7f000000000000,
@@ -253,6 +265,7 @@ static const uint64_t masksPdepPext1[17] = { //index 0 based for mask0x80Index /
     0x7f7f7f7f7f7f7f7f,
     0,0,0,0,0,0,0 //don't cares for invalid masks above 10 bytes encoded
 };
+//mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, ((mask0x80Index+1)-8) << 3)) * (mask0x80Index > 7)
 static const uint64_t masksPdepPext2[17] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
     0,
     0,
@@ -535,17 +548,51 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     const uint8_t maskIndex = static_cast<uint8_t>(boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask));
     const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-    uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
-    decoded <<= decodedShifts[maskIndex];
+    const uint8_t numBytesToDecode = maskIndex + 1;
+#if 1
+    const uint8_t index1 = numBytesToDecode << 3;
+    const uint64_t mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1));
+#else
+    const uint64_t mask1 = masksPdepPext1[maskIndex];
+#endif
+    uint64_t decoded = _pext_u64(u64ByteSwapped, mask1);
+
+#if 0
+    const uint8_t index2 = (index1 - 64) * (static_cast<bool>(numBytesToDecode >= 8));
+    const uint64_t mask2 = boost::endian::endian_reverse(_bzhi_u64(mask1, index2)); //mask1 already 0x7f7f7f7f7f7f7f7f
+#elif 0
+    const uint64_t mask2 = (0x7f7f000000000000 << ((80 - index1))) * (static_cast<bool>(numBytesToDecode >= 9));
+#elif 1
+    //unsigned __int64 _bextr_u64 (unsigned __int64 a, unsigned int start, unsigned int len)
+    //tmp[511:0] := a
+    //dst[63:0] := ZeroExtend64(tmp[(start[7:0] + len[7:0] - 1):start[7:0]])
+    const uint64_t mask2 = boost::endian::endian_reverse(_bextr_u64(0x7f7f, (80 - index1), 16));
+#else
+    const uint64_t mask2 = masksPdepPext2[maskIndex];
+#endif
+    
+#if 1
+    const uint8_t shift = static_cast<uint8_t>(_mm_popcnt_u64(mask2));
+#else
+    const uint8_t shift = decodedShifts[maskIndex];
+#endif
+    decoded <<= shift;
     sdnvEncoded = _mm_srli_si128(sdnvEncoded, 8);
     const uint64_t encoded64High = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64HighByteSwapped = boost::endian::big_to_native(encoded64High);
-    const uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masksPdepPext2[maskIndex]);
+    const uint16_t decoded2 = static_cast<uint16_t>(_pext_u64(u64HighByteSwapped, mask2));
     decoded |= decoded2;
+#if 0
+    const uint8_t firstByte = (uint8_t)encoded64;
+    const bool valid = (maskIndex < 9) + ((maskIndex == 9) * (firstByte <= 0x81));
+#elif 0
+    const bool valid = (numBytesToDecode < 10) + ((numBytesToDecode == 10) * (data[0] <= 0x81));
+#else
     const bool valid = (maskIndex < 9) + ((maskIndex == 9) * (data[0] <= 0x81));
+#endif
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " maskIndex: " << maskIndex << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
     //std::cout << " u64HighByteSwapped " << std::hex << u64HighByteSwapped << " d2 " << decoded2 << std::dec << std::endl;
-    *numBytes = (maskIndex + 1) * valid; //sdnvSizeBytes;
+    *numBytes = numBytesToDecode * valid; //sdnvSizeBytes;
     return decoded;
 }
 
