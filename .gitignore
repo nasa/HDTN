@@ -16,4 +16,7 @@ logs/*
 common/regsvr/hdtn/__pycache__/
 common/regsvr/hdtn/__pycache__/*
 
+pycgr/py_cgr/py_cgr_lib/__pycache__/
+pycgr/py_cgr/py_cgr_lib/__pycache__/*
+
 .vscode/
