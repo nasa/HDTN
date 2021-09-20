@@ -5,9 +5,37 @@
 #include <vector>
 #include "Sdnv.h"
 #include <boost/timer/timer.hpp>
+#include <immintrin.h>
 
 BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
 {
+    //before we start, it's important to make sure the vector clear and resize(0) do not change capacity (important for sdnv hardware decode operation)
+    {
+        std::vector<uint8_t> sdnvTempVec;
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.size(), 0);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.capacity(), 0);
+        sdnvTempVec.reserve(32);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.size(), 0);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.capacity(), 32);
+        for (std::size_t i = 0; i < 10; ++i) {
+            sdnvTempVec.push_back(static_cast<uint8_t>(i));
+        }
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.size(), 10);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.capacity(), 32);
+        sdnvTempVec.clear();
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.size(), 0);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.capacity(), 32);
+
+        for (std::size_t i = 0; i < 10; ++i) {
+            sdnvTempVec.push_back(static_cast<uint8_t>(i));
+        }
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.size(), 10);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.capacity(), 32);
+        sdnvTempVec.resize(0);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.size(), 0);
+        BOOST_REQUIRE_EQUAL(sdnvTempVec.capacity(), 32);
+    }
+
     std::vector<uint8_t> encoded(10);
     std::vector<uint8_t> encodedFast(10);
     encoded.assign(encoded.size(), 0);
@@ -75,7 +103,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
         encodedFast.assign(encodedFast.size(), 0);
         //encode val
         const unsigned int outputSizeBytes = SdnvEncodeU32Classic(encoded.data(), val);
-        const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(encodedFast.data(), val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU32Fast(encodedFast.data(), val);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, outputSizeBytesFast);
         BOOST_REQUIRE(encoded == encodedFast);
 
@@ -83,7 +111,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
         uint8_t numBytesDecoded = 0;
         uint8_t numBytesDecodedFast = 0;
         const uint32_t valDecoded = SdnvDecodeU32Classic(encoded.data(), &numBytesDecoded);
-        const uint64_t valDecodedFast = SdnvDecodeU64Fast(encoded.data(), &numBytesDecodedFast);
+        const uint32_t valDecodedFast = SdnvDecodeU32Fast(encoded.data(), &numBytesDecodedFast);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecoded);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecodedFast);
         BOOST_REQUIRE_EQUAL(val, valDecoded);
@@ -128,7 +156,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
         allEncodedDataPtr += outputSizeBytes;
         totalBytesEncoded += outputSizeBytes;
         //encode fast
-        const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(allEncodedDataFastPtr, val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU32Fast(allEncodedDataFastPtr, val);
         allEncodedDataFastPtr += outputSizeBytesFast;
         totalBytesEncodedFast += outputSizeBytesFast;
     }
@@ -155,10 +183,10 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
         allEncodedDataPtr += numBytesTakenToDecode;
 
         uint8_t numBytesTakenToDecodeFast;
-        const uint64_t decodedValFast = SdnvDecodeU64Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
+        const uint32_t decodedValFast = SdnvDecodeU32Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
         //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
         BOOST_REQUIRE_NE(numBytesTakenToDecodeFast, 0);
-        allDecodedValsFast.push_back(static_cast<uint32_t>(decodedValFast));
+        allDecodedValsFast.push_back(decodedValFast);
         allEncodedDataFastPtr += numBytesTakenToDecodeFast;
 
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecodeFast, numBytesTakenToDecode);
@@ -294,6 +322,82 @@ static const std::vector<uint64_t> testVals = {
     UINT64_MAX - 1,
     UINT64_MAX
 };
+
+BOOST_AUTO_TEST_CASE(Sdnv32BitErrorDecodeTestCase)
+{
+    std::vector<uint8_t> encoded(sizeof(__m128i));
+   
+    uint8_t numBytesTakenToDecode = UINT8_MAX;
+    uint32_t decodedVal;
+    encoded.assign(encoded.size(), 0xff); //never ending sdnv
+    decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode);
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
+
+    numBytesTakenToDecode = UINT8_MAX;
+    decodedVal = SdnvDecodeU32Fast(encoded.data(), &numBytesTakenToDecode);
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
+    
+    encoded.assign(encoded.size(), 0);
+    const unsigned int outputSizeBytes = SdnvEncodeU32Classic(encoded.data(), UINT32_MAX);
+    BOOST_REQUIRE_EQUAL(outputSizeBytes, 5);
+    BOOST_REQUIRE_EQUAL(encoded[0], 0x8f); //f -> bits 29,30,31,32
+    BOOST_REQUIRE_EQUAL(encoded[3], 0xff);
+    BOOST_REQUIRE_EQUAL(encoded[4], 0x7f); //least significant byte with sdnv stopping msb set to 0
+    
+    for (uint8_t byteMakesAbove32Bit = 0x90; byteMakesAbove32Bit < 0xff; ++byteMakesAbove32Bit) { //0x90 makes 33 bit sdnv
+        encoded[0] = byteMakesAbove32Bit;
+        //for (std::size_t i = 0; i < encoded.size(); ++i) {
+        //    printf("%02x ", encoded[i]);
+        //}
+        //std::cout << std::endl;
+
+        numBytesTakenToDecode = UINT8_MAX;
+        decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode);
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT32_MAX)
+
+        numBytesTakenToDecode = UINT8_MAX;
+        decodedVal = SdnvDecodeU32Fast(encoded.data(), &numBytesTakenToDecode);
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT32_MAX)
+    }
+}
+
+BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
+{
+    std::vector<uint8_t> encoded(sizeof(__m128i));
+    encoded.assign(encoded.size(), 0xff); //never ending sdnv
+
+    uint8_t numBytesTakenToDecode = UINT8_MAX;
+    uint64_t decodedVal;
+    decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode);
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
+
+    numBytesTakenToDecode = UINT8_MAX;
+    decodedVal = SdnvDecodeU64Fast(encoded.data(), &numBytesTakenToDecode);
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
+
+    encoded.assign(encoded.size(), 0);
+    const unsigned int outputSizeBytes = SdnvEncodeU64Classic(encoded.data(), UINT64_MAX);
+    BOOST_REQUIRE_EQUAL(outputSizeBytes, 10);
+    BOOST_REQUIRE_EQUAL(encoded[0], 0x81); //1 -> 64th bit
+    BOOST_REQUIRE_EQUAL(encoded[8], 0xff);
+    BOOST_REQUIRE_EQUAL(encoded[9], 0x7f); //least significant byte with sdnv stopping msb set to 0
+
+    for (uint8_t byteMakesAbove64Bit = 0x82; byteMakesAbove64Bit < 0xff; ++byteMakesAbove64Bit) { //0x82 makes 65 bit sdnv
+        encoded[0] = byteMakesAbove64Bit;
+        //for (std::size_t i = 0; i < encoded.size(); ++i) {
+        //    printf("%02x ", encoded[i]);
+        //}
+        //std::cout << std::endl;
+
+        numBytesTakenToDecode = UINT8_MAX;
+        decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode);
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT64_MAX)
+
+        numBytesTakenToDecode = UINT8_MAX;
+        decodedVal = SdnvDecodeU64Fast(encoded.data(), &numBytesTakenToDecode);
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT64_MAX)
+    }
+}
 
 BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 {

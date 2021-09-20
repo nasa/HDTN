@@ -4,14 +4,13 @@
         {
             "name": "bpgen",
             "convergenceLayer": "ltp_over_udp",
-            "endpointIdStr": "ipn1:4",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,
-            "flowIds": [
-                1,
-                2,
-                3
+            "finalDestinationEidUris": [
+                "ipn:1.1",
+                "ipn:2.1",
+                "ipn:3.1"
             ],
             "thisLtpEngineId": 201,
             "remoteLtpEngineId": 100,
@@ -20,9 +19,10 @@
             "oneWayMarginTimeMs": 200,
             "clientServiceId": 400,
             "numRxCircularBufferElements": 100,
-            "numRxCircularBufferBytesPerElement": 65535,
             "ltpMaxRetriesPerSerialNumber": 5,
-            "ltpCheckpointEveryNthDataSegment": 0
+            "ltpCheckpointEveryNthDataSegment": 0,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpSenderBoundPort": 2113
         }
     ]
 }

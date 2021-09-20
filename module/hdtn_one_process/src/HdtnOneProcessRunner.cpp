@@ -39,12 +39,14 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
+        bool isCutThroughOnlyTest = false;
         HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
-                ("help", "Produce help message.")                
+                ("help", "Produce help message.")
+                ("cut-through-only-test", "Always send to egress.  Assume all links always available.")
                 ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
     	        ;
 
@@ -55,6 +57,10 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             if (vm.count("help")) {
                 std::cout << desc << "\n";
                 return false;
+            }
+
+            if (vm.count("cut-through-only-test")) {
+                isCutThroughOnlyTest = true;
             }
 
             const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
@@ -124,7 +130,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::cout << "starting ingress.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
         hdtn::Ingress ingress;
-        ingress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
+        ingress.Init(*hdtnConfig, isCutThroughOnlyTest, hdtnOneProcessZmqInprocContextPtr.get());
 
         // finish registration stuff -ingress will find out what egress services have
         // registered

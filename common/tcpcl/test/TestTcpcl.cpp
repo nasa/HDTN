@@ -124,6 +124,15 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
 		}
 
+        void DoDataSegmentNoFragmentCharByChar() { //skip sdnv shortcut in data segment
+            std::vector<uint8_t> bundleSegment;
+            m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackNoFragment, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+            Tcpcl::GenerateDataSegment(bundleSegment, true, true, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size());
+            for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
+                m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+            }
+        }
+
 		void DoDataSegmentThreeFragments() {
 			m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackWithFragments, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 			std::vector<uint8_t> bundleSegment;
@@ -261,9 +270,14 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 	BOOST_REQUIRE_EQUAL(t.m_numContactHeaderCallbackCount, 1);
 	BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
 
-	BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 0);
-	t.DoDataSegmentNoFragment();
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 0);
+    t.DoDataSegmentNoFragmentCharByChar();
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+
 	BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+	t.DoDataSegmentNoFragment();
+	BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 2);
 	BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
 
 	BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 0);

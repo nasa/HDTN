@@ -30,7 +30,7 @@
 //return output size
 unsigned int SdnvEncodeU32(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
 #ifdef SDNV_USE_HARDWARE_ACCELERATION
-    return SdnvEncodeU64Fast(outputEncoded, valToEncodeU32);
+    return SdnvEncodeU32Fast(outputEncoded, valToEncodeU32);
 #else
     return SdnvEncodeU32Classic(outputEncoded, valToEncodeU32);
 #endif // SDNV_USE_HARDWARE_ACCELERATION
@@ -49,7 +49,7 @@ unsigned int SdnvEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU6
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes) {
 #ifdef SDNV_USE_HARDWARE_ACCELERATION
-    return static_cast<uint32_t>(SdnvDecodeU64Fast(inputEncoded, numBytes));
+    return SdnvDecodeU32Fast(inputEncoded, numBytes);
 #else
     return SdnvDecodeU32Classic(inputEncoded, numBytes);
 #endif // SDNV_USE_HARDWARE_ACCELERATION
@@ -188,7 +188,8 @@ unsigned int SdnvEncodeU64Classic(uint8_t * outputEncoded, const uint64_t valToE
     }
 }
 
-//return decoded value (0 if failure), also set parameter numBytes taken to decode
+//return decoded value (return invalid number that must be ignored on failure)
+//  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
@@ -198,13 +199,14 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     //   the encoded SDNV and repeat the Recursion Step, otherwise return
     //   the current value of the result.
 
+    const uint8_t firstByte = *inputEncoded;
     uint32_t result = 0;
     for (uint8_t byteCount = 1; byteCount <= 5; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = byteCount;
+            *numBytes = ((byteCount == 5) && (firstByte > 0x8f)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT32_MAX
             return result;
         }
     }
@@ -212,7 +214,8 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     return 0;
 }
 
-//return decoded value (0 if failure), also set parameter numBytes taken to decode
+//return decoded value (return invalid number that must be ignored on failure)
+//  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
@@ -221,14 +224,14 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     //   bit under the pointer is a 1, advance the index by one byte within
     //   the encoded SDNV and repeat the Recursion Step, otherwise return
     //   the current value of the result.
-
+    const uint8_t firstByte = *inputEncoded;
     uint64_t result = 0;
     for (uint8_t byteCount = 1; byteCount <= 10; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = byteCount;
+            *numBytes = ((byteCount == 10) && (firstByte > 0x81)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT64_MAX
             return result;
         }
     }
@@ -237,7 +240,7 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
 }
 
 #ifdef SDNV_USE_HARDWARE_ACCELERATION
-static const uint64_t masksPdepPext1[10] = { //index 0 based for mask0x80Index
+static const uint64_t masksPdepPext1[17] = { //index 0 based for mask0x80Index //17 because mask index can be maximum 16
     0x7f00000000000000,
     0x7f7f000000000000,
     0x7f7f7f0000000000,
@@ -247,9 +250,10 @@ static const uint64_t masksPdepPext1[10] = { //index 0 based for mask0x80Index
     0x7f7f7f7f7f7f7f00,
     0x7f7f7f7f7f7f7f7f,
     0x7f7f7f7f7f7f7f7f,
-    0x7f7f7f7f7f7f7f7f
+    0x7f7f7f7f7f7f7f7f,
+    0,0,0,0,0,0,0 //don't cares for invalid masks above 10 bytes encoded
 };
-static const uint64_t masksPdepPext2[10] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
+static const uint64_t masksPdepPext2[17] = { //index 0 based for mask0x80Index (for big 9 and 10 byte sdnv)
     0,
     0,
     0,
@@ -260,9 +264,10 @@ static const uint64_t masksPdepPext2[10] = { //index 0 based for mask0x80Index (
     0,
     0x7f00000000000000,
     0x7f7f000000000000,
+    0,0,0,0,0,0,0 //don't cares for invalid masks above 10 bytes encoded
 };
 
-static const uint8_t decodedShifts[10] = { //index 0 based for maskIndex
+static const uint8_t decodedShifts[17] = { //index 0 based for maskIndex
         0x00,
         0x00,
         0x00,
@@ -272,7 +277,58 @@ static const uint8_t decodedShifts[10] = { //index 0 based for maskIndex
         0x00,
         0x00,
         7,//9 byte
-        14//10 byte
+        14,//10 byte
+        0,0,0,0,0,0,0 //don't cares for invalid masks above 10 bytes encoded
+};
+
+static const uint64_t masks0x80[10] = {
+        0x00,
+        0x8000000000000000,
+        0x8080000000000000,
+        0x8080800000000000,
+        0x8080808000000000,
+        0x8080808080000000,
+        0x8080808080800000,
+        0x8080808080808000,
+        0x8080808080808000,
+        0x8080808080808000,
+};
+static const uint64_t masks0x80_2[10] = {
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0x8000000000000000,
+    0x8080000000000000,
+};
+
+static const uint8_t mask0x80Indices[70] = {
+    0,0,0,0,0,0,0,
+    1,1,1,1,1,1,1,
+    2,2,2,2,2,2,2,
+    3,3,3,3,3,3,3,
+    4,4,4,4,4,4,4,
+    5,5,5,5,5,5,5,
+    6,6,6,6,6,6,6,
+    7,7,7,7,7,7,7,
+    8,8,8,8,8,8,8,
+    9,9,9,9,9,9,9
+};
+static const uint8_t memoryOffsets[10] = {
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1, //idx 8
+    2, //idx 9
 };
 
 
@@ -313,42 +369,7 @@ __attribute__((aligned(16)))
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
     
-    static const uint64_t masks0x80[10] = {
-        0x00,
-        0x8000000000000000,
-        0x8080000000000000,
-        0x8080800000000000,
-        0x8080808000000000,
-        0x8080808080000000,
-        0x8080808080800000,
-        0x8080808080808000,
-        0x8080808080808000,
-        0x8080808080808000,
-    };
-    static const uint64_t masks0x80_2[10] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0x8000000000000000,
-        0x8080000000000000,
-    };
-    static const uint8_t memoryOffsets[10] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1, //idx 8
-        2, //idx 9
-    };
+    
 
     //if (valToEncodeU64 > SDNV64_MAX_8_BYTE) {
         //std::cout << "notice: SdnvEncodeU64Fast encountered a value that would result in an encoded SDNV greater than 8 bytes.. using classic version" << std::endl;
@@ -394,62 +415,27 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     return mask0x80Index + 1; //sdnvSizeBytes;
 }
 */
+
+//return output size
+unsigned int SdnvEncodeU32Fast(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
+    //bitscan seems to have undefined behavior on a value of zero
+    const unsigned int msb = (static_cast<bool>(valToEncodeU32 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint32_t>(valToEncodeU32)));
+
+    const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
+    //std::cout << "encode fast: msb: " << msb << std::endl;
+    const uint64_t encoded64 = _pdep_u64(valToEncodeU32, masksPdepPext1[mask0x80Index]) | masks0x80[mask0x80Index];
+    //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
+    const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
+
+    _mm_stream_si64((long long int *)(outputEncoded), encoded64ForMemcpy);
+    
+    return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
+}
+
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
 
-    
-
-    static const uint64_t masks0x80[10] = {
-        0x00,
-        0x8000000000000000,
-        0x8080000000000000,
-        0x8080800000000000,
-        0x8080808000000000,
-        0x8080808080000000,
-        0x8080808080800000,
-        0x8080808080808000,
-        0x8080808080808000,
-        0x8080808080808000,
-    };
-    static const uint64_t masks0x80_2[10] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0x8000000000000000,
-        0x8080000000000000,
-    };
-
-    static const uint8_t mask0x80Indices[70] = {
-        0,0,0,0,0,0,0,
-        1,1,1,1,1,1,1,
-        2,2,2,2,2,2,2,
-        3,3,3,3,3,3,3,
-        4,4,4,4,4,4,4,
-        5,5,5,5,5,5,5,
-        6,6,6,6,6,6,6,
-        7,7,7,7,7,7,7,
-        8,8,8,8,8,8,8,
-        9,9,9,9,9,9,9
-    };
-    static const uint8_t memoryOffsets[10] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1, //idx 8
-        2, //idx 9
-    };
-
-    
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
@@ -484,8 +470,35 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
 }
 
+//return decoded value (return invalid number that must be ignored on failure)
+//  also sets parameter numBytes taken to decode (set to 0 on failure)
+uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
+    //(Initial Step) Set the result to 0.  Set an index to the first
+    //  byte of the encoded SDNV.
+    //(Recursion Step) Shift the result left 7 bits.  Add the low-order
+    //   7 bits of the value at the index to the result.  If the high-order
+    //   bit under the pointer is a 1, advance the index by one byte within
+    //   the encoded SDNV and repeat the Recursion Step, otherwise return
+    //   the current value of the result.
 
-//return decoded value (0 if failure), also set parameter numBytes taken to decode
+    //Instruction   Selector mask    Source       Destination
+    //PEXT          0xff00fff0       0x12345678   0x00012567
+    //PDEP          0xff00fff0       0x00012567   0x12005670
+
+
+    __m128i sdnvEncoded = _mm_loadl_epi64((__m128i const*)(data)); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
+    int significantBitsSetMask = _mm_movemask_epi8(sdnvEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
+    const uint8_t maskIndex = static_cast<uint8_t>(boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask));
+    const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
+    const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
+    const uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
+    const bool valid = (maskIndex < 4) + ((maskIndex == 4) * (data[0] <= 0x8f));
+    *numBytes = (maskIndex + 1) * valid; //sdnvSizeBytes;
+    return static_cast<uint32_t>(decoded);
+}
+
+//return decoded value (return invalid number that must be ignored on failure)
+//  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
@@ -519,7 +532,7 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     
     __m128i sdnvEncoded = _mm_loadu_si128((__m128i const*) data); //SSE2 Load 128-bits of integer data from memory into dst. mem_addr does not need to be aligned on any particular boundary.
     int significantBitsSetMask = _mm_movemask_epi8(sdnvEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
-    const unsigned int maskIndex = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask);
+    const uint8_t maskIndex = static_cast<uint8_t>(boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask));
     const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
     uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
@@ -527,11 +540,12 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     sdnvEncoded = _mm_srli_si128(sdnvEncoded, 8);
     const uint64_t encoded64High = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64HighByteSwapped = boost::endian::big_to_native(encoded64High);
-    uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masksPdepPext2[maskIndex]);
+    const uint64_t decoded2 = _pext_u64(u64HighByteSwapped, masksPdepPext2[maskIndex]);
     decoded |= decoded2;
-    //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " sdnvsize: " << sdnvSizeBytes << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
-    //std::cout << " u64HighByteSwapped " << std::hex << u64HighByteSwapped << " m2 " << masks2[sdnvSizeBytes] << " d2 " << decoded2 << std::dec << std::endl;
-    *numBytes = maskIndex + 1; //sdnvSizeBytes;
+    const bool valid = (maskIndex < 9) + ((maskIndex == 9) * (data[0] <= 0x81));
+    //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " maskIndex: " << maskIndex << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
+    //std::cout << " u64HighByteSwapped " << std::hex << u64HighByteSwapped << " d2 " << decoded2 << std::dec << std::endl;
+    *numBytes = (maskIndex + 1) * valid; //sdnvSizeBytes;
     return decoded;
 }
 
@@ -733,3 +747,13 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
 }
 
 #endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
+
+//return output size
+unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
+
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
+    //bitscan seems to have undefined behavior on a value of zero
+    const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+
+    return mask0x80Indices[msb] + 1; //(msb / 7);
+}

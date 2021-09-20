@@ -13,15 +13,15 @@
 
 struct storage_disk_config_t {
     std::string name;
-	std::string storeFilePath;
+    std::string storeFilePath;
 
-	storage_disk_config_t();
-	~storage_disk_config_t();	
+    storage_disk_config_t();
+    ~storage_disk_config_t();
 
-	storage_disk_config_t(const std::string & paramName, const std::string & paramStoreFilePath);
-	bool operator==(const storage_disk_config_t & other) const;
+    storage_disk_config_t(const std::string & paramName, const std::string & paramStoreFilePath);
+    bool operator==(const storage_disk_config_t & other) const;
 
-    
+
     //a copy constructor: X(const X&)
     storage_disk_config_t(const storage_disk_config_t& o);
 
@@ -46,8 +46,8 @@ class StorageConfig : public JsonSerializable {
 
 
 public:
-	StorageConfig();
-	~StorageConfig();
+    StorageConfig();
+    ~StorageConfig();
 
     //a copy constructor: X(const X&)
     StorageConfig(const StorageConfig& o);
@@ -61,19 +61,22 @@ public:
     //a move assignment: operator=(X&&)
     StorageConfig& operator=(StorageConfig&& o);
 
-	bool operator==(const StorageConfig & other) const;
-	
-	static StorageConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-	static StorageConfig_ptr CreateFromJson(const std::string & jsonString);
-	static StorageConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
-	virtual boost::property_tree::ptree GetNewPropertyTree() const;
-	virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+    bool operator==(const StorageConfig & other) const;
 
-	void AddDisk(const std::string & name, const std::string & storeFilePath);
+    static StorageConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
+    static StorageConfig_ptr CreateFromJson(const std::string & jsonString);
+    static StorageConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    virtual boost::property_tree::ptree GetNewPropertyTree() const;
+    virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+
+    void AddDisk(const std::string & name, const std::string & storeFilePath);
 public:
-	
-	boost::uint64_t m_totalStorageCapacityBytes;
-	storage_disk_config_vector_t m_storageDiskConfigVector;
+
+    std::string m_storageImplementation;
+    bool m_tryToRestoreFromDisk;
+    bool m_autoDeleteFilesOnExit;
+    uint64_t m_totalStorageCapacityBytes;
+    storage_disk_config_vector_t m_storageDiskConfigVector;
 };
 
 #endif // STORAGE_CONFIG_H

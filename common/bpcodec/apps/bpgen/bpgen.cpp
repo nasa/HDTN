@@ -226,7 +226,7 @@ int main(int argc, char* argv[]) {
             primary.creation = (uint64_t)bpv6_unix_to_5050(curr_time);
             primary.sequence = seq;
             uint64_t tsc_start = rdtsc();
-            bundle_length = bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);
+            bundle_length = cbhe_bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);
             tsc_total += rdtsc() - tsc_start;
             block.type = BPV6_BLOCKTYPE_PAYLOAD;
             block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;

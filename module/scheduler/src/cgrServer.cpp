@@ -12,10 +12,8 @@ void CgrServer::init(std::string address)
 
     cgrSock = boost::make_unique<zmq::socket_t>(*cgrCtx, zmq::socket_type::pair);
     char tbuf[255];
-//    memset(tbuf, 0, 255);
 
     std::cout << "set socket" << std::endl;
-  //  cgrSock->set(zmq::sockopt::routing_id, tbuf);
     static const int timeout = 2000;
     cgrSock->set(zmq::sockopt::rcvtimeo, timeout);
     std::cout << "attempting zmq connection" << std::endl;
@@ -24,11 +22,8 @@ void CgrServer::init(std::string address)
 
 int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTime)
 {
-    std::cout << "creating message" << std::endl;
-
     std::string message = std::to_string(currentNode) + "|" + std::to_string(destinationNode) 
         + "|" + std::to_string(startTime);
-
 
     //cgrSock->send(&msg, zmq::send_flags::none);
     std::cout << "Sending CGR request" << std::endl;

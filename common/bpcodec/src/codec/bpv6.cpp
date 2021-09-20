@@ -12,170 +12,252 @@
 #include <string.h>
 #include "codec/bpv6.h"
 #include <inttypes.h>
+#include "Sdnv.h"
+#include <utility>
 
-uint32_t bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buffer, const size_t offset, const size_t bufsz) {
+uint32_t cbhe_bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buffer, const size_t offset, const size_t bufsz) {
     primary->version = buffer[offset];
-    uint8_t  is_fragment = 0;
-    uint64_t tmp;
     uint64_t index = offset + 1;
-    uint8_t  incr = 0;
+    uint8_t sdnvSize;
 
-    primary->eidlen = 0;
     if(primary->version != BPV6_CCSDS_VERSION) {
         return 0;
     }
 
-    incr = bpv6_sdnv_decode(&primary->flags, buffer, index, bufsz);
-    index += incr;
-    if(bpv6_bundle_get_gflags(primary->flags) & BPV6_BUNDLEFLAG_FRAGMENT) {
-        is_fragment = 1;
+    
+    primary->flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) { 
+        return 0; //return 0 on failure
     }
-    incr = bpv6_sdnv_decode(&primary->block_length, buffer, index, bufsz);
-    index += incr;
+    index += sdnvSize;
+    const bool isFragment = ((bpv6_bundle_get_gflags(primary->flags) & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
 
-    incr = bpv6_sdnv_decode(&primary->dst_node, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->dst_svc, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->src_node, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->src_svc, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->report_node, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->report_svc, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->custodian_node, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
-    incr = bpv6_sdnv_decode(&primary->custodian_svc, buffer, index, bufsz);
-    index += incr;
-    primary->eidlen = (incr > primary->eidlen) ? incr : primary->eidlen;
+    primary->block_length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
 
-    incr = bpv6_sdnv_decode(&primary->creation, buffer, index, bufsz);
-    index += incr;
-    incr = bpv6_sdnv_decode(&primary->sequence, buffer, index, bufsz);
-    index += incr;
-    incr = bpv6_sdnv_decode(&primary->lifetime, buffer, index, bufsz);
-    index += incr;
-    incr = bpv6_sdnv_decode(&tmp, buffer, index, bufsz);
-    index += incr;
+    primary->dst_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->dst_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->src_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->src_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->report_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->report_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->custodian_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->custodian_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->creation = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->sequence = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    primary->lifetime = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
+
+    if (buffer[index] != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
+        //RFC6260
+        //3.2.  Reception
+        //
+        //Upon receiving a bundle whose dictionary length is zero(and only in
+        //this circumstance), a CBHE - conformant convergence - layer adapter :
+        //
+        //1.  MAY infer that the CLA from which the bundle was received is CBHE
+        //    conformant.
+        //
+        //2.  MUST decode the primary block of the bundle in accordance with
+        //    the CBHE compression convention described in Section 2.2 before
+        //    delivering it to the bundle protocol agent.
+        //
+        //    Note that when a CLA that is not CBHE conformant receives a bundle
+        //    whose dictionary length is zero, it has no choice but to pass it to
+        //    the bundle agent without modification.In this case, the bundle
+        //    protocol agent will be unable to dispatch the received bundle,
+        //    because it will be unable to determine the destination endpoint; the
+        //    bundle will be judged to be malformed.The behavior of the bundle
+        //    protocol agent in this circumstance is an implementation matter.
+        printf("error: cbhe bpv6 primary decode: dictionary size not 0\n");
+        return 0;
+    }
+    index += 1;
+
     // Skip the entirety of the dictionary - we assume an IPN scheme
-    index += tmp;
-    if(is_fragment) {
-        incr = bpv6_sdnv_decode(&primary->fragment_offset, buffer, index, bufsz);
-        index += incr;
-        incr = bpv6_sdnv_decode(&primary->data_length, buffer, index, bufsz);
-        index += incr;
+    //index += 0;
+
+    if(isFragment) {
+        primary->fragment_offset = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+        if (sdnvSize == 0) {
+            return 0; //return 0 on failure
+        }
+        index += sdnvSize;
+
+        primary->data_length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+        if (sdnvSize == 0) {
+            return 0; //return 0 on failure
+        }
+        index += sdnvSize;
+    }
+    else {
+        primary->fragment_offset = 0;
+        primary->data_length = 0;
     }
 
     return static_cast<uint32_t>(index - offset);
 }
 
-uint32_t bpv6_primary_block_encode(const bpv6_primary_block* primary, char* buffer, const size_t offset, const size_t bufsz) {
+uint32_t cbhe_bpv6_primary_block_encode(const bpv6_primary_block* primary, char* buffer, const size_t offset, const size_t bufsz) {
     buffer[offset] = primary->version;
-    uint8_t  is_fragment = 0;
     uint64_t index = offset + 1;
-    uint8_t  incr = 0;
-    uint32_t block_length = 0;
-    uint64_t block_length_offset = 0;
+    uint64_t sdnvSize;
 
     if(primary->version != BPV6_CCSDS_VERSION) {
         return 0;
     }
 
-    incr = bpv6_sdnv_encode(primary->flags, buffer, index, bufsz);
-    index += incr;
-    if(bpv6_bundle_get_gflags(primary->flags) & BPV6_BUNDLEFLAG_FRAGMENT) {
-        is_fragment = 1;
-    }
-    block_length_offset = index;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->flags);
+    index += sdnvSize;
+    const bool isFragment = ((bpv6_bundle_get_gflags(primary->flags) & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
+
+    const uint64_t blockLengthOffset = index;
     ++index;  // we skip one byte so we can come back and write it later
-    // incr = bpv6_sdnv_encode(primary->block_length, buffer, index, bufsz);
-    // index += incr;
 
-    incr = bpv6_sdnv_encode(primary->dst_node, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->dst_svc, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->src_node, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->src_svc, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->report_node, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->report_svc, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->custodian_node, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->custodian_svc, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->dst_node);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->dst_svc);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->src_node);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->src_svc);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->report_node);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->report_svc);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->custodian_node);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->custodian_svc);
+    index += sdnvSize;
 
-    incr = bpv6_sdnv_encode(primary->creation, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->sequence, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    incr = bpv6_sdnv_encode(primary->lifetime, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->creation);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->sequence);
+    index += sdnvSize;
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->lifetime);
+    index += sdnvSize;
+
     // encode a zero-length dictionary
-    incr = bpv6_sdnv_encode(0, buffer, index, bufsz);
-    index += incr;
-    block_length += incr;
-    if(is_fragment) {
-        incr = bpv6_sdnv_encode(primary->fragment_offset, buffer, index, bufsz);
-        index += incr;
-        block_length += incr;
-        incr = bpv6_sdnv_encode(primary->data_length, buffer, index, bufsz);
-        index += incr;
-        block_length += incr;
-    }
-    incr = bpv6_sdnv_encode(block_length, buffer, block_length_offset, bufsz);
-    if(incr > 1) {
-        return 0;  // our encoding failed because our block length was too long ...
+    buffer[index] = 0; // 1-byte sdnv's are the value itself
+    index += 1; //this is a 1-byte sdnv
+
+    if (isFragment) {
+        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->fragment_offset);
+        index += sdnvSize;
+        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], primary->data_length);
+        index += sdnvSize;
     }
 
+    const uint64_t blockLength = index - (blockLengthOffset + 1);
+    if (blockLength > 127) { // our encoding failed because our block length was too long ...
+        printf("error in cbhe_bpv6_primary_block_encode: blockLength > 127\n");
+        return 0;
+    }
+    buffer[blockLengthOffset] = static_cast<int8_t>(blockLength); // 1-byte sdnv's are the value itself
+    
     return static_cast<uint32_t>(index - offset);
+
 }
 
 uint32_t bpv6_canonical_block_decode(bpv6_canonical_block* block, const char* buffer, const size_t offset, const size_t bufsz) {
     uint64_t index = offset;
-    uint8_t  incr  = 0;
-    block->type = buffer[index];
-    ++index;
-    incr = bpv6_sdnv_decode(&block->flags, buffer, index, bufsz);
-    index += incr;
-    incr = bpv6_sdnv_decode(&block->length, buffer, index, bufsz);
-    index += incr;
+    uint8_t sdnvSize;
+    block->type = buffer[index++];
+
+    const uint8_t flag8bit = buffer[index];
+    if (flag8bit <= 127) {
+        block->flags = flag8bit;
+        ++index;
+    }
+    else {
+        block->flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+        if (sdnvSize == 0) {
+            return 0; //return 0 on failure
+        }
+        index += sdnvSize;
+    }
+
+    block->length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (sdnvSize == 0) {
+        return 0; //return 0 on failure
+    }
+    index += sdnvSize;
 
     return static_cast<uint32_t>(index - offset);
 }
 
 uint32_t bpv6_canonical_block_encode(const bpv6_canonical_block* block, char* buffer, const size_t offset, const size_t bufsz) {
     uint64_t index = offset;
-    uint8_t  incr  = 0;
-    buffer[index] = block->type;
-    ++index;
-    incr = bpv6_sdnv_encode(block->flags, buffer, index, bufsz);
-    index += incr;
-    incr = bpv6_sdnv_encode(block->length, buffer, index, bufsz);
-    index += incr;
+    uint64_t sdnvSize;
+    buffer[index++] = block->type;
+
+    if (block->flags <= 127) {
+        buffer[index++] = static_cast<uint8_t>(block->flags);
+    }
+    else {
+        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], block->flags);
+        index += sdnvSize;
+    }
+
+    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], block->length);
+    index += sdnvSize;
 
     return static_cast<uint32_t>(index - offset);
 }
@@ -290,3 +372,183 @@ void bpv6_canonical_block_print(bpv6_canonical_block* block) {
     }
     printf("Block length: %" PRIu64 " bytes\n", block->length);
 }
+
+cbhe_eid_t::cbhe_eid_t() :
+    nodeId(0),
+    serviceId(0) { } //a default constructor: X()
+cbhe_eid_t::cbhe_eid_t(uint64_t paramNodeId, uint64_t paramServiceId) :
+    nodeId(paramNodeId),
+    serviceId(paramServiceId) { }
+cbhe_eid_t::~cbhe_eid_t() { } //a destructor: ~X()
+cbhe_eid_t::cbhe_eid_t(const cbhe_eid_t& o) :
+    nodeId(o.nodeId),
+    serviceId(o.serviceId) { } //a copy constructor: X(const X&)
+cbhe_eid_t::cbhe_eid_t(cbhe_eid_t&& o) :
+    nodeId(o.nodeId),
+    serviceId(o.serviceId) { } //a move constructor: X(X&&)
+cbhe_eid_t& cbhe_eid_t::operator=(const cbhe_eid_t& o) { //a copy assignment: operator=(const X&)
+    nodeId = o.nodeId;
+    serviceId = o.serviceId;
+    return *this;
+}
+cbhe_eid_t& cbhe_eid_t::operator=(cbhe_eid_t && o) { //a move assignment: operator=(X&&)
+    nodeId = o.nodeId;
+    serviceId = o.serviceId;
+    return *this;
+}
+bool cbhe_eid_t::operator==(const cbhe_eid_t & o) const {
+    return (nodeId == o.nodeId) && (serviceId == o.serviceId);
+}
+bool cbhe_eid_t::operator!=(const cbhe_eid_t & o) const {
+    return (nodeId != o.nodeId) || (serviceId != o.serviceId);
+}
+bool cbhe_eid_t::operator<(const cbhe_eid_t & o) const {
+    if (nodeId == o.nodeId) {
+        return (serviceId < o.serviceId);
+    }
+    return (nodeId < o.nodeId);
+}
+void cbhe_eid_t::Set(uint64_t paramNodeId, uint64_t paramServiceId) {
+    nodeId = paramNodeId;
+    serviceId = paramServiceId;
+}
+
+
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t() : 
+    creationSeconds(0),
+    sequence(0),
+    fragmentOffset(0),
+    dataLength(0) { } //a default constructor: X()
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
+    uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength) :
+    creationSeconds(paramCreationSeconds),
+    sequence(paramSequence),
+    srcEid(paramSrcNodeId, paramSrcServiceId),
+    fragmentOffset(paramFragmentOffset),
+    dataLength(paramDataLength) { }
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(const bpv6_primary_block & primary) :
+    creationSeconds(primary.creation),
+    sequence(primary.sequence),
+    srcEid(primary.src_node, primary.src_svc),
+    fragmentOffset(primary.fragment_offset),
+    dataLength(primary.data_length) { }
+cbhe_bundle_uuid_t::~cbhe_bundle_uuid_t() { } //a destructor: ~X()
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o) : 
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcEid(o.srcEid),
+    fragmentOffset(o.fragmentOffset),
+    dataLength(o.dataLength) { } //a copy constructor: X(const X&)
+cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o) : 
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcEid(std::move(o.srcEid)),
+    fragmentOffset(o.fragmentOffset),
+    dataLength(o.dataLength) { } //a move constructor: X(X&&)
+cbhe_bundle_uuid_t& cbhe_bundle_uuid_t::operator=(const cbhe_bundle_uuid_t& o) { //a copy assignment: operator=(const X&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcEid = o.srcEid;
+    fragmentOffset = o.fragmentOffset;
+    dataLength = o.dataLength;
+    return *this;
+}
+cbhe_bundle_uuid_t& cbhe_bundle_uuid_t::operator=(cbhe_bundle_uuid_t && o) { //a move assignment: operator=(X&&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcEid = std::move(o.srcEid);
+    fragmentOffset = o.fragmentOffset;
+    dataLength = o.dataLength;
+    return *this;
+}
+bool cbhe_bundle_uuid_t::operator==(const cbhe_bundle_uuid_t & o) const {
+    return 
+        (creationSeconds == o.creationSeconds) &&
+        (sequence == o.sequence) &&
+        (srcEid == o.srcEid) &&
+        (fragmentOffset == o.fragmentOffset) &&
+        (dataLength == o.dataLength);
+}
+bool cbhe_bundle_uuid_t::operator!=(const cbhe_bundle_uuid_t & o) const {
+    return 
+        (creationSeconds != o.creationSeconds) ||
+        (sequence != o.sequence) ||
+        (srcEid != o.srcEid) ||
+        (fragmentOffset != o.fragmentOffset) ||
+        (dataLength != o.dataLength);
+}
+bool cbhe_bundle_uuid_t::operator<(const cbhe_bundle_uuid_t & o) const {
+    if (creationSeconds == o.creationSeconds) {
+        if (sequence == o.sequence) {
+            if (srcEid == o.srcEid) {
+                if (fragmentOffset == o.fragmentOffset) {
+                    return (dataLength < o.dataLength);
+                }
+                return (fragmentOffset < o.fragmentOffset);
+            }
+            return (srcEid < o.srcEid);
+        }
+        return (sequence < o.sequence);
+    }
+    return (creationSeconds < o.creationSeconds);
+}
+
+
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t() :
+    creationSeconds(0),
+    sequence(0) { } //a default constructor: X()
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId) :
+    creationSeconds(paramCreationSeconds),
+    sequence(paramSequence),
+    srcEid(paramSrcNodeId, paramSrcServiceId) { }
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary) :
+    creationSeconds(primary.creation),
+    sequence(primary.sequence),
+    srcEid(primary.src_node, primary.src_svc) { }
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment) :
+    creationSeconds(bundleUuidWithFragment.creationSeconds),
+    sequence(bundleUuidWithFragment.sequence),
+    srcEid(bundleUuidWithFragment.srcEid) { }
+cbhe_bundle_uuid_nofragment_t::~cbhe_bundle_uuid_nofragment_t() { } //a destructor: ~X()
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o) :
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcEid(o.srcEid) { } //a copy constructor: X(const X&)
+cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(cbhe_bundle_uuid_nofragment_t&& o) :
+    creationSeconds(o.creationSeconds),
+    sequence(o.sequence),
+    srcEid(std::move(o.srcEid)) { } //a move constructor: X(X&&)
+cbhe_bundle_uuid_nofragment_t& cbhe_bundle_uuid_nofragment_t::operator=(const cbhe_bundle_uuid_nofragment_t& o) { //a copy assignment: operator=(const X&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcEid = o.srcEid;
+    return *this;
+}
+cbhe_bundle_uuid_nofragment_t& cbhe_bundle_uuid_nofragment_t::operator=(cbhe_bundle_uuid_nofragment_t && o) { //a move assignment: operator=(X&&)
+    creationSeconds = o.creationSeconds;
+    sequence = o.sequence;
+    srcEid = std::move(o.srcEid);
+    return *this;
+}
+bool cbhe_bundle_uuid_nofragment_t::operator==(const cbhe_bundle_uuid_nofragment_t & o) const {
+    return
+        (creationSeconds == o.creationSeconds) &&
+        (sequence == o.sequence) &&
+        (srcEid == o.srcEid);
+}
+bool cbhe_bundle_uuid_nofragment_t::operator!=(const cbhe_bundle_uuid_nofragment_t & o) const {
+    return
+        (creationSeconds != o.creationSeconds) ||
+        (sequence != o.sequence) ||
+        (srcEid != o.srcEid);
+}
+bool cbhe_bundle_uuid_nofragment_t::operator<(const cbhe_bundle_uuid_nofragment_t & o) const {
+    if (creationSeconds == o.creationSeconds) {
+        if (sequence == o.sequence) {
+            return (srcEid < o.srcEid);
+        }
+        return (sequence < o.sequence);
+    }
+    return (creationSeconds < o.creationSeconds);
+}
+

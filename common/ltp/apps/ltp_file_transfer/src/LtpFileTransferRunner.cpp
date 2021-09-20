@@ -6,7 +6,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/detail/sha1.hpp>
 #include <boost/endian/conversion.hpp>
-#include "LtpUdpEngine.h"
+#include "LtpUdpEngineManager.h"
 
 static void GetSha1(const std::vector<uint8_t> & data, std::string & sha1Str) {
 
@@ -49,8 +49,10 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         bool useSendFile = false;
         bool useReceiveFile = false;
         bool dontSaveFile = false;
-        std::string destUdpHostname;
-        uint16_t destUdpPort;
+        bool force32BitRandomNumbers;
+        std::string remoteUdpHostname;
+        uint16_t remoteUdpPort;
+        uint16_t myBoundUdpPort;
         uint64_t thisLtpEngineId;
         uint64_t remoteLtpEngineId;
         uint64_t ltpDataSegmentMtu;
@@ -71,8 +73,10 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("receive-file", boost::program_options::value<std::string>(), "Receive a file to this file name.")
                 ("send-file", boost::program_options::value<std::string>(), "Send this file name.")
                 ("dont-save-file", "When receiving, don't write file to disk.")
-                ("dest-udp-hostname", boost::program_options::value<std::string>()->default_value("localhost"), "Ltp destination UDP hostname.")
-                ("dest-udp-port", boost::program_options::value<uint16_t>()->default_value(4556), "Ltp destination UDP port.")
+                ("remote-udp-hostname", boost::program_options::value<std::string>()->default_value("localhost"), "Ltp destination UDP hostname. (receivers when remote port !=0)")
+                ("remote-udp-port", boost::program_options::value<uint16_t>()->default_value(1113), "Remote UDP port.")
+                ("my-bound-udp-port", boost::program_options::value<uint16_t>()->default_value(1113), "My bound UDP port. (default 1113 for senders)")
+                ("random-number-size-bits", boost::program_options::value<uint32_t>()->default_value(32), "LTP can use either 32-bit or 64-bit random numbers (only 32-bit supported by ion).")
 
                 ("this-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "My LTP engine ID.")
                 ("remote-ltp-engine-id", boost::program_options::value<uint64_t>()->default_value(2), "Remote LTP engine ID.")
@@ -96,6 +100,12 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 std::cout << desc << "\n";
                 return false;
             }
+            const uint32_t randomNumberSizeBits = vm["random-number-size-bits"].as<uint32_t>();
+            if ((randomNumberSizeBits != 32) && (randomNumberSizeBits != 64)) {
+                std::cerr << "error: randomNumberSizeBits (" << randomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                return false;
+            }
+            force32BitRandomNumbers = (randomNumberSizeBits == 32);
 
             if (!(vm.count("receive-file") ^ vm.count("send-file"))) {
                 std::cerr << "error, receive-file or send-file must be specified, but not both\n";
@@ -110,8 +120,9 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 useSendFile = true;
                 sendFilePath = vm["send-file"].as<std::string>();
             }
-            destUdpHostname = vm["dest-udp-hostname"].as<std::string>();
-            destUdpPort = vm["dest-udp-port"].as<boost::uint16_t>();
+            remoteUdpHostname = vm["remote-udp-hostname"].as<std::string>();
+            remoteUdpPort = vm["remote-udp-port"].as<boost::uint16_t>();
+            myBoundUdpPort = vm["my-bound-udp-port"].as<boost::uint16_t>();
             thisLtpEngineId = vm["this-ltp-engine-id"].as<uint64_t>();
             remoteLtpEngineId = vm["remote-ltp-engine-id"].as<uint64_t>();
             ltpDataSegmentMtu = vm["ltp-data-segment-mtu"].as<uint64_t>();
@@ -194,20 +205,19 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
             };
             SenderHelper senderHelper;
-
-            LtpUdpEngine engineSrc(thisLtpEngineId, ltpDataSegmentMtu, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, numUdpRxPacketsCircularBufferSize,
-                maxRxUdpPacketSizeBytes, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber);
-            engineSrc.SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
-            engineSrc.SetInitialTransmissionCompletedCallback(boost::bind(&SenderHelper::InitialTransmissionCompletedCallback, &senderHelper, boost::placeholders::_1));
-            engineSrc.SetTransmissionSessionCancelledCallback(boost::bind(&SenderHelper::TransmissionSessionCancelledCallback, &senderHelper, boost::placeholders::_1, boost::placeholders::_2));
-            
-            engineSrc.Connect(destUdpHostname, boost::lexical_cast<std::string>(destUdpPort));
-            while (!engineSrc.ReadyToForward()) {
-                std::cout << "connecting\n";
-                boost::this_thread::sleep(boost::posix_time::milliseconds(500));
+            LtpUdpEngineManager * const ltpUdpEngineManagerSrcPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort);
+            LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(thisLtpEngineId, false);
+            if (ltpUdpEngineSrcPtr == NULL) {
+                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, thisLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers);
+                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(thisLtpEngineId, false);
             }
-            std::cout << "connected\n";
 
+            ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
+            ltpUdpEngineSrcPtr->SetInitialTransmissionCompletedCallback(boost::bind(&SenderHelper::InitialTransmissionCompletedCallback, &senderHelper, boost::placeholders::_1));
+            ltpUdpEngineSrcPtr->SetTransmissionSessionCancelledCallback(boost::bind(&SenderHelper::TransmissionSessionCancelledCallback, &senderHelper, boost::placeholders::_1, boost::placeholders::_2));
+            
+            
             const uint64_t totalBytesToSend = fileContentsInMemory.size();
             const double totalBitsToSend = totalBytesToSend * 8.0;
 
@@ -218,7 +228,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             tReq->clientServiceDataToSend = std::move(fileContentsInMemory);
             tReq->lengthOfRedPart = tReq->clientServiceDataToSend.size();
 
-            engineSrc.TransmissionRequest_ThreadSafe(std::move(tReq));
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
             boost::mutex cvMutex;
             boost::mutex::scoped_lock cvLock(cvMutex);
@@ -236,7 +246,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
             const double rateBps = rateMbps * 1e6;
             printf("Sent data at %0.4f Mbits/sec\n", rateMbps);
-            std::cout << "udp packets sent: " << engineSrc.m_countAsyncSendCallbackCalls << std::endl;
+            std::cout << "udp packets sent: " << ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls << std::endl;
         }
         else { //receive file
             struct ReceiverHelper {
@@ -262,12 +272,21 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             ReceiverHelper receiverHelper;
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
-            LtpUdpEngine engineDest(thisLtpEngineId, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, destUdpPort, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes,
-                estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber);
-            engineDest.SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+            LtpUdpEngineManager * const ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort);
+            LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(thisLtpEngineId, true);
+            if (ltpUdpEngineDestPtr == NULL) {
+                ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers);
+                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
+            }
+            
+            ltpUdpEngineDestPtr->SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
-            engineDest.SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));
-
+            ltpUdpEngineDestPtr->SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));
+            
+            std::cout << "this ltp receiver/server for engine ID " << thisLtpEngineId << " will receive on port "
+                << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort << std::endl;
+            
             
             boost::mutex cvMutex;
             boost::mutex::scoped_lock cvLock(cvMutex);
@@ -299,7 +318,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 
             }
             boost::this_thread::sleep(boost::posix_time::seconds(2));
-            std::cout << "udp packets sent: " << engineDest.m_countAsyncSendCallbackCalls << std::endl;
+            std::cout << "udp packets sent: " << ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls << std::endl;
         }
 
         std::cout << "LtpFileTransferRunner::Run: exiting cleanly..\n";

@@ -1,5 +1,9 @@
 {
     "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -21,7 +25,6 @@
             {
                 "name": "udp_ingress",
                 "convergenceLayer": "udp",
-                "endpointIdStr": "ipn1:3",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 65535
@@ -34,30 +37,31 @@
             {
                 "name": "udp_egress1",
                 "convergenceLayer": "udp",
-                "endpointIdStr": "ipn1:4",
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 5,
-                "flowIds": [
-                    1
+                "finalDestinationEidUris": [
+                    "ipn:1.1"
                 ],
                 "udpRateBps": 800000
             },
             {
                 "name": "udp_egress2",
                 "convergenceLayer": "udp",
-                "endpointIdStr": "ipn1:4",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,
-                "flowIds": [
-                    2
+                "finalDestinationEidUris": [
+                    "ipn:2.1"
                 ],
                 "udpRateBps": 800000
             }
         ]
     },
     "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
         "totalStorageCapacityBytes": 8192000000,
         "storageDiskConfigVector": [
             {

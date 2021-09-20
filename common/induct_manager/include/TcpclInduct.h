@@ -8,7 +8,7 @@
 
 class TcpclInduct : public Induct {
 public:
-    TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
+    TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId);
     virtual ~TcpclInduct();
     
 private:
@@ -22,6 +22,7 @@ private:
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<TcpclBundleSink> m_listTcpclBundleSinks;
+    const uint64_t M_MY_NODE_ID;
 };
 
 

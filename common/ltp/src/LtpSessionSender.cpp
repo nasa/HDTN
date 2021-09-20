@@ -68,7 +68,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
 
     if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         const bool isDiscretionaryCheckpoint = (resendFragment.flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
-        if (isDiscretionaryCheckpoint && LtpFragmentMap::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentMap::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1))) {
+        if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentSet::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1))) {
             //std::cout << "  Discretionary checkpoint not being resent because its data was already received successfully by the receiver." << std::endl;
             ++m_numDiscretionaryCheckpointsNotResent;
         }
@@ -219,7 +219,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                 }
             }
             else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
-                std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+                std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
                 //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
                 if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                     if (!m_didNotifyForDeletion) {
@@ -267,9 +267,9 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     }
 
 
-    LtpFragmentMap::AddReportSegmentToFragmentSet(m_dataFragmentsAckedByReceiver, reportSegment);
+    LtpFragmentSet::AddReportSegmentToFragmentSet(m_dataFragmentsAckedByReceiver, reportSegment);
     //std::cout << "rs: " << reportSegment << std::endl;
-    //std::cout << "acked segments: "; LtpFragmentMap::PrintFragmentSet(m_dataFragmentsAckedByReceiver); std::cout << std::endl;
+    //std::cout << "acked segments: "; LtpFragmentSet::PrintFragmentSet(m_dataFragmentsAckedByReceiver); std::cout << std::endl;
     //6.12.  Signify Transmission Completion
     //
     //This procedure is triggered at the earliest time at which(a) all
@@ -290,7 +290,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //std::cout << "M_LENGTH_OF_RED_PART " << M_LENGTH_OF_RED_PART << " m_dataFragmentsAckedByReceiver.size() " << m_dataFragmentsAckedByReceiver.size() << std::endl;
     //std::cout << "m_dataIndexFirstPass " << m_dataIndexFirstPass << " m_dataToSend.size() " << m_dataToSend.size() << std::endl;
     if ((m_dataIndexFirstPass == m_dataToSend.size()) && (m_dataFragmentsAckedByReceiver.size() == 1)) {
-        std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+        std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
         //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
         if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
             if (!m_didNotifyForDeletion) {
@@ -311,11 +311,11 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //segment carrying a new CP serial number(obtained by
     //incrementing the last CP serial number used) and the report
     //serial number of the received RS segment.
-    std::set<LtpFragmentMap::data_fragment_t> fragmentsNeedingResent;
-    LtpFragmentMap::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
-    //std::cout << "need resent: "; LtpFragmentMap::PrintFragmentSet(fragmentsNeedingResent); std::cout << std::endl;
+    std::set<LtpFragmentSet::data_fragment_t> fragmentsNeedingResent;
+    LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+    //std::cout << "need resent: "; LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent); std::cout << std::endl;
     //std::cout << "resend\n";
-    for (std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
+    for (std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
         //std::cout << "h1\n";
         const bool isLastFragmentNeedingResent = (boost::next(it) == fragmentsNeedingResent.cend());
         for (uint64_t dataIndex = it->beginIndex; dataIndex <= it->endIndex; ) {

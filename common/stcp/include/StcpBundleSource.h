@@ -42,8 +42,9 @@ private:
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
 
     void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    void DoStcpShutdown();
-    void DoHandleSocketShutdown();
+    void DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNotZero);
+    void DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero);
+    void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
     
     std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;
@@ -55,7 +56,9 @@ private:
     boost::asio::io_service::work m_work;
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
+    boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    boost::asio::ip::tcp::resolver::results_type m_resolverResults;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::condition_variable m_localConditionVariableAckReceived;
 

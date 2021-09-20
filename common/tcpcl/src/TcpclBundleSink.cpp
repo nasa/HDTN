@@ -3,6 +3,7 @@
 #include <iostream>
 #include "TcpclBundleSink.h"
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
 TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
     boost::asio::io_service & tcpSocketIoServiceRef,
@@ -10,10 +11,13 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     //ConnectionClosedCallback_t connectionClosedCallback,
     const unsigned int numCircularBufferVectors,
     const unsigned int circularBufferBytesPerVector,
-    const std::string & thisEid,
+    const uint64_t myNodeId,
     const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
 
-    M_THIS_EID(thisEid),
+    //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+    //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+    M_THIS_EID(Uri::GetIpnUriString(myNodeId, 0)),
+
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
     m_notifyReadyToDeleteCallback(notifyReadyToDeleteCallback),
     m_tcpSocketPtr(tcpSocketPtr),
@@ -306,10 +310,10 @@ void TcpclBundleSink::HandleSocketShutdown(bool sendShutdownMessage, bool reason
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
             //i.e., that the connecting node MUST NOT re - establish the connection.
             if (reasonWasTimeOut) {
-                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 0);
+                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, 3); //don't want to 0 to disable hdtn outduct reconnect, use 3 seconds
             }
             else {
-                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 0);
+                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, 3); //don't want to 0 to disable hdtn outduct reconnect, use 3 seconds
             }
 
             el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed

@@ -41,13 +41,11 @@ Build HDTN
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
-* cmake ..
+* cmake -DCMAKE_BUILD_TYPE=Release ..
 * make -j8
 
 Run HDTN
 =========
-Note: You may need to increase the maximum number of files the operating system will allow to have open to run the storage component. On Debian, this can be done by setting the hard and soft limits for "nofile" to unlimited in /etc/security/limits.conf.
-
 Note: Ensure your config files are correct, e.g., The outduct remotePort is the same as the induct boundPort, a consistant convergenceLayer, and the outducts remoteHostname is pointed to the correct IP adress.
 
 You can use tcpdump to test the HDTN ingress storage and egress. The generated pcap file can be read using wireshark. 
@@ -55,6 +53,9 @@ You can use tcpdump to test the HDTN ingress storage and egress. The generated p
 
 In another terminal, run:
 * ./runscript.sh
+
+Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
+
 
 Run Unit Tests
 ===============
@@ -65,3 +66,8 @@ Run Integrated Tests
 ====================
 After building HDTN (see above), the integrated tests can be run with the following command within the build directory:
 * ./tests/integrated_tests/integrated-tests
+
+Run Contact Graph Routing
+=========================
+HDTN relies on PyCGR for its contact graph routing. To enable the PyCGR Client, in a separate window run:
+* python3 pycgr/py_cgr_client.py

@@ -4,7 +4,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
-
+#include "Uri.h"
 
 void BpGenAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
@@ -38,18 +38,26 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         uint32_t bundleRate;
         //uint32_t tcpclFragmentSize;
         uint32_t durationSeconds;
-        uint64_t flowId;
+        cbhe_eid_t myEid;
+        cbhe_eid_t finalDestEid;
+        uint64_t myCustodianServiceId;
         OutductsConfig_ptr outductsConfig;
+        InductsConfig_ptr inductsConfig;
+        bool custodyTransferUseAcs;
 
         boost::program_options::options_description desc("Allowed options");
         try {
                 desc.add_options()
                     ("help", "Produce help message.")
-                    ("bundle-size", boost::program_options::value<boost::uint32_t>()->default_value(100), "Bundle size bytes.")
-                    ("bundle-rate", boost::program_options::value<boost::uint32_t>()->default_value(1500), "Bundle rate. (0=>as fast as possible)")
-                    ("duration", boost::program_options::value<boost::uint32_t>()->default_value(0), "Seconds to send bundles for (0=>infinity).")
-                    ("flow-id", boost::program_options::value<uint64_t>()->default_value(2), "Destination flow id.")
+                    ("bundle-size", boost::program_options::value<uint32_t>()->default_value(100), "Bundle size bytes.")
+                    ("bundle-rate", boost::program_options::value<uint32_t>()->default_value(1500), "Bundle rate. (0=>as fast as possible)")
+                    ("duration", boost::program_options::value<uint32_t>()->default_value(0), "Seconds to send bundles for (0=>infinity).")
+                    ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
+                    ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
+                    ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
                     ("outducts-config-file", boost::program_options::value<std::string>()->default_value("outducts.json"), "Outducts Configuration File.")
+                    ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                    ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                     ;
 
                 boost::program_options::variables_map vm;
@@ -59,6 +67,18 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 if (vm.count("help")) {
                         std::cout << desc << "\n";
                         return false;
+                }
+
+                const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
+                if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
+                    std::cerr << "error: bad bpsink uri string: " << myUriEid << std::endl;
+                    return false;
+                }
+
+                const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
+                if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
+                    std::cerr << "error: bad bpsink uri string: " << myFinalDestUriEid << std::endl;
+                    return false;
                 }
 
                 const std::string configFileName = vm["outducts-config-file"].as<std::string>();
@@ -73,11 +93,25 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                     std::cerr << "error: number of bpgen outducts is not 1: got " << numBpGenOutducts << std::endl;
                 }
 
-                bundleSizeBytes = vm["bundle-size"].as<boost::uint32_t>();
-                bundleRate = vm["bundle-rate"].as<boost::uint32_t>();
-                durationSeconds = vm["duration"].as<boost::uint32_t>();
-                flowId = vm["flow-id"].as<uint64_t>();
-                
+                //create induct for custody signals
+                const std::string inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<std::string>();
+                if (inductsConfigFileName.length()) {
+                    inductsConfig = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
+                    if (!inductsConfig) {
+                        std::cerr << "error loading induct config file: " << inductsConfigFileName << std::endl;
+                        return false;
+                    }
+                    std::size_t numBpGenInducts = inductsConfig->m_inductElementConfigVector.size();
+                    if (numBpGenInducts != 1) {
+                        std::cerr << "error: number of bp gen inducts for custody signals is not 1: got " << numBpGenInducts << std::endl;
+                    }
+                }
+                custodyTransferUseAcs = (vm.count("custody-transfer-use-acs"));
+
+                bundleSizeBytes = vm["bundle-size"].as<uint32_t>();
+                bundleRate = vm["bundle-rate"].as<uint32_t>();
+                durationSeconds = vm["duration"].as<uint32_t>();
+                myCustodianServiceId = vm["my-custodian-service-id"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -96,14 +130,15 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
 
         std::cout << "starting BpGenAsync.." << std::endl;
 
-        BpGenAsync bpGen;
-        bpGen.Start(*outductsConfig, bundleSizeBytes, bundleRate, flowId);
+        BpGenAsync bpGen(bundleSizeBytes);
+        bpGen.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId);
 
         boost::asio::io_service ioService;
-        boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::seconds(durationSeconds));
-        if (durationSeconds) {
-            deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error, &running));
-        }
+        boost::asio::deadline_timer deadlineTimer(ioService);
+        std::cout << "running bpgen for " << durationSeconds << " seconds\n";
+        
+        bool startedTimer = false;
+        
 
         if (useSignalHandler) {
             sigHandler.Start(false);
@@ -112,7 +147,14 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (durationSeconds) {
-                ioService.poll_one();
+                if ((!startedTimer) && bpGen.m_allOutductsReady) {
+                    startedTimer = true;
+                    deadlineTimer.expires_from_now(boost::posix_time::seconds(durationSeconds));
+                    deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error, &running));
+                }
+                else {
+                    ioService.poll_one();
+                }
             }
             if (useSignalHandler) {
                 sigHandler.PollOnce();

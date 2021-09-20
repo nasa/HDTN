@@ -5,29 +5,25 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include "OutductManager.h"
+#include "InductManager.h"
+#include "codec/bpv6.h"
+#include "codec/CustodyTransferEnhancementBlock.h"
+#include "codec/CustodyTransferManager.h"
+#include "app_patterns/BpSourcePattern.h"
 
-
-
-class BpGenAsync {
-public:
-    BpGenAsync();
-    ~BpGenAsync();
-    void Stop();
-    void Start(const OutductsConfig & outductsConfig, uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId = 2);
-
-    uint64_t m_bundleCount;
-
-    OutductFinalStats m_outductFinalStats;
-
-
+class BpGenAsync : public BpSourcePattern {
 private:
-    void BpGenThreadFunc(uint32_t bundleSizeBytes, uint32_t bundleRate, uint64_t destFlowId);
-
-
-
-    OutductManager m_outductManager;
-    std::unique_ptr<boost::thread> m_bpGenThreadPtr;
-    volatile bool m_running;
+    BpGenAsync();
+public:
+    BpGenAsync(uint64_t bundleSizeBytes);
+    virtual ~BpGenAsync();
+    
+protected:
+    virtual uint64_t GetNextPayloadLength_Step1();
+    virtual bool CopyPayload_Step2(uint8_t * destinationBuffer);
+private:
+    uint64_t m_bundleSizeBytes;
+    uint64_t m_bpGenSequenceNumber;
 };
 
 

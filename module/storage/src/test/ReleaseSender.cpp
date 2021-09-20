@@ -1,4 +1,5 @@
 #include "ReleaseSender.h"
+#include "Uri.h"
 
 const std::string ReleaseSender::DEFAULT_FILE = "releaseMessages1.json";
 
@@ -11,14 +12,14 @@ ReleaseSender::~ReleaseSender() {
 
 }
 
-void ReleaseSender::ProcessEvent(const boost::system::error_code&, int id, std::string message, zmq::socket_t * ptrSocket) {
+void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string message, zmq::socket_t * ptrSocket) {
   boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-  std::cout <<  "Expiry time: " << timeLocal << " , id: " << id << " , message: " << message;
+  std::cout <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
   if (message == "start") {
       hdtn::IreleaseStartHdr releaseMsg;
       memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
       releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-      releaseMsg.flowId = id;
+      releaseMsg.finalDestinationEid = finalDestinationEid;
       releaseMsg.rate = 0;  //not implemented
       releaseMsg.duration = 20;  //not implemented
       ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
@@ -28,7 +29,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, int id, std::
       hdtn::IreleaseStopHdr stopMsg;
       memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
       stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-      stopMsg.flowId = id;
+      stopMsg.finalDestinationEid = finalDestinationEid;
       ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
       std::cout << " -- Stop Release message sent.";
   }
@@ -46,14 +47,15 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, releaseMessageEventsPt) {
         ReleaseMessageEvent_t & releaseMessageEvent = releaseMessageEventVector[eventIndex++];
         releaseMessageEvent.message = eventPt.second.get<std::string>("message", "");
-        releaseMessageEvent.id = eventPt.second.get<int>("id",0);
+        const std::string uriEid = eventPt.second.get<std::string>("finalDestinationEid", "");
+        if (!Uri::ParseIpnUriString(uriEid, releaseMessageEvent.finalDestEid.nodeId, releaseMessageEvent.finalDestEid.serviceId)) {
+            std::cerr << "error: bad uri string: " << uriEid << std::endl;
+            return false;
+        }
         releaseMessageEvent.delay = eventPt.second.get<int>("delay",0);
         std::string errorMessage = "";
         if ( (releaseMessageEvent.message != "start") && (releaseMessageEvent.message != "stop") ) {
             errorMessage += " Invalid message: " + releaseMessageEvent.message + ".";
-        }
-        if ( releaseMessageEvent.id < 0 ) {
-            errorMessage += " Invalid id: " + boost::lexical_cast<std::string>(releaseMessageEvent.id) + ".";
         }
         if ( releaseMessageEvent.delay < 0 ) {
             errorMessage += " Invalid delay: " + boost::lexical_cast<std::string>(releaseMessageEvent.delay) + ".";
@@ -79,7 +81,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     for(std::size_t i=0; i<releaseMessageEventVector.size(); ++i) {
         SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
         dt->expires_from_now(boost::posix_time::seconds(releaseMessageEventVector[i].delay));
-        dt->async_wait(boost::bind(&ReleaseSender::ProcessEvent,this,boost::asio::placeholders::error, releaseMessageEventVector[i].id,
+        dt->async_wait(boost::bind(&ReleaseSender::ProcessEvent,this,boost::asio::placeholders::error, releaseMessageEventVector[i].finalDestEid,
                                    releaseMessageEventVector[i].message,&socket));
         vectorTimers.push_back(std::move(dt));
     }

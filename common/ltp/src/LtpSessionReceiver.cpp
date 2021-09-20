@@ -199,9 +199,9 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
 
         bool isRedCheckpoint = (segmentTypeFlags != 0);
         bool isEndOfRedPart = (segmentTypeFlags & 2);
-        LtpFragmentMap::InsertFragment(m_receivedDataFragmentsSet, 
-            LtpFragmentMap::data_fragment_t(dataSegmentMetadata.offset, offsetPlusLength - 1));
-        //LtpFragmentMap::PrintFragmentSet(m_receivedDataFragmentsSet);
+        LtpFragmentSet::InsertFragment(m_receivedDataFragmentsSet, 
+            LtpFragmentSet::data_fragment_t(dataSegmentMetadata.offset, offsetPlusLength - 1));
+        //LtpFragmentSet::PrintFragmentSet(m_receivedDataFragmentsSet);
         //std::cout << "offset: " << dataSegmentMetadata.offset << " l: " << dataSegmentMetadata.length << " d: " << (int)clientServiceDataVec[0] << std::endl;
         if (isEndOfRedPart) {
             m_lengthOfRedPart = offsetPlusLength;
@@ -286,7 +286,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             }
             else {
                 std::vector<Ltp::report_segment_t> reportSegmentsVec(1);
-                if (!LtpFragmentMap::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegmentsVec[0], lowerBound, upperBound)) {
+                if (!LtpFragmentSet::PopulateReportSegment(m_receivedDataFragmentsSet, reportSegmentsVec[0], lowerBound, upperBound)) {
                     std::cerr << "error in LtpSessionReceiver::DataSegmentReceivedCallback: cannot populate report segment\n";
                 }
 
@@ -307,7 +307,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     //cases, a timer is started upon transmission of each report segment of
                     //the reception report.
                     std::vector<Ltp::report_segment_t> reportSegmentsSplitVec;
-                    LtpFragmentMap::SplitReportSegment(reportSegmentsVec[0], reportSegmentsSplitVec, M_MAX_RECEPTION_CLAIMS);
+                    LtpFragmentSet::SplitReportSegment(reportSegmentsVec[0], reportSegmentsSplitVec, M_MAX_RECEPTION_CLAIMS);
                     //std::cout << "splitting 1 report segment with " << reportSegmentsVec[0].receptionClaims.size() << " reception claims into "
                     //    << reportSegmentsSplitVec.size() << " report segments with no more than " << M_MAX_RECEPTION_CLAIMS << " reception claims per report segment" << std::endl;
                     ++m_numReportSegmentsTooLargeAndNeedingSplit;
@@ -338,7 +338,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     const uint64_t rsn = m_nextReportSegmentReportSerialNumber++;
                     reportSegment.reportSerialNumber = rsn;
                     //std::cout << "reportSegment for lb: " << lowerBound << " and ub: " << upperBound << std::endl << reportSegment << std::endl;
-                    //LtpFragmentMap::PrintFragmentSet(m_receivedDataFragmentsSet);
+                    //LtpFragmentSet::PrintFragmentSet(m_receivedDataFragmentsSet);
 
                     if (!checkpointIsResponseToReportSegment) {
                         m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
@@ -351,7 +351,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         }
         //std::cout << "m_lengthOfRedPart " << m_lengthOfRedPart << " m_receivedDataFragmentsSet.size() " << m_receivedDataFragmentsSet.size() << std::endl;
         if ((!m_didRedPartReceptionCallback) && (m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {
-            std::set<LtpFragmentMap::data_fragment_t>::const_iterator it = m_receivedDataFragmentsSet.cbegin();
+            std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_receivedDataFragmentsSet.cbegin();
             //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
             if ((it->beginIndex == 0) && (it->endIndex == (m_lengthOfRedPart - 1))) {
                 if (redPartReceptionCallback) {

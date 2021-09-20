@@ -11,6 +11,7 @@
 #include "reg.hpp"
 #include "stats.hpp"
 #include "zmq.hpp"
+#include "codec/bpv6.h"
 
 #define HDTN_STORAGE_TELEM_FLOWCOUNT (4)
 #define HDTN_STORAGE_PORT_DEFAULT (10425)
@@ -18,7 +19,8 @@
 #define HDTN_FLOWCOUNT_MAX (16777216)
 
 //addresses for ZMQ IPC transport
-#define HDTN_STORAGE_WORKER_PATH "inproc://hdtn3.storage.worker"
+#define HDTN_STORAGE_BUNDLE_DATA_INPROC_PATH "inproc://hdtn.storage.bundledata"
+#define HDTN_STORAGE_RELEASE_MESSAGES_INPROC_PATH "inproc://hdtn.storage.releasemessages"
 #define HDTN_STORAGE_TELEM_PATH "tcp://127.0.0.1:10460"
 #define HDTN_RELEASE_TELEM_PATH "tcp://127.0.0.1:10461"
 
@@ -44,8 +46,13 @@ class ZmqStorageInterface {
 
     WorkerStats stats() { return m_workerStats; }
 
-    std::size_t m_totalBundlesErasedFromStorage = 0;
-    std::size_t m_totalBundlesSentToEgressFromStorage = 0;
+    std::size_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    std::size_t m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    std::size_t m_totalBundlesSentToEgressFromStorage;
+    uint64_t m_numRfc5050CustodyTransfers;
+    uint64_t m_numAcsCustodyTransfers;
+    uint64_t m_numAcsPacketsReceived;
+    cbhe_eid_t M_HDTN_EID_CUSTODY;
 
 private:
     void ThreadFunc();
@@ -82,11 +89,13 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundReleaseToConnectingStoragePtr;
     uint16_t port;
-    std::unique_ptr<zmq::socket_t> m_workerSockPtr;
+    std::unique_ptr<zmq::socket_t> m_inprocBundleDataSockPtr;
+    std::unique_ptr<zmq::socket_t> m_inprocReleaseMessagesSockPtr;
     std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
     ZmqStorageInterface worker;
     StorageStats storageStats;
     HdtnConfig m_hdtnConfig;
+    zmq::pollitem_t m_pollItems[3];
 };
 
 }  // namespace hdtn

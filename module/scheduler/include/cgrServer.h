@@ -11,8 +11,21 @@ class CgrServer
     std::unique_ptr<zmq::context_t> cgrCtx;
     std::unique_ptr<zmq::socket_t> cgrSock;
 
-    void init(std::string address);
-    int requestNextHop(int currentNode, int destinationNode, int startTime);
-    
+    /*
+    Initializes server and establishes socket connection to py_cgr
 
+    std::string address: IP address of py_cgr listener
+    */
+    void init(std::string address);
+
+    /*
+    Sends a request to py_cgr over zmq and listens to for a response.
+
+    int currentNode: ID of node. Starting location of bundle path.
+    int destinationNode: Final destination of bundle
+    int startTime: Time search should begin based on cgrTable
+
+    returns ID of the next node according to shortest path using Dijkstra's algorithm.
+    */
+    int requestNextHop(int currentNode, int destinationNode, int startTime);
 };

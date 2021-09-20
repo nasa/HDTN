@@ -38,24 +38,13 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_hdtnConfig = hdtnConfig;
 
-    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig)) {
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId)) {
         return;
     }
 
     m_outductManager.SetOutductManagerOnSuccessfulOutductAckCallback(boost::bind(&HegrManagerAsync::OnSuccessfulBundleAck, this, boost::placeholders::_1));
 
-    for (unsigned int i = 0; i <= 10; ++i) {
-        std::cout << "Waiting for all Outducts to become ready to forward..." << std::endl;
-        boost::this_thread::sleep(boost::posix_time::milliseconds(500));
-        if (m_outductManager.AllReadyToForward()) {
-            std::cout << "Outducts ready to forward" << std::endl;
-            break;
-        }
-        if (i == 10) {
-            std::cerr << "Outducts unable to connect" << std::endl;
-            return;
-        }
-    }
+    
     m_bundleCount = 0;
     m_bundleData = 0;
     m_messageCount = 0;
@@ -113,23 +102,23 @@ void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
     m_conditionVariableProcessZmqMessages.notify_one();
 }
 
-static void CustomCleanupBlockHdr(void *data, void *hint) {
+static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
+    (void)hint;
     //std::cout << "free " << static_cast<hdtn::BlockHdr *>(data)->flowId << std::endl;
-    delete static_cast<hdtn::BlockHdr *>(data);
+    delete static_cast<hdtn::EgressAckHdr *>(data);
 }
 
 void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
-    std::vector<std::unique_ptr<hdtn::BlockHdr> > & headerMessages,
-    std::vector<bool> & isFromStorage,
+    std::vector<hdtn::ToEgressHdr> & toEgressHeaderMessages,
     std::vector<zmq::message_t> & payloadMessages)
 {
-    std::cout << "starting ProcessZmqMessagesThreadFunc with cb size " << headerMessages.size() << std::endl;
-    hdtn::Logger::getInstance()->logNotification("egress", "Starting ProcessZmqMessagesThreadFunc with cb size " + std::to_string(headerMessages.size()));
+    std::cout << "starting ProcessZmqMessagesThreadFunc with cb size " << toEgressHeaderMessages.size() << std::endl;
+    hdtn::Logger::getInstance()->logNotification("egress", "Starting ProcessZmqMessagesThreadFunc with cb size " + std::to_string(toEgressHeaderMessages.size()));
     std::size_t totalCustodyTransfersSentToStorage = 0;
     std::size_t totalCustodyTransfersSentToIngress = 0;
     
-    typedef std::queue<std::unique_ptr<hdtn::BlockHdr> > queue_t;
+    typedef std::queue<std::unique_ptr<hdtn::EgressAckHdr> > queue_t;
     typedef std::map<uint64_t, queue_t> outductuuid_needacksqueue_map_t;
 
     outductuuid_needacksqueue_map_t outductUuidToNeedAcksQueueMap;
@@ -143,25 +132,29 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
         const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
 
         if (consumeIndex != UINT32_MAX) { //if not empty
-            std::unique_ptr<hdtn::BlockHdr> & blockHdrPtr = headerMessages[consumeIndex];
+            const hdtn::ToEgressHdr & toEgressHeader = toEgressHeaderMessages[consumeIndex];
             zmq::message_t & zmqMessage = payloadMessages[consumeIndex];
-            const uint16_t type = blockHdrPtr->base.type;
-            if ((type == HDTN_MSGTYPE_STORE) || (type == HDTN_MSGTYPE_EGRESS)) {
-                const uint32_t flowId = blockHdrPtr->flowId;
-                if (Outduct * outduct = m_outductManager.GetOutductByFlowId(flowId)) {
-                    if (isFromStorage[consumeIndex]) { //reply to storage
-                        blockHdrPtr->base.type = HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY;
-                    }
-                    outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(blockHdrPtr));
-                    outduct->Forward(zmqMessage);
-                    if (zmqMessage.size() != 0) {
-                        std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
-                        hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
-                    }
+            const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
+            if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
+                std::unique_ptr<hdtn::EgressAckHdr> egressAckPtr = boost::make_unique<hdtn::EgressAckHdr>();
+                //memset 0 not needed because all values set below
+                egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
+                egressAckPtr->base.flags = 0;
+                egressAckPtr->finalDestEid = finalDestEid;
+                egressAckPtr->error = 0; //can set later before sending this ack if error
+                egressAckPtr->deleteNow = !toEgressHeader.hasCustody;
+                egressAckPtr->isToStorage = !toEgressHeader.isCutThroughFromIngress;
+                egressAckPtr->custodyId = toEgressHeader.custodyId;
+
+                outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
+                outduct->Forward(zmqMessage);
+                if (zmqMessage.size() != 0) {
+                    std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
                 }
-                else {
-                    std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for flow id " << flowId << std::endl;
-                }
+            }
+            else {
+                std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for flow id " << finalDestEid.nodeId << std::endl;
             }
             cb.CommitRead();
         }
@@ -178,16 +171,16 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
                 if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(outductUuid)) {
                     const std::size_t numAckedRemaining = outduct->GetTotalDataSegmentsUnacked();
                     while (q.size() > numAckedRemaining) {
-                        std::unique_ptr<hdtn::BlockHdr> & qItem = q.front();
-                        const uint16_t type = qItem->base.type;
+                        std::unique_ptr<hdtn::EgressAckHdr> & qItem = q.front();
+                        const bool isToStorage = qItem->isToStorage;
                         //this is an optimization because we only have one chunk to send
                         //The zmq_msg_init_data() function shall initialise the message object referenced by msg
                         //to represent the content referenced by the buffer located at address data, size bytes long.
                         //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
                         //If provided, the deallocation function ffn shall be called once the data buffer is no longer
                         //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-                        zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::BlockHdr), CustomCleanupBlockHdr); //unique_ptr goes "null" with release()
-                        if (type == HDTN_MSGTYPE_EGRESS_TRANSFERRED_CUSTODY) {
+                        zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //unique_ptr goes "null" with release()
+                        if (isToStorage) {
                             if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
                                 std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
                                 hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
@@ -227,17 +220,28 @@ void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
+    while (m_running) {
+        std::cout << "Egress Waiting for Outduct to become ready to forward..." << std::endl;
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+        if (m_outductManager.AllReadyToForward()) {
+            std::cout << "Outduct ready to forward" << std::endl;
+            break;
+        }
+    }
+    if (!m_running) {
+        std::cout << "Egress Terminated before all outducts could connect" << std::endl;
+        return;
+    }
+
     static const unsigned int NUM_ZMQ_MESSAGES_CB = 40;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable cb(NUM_ZMQ_MESSAGES_CB);
-    std::vector<std::unique_ptr<hdtn::BlockHdr> > headerMessages(NUM_ZMQ_MESSAGES_CB);
-    std::vector<bool> isFromStorage(NUM_ZMQ_MESSAGES_CB);
+    std::vector<hdtn::ToEgressHdr> toEgressHeaderMessages(NUM_ZMQ_MESSAGES_CB);
     std::vector<zmq::message_t> payloadMessages(NUM_ZMQ_MESSAGES_CB);
     boost::thread processZmqMessagesThread(boost::bind(
         &hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc,
         this,
         boost::ref(cb),
-        boost::ref(headerMessages),
-        boost::ref(isFromStorage),
+        boost::ref(toEgressHeaderMessages),
         boost::ref(payloadMessages)));
 
     // Use a form of receive that times out so we can terminate cleanly.
@@ -268,44 +272,48 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full");
                     continue;
                 }
-                headerMessages[writeIndex] = boost::make_unique<hdtn::BlockHdr>();
-                std::unique_ptr<hdtn::BlockHdr> & hdrPtr = headerMessages[writeIndex];
-                const zmq::recv_buffer_result_t res = sockets[itemIndex]->recv(zmq::mutable_buffer(hdrPtr.get(), sizeof(hdtn::BlockHdr)), zmq::recv_flags::none);
+                hdtn::ToEgressHdr & toEgressHeader = toEgressHeaderMessages[writeIndex];
+                const zmq::recv_buffer_result_t res = sockets[itemIndex]->recv(zmq::mutable_buffer(&toEgressHeader, sizeof(hdtn::ToEgressHdr)), zmq::recv_flags::none);
                 if (!res) {
                     std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr" << std::endl;
                     hdtn::Logger::getInstance()->logError("egress", "Error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr");
                     continue;
                 }
-                else if ((res->truncated()) || (res->size != sizeof(hdtn::BlockHdr))) {
+                else if ((res->truncated()) || (res->size != sizeof(hdtn::ToEgressHdr))) {
                     std::cerr << "egress blockhdr message mismatch: untruncated = " << res->untruncated_size 
-                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::BlockHdr) << std::endl;
+                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::ToEgressHdr) << std::endl;
                     hdtn::Logger::getInstance()->logError("egress", "Egress blockhdr message mismatch: untruncated = " + 
                         std::to_string(res->untruncated_size) +  " truncated = " + std::to_string(res->size) + " expected = " + 
-                        std::to_string(sizeof(hdtn::BlockHdr)));
+                        std::to_string(sizeof(hdtn::ToEgressHdr)));
+                    continue;
+                }
+                else if (toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS) {
+                    std::cerr << "error: toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS\n";
+                    continue;
+                }
+                else if ((itemIndex == 1) && (toEgressHeader.isCutThroughFromIngress)) {
+                    std::cerr << "error: received on storage socket but cut through flag set\n";
+                    continue;
+                }
+                else if ((itemIndex == 0) && (!toEgressHeader.isCutThroughFromIngress)) {
+                    std::cerr << "error: received on ingress socket but cut through flag not set\n";
                     continue;
                 }
                 ++m_messageCount;
                 
-                const uint16_t type = hdrPtr->base.type;
-                if ((type == HDTN_MSGTYPE_STORE) || (type == HDTN_MSGTYPE_EGRESS)) {
-                    zmq::message_t & zmqMessage = payloadMessages[writeIndex];
-                    // Use a form of receive that times out so we can terminate cleanly.  If no
-                    // message was received after timeout go back to top of loop
-                    // std::cout << "In runEgress, before recv. " << std::endl << std::flush;
-                    while (m_running) {
-                        if (!sockets[itemIndex]->recv(zmqMessage, zmq::recv_flags::none)) {
-                            continue;
-                        }
-                        isFromStorage[writeIndex] = (itemIndex == 1);
-                       
-                        m_bundleData += zmqMessage.size();
-                        ++m_bundleCount;
-
-                        cb.CommitWrite();
-                        m_conditionVariableProcessZmqMessages.notify_one();
-                        break;
-                    }                    
+                
+                zmq::message_t & zmqMessage = payloadMessages[writeIndex];
+                //message guaranteed to be there due to the zmq::send_flags::sndmore
+                if (!sockets[itemIndex]->recv(zmqMessage, zmq::recv_flags::none)) {
+                    std::cerr << "error on sockets[itemIndex]->recv\n";
+                    continue;
                 }
+                       
+                m_bundleData += zmqMessage.size();
+                ++m_bundleCount;
+
+                cb.CommitWrite();
+                m_conditionVariableProcessZmqMessages.notify_one();
             }
         }
     }

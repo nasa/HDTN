@@ -9,10 +9,11 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
 {
     m_ltpBundleSinkPtr = boost::make_unique<LtpBundleSink>(
         m_inductProcessBundleCallback,
-        inductConfig.thisLtpEngineId, 1, inductConfig.ltpReportSegmentMtu,
+        inductConfig.thisLtpEngineId, inductConfig.remoteLtpEngineId, inductConfig.ltpReportSegmentMtu,
         boost::posix_time::milliseconds(inductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(inductConfig.oneWayMarginTimeMs),
         inductConfig.boundPort, inductConfig.numRxCircularBufferElements,
-        inductConfig.numRxCircularBufferBytesPerElement, inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber);
+        inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber,
+        (inductConfig.ltpRandomNumberSizeBits == 32), inductConfig.ltpRemoteUdpHostname, inductConfig.ltpRemoteUdpPort);
 
 }
 LtpOverUdpInduct::~LtpOverUdpInduct() {

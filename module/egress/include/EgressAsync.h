@@ -53,8 +53,7 @@ private:
     void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
     void ProcessZmqMessagesThreadFunc(
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
-        std::vector<std::unique_ptr<hdtn::BlockHdr> > & headerMessages,
-        std::vector<bool> & isFromStorage,
+        std::vector<hdtn::ToEgressHdr> & toEgressHeaderMessages,
         std::vector<zmq::message_t> & payloadMessages);
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;

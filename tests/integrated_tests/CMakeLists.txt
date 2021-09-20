@@ -14,11 +14,13 @@ add_executable(integrated-tests
         ../../module/storage/src/store.cpp
         ../../module/storage/src/StorageRunner.cpp
         ../../module/storage/src/test/ReleaseSender.cpp
+        ../../module/scheduler/src/scheduler.cpp
 )
 
 target_include_directories(integrated-tests PUBLIC include
     ../../module/storage/src/test
     ../../module/storage/include
+    ../../module/scheduler/include
     ../../common/include
     ../../common/pool/include
     ../../common/logger/include
@@ -45,6 +47,7 @@ target_link_libraries(integrated-tests
 	induct_manager_lib
 	outduct_manager_lib
 	bpcodec
+	bp_app_patterns_lib
 	${Boost_LIBRARIES}
 )
 

@@ -15,17 +15,20 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 induct_element_config_t::induct_element_config_t() :
     name(""),
     convergenceLayer(""),
-    endpointIdStr(""),
     boundPort(0),
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
     thisLtpEngineId(0),
+    remoteLtpEngineId(0),
     ltpReportSegmentMtu(0),
     oneWayLightTimeMs(0),
     oneWayMarginTimeMs(0),
     clientServiceId(0),
     preallocatedRedDataBytes(0),
     ltpMaxRetriesPerSerialNumber(0),
+    ltpRandomNumberSizeBits(0),
+    ltpRemoteUdpHostname(""),
+    ltpRemoteUdpPort(0),
     keepAliveIntervalSeconds(0) {}
 induct_element_config_t::~induct_element_config_t() {}
 
@@ -34,51 +37,60 @@ induct_element_config_t::~induct_element_config_t() {}
 induct_element_config_t::induct_element_config_t(const induct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
-    endpointIdStr(o.endpointIdStr),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     thisLtpEngineId(o.thisLtpEngineId),
+    remoteLtpEngineId(o.remoteLtpEngineId),
     ltpReportSegmentMtu(o.ltpReportSegmentMtu),
     oneWayLightTimeMs(o.oneWayLightTimeMs),
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     preallocatedRedDataBytes(o.preallocatedRedDataBytes),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
+    ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpRemoteUdpHostname(o.ltpRemoteUdpHostname),
+    ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
 
 //a move constructor: X(X&&)
 induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
-    endpointIdStr(std::move(o.endpointIdStr)),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
     thisLtpEngineId(o.thisLtpEngineId),
+    remoteLtpEngineId(o.remoteLtpEngineId),
     ltpReportSegmentMtu(o.ltpReportSegmentMtu),
     oneWayLightTimeMs(o.oneWayLightTimeMs),
     oneWayMarginTimeMs(o.oneWayMarginTimeMs),
     clientServiceId(o.clientServiceId),
     preallocatedRedDataBytes(o.preallocatedRedDataBytes),
     ltpMaxRetriesPerSerialNumber(o.ltpMaxRetriesPerSerialNumber),
+    ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
+    ltpRemoteUdpHostname(std::move(o.ltpRemoteUdpHostname)),
+    ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
 
 //a copy assignment: operator=(const X&)
 induct_element_config_t& induct_element_config_t::operator=(const induct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
-    endpointIdStr = o.endpointIdStr;
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     thisLtpEngineId = o.thisLtpEngineId;
+    remoteLtpEngineId = o.remoteLtpEngineId;
     ltpReportSegmentMtu = o.ltpReportSegmentMtu;
     oneWayLightTimeMs = o.oneWayLightTimeMs;
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     preallocatedRedDataBytes = o.preallocatedRedDataBytes;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
+    ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpRemoteUdpHostname = o.ltpRemoteUdpHostname;
+    ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
     return *this;
 }
@@ -87,17 +99,20 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
 induct_element_config_t& induct_element_config_t::operator=(induct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
-    endpointIdStr = std::move(o.endpointIdStr);
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
     thisLtpEngineId = o.thisLtpEngineId;
+    remoteLtpEngineId = o.remoteLtpEngineId;
     ltpReportSegmentMtu = o.ltpReportSegmentMtu;
     oneWayLightTimeMs = o.oneWayLightTimeMs;
     oneWayMarginTimeMs = o.oneWayMarginTimeMs;
     clientServiceId = o.clientServiceId;
     preallocatedRedDataBytes = o.preallocatedRedDataBytes;
     ltpMaxRetriesPerSerialNumber = o.ltpMaxRetriesPerSerialNumber;
+    ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
+    ltpRemoteUdpHostname = std::move(o.ltpRemoteUdpHostname);
+    ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
     return *this;
 }
@@ -105,17 +120,20 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
 bool induct_element_config_t::operator==(const induct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
-        (endpointIdStr == o.endpointIdStr) &&
         (boundPort == o.boundPort) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
         (thisLtpEngineId == o.thisLtpEngineId) &&
+        (remoteLtpEngineId == o.remoteLtpEngineId) &&
         (ltpReportSegmentMtu == o.ltpReportSegmentMtu) &&
         (oneWayLightTimeMs == o.oneWayLightTimeMs) &&
         (oneWayMarginTimeMs == o.oneWayMarginTimeMs) &&
         (clientServiceId == o.clientServiceId) &&
         (preallocatedRedDataBytes == o.preallocatedRedDataBytes) &&
         (ltpMaxRetriesPerSerialNumber == o.ltpMaxRetriesPerSerialNumber) &&
+        (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
+        (ltpRemoteUdpHostname == o.ltpRemoteUdpHostname) &&
+        (ltpRemoteUdpPort == o.ltpRemoteUdpPort) &&
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds);
 }
 
@@ -177,7 +195,6 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 return false;
             }
         }
-        inductElementConfig.endpointIdStr = inductElementConfigPt.second.get<std::string>("endpointIdStr", "unnamed_endpoint_id"); //non-throw version
         inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort", 0); //non-throw version
         if (inductElementConfig.boundPort == 0) {
             std::cerr << "error: invalid boundPort must be non-zero";
@@ -188,12 +205,20 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
 
         if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
             inductElementConfig.thisLtpEngineId = inductElementConfigPt.second.get<uint64_t>("thisLtpEngineId", 0); //non-throw version
+            inductElementConfig.remoteLtpEngineId = inductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId", 0); //non-throw version
             inductElementConfig.ltpReportSegmentMtu = inductElementConfigPt.second.get<uint32_t>("ltpReportSegmentMtu", 1000); //non-throw version
             inductElementConfig.oneWayLightTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs", 1000); //non-throw version
             inductElementConfig.oneWayMarginTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
             inductElementConfig.clientServiceId = inductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
             inductElementConfig.preallocatedRedDataBytes = inductElementConfigPt.second.get<uint64_t>("preallocatedRedDataBytes", 100); //non-throw version
             inductElementConfig.ltpMaxRetriesPerSerialNumber = inductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
+            inductElementConfig.ltpRandomNumberSizeBits = inductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits", 0); //non-throw version
+            if ((inductElementConfig.ltpRandomNumberSizeBits != 32) && (inductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
+                std::cerr << "error: ltpRandomNumberSizeBits (" << inductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                return false;
+            }
+            inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname", ""); //non-throw version
+            inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort", 0); //non-throw version
         }
 
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
@@ -246,18 +271,21 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & inductElementConfigPt = (inductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         inductElementConfigPt.put("name", inductElementConfig.name);
         inductElementConfigPt.put("convergenceLayer", inductElementConfig.convergenceLayer);
-        inductElementConfigPt.put("endpointIdStr", inductElementConfig.endpointIdStr);
         inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
         inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
         if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
             inductElementConfigPt.put("thisLtpEngineId", inductElementConfig.thisLtpEngineId);
+            inductElementConfigPt.put("remoteLtpEngineId", inductElementConfig.remoteLtpEngineId);
             inductElementConfigPt.put("ltpReportSegmentMtu", inductElementConfig.ltpReportSegmentMtu);
             inductElementConfigPt.put("oneWayLightTimeMs", inductElementConfig.oneWayLightTimeMs);
             inductElementConfigPt.put("oneWayMarginTimeMs", inductElementConfig.oneWayMarginTimeMs);
             inductElementConfigPt.put("clientServiceId", inductElementConfig.clientServiceId);
             inductElementConfigPt.put("preallocatedRedDataBytes", inductElementConfig.preallocatedRedDataBytes);
             inductElementConfigPt.put("ltpMaxRetriesPerSerialNumber", inductElementConfig.ltpMaxRetriesPerSerialNumber);
+            inductElementConfigPt.put("ltpRandomNumberSizeBits", inductElementConfig.ltpRandomNumberSizeBits);
+            inductElementConfigPt.put("ltpRemoteUdpHostname", inductElementConfig.ltpRemoteUdpHostname);
+            inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);

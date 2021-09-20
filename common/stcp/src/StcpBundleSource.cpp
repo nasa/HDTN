@@ -6,10 +6,13 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
 
+#define RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS 3
+
 StcpBundleSource::StcpBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
+m_reconnectAfterShutdownTimer(m_ioService),
 M_KEEP_ALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 MAX_UNACKED(maxUnacked),
 m_bytesToAckByTcpSendCallbackCb(MAX_UNACKED),
@@ -62,7 +65,7 @@ void StcpBundleSource::Stop() {
         break;
     }
 
-    DoStcpShutdown();
+    DoStcpShutdown(0);
     while (!m_stcpShutdownComplete) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(250));
     }
@@ -241,9 +244,10 @@ void StcpBundleSource::OnResolve(const boost::system::error_code & ec, boost::as
     else {
         std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
         m_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
+        m_resolverResults = results;
         boost::asio::async_connect(
             *m_tcpSocketPtr,
-            results,
+            m_resolverResults,
             boost::bind(
                 &StcpBundleSource::OnConnect,
                 this,
@@ -256,6 +260,14 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
+            std::cout << "Trying to reconnect..." << std::endl;
+            boost::asio::async_connect(
+                *m_tcpSocketPtr,
+                m_resolverResults,
+                boost::bind(
+                    &StcpBundleSource::OnConnect,
+                    this,
+                    boost::asio::placeholders::error));
         }
         return;
     }
@@ -280,7 +292,7 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
 void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in StcpBundleSource::HandleTcpSend: " << error.message() << std::endl;
-        DoStcpShutdown();
+        DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
     }
     else {
         const unsigned int readIndex = m_bytesToAckByTcpSendCallbackCb.GetIndexForRead();
@@ -309,7 +321,7 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
 void StcpBundleSource::HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in StcpBundleSource::HandleTcpSendKeepAlive: " << error.message() << std::endl;
-        DoStcpShutdown();
+        DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
     }
     else {
         std::cout << "notice: keepalive packet sent" << std::endl;
@@ -331,7 +343,8 @@ void StcpBundleSource::HandleTcpReceiveSome(const boost::system::error_code & er
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "Tcp connection closed cleanly by peer" << std::endl;
-        DoStcpShutdown();
+        DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
+        
     }
     else if (error != boost::asio::error::operation_aborted) {
         std::cerr << "Error in StcpBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
@@ -367,11 +380,11 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
     }
 }
 
-void StcpBundleSource::DoStcpShutdown() {
-    boost::asio::post(m_ioService, boost::bind(&StcpBundleSource::DoHandleSocketShutdown, this));
+void StcpBundleSource::DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNotZero) {
+    boost::asio::post(m_ioService, boost::bind(&StcpBundleSource::DoHandleSocketShutdown, this, reconnectionDelaySecondsIfNotZero));
 }
 
-void StcpBundleSource::DoHandleSocketShutdown() {
+void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero) {
     //final code to shut down tcp sockets
     m_readyToForward = false;
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
@@ -395,6 +408,26 @@ void StcpBundleSource::DoHandleSocketShutdown() {
         //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();
+    if (reconnectionDelaySecondsIfNotZero) {
+        m_reconnectAfterShutdownTimer.expires_from_now(boost::posix_time::seconds(reconnectionDelaySecondsIfNotZero));
+        m_reconnectAfterShutdownTimer.async_wait(boost::bind(&StcpBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired, this, boost::asio::placeholders::error));
+    }
+}
+
+void StcpBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Trying to reconnect..." << std::endl;
+        m_tcpAsyncSenderPtr.reset();
+        m_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
+        boost::asio::async_connect(
+            *m_tcpSocketPtr,
+            m_resolverResults,
+            boost::bind(
+                &StcpBundleSource::OnConnect,
+                this,
+                boost::asio::placeholders::error));
+    }
 }
 
 bool StcpBundleSource::ReadyToForward() {
