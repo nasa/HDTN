@@ -36,6 +36,7 @@ private:
     static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
+    void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
     void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
@@ -57,6 +58,7 @@ private:
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
     boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
+    boost::asio::deadline_timer m_reconnectAfterOnConnectErrorTimer;
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     boost::asio::ip::tcp::resolver::results_type m_resolverResults;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
