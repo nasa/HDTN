@@ -19,8 +19,8 @@ def main(argv):
             start, end, frm, to, rate = map(int, fields)
             #owlt (one-way light time) is in ION ranges, not contacts
             contacts.append({"contact": count, "source": frm, "dest": to, \
-                             "flowId": "1", "startTime": start, "endTime": end, \
-                             "rate": rate})
+                             "startTime": start, "endTime": end, "rate": rate, \
+                             "owlt": 0})
             count += 1
     __contact_plan = {"contacts": contacts}
     print(__contact_plan)

@@ -9,6 +9,7 @@
     "zmqStorageAddress": "localhost",
     "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
+    "zmqContactGraphRoutingAddress": "tcp://localhost:5556",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
