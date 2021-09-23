@@ -66,3 +66,8 @@ Run Integrated Tests
 ====================
 After building HDTN (see above), the integrated tests can be run with the following command within the build directory:
 * ./tests/integrated_tests/integrated-tests
+
+Run Contact Graph Routing
+=========================
+HDTN relies on PyCGR for its contact graph routing. To enable the PyCGR Client, in a separate window run:
+* python3 pycgr/py_cgr_client.py
