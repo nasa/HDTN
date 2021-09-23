@@ -50,3 +50,29 @@ target_link_libraries(integrated-tests
 	bp_app_patterns_lib
 	${Boost_LIBRARIES}
 )
+
+add_executable(cgr-test
+    src/cgr_tests.cpp
+    ../../module/scheduler/src/cgrServer.cpp
+)
+
+target_include_directories(cgr-test PUBLIC include
+    ../../module/scheduler/include
+        lib/include
+    include
+        ../../common/bpcodec/include
+        ../../common/regsvr/lib/include
+        ../../common/include
+    ${Boost_INCLUDE_DIRS}
+    ${libzmq_INCLUDE}
+)
+
+target_link_libraries(cgr-test
+    hdtn_reg
+    bpcodec
+    hdtn_util
+    config_lib
+    ${pthread_LIB}
+    ${libzmq_LIB}
+    ${Boost_LIBRARIES}
+)
