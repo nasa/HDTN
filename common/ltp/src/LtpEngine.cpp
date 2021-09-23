@@ -154,9 +154,12 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             else {
                 m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
                 m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
-                m_mapSessionNumberToSessionSender.erase(txSessionIt);
-                //revalidate iterator
-                m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
+                if (txSessionIt == m_sendersIterator) {
+                    m_sendersIterator = m_mapSessionNumberToSessionSender.erase(txSessionIt); //revalidate iterator
+                }
+                else {
+                    m_mapSessionNumberToSessionSender.erase(txSessionIt);
+                }
                 ////std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
             }
         }
@@ -179,9 +182,12 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
                 m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
                 m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
                 m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
-                m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
-                //revalidate iterator
-                m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
+                if (rxSessionIt == m_receiversIterator) {
+                    m_receiversIterator = m_mapSessionIdToSessionReceiver.erase(rxSessionIt); //revalidate iterator
+                }
+                else {
+                    m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+                }
                 ////std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
             }
         }
@@ -289,8 +295,6 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
         boost::bind(&LtpEngine::TrySendPacketIfAvailable, this),
         boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1), m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber);
-    //revalidate iterator
-    m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 
     if (m_sessionStartCallback) {
         //At the sender, the session start notice informs the client service of the initiation of the transmission session.
@@ -357,10 +361,13 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
-            m_mapSessionNumberToSessionSender.erase(txSessionIt);
+            if (txSessionIt == m_sendersIterator) {
+                m_sendersIterator = m_mapSessionNumberToSessionSender.erase(txSessionIt); //revalidate iterator
+            }
+            else {
+                m_mapSessionNumberToSessionSender.erase(txSessionIt);
+            }
             std::cout << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber << std::endl;
-            //revalidate iterator
-            m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
 
             //send Cancel Segment to receiver (NextPacketToSendRoundRobin() will create the packet and start the timer)
             m_listCancelSegmentTimerInfo.emplace_back();
@@ -393,10 +400,13 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
             m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
             m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
-            m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+            if (rxSessionIt == m_receiversIterator) {
+                m_receiversIterator = m_mapSessionIdToSessionReceiver.erase(rxSessionIt); //revalidate iterator
+            }
+            else {
+                m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+            }
             std::cout << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber << std::endl;
-            //revalidate iterator
-            m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
 
             //send Cancel Segment to sender (NextPacketToSendRoundRobin() will create the packet and start the timer)
             m_listCancelSegmentTimerInfo.emplace_back();
@@ -430,10 +440,13 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
             m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
             m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
-            m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+            if (rxSessionIt == m_receiversIterator) {
+                m_receiversIterator = m_mapSessionIdToSessionReceiver.erase(rxSessionIt); //revalidate iterator
+            }
+            else {
+                m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
+            }
             std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
-            //revalidate iterator
-            m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
             //Send CAx after outer if-else statement
             
         }
@@ -455,10 +468,13 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
-            m_mapSessionNumberToSessionSender.erase(txSessionIt);
+            if (txSessionIt == m_sendersIterator) {
+                m_sendersIterator = m_mapSessionNumberToSessionSender.erase(txSessionIt); //revalidate iterator
+            }
+            else {
+                m_mapSessionNumberToSessionSender.erase(txSessionIt);
+            }
             std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber << std::endl;
-            //revalidate iterator
-            m_sendersIterator = m_mapSessionNumberToSessionSender.begin();
             //Send CAx after outer if-else statement
         }
         else { //not found
@@ -661,8 +677,6 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
             return;
         }
         rxSessionIt = res.first;
-        //revalidate iterator
-        m_receiversIterator = m_mapSessionIdToSessionReceiver.begin();
 
         if (m_sessionStartCallback) {
             //At the receiver, this notice indicates the beginning of a new reception session, and is delivered upon arrival of the first data segment carrying a new session ID.

@@ -17,7 +17,7 @@
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
-    "zmqMaxMessagesPerPath": 5,
+    "zmqMaxMessagesPerPath": 11,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
