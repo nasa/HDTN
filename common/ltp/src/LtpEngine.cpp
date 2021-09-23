@@ -636,6 +636,18 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
 
     std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
     if (rxSessionIt == m_mapSessionIdToSessionReceiver.end()) { //not found.. new session started
+        //first check if the session has been closed prevously before recreating
+        std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> >::iterator it = m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.find(sessionId.sessionOriginatorEngineId);
+        if (it == m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.end()) {
+            std::cout << "create new LtpSessionRecreationPreventer for sessionOriginatorEngineId " << sessionId.sessionOriginatorEngineId << std::endl;
+            it = m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.insert(
+                std::pair<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> >(sessionId.sessionOriginatorEngineId, boost::make_unique<LtpSessionRecreationPreventer>(1000))).first;
+        }
+        if (!it->second->AddSession(sessionId.sessionNumber)) {
+            std::cout << "preventing old session from being recreated for " << sessionId << std::endl;
+            return;
+        }
+        //if(m_ltpSessionRecreationPreventer.AddSession(sessionId.sessionNumber))
         const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
         std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
