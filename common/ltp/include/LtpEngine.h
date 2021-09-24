@@ -10,6 +10,7 @@
 #include "LtpSessionSender.h"
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
+#include "LtpSessionRecreationPreventer.h"
 
 class LtpEngine {
 private:
@@ -126,6 +127,9 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
+
+    //session re-creation prevention
+    std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> > m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
 
 public:
     //stats

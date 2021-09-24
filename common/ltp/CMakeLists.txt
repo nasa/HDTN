@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_library(ltp_lib STATIC
     src/Ltp.cpp
 	src/LtpFragmentSet.cpp
+	src/LtpSessionRecreationPreventer.cpp
 	src/LtpRandomNumberGenerator.cpp
 	src/LtpSessionReceiver.cpp
 	src/LtpSessionSender.cpp
