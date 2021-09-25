@@ -37,11 +37,6 @@ sleep 3
 storage_PID=$!
 sleep 3
 
-#Scheduler
-#./build/module/scheduler/hdtn-scheduler --hdtn-config-file=$hdtn_config &
-#scheduler_PID=$!
-#sleep 1
-
 #bpgen
 ./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
 bpgen_PID=$!
@@ -51,8 +46,6 @@ sleep 8
 sleep 30
 echo "\nkilling bpgen..." && kill -2 $bpgen_PID
 sleep 2
-#echo "\nkilling scheduler..." && kill -2 $scheduler_PID
-#sleep 2
 echo "\nkilling HDTN storage..." && kill -2 $storage_PID
 sleep 2
 echo "\nkilling HDTN ingress..." && kill -2 $ingress_PID
