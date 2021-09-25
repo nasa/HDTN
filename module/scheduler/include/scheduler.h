@@ -32,6 +32,7 @@ public:
     static const std::string DEFAULT_FILE;
     Scheduler();
     ~Scheduler();
+    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
     int ProcessContactsFile(std::string jsonEventFileName);
     int ProcessComandLine(int argc, const char *argv[], std::string& jsonEventFileName);
     static std::string GetFullyQualifiedFilename(std::string filename) {
@@ -41,8 +42,11 @@ public:
 private:
     void ProcessLinkUp(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string event, zmq::socket_t * ptrSocket);
     void ProcessLinkDown(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string event, zmq::socket_t * ptrSocket);
-
+    static void PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* t, 
+		            const cbhe_eid_t finalDestinationEid, zmq::socket_t * ptrSocket, const char* command);
+     
     HdtnConfig m_hdtnConfig;
+    void MonitorExitKeypressThreadFunction();
+    volatile bool m_runningFromSigHandler;
 };
-
 #endif // SCHEDULER_H
