@@ -266,17 +266,22 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
         const uint64_t bundleLength = buffer - serializationBase;
             
-        ++m_bundleCount;
-        bundle_data += bundleSizeBytes;     // payload data
-        raw_data += bundleLength; // bundle overhead + payload data
+        
 
         bundleToSend.resize(bundleLength);
         
 
         //send message
-        if (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, 3)) {
-            std::cerr << "bpgen was unable to send a bundle for 3 seconds.. exiting" << std::endl;
-            m_running = false;
+        while (m_running) {
+            if (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, 3)) {
+                std::cerr << "bpgen was unable to send a bundle for 3 seconds.. retrying" << std::endl;
+            }
+            else {
+                ++m_bundleCount;
+                bundle_data += bundleSizeBytes;     // payload data
+                raw_data += bundleLength; // bundle overhead + payload data
+                break;
+            }
         }
        
         if (bundleToSend.size() != 0) {
