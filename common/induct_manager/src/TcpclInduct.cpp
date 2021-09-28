@@ -8,13 +8,14 @@
 TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId) :
     Induct(inductProcessBundleCallback, inductConfig),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
-    M_MY_NODE_ID(myNodeId)
+    m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
+    M_MY_NODE_ID(myNodeId),
+    m_allowRemoveInactiveTcpConnections(true)
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 }
 TcpclInduct::~TcpclInduct() {
-    
     if (m_tcpAcceptor.is_open()) {
         try {
             m_tcpAcceptor.close();
@@ -23,9 +24,12 @@ TcpclInduct::~TcpclInduct() {
             std::cerr << "Error closing TCP Acceptor in TcpclInduct::~TcpclInduct:  " << e.what() << std::endl;
         }
     }
-    
+    boost::asio::post(m_ioService, boost::bind(&TcpclInduct::DisableRemoveInactiveTcpConnections, this));
+    while (m_allowRemoveInactiveTcpConnections) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+    }
     m_listTcpclBundleSinks.clear(); //tcp bundle sink destructor is thread safe
-    
+    m_workPtr.reset();
     if (m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
         m_ioServiceThreadPtr.reset(); //delete it
@@ -60,7 +64,13 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
 }
 
 void TcpclInduct::RemoveInactiveTcpConnections() {
-    m_listTcpclBundleSinks.remove_if([](TcpclBundleSink & sink) { return sink.ReadyToBeDeleted(); });
+    if (m_allowRemoveInactiveTcpConnections) {
+        m_listTcpclBundleSinks.remove_if([](TcpclBundleSink & sink) { return sink.ReadyToBeDeleted(); });
+    }
+}
+
+void TcpclInduct::DisableRemoveInactiveTcpConnections() {
+    m_allowRemoveInactiveTcpConnections = false;
 }
 
 void TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived() {
