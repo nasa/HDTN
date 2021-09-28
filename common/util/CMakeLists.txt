@@ -13,6 +13,7 @@ add_library(hdtn_util STATIC
 	src/FragmentSet.cpp
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
+	src/CborUint.cpp
 	src/RateManagerAsync.cpp
 	src/Uri.cpp
 )
