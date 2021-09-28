@@ -6,13 +6,14 @@
 
 StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig) :
     Induct(inductProcessBundleCallback, inductConfig),
-    m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort))
+    m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
+    m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
+    m_allowRemoveInactiveTcpConnections(true)
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 }
 StcpInduct::~StcpInduct() {
-    
     if (m_tcpAcceptor.is_open()) {
         try {
             m_tcpAcceptor.close();
@@ -21,9 +22,12 @@ StcpInduct::~StcpInduct() {
             std::cerr << "Error closing TCP Acceptor in StcpInduct::~StcpInduct:  " << e.what() << std::endl;
         }
     }
-    
-    m_listStcpBundleSinks.clear(); //stcp bundle sink destructor is thread safe
-    
+    boost::asio::post(m_ioService, boost::bind(&StcpInduct::DisableRemoveInactiveTcpConnections, this));
+    while (m_allowRemoveInactiveTcpConnections) {
+        boost::this_thread::sleep(boost::posix_time::milliseconds(100));
+    }
+    m_listStcpBundleSinks.clear(); //tcp bundle sink destructor is thread safe
+    m_workPtr.reset();
     if (m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
         m_ioServiceThreadPtr.reset(); //delete it
@@ -56,7 +60,13 @@ void StcpInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket>
 }
 
 void StcpInduct::RemoveInactiveTcpConnections() {
-    m_listStcpBundleSinks.remove_if([](StcpBundleSink & sink) { return sink.ReadyToBeDeleted(); });
+    if (m_allowRemoveInactiveTcpConnections) {
+        m_listStcpBundleSinks.remove_if([](StcpBundleSink & sink) { return sink.ReadyToBeDeleted(); });
+    }
+}
+
+void StcpInduct::DisableRemoveInactiveTcpConnections() {
+    m_allowRemoveInactiveTcpConnections = false;
 }
 
 void StcpInduct::ConnectionReadyToBeDeletedNotificationReceived() {
