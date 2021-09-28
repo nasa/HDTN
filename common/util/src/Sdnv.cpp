@@ -431,9 +431,13 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 
 //return output size
 unsigned int SdnvEncodeU32Fast(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
+#if 0
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU32 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint32_t>(valToEncodeU32)));
+#else
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint32_t>(valToEncodeU32 + (valToEncodeU32 == 0));
+#endif
 
     const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
     //std::cout << "encode fast: msb: " << msb << std::endl;
@@ -449,13 +453,26 @@ unsigned int SdnvEncodeU32Fast(uint8_t * outputEncoded, const uint32_t valToEnco
 //return output size
 unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
 
+#if 0
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+#else
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 + (valToEncodeU64 == 0));
+#endif
 
     const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
+
+    const uint8_t numBytesToDecode = static_cast<uint8_t>(mask0x80Index + 1);
+#if 0
+    const uint8_t index1 = numBytesToDecode << 3;
+    const uint64_t mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1));
+#else
+    const uint64_t mask1 = masksPdepPext1[mask0x80Index];
+#endif
+
     //std::cout << "encode fast: msb: " << msb << std::endl;
-    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, masksPdepPext1[mask0x80Index]) | masks0x80[mask0x80Index];
+    const uint64_t encoded64 = _pdep_u64(valToEncodeU64, mask1) | masks0x80[mask0x80Index];
     //std::cout << "encoded64: " << std::hex << encoded64  << std::dec << std::endl;
     const uint64_t encoded64ForMemcpy = boost::endian::big_to_native(encoded64);
 #define ENCODE_USE_BRANCHING 0
@@ -480,7 +497,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 #if ENCODE_USE_BRANCHING
     }
 #endif
-    return mask0x80Index + 1; //sdnvSizeBytes = mask0x80Index + 1;
+    return numBytesToDecode; //sdnvSizeBytes = mask0x80Index + 1;
 }
 
 //return decoded value (return invalid number that must be ignored on failure)
@@ -504,9 +521,20 @@ uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
     const uint8_t maskIndex = static_cast<uint8_t>(boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask));
     const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
     const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
-    const uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
+    const uint8_t numBytesToDecode = maskIndex + 1;
+#if 1
+    const uint8_t index1 = numBytesToDecode << 3;
+    const uint64_t mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1));
+#else
+    const uint64_t mask1 = masksPdepPext1[maskIndex];
+#endif
+    const uint64_t decoded = _pext_u64(u64ByteSwapped, mask1);
+#if 0
     const bool valid = (maskIndex < 4) + ((maskIndex == 4) * (data[0] <= 0x8f));
-    *numBytes = (maskIndex + 1) * valid; //sdnvSizeBytes;
+#else
+    const bool valid = (((((uint16_t)maskIndex) << 8) | data[0]) <= 0x048fU);
+#endif
+    *numBytes = numBytesToDecode * valid; //sdnvSizeBytes;
     return static_cast<uint32_t>(decoded);
 }
 
@@ -587,8 +615,12 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     const bool valid = (maskIndex < 9) + ((maskIndex == 9) * (firstByte <= 0x81));
 #elif 0
     const bool valid = (numBytesToDecode < 10) + ((numBytesToDecode == 10) * (data[0] <= 0x81));
-#else
+#elif 0
     const bool valid = (maskIndex < 9) + ((maskIndex == 9) * (data[0] <= 0x81));
+#elif 1
+    const bool valid = (((((uint16_t)maskIndex) << 8) | data[0]) <= 0x0981U);
+#else
+    const bool valid = (((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64)) <= 0x0981U);
 #endif
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " maskIndex: " << maskIndex << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
     //std::cout << " u64HighByteSwapped " << std::hex << u64HighByteSwapped << " d2 " << decoded2 << std::dec << std::endl;
