@@ -41,7 +41,7 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false;
 }
 
-void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const cbhe_eid_t finalDestEid,
+void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const cbhe_eid_t* finalDestEid,
                                    zmq::socket_t * socket, const char* command)
 {
 
@@ -49,23 +49,23 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
     if (!e) {
         if (system(command) ) {
             std::cout <<   "Ping Failed  ==> Send Link Down Event \n" << std::endl << std::flush;
-            std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationEid: (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")" << std::endl;
+            std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
              hdtn::IreleaseStopHdr stopMsg;
              memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
              stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-             stopMsg.finalDestinationEid = finalDestEid;
+             stopMsg.finalDestinationEid = *finalDestEid;
              socket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-             std::cout << " -- LINK DOWN Event sent for finalDestinationEid: (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")" << std::endl;
+             std::cout << " -- LINK DOWN Event sent for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
 
         } else {
             std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
-            std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationEid: (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")" << std::endl;
+            std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
             hdtn::IreleaseStartHdr releaseMsg;
             memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
             releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-            releaseMsg.finalDestinationEid = finalDestEid;
+            releaseMsg.finalDestinationEid = *finalDestEid;
             socket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-            std::cout << " -- LINK UP Event sent for finalDestinationEid: (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")" << std::endl;
+            std::cout << " -- LINK UP Event sent for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
         }
 
         dt->expires_at(dt->expires_at() + boost::posix_time::seconds(5));
@@ -77,26 +77,34 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
     }
 }
 
-bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
+bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, 
+		    std::string& jsonEventFileName, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
 	running = true;
         m_runningFromSigHandler = true;
         m_timersFinished = false;
+        jsonEventFileName = "";
+        std::string contactsFile = Scheduler::DEFAULT_FILE;
+
 
         SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
         cbhe_eid_t finalDestEid;
         string finalDestAddr;
         opt::options_description desc("Allowed options");
+        bool isPingTest = false; 
 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("hdtn-config-file", opt::value<std::string>()->default_value("2dtn.json"), "HDTN Configuration File.")
+		("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
+                "Contact Plan file that scheudler relies on for link availability.")
+                ("ping-test", "Scheduler only relies on ping results for link availability.")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
                 ("dest-addr", opt::value<std::string>()->default_value("127.0.0.1"), "final destination IP addr to ping for link availability")
-                ;
+		;
 
             opt::variables_map vm;
             opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -115,22 +123,44 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
+	    contactsFile = vm["contact-plan-file"].as<std::string>();
+            if (contactsFile.length() < 1) {
+                std::cout << desc << "\n";
+                return false;
+            }
+
+            std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+           if ( !boost::filesystem::exists( jsonFileName ) ) {
+               std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
+               return false;
+            }
+            
+	    jsonEventFileName = jsonFileName;
+
+	    if (vm.count("ping-test")) {
+		std::cerr << "*****ping-test is true " << std::endl; 
+                isPingTest = true;
+            }
+
+            const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<string>();
             if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
                 std::cerr << "error: bad dest uri string: " << myFinalDestUriEid << std::endl;
                 return false;
             }
 
+	    std::cout << "****Dest eid node: " << finalDestEid.nodeId << std::endl;
+             std::cout << "****Dest eid service: " << finalDestEid.serviceId << std::endl;
+
             finalDestAddr = vm["dest-addr"].as<string>();
-            std::cout << "IP address: " << finalDestAddr << std::endl;
+            std::cout << "*****IP address: " << finalDestAddr << std::endl;
 
         }
 
-        catch (boost::bad_any_cast & e) {
-                std::cout << "invalid data error: " << e.what() << "\n\n";
-                std::cout << desc << "\n";
-                return false;
-        }
+        //catch (boost::bad_any_cast & e) {
+          //      std::cout << "invalid data error: " << e.what() << "\n\n";
+            //    std::cout << desc << "\n";
+              //  return false;
+        //}
         catch (std::exception& e) {
                 std::cerr << "error: " << e.what() << "\n";
                 return false;
@@ -148,12 +178,21 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         }
         std::cout << "Scheduler up and running" << std::endl;
 
-        zmq::context_t ctx;
+        
+	std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+        if ( !boost::filesystem::exists( jsonFileName ) ) {
+            std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
+            return false;
+        }
+        jsonEventFileName = jsonFileName;
+
+
+	zmq::context_t ctx;
         zmq::socket_t socket(ctx, zmq::socket_type::pub);
         const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
         socket.bind(bind_boundSchedulerPubSubPath);
-        boost::asio::io_service service;
+	boost::asio::io_service service;
         boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
 
         string str = finalDestAddr;
@@ -165,7 +204,15 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
-            dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, finalDestEid, &socket, command));
+            Scheduler scheduler;
+	    if (!isPingTest) {
+		std::cerr << "ping-test is false  calling ProcessContactFile " << std::endl;
+    
+                scheduler.ProcessContactsFile(contactsFile);
+                return true;
+            }
+
+            dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, &finalDestEid, &socket, command));
             service.run();
         }
         socket.close();

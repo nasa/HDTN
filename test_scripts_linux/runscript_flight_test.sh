@@ -23,7 +23,7 @@ egress_PID=$!
 sleep 3
 
 #Scheduler
-./build/module/scheduler/hdtn-scheduler --hdtn-config-file=$hdtn_config &
+./build/module/scheduler/hdtn-scheduler --ping-test --dest-addr=127.0.0.1 --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
 scheduler_PID=$!
 sleep 1
 

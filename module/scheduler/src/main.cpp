@@ -14,10 +14,10 @@ int main(int argc, char *argv[]) {
     std::string jsonFileName;
     volatile bool running;
 
-    int returnCode = scheduler.ProcessComandLine(argc,(const char **)argv,jsonFileName);
-    if (returnCode == 0) {
-        returnCode = scheduler.ProcessContactsFile(jsonFileName); //allows Scheduler to rely on contact Plan for link availability
-        //returnCode = scheduler.Run(argc, argv, running, true); //allows Scheduler to rely on ping results for link availability
-    }
+ //   int returnCode = scheduler.ProcessComandLine(argc,(const char **)argv,jsonFileName);
+   // if (returnCode == 0) {
+        //returnCode = scheduler.ProcessContactsFile(jsonFileName); //allows Scheduler to rely on contact Plan for link availability
+     int   returnCode = scheduler.Run(argc, argv, running, jsonFileName, true); //allows Scheduler to rely on ping results for link availability
+    //}
     return returnCode;
 }
