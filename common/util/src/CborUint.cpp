@@ -480,17 +480,28 @@ uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, uint8_t * numByte
     }
     else if (type == CBOR_UINT32_TYPE) {
         if (bufferSize >= 5) {
-            const __m128i enc = _mm_loadu_si32((__m128i const*)(&inputEncoded[1])); //SSE2 Load unaligned 32-bit integer from memory into the first element of dst.
+            //const __m128i enc = _mm_loadu_si32((__m128i const*)(&inputEncoded[1])); //SSE2 Load unaligned 32-bit integer from memory into the first element of dst.
+#if 1
+            const __m128i enc = _mm_castps_si128(_mm_load_ss((float const*)(&inputEncoded[1]))); //Load a single-precision (32-bit) floating-point element from memory into the lower of dst, and zero the upper 3 elements. mem_addr does not need to be aligned on any particular boundary.
             const uint32_t result32Be = _mm_cvtsi128_si32(enc); //SSE2 Copy the lower 32-bit integer in a to dst.
             result = boost::endian::big_to_native(result32Be);
+#else
+            result = static_cast<uint32_t>(_loadbe_i32(&inputEncoded[1]));
+#endif
+
             *numBytes = 5;
         }
     }
     else if (type == CBOR_UINT64_TYPE) {
         if (bufferSize >= 9) {
-            const __m128i enc = _mm_loadl_epi64((__m128i const*)(&inputEncoded[1])); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
+            //const __m128i enc = _mm_loadl_epi64((__m128i const*)(&inputEncoded[1])); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
+#if 1
+            const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[1]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
             const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
             result = boost::endian::big_to_native(result64Be);
+#else
+            result = static_cast<uint64_t>(_loadbe_i64(&inputEncoded[1]));
+#endif
             *numBytes = 9;
         }
     }
@@ -514,19 +525,33 @@ uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t *
         *numBytes = 2;
     }
     else if (type == CBOR_UINT16_TYPE) {
+#if 1
         result = ((static_cast<uint16_t>(inputEncoded[1])) << 8) | inputEncoded[2];
+#else
+        result = static_cast<uint16_t>(_loadbe_i16(&inputEncoded[1]));
+#endif
         *numBytes = 3;
     }
-    else if (type == CBOR_UINT32_TYPE) {
-        const __m128i enc = _mm_loadu_si32((__m128i const*)(&inputEncoded[1])); //SSE2 Load unaligned 32-bit integer from memory into the first element of dst.
+    else if (type == CBOR_UINT32_TYPE) {//_mm_load_ss
+        //const __m128i enc = _mm_loadu_si32((__m128i const*)(&inputEncoded[1])); //SSE2 Load unaligned 32-bit integer from memory into the first element of dst.
+#if 1
+        const __m128i enc = _mm_castps_si128(_mm_load_ss((float const*)(&inputEncoded[1]))); //Load a single-precision (32-bit) floating-point element from memory into the lower of dst, and zero the upper 3 elements. mem_addr does not need to be aligned on any particular boundary.
         const uint32_t result32Be = _mm_cvtsi128_si32(enc); //SSE2 Copy the lower 32-bit integer in a to dst.
         result = boost::endian::big_to_native(result32Be);
+#else
+        result = static_cast<uint32_t>(_loadbe_i32(&inputEncoded[1]));
+#endif
         *numBytes = 5;
     }
     else if (type == CBOR_UINT64_TYPE) {
-        const __m128i enc = _mm_loadl_epi64((__m128i const*)(&inputEncoded[1])); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
+        //const __m128i enc = _mm_loadl_epi64((__m128i const*)(&inputEncoded[1])); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
+#if 1
+        const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[1]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
         const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
         result = boost::endian::big_to_native(result64Be);
+#else
+        result = static_cast<uint64_t>(_loadbe_i64(&inputEncoded[1]));
+#endif
         *numBytes = 9;
     }
 
