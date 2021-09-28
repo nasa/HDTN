@@ -466,7 +466,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
     const uint8_t numBytesToDecode = static_cast<uint8_t>(mask0x80Index + 1);
 #if 0
     const uint8_t index1 = numBytesToDecode << 3;
-    const uint64_t mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1));
+    const uint64_t mask1 = boost::endian::endian_reverse(static_cast<uint64_t>(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1)));
 #else
     const uint64_t mask1 = masksPdepPext1[mask0x80Index];
 #endif
@@ -524,7 +524,7 @@ uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
     const uint8_t numBytesToDecode = maskIndex + 1;
 #if 1
     const uint8_t index1 = numBytesToDecode << 3;
-    const uint64_t mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1));
+    const uint64_t mask1 = boost::endian::endian_reverse(static_cast<uint64_t>(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1)));
 #else
     const uint64_t mask1 = masksPdepPext1[maskIndex];
 #endif
@@ -579,7 +579,7 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
     const uint8_t numBytesToDecode = maskIndex + 1;
 #if 1
     const uint8_t index1 = numBytesToDecode << 3;
-    const uint64_t mask1 = boost::endian::endian_reverse(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1));
+    const uint64_t mask1 = boost::endian::endian_reverse(static_cast<uint64_t>(_bzhi_u64(0x7f7f7f7f7f7f7f7f, index1)));
 #else
     const uint64_t mask1 = masksPdepPext1[maskIndex];
 #endif
@@ -587,14 +587,14 @@ uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
 
 #if 0
     const uint8_t index2 = (index1 - 64) * (static_cast<bool>(numBytesToDecode >= 8));
-    const uint64_t mask2 = boost::endian::endian_reverse(_bzhi_u64(mask1, index2)); //mask1 already 0x7f7f7f7f7f7f7f7f
+    const uint64_t mask2 = boost::endian::endian_reverse(static_cast<uint64_t>(_bzhi_u64(mask1, index2))); //mask1 already 0x7f7f7f7f7f7f7f7f
 #elif 0
     const uint64_t mask2 = (0x7f7f000000000000 << ((80 - index1))) * (static_cast<bool>(numBytesToDecode >= 9));
 #elif 1
     //unsigned __int64 _bextr_u64 (unsigned __int64 a, unsigned int start, unsigned int len)
     //tmp[511:0] := a
     //dst[63:0] := ZeroExtend64(tmp[(start[7:0] + len[7:0] - 1):start[7:0]])
-    const uint64_t mask2 = boost::endian::endian_reverse(_bextr_u64(0x7f7f, (80 - index1), 16));
+    const uint64_t mask2 = boost::endian::endian_reverse(static_cast<uint64_t>(_bextr_u64(0x7f7f, (80 - index1), 16)));
 #else
     const uint64_t mask2 = masksPdepPext2[maskIndex];
 #endif
