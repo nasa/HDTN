@@ -210,7 +210,7 @@ bool TestSchedulerTcpcl() {
     //scheduler 
     Scheduler scheduler;
     std::string eventFile = Scheduler::GetFullyQualifiedFilename("contactPlanIpn2.1.json");
-    std::thread threadScheduler(&Scheduler::ProcessContactsFile,&scheduler,eventFile);
+    std::thread threadScheduler(&Scheduler::ProcessContactsFile,&scheduler,&eventFile);
     Delay(1);
     
     //Ingress

@@ -78,7 +78,7 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
 }
 
 bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, 
-		    std::string& jsonEventFileName, bool useSignalHandler) {
+		    std::string jsonEventFileName, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
 	running = true;
@@ -129,14 +129,17 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
+	     std::cout << "****ContactsFile: " << contactsFile << std::endl;
+
             std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
            if ( !boost::filesystem::exists( jsonFileName ) ) {
-               std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
+               std::cerr << "******File not found: " << jsonFileName << std::endl << std::flush;
                return false;
             }
             
 	    jsonEventFileName = jsonFileName;
 
+            std::cout << "****jsonEventFileName: " << jsonEventFileName << std::endl;
 	    if (vm.count("ping-test")) {
 		std::cerr << "*****ping-test is true " << std::endl; 
                 isPingTest = true;
@@ -148,12 +151,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-	    std::cout << "****Dest eid node: " << finalDestEid.nodeId << std::endl;
-             std::cout << "****Dest eid service: " << finalDestEid.serviceId << std::endl;
-
             finalDestAddr = vm["dest-addr"].as<string>();
-            std::cout << "*****IP address: " << finalDestAddr << std::endl;
-
         }
 
         //catch (boost::bad_any_cast & e) {
@@ -178,15 +176,6 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         }
         std::cout << "Scheduler up and running" << std::endl;
 
-        
-	std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
-        if ( !boost::filesystem::exists( jsonFileName ) ) {
-            std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
-            return false;
-        }
-        jsonEventFileName = jsonFileName;
-
-
 	zmq::context_t ctx;
         zmq::socket_t socket(ctx, zmq::socket_type::pub);
         const std::string bind_boundSchedulerPubSubPath(
@@ -208,7 +197,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 	    if (!isPingTest) {
 		std::cerr << "ping-test is false  calling ProcessContactFile " << std::endl;
     
-                scheduler.ProcessContactsFile(contactsFile);
+                scheduler.ProcessContactsFile(&jsonEventFileName);
                 return true;
             }
 
@@ -260,10 +249,12 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, const cbhe_eid
     }
 }
 
-int Scheduler::ProcessContactsFile(std::string jsonEventFileName) {
+int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) {
     m_timersFinished = false;
     contactPlanVector_t contactsVector;
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName);
+    std::cout << "****In ProcessContactsFile: jsonEventFileName: " << *jsonEventFileName << std::endl;
+
+    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(*jsonEventFileName);
     const boost::property_tree::ptree & contactsPt
             = pt.get_child("contacts", boost::property_tree::ptree());
     contactsVector.resize(contactsPt.size());
