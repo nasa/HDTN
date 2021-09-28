@@ -468,8 +468,16 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
-    while (m_running) {        
-        if (zmq::poll(pollItems, 3, timeoutPoll) > 0) {            
+    while (m_running) {
+        int rc = 0;
+        try {
+            rc = zmq::poll(pollItems, 3, timeoutPoll);
+        }
+        catch (zmq::error_t & e) {
+            std::cout << "caught zmq::error_t in hdtn::ZmqStorageInterface::ThreadFunc: " << e.what() << std::endl;
+            continue;
+        }
+        if (rc > 0) {            
             if (pollItems[0].revents & ZMQ_POLLIN) { //from egress sock
                 hdtn::EgressAckHdr egressAckHdr;
                 const zmq::recv_buffer_result_t res = fromEgressSockPtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);

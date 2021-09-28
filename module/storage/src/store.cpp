@@ -151,7 +151,15 @@ bool hdtn::storage::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
 
 
 void hdtn::storage::update() {
-    if (zmq::poll(&m_pollItems[0], 3, 250) > 0) {
+    int rc = 0;
+    try {
+        rc = zmq::poll(&m_pollItems[0], 3, 250);
+    }
+    catch (zmq::error_t & e) {
+        std::cout << "caught zmq::error_t in hdtn::storage::update: " << e.what() << std::endl;
+        return;
+    }
+    if (rc > 0) {
         if (m_pollItems[0].revents & ZMQ_POLLIN) {
             dispatch();
         }

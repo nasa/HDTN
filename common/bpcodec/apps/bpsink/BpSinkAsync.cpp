@@ -39,7 +39,7 @@ bool BpSinkAsync::ProcessPayload(const uint8_t * data, const uint64_t size) {
 
     //update with latest from base class stats
     m_FinalStatsBpSink.m_totalBundlesRx = m_totalBundlesRx;
-    m_FinalStatsBpSink.m_totalBytesRx = m_totalBytesRx;
+    m_FinalStatsBpSink.m_totalBytesRx = m_totalPayloadBytesRx;
 
     return true;
 }

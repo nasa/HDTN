@@ -157,7 +157,15 @@ void Ingress::ReadZmqAcksThreadFunc() {
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
 
     while (m_running) { //keep thread alive if running
-        if (zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL) > 0) {
+        int rc = 0;
+        try {
+            rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
+        }
+        catch (zmq::error_t & e) {
+            std::cout << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what() << std::endl;
+            continue;
+        }
+        if (rc > 0) {
             if (items[0].revents & ZMQ_POLLIN) { //ack from egress
                 EgressAckHdr receivedEgressAckHdr;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmq::mutable_buffer(&receivedEgressAckHdr, sizeof(hdtn::EgressAckHdr)), zmq::recv_flags::dontwait);

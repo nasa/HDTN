@@ -9,6 +9,7 @@
     "zmqStorageAddress": "localhost",
     "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
+    "zmqContactGraphRoutingAddress": "tcp://localhost:5556",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
@@ -42,7 +43,7 @@
                 "remotePort": 4557,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:1.1"
+                    "ipn:3.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000

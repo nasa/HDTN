@@ -13,6 +13,7 @@ m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_needToSendKeepAliveMessageTimer(m_ioService),
 m_reconnectAfterShutdownTimer(m_ioService),
+m_reconnectAfterOnConnectErrorTimer(m_ioService),
 M_KEEP_ALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 MAX_UNACKED(maxUnacked),
 m_bytesToAckByTcpSendCallbackCb(MAX_UNACKED),
@@ -260,14 +261,9 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
-            std::cout << "Trying to reconnect..." << std::endl;
-            boost::asio::async_connect(
-                *m_tcpSocketPtr,
-                m_resolverResults,
-                boost::bind(
-                    &StcpBundleSource::OnConnect,
-                    this,
-                    boost::asio::placeholders::error));
+            std::cout << "Will try to reconnect after 2 seconds" << std::endl;
+            m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
+            m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&StcpBundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
         return;
     }
@@ -284,6 +280,20 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
         m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_tcpSocketPtr, m_ioService);
 
         StartTcpReceive();
+    }
+}
+
+void StcpBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Trying to reconnect..." << std::endl;
+        boost::asio::async_connect(
+            *m_tcpSocketPtr,
+            m_resolverResults,
+            boost::bind(
+                &StcpBundleSource::OnConnect,
+                this,
+                boost::asio::placeholders::error));
     }
 }
 

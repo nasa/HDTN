@@ -74,11 +74,16 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
     else if (fragmentSet.empty()) { //first reception of this file
         boost::filesystem::path fullPathFileName = boost::filesystem::path(m_saveDirectory) / boost::filesystem::path(fileName);
         const std::string fullPathFileNameString = fullPathFileName.string();
-        std::cout << "creating new file " << fullPathFileNameString << std::endl;
-        ofstreamPtr = boost::make_unique<std::ofstream>(fullPathFileNameString, std::ofstream::out | std::ofstream::binary);
-        if (!ofstreamPtr->good()) {
-            std::cout << "error, unable to open file " << fullPathFileNameString << " for writing\n";
-            return false;
+        if (m_saveDirectory.size()) { //if we are actually saving the files
+            std::cout << "creating new file " << fullPathFileNameString << std::endl;
+            ofstreamPtr = boost::make_unique<std::ofstream>(fullPathFileNameString, std::ofstream::out | std::ofstream::binary);
+            if (!ofstreamPtr->good()) {
+                std::cout << "error, unable to open file " << fullPathFileNameString << " for writing\n";
+                return false;
+            }
+        }
+        else {
+            std::cout << "not creating new file " << fullPathFileNameString << std::endl;
         }
         doWriteFragment = true;
     }
