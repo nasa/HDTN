@@ -17,7 +17,7 @@
 #include "Uri.h"
 
 
-BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService) {}
+BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
 
 BpSinkPattern::~BpSinkPattern() {
     Stop();
@@ -27,11 +27,16 @@ void BpSinkPattern::Stop() {
 
     if (m_ioServiceThreadPtr) {
         m_timerAcs.cancel();
+        m_timerTransferRateStats.cancel();
         m_ioServiceThreadPtr->join();
         m_ioServiceThreadPtr.reset(); //delete it
     }
 
     m_inductManager.Clear();
+
+    std::cout << "totalPayloadBytesRx: " << m_totalPayloadBytesRx << "\n";
+    std::cout << "totalBundleBytesRx: " << m_totalBundleBytesRx << "\n";
+    std::cout << "totalBundlesRx: " << m_totalBundlesRx << "\n";
 }
 
 bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr, bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs) {
@@ -39,8 +44,13 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     m_myEid = myEid;
     m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
 
-    m_totalBytesRx = 0;
+    m_totalPayloadBytesRx = 0;
+    m_totalBundleBytesRx = 0;
     m_totalBundlesRx = 0;
+
+    m_lastPayloadBytesRx = 0;
+    m_lastBundleBytesRx = 0;
+    m_lastBundlesRx = 0;
     
 
     m_nextCtebCustodyId = 0;
@@ -59,12 +69,15 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
         if (isAcsAware) {
             m_timerAcs.expires_from_now(boost::posix_time::seconds(1));
             m_timerAcs.async_wait(boost::bind(&BpSinkPattern::AcsNeedToSend_TimerExpired, this, boost::asio::placeholders::error));
-            m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
         }
     }
     else {
         m_useCustodyTransfer = false;
     }
+    m_lastPtime = boost::posix_time::microsec_clock::universal_time();
+    m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
+    m_timerTransferRateStats.async_wait(boost::bind(&BpSinkPattern::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
+    m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     
     return true;
 }
@@ -91,6 +104,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
         std::cerr << "bundle received has a destination that doesn't match my eid\n";
         return false;
     }
+
 
     //accept custody
     if (m_useCustodyTransfer) {
@@ -135,7 +149,8 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
         return false;
     }
     bpv6_canonical_block & payloadBlock = blocks[0]->header;
-    m_totalBytesRx += payloadBlock.length;
+    m_totalPayloadBytesRx += payloadBlock.length;
+    m_totalBundleBytesRx += messageSize;
     ++m_totalBundlesRx;
 
     boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
@@ -164,6 +179,36 @@ void BpSinkPattern::AcsNeedToSend_TimerExpired(const boost::system::error_code& 
     }
     else {
         std::cout << "timer stopped\n";
+    }
+}
+
+void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
+        const uint64_t totalPayloadBytesRx = m_totalPayloadBytesRx;
+        const uint64_t totalBundleBytesRx = m_totalBundleBytesRx;
+        const uint64_t totalBundlesRx = m_totalBundlesRx;
+        boost::posix_time::time_duration diff = finishedTime - m_lastPtime;
+        const uint64_t diffTotalPayloadBytesRx = totalPayloadBytesRx - m_lastPayloadBytesRx;
+        const uint64_t diffBundleBytesRx = totalBundleBytesRx - m_lastBundleBytesRx;
+        const uint64_t diffBundlesRx = totalBundlesRx - m_lastBundlesRx;
+        if (diffTotalPayloadBytesRx || diffBundleBytesRx || diffBundlesRx) {
+            const double payloadRateMbps = (diffTotalPayloadBytesRx * 8.0) / (diff.total_microseconds());
+            const double bundleRateMbps = (diffBundleBytesRx * 8.0) / (diff.total_microseconds());
+            const double bundlesPerSecond = (diffBundlesRx * 1e6) / (diff.total_microseconds());
+            printf("Payload Only Rate: %0.4f Mbits/sec, Total Rate: %0.4f Mbits/sec, %0.4f Bundles/sec: \n", payloadRateMbps, bundleRateMbps, bundlesPerSecond);
+        }
+        
+        m_lastPayloadBytesRx = totalPayloadBytesRx;
+        m_lastBundleBytesRx = totalBundleBytesRx;
+        m_lastBundlesRx = totalBundlesRx;
+        m_lastPtime = finishedTime;
+        m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
+        m_timerTransferRateStats.async_wait(boost::bind(&BpSinkPattern::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
+    }
+    else {
+        std::cout << "transfer rate timer stopped\n";
     }
 }
 

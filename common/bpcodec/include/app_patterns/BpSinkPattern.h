@@ -23,12 +23,18 @@ private:
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
     bool Process(std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
     void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
+    void TransferRate_TimerExpired(const boost::system::error_code& e);
     void SendAcsFromTimerThread();
 public:
 
-    uint64_t m_totalBytesRx;
+    uint64_t m_totalPayloadBytesRx;
+    uint64_t m_totalBundleBytesRx;
     uint64_t m_totalBundlesRx;
-    
+
+    uint64_t m_lastPayloadBytesRx;
+    uint64_t m_lastBundleBytesRx;
+    uint64_t m_lastBundlesRx;
+    boost::posix_time::ptime m_lastPtime;
 
     
 
@@ -45,6 +51,7 @@ private:
     std::vector<uint8_t> m_bufferSpaceForCustodySignalRfc5050SerializedBundle;
     boost::asio::io_service m_ioService;
     boost::asio::deadline_timer m_timerAcs;
+    boost::asio::deadline_timer m_timerTransferRateStats;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexForward;
