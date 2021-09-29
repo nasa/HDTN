@@ -81,12 +81,11 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 		    std::string jsonEventFileName, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
-	running = true;
+        running = true;
         m_runningFromSigHandler = true;
         m_timersFinished = false;
         jsonEventFileName = "";
         std::string contactsFile = Scheduler::DEFAULT_FILE;
-
 
         SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
@@ -129,19 +128,17 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-	     std::cout << "****ContactsFile: " << contactsFile << std::endl;
-
-            std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+           std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
            if ( !boost::filesystem::exists( jsonFileName ) ) {
-               std::cerr << "******File not found: " << jsonFileName << std::endl << std::flush;
+               std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
                return false;
             }
             
 	    jsonEventFileName = jsonFileName;
 
-            std::cout << "****jsonEventFileName: " << jsonEventFileName << std::endl;
+            std::cout << "ContactPlan file: " << jsonEventFileName << std::endl;
+	 
 	    if (vm.count("ping-test")) {
-		std::cerr << "*****ping-test is true " << std::endl; 
                 isPingTest = true;
             }
 
@@ -154,22 +151,27 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             finalDestAddr = vm["dest-addr"].as<string>();
         }
 
-        //catch (boost::bad_any_cast & e) {
-          //      std::cout << "invalid data error: " << e.what() << "\n\n";
-            //    std::cout << desc << "\n";
-              //  return false;
-        //}
+        catch (boost::bad_any_cast & e) {
+            std::cout << "invalid data error: " << e.what() << "\n\n";
+            std::cout << desc << "\n";
+            return false;
+        }
         catch (std::exception& e) {
-                std::cerr << "error: " << e.what() << "\n";
-                return false;
+            std::cerr << "error: " << e.what() << "\n";
+            return false;
         }
         catch (...) {
-                std::cerr << "Exception of unknown type!\n";
-                return false;
+             std::cerr << "Exception of unknown type!\n";
+             return false;
         }
 
-
         std::cout << "starting Scheduler.." << std::endl;
+	
+	Scheduler scheduler;
+        if (!isPingTest) {
+	     scheduler.ProcessContactsFile(&jsonEventFileName);
+             return true;
+        }
 
         if (useSignalHandler) {
             sigHandler.Start(false);
@@ -188,21 +190,15 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         str = "ping -c1 -s1 " + str;
 
         const char *command = str.c_str();
+	
+	dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, &finalDestEid, &socket, command));
+	service.run();
+
 	while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
-            Scheduler scheduler;
-	    if (!isPingTest) {
-		std::cerr << "ping-test is false  calling ProcessContactFile " << std::endl;
-    
-                scheduler.ProcessContactsFile(&jsonEventFileName);
-                return true;
-            }
-
-            dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, &finalDestEid, &socket, command));
-            service.run();
         }
         socket.close();
 
@@ -252,7 +248,6 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, const cbhe_eid
 int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) {
     m_timersFinished = false;
     contactPlanVector_t contactsVector;
-    std::cout << "****In ProcessContactsFile: jsonEventFileName: " << *jsonEventFileName << std::endl;
 
     boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(*jsonEventFileName);
     const boost::property_tree::ptree & contactsPt

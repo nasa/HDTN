@@ -55,15 +55,15 @@ sleep 8
 
 # cleanup
 sleep 30
-echo "\nkilling bpgen..." && kill -2 $bpgen1_PID
+echo "\nkilling bpgen1..." && kill -2 $bpgen1_PID
 sleep 2
-echo "\nkilling bpgen..." && kill -2 $bpgen2_PID
+echo "\nkilling bpgen2..." && kill -2 $bpgen2_PID
 sleep 2
 echo "\nkilling HDTN storage..." && kill -2 $storage_PID
 sleep 2
-echo "\nkilling HDTN release-message..." && kill -2 $ingress_PID
+echo "\nkilling HDTN ingress..." && kill -2 $ingress_PID
 sleep 2
-echo "\nkilling ingress..." && kill -2 $scheduler_PID
+echo "\nkilling scheduler..." && kill -2 $scheduler_PID
 sleep 2
 echo "\nkilling egress..." && kill -2 $egress_PID
 sleep 2
