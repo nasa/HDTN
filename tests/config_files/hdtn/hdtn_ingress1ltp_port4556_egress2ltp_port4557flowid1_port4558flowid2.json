@@ -18,7 +18,7 @@
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
-    "zmqMaxMessagesPerPath": 11,
+    "zmqMaxMessagesPerPath": 9,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
@@ -69,7 +69,7 @@
                 "convergenceLayer": "ltp_over_udp",
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
-                "bundlePipelineLimit": 5,
+                "bundlePipelineLimit": 10,
                 "finalDestinationEidUris": [
                     "ipn:1.1"
                 ],
@@ -90,7 +90,7 @@
                 "convergenceLayer": "ltp_over_udp",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 5,
+                "bundlePipelineLimit": 10,
                 "finalDestinationEidUris": [
                     "ipn:2.1"
                 ],

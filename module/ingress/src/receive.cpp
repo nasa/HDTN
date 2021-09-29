@@ -328,7 +328,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     bpv6_primary_block primary;
     if (!cbhe_bpv6_primary_block_decode(&primary, (const char*)rxBuf.data(), 0, messageSize)) {
         std::cerr << "malformed bundle\n";
-        return 0;
+        return false;
     }
 
 
@@ -348,100 +348,46 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
         m_egressAckMapQueueMutex.lock();
         EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
         m_egressAckMapQueueMutex.unlock();
-        for (unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
-            if (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) {
-                if (attempt == 7) {
-                    const std::string msg = "error: too many pending egress acks in the queue for finalDestEid (" +
-                        boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ")";
-                    std::cerr << msg << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", msg);
-                }
-                egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
-                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-                ++m_eventsTooManyInEgressQueue;
-                continue; //next attempt
+        boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+        while (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
+            if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                static const boost::posix_time::time_duration twoSeconds = boost::posix_time::seconds(2);
+                timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + twoSeconds;
             }
-
-            const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
-
-            //force natural/64-bit alignment
-            hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
-            zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
-            
-            //memset 0 not needed because all values set below
-            toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
-            toEgressHdr->base.flags = static_cast<uint16_t>(primary.flags);
-            toEgressHdr->finalDestEid = finalDestEid;
-            toEgressHdr->hasCustody = requestsCustody;
-            toEgressHdr->isCutThroughFromIngress = 1;
-            toEgressHdr->custodyId = ingressToEgressUniqueId;
-            {
-                //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
-                boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
-                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                    std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
-                }
-                else {
-                    egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
-
-                    //this is an optimization because we only have one chunk to send
-                    //The zmq_msg_init_data() function shall initialise the message object referenced by msg
-                    //to represent the content referenced by the buffer located at address data, size bytes long.
-                    //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
-                    //If provided, the deallocation function ffn shall be called once the data buffer is no longer
-                    //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-                    std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
-                    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
-                    if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
-                        std::cerr << "ingress can't send bundle to egress" << std::endl;
-                        hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
-
-                    }
-                    else {
-                        //success                            
-                        m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
-                    }
-
-                }
+            if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
+                const std::string msg = "error: too many pending egress acks in the queue for finalDestEid (" +
+                    boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ")";
+                std::cerr << msg << std::endl;
+                hdtn::Logger::getInstance()->logError("ingress", msg);
+                return false;
             }
-            break;
-
+            egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            ++m_eventsTooManyInEgressQueue;
         }
-    }
-    else { //storage
-        boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
-        const uint64_t ingressToStorageUniqueId = m_ingressToStorageNextUniqueId++;
-        for (unsigned int attempt = 0; attempt < 8; ++attempt) { //2000 ms timeout
-            if (m_storageAckQueue.size() > m_hdtnConfig.m_zmqMaxMessagesPerPath) {
-                if (attempt == 7) {
-                    std::cerr << "error: too many pending storage acks in the queue" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", "Error: too many pending storage acks in the queue");
-                }
-                m_conditionVariableStorageAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-                ++m_eventsTooManyInStorageQueue;
-                continue; //next attempt
-            }
 
-            //force natural/64-bit alignment
-            hdtn::ToStorageHdr * toStorageHdr = new hdtn::ToStorageHdr();
-            zmq::message_t zmqMessageToStorageHdrWithDataStolen(toStorageHdr, sizeof(hdtn::ToStorageHdr), CustomCleanupToStorageHdr, toStorageHdr);
+        const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
 
-            //memset 0 not needed because all values set below
-            toStorageHdr->base.type = HDTN_MSGTYPE_STORE;
-            toStorageHdr->base.flags = static_cast<uint16_t>(primary.flags);
-            toStorageHdr->ingressUniqueId = ingressToStorageUniqueId;
-
+        //force natural/64-bit alignment
+        hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
+        zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+            
+        //memset 0 not needed because all values set below
+        toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
+        toEgressHdr->base.flags = static_cast<uint16_t>(primary.flags);
+        toEgressHdr->finalDestEid = finalDestEid;
+        toEgressHdr->hasCustody = requestsCustody;
+        toEgressHdr->isCutThroughFromIngress = 1;
+        toEgressHdr->custodyId = ingressToEgressUniqueId;
+        {
             //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
-
-            //zmq threads not thread safe but protected by mutex above
-            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to storage");
+            boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
+            if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
+                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
             }
             else {
-                m_storageAckQueue.push(ingressToStorageUniqueId);
+                egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
 
                 //this is an optimization because we only have one chunk to send
                 //The zmq_msg_init_data() function shall initialise the message object referenced by msg
@@ -451,18 +397,72 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
                 //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
                 std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
                 zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
-                if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
-                    std::cerr << "ingress can't send bundle to storage" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");
+                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                    std::cerr << "ingress can't send bundle to egress" << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
+
                 }
                 else {
                     //success                            
-                    ++m_bundleCountStorage;
+                    m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
                 }
-
             }
-            break;
+        }
+    }
+    else { //storage
+        boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
+        const uint64_t ingressToStorageUniqueId = m_ingressToStorageNextUniqueId++;
+        boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+        while (m_storageAckQueue.size() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
+            if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                static const boost::posix_time::time_duration twoSeconds = boost::posix_time::seconds(2);
+                timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + twoSeconds;
+            }
+            if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
+                std::cerr << "error: too many pending storage acks in the queue" << std::endl;
+                hdtn::Logger::getInstance()->logError("ingress", "Error: too many pending storage acks in the queue");
+                return false;
+            }
+            m_conditionVariableStorageAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            ++m_eventsTooManyInStorageQueue;
+        }
 
+        //force natural/64-bit alignment
+        hdtn::ToStorageHdr * toStorageHdr = new hdtn::ToStorageHdr();
+        zmq::message_t zmqMessageToStorageHdrWithDataStolen(toStorageHdr, sizeof(hdtn::ToStorageHdr), CustomCleanupToStorageHdr, toStorageHdr);
+
+        //memset 0 not needed because all values set below
+        toStorageHdr->base.type = HDTN_MSGTYPE_STORE;
+        toStorageHdr->base.flags = static_cast<uint16_t>(primary.flags);
+        toStorageHdr->ingressUniqueId = ingressToStorageUniqueId;
+
+        //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
+
+        //zmq threads not thread safe but protected by mutex above
+        if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+            std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
+            hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to storage");
+        }
+        else {
+            m_storageAckQueue.push(ingressToStorageUniqueId);
+
+            //this is an optimization because we only have one chunk to send
+            //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+            //to represent the content referenced by the buffer located at address data, size bytes long.
+            //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+            //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+            //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+            std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
+            zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
+            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                std::cerr << "ingress can't send bundle to storage" << std::endl;
+                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");
+            }
+            else {
+                //success                            
+                ++m_bundleCountStorage;
+            }
         }
     }
 
@@ -471,7 +471,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     m_bundleData.fetch_add(messageSize, boost::memory_order_relaxed);
     ////timer = rdtsc() - timer;
 
-    return 0;
+    return true;
 }
 
 
