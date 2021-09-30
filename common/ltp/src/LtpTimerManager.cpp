@@ -34,8 +34,7 @@ LtpTimerManager<idType>::~LtpTimerManager() {
 template <class idType>
 void LtpTimerManager<idType>::Reset() {
     m_listCheckpointSerialNumberPlusExpiry.clear(); //clear first so cancel doesnt restart the next one
-    m_mapCheckpointSerialNumberToExpiryListIterator.clear();
-    m_mapSerialNumberToUserData.clear();
+    m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.clear();
     m_deadlineTimer.cancel();
     m_activeSerialNumberBeingTimed = 0;
     m_isTimerActive = false;
@@ -47,12 +46,13 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
     //expiry will always be appended to list (always greater than previous) (duplicate expiries ok)
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     
-    typename std::pair<id_to_listiterator_map_t::iterator, bool> retVal = 
-        m_mapCheckpointSerialNumberToExpiryListIterator.insert(id_to_listiterator_map_insertion_element_t(serialNumber, typename id_ptime_list_t::iterator()));
+    typename std::pair<id_to_listiteratorplususerdata_map_t::iterator, bool> retVal =
+        m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.insert(
+            id_to_listiteratorplususerdata_map_insertion_element_t(serialNumber, listiterator_userdata_pair_t()));
     if (retVal.second) {
         //value was inserted
-        retVal.first->second = m_listCheckpointSerialNumberPlusExpiry.insert(m_listCheckpointSerialNumberPlusExpiry.end(), id_ptime_pair_t(serialNumber,expiry));
-        m_mapSerialNumberToUserData[serialNumber] = std::move(userData);
+        retVal.first->second.first = m_listCheckpointSerialNumberPlusExpiry.insert(m_listCheckpointSerialNumberPlusExpiry.end(), id_ptime_pair_t(serialNumber,expiry));
+        retVal.first->second.second = std::move(userData);
         //std::cout << "StartTimer inserted " << serialNumber << std::endl;
         if (!m_isTimerActive) { //timer is not running
             //std::cout << "StartTimer started timer for " << serialNumber << std::endl;
@@ -68,17 +68,19 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
 
 template <class idType>
 bool LtpTimerManager<idType>::DeleteTimer(const idType serialNumber) {
+    std::vector<uint8_t> userDataToDiscard;
+    return DeleteTimer(serialNumber, userDataToDiscard);
+}
+
+template <class idType>
+bool LtpTimerManager<idType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned) {
     
-    typename std::map<idType, std::vector<uint8_t> >::iterator itUserData = m_mapSerialNumberToUserData.find(serialNumber);
-    if (itUserData != m_mapSerialNumberToUserData.end()) {
-        m_mapSerialNumberToUserData.erase(itUserData);
-    }
-    
-    typename id_to_listiterator_map_t::iterator it = m_mapCheckpointSerialNumberToExpiryListIterator.find(serialNumber);
-    if (it != m_mapCheckpointSerialNumberToExpiryListIterator.end()) {
+    typename id_to_listiteratorplususerdata_map_t::iterator it = m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.find(serialNumber);
+    if (it != m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.end()) {
         //std::cout << "DeleteTimer found and erasing " << serialNumber << std::endl;
-        m_listCheckpointSerialNumberPlusExpiry.erase(it->second);
-        m_mapCheckpointSerialNumberToExpiryListIterator.erase(it);
+        userDataReturned = std::move(it->second.second);
+        m_listCheckpointSerialNumberPlusExpiry.erase(it->second.first);
+        m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.erase(it);
         if (m_isTimerActive && (m_activeSerialNumberBeingTimed == serialNumber)) { //if this is the one running, cancel it (which will automatically start the next)
             //std::cout << "delete is cancelling " << serialNumber << std::endl;
             m_activeSerialNumberBeingTimed = 0; //prevent double delete and callback when cancelled externally after expiration
@@ -103,10 +105,10 @@ void LtpTimerManager<idType>::OnTimerExpired(const boost::system::error_code& e,
         // Timer was not cancelled, take necessary action.
         const idType serialNumberThatExpired = m_activeSerialNumberBeingTimed;
         if (!(serialNumberThatExpired == 0)) { //if not deleted externally when active after expiration
-            std::vector<uint8_t> userData(std::move(m_mapSerialNumberToUserData[serialNumberThatExpired])); //grab any user data before DeleteTimer deletes it
+            std::vector<uint8_t> userData; //grab any user data before DeleteTimer deletes it
             //std::cout << "OnTimerExpired expired sn " << serialNumberThatExpired << std::endl;
             m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
-            DeleteTimer(serialNumberThatExpired); //callback function can choose to readd it later
+            DeleteTimer(serialNumberThatExpired, userData); //callback function can choose to readd it later
 
             m_ltpTimerExpiredCallbackFunction(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
         }

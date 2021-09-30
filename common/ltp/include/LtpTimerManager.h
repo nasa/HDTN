@@ -21,6 +21,7 @@ public:
        
     bool StartTimer(const idType serialNumber, std::vector<uint8_t> userData = std::vector<uint8_t>());
     bool DeleteTimer(const idType serialNumber);
+    bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned);
     bool Empty() const;
     //std::vector<uint8_t> & GetUserDataRef(const uint64_t serialNumber);
 private:
@@ -32,14 +33,16 @@ private:
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     const LtpTimerExpiredCallback_t m_ltpTimerExpiredCallbackFunction;
     //boost::bimap<idType, boost::posix_time::ptime> m_bimapCheckpointSerialNumberToExpiry;
+    //std::map<idType, std::vector<uint8_t> > m_mapSerialNumberToUserData;
     typedef std::pair<idType, boost::posix_time::ptime> id_ptime_pair_t;
     typedef std::list<id_ptime_pair_t> id_ptime_list_t;
-    typedef std::map<idType, typename id_ptime_list_t::iterator> id_to_listiterator_map_t;
-    typedef std::pair<idType, typename id_ptime_list_t::iterator> id_to_listiterator_map_insertion_element_t;
+    typedef std::pair<typename id_ptime_list_t::iterator, std::vector<uint8_t> > listiterator_userdata_pair_t;
+    typedef std::map<idType, listiterator_userdata_pair_t> id_to_listiteratorplususerdata_map_t;
+    typedef std::pair<idType, listiterator_userdata_pair_t> id_to_listiteratorplususerdata_map_insertion_element_t;
     id_ptime_list_t m_listCheckpointSerialNumberPlusExpiry;
-    id_to_listiterator_map_t m_mapCheckpointSerialNumberToExpiryListIterator;
+    id_to_listiteratorplususerdata_map_t m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData;
     
-    std::map<idType, std::vector<uint8_t> > m_mapSerialNumberToUserData;
+
     idType m_activeSerialNumberBeingTimed;
     bool m_isTimerActive;
     bool * m_timerIsDeletedPtr;
