@@ -1,7 +1,8 @@
 #ifndef LTP_TIMER_MANAGER_H
 #define LTP_TIMER_MANAGER_H 1
 
-#include <boost/bimap.hpp>
+#include <map>
+#include <list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 
@@ -30,7 +31,14 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     const LtpTimerExpiredCallback_t m_ltpTimerExpiredCallbackFunction;
-    boost::bimap<idType, boost::posix_time::ptime> m_bimapCheckpointSerialNumberToExpiry;
+    //boost::bimap<idType, boost::posix_time::ptime> m_bimapCheckpointSerialNumberToExpiry;
+    typedef std::pair<idType, boost::posix_time::ptime> id_ptime_pair_t;
+    typedef std::list<id_ptime_pair_t> id_ptime_list_t;
+    typedef std::map<idType, typename id_ptime_list_t::iterator> id_to_listiterator_map_t;
+    typedef std::pair<idType, typename id_ptime_list_t::iterator> id_to_listiterator_map_insertion_element_t;
+    id_ptime_list_t m_listCheckpointSerialNumberPlusExpiry;
+    id_to_listiterator_map_t m_mapCheckpointSerialNumberToExpiryListIterator;
+    
     std::map<idType, std::vector<uint8_t> > m_mapSerialNumberToUserData;
     idType m_activeSerialNumberBeingTimed;
     bool m_isTimerActive;
