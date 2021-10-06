@@ -207,6 +207,16 @@ bool BundleStorageManagerBase::ReturnTop(BundleStorageManagerSession_ReadFromDis
     return ((session.catalogEntryPtr != NULL) && m_bundleStorageCatalog.ReturnEntryToAwaitingSend(*session.catalogEntryPtr, session.custodyId));
 }
 
+bool BundleStorageManagerBase::ReturnCustodyIdToAwaitingSend(const uint64_t custodyId) { //0 if empty, size if entry
+    if (catalog_entry_t * catalogEntryPtr = m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId)) {
+        return m_bundleStorageCatalog.ReturnEntryToAwaitingSend(*catalogEntryPtr, custodyId);
+    }
+    return false;
+}
+catalog_entry_t * BundleStorageManagerBase::GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId) { //NULL if unavailable
+    return m_bundleStorageCatalog.GetEntryFromCustodyId(custodyId);
+}
+
 std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf) {
     const segment_id_chain_vec_t & segments = session.catalogEntryPtr->segmentIdChainVec;
 

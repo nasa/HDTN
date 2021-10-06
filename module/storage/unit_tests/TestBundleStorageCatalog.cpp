@@ -96,31 +96,5 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
         }
     }
 
-    //test Custody Timers
-    {
-        BundleStorageCatalog bsc;
-        //standard empty tests
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 0);
-        BOOST_REQUIRE(!bsc.CancelCustodyTransferTimer(1));
-        BOOST_REQUIRE(!bsc.CancelCustodyTransferTimerAtLowestExpiry(1));
-        uint64_t cidReturned;
-        BOOST_REQUIRE(!bsc.HasExpiredCustodyTimer(cidReturned));
-        
-        BOOST_REQUIRE(bsc.StartCustodyTransferTimer(1, boost::posix_time::milliseconds(0)));//add a timer that expires
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 1);
-        BOOST_REQUIRE(!bsc.StartCustodyTransferTimer(1, boost::posix_time::milliseconds(0)));//fail because of already existing cid
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 1);
-        BOOST_REQUIRE(bsc.StartCustodyTransferTimer(2, boost::posix_time::seconds(1000))); //add a timer that won't expire here
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 2);
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expire the first timer
-        BOOST_REQUIRE(bsc.HasExpiredCustodyTimer(cidReturned));
-        BOOST_REQUIRE_EQUAL(cidReturned, 1);
-        BOOST_REQUIRE(bsc.CancelCustodyTransferTimerAtLowestExpiry(1));
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 1);
-        BOOST_REQUIRE(!bsc.CancelCustodyTransferTimerAtLowestExpiry(1)); //fail already removed
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 1);
-        BOOST_REQUIRE(!bsc.HasExpiredCustodyTimer(cidReturned)); //has a timer but is not expired yet
-        BOOST_REQUIRE(bsc.CancelCustodyTransferTimer(2)); //cancelled
-        BOOST_REQUIRE_EQUAL(bsc.GetNumCustodyTransferTimers(), 0);
-    }
+    
 }

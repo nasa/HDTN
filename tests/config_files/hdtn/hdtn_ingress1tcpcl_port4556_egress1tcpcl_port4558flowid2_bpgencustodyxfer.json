@@ -55,7 +55,7 @@
                 "remotePort": 4560,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:1.1"
+                    "ipn:1.0"
                 ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000

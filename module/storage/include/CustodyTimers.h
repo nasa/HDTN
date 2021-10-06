@@ -19,6 +19,7 @@ public:
     ~CustodyTimers();
 
     bool PollOneAndPopExpiredCustodyTimer(uint64_t & custodyId, const std::vector<cbhe_eid_t> & availableDestEids, const boost::posix_time::ptime & nowPtime);
+    bool PollOneAndPopAnyExpiredCustodyTimer(uint64_t & custodyId, const boost::posix_time::ptime & nowPtime);
     bool StartCustodyTransferTimer(const cbhe_eid_t & finalDestEid, const uint64_t custodyId);
     bool CancelCustodyTransferTimer(const cbhe_eid_t & finalDestEid, const uint64_t custodyId);
     std::size_t GetNumCustodyTransferTimers();

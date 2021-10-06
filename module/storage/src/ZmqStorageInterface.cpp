@@ -20,7 +20,7 @@
 #include "codec/CustodyIdAllocator.h"
 #include "codec/CustodyTransferManager.h"
 #include "Uri.h"
-
+#include "CustodyTimers.h"
 
 hdtn::ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
@@ -79,6 +79,7 @@ static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & 
 
 static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     CustodyIdAllocator & custodyIdAllocator, CustodyTransferManager & ctm,
+    CustodyTimers & custodyTimers,
     std::vector<uint8_t> & bufferSpaceForCustodySignalRfc5050SerializedBundle,
     cbhe_eid_t & finalDestEidReturned, hdtn::ZmqStorageInterface * forStats)
 {
@@ -118,18 +119,25 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                 return false;
             }
 
+            //todo figure out what to do with failed custody from next hop
             for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
                 forStats->m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
                 custodyIdAllocator.FreeCustodyIdRange(it->beginIndex, it->endIndex);
                 for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
-                    bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(currentCustodyId);
-                    if (!successRemoveBundle) {
+                    catalog_entry_t * catalogEntryPtr = bsm.GetCatalogEntryPtrFromCustodyId(currentCustodyId);
+                    if (catalogEntryPtr == NULL) {
+                        std::cout << "error finding catalog entry for bundle identified by acs custody signal\n";
+                        continue;
+                    }
+                    if (!custodyTimers.CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
+                        std::cout << "notice: can't find custody timer associated with bundle identified by acs custody signal\n";
+                    }
+                    if (!bsm.RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
                         std::cout << "error freeing bundle identified by acs custody signal from disk\n";
-                        return false;
+                        continue;
                     }                    
                     ++forStats->m_totalBundlesErasedFromStorageWithCustodyTransfer;
                 }
-                
             }
         }
         else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
@@ -171,12 +179,20 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                 std::cerr << "error custody signal does not match a bundle in the storage database\n";
                 return false;
             }
-            bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(*custodyIdPtr);
-            if (!successRemoveBundle) {
-                std::cout << "error freeing bundle identified by acs custody signal from disk\n";
+            const uint64_t custodyIdFromRfc5050 = *custodyIdPtr;
+            custodyIdAllocator.FreeCustodyId(custodyIdFromRfc5050);
+            catalog_entry_t * catalogEntryPtr = bsm.GetCatalogEntryPtrFromCustodyId(custodyIdFromRfc5050);
+            if (catalogEntryPtr == NULL) {
+                std::cout << "error finding catalog entry for bundle identified by rfc5050 custody signal\n";
                 return false;
             }
-            custodyIdAllocator.FreeCustodyId(*custodyIdPtr);
+            if (!custodyTimers.CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
+                std::cout << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal\n";
+            }
+            if (!bsm.RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
+                std::cout << "error freeing bundle identified by rfc5050 custody signal from disk\n";
+                return false;
+            }            
             ++forStats->m_totalBundlesErasedFromStorageWithCustodyTransfer;
             ++forStats->m_numRfc5050CustodyTransfers;
         }
@@ -270,6 +286,10 @@ static void CustomCleanupToEgressHdr(void *data, void *hint) {
 static void CustomCleanupStorageAckHdr(void *data, void *hint) {
     delete static_cast<hdtn::StorageAckHdr*>(hint);
 }
+static void CustomCleanupStdVecUint8(void *data, void *hint) {
+    //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
 
 static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessionRead,
     const std::vector<cbhe_eid_t> & availableDestLinks,
@@ -294,19 +314,14 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
     }
         
-    zmq::message_t zmqMsg(bytesToReadFromDisk);
-    uint8_t * bundleReadBack = (uint8_t*)zmqMsg.data();
-
-
-    const std::size_t numSegmentsToRead = sessionRead.catalogEntryPtr->segmentIdChainVec.size();
-    std::size_t totalBytesRead = 0;
-    for (std::size_t i = 0; i < numSegmentsToRead; ++i) {
-        totalBytesRead += bsm.TopSegment(sessionRead, &bundleReadBack[i*BUNDLE_STORAGE_PER_SEGMENT_SIZE]);
-    }
+    std::vector<uint8_t> * vecUint8BundleDataRawPointer = new std::vector<uint8_t>();
+    const bool successReadAllSegments = bsm.ReadAllSegments(sessionRead, *vecUint8BundleDataRawPointer);
+    zmq::message_t zmqBundleDataMessageWithDataStolen(vecUint8BundleDataRawPointer->data(), vecUint8BundleDataRawPointer->size(), CustomCleanupStdVecUint8, vecUint8BundleDataRawPointer);
+        
     //std::cout << "totalBytesRead " << totalBytesRead << "\n";
-    if (totalBytesRead != bytesToReadFromDisk) {
-        std::cout << "error: totalBytesRead != bytesToReadFromDisk\n";
-        hdtn::Logger::getInstance()->logError("storage", "Error: totalBytesRead != bytesToReadFromDisk");
+    if (!successReadAllSegments) {
+        std::cout << "error: unable to read all segments from disk\n";
+        hdtn::Logger::getInstance()->logError("storage", "error: unable to read all segments from disk");
         return false;
     }
 
@@ -329,7 +344,7 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
         bsm.ReturnTop(sessionRead);
         return false;
     }
-    if (!egressSock->send(std::move(zmqMsg), zmq::send_flags::dontwait)) {
+    if (!egressSock->send(std::move(zmqBundleDataMessageWithDataStolen), zmq::send_flags::dontwait)) {
         std::cout << "error: zmq could not send bundle" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send bundle");
         bsm.ReturnTop(sessionRead);
@@ -356,6 +371,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
     bufferSpaceForCustodySignalRfc5050SerializedBundle.reserve(2000);
     CustodyIdAllocator custodyIdAllocator;
+    CustodyTimers custodyTimers(boost::posix_time::milliseconds(10000)); //todo
     const bool isAcsAware = true;
     
     static const boost::posix_time::time_duration ACS_SEND_PERIOD = boost::posix_time::milliseconds(1000);
@@ -371,6 +387,12 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::unique_ptr<zmq::socket_t> egressSockPtr;
     std::unique_ptr<zmq::socket_t> fromEgressSockPtr;
     std::unique_ptr<zmq::socket_t> toIngressSockPtr;
+
+    std::vector<cbhe_eid_t> availableDestLinksNotCloggedVec;
+    availableDestLinksNotCloggedVec.reserve(100); //todo
+    std::vector<cbhe_eid_t> availableDestLinksCloggedVec;
+    availableDestLinksCloggedVec.reserve(100); //todo
+
     if (m_hdtnOneProcessZmqInprocContextPtr) {
         egressSockPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         egressSockPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
@@ -461,6 +483,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::size_t totalEventsAllLinksClogged = 0;
     std::size_t totalEventsNoDataInStorageForAvailableLinks = 0;
     std::size_t totalEventsDataInStorageForCloggedLinks = 0;
+    std::size_t numCustodyTransferTimeouts = 0;
 
     std::set<cbhe_eid_t> availableDestLinksSet;
     finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
@@ -541,7 +564,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                 }
                 
                 cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&rmsg, bsm, custodyIdAllocator, ctm, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite, this);
+                Write(&rmsg, bsm, custodyIdAllocator, ctm, custodyTimers, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite, this);
 
                 //send ack message to ingress
                 //force natural/64-bit alignment
@@ -617,8 +640,8 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
             }
         }
 
-
-        if ((acsSendNowExpiry <= boost::posix_time::microsec_clock::universal_time()) || (ctm.GetLargestNumberOfFills() > 100)) { //todo
+        const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+        if ((acsSendNowExpiry <= nowPtime) || (ctm.GetLargestNumberOfFills() > 100)) { //todo
             //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
             //test with generate all
             std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
@@ -629,9 +652,19 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     WriteAcsBundle(bsm, custodyIdAllocator, *it);
                 }
             }
-            acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
-
+            acsSendNowExpiry = nowPtime + ACS_SEND_PERIOD;
         }
+
+        uint64_t custodyIdExpiredAndNeedingResent;
+        while (custodyTimers.PollOneAndPopAnyExpiredCustodyTimer(custodyIdExpiredAndNeedingResent, nowPtime)) {
+            if (bsm.ReturnCustodyIdToAwaitingSend(custodyIdExpiredAndNeedingResent)) {
+                ++numCustodyTransferTimeouts;
+            }
+            else {
+                std::cerr << "error unable to return expired custody id " << custodyIdExpiredAndNeedingResent << " to the awaiting send\n";
+            }
+        }
+        
         
         //Send and maintain a maximum of 5 unacked bundles (per flow id) to Egress.
         //When a bundle is acked from egress using the head segment Id, the bundle is deleted from disk and a new bundle can be sent.
@@ -640,8 +673,8 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
             timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL;
         }
         else {
-            std::vector<cbhe_eid_t> availableDestLinksNotCloggedVec;
-            std::vector<cbhe_eid_t> availableDestLinksCloggedVec;
+            availableDestLinksNotCloggedVec.resize(0); 
+            availableDestLinksCloggedVec.resize(0);
             for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
                 //std::cout << "flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
                 if (finalDestEidToOpenCustIdsMap[*it].size() < 5) {//finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
@@ -654,6 +687,9 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
             if (availableDestLinksNotCloggedVec.size() > 0) {
                 if (ReleaseOne_NoBlock(sessionRead, availableDestLinksNotCloggedVec, egressSockPtr.get(), bsm, maxBundleSizeToRead)) { //true => (successfully sent to egress)
                     if (finalDestEidToOpenCustIdsMap[sessionRead.catalogEntryPtr->destEid].insert(sessionRead.custodyId).second) {
+                        if (sessionRead.catalogEntryPtr->HasCustody()) {
+                            custodyTimers.StartCustodyTransferTimer(sessionRead.catalogEntryPtr->destEid, sessionRead.custodyId);
+                        }
                         timeoutPoll = 0; //no timeout as we need to keep feeding to egress
                         ++m_totalBundlesSentToEgressFromStorage;
                     }
@@ -694,6 +730,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::cout << "m_numAcsPacketsReceived: " << m_numAcsPacketsReceived << std::endl;
     std::cout << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_totalBundlesErasedFromStorageNoCustodyTransfer << std::endl;
     std::cout << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_totalBundlesErasedFromStorageWithCustodyTransfer << std::endl;
+    std::cout << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts << std::endl;
     hdtn::Logger::getInstance()->logInfo("storage", "totalEventsAllLinksClogged: " + 
         std::to_string(totalEventsAllLinksClogged));
     hdtn::Logger::getInstance()->logInfo("storage", "totalEventsNoDataInStorageForAvailableLinks: " + 

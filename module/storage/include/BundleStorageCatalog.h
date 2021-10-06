@@ -40,11 +40,7 @@ public:
     bool CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const bpv6_primary_block & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
 
     catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<cbhe_eid_t> & availableDestEids);
-    bool StartCustodyTransferTimer(const uint64_t custodyId, const boost::posix_time::time_duration & timeout);
-    bool CancelCustodyTransferTimer(const uint64_t custodyId);
-    std::size_t GetNumCustodyTransferTimers();
-    bool CancelCustodyTransferTimerAtLowestExpiry(const uint64_t expectedCustodyIdToCancel); //most efficient
-    bool HasExpiredCustodyTimer(uint64_t & custodyId);
+    
     bool AddEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
     bool ReturnEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId);
     bool RemoveEntryFromAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId);

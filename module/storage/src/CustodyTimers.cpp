@@ -51,6 +51,27 @@ bool CustodyTimers::PollOneAndPopExpiredCustodyTimer(uint64_t & custodyId, const
     return false;
 }
 
+bool CustodyTimers::PollOneAndPopAnyExpiredCustodyTimer(uint64_t & custodyId, const boost::posix_time::ptime & nowPtime) {
+    for (desteid_to_custidexpirylist_map_t::iterator it = m_mapDestEidToCustodyIdExpiryList.begin(); it != m_mapDestEidToCustodyIdExpiryList.end(); ++it) {
+        custid_ptime_list_t & custIdPlusPtimeList = it->second;
+        if (!custIdPlusPtimeList.empty()) {
+            custid_ptime_pair_t & thisCustodyIdPlusPtimePair = custIdPlusPtimeList.front();
+            boost::posix_time::ptime & thisExpiry = thisCustodyIdPlusPtimePair.second;
+            if (thisExpiry <= nowPtime) {
+                custid_ptime_list_t & custIdPlusPtimeList = it->second;
+                const custid_ptime_pair_t & thisCustodyIdPlusPtimePair = custIdPlusPtimeList.front();
+                custodyId = thisCustodyIdPlusPtimePair.first;
+                custIdPlusPtimeList.pop_front();
+                if (custIdPlusPtimeList.empty()) {
+                    m_mapDestEidToCustodyIdExpiryList.erase(it);
+                }
+                return (m_mapCustodyIdToListIterator.erase(custodyId) == 1);
+            }
+        }
+    }
+    return false;
+}
+
 bool CustodyTimers::StartCustodyTransferTimer(const cbhe_eid_t & finalDestEid, const uint64_t custodyId) {
     //expiry will always be appended to list (always greater than previous) (duplicate expiries ok)
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + M_CUSTODY_TIMEOUT_DURATION;

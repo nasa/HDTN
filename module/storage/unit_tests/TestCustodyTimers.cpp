@@ -27,10 +27,15 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID2), 0);
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 0);
         }
+        uint64_t returnedCid;
         for (uint64_t cid = 1; cid <= 20; ++cid) {
-            uint64_t returnedCid;
             BOOST_REQUIRE(!ct.PollOneAndPopExpiredCustodyTimer(returnedCid, ALL_EIDS_AVAILABLE_VEC, nowPtime));
         }
+        uint64_t countPops = 0;
+        while (ct.PollOneAndPopAnyExpiredCustodyTimer(returnedCid, nowPtime)) {
+            ++countPops;
+        }
+        BOOST_REQUIRE_EQUAL(countPops, 0);
         for (uint64_t cid = 1; cid <= 10; ++cid) {
             BOOST_REQUIRE(ct.CancelCustodyTransferTimer(EID1, cid));
             BOOST_REQUIRE(!ct.CancelCustodyTransferTimer(EID1, cid));
@@ -54,7 +59,6 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
     //always expire
     {
         CustodyTimers ct(boost::posix_time::seconds(0));
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now
         BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(), 0);
         BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID1), 0);
         BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID2), 0);
@@ -65,13 +69,32 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID2), 0);
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 0);
         }
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now (called after StartCustodyTransferTimer)
+        uint64_t returnedCid;
         for (uint64_t cid = 1; cid <= 10; ++cid) {
-            uint64_t returnedCid;
             BOOST_REQUIRE(ct.PollOneAndPopExpiredCustodyTimer(returnedCid, ALL_EIDS_AVAILABLE_VEC, boost::posix_time::microsec_clock::universal_time()));
             BOOST_REQUIRE_EQUAL(returnedCid, cid); //fifo order
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID1), 10 - cid);
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(), 10 - cid);
         }
+
+        //repeat above for PollOneAndPopAnyExpiredCustodyTimer
+        for (uint64_t cid = 1; cid <= 10; ++cid) {
+            BOOST_REQUIRE(ct.StartCustodyTransferTimer(EID1, cid));
+            BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(), cid);
+            BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID1), cid);
+            BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID2), 0);
+            BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 0);
+        }
+        uint64_t countPops = 0;
+        returnedCid = 0;
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now (called after StartCustodyTransferTimer)
+        while (ct.PollOneAndPopAnyExpiredCustodyTimer(returnedCid, boost::posix_time::microsec_clock::universal_time())) {
+            ++countPops;
+        }
+        BOOST_REQUIRE_EQUAL(countPops, 10);
+        BOOST_REQUIRE_GE(returnedCid, 1);
+        BOOST_REQUIRE_LE(returnedCid, 10);
 
         //multiple EIDs
         for (uint64_t cid = 1; cid <= 10; ++cid) {
@@ -79,6 +102,7 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE(ct.StartCustodyTransferTimer(EID2, cid + 100));
             BOOST_REQUIRE(ct.StartCustodyTransferTimer(EID3, cid + 200));
         }
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now (called after StartCustodyTransferTimer)
         for (uint64_t cid = 1; cid <= 10; ++cid) { //remove just eid 2
             uint64_t returnedCid;
             BOOST_REQUIRE(ct.PollOneAndPopExpiredCustodyTimer(returnedCid, JUST_EID2_AVAILABLE_VEC, boost::posix_time::microsec_clock::universal_time()));
@@ -103,6 +127,22 @@ BOOST_AUTO_TEST_CASE(CustodyTimersTestCase)
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID2), 0);
             BOOST_REQUIRE_EQUAL(ct.GetNumCustodyTransferTimers(EID3), 10 - cid);
         }
+
+        //repeat multiple EIDs above for PollOneAndPopAnyExpiredCustodyTimer
+        for (uint64_t cid = 1; cid <= 10; ++cid) {
+            BOOST_REQUIRE(ct.StartCustodyTransferTimer(EID1, cid));
+            BOOST_REQUIRE(ct.StartCustodyTransferTimer(EID2, cid + 100));
+            BOOST_REQUIRE(ct.StartCustodyTransferTimer(EID3, cid + 200));
+        }
+        countPops = 0;
+        returnedCid = 0;
+        boost::this_thread::sleep(boost::posix_time::milliseconds(1)); //expired now (called after StartCustodyTransferTimer)
+        while (ct.PollOneAndPopAnyExpiredCustodyTimer(returnedCid, boost::posix_time::microsec_clock::universal_time())) {
+            ++countPops;
+        }
+        BOOST_REQUIRE_EQUAL(countPops, 30);
+        BOOST_REQUIRE_GE(returnedCid, 1);
+        BOOST_REQUIRE_LE(returnedCid, 10 + 200);
     }
 
 
