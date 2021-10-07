@@ -11,7 +11,6 @@ add_executable(integrated-tests
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
-        ../../module/storage/src/store.cpp
         ../../module/storage/src/StorageRunner.cpp
         ../../module/storage/src/test/ReleaseSender.cpp
         ../../module/scheduler/src/scheduler.cpp

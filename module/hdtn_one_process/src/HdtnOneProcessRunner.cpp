@@ -6,7 +6,7 @@
  */
 
 #include "ingress.h"
-#include "store.hpp"
+#include "ZmqStorageInterface.h"
 #include "EgressAsync.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
@@ -109,8 +109,10 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             hdtn::Logger::getInstance()->logError("egress", "Error: null registration query");
             return 1;
         }*/
-        hdtn::HegrManagerAsync egress;
-        egress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
+
+        //create on heap with unique_ptr to prevent stack overflows
+        std::unique_ptr<hdtn::HegrManagerAsync> egressPtr = boost::make_unique<hdtn::HegrManagerAsync>();
+        egressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
 
         printf("Announcing presence of egress ...\n");
         hdtn::Logger::getInstance()->logNotification("egress", "Egress Present");
@@ -129,8 +131,9 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         std::cout << "starting ingress.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
-        hdtn::Ingress ingress;
-        ingress.Init(*hdtnConfig, isCutThroughOnlyTest, hdtnOneProcessZmqInprocContextPtr.get());
+        //create on heap with unique_ptr to prevent stack overflows
+        std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
+        ingressPtr->Init(*hdtnConfig, isCutThroughOnlyTest, hdtnOneProcessZmqInprocContextPtr.get());
 
         // finish registration stuff -ingress will find out what egress services have
         // registered
@@ -160,10 +163,11 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             }
         }
 
-        hdtn::storage storage;
+        //create on heap with unique_ptr to prevent stack overflows
+        std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
         std::cout << "[store] Initializing storage manager ..." << std::endl;
         hdtn::Logger::getInstance()->logNotification("storage", "[store] Initializing storage manager ...");
-        if (!storage.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!storagePtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
         
@@ -173,7 +177,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         }
         std::cout << "ingress, egress, and storage up and running" << std::endl;
         while (running && m_runningFromSigHandler) {
-            storage.update(); //sleep 250
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
@@ -185,39 +189,35 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::ostringstream oss;
         oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
             "(MB)\n";
-        double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
-        oss << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024) << "\n";
+        double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
+        oss << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
+            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024) << "\n";
 
         std::cout << oss.str();
 //        output << oss.str();
 //        output.close();
-        hdtn::Logger::getInstance()->logInfo("ingress", "Elapsed: " + std::to_string(ingress.m_elapsed) + 
-                                                        ", Bundle Count (M): " + std::to_string(ingress.m_bundleCount / 1000000.0f) +
-                                                        ", Rate (Mbps): " + std::to_string(rate) +
-                                                        ", Bundles/sec: " + std::to_string(ingress.m_bundleCount / ingress.m_elapsed) +
-                                                        ", Bundle Data (MP): " + std::to_string(ingress.m_bundleData / (double)(1024 * 1024)));
+        hdtn::Logger::getInstance()->logInfo("ingress", oss.str());
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         std::cout << "IngressAsyncRunner currentTime  " << timeLocal << std::endl << std::flush;
 
         std::cout << "IngressAsyncRunner: exiting cleanly..\n";
-        ingress.Stop();
-        m_ingressBundleCountStorage = ingress.m_bundleCountStorage;
-        m_ingressBundleCountEgress = ingress.m_bundleCountEgress;
-        m_ingressBundleCount = ingress.m_bundleCount;
-        m_ingressBundleData = ingress.m_bundleData;
+        ingressPtr->Stop();
+        m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
+        m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
+        m_ingressBundleCount = ingressPtr->m_bundleCount;
+        m_ingressBundleData = ingressPtr->m_bundleData;
 
         std::cout << "StorageRunner: exiting cleanly..\n";
-        storage.Stop();
-        m_totalBundlesErasedFromStorage = storage.m_totalBundlesErasedFromStorage;
-        m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorage;
+        storagePtr->Stop();
+        m_totalBundlesErasedFromStorage = storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
+        m_totalBundlesSentToEgressFromStorage = storagePtr->m_totalBundlesSentToEgressFromStorage;
 
         std::cout << "EgressAsyncRunner: exiting cleanly..\n";
-        egress.Stop();
-        m_egressBundleCount = egress.m_bundleCount;
-        m_egressBundleData = egress.m_bundleData;
-        m_egressMessageCount = egress.m_messageCount;
+        egressPtr->Stop();
+        m_egressBundleCount = egressPtr->m_bundleCount;
+        m_egressBundleData = egressPtr->m_bundleData;
+        m_egressMessageCount = egressPtr->m_messageCount;
     }
     std::cout << "HDTN one process: exited cleanly\n";
     return true;

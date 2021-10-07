@@ -68,6 +68,10 @@
         "totalStorageCapacityBytes": 819200000000,
         "storageDiskConfigVector": [
             {
+                "name": "drive T",
+                "storeFilePath": "T:\\store1.bin"
+            },
+            {
                 "name": "drive U",
                 "storeFilePath": "U:\\store2.bin"
             },

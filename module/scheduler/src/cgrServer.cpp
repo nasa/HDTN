@@ -11,7 +11,6 @@ void CgrServer::init(std::string address)
     std::cout << "create socket" << std::endl;
 
     cgrSock = boost::make_unique<zmq::socket_t>(*cgrCtx, zmq::socket_type::pair);
-    char tbuf[255];
 
     std::cout << "set socket" << std::endl;
     static const int timeout = 2000;

@@ -5,12 +5,9 @@
  ****************************************************************************
  */
 
-#include <math.h>
-
 #include <iostream>
-
 #include "message.hpp"
-#include "store.hpp"
+#include "ZmqStorageInterface.h"
 #include "BundleStorageManagerMT.h"
 #include "BundleStorageManagerAsio.h"
 #include "Logger.h"
@@ -22,13 +19,13 @@
 #include "Uri.h"
 #include "CustodyTimers.h"
 
-hdtn::ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
+ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
-hdtn::ZmqStorageInterface::~ZmqStorageInterface() {
+ZmqStorageInterface::~ZmqStorageInterface() {
     Stop();
 }
 
-void hdtn::ZmqStorageInterface::Stop() {
+void ZmqStorageInterface::Stop() {
     m_running = false; //thread stopping criteria
     if (m_threadPtr) {
         m_threadPtr->join();
@@ -36,8 +33,7 @@ void hdtn::ZmqStorageInterface::Stop() {
     }
 }
 
-void hdtn::ZmqStorageInterface::Init(zmq::context_t *ctx, const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
-    m_zmqContextPtr = ctx;
+bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
     m_hdtnConfig = hdtnConfig;
     //according to ION.pdf v4.0.1 on page 100 it says:
     //  Remember that the format for this argument is ipn:element_number.0 and that
@@ -45,6 +41,169 @@ void hdtn::ZmqStorageInterface::Init(zmq::context_t *ctx, const HdtnConfig & hdt
     //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
+
+    {
+        std::cout << "[storage] Executing registration ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "Executing Registration");
+        hdtn::HdtnRegsvr storeReg;
+        hdtn::HdtnRegsvr telemReg;
+        const std::string connect_regServerPath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqRegistrationServerAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqRegistrationServerPortPath));
+        storeReg.Init(connect_regServerPath, "storage", m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath, "push");
+        telemReg.Init(connect_regServerPath, "c2/telem", 10460, "rep"); //TODO FIX
+        storeReg.Reg();
+        telemReg.Reg();
+        std::cout << "[storage] Registration completed." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "Registration Completed");
+
+
+
+        hdtn::HdtnEntries_ptr entries = storeReg.Query("ingress");
+        while (!entries || entries->m_hdtnEntryList.empty()) {
+            boost::this_thread::sleep(boost::posix_time::seconds(1));
+            std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
+            hdtn::Logger::getInstance()->logNotification("storage", "[storage] Waiting for available ingress system ...");
+            entries = storeReg.Query("ingress");
+        }
+        const hdtn::HdtnEntryList_t & entryList = entries->m_hdtnEntryList;
+
+        std::string remote = entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
+        std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[storage] Found available ingress: " + remote + " - connecting ...");
+    }
+
+    m_zmqContextPtr = boost::make_unique<zmq::context_t>();
+
+    //telemetry not implemnted yet
+    m_telemetrySockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
+    try {
+        m_telemetrySockPtr->bind(HDTN_STORAGE_TELEM_PATH);
+    }
+    catch (const zmq::error_t & ex) {
+        std::cerr << "error: cannot bind telemetry socket: " << ex.what() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "Error: cannot bind telemetry socket: " + std::string(ex.what()));
+        return false;
+    }
+    
+
+    if (hdtnOneProcessZmqInprocContextPtr) {
+        m_zmqPushSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        try {
+            m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
+            m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
+            m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
+            m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(std::string("inproc://bound_ingress_to_connecting_storage"));
+        }
+        catch (const zmq::error_t & ex) {
+            std::cerr << "error in ZmqStorageInterface::Init: cannot connect inproc socket: " << ex.what() << std::endl;
+            hdtn::Logger::getInstance()->logError("storage", "error in ZmqStorageInterface::Init: cannot connect inproc socket: " + std::string(ex.what()));
+            return false;
+        }
+    }
+    else {
+        m_zmqPushSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
+        const std::string connect_connectingStorageToBoundEgressPath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqEgressAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
+        
+        m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
+        const std::string connect_boundEgressToConnectingStoragePath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqEgressAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
+        
+        m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
+        const std::string connect_connectingStorageToBoundIngressPath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqIngressAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundIngressPortPath));
+
+        m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
+        const std::string connect_boundIngressToConnectingStoragePath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqIngressAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
+
+        try {
+            m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(connect_connectingStorageToBoundEgressPath); // egress should bind
+            m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
+            m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(connect_connectingStorageToBoundIngressPath);
+            m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
+        }
+        catch (const zmq::error_t & ex) {
+            std::cerr << "error: cannot connect socket: " << ex.what() << std::endl;
+            hdtn::Logger::getInstance()->logError("storage", "Error: cannot connect socket: " + std::string(ex.what()));
+            return false;
+        }
+    }
+
+    m_zmqSubSock_boundReleaseToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::sub);
+    const std::string connect_boundSchedulerPubSubPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqSchedulerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+    try {
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundSchedulerPubSubPath);// config.releaseWorker);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "");
+        std::cout << "release sock connected to " << connect_boundSchedulerPubSubPath << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "Release sock connected to " + connect_boundSchedulerPubSubPath);
+    }
+    catch (const zmq::error_t & ex) {
+        std::cerr << "error: cannot connect release socket: " << ex.what() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "Error: cannot connect release socket: " + std::string(ex.what()));
+        return false;
+    }
+
+    // Use a form of receive that times out so we can terminate cleanly.
+    try {
+        static const int timeout = 250;  // milliseconds
+        m_zmqPullSock_boundEgressToConnectingStoragePtr->set(zmq::sockopt::rcvtimeo, timeout);
+        m_zmqPullSock_boundIngressToConnectingStoragePtr->set(zmq::sockopt::rcvtimeo, timeout);
+        m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::rcvtimeo, timeout);
+    }
+    catch (const zmq::error_t & ex) {
+        std::cerr << "error: cannot set timeout on receive sockets: " << ex.what() << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "Error: cannot set timeout on receive sockets: " + std::string(ex.what()));
+        return false;
+    }
+    
+   
+    
+    if (!m_running) {
+        m_running = true;
+        std::cout << "[ZmqStorageInterface] Launching worker thread ..." << std::endl;
+        hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Launching worker thread");
+        m_threadStartupComplete = false;
+        m_threadPtr = boost::make_unique<boost::thread>(
+            boost::bind(&ZmqStorageInterface::ThreadFunc, this)); //create and start the worker thread
+        for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+            if (m_threadStartupComplete) {
+                break;
+            }
+            std::cout << "waiting for worker thread to start up...\n";
+            boost::this_thread::sleep(boost::posix_time::seconds(1));
+        }
+        if (!m_threadStartupComplete) {
+            std::cout << "error: storage thread took too long to start up.. exiting\n";
+            return false;
+        }
+        else {
+            std::cout << "worker thread started\n";
+        }
+    }
+    return true;
 }
 
 static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & custodyIdAllocator,
@@ -81,7 +240,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     CustodyIdAllocator & custodyIdAllocator, CustodyTransferManager & ctm,
     CustodyTimers & custodyTimers,
     std::vector<uint8_t> & bufferSpaceForCustodySignalRfc5050SerializedBundle,
-    cbhe_eid_t & finalDestEidReturned, hdtn::ZmqStorageInterface * forStats)
+    cbhe_eid_t & finalDestEidReturned, ZmqStorageInterface * forStats)
 {
     BundleViewV6 bv;
     if (!bv.LoadBundle((uint8_t *)message->data(), message->size())) { //invalid bundle
@@ -366,7 +525,7 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
 
 }
 
-void hdtn::ZmqStorageInterface::ThreadFunc() {
+void ZmqStorageInterface::ThreadFunc() {
     BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse this due to expensive heap allocation
     std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
     bufferSpaceForCustodySignalRfc5050SerializedBundle.reserve(2000);
@@ -379,71 +538,12 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 
-    zmq::socket_t inprocBundleDataSock(*m_zmqContextPtr, zmq::socket_type::pair);
-    inprocBundleDataSock.connect(HDTN_STORAGE_BUNDLE_DATA_INPROC_PATH);
-    zmq::socket_t inprocReleaseMessagesSock(*m_zmqContextPtr, zmq::socket_type::pair);
-    inprocReleaseMessagesSock.connect(HDTN_STORAGE_RELEASE_MESSAGES_INPROC_PATH);
-
-    std::unique_ptr<zmq::socket_t> egressSockPtr;
-    std::unique_ptr<zmq::socket_t> fromEgressSockPtr;
-    std::unique_ptr<zmq::socket_t> toIngressSockPtr;
+   
 
     std::vector<cbhe_eid_t> availableDestLinksNotCloggedVec;
     availableDestLinksNotCloggedVec.reserve(100); //todo
     std::vector<cbhe_eid_t> availableDestLinksCloggedVec;
     availableDestLinksCloggedVec.reserve(100); //todo
-
-    if (m_hdtnOneProcessZmqInprocContextPtr) {
-        egressSockPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        egressSockPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
-
-        fromEgressSockPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        fromEgressSockPtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
-
-        toIngressSockPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        toIngressSockPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
-    }
-    else {
-        egressSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
-        const std::string connect_connectingStorageToBoundEgressPath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqEgressAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
-        egressSockPtr->connect(connect_connectingStorageToBoundEgressPath); // egress should bind
-        fromEgressSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::pull);
-        const std::string connect_boundEgressToConnectingStoragePath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqEgressAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
-        fromEgressSockPtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
-        toIngressSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::push);
-        const std::string connect_connectingStorageToBoundIngressPath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqIngressAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundIngressPortPath));
-        toIngressSockPtr->connect(connect_connectingStorageToBoundIngressPath);
-    }
-
-    zmq::pollitem_t pollItems[3] = {
-        {fromEgressSockPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {inprocBundleDataSock.handle(), 0, ZMQ_POLLIN, 0},
-        {inprocReleaseMessagesSock.handle(), 0, ZMQ_POLLIN, 0}
-    };
-
-    // Use a form of receive that times out so we can terminate cleanly.
-    static const int timeout = 250;  // milliseconds
-    inprocBundleDataSock.set(zmq::sockopt::rcvtimeo, timeout);
-    inprocReleaseMessagesSock.set(zmq::sockopt::rcvtimeo, timeout);
-    fromEgressSockPtr->set(zmq::sockopt::rcvtimeo, timeout);
-
-    
-
-    CommonHdr startupNotify = {
-        HDTN_MSGTYPE_IOK,
-        0};
     
     std::unique_ptr<BundleStorageManagerBase> bsmPtr;
     if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "stdio_multi_threaded") {
@@ -462,14 +562,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     }
     BundleStorageManagerBase & bsm = *bsmPtr;
     bsm.Start();
-    //if (!m_storeFlow.init(m_root)) {
-    //    startupNotify.type = HDTN_MSGTYPE_IABORT;
-    //    workerSock.send(&startupNotify, sizeof(common_hdr));
-    //    return;
-    //}
-    inprocBundleDataSock.send(zmq::const_buffer(&startupNotify, sizeof(CommonHdr)), zmq::send_flags::none);
-    std::cout << "[ZmqStorageInterface] Notified parent that startup is complete." << std::endl;
-    hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Notified parent that startup is complete.");
+    
 
     typedef std::set<uint64_t> custodyid_set_t;
     typedef std::map<cbhe_eid_t, custodyid_set_t> finaldesteid_opencustids_map_t;
@@ -488,13 +581,24 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
     std::set<cbhe_eid_t> availableDestLinksSet;
     finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
 
+    static constexpr std::size_t minBufSizeBytesReleaseMessages = sizeof(uint64_t) + 
+        ((sizeof(hdtn::IreleaseStartHdr) > sizeof(hdtn::IreleaseStopHdr)) ? sizeof(hdtn::IreleaseStartHdr) : sizeof(hdtn::IreleaseStopHdr));
+    uint64_t rxBufReleaseMessagesAlign64[minBufSizeBytesReleaseMessages / sizeof(uint64_t)];
+
+    zmq::pollitem_t pollItems[4] = {
+        {m_zmqPullSock_boundEgressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_telemetrySockPtr->handle(), 0, ZMQ_POLLIN, 0}
+    };
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
     boost::posix_time::ptime acsSendNowExpiry = boost::posix_time::microsec_clock::universal_time() + ACS_SEND_PERIOD;
+    m_threadStartupComplete = true;
     while (m_running) {
         int rc = 0;
         try {
-            rc = zmq::poll(pollItems, 3, timeoutPoll);
+            rc = zmq::poll(pollItems, 4, timeoutPoll);
         }
         catch (zmq::error_t & e) {
             std::cout << "caught zmq::error_t in hdtn::ZmqStorageInterface::ThreadFunc: " << e.what() << std::endl;
@@ -503,21 +607,21 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
         if (rc > 0) {            
             if (pollItems[0].revents & ZMQ_POLLIN) { //from egress sock
                 hdtn::EgressAckHdr egressAckHdr;
-                const zmq::recv_buffer_result_t res = fromEgressSockPtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);
+                const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);
                 if (!res) {
                     std::cerr << "[storage-worker] EgressAckHdr not received" << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr not received");
-                    return;
+                    continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
                     std::cerr << "[storage-worker] EgressAckHdr wrong size received" << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr wrong size received");
-                    return;
+                    continue;
                 }
                 else if (egressAckHdr.base.type != HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
                     std::cerr << "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE, got " << egressAckHdr.base.type << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE");
-                    return;
+                    continue;
                 }
                 custodyid_set_t & custodyIdSet = finalDestEidToOpenCustIdsMap[egressAckHdr.finalDestEid];
                 custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr.custodyId);
@@ -534,37 +638,39 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                     }
                     custodyIdSet.erase(it);
                 }
-                    
             }
-            if (pollItems[1].revents & ZMQ_POLLIN) { //worker inproc bundle data
-                zmq::message_t rhdr;
-                zmq::message_t rmsg;
-                if (!inprocBundleDataSock.recv(rhdr, zmq::recv_flags::none)) {
+            if (pollItems[1].revents & ZMQ_POLLIN) { //from ingress bundle data
+                hdtn::ToStorageHdr toStorageHeader;
+                const zmq::recv_buffer_result_t res = m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmq::mutable_buffer(&toStorageHeader, sizeof(hdtn::ToStorageHdr)), zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message hdr not received" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message hdr not received");
                     continue;
                 }
-                //double check alignment (address should not have changed)
-                if (((uintptr_t)rhdr.data()) & 7) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc bundle data) zmq data not aligned on 8-byte boundary with message size " << rhdr.size() << std::endl;
+                else if ((res->truncated()) || (res->size != sizeof(hdtn::ToStorageHdr))) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)");
                     continue;
                 }
-                //double check size
-                if (rhdr.size() != sizeof(hdtn::ToStorageHdr)) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr) " << std::endl;
+                else if (toStorageHeader.base.type != HDTN_MSGTYPE_STORE) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message type not HDTN_MSGTYPE_STORE" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message type not HDTN_MSGTYPE_STORE");
                     continue;
                 }
-                //already verified (type == HDTN_MSGTYPE_STORE) in dispatch() step
-                if (!inprocBundleDataSock.recv(rmsg, zmq::recv_flags::none)) {
+
+                storageStats.inBytes += sizeof(hdtn::ToStorageHdr);
+                ++storageStats.inMsg;
+
+                zmq::message_t zmqBundleDataReceived;
+                if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received");
                     continue;
                 }
-                const hdtn::ToStorageHdr *toStorageHdr = (const hdtn::ToStorageHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
-                if (rhdr.size() != sizeof(hdtn::ToStorageHdr)) {
-                    std::cerr << "[storage-worker] Invalid message format - header size mismatch (" << rhdr.size() << ")" << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage",
-                        "[storage-worker] Invalid message format - header size mismatch (" + std::to_string(rhdr.size()) + ")");
-                }
+                storageStats.inBytes += zmqBundleDataReceived.size();
                 
                 cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&rmsg, bsm, custodyIdAllocator, ctm, custodyTimers, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite, this);
+                Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite, this);
 
                 //send ack message to ingress
                 //force natural/64-bit alignment
@@ -576,67 +682,90 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                 storageAckHdr->base.flags = 0;
                 storageAckHdr->error = 0;
                 storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite;
-                storageAckHdr->ingressUniqueId = toStorageHdr->ingressUniqueId;
+                storageAckHdr->ingressUniqueId = toStorageHeader.ingressUniqueId;
 
-                if (!toIngressSockPtr->send(std::move(zmqMessageStorageAckHdrWithDataStolen), zmq::send_flags::dontwait)) {
+                if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(zmqMessageStorageAckHdrWithDataStolen), zmq::send_flags::dontwait)) {
                     std::cout << "error: zmq could not send ingress an ack from storage" << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
                 }
-                
-                
             }
-            if (pollItems[2].revents & ZMQ_POLLIN) { //worker inproc release messages
-                zmq::message_t rhdr;
-                if (!inprocReleaseMessagesSock.recv(rhdr, zmq::recv_flags::none)) {
+            if (pollItems[2].revents & ZMQ_POLLIN) { //release messages
+                //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
+                const zmq::recv_buffer_result_t res = m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(
+                    zmq::mutable_buffer(rxBufReleaseMessagesAlign64, minBufSizeBytesReleaseMessages), zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "[schedule release] message not received" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "[schedule release] message not received");
                     continue;
                 }
-                //double check alignment (address should not have changed)
-                if (((uintptr_t)rhdr.data()) & 7) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from worker inproc release messages) zmq data not aligned on 8-byte boundary with message size " << rhdr.size() << std::endl;
+                else if (res->size < sizeof(hdtn::CommonHdr)) {
+                    std::cerr << "[schedule release] res->size < sizeof(hdtn::CommonHdr)" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size < sizeof(hdtn::CommonHdr)");
                     continue;
                 }
-                hdtn::CommonHdr * commonHdr = (hdtn::CommonHdr *)rhdr.data();
+
+                std::cout << "release message received\n";
+                hdtn::Logger::getInstance()->logNotification("storage", "Release message received");
+                hdtn::CommonHdr *commonHdr = (hdtn::CommonHdr *)rxBufReleaseMessagesAlign64;
                 if (commonHdr->type == HDTN_MSGTYPE_ILINKUP) {
-                    hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
-                    //ReleaseData(iReleaseStartHdr.flowId, iReleaseStartHdr.rate, iReleaseStartHdr.duration, &egressSock, bsm);
-                    availableDestLinksSet.insert(iReleaseStartHdr->finalDestinationEid);
-                    const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStartHdr->finalDestinationEid.nodeId) + ","
-                        + boost::lexical_cast<std::string>(iReleaseStartHdr->finalDestinationEid.serviceId) + ") will be released from storage";
+                    if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
+                        std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr)" << std::endl;
+                        hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr)");
+                        continue;
+                    }
+
+                    hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
+                    const std::string msg = "finalDestEid (" 
+                        + Uri::GetIpnUriString(iReleaseStartHdr->finalDestinationEid.nodeId, iReleaseStartHdr->finalDestinationEid.serviceId) 
+                        + ") will be released from storage";
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
-
-                    //availableDestLinksVec.clear();
-                    std::string strVals = "[";
-                    for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                        //availableDestLinksVec.push_back(*it);
-                        strVals += "(" + boost::lexical_cast<std::string>((*it).nodeId) + ","
-                            + boost::lexical_cast<std::string>((*it).serviceId) + "), ";
-                    }
-                    strVals += "]";
-                    std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
-
-                    //storageStillHasData = true;
+                    availableDestLinksSet.insert(iReleaseStartHdr->finalDestinationEid);
                 }
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
-                    hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rhdr.data(); //rhdr verified above aligned on 8-byte boundary
+                    if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
+                        std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
+                        hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)");
+                        continue;
+                    }
+
+                    hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
                     const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
                         + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.erase(iReleaseStoptHdr->finalDestinationEid);
-                    //availableDestLinksVec.clear();
-                    std::string strVals = "[";
-                    for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                        //availableDestLinksVec.push_back(*it);
-                        strVals += "(" + boost::lexical_cast<std::string>((*it).nodeId) + ","
-                            + boost::lexical_cast<std::string>((*it).serviceId) + "), ";
-                    }
-                    strVals += "]";
-                    std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
                 }
 
+                std::string strVals = "[";
+                for (std::set<cbhe_eid_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
+                    //availableDestLinksVec.push_back(*it);
+                    strVals += Uri::GetIpnUriString((*it).nodeId, (*it).serviceId) + ", ";
+                }
+                strVals += "]";
+                std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
+                hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
+            }
+            if (pollItems[3].revents & ZMQ_POLLIN) { //telemetry messages
+                hdtn::CommonHdr commonHeader;
+                const zmq::recv_buffer_result_t res = m_telemetrySockPtr->recv(zmq::mutable_buffer(&commonHeader, sizeof(hdtn::CommonHdr)), zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) message hdr not received" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) message hdr not received");
+                    continue;
+                }
+                else if ((res->truncated()) || (res->size != sizeof(hdtn::CommonHdr))) {
+                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) size != sizeof(hdtn::CommonHdr)" << std::endl;
+                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) size != sizeof(hdtn::CommonHdr)");
+                    continue;
+                }
+                
+                switch (commonHeader.type) {
+                case HDTN_MSGTYPE_CSCHED_REQ:
+                    break;
+                case HDTN_MSGTYPE_CTELEM_REQ:
+                    break;
+                }
             }
         }
 
@@ -685,7 +814,7 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
                 }
             }
             if (availableDestLinksNotCloggedVec.size() > 0) {
-                if (ReleaseOne_NoBlock(sessionRead, availableDestLinksNotCloggedVec, egressSockPtr.get(), bsm, maxBundleSizeToRead)) { //true => (successfully sent to egress)
+                if (ReleaseOne_NoBlock(sessionRead, availableDestLinksNotCloggedVec, m_zmqPushSock_connectingStorageToBoundEgressPtr.get(), bsm, maxBundleSizeToRead)) { //true => (successfully sent to egress)
                     if (finalDestEidToOpenCustIdsMap[sessionRead.catalogEntryPtr->destEid].insert(sessionRead.custodyId).second) {
                         if (sessionRead.catalogEntryPtr->HasCustody()) {
                             custodyTimers.StartCustodyTransferTimer(sessionRead.catalogEntryPtr->destEid, sessionRead.custodyId);
@@ -739,15 +868,6 @@ void hdtn::ZmqStorageInterface::ThreadFunc() {
         std::to_string(totalEventsDataInStorageForCloggedLinks));
 }
 
-
-
-
-void hdtn::ZmqStorageInterface::launch() {
-    if (!m_running) {
-        m_running = true;
-        std::cout << "[ZmqStorageInterface] Launching worker thread ..." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Launching worker thread");
-        m_threadPtr = boost::make_unique<boost::thread>(
-                boost::bind(&ZmqStorageInterface::ThreadFunc, this)); //create and start the worker thread
-    }
+std::size_t ZmqStorageInterface::GetCurrentNumberOfBundlesDeletedFromStorage() {
+    return m_totalBundlesErasedFromStorageNoCustodyTransfer + m_totalBundlesErasedFromStorageWithCustodyTransfer;
 }
