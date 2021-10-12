@@ -15,6 +15,7 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 induct_element_config_t::induct_element_config_t() :
     name(""),
     convergenceLayer(""),
+    myEndpointId(""),
     boundPort(0),
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
@@ -29,6 +30,7 @@ induct_element_config_t::induct_element_config_t() :
     ltpRandomNumberSizeBits(0),
     ltpRemoteUdpHostname(""),
     ltpRemoteUdpPort(0),
+    ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
     keepAliveIntervalSeconds(0) {}
 induct_element_config_t::~induct_element_config_t() {}
 
@@ -37,6 +39,7 @@ induct_element_config_t::~induct_element_config_t() {}
 induct_element_config_t::induct_element_config_t(const induct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
+    myEndpointId(o.myEndpointId),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
@@ -51,12 +54,14 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpRemoteUdpHostname(o.ltpRemoteUdpHostname),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
+    ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
 
 //a move constructor: X(X&&)
 induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
+    myEndpointId(std::move(o.myEndpointId)),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
@@ -71,12 +76,14 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpRemoteUdpHostname(std::move(o.ltpRemoteUdpHostname)),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
+    ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
 
 //a copy assignment: operator=(const X&)
 induct_element_config_t& induct_element_config_t::operator=(const induct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
+    myEndpointId = o.myEndpointId;
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
@@ -91,6 +98,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpRemoteUdpHostname = o.ltpRemoteUdpHostname;
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
+    ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
     return *this;
 }
@@ -99,6 +107,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
 induct_element_config_t& induct_element_config_t::operator=(induct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
+    myEndpointId = std::move(o.myEndpointId);
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
@@ -113,6 +122,7 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpRemoteUdpHostname = std::move(o.ltpRemoteUdpHostname);
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
+    ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
     return *this;
 }
@@ -120,6 +130,7 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
 bool induct_element_config_t::operator==(const induct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
+        (myEndpointId == o.myEndpointId) &&
         (boundPort == o.boundPort) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
@@ -134,6 +145,7 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
         (ltpRemoteUdpHostname == o.ltpRemoteUdpHostname) &&
         (ltpRemoteUdpPort == o.ltpRemoteUdpPort) &&
+        (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds);
 }
 
@@ -182,6 +194,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
         induct_element_config_t & inductElementConfig = m_inductElementConfigVector[vectorIndex++];
         inductElementConfig.name = inductElementConfigPt.second.get<std::string>("name", "unnamed_induct"); //non-throw version
         inductElementConfig.convergenceLayer = inductElementConfigPt.second.get<std::string>("convergenceLayer", "unnamed_convergence_layer"); //non-throw version
+        inductElementConfig.myEndpointId = inductElementConfigPt.second.get<std::string>("myEndpointId", "unnamed_my_endpoint_id"); //non-throw version
         {
             bool found = false;
             for (std::vector<std::string>::const_iterator it = VALID_CONVERGENCE_LAYER_NAMES.cbegin(); it != VALID_CONVERGENCE_LAYER_NAMES.cend(); ++it) {
@@ -219,6 +232,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             }
             inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname", ""); //non-throw version
             inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort", 0); //non-throw version
+            inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = inductElementConfigPt.second.get<uint64_t>("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", 0); //non-throw version
         }
 
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
@@ -271,6 +285,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & inductElementConfigPt = (inductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         inductElementConfigPt.put("name", inductElementConfig.name);
         inductElementConfigPt.put("convergenceLayer", inductElementConfig.convergenceLayer);
+        inductElementConfigPt.put("myEndpointId", inductElementConfig.myEndpointId);
         inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
         inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
@@ -286,6 +301,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("ltpRandomNumberSizeBits", inductElementConfig.ltpRandomNumberSizeBits);
             inductElementConfigPt.put("ltpRemoteUdpHostname", inductElementConfig.ltpRemoteUdpHostname);
             inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
+            inductElementConfigPt.put("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);

@@ -4,6 +4,14 @@
     "myNodeId": 10,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -26,6 +34,7 @@
             {
                 "name": "tcpcl_ingress",
                 "convergenceLayer": "tcpcl",
+                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
@@ -39,6 +48,7 @@
             {
                 "name": "tcpcl_egress1",
                 "convergenceLayer": "tcpcl",
+                "nextHopEndpointId": "ipn:3.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 5,
@@ -51,6 +61,7 @@
             {
                 "name": "tcpcl_egress2",
                 "convergenceLayer": "tcpcl",
+                "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,

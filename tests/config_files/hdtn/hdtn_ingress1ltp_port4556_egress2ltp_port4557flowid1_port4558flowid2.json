@@ -4,6 +4,14 @@
     "myNodeId": 10,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -26,6 +34,7 @@
             {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
+                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 100,
                 "numRxCircularBufferBytesPerElement": 65535,
@@ -39,11 +48,13 @@
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "localhost",
-                "ltpRemoteUdpPort": 1113
+                "ltpRemoteUdpPort": 1113,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
             },
             {
                 "name": "i2",
                 "convergenceLayer": "ltp_over_udp",
+                "myEndpointId": "ipn:10.2",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 100,
                 "numRxCircularBufferBytesPerElement": 65535,
@@ -57,7 +68,8 @@
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "localhost",
-                "ltpRemoteUdpPort": 2113
+                "ltpRemoteUdpPort": 2113,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
             }
         ]
     },
@@ -67,6 +79,7 @@
             {
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
+                "nextHopEndpointId": "ipn:1.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 10,
@@ -88,6 +101,7 @@
             {
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
+                "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 10,

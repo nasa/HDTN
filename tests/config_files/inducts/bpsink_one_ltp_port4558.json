@@ -2,7 +2,9 @@
     "inductConfigName": "myconfig",
     "inductVector": [
         {
+            "name": "i1",
             "convergenceLayer": "ltp_over_udp",
+            "myEndpointId": "ipn:2.1",
             "boundPort": 4558,
             "numRxCircularBufferElements": 100,
             "numRxCircularBufferBytesPerElement": 65535,
@@ -16,7 +18,8 @@
             "ltpMaxRetriesPerSerialNumber": 5,
             "ltpRandomNumberSizeBits": 64,
             "ltpRemoteUdpHostname": "localhost",
-            "ltpRemoteUdpPort": 4556
+            "ltpRemoteUdpPort": 4556,
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
         }
     ]
 }

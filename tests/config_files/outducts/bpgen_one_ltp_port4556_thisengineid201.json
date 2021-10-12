@@ -4,6 +4,7 @@
         {
             "name": "bpgen",
             "convergenceLayer": "ltp_over_udp",
+            "myEndpointId": "ipn:201.1",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,

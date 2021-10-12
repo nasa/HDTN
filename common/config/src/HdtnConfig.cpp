@@ -17,6 +17,14 @@ HdtnConfig::HdtnConfig() :
     m_myNodeId(0),
     m_myCustodialSsp("unused_custodial_ssp"),
     m_myCustodialServiceId(0),
+    m_isAcsAware(true),
+    m_acsMaxFillsPerAcsPacket(100),
+    m_acsSendPeriodMilliseconds(1000),
+    m_retransmitBundleAfterNoCustodySignalMilliseconds(10000),
+    m_maxBundleSizeBytes(10000000), //10MB
+    m_maxIngressBundleWaitOnEgressMilliseconds(2000),
+    m_maxLtpReceiveUdpPacketSizeBytes(65536),
+    m_egressMaxBundlesAwaitingSend(40),
     m_zmqIngressAddress("localhost"),
     m_zmqEgressAddress("localhost"),
     m_zmqStorageAddress("localhost"),
@@ -47,6 +55,14 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_myNodeId(o.m_myNodeId),
     m_myCustodialSsp(o.m_myCustodialSsp),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
+    m_isAcsAware(o.m_isAcsAware),
+    m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
+    m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
+    m_retransmitBundleAfterNoCustodySignalMilliseconds(o.m_retransmitBundleAfterNoCustodySignalMilliseconds),
+    m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
+    m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
+    m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
+    m_egressMaxBundlesAwaitingSend(o.m_egressMaxBundlesAwaitingSend),
     m_zmqIngressAddress(o.m_zmqIngressAddress),
     m_zmqEgressAddress(o.m_zmqEgressAddress),
     m_zmqStorageAddress(o.m_zmqStorageAddress),
@@ -74,6 +90,14 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_myNodeId(o.m_myNodeId),
     m_myCustodialSsp(std::move(o.m_myCustodialSsp)),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
+    m_isAcsAware(o.m_isAcsAware),
+    m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
+    m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
+    m_retransmitBundleAfterNoCustodySignalMilliseconds(o.m_retransmitBundleAfterNoCustodySignalMilliseconds),
+    m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
+    m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
+    m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
+    m_egressMaxBundlesAwaitingSend(o.m_egressMaxBundlesAwaitingSend),
     m_zmqIngressAddress(std::move(o.m_zmqIngressAddress)),
     m_zmqEgressAddress(std::move(o.m_zmqEgressAddress)),
     m_zmqStorageAddress(std::move(o.m_zmqStorageAddress)),
@@ -101,6 +125,14 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_myNodeId = o.m_myNodeId;
     m_myCustodialSsp = o.m_myCustodialSsp;
     m_myCustodialServiceId = o.m_myCustodialServiceId;
+    m_isAcsAware = o.m_isAcsAware;
+    m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
+    m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
+    m_retransmitBundleAfterNoCustodySignalMilliseconds = o.m_retransmitBundleAfterNoCustodySignalMilliseconds;
+    m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
+    m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
+    m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
+    m_egressMaxBundlesAwaitingSend = o.m_egressMaxBundlesAwaitingSend;
     m_zmqIngressAddress = o.m_zmqIngressAddress;
     m_zmqEgressAddress = o.m_zmqEgressAddress;
     m_zmqStorageAddress = o.m_zmqStorageAddress;
@@ -129,6 +161,14 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_myNodeId = o.m_myNodeId;
     m_myCustodialSsp = std::move(o.m_myCustodialSsp);
     m_myCustodialServiceId = o.m_myCustodialServiceId;
+    m_isAcsAware = o.m_isAcsAware;
+    m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
+    m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
+    m_retransmitBundleAfterNoCustodySignalMilliseconds = o.m_retransmitBundleAfterNoCustodySignalMilliseconds;
+    m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
+    m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
+    m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
+    m_egressMaxBundlesAwaitingSend = o.m_egressMaxBundlesAwaitingSend;
     m_zmqIngressAddress = std::move(o.m_zmqIngressAddress);
     m_zmqEgressAddress = std::move(o.m_zmqEgressAddress);
     m_zmqStorageAddress = std::move(o.m_zmqStorageAddress);
@@ -159,6 +199,14 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_zmqIngressAddress == o.m_zmqIngressAddress) &&
         (m_zmqEgressAddress == o.m_zmqEgressAddress) &&
         (m_zmqStorageAddress == o.m_zmqStorageAddress) &&
+        (m_isAcsAware == o.m_isAcsAware) &&
+        (m_acsMaxFillsPerAcsPacket == o.m_acsMaxFillsPerAcsPacket) &&
+        (m_acsSendPeriodMilliseconds == o.m_acsSendPeriodMilliseconds) &&
+        (m_retransmitBundleAfterNoCustodySignalMilliseconds == o.m_retransmitBundleAfterNoCustodySignalMilliseconds) &&
+        (m_maxBundleSizeBytes == o.m_maxBundleSizeBytes) &&
+        (m_maxIngressBundleWaitOnEgressMilliseconds == o.m_maxIngressBundleWaitOnEgressMilliseconds) &&
+        (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
+        (m_egressMaxBundlesAwaitingSend == o.m_egressMaxBundlesAwaitingSend) &&
         (m_zmqRegistrationServerAddress == o.m_zmqRegistrationServerAddress) &&
         (m_zmqSchedulerAddress == o.m_zmqSchedulerAddress) &&
         (m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
@@ -190,6 +238,14 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
     }
     m_myCustodialSsp = pt.get<std::string>("myCustodialSsp", "unused_custodial_ssp"); //non-throw version
     m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId", 0); //non-throw version
+    m_isAcsAware = pt.get<bool>("isAcsAware", true); //non-throw version
+    m_acsMaxFillsPerAcsPacket = pt.get<uint64_t>("acsMaxFillsPerAcsPacket", 100); //non-throw version
+    m_acsSendPeriodMilliseconds = pt.get<uint64_t>("acsSendPeriodMilliseconds", 1000); //non-throw version
+    m_retransmitBundleAfterNoCustodySignalMilliseconds = pt.get<uint64_t>("retransmitBundleAfterNoCustodySignalMilliseconds", 10000); //non-throw version
+    m_maxBundleSizeBytes = pt.get<uint64_t>("maxBundleSizeBytes", 10000000); //non-throw version
+    m_maxIngressBundleWaitOnEgressMilliseconds = pt.get<uint64_t>("maxIngressBundleWaitOnEgressMilliseconds", 2000); //non-throw version
+    m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes", 65536); //non-throw version
+    m_egressMaxBundlesAwaitingSend = pt.get<uint64_t>("egressMaxBundlesAwaitingSend", 40); //non-throw version
 
     m_zmqIngressAddress = pt.get<std::string>("zmqIngressAddress", "localhost"); //non-throw version
     m_zmqEgressAddress = pt.get<std::string>("zmqEgressAddress", "localhost"); //non-throw version
@@ -269,7 +325,16 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("mySchemeName", m_mySchemeName);
     pt.put("myNodeId", m_myNodeId);
     pt.put("myCustodialSsp", m_myCustodialSsp);
-    pt.put("myCustodialServiceId", m_myCustodialServiceId); //non-throw version
+    pt.put("myCustodialServiceId", m_myCustodialServiceId);
+    pt.put("isAcsAware", m_isAcsAware);
+    pt.put("acsMaxFillsPerAcsPacket", m_acsMaxFillsPerAcsPacket);
+    pt.put("acsSendPeriodMilliseconds", m_acsSendPeriodMilliseconds);
+    pt.put("retransmitBundleAfterNoCustodySignalMilliseconds", m_retransmitBundleAfterNoCustodySignalMilliseconds);
+    pt.put("maxBundleSizeBytes", m_maxBundleSizeBytes);
+    pt.put("maxIngressBundleWaitOnEgressMilliseconds", m_maxIngressBundleWaitOnEgressMilliseconds);
+    pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
+    pt.put("egressMaxBundlesAwaitingSend", m_egressMaxBundlesAwaitingSend);
+
     pt.put("zmqIngressAddress", m_zmqIngressAddress);
     pt.put("zmqEgressAddress", m_zmqEgressAddress);
     pt.put("zmqStorageAddress", m_zmqStorageAddress);

@@ -14,6 +14,7 @@ struct induct_element_config_t {
     //common to all inducts
     std::string name;
     std::string convergenceLayer;
+    std::string myEndpointId;
     uint16_t boundPort;
     uint32_t numRxCircularBufferElements;
     uint32_t numRxCircularBufferBytesPerElement;
@@ -30,6 +31,7 @@ struct induct_element_config_t {
     uint32_t ltpRandomNumberSizeBits;
     std::string ltpRemoteUdpHostname;
     uint16_t ltpRemoteUdpPort;
+    uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
