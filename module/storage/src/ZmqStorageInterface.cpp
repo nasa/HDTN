@@ -530,11 +530,12 @@ void ZmqStorageInterface::ThreadFunc() {
     std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
     bufferSpaceForCustodySignalRfc5050SerializedBundle.reserve(2000);
     CustodyIdAllocator custodyIdAllocator;
-    CustodyTimers custodyTimers(boost::posix_time::milliseconds(10000)); //todo
-    const bool isAcsAware = true;
+    CustodyTimers custodyTimers(boost::posix_time::milliseconds(m_hdtnConfig.m_retransmitBundleAfterNoCustodySignalMilliseconds));
+    const bool IS_HDTN_ACS_AWARE = m_hdtnConfig.m_isAcsAware;
+    const uint64_t ACS_MAX_FILLS_PER_ACS_PACKET = m_hdtnConfig.m_acsMaxFillsPerAcsPacket;
     
-    static const boost::posix_time::time_duration ACS_SEND_PERIOD = boost::posix_time::milliseconds(1000);
-    CustodyTransferManager ctm(isAcsAware, M_HDTN_EID_CUSTODY.nodeId, M_HDTN_EID_CUSTODY.serviceId);
+    static const boost::posix_time::time_duration ACS_SEND_PERIOD = boost::posix_time::milliseconds(m_hdtnConfig.m_acsSendPeriodMilliseconds);
+    CustodyTransferManager ctm(IS_HDTN_ACS_AWARE, M_HDTN_EID_CUSTODY.nodeId, M_HDTN_EID_CUSTODY.serviceId);
     std::cout << "[storage-worker] Worker thread starting up." << std::endl;
     hdtn::Logger::getInstance()->logNotification("storage", "Worker thread starting up");
 
@@ -770,7 +771,7 @@ void ZmqStorageInterface::ThreadFunc() {
         }
 
         const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
-        if ((acsSendNowExpiry <= nowPtime) || (ctm.GetLargestNumberOfFills() > 100)) { //todo
+        if ((acsSendNowExpiry <= nowPtime) || (ctm.GetLargestNumberOfFills() > ACS_MAX_FILLS_PER_ACS_PACKET)) {
             //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
             //test with generate all
             std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;

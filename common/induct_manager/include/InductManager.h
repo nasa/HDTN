@@ -8,7 +8,8 @@ class InductManager {
 public:
     InductManager();
     ~InductManager();
-    void LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig, const uint64_t myNodeId);
+    void LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
+        const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
     void Clear();
 public:
 

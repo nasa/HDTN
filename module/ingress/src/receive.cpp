@@ -66,6 +66,8 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
         //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
         M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
 
+        M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION = boost::posix_time::milliseconds(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds);
+
         if (hdtnOneProcessZmqInprocContextPtr) {
 
             // socket for cut-through mode straight to egress
@@ -134,7 +136,8 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
             boost::bind(&Ingress::ReadZmqAcksThreadFunc, this)); //create and start the worker thread
 
         m_isCutThroughOnlyTest = isCutThroughOnlyTest;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig, m_hdtnConfig.m_myNodeId);
+        m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
+            m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
     }
@@ -325,9 +328,15 @@ static void CustomCleanupToStorageHdr(void *data, void *hint) {
 
 bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq message to reduce copy
     const std::size_t messageSize = rxBuf.size();
+    if (messageSize > m_hdtnConfig.m_maxBundleSizeBytes) {
+        std::cerr << "error in Ingress::Process: received bundle size (" 
+            << messageSize << " bytes) exceeds max bundle size limit of "
+            << m_hdtnConfig.m_maxBundleSizeBytes << " bytes\n";
+        return false;
+    }
     bpv6_primary_block primary;
     if (!cbhe_bpv6_primary_block_decode(&primary, (const char*)rxBuf.data(), 0, messageSize)) {
-        std::cerr << "malformed bundle\n";
+        std::cerr << "error in Ingress::Process: malformed bundle received\n";
         return false;
     }
 
@@ -344,22 +353,37 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
     m_eidAvailableSetMutex.lock();
     const bool linkIsUp = (m_finalDestEidAvailableSet.count(finalDestEid) != 0);
     m_eidAvailableSetMutex.unlock();
-    if (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage))) { //type egress cut through
+    bool shouldTryToUseCustThrough = (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+    bool useStorage = !shouldTryToUseCustThrough;
+    while (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
+        shouldTryToUseCustThrough = false; //protection to prevent this loop from ever iterating more than once
         m_egressAckMapQueueMutex.lock();
         EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
         m_egressAckMapQueueMutex.unlock();
         boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
         while (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
             if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
-                static const boost::posix_time::time_duration twoSeconds = boost::posix_time::seconds(2);
-                timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + twoSeconds;
+                timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
             }
-            if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
-                const std::string msg = "error: too many pending egress acks in the queue for finalDestEid (" +
+            else if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
+                std::string msg = "error in Ingress::Process: cut-through path timed out after " +
+                    boost::lexical_cast<std::string>(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds) +
+                    " milliseconds because it has too many pending egress acks in the queue for finalDestEid (" +
                     boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ")";
-                std::cerr << msg << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", msg);
-                return false;
+                if (m_isCutThroughOnlyTest) {
+                    msg += " ..dropping bundle because \"cut through only test\" was specified (not sending to storage)";
+                    std::cerr << msg << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", msg);
+                    return false;
+                }
+                else {
+                    msg += " ..sending to storage instead";
+                    std::cerr << msg << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", msg);
+                    useStorage = true;
+                    break;
+                }
+                
             }
             egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -408,8 +432,10 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
                 }
             }
         }
+        break;
     }
-    else { //storage
+
+    if (useStorage) { //storage
         boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
         const uint64_t ingressToStorageUniqueId = m_ingressToStorageNextUniqueId++;
         boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
@@ -461,7 +487,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
             }
             else {
                 //success                            
-                ++m_bundleCountStorage;
+                ++m_bundleCountStorage; //protected by m_storageAckQueueMutex
             }
         }
     }
@@ -469,7 +495,6 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
 
 
     m_bundleData.fetch_add(messageSize, boost::memory_order_relaxed);
-    ////timer = rdtsc() - timer;
 
     return true;
 }

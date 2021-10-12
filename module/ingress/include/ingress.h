@@ -109,6 +109,7 @@ private:
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;
     cbhe_eid_t M_HDTN_EID_CUSTODY;
+    boost::posix_time::time_duration M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
     std::queue<uint64_t> m_storageAckQueue;

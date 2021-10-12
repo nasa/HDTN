@@ -973,6 +973,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         
     };
 
+    LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
     Test t;
     t.DoTest();
     t.DoTestRedAndGreenData();

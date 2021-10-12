@@ -56,11 +56,11 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     m_nextCtebCustodyId = 0;
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId);
+    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId, UINT16_MAX);
 
     if (outductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId);
+        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX);
         while (!m_outductManager.AllReadyToForward()) {
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));

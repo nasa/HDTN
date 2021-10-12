@@ -11,7 +11,10 @@ InductManager::InductManager() {}
 
 InductManager::~InductManager() {}
 
-void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig, const uint64_t myNodeId) {
+void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
+    const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp)
+{
+    LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
     m_inductsList.clear();
     const induct_element_config_vector_t & configsVec = inductsConfig.m_inductElementConfigVector;
     for (induct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {

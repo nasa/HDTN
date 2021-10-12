@@ -15,7 +15,7 @@ public:
 
     OutductManager();
     ~OutductManager();
-    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId);
+    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
     void Clear();
     bool AllReadyToForward() const;
     void StopAllOutducts();

@@ -19,7 +19,7 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
         const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors = 100,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, uint32_t checkpointEveryNthDataPacketSender = 0,
-        uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
+        uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false, const uint64_t maxUdpRxPacketSizeBytes = UINT16_MAX);
 
     virtual ~LtpUdpEngine();
 
@@ -40,6 +40,7 @@ private:
     
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
+    const uint64_t M_MAX_UDP_RX_PACKET_SIZE_BYTES;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
 

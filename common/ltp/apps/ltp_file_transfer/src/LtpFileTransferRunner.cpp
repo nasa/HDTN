@@ -150,7 +150,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             return false;
         }
 
-
+        LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxRxUdpPacketSizeBytes);
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME = (boost::posix_time::milliseconds(oneWayLightTimeMs));
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME = (boost::posix_time::milliseconds(oneWayMarginTimeMs));
         if (useSendFile) {
