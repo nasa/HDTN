@@ -360,13 +360,15 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq 
         m_egressAckMapQueueMutex.lock();
         EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
         m_egressAckMapQueueMutex.unlock();
-        boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+        boost::posix_time::ptime timeoutExpiry((m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds != 0) ?
+            boost::posix_time::special_values::not_a_date_time :
+            boost::posix_time::special_values::neg_infin); //allow zero ms to prevent bpgen getting blocked and use storage
         while (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
             if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
                 timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
             }
             else if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
-                std::string msg = "error in Ingress::Process: cut-through path timed out after " +
+                std::string msg = "notice in Ingress::Process: cut-through path timed out after " +
                     boost::lexical_cast<std::string>(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds) +
                     " milliseconds because it has too many pending egress acks in the queue for finalDestEid (" +
                     boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ")";
