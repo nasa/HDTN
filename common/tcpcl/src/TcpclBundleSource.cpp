@@ -6,7 +6,8 @@
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
-TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
+TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, 
+    const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
@@ -39,6 +40,17 @@ m_totalFragmentedAcked(0),
 m_totalFragmentedSent(0),
 m_totalBundleBytesSent(0)
 {
+    uint64_t remoteNodeId, remoteServiceId;
+    if (!Uri::ParseIpnUriString(expectedRemoteEidUri, remoteNodeId, remoteServiceId)) {
+        std::cerr << "error in TcpclBundleSource constructor: error parsing remote EID URI string " << expectedRemoteEidUri
+            << " .. TCPCL will fail the Contact Header Callback.  Correct the \"nextHopEndpointId\" field in the outducts config." << std::endl;
+    }
+    else {
+        //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+        //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+        M_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING = Uri::GetIpnUriString(remoteNodeId, 0);
+    }
+
     for (unsigned int i = 0; i < MAX_UNACKED; ++i) {
         m_fragmentBytesToAckCbVec[i].reserve(100);
     }
@@ -413,6 +425,13 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
 
 
 void TcpclBundleSource::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid) {
+    if (localEid != M_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING) {
+        std::cout << "error in TcpclBundleSource::ContactHeaderCallback: received wrong contact header back from "
+            << m_localEid << " but expected " << M_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING 
+            << " .. TCPCL will not forward bundles.  Correct the \"nextHopEndpointId\" field in the outducts config." << std::endl;
+        DoTcpclShutdown(false, false);
+        return;
+    }
     m_contactHeaderFlags = flags;
     //The keepalive_interval parameter is set to the minimum value from
     //both contact headers.  If one or both contact headers contains the
@@ -423,7 +442,7 @@ void TcpclBundleSource::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16
         m_keepAliveIntervalSeconds = keepAliveIntervalSeconds;
     }
     m_localEid = localEid;
-    std::cout << "received contact header back from " << m_localEid << std::endl;
+    std::cout << "received expected contact header back from " << m_localEid << std::endl;
     m_readyToForward = true;
 
 

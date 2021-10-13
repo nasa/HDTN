@@ -4,11 +4,12 @@
         {
             "name": "bpgen",
             "convergenceLayer": "tcpcl",
-            "myEndpointId": "ipn:200.1",
+            "nextHopEndpointId": "ipn:10.1",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,
             "finalDestinationEidUris": [
+                "ipn:1.1",
                 "ipn:2.1",
                 "ipn:3.1"
             ],

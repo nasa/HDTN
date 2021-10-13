@@ -4,7 +4,7 @@
         {
             "name": "bpgen",
             "convergenceLayer": "ltp_over_udp",
-            "myEndpointId": "ipn:200.1",
+            "nextHopEndpointId": "ipn:10.1",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,
