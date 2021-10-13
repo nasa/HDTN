@@ -137,7 +137,7 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
 
         m_isCutThroughOnlyTest = isCutThroughOnlyTest;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
-            m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes);
+            m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes);
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
     }
@@ -328,7 +328,7 @@ static void CustomCleanupToStorageHdr(void *data, void *hint) {
 
 bool Ingress::Process(std::vector<uint8_t> && rxBuf) {  //TODO: make buffer zmq message to reduce copy
     const std::size_t messageSize = rxBuf.size();
-    if (messageSize > m_hdtnConfig.m_maxBundleSizeBytes) {
+    if (messageSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
         std::cerr << "error in Ingress::Process: received bundle size (" 
             << messageSize << " bytes) exceeds max bundle size limit of "
             << m_hdtnConfig.m_maxBundleSizeBytes << " bytes\n";

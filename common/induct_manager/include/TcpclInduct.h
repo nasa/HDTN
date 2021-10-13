@@ -8,7 +8,7 @@
 
 class TcpclInduct : public Induct {
 public:
-    TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId);
+    TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId, const uint64_t maxBundleSizeBytes);
     virtual ~TcpclInduct();
     
 private:
@@ -26,6 +26,7 @@ private:
     std::list<TcpclBundleSink> m_listTcpclBundleSinks;
     const uint64_t M_MY_NODE_ID;
     volatile bool m_allowRemoveInactiveTcpConnections;
+    const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
 };
 
 

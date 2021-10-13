@@ -56,7 +56,8 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     m_custodyTransferUseAcs = custodyTransferUseAcs;
     if (inductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1), *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX);
+        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1),
+            *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000); //todo 1MB max bundle size on custody signals
     }
     else {
         m_useCustodyTransfer = false;

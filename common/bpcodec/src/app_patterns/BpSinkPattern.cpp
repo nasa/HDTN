@@ -39,7 +39,9 @@ void BpSinkPattern::Stop() {
     std::cout << "totalBundlesRx: " << m_totalBundlesRx << "\n";
 }
 
-bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr, bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs) {
+bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
+    bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes)
+{
 
     m_myEid = myEid;
     m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
@@ -56,7 +58,7 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     m_nextCtebCustodyId = 0;
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId, UINT16_MAX);
+    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes);
 
     if (outductsConfigPtr) {
         m_useCustodyTransfer = true;

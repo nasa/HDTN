@@ -13,6 +13,7 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
         LtpEngine engineSrc; 
         LtpEngine engineDest;
         const std::string DESIRED_RED_DATA_TO_SEND;
+        const std::string DESIRED_TOO_MUCH_RED_DATA_TO_SEND;
         const std::string DESIRED_RED_AND_GREEN_DATA_TO_SEND;
         const std::string DESIRED_FULLY_GREEN_DATA_TO_SEND;
 
@@ -36,9 +37,10 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
             CLIENT_SERVICE_ID_DEST(300),
-            engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
-            engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+            engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
+            engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
+            DESIRED_TOO_MUCH_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog! 12345678910"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE")
         {
@@ -392,6 +394,29 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
             BOOST_REQUIRE(lastTxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::MISCOLORED);
         }
+
+        void DoTestTooMuchRedData() {
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            engineSrc.TransmissionRequest(CLIENT_SERVICE_ID_DEST, ENGINE_ID_DEST, (uint8_t*)DESIRED_TOO_MUCH_RED_DATA_TO_SEND.data(), DESIRED_TOO_MUCH_RED_DATA_TO_SEND.size(), DESIRED_TOO_MUCH_RED_DATA_TO_SEND.size());
+            AssertOneActiveSenderOnly();
+            unsigned int count = 0;
+            while (ExchangeData()) { //red, red, green, red should trigger miscolored
+
+            }
+            AssertNoActiveSendersAndReceivers();
+            
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastRxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastTxCancelSegmentReasonCode == CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED);
+        }
     };
 
     Test t;
@@ -405,4 +430,5 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
     t.DoTestFullyGreenData();
     t.DoTestMiscoloredRed();
     t.DoTestMiscoloredGreen();
+    t.DoTestTooMuchRedData();
 }

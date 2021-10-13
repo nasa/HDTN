@@ -16,7 +16,8 @@ public:
     BpSinkPattern();
     void Stop();
     virtual ~BpSinkPattern();
-    bool Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr, bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs);
+    bool Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
+        bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:

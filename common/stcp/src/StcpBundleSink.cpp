@@ -9,6 +9,7 @@ StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> t
     boost::asio::io_service & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     const unsigned int numCircularBufferVectors,
+    const uint64_t maxBundleSizeBytes,
     const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
 
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
@@ -16,6 +17,7 @@ StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> t
     m_tcpSocketPtr(tcpSocketPtr),
     m_tcpSocketIoServiceRef(tcpSocketIoServiceRef),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
+    M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_tcpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
@@ -91,8 +93,7 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
         else {
             boost::endian::big_to_native_inplace(m_incomingBundleSize);
             //continue operation StartTcpReceiveBundleData only if there was no error
-            //TODO PUT CONFIG FILE LIMIT ON MAX SIZE
-            if (m_incomingBundleSize > 100000000) { //SAFETY CHECKS ON SIZE BEFORE ALLOCATE (100MB max for now)
+            if (m_incomingBundleSize > M_MAX_BUNDLE_SIZE_BYTES) { //SAFETY CHECKS ON SIZE BEFORE ALLOCATE
                 std::cerr << "critical error in StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size " << m_incomingBundleSize << " exceeds 100MB.. TCP receiving on StcpBundleSink will now stop!" << std::endl;
                 DoStcpShutdown(); //leave in m_stateTcpReadActive = true
             }

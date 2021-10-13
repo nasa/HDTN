@@ -12,6 +12,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     const unsigned int numCircularBufferVectors,
     const unsigned int circularBufferBytesPerVector,
     const uint64_t myNodeId,
+    const uint64_t maxBundleSizeBytes,
     const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
 
     //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
@@ -42,6 +43,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_tcpcl.SetNextBundleLengthCallback(boost::bind(&TcpclBundleSink::NextBundleLengthCallback, this, boost::placeholders::_1));
     m_tcpcl.SetKeepAliveCallback(boost::bind(&TcpclBundleSink::KeepAliveCallback, this));
     m_tcpcl.SetShutdownMessageCallback(boost::bind(&TcpclBundleSink::ShutdownCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+    m_tcpcl.SetMaxReceiveBundleSizeBytes(maxBundleSizeBytes);
 
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);

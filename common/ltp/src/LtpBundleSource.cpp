@@ -26,7 +26,7 @@ m_totalBundleBytesSent(0)
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, thisEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
+            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, false);
     }
 

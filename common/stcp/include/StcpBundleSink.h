@@ -19,6 +19,7 @@ public:
         boost::asio::io_service & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
+        const uint64_t maxBundleSizeBytes,
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     ~StcpBundleSink();
     bool ReadyToBeDeleted();
@@ -38,6 +39,7 @@ private:
     boost::asio::io_service & m_tcpSocketIoServiceRef;
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
+    const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_tcpReceiveBuffersCbVec;
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;

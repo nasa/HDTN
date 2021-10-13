@@ -6,9 +6,10 @@
 
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, bool startIoServiceThread,
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
+    M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
@@ -665,7 +666,8 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         }
         //if(m_ltpSessionRecreationPreventer.AddSession(sessionId.sessionNumber))
         const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
-        std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims, M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
+        std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims,
+            M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, M_MAX_RED_RX_BYTES_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
             boost::bind(&LtpEngine::TrySendPacketIfAvailable, this), m_maxRetriesPerSerialNumber);

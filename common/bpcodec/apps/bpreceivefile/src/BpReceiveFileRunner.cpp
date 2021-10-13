@@ -28,6 +28,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
         cbhe_eid_t myEid;
         bool isAcsAware;
         std::string saveDirectory;
+        uint64_t maxBundleSizeBytes;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -38,6 +39,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
                 ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpReceiveFile Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
+                ("max-rx-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(10000000), "Max bundle size bytes to receive (default=10MB).")
                 ;
 
             boost::program_options::variables_map vm;
@@ -80,6 +82,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             }
             isAcsAware = (vm.count("acs-aware-bundle-agent"));
             saveDirectory = vm["save-directory"].as<std::string>();
+            maxBundleSizeBytes = vm["max-rx-bundle-size-bytes"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -98,7 +101,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
 
         std::cout << "starting BpReceiveFile.." << std::endl;
         BpReceiveFile bpReceiveFile(saveDirectory);
-        bpReceiveFile.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0);
+        bpReceiveFile.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
 
 
         if (useSignalHandler) {

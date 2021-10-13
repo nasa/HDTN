@@ -31,8 +31,8 @@ public:
     
     LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, bool startIoServiceThread = false,
-        uint32_t checkpointEveryNthDataPacketSender = 0, uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
+        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
+        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers);
 
     virtual ~LtpEngine();
 
@@ -93,6 +93,7 @@ private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION;
+    const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_MTU_CLIENT_SERVICE_DATA;
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;

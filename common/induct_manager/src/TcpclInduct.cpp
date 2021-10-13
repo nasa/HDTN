@@ -5,12 +5,13 @@
 
 
 //TCPCL INDUCT
-TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId) :
+TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t myNodeId, const uint64_t maxBundleSizeBytes) :
     Induct(inductProcessBundleCallback, inductConfig),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
     m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
     M_MY_NODE_ID(myNodeId),
-    m_allowRemoveInactiveTcpConnections(true)
+    m_allowRemoveInactiveTcpConnections(true),
+    M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -52,6 +53,7 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
             m_inductConfig.numRxCircularBufferElements,
             m_inductConfig.numRxCircularBufferBytesPerElement,
             M_MY_NODE_ID,
+            M_MAX_BUNDLE_SIZE_BYTES,
             boost::bind(&TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived, this));
 
         StartTcpAccept(); //only accept if there was no error

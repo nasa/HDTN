@@ -9,7 +9,7 @@ public:
     InductManager();
     ~InductManager();
     void LoadInductsFromConfig(const InductProcessBundleCallback_t & inductProcessBundleCallback, const InductsConfig & inductsConfig,
-        const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
+        const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxBundleSizeBytes);
     void Clear();
 public:
 

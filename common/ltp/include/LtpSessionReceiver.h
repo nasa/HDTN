@@ -22,7 +22,7 @@ private:
 public:
     
     
-    LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS, const uint64_t ESTIMATED_BYTES_TO_RECEIVE,
+    LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS, const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
@@ -51,6 +51,7 @@ private:
     std::vector<uint8_t> m_dataReceivedRed;
     const uint64_t M_MAX_RECEPTION_CLAIMS;
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE;
+    const uint64_t M_MAX_RED_RX_BYTES;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;

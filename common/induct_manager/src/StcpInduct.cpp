@@ -4,11 +4,12 @@
 #include <boost/make_shared.hpp>
 
 
-StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig) :
+StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes) :
     Induct(inductProcessBundleCallback, inductConfig),
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
     m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
-    m_allowRemoveInactiveTcpConnections(true)
+    m_allowRemoveInactiveTcpConnections(true),
+    M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)
 {
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -48,6 +49,7 @@ void StcpInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket>
         m_listStcpBundleSinks.emplace_back(newTcpSocketPtr, m_ioService,
             m_inductProcessBundleCallback,
             m_inductConfig.numRxCircularBufferElements,
+            M_MAX_BUNDLE_SIZE_BYTES,
             boost::bind(&StcpInduct::ConnectionReadyToBeDeletedNotificationReceived, this));
 
         StartTcpAccept(); //only accept if there was no error

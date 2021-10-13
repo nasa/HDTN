@@ -8,7 +8,7 @@
 
 class StcpInduct : public Induct {
 public:
-    StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
+    StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
     virtual ~StcpInduct();
     
 private:
@@ -25,6 +25,7 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     std::list<StcpBundleSink> m_listStcpBundleSinks;
     volatile bool m_allowRemoveInactiveTcpConnections;
+    const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
 };
 
 

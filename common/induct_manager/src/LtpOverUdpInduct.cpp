@@ -4,7 +4,7 @@
 #include <boost/make_shared.hpp>
 
 
-LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig) :
+LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes) :
     Induct(inductProcessBundleCallback, inductConfig)
 {
     m_ltpBundleSinkPtr = boost::make_unique<LtpBundleSink>(
@@ -13,7 +13,7 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
         boost::posix_time::milliseconds(inductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(inductConfig.oneWayMarginTimeMs),
         inductConfig.boundPort, inductConfig.numRxCircularBufferElements,
         inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber,
-        (inductConfig.ltpRandomNumberSizeBits == 32), inductConfig.ltpRemoteUdpHostname, inductConfig.ltpRemoteUdpPort);
+        (inductConfig.ltpRandomNumberSizeBits == 32), inductConfig.ltpRemoteUdpHostname, inductConfig.ltpRemoteUdpPort, maxBundleSizeBytes);
 
 }
 LtpOverUdpInduct::~LtpOverUdpInduct() {
