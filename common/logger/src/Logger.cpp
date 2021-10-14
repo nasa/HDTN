@@ -117,7 +117,7 @@ void Logger::init()
 
 }
 
-void Logger::createModuleLogFile(std::string module)
+void Logger::createModuleLogFile(const std::string & module)
 {
     logging::formatter module_log_fmt = expr::stream
         << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
@@ -154,31 +154,31 @@ void Logger::createSeverityLogFile(hdtn::severity_level level)
     logging::core::get()->add_sink(sink);
 }
 
-void Logger::logInfo(std::string module, std::string message)
+void Logger::logInfo(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
     BOOST_LOG_SEV(log_, info) << message;
 }
 
-void Logger::logNotification(std::string module, std::string message)
+void Logger::logNotification(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
     BOOST_LOG_SEV(log_, notification) << message;
 }
 
-void Logger::logWarning(std::string module, std::string message)
+void Logger::logWarning(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
     BOOST_LOG_SEV(log_, warning) << message;
 }
 
-void Logger::logError(std::string module, std::string message)
+void Logger::logError(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
     BOOST_LOG_SEV(log_, error) << message;
 }
 
-void Logger::logCritical(std::string module, std::string message)
+void Logger::logCritical(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
     BOOST_LOG_SEV(log_, critical) << message;
