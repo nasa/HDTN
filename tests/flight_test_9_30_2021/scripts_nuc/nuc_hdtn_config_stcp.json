@@ -4,6 +4,14 @@
     "myNodeId": 10,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -23,7 +31,9 @@
         "inductConfigName": "myconfig",
         "inductVector": [
             {
+                "name": "from bpsendfile",
                 "convergenceLayer": "stcp",
+                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -36,6 +46,7 @@
             {
                 "name": "to tantalus",
                 "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:20.1",
                 "remoteHostname": "tantalus",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 15,
@@ -52,7 +63,7 @@
         "storageImplementation": "asio_single_threaded",
         "tryToRestoreFromDisk": false,
         "autoDeleteFilesOnExit": true,
-        "totalStorageCapacityBytes": 8192000000,
+        "totalStorageCapacityBytes": 81920000000,
         "storageDiskConfigVector": [
             {
                 "name": "d1",

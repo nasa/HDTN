@@ -4,6 +4,14 @@
     "myNodeId": 10,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -23,7 +31,9 @@
         "inductConfigName": "myconfig",
         "inductVector": [
             {
+                "name": "from bpsendfile",
                 "convergenceLayer": "stcp",
+                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -43,7 +53,8 @@
                 "ltpMaxRetriesPerSerialNumber": 500,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "tantalus",
-                "ltpRemoteUdpPort": 1113
+                "ltpRemoteUdpPort": 1113,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
             }
 
         ]
@@ -54,6 +65,7 @@
             {
                 "name": "to tantalus",
                 "convergenceLayer": "ltp_over_udp",
+                "nextHopEndpointId": "ipn:20.1",
                 "remoteHostname": "tantalus",
                 "remotePort": 1113,
                 "bundlePipelineLimit": 50,
@@ -73,8 +85,9 @@
                 "ltpSenderBoundPort": 1113
             },
             {
-                "name": "to localhost bpgen custody",
+                "name": "to localhost bpsendfile custody",
                 "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:1.0",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 50,

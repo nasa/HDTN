@@ -2,8 +2,9 @@
     "outductConfigName": "myconfig",
     "outductVector": [
         {
-            "name": "localhost custody",
+            "name": "to hdtn localhost custody",
             "convergenceLayer": "stcp",
+            "nextHopEndpointId": "ipn:20.0",
             "remoteHostname": "localhost",
             "remotePort": 4558,
             "bundlePipelineLimit": 5,

@@ -4,6 +4,14 @@
     "myNodeId": 20,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -25,6 +33,7 @@
             {
                 "name": "from nuc3",
                 "convergenceLayer": "ltp_over_udp",
+                "myEndpointId": "ipn:20.1",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 5000,
                 "thisLtpEngineId": 20,
@@ -37,7 +46,8 @@
                 "ltpMaxRetriesPerSerialNumber": 500,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "nuc3",
-                "ltpRemoteUdpPort": 1113
+                "ltpRemoteUdpPort": 1113,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
             }
         ]
     },
@@ -47,6 +57,7 @@
             {
                 "name": "to localhost bpsink",
                 "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4556,
                 "bundlePipelineLimit": 50,
@@ -61,7 +72,7 @@
         "storageImplementation": "asio_single_threaded",
         "tryToRestoreFromDisk": false,
         "autoDeleteFilesOnExit": true,
-        "totalStorageCapacityBytes": 8192000000,
+        "totalStorageCapacityBytes": 81920000000,
         "storageDiskConfigVector": [
             {
                 "name": "d1",
