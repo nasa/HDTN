@@ -26,7 +26,6 @@
                 "convergenceLayer": "stcp",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
-                "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15
             }
         ]

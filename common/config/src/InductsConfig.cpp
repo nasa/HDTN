@@ -192,51 +192,83 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
     unsigned int vectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductElementConfigPt, inductElementConfigVectorPt) {
         induct_element_config_t & inductElementConfig = m_inductElementConfigVector[vectorIndex++];
-        inductElementConfig.name = inductElementConfigPt.second.get<std::string>("name", "unnamed_induct"); //non-throw version
-        inductElementConfig.convergenceLayer = inductElementConfigPt.second.get<std::string>("convergenceLayer", "unnamed_convergence_layer"); //non-throw version
-        inductElementConfig.myEndpointId = inductElementConfigPt.second.get<std::string>("myEndpointId", "unnamed_my_endpoint_id"); //non-throw version
-        {
-            bool found = false;
-            for (std::vector<std::string>::const_iterator it = VALID_CONVERGENCE_LAYER_NAMES.cbegin(); it != VALID_CONVERGENCE_LAYER_NAMES.cend(); ++it) {
-                if (inductElementConfig.convergenceLayer == *it) {
-                    found = true;
-                    break;
+        try {
+            inductElementConfig.name = inductElementConfigPt.second.get<std::string>("name");
+            inductElementConfig.convergenceLayer = inductElementConfigPt.second.get<std::string>("convergenceLayer");
+            {
+                bool found = false;
+                for (std::vector<std::string>::const_iterator it = VALID_CONVERGENCE_LAYER_NAMES.cbegin(); it != VALID_CONVERGENCE_LAYER_NAMES.cend(); ++it) {
+                    if (inductElementConfig.convergenceLayer == *it) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: invalid convergence layer " << inductElementConfig.convergenceLayer << std::endl;
+                    return false;
                 }
             }
-            if (!found) {
-                std::cerr << "error: invalid convergence layer " << inductElementConfig.convergenceLayer << std::endl;
+            inductElementConfig.myEndpointId = inductElementConfigPt.second.get<std::string>("myEndpointId");
+            inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort");
+            if (inductElementConfig.boundPort == 0) {
+                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero\n";
+                return false;
+            }
+            inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
+            if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
+                inductElementConfig.numRxCircularBufferBytesPerElement = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement");
+            }
+            else if (inductElementConfigPt.second.count("numRxCircularBufferBytesPerElement")) { //not used by stcp or ltp
+                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: convergence layer "
+                    << inductElementConfig.convergenceLayer << " induct config does not use numRxCircularBufferBytesPerElement.. please remove\n";
+                return false;
+            }
+
+            if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
+                inductElementConfig.thisLtpEngineId = inductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
+                inductElementConfig.remoteLtpEngineId = inductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId");
+                inductElementConfig.ltpReportSegmentMtu = inductElementConfigPt.second.get<uint32_t>("ltpReportSegmentMtu");
+                inductElementConfig.oneWayLightTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs");
+                inductElementConfig.oneWayMarginTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs");
+                inductElementConfig.clientServiceId = inductElementConfigPt.second.get<uint64_t>("clientServiceId");
+                inductElementConfig.preallocatedRedDataBytes = inductElementConfigPt.second.get<uint64_t>("preallocatedRedDataBytes");
+                inductElementConfig.ltpMaxRetriesPerSerialNumber = inductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber");
+                inductElementConfig.ltpRandomNumberSizeBits = inductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits");
+                if ((inductElementConfig.ltpRandomNumberSizeBits != 32) && (inductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
+                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpRandomNumberSizeBits ("
+                        << inductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                    return false;
+                }
+                inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname");
+                inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort");
+                inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = inductElementConfigPt.second.get<uint64_t>("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize");
+            }
+            else {
+                static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpReportSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
+                    "clientServiceId", "preallocatedRedDataBytes", "ltpMaxRetriesPerSerialNumber", "ltpRandomNumberSizeBits", "ltpRemoteUdpHostname", "ltpRemoteUdpPort",
+                    "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize"
+                };
+                for (std::size_t i = 0; i < LTP_ONLY_VALUES.size(); ++i) {
+                    if (inductElementConfigPt.second.count(LTP_ONLY_VALUES[i]) != 0) {
+                        std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                            << " has an ltp induct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove" << std::endl;
+                        return false;
+                    }
+                }
+            }
+
+            if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
+                inductElementConfig.keepAliveIntervalSeconds = inductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
+            }
+            else if (inductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
+                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                    << " has an stcp or tcpcl induct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
                 return false;
             }
         }
-        inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort", 0); //non-throw version
-        if (inductElementConfig.boundPort == 0) {
-            std::cerr << "error: invalid boundPort must be non-zero";
+        catch (const boost::property_tree::ptree_error & e) {
+            std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: " << e.what() << std::endl;
             return false;
-        }
-        inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements", 100); //non-throw version
-        inductElementConfig.numRxCircularBufferBytesPerElement = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement", UINT16_MAX); //non-throw version
-
-        if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
-            inductElementConfig.thisLtpEngineId = inductElementConfigPt.second.get<uint64_t>("thisLtpEngineId", 0); //non-throw version
-            inductElementConfig.remoteLtpEngineId = inductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId", 0); //non-throw version
-            inductElementConfig.ltpReportSegmentMtu = inductElementConfigPt.second.get<uint32_t>("ltpReportSegmentMtu", 1000); //non-throw version
-            inductElementConfig.oneWayLightTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs", 1000); //non-throw version
-            inductElementConfig.oneWayMarginTimeMs = inductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
-            inductElementConfig.clientServiceId = inductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
-            inductElementConfig.preallocatedRedDataBytes = inductElementConfigPt.second.get<uint64_t>("preallocatedRedDataBytes", 100); //non-throw version
-            inductElementConfig.ltpMaxRetriesPerSerialNumber = inductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
-            inductElementConfig.ltpRandomNumberSizeBits = inductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits", 0); //non-throw version
-            if ((inductElementConfig.ltpRandomNumberSizeBits != 32) && (inductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
-                std::cerr << "error: ltpRandomNumberSizeBits (" << inductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
-                return false;
-            }
-            inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname", ""); //non-throw version
-            inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort", 0); //non-throw version
-            inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = inductElementConfigPt.second.get<uint64_t>("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", 0); //non-throw version
-        }
-
-        if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
-            inductElementConfig.keepAliveIntervalSeconds = inductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds", 15); //non-throw version
         }
     }
 
@@ -288,7 +320,9 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         inductElementConfigPt.put("myEndpointId", inductElementConfig.myEndpointId);
         inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
-        inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
+        if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl")) {
+            inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
+        }
         if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
             inductElementConfigPt.put("thisLtpEngineId", inductElementConfig.thisLtpEngineId);
             inductElementConfigPt.put("remoteLtpEngineId", inductElementConfig.remoteLtpEngineId);

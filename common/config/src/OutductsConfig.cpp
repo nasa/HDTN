@@ -10,6 +10,7 @@
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <boost/lexical_cast.hpp>
+#include "Uri.h"
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl" };
 
@@ -226,70 +227,110 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
     unsigned int vectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & outductElementConfigPt, outductElementConfigVectorPt) {
         outduct_element_config_t & outductElementConfig = m_outductElementConfigVector[vectorIndex++];
-        outductElementConfig.name = outductElementConfigPt.second.get<std::string>("name", "unnamed_outduct"); //non-throw version
-        outductElementConfig.convergenceLayer = outductElementConfigPt.second.get<std::string>("convergenceLayer", "unnamed_convergence_layer"); //non-throw version
-        outductElementConfig.nextHopEndpointId = outductElementConfigPt.second.get<std::string>("nextHopEndpointId", "unnamed_next_hop_endpoint_id"); //non-throw version
-        {
-            bool found = false;
-            for (std::vector<std::string>::const_iterator it = VALID_CONVERGENCE_LAYER_NAMES.cbegin(); it != VALID_CONVERGENCE_LAYER_NAMES.cend(); ++it) {
-                if (outductElementConfig.convergenceLayer == *it) {
-                    found = true;
-                    break;
+        try {
+            outductElementConfig.name = outductElementConfigPt.second.get<std::string>("name");
+            outductElementConfig.convergenceLayer = outductElementConfigPt.second.get<std::string>("convergenceLayer");
+            outductElementConfig.nextHopEndpointId = outductElementConfigPt.second.get<std::string>("nextHopEndpointId");
+            {
+                bool found = false;
+                for (std::vector<std::string>::const_iterator it = VALID_CONVERGENCE_LAYER_NAMES.cbegin(); it != VALID_CONVERGENCE_LAYER_NAMES.cend(); ++it) {
+                    if (outductElementConfig.convergenceLayer == *it) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid convergence layer " << outductElementConfig.convergenceLayer << std::endl;
+                    return false;
                 }
             }
-            if (!found) {
-                std::cerr << "error: invalid convergence layer " << outductElementConfig.convergenceLayer << std::endl;
+            outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
+            if (outductElementConfig.remoteHostname == "") {
+                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty" << std::endl;
+                return false;
+            }
+            outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort");
+            if (outductElementConfig.remotePort == 0) {
+                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero" << std::endl;
+                return false;
+            }
+            outductElementConfig.bundlePipelineLimit = outductElementConfigPt.second.get<uint32_t>("bundlePipelineLimit");
+            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", boost::property_tree::ptree()); //non-throw version
+            outductElementConfig.finalDestinationEidUris.clear();
+            BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
+                const std::string uriStr = finalDestinationEidUriValuePt.second.get_value<std::string>();
+                uint64_t node, svc;
+                if (!Uri::ParseIpnUriString(uriStr, node, svc)) {
+                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid final destination eid uri " << uriStr << std::endl;
+                    return false;
+                }
+                else if (outductElementConfig.finalDestinationEidUris.insert(uriStr).second == false) { //not inserted
+                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "duplicate final destination eid uri " << uriStr << std::endl;
+                    return false;
+                }
+            }
+
+            if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
+                outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId");
+                outductElementConfig.remoteLtpEngineId = outductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId");
+                outductElementConfig.ltpDataSegmentMtu = outductElementConfigPt.second.get<uint32_t>("ltpDataSegmentMtu");
+                outductElementConfig.oneWayLightTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs");
+                outductElementConfig.oneWayMarginTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs");
+                outductElementConfig.clientServiceId = outductElementConfigPt.second.get<uint64_t>("clientServiceId");
+                outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
+                outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber");
+                outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment");
+                outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits");
+                if ((outductElementConfig.ltpRandomNumberSizeBits != 32) && (outductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
+                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "ltpRandomNumberSizeBits ("
+                        << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                    return false;
+                }
+                outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
+            }
+            else {
+                static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpDataSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
+                    "clientServiceId", "numRxCircularBufferElements", "ltpMaxRetriesPerSerialNumber", "ltpCheckpointEveryNthDataSegment", "ltpRandomNumberSizeBits", "ltpSenderBoundPort"
+                };
+                for (std::size_t i = 0; i < LTP_ONLY_VALUES.size(); ++i) {
+                    if (outductElementConfigPt.second.count(LTP_ONLY_VALUES[i]) != 0) {
+                        std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                            << " has an ltp outduct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove" << std::endl;
+                        return false;
+                    }
+                }
+            }
+
+            if (outductElementConfig.convergenceLayer == "udp") {
+                outductElementConfig.udpRateBps = outductElementConfigPt.second.get<uint64_t>("udpRateBps");
+            }
+            else if (outductElementConfigPt.second.count("udpRateBps") != 0) {
+                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a udp induct only configuration parameter of \"udpRateBps\".. please remove" << std::endl;
+                return false;
+            }
+
+            if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl")) {
+                outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
+            }
+            else if (outductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
+                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has an stcp or tcpcl induct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
+                return false;
+            }
+
+            if (outductElementConfig.convergenceLayer == "tcpcl") {
+                outductElementConfig.tcpclAutoFragmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclAutoFragmentSizeBytes");
+            }
+            else if (outductElementConfigPt.second.count("tcpclAutoFragmentSizeBytes") != 0) {
+                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a tcpcl induct only configuration parameter of \"tcpclAutoFragmentSizeBytes\".. please remove" << std::endl;
                 return false;
             }
         }
-        outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname", ""); //non-throw version
-        if (outductElementConfig.remoteHostname == "") {
-            std::cerr << "error: invalid remoteHostname, must not be empty" << std::endl;
+        catch (const boost::property_tree::ptree_error & e) {
+            std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << e.what() << std::endl;
             return false;
-        }
-        outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort", 0); //non-throw version
-        if (outductElementConfig.remotePort == 0) {
-            std::cerr << "error: invalid remotePort, must be non-zero" << std::endl;
-            return false;
-        }
-        outductElementConfig.bundlePipelineLimit = outductElementConfigPt.second.get<uint32_t>("bundlePipelineLimit", 0); //non-throw version
-        const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", boost::property_tree::ptree()); //non-throw version
-        outductElementConfig.finalDestinationEidUris.clear();
-        BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
-            if (outductElementConfig.finalDestinationEidUris.insert(finalDestinationEidUriValuePt.second.get_value<std::string>()).second == false) { //not inserted
-                std::cerr << "error: duplicate final destination eid uri " << finalDestinationEidUriValuePt.second.get_value<std::string>() << std::endl;
-                return false;
-            }
-        }
-
-        if (outductElementConfig.convergenceLayer == "ltp_over_udp") {
-            outductElementConfig.thisLtpEngineId = outductElementConfigPt.second.get<uint64_t>("thisLtpEngineId", 0); //non-throw version
-            outductElementConfig.remoteLtpEngineId = outductElementConfigPt.second.get<uint64_t>("remoteLtpEngineId", 0); //non-throw version
-            outductElementConfig.ltpDataSegmentMtu = outductElementConfigPt.second.get<uint32_t>("ltpDataSegmentMtu", 1000); //non-throw version
-            outductElementConfig.oneWayLightTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayLightTimeMs", 1000); //non-throw version
-            outductElementConfig.oneWayMarginTimeMs = outductElementConfigPt.second.get<uint64_t>("oneWayMarginTimeMs", 0); //non-throw version
-            outductElementConfig.clientServiceId = outductElementConfigPt.second.get<uint64_t>("clientServiceId", 0); //non-throw version
-            outductElementConfig.numRxCircularBufferElements = outductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements", 100); //non-throw version
-            outductElementConfig.ltpMaxRetriesPerSerialNumber = outductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber", 5); //non-throw version
-            outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment", 0); //non-throw version
-            outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits", 0); //non-throw version
-            if ((outductElementConfig.ltpRandomNumberSizeBits != 32 ) && (outductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
-                std::cerr << "error: ltpRandomNumberSizeBits (" << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
-                return false;
-            }
-            outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort", 0); //non-throw version
-        }
-
-        if (outductElementConfig.convergenceLayer == "udp") {
-            outductElementConfig.udpRateBps = outductElementConfigPt.second.get<uint64_t>("udpRateBps", 15); //non-throw version
-        }
-
-        if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl")) {
-            outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds", 15); //non-throw version
-        }
-
-        if (outductElementConfig.convergenceLayer == "tcpcl") {
-            outductElementConfig.tcpclAutoFragmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclAutoFragmentSizeBytes", 200000000); //non-throw version
         }
     }
 

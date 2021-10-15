@@ -7,7 +7,6 @@
             "myEndpointId": "ipn:1.1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 100,
-            "numRxCircularBufferBytesPerElement": 65535,
             "thisLtpEngineId": 10004557,
             "remoteLtpEngineId": 20004557,
             "ltpReportSegmentMtu": 1000,

@@ -7,7 +7,6 @@
             "myEndpointId": "ipn:2.1",
             "boundPort": 4558,
             "numRxCircularBufferElements": 200,
-            "numRxCircularBufferBytesPerElement": 20000,
             "keepAliveIntervalSeconds": 15
         }
     ]

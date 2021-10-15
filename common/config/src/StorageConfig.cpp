@@ -100,26 +100,32 @@ bool StorageConfig::operator==(const StorageConfig & other) const {
 }
 
 bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) {
-    m_storageImplementation = pt.get<std::string>("storageImplementation", "unnamed_storage_implementation"); //non-throw version
-    {
-        bool found = false;
-        for (std::vector<std::string>::const_iterator it = VALID_STORAGE_IMPLEMENTATION_NAMES.cbegin(); it != VALID_STORAGE_IMPLEMENTATION_NAMES.cend(); ++it) {
-            if (m_storageImplementation == *it) {
-                found = true;
-                break;
+    try {
+        m_storageImplementation = pt.get<std::string>("storageImplementation");
+        {
+            bool found = false;
+            for (std::vector<std::string>::const_iterator it = VALID_STORAGE_IMPLEMENTATION_NAMES.cbegin(); it != VALID_STORAGE_IMPLEMENTATION_NAMES.cend(); ++it) {
+                if (m_storageImplementation == *it) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                std::cerr << "error parsing JSON Storage config:: invalid storage implementation " << m_storageImplementation << std::endl;
+                return false;
             }
         }
-        if (!found) {
-            std::cerr << "error: invalid storage implementation " << m_storageImplementation << std::endl;
-            return false;
-        }
+        m_tryToRestoreFromDisk = pt.get<bool>("tryToRestoreFromDisk");
+        m_autoDeleteFilesOnExit = pt.get<bool>("autoDeleteFilesOnExit");
+        m_totalStorageCapacityBytes = pt.get<uint64_t>("totalStorageCapacityBytes");
     }
-    m_tryToRestoreFromDisk = pt.get<bool>("tryToRestoreFromDisk", false); //non-throw version
-    m_autoDeleteFilesOnExit = pt.get<bool>("autoDeleteFilesOnExit", true); //non-throw version
-    m_totalStorageCapacityBytes = pt.get<uint64_t>("totalStorageCapacityBytes", 0); //non-throw version
+    catch (const boost::property_tree::ptree_error & e) {
+        std::cerr << "error parsing JSON Storage config: " << e.what() << std::endl;
+        return false;
+    }
+
     if (m_totalStorageCapacityBytes == 0) {
-        std::cerr << "error: totalStorageCapacityBytes must be defined and non-zero\n";
-        hdtn::Logger::getInstance()->logError("storage", "Error: totalStorageCapacityBytes must be defined and non-zero");
+        std::cerr << "error parsing JSON Storage config: totalStorageCapacityBytes must be defined and non-zero\n";
         return false;
     }
     const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", boost::property_tree::ptree()); //non-throw version
@@ -127,11 +133,16 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
     unsigned int storageDiskConfigVectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & storageDiskConfigPt, storageDiskConfigVectorPt) {
         storage_disk_config_t & storageDiskConfig = m_storageDiskConfigVector[storageDiskConfigVectorIndex++];
-        storageDiskConfig.name = storageDiskConfigPt.second.get<std::string>("name", "unnamed_disk"); //non-throw version
-        storageDiskConfig.storeFilePath = storageDiskConfigPt.second.get<std::string>("storeFilePath", ""); //non-throw version
+        try {
+            storageDiskConfig.name = storageDiskConfigPt.second.get<std::string>("name");
+            storageDiskConfig.storeFilePath = storageDiskConfigPt.second.get<std::string>("storeFilePath");
+        }
+        catch (const boost::property_tree::ptree_error & e) {
+            std::cerr << "error parsing JSON storageDiskConfigVector[" << (storageDiskConfigVectorIndex - 1) << "]: " << e.what() << std::endl;
+            return false;
+        }
         if (storageDiskConfig.storeFilePath == "") {
-            std::cerr << "error: storeFilePath must be defined\n";
-            hdtn::Logger::getInstance()->logError("storage", "Error: storeFilePath must be defined");
+            std::cerr << "error parsing JSON storageDiskConfigVector[" << (storageDiskConfigVectorIndex - 1) << "]: storeFilePath must be defined\n";
             return false;
         }
     }
