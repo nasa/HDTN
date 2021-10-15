@@ -1,0 +1,16 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "localhost custody",
+            "convergenceLayer": "stcp",
+            "remoteHostname": "localhost",
+            "remotePort": 4558,
+            "bundlePipelineLimit": 5,
+            "finalDestinationEidUris": [
+                "ipn:20.0"
+            ],
+            "keepAliveIntervalSeconds": 17
+        }
+    ]
+}

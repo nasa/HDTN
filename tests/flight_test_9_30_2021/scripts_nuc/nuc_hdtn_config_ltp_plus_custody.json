@@ -1,0 +1,106 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqRegistrationServerAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqRegistrationServerPortPath": 10140,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqMaxMessagesPerPath": 40,
+    "zmqMaxMessageSizeBytes": 100000000,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "convergenceLayer": "stcp",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 200,
+                "numRxCircularBufferBytesPerElement": 20000,
+                "keepAliveIntervalSeconds": 15
+            },
+            {
+                "name": "custody from tantalus hdtn",
+                "convergenceLayer": "ltp_over_udp",
+                "boundPort": 1113,
+                "numRxCircularBufferElements": 500,
+                "thisLtpEngineId": 10,
+                "remoteLtpEngineId": 20,
+                "ltpReportSegmentMtu": 1000,
+                "oneWayLightTimeMs": 1000,
+                "oneWayMarginTimeMs": 200,
+                "clientServiceId": 1,
+                "preallocatedRedDataBytes": 10000,
+                "ltpMaxRetriesPerSerialNumber": 500,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpRemoteUdpHostname": "tantalus",
+                "ltpRemoteUdpPort": 1113
+            }
+
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "to tantalus",
+                "convergenceLayer": "ltp_over_udp",
+                "remoteHostname": "tantalus",
+                "remotePort": 1113,
+                "bundlePipelineLimit": 50,
+                "finalDestinationEidUris": [
+                    "ipn:2.1"
+                ],
+                "thisLtpEngineId": 10,
+                "remoteLtpEngineId": 20,
+                "ltpDataSegmentMtu": 1360,
+                "oneWayLightTimeMs": 1000,
+                "oneWayMarginTimeMs": 200,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 1000,
+                "ltpMaxRetriesPerSerialNumber": 500,
+                "ltpCheckpointEveryNthDataSegment": 10,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 1113
+            },
+            {
+                "name": "to localhost bpgen custody",
+                "convergenceLayer": "stcp",
+                "remoteHostname": "localhost",
+                "remotePort": 4558,
+                "bundlePipelineLimit": 50,
+                "finalDestinationEidUris": [
+                    "ipn:1.0"
+                ],
+                "keepAliveIntervalSeconds": 15
+            }
+
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 81920000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": "\/mnt\/hdtn\/storage\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": "\/mnt\/hdtn\/storage\/store2.bin"
+            }
+        ]
+    }
+}

@@ -1,0 +1,76 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 20,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqRegistrationServerAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqRegistrationServerPortPath": 10140,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqMaxMessagesPerPath": 40,
+    "zmqMaxMessageSizeBytes": 100000000,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "from nuc3",
+                "convergenceLayer": "ltp_over_udp",
+                "boundPort": 1113,
+                "numRxCircularBufferElements": 5000,
+                "thisLtpEngineId": 20,
+                "remoteLtpEngineId": 10,
+                "ltpReportSegmentMtu": 1000,
+                "oneWayLightTimeMs": 1000,
+                "oneWayMarginTimeMs": 200,
+                "clientServiceId": 1,
+                "preallocatedRedDataBytes": 1000000,
+                "ltpMaxRetriesPerSerialNumber": 500,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpRemoteUdpHostname": "nuc3",
+                "ltpRemoteUdpPort": 1113
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "to localhost bpsink",
+                "convergenceLayer": "stcp",
+                "remoteHostname": "localhost",
+                "remotePort": 4556,
+                "bundlePipelineLimit": 50,
+                "finalDestinationEidUris": [
+                    "ipn:2.1"
+                ],
+                "keepAliveIntervalSeconds": 15
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}

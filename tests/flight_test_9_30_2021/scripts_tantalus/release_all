@@ -1,0 +1,3 @@
+export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
+$HDTN_BUILD_ROOT/module/storage/hdtn-release-message-sender --release-message-type=start --dest-uri-eid-to-release-or-stop=ipn:2.1 --delay-before-send=3 --hdtn-config-file=./tantalus_hdtn_config_ltp_plus_custody.json
+#$HDTN_BUILD_ROOT/module/storage/hdtn-release-message-sender --release-message-type=start --dest-uri-eid-to-release-or-stop=ipn:10.0 --delay-before-send=3 --hdtn-config-file=./tantalus_hdtn_config_ltp_plus_custody.json

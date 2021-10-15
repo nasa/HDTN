@@ -1,0 +1,4 @@
+export HDTN_BUILD_ROOT=/home/hdtn/hdtn-src/build
+export HDTN_SOURCE_ROOT=/home/hdtn/hdtn-src
+#$HDTN_BUILD_ROOT/module/storage/hdtn-release-message-sender --release-message-type=start --dest-uri-eid-to-release-or-stop=ipn:2.1 --delay-before-send=3 --hdtn-config-file=./nuc_hdtn_config_ltp_plus_custody.json
+$HDTN_BUILD_ROOT/module/storage/hdtn-release-message-sender --release-message-type=start --dest-uri-eid-to-release-or-stop=ipn:1.0 --delay-before-send=3 --hdtn-config-file=./nuc_hdtn_config_ltp_plus_custody.json

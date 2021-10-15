@@ -1,0 +1,18 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpgen rho",
+            "convergenceLayer": "stcp",
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "bundlePipelineLimit": 5,
+            "finalDestinationEidUris": [
+                "ipn:1.1",
+                "ipn:2.1",
+                "ipn:3.1"
+            ],
+            "keepAliveIntervalSeconds": 17
+        }
+    ]
+}
