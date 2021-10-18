@@ -1,6 +1,6 @@
 #include "LtpTimerManager.h"
 #include <iostream>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include "Ltp.h"
 
 template <class idType>

@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include "LtpRandomNumberGenerator.h"
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/timer/timer.hpp>
 
 BOOST_AUTO_TEST_CASE(LtpRandomNumberGeneratorTestCase)

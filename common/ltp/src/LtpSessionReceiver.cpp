@@ -1,7 +1,7 @@
 #include "LtpSessionReceiver.h"
 #include <iostream>
 #include <inttypes.h>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
 
 LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,

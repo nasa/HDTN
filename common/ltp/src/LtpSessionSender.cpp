@@ -1,7 +1,7 @@
 #include "LtpSessionSender.h"
 #include <iostream>
 #include <inttypes.h>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/next_prior.hpp>
 

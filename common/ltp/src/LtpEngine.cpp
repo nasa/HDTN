@@ -1,7 +1,7 @@
 #include "LtpEngine.h"
 #include <iostream>
 #include <inttypes.h>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,

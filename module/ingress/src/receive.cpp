@@ -12,7 +12,7 @@
 #include "ingress.h"
 #include "Logger.h"
 #include "message.hpp"
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
 

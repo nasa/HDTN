@@ -12,7 +12,7 @@
 #include "codec/bpv6.h"
 #include "app_patterns/BpSinkPattern.h"
 #include <boost/thread.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
