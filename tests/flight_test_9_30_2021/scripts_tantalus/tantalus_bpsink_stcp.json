@@ -2,6 +2,7 @@
     "inductConfigName": "myconfig",
     "inductVector": [
         {
+            "name": "localhost bpsink",
             "convergenceLayer": "stcp",
             "myEndpointId": "ipn:2.1",
             "boundPort": 4556,

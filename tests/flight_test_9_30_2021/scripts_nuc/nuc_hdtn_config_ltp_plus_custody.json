@@ -41,6 +41,7 @@
             {
                 "name": "custody from tantalus hdtn",
                 "convergenceLayer": "ltp_over_udp",
+                "myEndpointId": "ipn:10.0",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 500,
                 "thisLtpEngineId": 10,
