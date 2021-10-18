@@ -68,6 +68,8 @@ public:
     //Read
     uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids); //0 if empty, size if entry
     bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
+    bool ReturnCustodyIdToAwaitingSend(const uint64_t custodyId); //for expired custody timers
+    catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer
     std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
     bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf);
     bool RemoveReadBundleFromDisk(const uint64_t custodyId);

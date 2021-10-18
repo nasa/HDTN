@@ -55,9 +55,9 @@ add_library(storage_lib STATIC
 		src/BundleStorageManagerBase.cpp
 		src/HashMap16BitFixedSize.cpp
 		src/BundleStorageCatalog.cpp
+		src/CustodyTimers.cpp
 		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
-		src/store.cpp
 )
 
 target_link_libraries(storage_lib hdtn_util hdtn_reg config_lib bpcodec log_lib ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})

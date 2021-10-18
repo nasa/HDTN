@@ -12,7 +12,7 @@
 #include "codec/bpv6.h"
 #include "app_patterns/BpSinkPattern.h"
 #include <boost/thread.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
@@ -39,7 +39,9 @@ void BpSinkPattern::Stop() {
     std::cout << "totalBundlesRx: " << m_totalBundlesRx << "\n";
 }
 
-bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr, bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs) {
+bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
+    bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes)
+{
 
     m_myEid = myEid;
     m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
@@ -56,11 +58,11 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     m_nextCtebCustodyId = 0;
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId);
+    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes);
 
     if (outductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId);
+        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX);
         while (!m_outductManager.AllReadyToForward()) {
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));

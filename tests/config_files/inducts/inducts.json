@@ -4,19 +4,26 @@
         {
             "name": "i1",
             "convergenceLayer": "ltp_over_udp",
+            "myEndpointId": "ipn:1.1",
             "boundPort": 1113,
             "numRxCircularBufferElements": 101,
-            "numRxCircularBufferBytesPerElement": 65532,
             "thisLtpEngineId": 102,
+            "remoteLtpEngineId": 20004558,
             "ltpReportSegmentMtu": 1003,
             "oneWayLightTimeMs": 1004,
             "oneWayMarginTimeMs": 205,
             "clientServiceId": 2,
-            "preallocatedRedDataBytes": 200006
+            "preallocatedRedDataBytes": 200006,
+            "ltpMaxRetriesPerSerialNumber": 5,
+            "ltpRandomNumberSizeBits": 64,
+            "ltpRemoteUdpHostname": "localhost",
+            "ltpRemoteUdpPort": 4556,
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
         },
         {
             "name": "i2",
             "convergenceLayer": "udp",
+            "myEndpointId": "ipn:2.1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 107,
             "numRxCircularBufferBytesPerElement": 65533
@@ -24,6 +31,7 @@
         {
             "name": "i3",
             "convergenceLayer": "tcpcl",
+            "myEndpointId": "ipn:3.1",
             "boundPort": 4558,
             "numRxCircularBufferElements": 1009,
             "numRxCircularBufferBytesPerElement": 2000,
@@ -32,9 +40,9 @@
         {
             "name": "i4",
             "convergenceLayer": "stcp",
+            "myEndpointId": "ipn:4.1",
             "boundPort": 4559,
             "numRxCircularBufferElements": 1000,
-            "numRxCircularBufferBytesPerElement": 2000,
             "keepAliveIntervalSeconds": 17
         }
     ]

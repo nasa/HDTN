@@ -1,6 +1,6 @@
 #include "RateManagerAsync.h"
 #include <iostream>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 RateManagerAsync::RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent) :
     m_ioServiceRef(ioService),

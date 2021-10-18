@@ -1,4 +1,4 @@
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <iostream>
 #include "LtpBundleSink.h"
@@ -11,7 +11,7 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
     const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
     uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort) :
+    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxBundleSizeBytes) :
 
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -22,7 +22,7 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(expectedSessionOriginatorEngineId, true);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, expectedSessionOriginatorEngineId, true, 1, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
+            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxBundleSizeBytes, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(expectedSessionOriginatorEngineId, true);
     }
     

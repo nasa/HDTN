@@ -50,6 +50,14 @@ public:
     uint64_t m_myNodeId;
     std::string m_myCustodialSsp;
     uint64_t m_myCustodialServiceId;
+    bool m_isAcsAware;
+    uint64_t m_acsMaxFillsPerAcsPacket;
+    uint64_t m_acsSendPeriodMilliseconds;
+    uint64_t m_retransmitBundleAfterNoCustodySignalMilliseconds;
+    uint64_t m_maxBundleSizeBytes;
+    uint64_t m_maxIngressBundleWaitOnEgressMilliseconds;
+    uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
+    uint64_t m_egressMaxBundlesAwaitingSend;
 
     std::string m_zmqIngressAddress;
     std::string m_zmqEgressAddress;

@@ -1,10 +1,11 @@
 #include "LtpSessionReceiver.h"
 #include <iostream>
 #include <inttypes.h>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
 
-LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS, const uint64_t ESTIMATED_BYTES_TO_RECEIVE,
+LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
@@ -14,6 +15,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
     M_MAX_RECEPTION_CLAIMS(MAX_RECEPTION_CLAIMS),
     M_ESTIMATED_BYTES_TO_RECEIVE(ESTIMATED_BYTES_TO_RECEIVE),
+    M_MAX_RED_RX_BYTES(maxRedRxBytes),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
     M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
@@ -189,6 +191,15 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         }
 
         if (m_didRedPartReceptionCallback) {
+            return;
+        }
+        if (m_currentRedLength > M_MAX_RED_RX_BYTES) {
+            std::cout << "error in LtpSessionReceiver::DataSegmentReceivedCallback: current red data length ("
+                << m_currentRedLength << " bytes) exceeds maximum of " << M_MAX_RED_RX_BYTES << " bytes\n";
+            if (!m_didNotifyForDeletion) {
+                m_didNotifyForDeletion = true;
+                m_notifyEngineThatThisReceiverNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::SYSTEM_CANCELLED); //close session (cancelled)
+            }
             return;
         }
         if (m_dataReceivedRed.size() < offsetPlusLength) {

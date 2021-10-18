@@ -38,7 +38,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_hdtnConfig = hdtnConfig;
 
-    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId)) {
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes)) {
         return;
     }
 
@@ -233,7 +233,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         return;
     }
 
-    static const unsigned int NUM_ZMQ_MESSAGES_CB = 40;
+    const unsigned int NUM_ZMQ_MESSAGES_CB = static_cast<unsigned int>(m_hdtnConfig.m_egressMaxBundlesAwaitingSend);
     CircularIndexBufferSingleProducerSingleConsumerConfigurable cb(NUM_ZMQ_MESSAGES_CB);
     std::vector<hdtn::ToEgressHdr> toEgressHeaderMessages(NUM_ZMQ_MESSAGES_CB);
     std::vector<zmq::message_t> payloadMessages(NUM_ZMQ_MESSAGES_CB);

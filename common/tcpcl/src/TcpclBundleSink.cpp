@@ -1,4 +1,4 @@
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <iostream>
 #include "TcpclBundleSink.h"
@@ -12,6 +12,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     const unsigned int numCircularBufferVectors,
     const unsigned int circularBufferBytesPerVector,
     const uint64_t myNodeId,
+    const uint64_t maxBundleSizeBytes,
     const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
 
     //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
@@ -35,7 +36,6 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_running(false),
     m_safeToDelete(false)
 {
-
     m_tcpcl.SetContactHeaderReadCallback(boost::bind(&TcpclBundleSink::ContactHeaderCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&TcpclBundleSink::DataSegmentCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     m_tcpcl.SetAckSegmentReadCallback(boost::bind(&TcpclBundleSink::AckCallback, this, boost::placeholders::_1));
@@ -43,6 +43,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_tcpcl.SetNextBundleLengthCallback(boost::bind(&TcpclBundleSink::NextBundleLengthCallback, this, boost::placeholders::_1));
     m_tcpcl.SetKeepAliveCallback(boost::bind(&TcpclBundleSink::KeepAliveCallback, this));
     m_tcpcl.SetShutdownMessageCallback(boost::bind(&TcpclBundleSink::ShutdownCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+    m_tcpcl.SetMaxReceiveBundleSizeBytes(maxBundleSizeBytes);
 
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);
@@ -158,6 +159,22 @@ void TcpclBundleSink::HandleTcpSendShutdown(const boost::system::error_code& err
 }
 
 void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid) {
+    uint64_t remoteNodeId = UINT64_MAX;
+    uint64_t remoteServiceId = UINT64_MAX;
+    if (!Uri::ParseIpnUriString(localEid, remoteNodeId, remoteServiceId)) {
+        std::cerr << "error in TcpclBundleSink::ContactHeaderCallback: error parsing remote EID URI string " << localEid
+            << " .. TCPCL will not receive bundles." << std::endl;
+        DoTcpclShutdown(false, false);
+        return;
+    }
+    else if (remoteServiceId != 0) {
+        //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+        //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+        std::cerr << "error in TcpclBundleSink::ContactHeaderCallback: remote EID URI string " << localEid
+            << " does not use service number 0.. TCPCL will not receive bundles." << std::endl;
+        DoTcpclShutdown(false, false);
+        return;
+    }
     m_contactHeaderFlags = flags;
     //The keepalive_interval parameter is set to the minimum value from
     //both contact headers.  If one or both contact headers contains the
@@ -165,7 +182,7 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
     //is disabled.
     m_keepAliveIntervalSeconds = keepAliveIntervalSeconds;
     m_remoteEid = localEid;
-    std::cout << "received contact header from " << m_remoteEid << std::endl;
+    std::cout << "received valid contact header from " << m_remoteEid << std::endl;
 
     //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header
     //use the same keepalive interval

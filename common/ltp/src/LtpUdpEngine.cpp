@@ -5,14 +5,15 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     const uint64_t thisEngineId, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, uint32_t checkpointEveryNthDataPacketSender,
-    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
+    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes) :
     LtpEngine(thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber, force32BitRandomNumbers),
+        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber, force32BitRandomNumbers),
     m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numUdpRxCircularBufferVectors),
+    M_MAX_UDP_RX_PACKET_SIZE_BYTES(maxUdpRxPacketSizeBytes),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_printedCbTooSmallNotice(false),
@@ -21,7 +22,7 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     m_countCircularBufferOverruns(0)
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
-        m_udpReceiveBuffersCbVec[i].resize(UINT16_MAX);
+        m_udpReceiveBuffersCbVec[i].resize(maxUdpRxPacketSizeBytes);
     }
 }
 

@@ -48,7 +48,7 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     m_myCustodianEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, myCustodianServiceId);
     m_detectedNextCustodianSupportsCteb = false;
 
-    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId)) {
+    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId, UINT16_MAX)) {
         return;
     }
 
@@ -56,7 +56,8 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     m_custodyTransferUseAcs = custodyTransferUseAcs;
     if (inductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1), *inductsConfigPtr, m_myEid.nodeId);
+        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1),
+            *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000); //todo 1MB max bundle size on custody signals
     }
     else {
         m_useCustodyTransfer = false;

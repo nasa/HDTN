@@ -1,4 +1,4 @@
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/make_shared.hpp>
 #include <iostream>
 #include "UdpBundleSink.h"
@@ -17,12 +17,15 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     m_ioServiceRef(ioService),
     M_NUM_CIRCULAR_BUFFER_VECTORS(numCircularBufferVectors),
     M_MAX_UDP_PACKET_SIZE_BYTES(maxUdpPacketSizeBytes),
+    m_udpReceiveBuffer(M_MAX_UDP_PACKET_SIZE_BYTES),
     m_circularIndexBuffer(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBuffersCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_remoteEndpointsCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_udpReceiveBytesTransferredCbVec(M_NUM_CIRCULAR_BUFFER_VECTORS),
     m_running(false),
-    m_safeToDelete(false)
+    m_safeToDelete(false),
+    m_countCircularBufferOverruns(0),
+    m_printedCbTooSmallNotice(false)
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(M_MAX_UDP_PACKET_SIZE_BYTES);
@@ -64,31 +67,36 @@ UdpBundleSink::~UdpBundleSink() {
         m_threadCbReaderPtr->join();
         m_threadCbReaderPtr.reset(); //delete it
     }
+    std::cout << "UdpBundleSink m_countCircularBufferOverruns: " << m_countCircularBufferOverruns << std::endl;
 }
 
 void UdpBundleSink::StartUdpReceive() {
-    const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-    if (writeIndex == UINT32_MAX) {
-        std::cerr << "critical error in UdpBundleSink::StartUdpReceive(): buffers full.. UDP receiving on UdpBundleSink will now stop!\n";
-        DoUdpShutdown();
-        return;
-    }
-
     m_udpSocket.async_receive_from(
-        boost::asio::buffer(m_udpReceiveBuffersCbVec[writeIndex]),
-        m_remoteEndpointsCbVec[writeIndex],
+        boost::asio::buffer(m_udpReceiveBuffer),
+        m_remoteEndpoint,
         boost::bind(&UdpBundleSink::HandleUdpReceive, this,
             boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred,
-            writeIndex));
+            boost::asio::placeholders::bytes_transferred));
 }
 
-void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
+void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred) {
     //std::cout << "1" << std::endl;
     if (!error) {
-        m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
-        m_circularIndexBuffer.CommitWrite(); //write complete at this point
-        m_conditionVariableCb.notify_one();
+        const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
+        if (writeIndex == UINT32_MAX) {
+            ++m_countCircularBufferOverruns;
+            if (!m_printedCbTooSmallNotice) {
+                m_printedCbTooSmallNotice = true;
+                std::cout << "notice in LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!" << std::endl;
+            }
+        }
+        else {
+            m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
+            m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
+            m_remoteEndpointsCbVec[writeIndex] = std::move(m_remoteEndpoint);
+            m_circularIndexBuffer.CommitWrite(); //write complete at this point
+            m_conditionVariableCb.notify_one();
+        }
         StartUdpReceive(); //restart operation only if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {

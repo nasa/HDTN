@@ -24,6 +24,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&BpSinkAsyncRunner::MonitorExitKeypressThreadFunction, this));
         uint32_t processingLagMs;
+        uint64_t maxBundleSizeBytes;
         InductsConfig_ptr inductsConfigPtr;
         OutductsConfig_ptr outductsConfigPtr;
         cbhe_eid_t myEid;
@@ -33,11 +34,12 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("simulate-processing-lag-ms", boost::program_options::value<boost::uint32_t>()->default_value(0), "Extra milliseconds to process bundle (testing purposes).")
+                ("simulate-processing-lag-ms", boost::program_options::value<uint32_t>()->default_value(0), "Extra milliseconds to process bundle (testing purposes).")
                 ("inducts-config-file", boost::program_options::value<std::string>()->default_value("inducts.json"), "Inducts Configuration File.")
                 ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpSink Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
+                ("max-rx-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(10000000), "Max bundle size bytes to receive (default=10MB).")
                 ;
 
             boost::program_options::variables_map vm;
@@ -80,7 +82,8 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             }
             isAcsAware = (vm.count("acs-aware-bundle-agent"));
 
-            processingLagMs = vm["simulate-processing-lag-ms"].as<boost::uint32_t>();
+            processingLagMs = vm["simulate-processing-lag-ms"].as<uint32_t>();
+            maxBundleSizeBytes = vm["max-rx-bundle-size-bytes"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
             std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -99,7 +102,7 @@ bool BpSinkAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         std::cout << "starting BpSink.." << std::endl;
         BpSinkAsync bpSink;
-        bpSink.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, processingLagMs);
+        bpSink.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, processingLagMs, maxBundleSizeBytes);
 
 
         if (useSignalHandler) {

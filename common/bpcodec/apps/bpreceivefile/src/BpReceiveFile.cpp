@@ -4,15 +4,39 @@
 #include <boost/endian/conversion.hpp>
 #include <boost/filesystem.hpp>
 
+static bool CreateDirectoryRecursivelyVerboseIfNotExist(const boost::filesystem::path & path) {
+    if (!boost::filesystem::is_directory(path)) {
+        std::cout << "directory does not exist.. creating directory recursively..\n";
+        try {
+            if (boost::filesystem::create_directories(path)) {
+                std::cout << "successfully created directory\n";
+            }
+            else {
+                std::cerr << "error: unable to create directory\n";
+                return false;
+            }
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "error: " << e.what() << "..unable to create directory\n";
+            return false;
+        }
+    }
+    return true;
+}
+
 BpReceiveFile::BpReceiveFile(const std::string & saveDirectory) :
     BpSinkPattern(),
-    m_saveDirectory((saveDirectory.empty() || (!boost::filesystem::is_directory(saveDirectory))) ? "" : saveDirectory)
+    m_saveDirectory(saveDirectory)
 {
     if (m_saveDirectory.empty()) {
         std::cout << "not saving files\n";
     }
     else {
-        std::cout << "saving files to directory: " << saveDirectory << "\n";
+        std::cout << "saving files to directory: " << m_saveDirectory << "\n";
+        if (!CreateDirectoryRecursivelyVerboseIfNotExist(m_saveDirectory)) {
+            std::cout << "not saving files\n";
+            m_saveDirectory.clear();
+        }
     }
 }
 
@@ -59,7 +83,14 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
     if (sendFileMetadata.totalFileSize == 0) { //0 length file, create an empty file
         if (fragmentSet.empty() && m_saveDirectory.size()) {
             boost::filesystem::path fullPathFileName = boost::filesystem::path(m_saveDirectory) / boost::filesystem::path(fileName);
+            if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullPathFileName.parent_path())) {
+                return false;
+            }
             const std::string fullPathFileNameString = fullPathFileName.string();
+            if (boost::filesystem::is_regular_file(fullPathFileName)) {
+                std::cout << "skipping writing zero-length file " << fullPathFileNameString << " because it already exists\n";
+                return true;
+            }
             std::ofstream ofs(fullPathFileNameString, std::ofstream::out | std::ofstream::binary);
             if (!ofs.good()) {
                 std::cout << "error, unable to open file " << fullPathFileNameString << " for writing\n";
@@ -75,6 +106,18 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
         boost::filesystem::path fullPathFileName = boost::filesystem::path(m_saveDirectory) / boost::filesystem::path(fileName);
         const std::string fullPathFileNameString = fullPathFileName.string();
         if (m_saveDirectory.size()) { //if we are actually saving the files
+            if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullPathFileName.parent_path())) {
+                return false;
+            }
+            if (boost::filesystem::is_regular_file(fullPathFileName)) {
+                if (sendFileMetadata.fragmentOffset == 0) {
+                    std::cout << "skipping writing file " << fullPathFileNameString << " because it already exists\n";
+                }
+                else {
+                    std::cout << "ignoring fragment for " << fullPathFileNameString << " because file already exists\n";
+                }
+                return true;
+            }
             std::cout << "creating new file " << fullPathFileNameString << std::endl;
             ofstreamPtr = boost::make_unique<std::ofstream>(fullPathFileNameString, std::ofstream::out | std::ofstream::binary);
             if (!ofstreamPtr->good()) {

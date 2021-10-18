@@ -2,7 +2,7 @@
 #define _STORAGE_RUNNER_H 1
 
 #include <stdint.h>
-#include "store.hpp"
+#include "ZmqStorageInterface.h"
 #include "Logger.h"
 
 class StorageRunner {
@@ -17,7 +17,7 @@ public:
 
 private:
     void MonitorExitKeypressThreadFunction();
-    std::unique_ptr<hdtn::storage> m_storagePtr;
+    std::unique_ptr<ZmqStorageInterface> m_storagePtr;
     volatile bool m_runningFromSigHandler;
 };
 

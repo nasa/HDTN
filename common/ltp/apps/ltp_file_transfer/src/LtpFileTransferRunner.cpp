@@ -150,7 +150,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             return false;
         }
 
-
+        LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxRxUdpPacketSizeBytes);
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME = (boost::posix_time::milliseconds(oneWayLightTimeMs));
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME = (boost::posix_time::milliseconds(oneWayMarginTimeMs));
         if (useSendFile) {
@@ -209,7 +209,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(thisLtpEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, thisLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(thisLtpEngineId, false);
             }
 
@@ -276,7 +276,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(thisLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
             }
             

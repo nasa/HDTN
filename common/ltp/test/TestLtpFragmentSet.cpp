@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include "LtpFragmentSet.h"
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
 {

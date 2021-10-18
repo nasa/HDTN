@@ -7,7 +7,6 @@
 
 #include <iostream>
 #include <vector>
-#include "store.hpp"
 #include "StorageRunner.h"
 #include "message.hpp"
 #include "SignalHandler.h"
@@ -92,7 +91,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
         //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
         //config.storePath = storePath;
-        m_storagePtr = boost::make_unique<hdtn::storage>();
+        m_storagePtr = boost::make_unique<ZmqStorageInterface>();
         std::cout << "[store] Initializing storage manager ..." << std::endl;
         hdtn::Logger::getInstance()->logNotification("storage", "[store] Initializing storage manager ...");
         if (!m_storagePtr->Init(*hdtnConfig)) {
@@ -106,7 +105,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         hdtn::Logger::getInstance()->logNotification("storage", "Storage up and running");
 
         while (running && m_runningFromSigHandler) {            
-            m_storagePtr->update();
+            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
@@ -129,7 +128,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 //        m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
 //        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
         m_storagePtr->Stop();
-        m_totalBundlesErasedFromStorage = m_storagePtr->m_totalBundlesErasedFromStorage;
+        m_totalBundlesErasedFromStorage = m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
         m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
     }
     std::cout << "StorageRunner: exited cleanly\n";

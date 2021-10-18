@@ -16,7 +16,8 @@ private:
     TcpclBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, const unsigned int maxUnacked = 100, const uint64_t maxFragmentSize = 0);
+    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId,
+        const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize);
 
     ~TcpclBundleSource();
     void Stop();
@@ -93,6 +94,7 @@ private:
     volatile bool m_useLocalConditionVariableAckReceived;
     const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
     const std::string M_THIS_EID_STRING;
+    std::string M_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
 
     uint8_t m_tcpReadSomeBuffer[2000];

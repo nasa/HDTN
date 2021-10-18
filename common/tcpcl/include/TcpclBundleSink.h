@@ -24,6 +24,7 @@ public:
         const unsigned int numCircularBufferVectors,
         const unsigned int circularBufferBytesPerVector,
         const uint64_t myNodeId,
+        const uint64_t maxBundleSizeBytes,
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
     ~TcpclBundleSink();
     bool ReadyToBeDeleted();

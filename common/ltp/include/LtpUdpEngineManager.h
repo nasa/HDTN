@@ -21,9 +21,9 @@ public:
 
     bool AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
-        const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors = 100,
-        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION = 0, uint32_t checkpointEveryNthDataPacketSender = 0,
-        uint32_t maxRetriesPerSerialNumber = 5, const bool force32BitRandomNumbers = false);
+        const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
+        const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
+        uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers);
 
     LtpUdpEngine * GetLtpUdpEnginePtr(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct);
     void RemoveLtpUdpEngine_ThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback);
@@ -37,11 +37,12 @@ private:
     void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
 public:
     static LtpUdpEngineManager * GetOrCreateInstance(const uint16_t myBoundUdpPort);
+    static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
 private:
     //LtpUdpEngineManager(); 
-    static std::map<uint64_t, std::unique_ptr<LtpUdpEngineManager> > m_staticMapBoundPortToLtpUdpEngineManagerPtr;
+    static std::map<uint16_t, std::unique_ptr<LtpUdpEngineManager> > m_staticMapBoundPortToLtpUdpEngineManagerPtr;
     static boost::mutex m_staticMutex;
-    
+    static uint64_t M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES;
     
 
 

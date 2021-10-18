@@ -34,6 +34,7 @@ add_executable(unit-tests
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
 	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
+	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
     ../../common/logger/src/Logger.cpp
 )

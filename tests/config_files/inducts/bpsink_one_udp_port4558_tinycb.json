@@ -1,0 +1,13 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "udp_bpsink",
+            "convergenceLayer": "udp",
+            "myEndpointId": "ipn:2.1",
+            "boundPort": 4558,
+            "numRxCircularBufferElements": 20,
+            "numRxCircularBufferBytesPerElement": 65535
+        }
+    ]
+}

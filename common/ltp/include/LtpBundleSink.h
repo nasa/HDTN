@@ -19,7 +19,7 @@ public:
         const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
         uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort);
+        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxBundleSizeBytes);
     ~LtpBundleSink();
     bool ReadyToBeDeleted();
 private:

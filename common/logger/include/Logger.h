@@ -67,11 +67,11 @@ class Logger
 {
 public:
     static Logger* getInstance();
-    void logInfo(std::string module, std::string message);
-    void logNotification(std::string module, std::string message);
-    void logWarning(std::string module, std::string message);
-    void logError(std::string module, std::string message);
-    void logCritical(std::string module, std::string message);
+    void logInfo(const std::string & module, const std::string & message);
+    void logNotification(const std::string & module, const std::string & message);
+    void logWarning(const std::string & module, const std::string & message);
+    void logError(const std::string & module, const std::string & message);
+    void logCritical(const std::string & module, const std::string & message);
 
 private:
     Logger();
@@ -80,7 +80,7 @@ private:
     virtual ~Logger();
 
     void init();
-    void createModuleLogFile(std::string module);
+    void createModuleLogFile(const std::string & module);
     void createSeverityLogFile(hdtn::severity_level level);
     boost::log::sources::severity_logger_mt<severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance

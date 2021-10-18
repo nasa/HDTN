@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include "LtpTimerManager.h"
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/timer/timer.hpp>
 #include "Ltp.h"
 

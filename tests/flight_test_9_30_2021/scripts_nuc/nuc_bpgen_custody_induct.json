@@ -1,0 +1,13 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "bpsendfile custody signals in",
+            "convergenceLayer": "stcp",
+            "myEndpointId": "ipn:1.0",
+            "boundPort": 4558,
+            "numRxCircularBufferElements": 200,
+            "keepAliveIntervalSeconds": 15
+        }
+    ]
+}

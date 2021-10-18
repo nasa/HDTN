@@ -226,47 +226,6 @@ catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & cust
     return NULL;
 }
 
-bool BundleStorageCatalog::StartCustodyTransferTimer(const uint64_t custodyId, const boost::posix_time::time_duration & timeout) {
-    boost::posix_time::ptime expiry;
-    do { //loop to make sure expiry is unique in case multiple calls to StartTimer are too close
-        expiry = boost::posix_time::microsec_clock::universal_time() + timeout;
-    } while (m_custodyIdToCustodyTransferExpiryBimap.right.count(expiry));
-
-    return m_custodyIdToCustodyTransferExpiryBimap.left.insert(custid_to_custody_xfer_expiry_bimap_t::left_value_type(custodyId, expiry)).second;
-}
-bool BundleStorageCatalog::CancelCustodyTransferTimer(const uint64_t custodyId) {
-    custid_to_custody_xfer_expiry_bimap_t::left_iterator it = m_custodyIdToCustodyTransferExpiryBimap.left.find(custodyId);
-    if (it != m_custodyIdToCustodyTransferExpiryBimap.left.end()) {
-        m_custodyIdToCustodyTransferExpiryBimap.left.erase(it);
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-bool BundleStorageCatalog::CancelCustodyTransferTimerAtLowestExpiry(const uint64_t expectedCustodyIdToCancel) {
-    custid_to_custody_xfer_expiry_bimap_t::right_iterator it = m_custodyIdToCustodyTransferExpiryBimap.right.begin();
-    if ((it != m_custodyIdToCustodyTransferExpiryBimap.right.end()) && (it->second == expectedCustodyIdToCancel)) {
-        m_custodyIdToCustodyTransferExpiryBimap.right.erase(it);
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-bool BundleStorageCatalog::HasExpiredCustodyTimer(uint64_t & custodyId) {
-    custid_to_custody_xfer_expiry_bimap_t::right_iterator it = m_custodyIdToCustodyTransferExpiryBimap.right.begin();
-    if (it != m_custodyIdToCustodyTransferExpiryBimap.right.end()) {
-        if (it->first < boost::posix_time::microsec_clock::universal_time()) { //expired
-            custodyId = it->second;
-            return true;
-        }
-    }
-    return false;
-}
-std::size_t BundleStorageCatalog::GetNumCustodyTransferTimers() {
-    return m_custodyIdToCustodyTransferExpiryBimap.size();
-}
 
 
 //return pair<success, numSuccessfulRemovals>

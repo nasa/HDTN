@@ -4,6 +4,14 @@
     "myNodeId": 10,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
@@ -26,9 +34,9 @@
             {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
+                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 100,
-                "numRxCircularBufferBytesPerElement": 65535,
                 "thisLtpEngineId": 100,
                 "remoteLtpEngineId": 200,
                 "ltpReportSegmentMtu": 1000,
@@ -39,7 +47,8 @@
                 "ltpMaxRetriesPerSerialNumber": 5,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "localhost",
-                "ltpRemoteUdpPort": 1113
+                "ltpRemoteUdpPort": 1113,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
             }
         ]
     },
@@ -49,6 +58,7 @@
             {
                 "name": "tcpcl_egress",
                 "convergenceLayer": "tcpcl",
+                "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,

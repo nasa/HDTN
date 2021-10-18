@@ -3,13 +3,34 @@
 #include <boost/lexical_cast.hpp>
 #include "Sdnv.h"
 
-std::map<uint64_t, std::unique_ptr<LtpUdpEngineManager> > LtpUdpEngineManager::m_staticMapBoundPortToLtpUdpEngineManagerPtr;
+std::map<uint16_t, std::unique_ptr<LtpUdpEngineManager> > LtpUdpEngineManager::m_staticMapBoundPortToLtpUdpEngineManagerPtr;
 boost::mutex LtpUdpEngineManager::m_staticMutex;
+uint64_t LtpUdpEngineManager::M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES = 0;
 
+//static function
+void LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp) {
+    boost::mutex::scoped_lock theLock(m_staticMutex);
+    if (maxUdpRxPacketSizeBytesForAllLtp == 0) {
+        std::cerr << "Error in LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp: LTP Max RX UDP packet size cannot be zero\n";
+    }
+    else if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES == 0) {
+        M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES = maxUdpRxPacketSizeBytesForAllLtp;
+        std::cout << "All LTP UDP engines can receive a maximum of " << M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES << " bytes per packet\n";
+    }
+    else if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES != maxUdpRxPacketSizeBytesForAllLtp) {
+        std::cerr << "Error in LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp: LTP Max RX UDP packet size cannot be changed from " 
+            << M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES << " to " << maxUdpRxPacketSizeBytesForAllLtp << "\n";
+    }
+}
 
+//static function
 LtpUdpEngineManager * LtpUdpEngineManager::GetOrCreateInstance(const uint16_t myBoundUdpPort) {
     boost::mutex::scoped_lock theLock(m_staticMutex);
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
+    if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES == 0) {
+        std::cerr << "Error in LtpUdpEngineManager::GetOrCreateInstance: LTP Max RX UDP packet size not set.. call SetMaxUdpRxPacketSizeBytesForAllLtp() first\n";
+        return NULL;
+    }
+    std::map<uint16_t, std::unique_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
     if (it == m_staticMapBoundPortToLtpUdpEngineManagerPtr.end()) {
         LtpUdpEngineManager * const engineManagerPtr = new LtpUdpEngineManager(myBoundUdpPort);
         m_staticMapBoundPortToLtpUdpEngineManagerPtr[myBoundUdpPort] = std::unique_ptr<LtpUdpEngineManager>(engineManagerPtr);
@@ -18,11 +39,12 @@ LtpUdpEngineManager * LtpUdpEngineManager::GetOrCreateInstance(const uint16_t my
     return it->second.get();
 }
 
+//private constructor
 LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort) :
     M_MY_BOUND_UDP_PORT(myBoundUdpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
-    m_udpReceiveBuffer(UINT16_MAX),
+    m_udpReceiveBuffer(M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES),
     m_readyToForward(false)
 {
     //Receiver UDP
@@ -76,7 +98,7 @@ void LtpUdpEngineManager::RemoveLtpUdpEngine_NotThreadSafe(const uint64_t expect
 bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers)
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers)
 {   
     if (isInduct) {
         if (thisEngineId == expectedSessionOriginatorEngineId) {
@@ -113,8 +135,8 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
 
     m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr[mapKey] = boost::make_unique<LtpUdpEngine>(m_ioServiceUdp,
         m_udpSocket, thisEngineId, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, checkpointEveryNthDataPacketSender,
-        maxRetriesPerSerialNumber, force32BitRandomNumbers);
+        remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, checkpointEveryNthDataPacketSender,
+        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES);
     
     return true;
 }
@@ -180,9 +202,10 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         }
 
         it->second->PostPacketFromManager_ThreadSafe(m_udpReceiveBuffer, bytesTransferred);
-        if (m_udpReceiveBuffer.size() != UINT16_MAX) {
-            std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive: swapped packet not size UINT16_MAX... resizing" << std::endl;
-            m_udpReceiveBuffer.resize(UINT16_MAX);
+        if (m_udpReceiveBuffer.size() != M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES) {
+            std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive: swapped packet not size " 
+                << M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES << "... resizing" << std::endl;
+            m_udpReceiveBuffer.resize(M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES);
         }
         StartUdpReceive(); //restart operation only if there was no error
     }

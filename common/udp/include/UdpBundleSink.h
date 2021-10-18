@@ -26,7 +26,7 @@ public:
 private:
 
     void StartUdpReceive();
-    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
     void PopCbThreadFunc();
     void DoUdpShutdown();
     void HandleSocketShutdown();
@@ -42,6 +42,8 @@ private:
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const unsigned int M_MAX_UDP_PACKET_SIZE_BYTES;
+    std::vector<boost::uint8_t> m_udpReceiveBuffer;
+    boost::asio::ip::udp::endpoint m_remoteEndpoint;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
@@ -51,6 +53,8 @@ private:
     volatile bool m_running;
     volatile bool m_safeToDelete;
     uint32_t m_incomingBundleSize;
+    uint64_t m_countCircularBufferOverruns;
+    bool m_printedCbTooSmallNotice;
 };
 
 

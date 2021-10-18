@@ -4,9 +4,9 @@
         {
             "name": "stcp_bpsink",
             "convergenceLayer": "stcp",
+            "myEndpointId": "ipn:1.1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 200,
-            "numRxCircularBufferBytesPerElement": 20000,
             "keepAliveIntervalSeconds": 15
         }
     ]

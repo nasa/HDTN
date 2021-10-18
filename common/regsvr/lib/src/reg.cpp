@@ -136,7 +136,7 @@ HdtnEntries_ptr HdtnEntries::CreateFromJson(const std::string & jsonString) {
     try {
         return HdtnEntries::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnEntries::CreateFromJson. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }
@@ -148,7 +148,7 @@ HdtnEntries_ptr HdtnEntries::CreateFromJsonFile(const std::string & jsonFileName
     try {
         return HdtnEntries::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnEntries::CreateFromJsonFile. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }

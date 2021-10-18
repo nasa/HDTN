@@ -17,6 +17,14 @@ HdtnConfig::HdtnConfig() :
     m_myNodeId(0),
     m_myCustodialSsp("unused_custodial_ssp"),
     m_myCustodialServiceId(0),
+    m_isAcsAware(true),
+    m_acsMaxFillsPerAcsPacket(100),
+    m_acsSendPeriodMilliseconds(1000),
+    m_retransmitBundleAfterNoCustodySignalMilliseconds(10000),
+    m_maxBundleSizeBytes(10000000), //10MB
+    m_maxIngressBundleWaitOnEgressMilliseconds(2000),
+    m_maxLtpReceiveUdpPacketSizeBytes(65536),
+    m_egressMaxBundlesAwaitingSend(40),
     m_zmqIngressAddress("localhost"),
     m_zmqEgressAddress("localhost"),
     m_zmqStorageAddress("localhost"),
@@ -47,6 +55,14 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_myNodeId(o.m_myNodeId),
     m_myCustodialSsp(o.m_myCustodialSsp),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
+    m_isAcsAware(o.m_isAcsAware),
+    m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
+    m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
+    m_retransmitBundleAfterNoCustodySignalMilliseconds(o.m_retransmitBundleAfterNoCustodySignalMilliseconds),
+    m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
+    m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
+    m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
+    m_egressMaxBundlesAwaitingSend(o.m_egressMaxBundlesAwaitingSend),
     m_zmqIngressAddress(o.m_zmqIngressAddress),
     m_zmqEgressAddress(o.m_zmqEgressAddress),
     m_zmqStorageAddress(o.m_zmqStorageAddress),
@@ -74,6 +90,14 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_myNodeId(o.m_myNodeId),
     m_myCustodialSsp(std::move(o.m_myCustodialSsp)),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
+    m_isAcsAware(o.m_isAcsAware),
+    m_acsMaxFillsPerAcsPacket(o.m_acsMaxFillsPerAcsPacket),
+    m_acsSendPeriodMilliseconds(o.m_acsSendPeriodMilliseconds),
+    m_retransmitBundleAfterNoCustodySignalMilliseconds(o.m_retransmitBundleAfterNoCustodySignalMilliseconds),
+    m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
+    m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
+    m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
+    m_egressMaxBundlesAwaitingSend(o.m_egressMaxBundlesAwaitingSend),
     m_zmqIngressAddress(std::move(o.m_zmqIngressAddress)),
     m_zmqEgressAddress(std::move(o.m_zmqEgressAddress)),
     m_zmqStorageAddress(std::move(o.m_zmqStorageAddress)),
@@ -101,6 +125,14 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_myNodeId = o.m_myNodeId;
     m_myCustodialSsp = o.m_myCustodialSsp;
     m_myCustodialServiceId = o.m_myCustodialServiceId;
+    m_isAcsAware = o.m_isAcsAware;
+    m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
+    m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
+    m_retransmitBundleAfterNoCustodySignalMilliseconds = o.m_retransmitBundleAfterNoCustodySignalMilliseconds;
+    m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
+    m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
+    m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
+    m_egressMaxBundlesAwaitingSend = o.m_egressMaxBundlesAwaitingSend;
     m_zmqIngressAddress = o.m_zmqIngressAddress;
     m_zmqEgressAddress = o.m_zmqEgressAddress;
     m_zmqStorageAddress = o.m_zmqStorageAddress;
@@ -129,6 +161,14 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_myNodeId = o.m_myNodeId;
     m_myCustodialSsp = std::move(o.m_myCustodialSsp);
     m_myCustodialServiceId = o.m_myCustodialServiceId;
+    m_isAcsAware = o.m_isAcsAware;
+    m_acsMaxFillsPerAcsPacket = o.m_acsMaxFillsPerAcsPacket;
+    m_acsSendPeriodMilliseconds = o.m_acsSendPeriodMilliseconds;
+    m_retransmitBundleAfterNoCustodySignalMilliseconds = o.m_retransmitBundleAfterNoCustodySignalMilliseconds;
+    m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
+    m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
+    m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
+    m_egressMaxBundlesAwaitingSend = o.m_egressMaxBundlesAwaitingSend;
     m_zmqIngressAddress = std::move(o.m_zmqIngressAddress);
     m_zmqEgressAddress = std::move(o.m_zmqEgressAddress);
     m_zmqStorageAddress = std::move(o.m_zmqStorageAddress);
@@ -159,6 +199,14 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_zmqIngressAddress == o.m_zmqIngressAddress) &&
         (m_zmqEgressAddress == o.m_zmqEgressAddress) &&
         (m_zmqStorageAddress == o.m_zmqStorageAddress) &&
+        (m_isAcsAware == o.m_isAcsAware) &&
+        (m_acsMaxFillsPerAcsPacket == o.m_acsMaxFillsPerAcsPacket) &&
+        (m_acsSendPeriodMilliseconds == o.m_acsSendPeriodMilliseconds) &&
+        (m_retransmitBundleAfterNoCustodySignalMilliseconds == o.m_retransmitBundleAfterNoCustodySignalMilliseconds) &&
+        (m_maxBundleSizeBytes == o.m_maxBundleSizeBytes) &&
+        (m_maxIngressBundleWaitOnEgressMilliseconds == o.m_maxIngressBundleWaitOnEgressMilliseconds) &&
+        (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
+        (m_egressMaxBundlesAwaitingSend == o.m_egressMaxBundlesAwaitingSend) &&
         (m_zmqRegistrationServerAddress == o.m_zmqRegistrationServerAddress) &&
         (m_zmqSchedulerAddress == o.m_zmqSchedulerAddress) &&
         (m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
@@ -177,37 +225,51 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
 }
 
 bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) {
-    m_hdtnConfigName = pt.get<std::string>("hdtnConfigName", ""); //non-throw version
-    if (m_hdtnConfigName == "") {
-        std::cerr << "error: hdtnConfigName must be defined and not empty string\n";
+    try {
+        m_hdtnConfigName = pt.get<std::string>("hdtnConfigName");
+        if (m_hdtnConfigName == "") {
+            std::cerr << "error parsing JSON HDTN config: hdtnConfigName must be defined and not empty string\n";
+            return false;
+        }
+        m_mySchemeName = pt.get<std::string>("mySchemeName");
+        m_myNodeId = pt.get<uint64_t>("myNodeId");
+        if (m_myNodeId == 0) {
+            std::cerr << "error parsing JSON HDTN config: myNodeId must be defined and not zero\n";
+            return false;
+        }
+        m_myCustodialSsp = pt.get<std::string>("myCustodialSsp");
+        m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId");
+        m_isAcsAware = pt.get<bool>("isAcsAware");
+        m_acsMaxFillsPerAcsPacket = pt.get<uint64_t>("acsMaxFillsPerAcsPacket");
+        m_acsSendPeriodMilliseconds = pt.get<uint64_t>("acsSendPeriodMilliseconds");
+        m_retransmitBundleAfterNoCustodySignalMilliseconds = pt.get<uint64_t>("retransmitBundleAfterNoCustodySignalMilliseconds");
+        m_maxBundleSizeBytes = pt.get<uint64_t>("maxBundleSizeBytes");
+        m_maxIngressBundleWaitOnEgressMilliseconds = pt.get<uint64_t>("maxIngressBundleWaitOnEgressMilliseconds");
+        m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
+        m_egressMaxBundlesAwaitingSend = pt.get<uint64_t>("egressMaxBundlesAwaitingSend");
+
+        m_zmqIngressAddress = pt.get<std::string>("zmqIngressAddress");
+        m_zmqEgressAddress = pt.get<std::string>("zmqEgressAddress");
+        m_zmqStorageAddress = pt.get<std::string>("zmqStorageAddress");
+        m_zmqRegistrationServerAddress = pt.get<std::string>("zmqRegistrationServerAddress");
+        m_zmqSchedulerAddress = pt.get<std::string>("zmqSchedulerAddress");
+
+        m_zmqBoundIngressToConnectingEgressPortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingEgressPortPath");
+        m_zmqConnectingEgressToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundIngressPortPath");
+        m_zmqBoundIngressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingStoragePortPath");
+        m_zmqConnectingStorageToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundIngressPortPath");
+        m_zmqConnectingStorageToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundEgressPortPath");
+        m_zmqBoundEgressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundEgressToConnectingStoragePortPath");
+        m_zmqRegistrationServerPortPath = pt.get<uint16_t>("zmqRegistrationServerPortPath");
+        m_zmqBoundSchedulerPubSubPortPath = pt.get<uint16_t>("zmqBoundSchedulerPubSubPortPath");
+
+        m_zmqMaxMessagesPerPath = pt.get<uint64_t>("zmqMaxMessagesPerPath");
+        m_zmqMaxMessageSizeBytes = pt.get<uint64_t>("zmqMaxMessageSizeBytes");
+    }
+    catch (const boost::property_tree::ptree_error & e) {
+        std::cerr << "error parsing JSON HDTN config: " << e.what() << std::endl;
         return false;
     }
-    m_mySchemeName = pt.get<std::string>("mySchemeName", "unused_scheme_name"); //non-throw version
-    m_myNodeId = pt.get<uint64_t>("myNodeId", 0); //non-throw version
-    if (m_myNodeId == 0) {
-        std::cerr << "error: myNodeId must be defined and not zero\n";
-        return false;
-    }
-    m_myCustodialSsp = pt.get<std::string>("myCustodialSsp", "unused_custodial_ssp"); //non-throw version
-    m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId", 0); //non-throw version
-
-    m_zmqIngressAddress = pt.get<std::string>("zmqIngressAddress", "localhost"); //non-throw version
-    m_zmqEgressAddress = pt.get<std::string>("zmqEgressAddress", "localhost"); //non-throw version
-    m_zmqStorageAddress = pt.get<std::string>("zmqStorageAddress", "localhost"); //non-throw version
-    m_zmqRegistrationServerAddress = pt.get<std::string>("zmqRegistrationServerAddress", "localhost"); //non-throw version
-    m_zmqSchedulerAddress = pt.get<std::string>("zmqSchedulerAddress", "localhost"); //non-throw version
-
-    m_zmqBoundIngressToConnectingEgressPortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingEgressPortPath", 10100); //non-throw version
-    m_zmqConnectingEgressToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundIngressPortPath", 10160); //non-throw version
-    m_zmqBoundIngressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingStoragePortPath", 10110); //non-throw version
-    m_zmqConnectingStorageToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundIngressPortPath", 10150); //non-throw version
-    m_zmqConnectingStorageToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundEgressPortPath", 10120); //non-throw version
-    m_zmqBoundEgressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundEgressToConnectingStoragePortPath", 10130); //non-throw version
-    m_zmqRegistrationServerPortPath = pt.get<uint16_t>("zmqRegistrationServerPortPath", 10140); //non-throw version
-    m_zmqBoundSchedulerPubSubPortPath = pt.get<uint16_t>("zmqBoundSchedulerPubSubPortPath", 10200); //non-throw version
-
-    m_zmqMaxMessagesPerPath = pt.get<uint64_t>("zmqMaxMessagesPerPath", 5); //non-throw version
-    m_zmqMaxMessageSizeBytes = pt.get<uint64_t>("zmqMaxMessageSizeBytes", 5); //non-throw version
 
 
     const boost::property_tree::ptree & inductsConfigPt = pt.get_child("inductsConfig", boost::property_tree::ptree()); //non-throw version
@@ -234,7 +296,7 @@ HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
     try {
         return HdtnConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJson. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }
@@ -246,7 +308,7 @@ HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName) 
     try {
         return HdtnConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJsonFile. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }
@@ -269,7 +331,16 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("mySchemeName", m_mySchemeName);
     pt.put("myNodeId", m_myNodeId);
     pt.put("myCustodialSsp", m_myCustodialSsp);
-    pt.put("myCustodialServiceId", m_myCustodialServiceId); //non-throw version
+    pt.put("myCustodialServiceId", m_myCustodialServiceId);
+    pt.put("isAcsAware", m_isAcsAware);
+    pt.put("acsMaxFillsPerAcsPacket", m_acsMaxFillsPerAcsPacket);
+    pt.put("acsSendPeriodMilliseconds", m_acsSendPeriodMilliseconds);
+    pt.put("retransmitBundleAfterNoCustodySignalMilliseconds", m_retransmitBundleAfterNoCustodySignalMilliseconds);
+    pt.put("maxBundleSizeBytes", m_maxBundleSizeBytes);
+    pt.put("maxIngressBundleWaitOnEgressMilliseconds", m_maxIngressBundleWaitOnEgressMilliseconds);
+    pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
+    pt.put("egressMaxBundlesAwaitingSend", m_egressMaxBundlesAwaitingSend);
+
     pt.put("zmqIngressAddress", m_zmqIngressAddress);
     pt.put("zmqEgressAddress", m_zmqEgressAddress);
     pt.put("zmqStorageAddress", m_zmqStorageAddress);

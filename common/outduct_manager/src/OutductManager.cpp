@@ -25,7 +25,8 @@ void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const Outdu
     m_outductManager_onSuccessfulOutductAckCallback = callback;
 }
 
-bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId) {
+bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp) {
+    LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
     m_finalDestEidToOutductMap.clear();
     m_outductsVec.clear();
     m_threadCommunicationVec.clear();
