@@ -46,7 +46,7 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
     //expiry will always be appended to list (always greater than previous) (duplicate expiries ok)
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     
-    typename std::pair<id_to_listiteratorplususerdata_map_t::iterator, bool> retVal =
+    std::pair<typename id_to_listiteratorplususerdata_map_t::iterator, bool> retVal =
         m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.insert(
             id_to_listiteratorplususerdata_map_insertion_element_t(serialNumber, listiterator_userdata_pair_t()));
     if (retVal.second) {
