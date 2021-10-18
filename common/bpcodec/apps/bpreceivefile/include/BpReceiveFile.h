@@ -29,7 +29,7 @@ public:
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size);
 public:
-    const std::string m_saveDirectory;
+    std::string m_saveDirectory;
     filename_to_writeinfo_map_t m_filenameToWriteInfoMap;
 };
 
