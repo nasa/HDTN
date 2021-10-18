@@ -341,7 +341,7 @@ OutductsConfig_ptr OutductsConfig::CreateFromJson(const std::string & jsonString
     try {
         return OutductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In OutductsConfig::CreateFromJson. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }
@@ -353,7 +353,7 @@ OutductsConfig_ptr OutductsConfig::CreateFromJsonFile(const std::string & jsonFi
     try {
         return OutductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In OutductsConfig::CreateFromJsonFile. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }

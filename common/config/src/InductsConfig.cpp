@@ -279,7 +279,7 @@ InductsConfig_ptr InductsConfig::CreateFromJson(const std::string & jsonString) 
     try {
         return InductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In InductsConfig::CreateFromJson. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }
@@ -291,7 +291,7 @@ InductsConfig_ptr InductsConfig::CreateFromJsonFile(const std::string & jsonFile
     try {
         return InductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In InductsConfig::CreateFromJsonFile. Error: " + std::string(e.what());
         std::cerr << message << std::endl;
     }

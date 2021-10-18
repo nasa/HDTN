@@ -154,7 +154,7 @@ StorageConfig_ptr StorageConfig::CreateFromJson(const std::string & jsonString) 
     try {
         return StorageConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In StorageConfig::CreateFromJson. Error: " + std::string(e.what());
         hdtn::Logger::getInstance()->logError("storage", message);
         std::cerr << message << std::endl;
@@ -167,7 +167,7 @@ StorageConfig_ptr StorageConfig::CreateFromJsonFile(const std::string & jsonFile
     try {
         return StorageConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
     }
-    catch (boost::property_tree::json_parser_error & e) {
+    catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In StorageConfig::CreateFromJsonFile. Error: " + std::string(e.what());
         hdtn::Logger::getInstance()->logError("storage", message);
         std::cerr << message << std::endl;
