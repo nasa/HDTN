@@ -1,9 +1,11 @@
 #include "LtpRandomNumberGenerator.h"
 #include <iostream>
 #include "TimestampUtil.h"
+#ifdef LTP_RNG_USE_RDSEED
 #include <immintrin.h>
 #if defined(__GNUC__)
 #include <x86intrin.h> // rdseed for older compilers
+#endif
 #endif
 #include <inttypes.h>
 
