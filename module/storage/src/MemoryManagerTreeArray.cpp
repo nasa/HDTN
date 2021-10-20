@@ -152,9 +152,9 @@ void MemoryManagerTreeArray::FreeSegmentId(const uint32_t depthIndex, const uint
     uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
     const unsigned int index = (segmentId >> (((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex) * 6)) & 63;
 #if defined(USE_X86_HARDWARE_ACCELERATION) && !defined(__GNUC__)
-    const bool successSet = _bittestandset64((int64_t*)currentBit64Ptr, index);
+    const bool bitWasAlreadyOne = _bittestandset64((int64_t*)currentBit64Ptr, index);
     if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //leaf
-        *success = !successSet; //error if leaf bit is already 1 (empty)
+        *success = !bitWasAlreadyOne; //error if leaf bit is already 1 (empty)
     }
     else { //inner node
         FreeSegmentId(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId, success);
