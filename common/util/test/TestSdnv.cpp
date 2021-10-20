@@ -440,8 +440,8 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 #ifdef USE_X86_HARDWARE_ACCELERATION
         const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(encodedFast.data(), val);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, outputSizeBytesFast);
-        encodedFast.assign(encodedFast.size(), 0);
         BOOST_REQUIRE(encoded == encodedFast);
+        encodedFast.assign(encodedFast.size(), 0);
 #endif
 
         //decode val
