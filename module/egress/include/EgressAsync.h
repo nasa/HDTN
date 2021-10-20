@@ -41,25 +41,24 @@ public:
     uint64_t m_bundleData;
     uint64_t m_messageCount;
 
-    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
-    std::unique_ptr<zmq::context_t> m_zmqCtx_storageEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
+
+    std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
 
 private:
     void ReadZmqThreadFunc();
     void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
-    void ProcessZmqMessagesThreadFunc(
-        CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
-        std::vector<hdtn::ToEgressHdr> & toEgressHeaderMessages,
-        std::vector<zmq::message_t> & payloadMessages);
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
-    
-    boost::condition_variable m_conditionVariableProcessZmqMessages;
 
+    boost::mutex m_mutexPushSignal;
+    volatile bool m_needToSendSignal;
+    volatile std::size_t m_totalEgressInprocSignalsSent;
 
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
     volatile bool m_running;
