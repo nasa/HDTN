@@ -148,7 +148,9 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     std::size_t totalCustodyTransfersSentToIngress = 0;
     std::size_t totalEgressInprocSignalsReceived = 0;
     m_totalEgressInprocSignalsSent = 0;
-    zmq::message_t zmqSignalReceivedJunkData;
+
+    char junkChar;
+    const zmq::mutable_buffer signalRxBufferJunk(&junkChar, sizeof(junkChar));
 
     typedef std::queue<std::unique_ptr<hdtn::EgressAckHdr> > queue_t;
     typedef std::map<uint64_t, queue_t> outductuuid_needacksqueue_map_t;
@@ -251,12 +253,17 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
 
             }
-            if ((items[NUM_SOCKETS - 1].revents & ZMQ_POLLIN) > 0) { //m_zmqPullSignalInprocSockPtr
-                if (m_zmqPullSignalInprocSockPtr->recv(zmqSignalReceivedJunkData, zmq::recv_flags::dontwait)) {
-                    ++totalEgressInprocSignalsReceived;
+            if ((items[NUM_SOCKETS - 1].revents & ZMQ_POLLIN)) { //m_zmqPullSignalInprocSockPtr                
+                const zmq::recv_buffer_result_t res = m_zmqPullSignalInprocSockPtr->recv(signalRxBufferJunk, zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: signal not received" << std::endl;
+                }
+                else if ((res->truncated()) || (res->size != sizeof(junkChar))) {
+                    std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: signal message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(junkChar) << std::endl;
                 }
                 else {
-                    std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: signal not received\n";
+                    ++totalEgressInprocSignalsReceived;
                 }
                 m_needToSendSignal = true;
                 //Check for tcpcl acks from a bpsink-like program.
