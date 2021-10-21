@@ -48,6 +48,7 @@ public:
     std::string m_hdtnConfigName;
     std::string m_mySchemeName;
     uint64_t m_myNodeId;
+    uint64_t m_myBpEchoServiceId;
     std::string m_myCustodialSsp;
     uint64_t m_myCustodialServiceId;
     bool m_isAcsAware;
@@ -57,7 +58,6 @@ public:
     uint64_t m_maxBundleSizeBytes;
     uint64_t m_maxIngressBundleWaitOnEgressMilliseconds;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
-    uint64_t m_egressMaxBundlesAwaitingSend;
 
     std::string m_zmqIngressAddress;
     std::string m_zmqEgressAddress;
@@ -67,6 +67,7 @@ public:
 
     uint16_t m_zmqBoundIngressToConnectingEgressPortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
     uint16_t m_zmqConnectingEgressToBoundIngressPortPath; //#define HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH "tcp://127.0.0.1:10160"
+    uint16_t m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath; //"tcp://127.0.0.1:10161"
     //push-pull from ingress to storage 
     //#define HDTN_STORAGE_PATH "tcp://0.0.0.0:10110"
     uint16_t m_zmqBoundIngressToConnectingStoragePortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_STORAGE_PATH "tcp://127.0.0.1:10110"

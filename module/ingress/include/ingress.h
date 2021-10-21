@@ -16,13 +16,7 @@
 #include <queue>
 #include <boost/atomic.hpp>
 
-// Used to receive multiple datagrams (e.g. recvmmsg)
-#define BP_INGRESS_STRBUF_SZ (8192)
-#define BP_INGRESS_MSG_NBUF (32)
-#define BP_INGRESS_MSG_BUFSZ (65536)
-#define BP_INGRESS_USE_SYSCALL (1)
-#define BP_INGRESS_TYPE_UDP (0x01)
-#define BP_INGRESS_TYPE_STCP (0x02)
+
 
 namespace hdtn {
 
@@ -48,7 +42,9 @@ public:
              zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     bool Process(std::vector<uint8_t> && rxBuf);
+    bool Process(zmq::message_t && rxMsg);
     void ReadZmqAcksThreadFunc();
+    void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
 
 public:
@@ -93,15 +89,13 @@ private:
         std::queue<uint64_t> m_ingressToEgressCustodyIdQueue;
     };
 
-    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressEgressPtr;
+    std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingEgressToBoundIngressPtr;
-    std::unique_ptr<zmq::context_t> m_zmqCtx_ingressStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
-   
-     std::unique_ptr<zmq::context_t> m_zmqCtx_schedulerIngressPtr;
-     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
 
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
@@ -112,6 +106,7 @@ private:
     boost::posix_time::time_duration M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
     
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
+    std::unique_ptr<boost::thread> m_threadTcpclOpportunisticBundlesFromEgressReaderPtr;
     std::queue<uint64_t> m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;

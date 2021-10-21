@@ -10,6 +10,8 @@
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 
+typedef boost::function<void(std::vector<uint8_t> & movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
+
 //tcpcl
 class TcpclBundleSource {
 private:
@@ -17,7 +19,8 @@ private:
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
     TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId,
-        const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize);
+        const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
+        const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
 
     ~TcpclBundleSource();
     void Stop();
@@ -97,7 +100,11 @@ private:
     std::string M_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING;
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
 
-    uint8_t m_tcpReadSomeBuffer[2000];
+    //opportunistic receive bundles
+    const OutductOpportunisticProcessReceivedBundleCallback_t m_outductOpportunisticProcessReceivedBundleCallback;
+    std::vector<uint8_t> m_fragmentedBundleRxConcat;
+
+    std::vector<uint8_t> m_tcpReadSomeBufferVec;
 
 public:
     //tcpcl stats

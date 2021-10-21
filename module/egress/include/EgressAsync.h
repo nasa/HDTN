@@ -44,6 +44,7 @@ public:
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
 
@@ -53,6 +54,8 @@ public:
 private:
     void ReadZmqThreadFunc();
     void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
+    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
 

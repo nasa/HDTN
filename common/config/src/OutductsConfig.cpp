@@ -38,7 +38,8 @@ outduct_element_config_t::outduct_element_config_t() :
     udpRateBps(0),
 
     keepAliveIntervalSeconds(0),
-    tcpclAutoFragmentSizeBytes(0) {}
+    tcpclAutoFragmentSizeBytes(0),
+    tcpclAllowOpportunisticReceiveBundles(true) {}
 outduct_element_config_t::~outduct_element_config_t() {}
 
 
@@ -67,7 +68,8 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     udpRateBps(o.udpRateBps),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
-    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes) { }
+    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes),
+    tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles) { }
 
 //a move constructor: X(X&&)
 outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
@@ -94,7 +96,8 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     udpRateBps(o.udpRateBps),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
-    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes) { }
+    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes),
+    tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles) { }
 
 //a copy assignment: operator=(const X&)
 outduct_element_config_t& outduct_element_config_t::operator=(const outduct_element_config_t& o) {
@@ -123,6 +126,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
+    tcpclAllowOpportunisticReceiveBundles = o.tcpclAllowOpportunisticReceiveBundles;
     return *this;
 }
 
@@ -153,6 +157,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
+    tcpclAllowOpportunisticReceiveBundles = o.tcpclAllowOpportunisticReceiveBundles;
     return *this;
 }
 
@@ -181,7 +186,8 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
-        (tcpclAutoFragmentSizeBytes == o.tcpclAutoFragmentSizeBytes);
+        (tcpclAutoFragmentSizeBytes == o.tcpclAutoFragmentSizeBytes) &&
+        (tcpclAllowOpportunisticReceiveBundles == o.tcpclAllowOpportunisticReceiveBundles);
 }
 
 OutductsConfig::OutductsConfig() {
@@ -321,6 +327,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
 
             if (outductElementConfig.convergenceLayer == "tcpcl") {
                 outductElementConfig.tcpclAutoFragmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclAutoFragmentSizeBytes");
+                outductElementConfig.tcpclAllowOpportunisticReceiveBundles = outductElementConfigPt.second.get<bool>("tcpclAllowOpportunisticReceiveBundles");
             }
             else if (outductElementConfigPt.second.count("tcpclAutoFragmentSizeBytes") != 0) {
                 std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
@@ -409,6 +416,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         }
         if (outductElementConfig.convergenceLayer == "tcpcl") {
             outductElementConfigPt.put("tcpclAutoFragmentSizeBytes", outductElementConfig.tcpclAutoFragmentSizeBytes);
+            outductElementConfigPt.put("tcpclAllowOpportunisticReceiveBundles", outductElementConfig.tcpclAllowOpportunisticReceiveBundles);
         }
     }
 

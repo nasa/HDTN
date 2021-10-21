@@ -14,7 +14,8 @@
                 "ipn:3.1"
             ],
             "keepAliveIntervalSeconds": 17,
-            "tcpclAutoFragmentSizeBytes": 9997
+            "tcpclAutoFragmentSizeBytes": 9997,
+            "tcpclAllowOpportunisticReceiveBundles": false
         }
     ]
 }

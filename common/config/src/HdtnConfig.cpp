@@ -15,6 +15,7 @@ HdtnConfig::HdtnConfig() :
     m_hdtnConfigName("unnamed hdtn config"),
     m_mySchemeName("unused_scheme_name"),
     m_myNodeId(0),
+    m_myBpEchoServiceId(2047), //dtnme default
     m_myCustodialSsp("unused_custodial_ssp"),
     m_myCustodialServiceId(0),
     m_isAcsAware(true),
@@ -24,7 +25,6 @@ HdtnConfig::HdtnConfig() :
     m_maxBundleSizeBytes(10000000), //10MB
     m_maxIngressBundleWaitOnEgressMilliseconds(2000),
     m_maxLtpReceiveUdpPacketSizeBytes(65536),
-    m_egressMaxBundlesAwaitingSend(40),
     m_zmqIngressAddress("localhost"),
     m_zmqEgressAddress("localhost"),
     m_zmqStorageAddress("localhost"),
@@ -32,6 +32,7 @@ HdtnConfig::HdtnConfig() :
     m_zmqSchedulerAddress("localhost"),
     m_zmqBoundIngressToConnectingEgressPortPath(10100),
     m_zmqConnectingEgressToBoundIngressPortPath(10160),
+    m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(10161),
     m_zmqBoundIngressToConnectingStoragePortPath(10110),
     m_zmqConnectingStorageToBoundIngressPortPath(10150),
     m_zmqConnectingStorageToBoundEgressPortPath(10120),
@@ -53,6 +54,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_hdtnConfigName(o.m_hdtnConfigName),
     m_mySchemeName(o.m_mySchemeName),
     m_myNodeId(o.m_myNodeId),
+    m_myBpEchoServiceId(o.m_myBpEchoServiceId),
     m_myCustodialSsp(o.m_myCustodialSsp),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
     m_isAcsAware(o.m_isAcsAware),
@@ -62,7 +64,6 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
-    m_egressMaxBundlesAwaitingSend(o.m_egressMaxBundlesAwaitingSend),
     m_zmqIngressAddress(o.m_zmqIngressAddress),
     m_zmqEgressAddress(o.m_zmqEgressAddress),
     m_zmqStorageAddress(o.m_zmqStorageAddress),
@@ -70,6 +71,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_zmqSchedulerAddress(o.m_zmqSchedulerAddress),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
     m_zmqConnectingEgressToBoundIngressPortPath(o.m_zmqConnectingEgressToBoundIngressPortPath),
+    m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath),
     m_zmqBoundIngressToConnectingStoragePortPath(o.m_zmqBoundIngressToConnectingStoragePortPath),
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
     m_zmqConnectingStorageToBoundEgressPortPath(o.m_zmqConnectingStorageToBoundEgressPortPath),
@@ -88,6 +90,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_hdtnConfigName(std::move(o.m_hdtnConfigName)),
     m_mySchemeName(std::move(o.m_mySchemeName)),
     m_myNodeId(o.m_myNodeId),
+    m_myBpEchoServiceId(o.m_myBpEchoServiceId),
     m_myCustodialSsp(std::move(o.m_myCustodialSsp)),
     m_myCustodialServiceId(o.m_myCustodialServiceId),
     m_isAcsAware(o.m_isAcsAware),
@@ -97,7 +100,6 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
-    m_egressMaxBundlesAwaitingSend(o.m_egressMaxBundlesAwaitingSend),
     m_zmqIngressAddress(std::move(o.m_zmqIngressAddress)),
     m_zmqEgressAddress(std::move(o.m_zmqEgressAddress)),
     m_zmqStorageAddress(std::move(o.m_zmqStorageAddress)),
@@ -105,6 +107,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_zmqSchedulerAddress(std::move(o.m_zmqSchedulerAddress)),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
     m_zmqConnectingEgressToBoundIngressPortPath(o.m_zmqConnectingEgressToBoundIngressPortPath),
+    m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath),
     m_zmqBoundIngressToConnectingStoragePortPath(o.m_zmqBoundIngressToConnectingStoragePortPath),
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
     m_zmqConnectingStorageToBoundEgressPortPath(o.m_zmqConnectingStorageToBoundEgressPortPath),
@@ -123,6 +126,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_hdtnConfigName = o.m_hdtnConfigName;
     m_mySchemeName = o.m_mySchemeName;
     m_myNodeId = o.m_myNodeId;
+    m_myBpEchoServiceId = o.m_myBpEchoServiceId;
     m_myCustodialSsp = o.m_myCustodialSsp;
     m_myCustodialServiceId = o.m_myCustodialServiceId;
     m_isAcsAware = o.m_isAcsAware;
@@ -132,7 +136,6 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
-    m_egressMaxBundlesAwaitingSend = o.m_egressMaxBundlesAwaitingSend;
     m_zmqIngressAddress = o.m_zmqIngressAddress;
     m_zmqEgressAddress = o.m_zmqEgressAddress;
     m_zmqStorageAddress = o.m_zmqStorageAddress;
@@ -140,6 +143,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_zmqSchedulerAddress = o.m_zmqSchedulerAddress;
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
     m_zmqConnectingEgressToBoundIngressPortPath = o.m_zmqConnectingEgressToBoundIngressPortPath;
+    m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
     m_zmqBoundIngressToConnectingStoragePortPath = o.m_zmqBoundIngressToConnectingStoragePortPath;
     m_zmqConnectingStorageToBoundIngressPortPath = o.m_zmqConnectingStorageToBoundIngressPortPath;
     m_zmqConnectingStorageToBoundEgressPortPath = o.m_zmqConnectingStorageToBoundEgressPortPath;
@@ -159,6 +163,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_hdtnConfigName = std::move(o.m_hdtnConfigName);
     m_mySchemeName = std::move(o.m_mySchemeName);
     m_myNodeId = o.m_myNodeId;
+    m_myBpEchoServiceId = o.m_myBpEchoServiceId;
     m_myCustodialSsp = std::move(o.m_myCustodialSsp);
     m_myCustodialServiceId = o.m_myCustodialServiceId;
     m_isAcsAware = o.m_isAcsAware;
@@ -168,7 +173,6 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
-    m_egressMaxBundlesAwaitingSend = o.m_egressMaxBundlesAwaitingSend;
     m_zmqIngressAddress = std::move(o.m_zmqIngressAddress);
     m_zmqEgressAddress = std::move(o.m_zmqEgressAddress);
     m_zmqStorageAddress = std::move(o.m_zmqStorageAddress);
@@ -176,6 +180,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_zmqSchedulerAddress = std::move(o.m_zmqSchedulerAddress);
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
     m_zmqConnectingEgressToBoundIngressPortPath = o.m_zmqConnectingEgressToBoundIngressPortPath;
+    m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
     m_zmqBoundIngressToConnectingStoragePortPath = o.m_zmqBoundIngressToConnectingStoragePortPath;
     m_zmqConnectingStorageToBoundIngressPortPath = o.m_zmqConnectingStorageToBoundIngressPortPath;
     m_zmqConnectingStorageToBoundEgressPortPath = o.m_zmqConnectingStorageToBoundEgressPortPath;
@@ -194,6 +199,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
     return (m_hdtnConfigName == o.m_hdtnConfigName) &&
         (m_mySchemeName == o.m_mySchemeName) &&
         (m_myNodeId == o.m_myNodeId) &&
+        (m_myBpEchoServiceId == o.m_myBpEchoServiceId) &&
         (m_myCustodialSsp == o.m_myCustodialSsp) &&
         (m_myCustodialServiceId == o.m_myCustodialServiceId) &&
         (m_zmqIngressAddress == o.m_zmqIngressAddress) &&
@@ -206,11 +212,11 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_maxBundleSizeBytes == o.m_maxBundleSizeBytes) &&
         (m_maxIngressBundleWaitOnEgressMilliseconds == o.m_maxIngressBundleWaitOnEgressMilliseconds) &&
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
-        (m_egressMaxBundlesAwaitingSend == o.m_egressMaxBundlesAwaitingSend) &&
         (m_zmqRegistrationServerAddress == o.m_zmqRegistrationServerAddress) &&
         (m_zmqSchedulerAddress == o.m_zmqSchedulerAddress) &&
         (m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
         (m_zmqConnectingEgressToBoundIngressPortPath == o.m_zmqConnectingEgressToBoundIngressPortPath) &&
+        (m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath == o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath) &&
         (m_zmqBoundIngressToConnectingStoragePortPath == o.m_zmqBoundIngressToConnectingStoragePortPath) &&
         (m_zmqConnectingStorageToBoundIngressPortPath == o.m_zmqConnectingStorageToBoundIngressPortPath) &&
         (m_zmqConnectingStorageToBoundEgressPortPath == o.m_zmqConnectingStorageToBoundEgressPortPath) &&
@@ -237,6 +243,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
             std::cerr << "error parsing JSON HDTN config: myNodeId must be defined and not zero\n";
             return false;
         }
+        m_myBpEchoServiceId = pt.get<uint64_t>("myBpEchoServiceId");
         m_myCustodialSsp = pt.get<std::string>("myCustodialSsp");
         m_myCustodialServiceId = pt.get<uint64_t>("myCustodialServiceId");
         m_isAcsAware = pt.get<bool>("isAcsAware");
@@ -246,7 +253,6 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_maxBundleSizeBytes = pt.get<uint64_t>("maxBundleSizeBytes");
         m_maxIngressBundleWaitOnEgressMilliseconds = pt.get<uint64_t>("maxIngressBundleWaitOnEgressMilliseconds");
         m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
-        m_egressMaxBundlesAwaitingSend = pt.get<uint64_t>("egressMaxBundlesAwaitingSend");
 
         m_zmqIngressAddress = pt.get<std::string>("zmqIngressAddress");
         m_zmqEgressAddress = pt.get<std::string>("zmqEgressAddress");
@@ -256,6 +262,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
 
         m_zmqBoundIngressToConnectingEgressPortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingEgressPortPath");
         m_zmqConnectingEgressToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundIngressPortPath");
+        m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath");
         m_zmqBoundIngressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingStoragePortPath");
         m_zmqConnectingStorageToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundIngressPortPath");
         m_zmqConnectingStorageToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundEgressPortPath");
@@ -330,6 +337,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("hdtnConfigName", m_hdtnConfigName);
     pt.put("mySchemeName", m_mySchemeName);
     pt.put("myNodeId", m_myNodeId);
+    pt.put("myBpEchoServiceId", m_myBpEchoServiceId);
     pt.put("myCustodialSsp", m_myCustodialSsp);
     pt.put("myCustodialServiceId", m_myCustodialServiceId);
     pt.put("isAcsAware", m_isAcsAware);
@@ -339,7 +347,6 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("maxBundleSizeBytes", m_maxBundleSizeBytes);
     pt.put("maxIngressBundleWaitOnEgressMilliseconds", m_maxIngressBundleWaitOnEgressMilliseconds);
     pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
-    pt.put("egressMaxBundlesAwaitingSend", m_egressMaxBundlesAwaitingSend);
 
     pt.put("zmqIngressAddress", m_zmqIngressAddress);
     pt.put("zmqEgressAddress", m_zmqEgressAddress);
@@ -348,6 +355,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("zmqSchedulerAddress", m_zmqSchedulerAddress);
     pt.put("zmqBoundIngressToConnectingEgressPortPath", m_zmqBoundIngressToConnectingEgressPortPath);
     pt.put("zmqConnectingEgressToBoundIngressPortPath", m_zmqConnectingEgressToBoundIngressPortPath);
+    pt.put("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath", m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath);
     pt.put("zmqBoundIngressToConnectingStoragePortPath", m_zmqBoundIngressToConnectingStoragePortPath);
     pt.put("zmqConnectingStorageToBoundIngressPortPath", m_zmqConnectingStorageToBoundIngressPortPath);
     pt.put("zmqConnectingStorageToBoundEgressPortPath", m_zmqConnectingStorageToBoundEgressPortPath);

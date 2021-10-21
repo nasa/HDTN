@@ -25,7 +25,9 @@ void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const Outdu
     m_outductManager_onSuccessfulOutductAckCallback = callback;
 }
 
-bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp) {
+bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
+    const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback)
+{
     LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
     m_finalDestEidToOutductMap.clear();
     m_outductsVec.clear();
@@ -41,7 +43,12 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         const uint64_t uuidIndex = nextOutductUuidIndex++;
         m_threadCommunicationVec[uuidIndex] = boost::make_unique<thread_communication_t>();
         if (thisOutductConfig.convergenceLayer == "tcpcl") {
-            outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex);
+            if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
+                outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+            }
+            else {
+                outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex);
+            }
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
             outductSharedPtr = boost::make_shared<StcpOutduct>(thisOutductConfig, uuidIndex);
