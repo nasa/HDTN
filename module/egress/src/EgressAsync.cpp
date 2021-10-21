@@ -107,8 +107,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
 void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
     //m_conditionVariableProcessZmqMessages.notify_one();
-    if (m_needToSendSignal) {
-        boost::mutex::scoped_lock lock(m_mutexPushSignal);
+    if (m_needToSendSignal && m_mutexPushSignal.try_lock()) {
         if (m_needToSendSignal) {
             static const char signalByte = 0;
             static const zmq::const_buffer signalByteConstBuf(&signalByte, sizeof(signalByte));
@@ -118,6 +117,7 @@ void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
                 std::cout << "error in hdtn::HegrManagerAsync::OnSuccessfulBundleAck: unable to send signal\n";
             }
         }
+        m_mutexPushSignal.unlock();
     }
 }
 
@@ -266,54 +266,54 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     ++totalEgressInprocSignalsReceived;
                 }
                 m_needToSendSignal = true;
-                //Check for tcpcl acks from a bpsink-like program.
-                //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
-                //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
-                // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
-                // order of the acks.
-                for (outductuuid_needacksqueue_map_t::iterator it = outductUuidToNeedAcksQueueMap.begin(); it != outductUuidToNeedAcksQueueMap.end(); ++it) {
-                    const uint64_t outductUuid = it->first;
-                    //const unsigned int fec = 1; //TODO
-                    queue_t & q = it->second;
-                    if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(outductUuid)) {
-                        const std::size_t numAckedRemaining = outduct->GetTotalDataSegmentsUnacked();
-                        while (q.size() > numAckedRemaining) {
-                            std::unique_ptr<hdtn::EgressAckHdr> & qItem = q.front();
-                            const bool isToStorage = qItem->isToStorage;
-                            //this is an optimization because we only have one chunk to send
-                            //The zmq_msg_init_data() function shall initialise the message object referenced by msg
-                            //to represent the content referenced by the buffer located at address data, size bytes long.
-                            //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
-                            //If provided, the deallocation function ffn shall be called once the data buffer is no longer
-                            //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-                            zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //unique_ptr goes "null" with release()
-                            if (isToStorage) {
-                                if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
-                                    std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
-                                    hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
-                                    break;
-                                }
-                                ++totalCustodyTransfersSentToStorage;
-                            }
-                            else {
-                                //send ack message by echoing back the block
-                                if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
-                                    std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
-                                    hdtn::Logger::getInstance()->logError("egress", "Error: zmq could not send ingress an ack from egress");
-                                    break;
-                                }
-                                ++totalCustodyTransfersSentToIngress;
-                            }
-                            q.pop();
-                        }
-                    }
-                    else {
-                        std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: cannot find outductUuid " << outductUuid << std::endl;
-                    }
-                }
+                
             }
         }
-        
+        //Check for tcpcl acks from a bpsink-like program.
+        //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
+        //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
+        // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
+        // order of the acks.
+        for (outductuuid_needacksqueue_map_t::iterator it = outductUuidToNeedAcksQueueMap.begin(); it != outductUuidToNeedAcksQueueMap.end(); ++it) {
+            const uint64_t outductUuid = it->first;
+            //const unsigned int fec = 1; //TODO
+            queue_t & q = it->second;
+            if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(outductUuid)) {
+                const std::size_t numAckedRemaining = outduct->GetTotalDataSegmentsUnacked();
+                while (q.size() > numAckedRemaining) {
+                    std::unique_ptr<hdtn::EgressAckHdr> & qItem = q.front();
+                    const bool isToStorage = qItem->isToStorage;
+                    //this is an optimization because we only have one chunk to send
+                    //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+                    //to represent the content referenced by the buffer located at address data, size bytes long.
+                    //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+                    //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+                    //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+                    zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //unique_ptr goes "null" with release()
+                    if (isToStorage) {
+                        if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                            std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                            hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                            break;
+                        }
+                        ++totalCustodyTransfersSentToStorage;
+                    }
+                    else {
+                        //send ack message by echoing back the block
+                        if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                            std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
+                            hdtn::Logger::getInstance()->logError("egress", "Error: zmq could not send ingress an ack from egress");
+                            break;
+                        }
+                        ++totalCustodyTransfersSentToIngress;
+                    }
+                    q.pop();
+                }
+            }
+            else {
+                std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: cannot find outductUuid " << outductUuid << std::endl;
+            }
+        }
     }
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
