@@ -153,7 +153,9 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
 
         m_isCutThroughOnlyTest = isCutThroughOnlyTest;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
-            m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes);
+            m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
+            boost::bind(&Ingress::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1),
+            boost::bind(&Ingress::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
     }
@@ -550,6 +552,13 @@ void Ingress::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
     Process(std::move(wholeBundleVec));
+}
+
+void Ingress::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId) {
+    std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+}
+void Ingress::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
+    std::cout << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
 }
 
 }  // namespace hdtn

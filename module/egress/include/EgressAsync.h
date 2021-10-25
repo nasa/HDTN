@@ -60,6 +60,7 @@ private:
     HdtnConfig m_hdtnConfig;
 
     boost::mutex m_mutexPushSignal;
+    boost::mutex m_mutexPushBundleToIngress;
     volatile bool m_needToSendSignal;
     volatile std::size_t m_totalEgressInprocSignalsSent;
 

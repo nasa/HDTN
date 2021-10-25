@@ -371,6 +371,7 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(std::vector<uint8_t> & who
     //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
     //If provided, the deallocation function ffn shall be called once the data buffer is no longer
     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+    boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
     std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(wholeBundleVec));
     zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
     if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::none)) {

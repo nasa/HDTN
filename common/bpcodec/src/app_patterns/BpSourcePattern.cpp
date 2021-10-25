@@ -57,7 +57,9 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     if (inductsConfigPtr) {
         m_useCustodyTransfer = true;
         m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1),
-            *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000); //todo 1MB max bundle size on custody signals
+            *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000, //todo 1MB max bundle size on custody signals
+            OnNewOpportunisticLinkCallback_t(), //unused "null" parameter
+            OnDeletedOpportunisticLinkCallback_t()); //unused "null" parameter
     }
     else {
         m_useCustodyTransfer = false;

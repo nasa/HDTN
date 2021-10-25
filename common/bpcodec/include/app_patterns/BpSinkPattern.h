@@ -26,6 +26,8 @@ private:
     void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
     void TransferRate_TimerExpired(const boost::system::error_code& e);
     void SendAcsFromTimerThread();
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 public:
 
     uint64_t m_totalPayloadBytesRx;
@@ -45,6 +47,7 @@ private:
     InductManager m_inductManager;
     OutductManager m_outductManager;
     bool m_useCustodyTransfer;
+    bool m_useCustodyTransferOverTcpclBidirectionalInduct;
     cbhe_eid_t m_myEid;
     std::string m_myEidUriString;
     std::unique_ptr<CustodyTransferManager> m_custodyTransferManagerPtr;
@@ -56,6 +59,7 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexForward;
+    uint64_t m_tcpclOpportunisticRemoteNodeId;
 };
 
 

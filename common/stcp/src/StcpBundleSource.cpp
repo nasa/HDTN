@@ -152,7 +152,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
     el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
     el->m_constBufferVec.resize(2);
     el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
-    el->m_constBufferVec[1] = boost::asio::buffer(boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size()));
+    el->m_constBufferVec[1] = boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size());
     el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 

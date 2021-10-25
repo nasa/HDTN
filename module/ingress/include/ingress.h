@@ -46,6 +46,8 @@ private:
     void ReadZmqAcksThreadFunc();
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 
 public:
     uint64_t m_bundleCountStorage;
