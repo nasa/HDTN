@@ -69,6 +69,16 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
             BOOST_REQUIRE(entryPtr != NULL);
             BOOST_REQUIRE_EQUAL(custodyId, expectedCustodyId);
             BOOST_REQUIRE(catalogEntryCopiesForVerification[i] == *entryPtr);
+            //return it and take it right back out using just the node id
+            BOOST_REQUIRE(bsc.ReturnEntryToAwaitingSend(*entryPtr, custodyId));
+            entryPtr = bsc.PopEntryFromAwaitingSend(custodyId, std::vector<uint64_t>({ 100 })); //does not exist
+            BOOST_REQUIRE(entryPtr == NULL);
+            entryPtr = bsc.PopEntryFromAwaitingSend(custodyId, std::vector<uint64_t>({ 1000 })); //does not exist
+            BOOST_REQUIRE(entryPtr == NULL);
+            entryPtr = bsc.PopEntryFromAwaitingSend(custodyId, std::vector<uint64_t>({ 501 })); //exists
+            BOOST_REQUIRE(entryPtr != NULL);
+            BOOST_REQUIRE_EQUAL(custodyId, expectedCustodyId);
+            BOOST_REQUIRE(catalogEntryCopiesForVerification[i] == *entryPtr);
             //since request custody was set in the non-fragmented bundle, the custody id shall be retrievable by uuid in a classic rfc5050 custody signal
             uint64_t * cidFromUuidPtr = bsc.GetCustodyIdFromUuid(cbhe_bundle_uuid_nofragment_t(primaries[i]));
             BOOST_REQUIRE(cidFromUuidPtr != NULL);

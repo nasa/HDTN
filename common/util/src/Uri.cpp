@@ -10,6 +10,12 @@ std::string Uri::GetIpnUriString(const uint64_t eidNodeNumber, const uint64_t ei
     fmt % eidNodeNumber % eidServiceNumber;
     return fmt.str();
 }
+std::string Uri::GetIpnUriStringAnyServiceNumber(const uint64_t eidNodeNumber) {
+    static const boost::format fmtTemplate("ipn:%d.*");
+    boost::format fmt(fmtTemplate);
+    fmt % eidNodeNumber;
+    return fmt.str();
+}
 
 bool Uri::ParseIpnUriString(const std::string & uri, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
     if ((uri.length() < 7) || (uri[0] != 'i') || (uri[1] != 'p') || (uri[2] != 'n') || (uri[3] != ':')) {

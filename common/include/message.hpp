@@ -16,6 +16,7 @@
 // Common message types shared by all components
 #define HDTN_MSGTYPE_EGRESS (0x0004)
 #define HDTN_MSGTYPE_STORE (0x0005)
+#define HDTN_MSGTYPE_EGRESS_ADD_OPPORTUNISTIC_LINK (0x0006)
 
 // Egress Messages range is 0xE000 to 0xEAFF
 #define HDTN_MSGTYPE_ENOTIMPL (0xE000)  // convergence layer type not  // implemented
