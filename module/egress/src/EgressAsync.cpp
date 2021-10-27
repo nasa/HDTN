@@ -181,7 +181,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     typedef std::map<uint64_t, queue_t> outductuuid_needacksqueue_map_t;
 
     outductuuid_needacksqueue_map_t outductUuidToNeedAcksQueueMap;
-
+    std::set<uint64_t> availableDestOpportunisticNodeIdsSet;
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
@@ -229,6 +229,16 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                         std::to_string(sizeof(hdtn::ToEgressHdr)));
                     continue;
                 }
+                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_EGRESS_ADD_OPPORTUNISTIC_LINK)) {
+                    std::cout << "egress adding opportunistic link " << toEgressHeader.finalDestEid.nodeId << std::endl;
+                    availableDestOpportunisticNodeIdsSet.insert(toEgressHeader.finalDestEid.nodeId);
+                    continue;
+                }
+                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_EGRESS_REMOVE_OPPORTUNISTIC_LINK)) {
+                    std::cout << "egress removing opportunistic link " << toEgressHeader.finalDestEid.nodeId << std::endl;
+                    availableDestOpportunisticNodeIdsSet.erase(toEgressHeader.finalDestEid.nodeId);
+                    continue;
+                }
                 else if (toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS) {
                     std::cerr << "error: toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS\n";
                     continue;
@@ -244,18 +254,43 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 ++m_messageCount;
                 
                 
-                zmq::message_t zmqMessage;
+                zmq::message_t zmqMessageBundle;
                 //message guaranteed to be there due to the zmq::send_flags::sndmore
-                if (!sockets[itemIndex]->recv(zmqMessage, zmq::recv_flags::none)) {
+                if (!sockets[itemIndex]->recv(zmqMessageBundle, zmq::recv_flags::none)) {
                     std::cerr << "error on sockets[itemIndex]->recv\n";
                     continue;
                 }
                        
-                m_bundleData += zmqMessage.size();
+                m_bundleData += zmqMessageBundle.size();
                 ++m_bundleCount;
 
                 const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
-                if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
+                if ((itemIndex == 1) && availableDestOpportunisticNodeIdsSet.count(finalDestEid.nodeId)) { //from storage and opportunistic link available in ingress
+                    hdtn::EgressAckHdr * egressAckPtr = new hdtn::EgressAckHdr();
+                    //memset 0 not needed because all values set below
+                    egressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
+                    egressAckPtr->base.flags = 0;
+                    egressAckPtr->finalDestEid = finalDestEid;
+                    egressAckPtr->error = 0; //can set later before sending this ack if error
+                    egressAckPtr->deleteNow = !toEgressHeader.hasCustody;
+                    egressAckPtr->isToStorage = 1;
+                    egressAckPtr->custodyId = toEgressHeader.custodyId;
+
+                    zmq::message_t messageWithDataStolen(egressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
+                    if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                        std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                        hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                        break;
+                    }
+                    ++totalCustodyTransfersSentToStorage;
+
+                    boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
+                    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(zmqMessageBundle), zmq::send_flags::none)) { //blocks if above 5 high water mark
+                        std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
+                        hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
+                    }
+                }
+                else if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
                     std::unique_ptr<hdtn::EgressAckHdr> egressAckPtr = boost::make_unique<hdtn::EgressAckHdr>();
                     //memset 0 not needed because all values set below
                     egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
@@ -267,8 +302,8 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
 
                     outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
-                    outduct->Forward(zmqMessage);
-                    if (zmqMessage.size() != 0) {
+                    outduct->Forward(zmqMessageBundle);
+                    if (zmqMessageBundle.size() != 0) {
                         std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
                         hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
                     }
@@ -363,6 +398,7 @@ static void CustomCleanupStdVecUint8(void *data, void *hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
 
+//from egress bidirectional tcpcl outduct receive path and opportunistic link potentially available in ingress (otherwise ingress will give it to storage if unavailable)
 void hdtn::HegrManagerAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //must protect shared resources with mutex.
     //this is an optimization because we only have one chunk to send
@@ -371,10 +407,10 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(std::vector<uint8_t> & who
     //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
     //If provided, the deallocation function ffn shall be called once the data buffer is no longer
     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-    boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
     std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(wholeBundleVec));
     zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
-    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::none)) {
+    boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
+    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::none)) { //blocks if above 5 high water mark
         std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
         hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
     }

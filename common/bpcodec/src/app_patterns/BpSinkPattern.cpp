@@ -60,7 +60,7 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
         inductsConfig, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
-        boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1),
+        boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
         boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
 
     if (outductsConfigPtr) {
@@ -71,11 +71,6 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
         }
-        m_custodyTransferManagerPtr = boost::make_unique<CustodyTransferManager>(isAcsAware, myEid.nodeId, myEid.serviceId);
-        if (isAcsAware) {
-            m_timerAcs.expires_from_now(boost::posix_time::seconds(1));
-            m_timerAcs.async_wait(boost::bind(&BpSinkPattern::AcsNeedToSend_TimerExpired, this, boost::asio::placeholders::error));
-        }
     }
     else if (inductsConfig.m_inductElementConfigVector[0].convergenceLayer == "tcpcl") {
         m_useCustodyTransfer = true;
@@ -85,6 +80,14 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     else {
         m_useCustodyTransfer = false;
         m_useCustodyTransferOverTcpclBidirectionalInduct = false;
+    }
+
+    if (m_useCustodyTransfer) {
+        m_custodyTransferManagerPtr = boost::make_unique<CustodyTransferManager>(isAcsAware, myEid.nodeId, myEid.serviceId);
+        if (isAcsAware) {
+            m_timerAcs.expires_from_now(boost::posix_time::seconds(1));
+            m_timerAcs.async_wait(boost::bind(&BpSinkPattern::AcsNeedToSend_TimerExpired, this, boost::asio::placeholders::error));
+        }
     }
     m_lastPtime = boost::posix_time::microsec_clock::universal_time();
     m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
@@ -142,11 +145,13 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
                         if (custodySignalDestEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
                             std::cerr << "error: custody node id " << custodySignalDestEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId << std::endl;
                         }
-                        else {
-                            TcpclInduct * tcpclInduct = static_cast<TcpclInduct*>(m_inductManager.m_inductsList.front().get());
+                        else if (m_tcpclInductPtr) {
                             m_mutexForward.lock();
-                            successForward = tcpclInduct->ForwardOnOpportunisticLink(custodySignalDestEid.nodeId, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
+                            successForward = m_tcpclInductPtr->ForwardOnOpportunisticLink(custodySignalDestEid.nodeId, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
                             m_mutexForward.unlock();
+                        }
+                        else {
+                            std::cerr << "error: tcpcl induct does not exist to forward custody signal\n";
                         }
                     }
                     else {
@@ -255,11 +260,13 @@ void BpSinkPattern::SendAcsFromTimerThread() {
                 if (custodySignalDestEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
                     std::cerr << "error: acs custody node id " << custodySignalDestEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId << std::endl;
                 }
-                else {
-                    TcpclInduct * tcpclInduct = static_cast<TcpclInduct*>(m_inductManager.m_inductsList.front().get());
+                else if (m_tcpclInductPtr) {
                     m_mutexForward.lock();
-                    successForward = tcpclInduct->ForwardOnOpportunisticLink(custodySignalDestEid.nodeId, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
+                    successForward = m_tcpclInductPtr->ForwardOnOpportunisticLink(custodySignalDestEid.nodeId, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
                     m_mutexForward.unlock();
+                }
+                else {
+                    std::cerr << "error: tcpcl induct does not exist to forward acs custody signal\n";
                 }
             }
             else {
@@ -278,9 +285,14 @@ void BpSinkPattern::SendAcsFromTimerThread() {
     }
 }
 
-void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
-    std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << m_tcpclOpportunisticRemoteNodeId << ".*\n";
+void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+    if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
+    else {
+        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct\n";
+    }
 }
 void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
     m_tcpclOpportunisticRemoteNodeId = 0;

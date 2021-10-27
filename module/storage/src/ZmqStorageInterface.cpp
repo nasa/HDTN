@@ -19,6 +19,8 @@
 #include "Uri.h"
 #include "CustodyTimers.h"
 
+typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
+
 ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
 ZmqStorageInterface::~ZmqStorageInterface() {
@@ -427,7 +429,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 }
 
 //return number of bytes to read for specified links
-static uint64_t PeekOne(const std::vector<std::pair<cbhe_eid_t, bool> > & availableDestLinks, BundleStorageManagerBase & bsm) {
+static uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks, BundleStorageManagerBase & bsm) {
     BundleStorageManagerSession_ReadFromDisk  sessionRead;
     const uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
     if (bytesToReadFromDisk == 0) { //no more of these links to read
@@ -451,7 +453,7 @@ static void CustomCleanupStdVecUint8(void *data, void *hint) {
 }
 
 static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessionRead,
-    const std::vector<std::pair<cbhe_eid_t, bool> > & availableDestLinks,
+    const std::vector<eid_plus_isanyserviceid_pair_t> & availableDestLinks,
     zmq::socket_t *egressSock, BundleStorageManagerBase & bsm, const uint64_t maxBundleSizeToRead)
 {
     //std::cout << "reading\n";
@@ -525,6 +527,21 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
 
 }
 
+static void PrintReleasedLinks(const std::set<eid_plus_isanyserviceid_pair_t> & availableDestLinksSet) {
+    std::string strVals = "[";
+    for (std::set<eid_plus_isanyserviceid_pair_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
+        if (it->second) { //any service id
+            strVals += Uri::GetIpnUriStringAnyServiceNumber((*it).first.nodeId) + ", ";
+        }
+        else { //fully qualified
+            strVals += Uri::GetIpnUriString((*it).first.nodeId, (*it).first.serviceId) + ", ";
+        }
+    }
+    strVals += "]";
+    std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
+    hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
+}
+
 void ZmqStorageInterface::ThreadFunc() {
     BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse this due to expensive heap allocation
     std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
@@ -563,7 +580,6 @@ void ZmqStorageInterface::ThreadFunc() {
     
 
     typedef std::set<uint64_t> custodyid_set_t;
-    typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
     typedef std::map<cbhe_eid_t, custodyid_set_t> finaldesteid_opencustids_map_t;
 
     std::vector<eid_plus_isanyserviceid_pair_t> availableDestLinksNotCloggedVec;
@@ -583,7 +599,6 @@ void ZmqStorageInterface::ThreadFunc() {
     std::size_t numCustodyTransferTimeouts = 0;
 
     std::set<eid_plus_isanyserviceid_pair_t> availableDestLinksSet;
-    //std::set<uint64_t> availableDestOpportunisticNodeIdsSet;
     finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
 
     static constexpr std::size_t minBufSizeBytesReleaseMessages = sizeof(uint64_t) + 
@@ -655,6 +670,28 @@ void ZmqStorageInterface::ThreadFunc() {
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::ToStorageHdr))) {
                     std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)" << std::endl;
                     hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)");
+                    continue;
+                }
+                else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK) {
+                    const uint64_t nodeId = toStorageHeader.ingressUniqueId;
+                    const std::string msg = "finalDestEid ("
+                        + Uri::GetIpnUriStringAnyServiceNumber(nodeId)
+                        + ") will be released from storage";
+                    std::cout << msg << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", msg);
+                    availableDestLinksSet.emplace(cbhe_eid_t(nodeId, 0), true); //true => any service id.. 0 is don't care
+                    PrintReleasedLinks(availableDestLinksSet);
+                    continue;
+                }
+                else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK) {
+                    const uint64_t nodeId = toStorageHeader.ingressUniqueId;
+                    const std::string msg = "finalDestEid ("
+                        + Uri::GetIpnUriStringAnyServiceNumber(nodeId)
+                        + ") will STOP being released from storage";
+                    std::cout << msg << std::endl;
+                    hdtn::Logger::getInstance()->logNotification("storage", msg);
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(nodeId, 0), true)); //true => any service id.. 0 is don't care
+                    PrintReleasedLinks(availableDestLinksSet);
                     continue;
                 }
                 else if (toStorageHeader.base.type != HDTN_MSGTYPE_STORE) {
@@ -741,19 +778,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
                 }
-
-                std::string strVals = "[";
-                for (std::set<eid_plus_isanyserviceid_pair_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
-                    if (it->second) { //any service id
-                        strVals += Uri::GetIpnUriStringAnyServiceNumber((*it).first.nodeId) + ", ";
-                    }
-                    else { //fully qualified
-                        strVals += Uri::GetIpnUriString((*it).first.nodeId, (*it).first.serviceId) + ", ";
-                    }
-                }
-                strVals += "]";
-                std::cout << "Currently Releasing Final Destination Eids: " << strVals << std::endl;
-                hdtn::Logger::getInstance()->logNotification("storage", "Currently Releasing Final Destination Eids: " + strVals);
+                PrintReleasedLinks(availableDestLinksSet);
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //telemetry messages
                 hdtn::CommonHdr commonHeader;

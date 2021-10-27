@@ -15,7 +15,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
-
+#include "Uri.h"
 
 namespace hdtn {
 
@@ -154,7 +154,7 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
         m_isCutThroughOnlyTest = isCutThroughOnlyTest;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
             m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
-            boost::bind(&Ingress::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1),
+            boost::bind(&Ingress::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
             boost::bind(&Ingress::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
 
         std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
@@ -300,7 +300,7 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             std::cout << "caught zmq::error_t in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: " << e.what() << std::endl;
             continue;
         }
-        if ((rc > 0) && (items[0].revents & ZMQ_POLLIN)) { //ack from egress
+        if ((rc > 0) && (items[0].revents & ZMQ_POLLIN)) {
             zmq::message_t zmqMessage;
             //no header, just a bundle as a zmq message
             if (!m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->recv(zmqMessage, zmq::recv_flags::none)) {
@@ -413,8 +413,30 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
     m_eidAvailableSetMutex.lock();
     const bool linkIsUp = (m_finalDestEidAvailableSet.count(finalDestEid) != 0);
     m_eidAvailableSetMutex.unlock();
+    m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.lock();
+    std::map<uint64_t, TcpclInduct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);
+    const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
+    m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     bool shouldTryToUseCustThrough = (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
     bool useStorage = !shouldTryToUseCustThrough;
+    if (isOpportunisticLinkUp) {
+        if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, rxMsg, 3)) { //thread safe forward with 3 second timeout
+            shouldTryToUseCustThrough = false;
+            useStorage = false;
+        }
+        else {
+            std::string msg = "notice in Ingress::Process: tcpcl opportunistic forward timed out after 3 seconds for "
+                + Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId);
+            if (shouldTryToUseCustThrough) {
+                msg += " ..trying the cut-through path instead";
+            }
+            else {
+                msg += " ..sending to storage instead";
+            }
+            std::cerr << msg << std::endl;
+            hdtn::Logger::getInstance()->logError("ingress", msg);
+        }
+    }
     while (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
         shouldTryToUseCustThrough = false; //protection to prevent this loop from ever iterating more than once
         m_egressAckMapQueueMutex.lock();
@@ -554,11 +576,55 @@ void Ingress::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     Process(std::move(wholeBundleVec));
 }
 
-void Ingress::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+void Ingress::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable) {
+    //force natural/64-bit alignment
+    hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
+    zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+
+    //memset 0 not needed because all values set below
+    toEgressHdr->base.type = isAvailable ? HDTN_MSGTYPE_EGRESS_ADD_OPPORTUNISTIC_LINK : HDTN_MSGTYPE_EGRESS_REMOVE_OPPORTUNISTIC_LINK;
+    toEgressHdr->finalDestEid.nodeId = remoteNodeId; //only used field, rest are don't care
+    {
+        //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
+        boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
+        if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::dontwait)) {
+            std::cerr << "ingress can't send ToEgressHdr Opportunistic link message to egress" << std::endl;
+            hdtn::Logger::getInstance()->logError("ingress", "ingress can't send ToEgressHdr Opportunistic link message to egress");
+        }
+    }
+
+    //force natural/64-bit alignment
+    hdtn::ToStorageHdr * toStorageHdr = new hdtn::ToStorageHdr();
+    zmq::message_t zmqMessageToStorageHdrWithDataStolen(toStorageHdr, sizeof(hdtn::ToStorageHdr), CustomCleanupToStorageHdr, toStorageHdr);
+
+    //memset 0 not needed because all values set below
+    toStorageHdr->base.type = isAvailable ? HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK : HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK;
+    toStorageHdr->ingressUniqueId = remoteNodeId; //use this field as the remote node id
+    {
+        boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
+        if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::dontwait)) {
+            std::cerr << "ingress can't send ToStorageHdr Opportunistic link message to storage" << std::endl;
+            hdtn::Logger::getInstance()->logError("ingress", "ingress can't send ToStorageHdr Opportunistic link message to storage");
+        }
+    }
+}
+
+void Ingress::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+    if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+        SendOpportunisticLinkMessages(remoteNodeId, true);
+        boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
+        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
+    }
+    else {
+        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct\n";
+    }
 }
 void Ingress::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
     std::cout << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+    SendOpportunisticLinkMessages(remoteNodeId, false);
+    boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
+    m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);
 }
 
 }  // namespace hdtn

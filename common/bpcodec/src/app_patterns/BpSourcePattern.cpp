@@ -48,11 +48,8 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     m_myCustodianEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, myCustodianServiceId);
     m_detectedNextCustodianSupportsCteb = false;
 
-    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId, UINT16_MAX)) {
-        return;
-    }
 
-
+    OutductOpportunisticProcessReceivedBundleCallback_t outductOpportunisticProcessReceivedBundleCallback; //"null" function by default
     m_custodyTransferUseAcs = custodyTransferUseAcs;
     if (inductsConfigPtr) {
         m_useCustodyTransfer = true;
@@ -61,8 +58,18 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
             OnNewOpportunisticLinkCallback_t(), //unused "null" parameter
             OnDeletedOpportunisticLinkCallback_t()); //unused "null" parameter
     }
+    else if ((outductsConfig.m_outductElementConfigVector[0].convergenceLayer == "tcpcl") && (outductsConfig.m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles)) {
+        m_useCustodyTransfer = true;
+        outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1);
+        std::cout << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer\n";
+    }
     else {
         m_useCustodyTransfer = false;
+    }
+
+
+    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId, UINT16_MAX, outductOpportunisticProcessReceivedBundleCallback)) {
+        return;
     }
 
     m_running = true;
@@ -308,10 +315,10 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             std::cout << "Bpgen Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(4));
         }
-        else if (m_useCustodyTransfer) {
-            std::cout << "Bpgen waiting for 10 seconds to receive custody transfers" << std::endl;
-            boost::this_thread::sleep(boost::posix_time::seconds(10));
-        }
+    }
+    if (m_useCustodyTransfer) {
+        std::cout << "Bpgen waiting for an additional 10 seconds to receive custody transfers" << std::endl;
+        boost::this_thread::sleep(boost::posix_time::seconds(10));
     }
     std::cout << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers << std::endl;
     std::cout << "m_numAcsCustodyTransfers: " << m_numAcsCustodyTransfers << std::endl;

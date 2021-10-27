@@ -245,6 +245,7 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
 
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += dataZmq.size();
+    const uint64_t bundleLength = dataZmq.size();
 
     std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[writeIndex];
     currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
@@ -284,6 +285,27 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
     }
 
     m_bytesToAckCb.CommitWrite(); //pushed
+
+    //send length if requested
+    /*LENGTH messages MUST NOT be sent unless the corresponding flag bit is
+    set in the contact header.  If the flag bit is set, LENGTH messages
+    MAY be sent at the sender's discretion.  LENGTH messages MUST NOT be
+    sent unless the next DATA_SEGMENT message has the 'S' bit set to "1"
+    (i.e., just before the start of a new bundle).
+
+    TODO:
+    A receiver MAY send a BUNDLE_REFUSE message as soon as it receives a
+    LENGTH message without waiting for the next DATA_SEGMENT message.
+    The sender MUST be prepared for this and MUST associate the refusal
+    with the right bundle.*/
+    if ((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_SENDING_OF_LENGTH_MESSAGES)) & (static_cast<unsigned int>(m_contactHeaderFlags))) {
+        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingData.resize(1);
+        Tcpcl::GenerateBundleLength(el->m_underlyingData[0], bundleLength);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+        m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+    }
 
     if (elements.size()) { //is fragmented
         m_totalFragmentedSent += elements.size();
@@ -421,7 +443,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
         DoTcpclShutdown(false, false);
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "Error in UartMcu::HandleTcpReceiveSome: " << error.message() << std::endl;
+        std::cerr << "Error in TcpclBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
     }
 }
 

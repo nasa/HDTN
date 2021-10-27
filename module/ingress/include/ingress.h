@@ -15,7 +15,7 @@
 #include <list>
 #include <queue>
 #include <boost/atomic.hpp>
-
+#include "TcpclInduct.h"
 
 
 namespace hdtn {
@@ -46,9 +46,9 @@ private:
     void ReadZmqAcksThreadFunc();
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
-
+    void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);
 public:
     uint64_t m_bundleCountStorage;
     boost::atomic_uint64_t m_bundleCountEgress;
@@ -124,6 +124,9 @@ private:
     uint64_t m_ingressToStorageNextUniqueId;
     std::set<cbhe_eid_t> m_finalDestEidAvailableSet;
     std::vector<uint64_t> m_schedulerRxBufPtrToStdVec64;
+
+    std::map<uint64_t, TcpclInduct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
+    boost::mutex m_availableDestOpportunisticNodeIdToTcpclInductMapMutex;
 };
 
 

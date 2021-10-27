@@ -8,7 +8,7 @@
 #include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/CustodyTransferManager.h"
 #include <boost/asio.hpp>
-
+#include "TcpclInduct.h"
 
 
 class BpSinkPattern {
@@ -26,7 +26,7 @@ private:
     void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
     void TransferRate_TimerExpired(const boost::system::error_code& e);
     void SendAcsFromTimerThread();
-    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 public:
 
@@ -60,6 +60,7 @@ private:
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexForward;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
+    TcpclInduct * m_tcpclInductPtr;
 };
 
 

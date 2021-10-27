@@ -7,8 +7,9 @@
 #include "InductsConfig.h"
 #include <list>
 
+class Induct;
 typedef boost::function<void(std::vector<uint8_t> & movableBundle)> InductProcessBundleCallback_t;
-typedef boost::function<void(const uint64_t remoteNodeId)> OnNewOpportunisticLinkCallback_t;
+typedef boost::function<void(const uint64_t remoteNodeId, Induct* thisInductPtr)> OnNewOpportunisticLinkCallback_t;
 typedef boost::function<void(const uint64_t remoteNodeId)> OnDeletedOpportunisticLinkCallback_t;
 
 class Induct {
