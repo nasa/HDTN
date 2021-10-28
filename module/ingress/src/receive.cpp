@@ -16,6 +16,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
+#include "codec/BundleViewV6.h"
 
 namespace hdtn {
 
@@ -68,6 +69,8 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
         //  the final 0 is required, as custodial/administration service is always service 0.
         //HDTN shall default m_myCustodialServiceId to 0 although it is changeable in the hdtn config json file
         M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
+
+        M_HDTN_EID_ECHO.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myBpEchoServiceId);
 
         M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION = boost::posix_time::milliseconds(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds);
 
@@ -387,7 +390,7 @@ bool Ingress::Process(std::vector<uint8_t> && rxBuf) {
     return Process(std::move(messageWithDataStolen));
 }
 bool Ingress::Process(zmq::message_t && rxMsg) {
-    const std::size_t messageSize = rxMsg.size();
+    std::size_t messageSize = rxMsg.size();
     if (messageSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
         std::cerr << "error in Ingress::Process: received bundle size (" 
             << messageSize << " bytes) exceeds max bundle size limit of "
@@ -401,12 +404,33 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
     }
 
 
-    const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
+    cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
     static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
     const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
     //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
-    const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+    static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
     const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+    static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
+    const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
+    if (isEcho) {
+        BundleViewV6 bv;
+        if (!bv.LoadBundle((uint8_t *)rxMsg.data(), rxMsg.size())) {
+            std::cerr << "malformed bundle\n";
+            return false;
+        }
+        bpv6_primary_block & bvPrimary = bv.m_primaryBlockView.header;
+        bvPrimary.dst_node = bvPrimary.src_node;
+        bvPrimary.dst_svc = bvPrimary.src_svc;
+        finalDestEid.Set(bvPrimary.dst_node, bvPrimary.dst_svc);
+        bvPrimary.src_node = M_HDTN_EID_ECHO.nodeId;
+        bvPrimary.src_svc = M_HDTN_EID_ECHO.serviceId;
+        primary = bvPrimary;
+        bv.m_primaryBlockView.SetManuallyModified();
+        bv.Render(messageSize + 10);
+        std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+        rxMsg = std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer));
+        messageSize = rxMsg.size();
+    }
     //if (isAdminRecordForHdtnStorage) {
     //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
     //}

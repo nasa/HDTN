@@ -38,12 +38,26 @@ add_executable(bpgen-async
                bpgen/src/BpGenAsyncRunner.cpp
 )
 
+
 target_include_directories(bpgen-async PUBLIC 
 	../include
 	bpgen/include
 	${Boost_INCLUDE_DIRS}
 )
 target_link_libraries(bpgen-async PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib ${pthread_LIB} ${Boost_LIBRARIES})
+
+add_executable(bping
+               bping/src/BPing.cpp
+    	       bping/src/BPingMain.cpp
+               bping/src/BPingRunner.cpp
+)
+
+target_include_directories(bping PUBLIC 
+	../include
+	bping/include
+	${Boost_INCLUDE_DIRS}
+)
+target_link_libraries(bping PUBLIC outduct_manager_lib induct_manager_lib bpcodec hdtn_util bp_app_patterns_lib ${pthread_LIB} ${Boost_LIBRARIES})
 
 if (NOT WIN32)	
 	add_executable(bpsink
