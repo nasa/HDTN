@@ -13,6 +13,11 @@
 #include <inttypes.h>
 #ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
+#if defined(__GNUC__)
+#include <x86intrin.h>
+#define _andn_u64(a, b)   (__andn_u64((a), (b)))
+#endif
+
 #endif
 
  //static uint64_t g_numLeaves = 0;
