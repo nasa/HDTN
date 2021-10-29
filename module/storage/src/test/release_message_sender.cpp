@@ -7,8 +7,8 @@
 #include "HdtnConfig.h"
 
 #include "message.hpp"
-#include "reg.hpp"
 #include "Uri.h"
+#include "zmq.hpp"
 
 //This test code is used to send storage release messages
 //to enable development of the contact schedule and bundle

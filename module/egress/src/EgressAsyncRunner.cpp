@@ -12,7 +12,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
-#include "reg.hpp"
 
 void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";

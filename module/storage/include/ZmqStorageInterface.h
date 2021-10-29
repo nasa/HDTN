@@ -7,7 +7,6 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include "HdtnConfig.h"
-#include "reg.hpp"
 #include "stats.hpp"
 #include "zmq.hpp"
 #include "codec/bpv6.h"

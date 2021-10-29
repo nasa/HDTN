@@ -15,12 +15,12 @@
 #include <iostream>
 #include "Logger.h"
 #include "message.hpp"
-#include "reg.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
+
 
 
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction() {
@@ -110,7 +110,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
         ingressPtr->Init(*hdtnConfig, isCutThroughOnlyTest, hdtnOneProcessZmqInprocContextPtr.get());
 
-        }
 
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();

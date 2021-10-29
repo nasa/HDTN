@@ -9,7 +9,6 @@ add_library(egress_async_lib STATIC
 )
 
 target_link_libraries(egress_async_lib
-    hdtn_reg
     hdtn_util
     log_lib
     outduct_manager_lib

@@ -10,7 +10,6 @@
 #include <ingress.h>
 #include <fstream>
 #include <iostream>
-#include <reg.hpp>
 #include <store.hpp>
 #include <thread>
 #include <zmq.hpp>

@@ -14,7 +14,6 @@
 #include <fstream>
 #include <iostream>
 #include "message.hpp"
-#include "reg.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
