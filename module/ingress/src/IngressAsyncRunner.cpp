@@ -97,33 +97,6 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
         hdtn::Ingress ingress;
         ingress.Init(*hdtnConfig, isCutThroughOnlyTest);
 
-        // finish registration stuff -ingress will find out what egress services have
-        // registered
-        hdtn::HdtnRegsvr regsvr;
-        const std::string connect_regServerPath(
-            std::string("tcp://") +
-            hdtnConfig->m_zmqRegistrationServerAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
-        regsvr.Init(connect_regServerPath, "ingress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PUSH");
-        regsvr.Reg();
-
-        if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
-            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
-            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
-                const hdtn::HdtnEntry & entry = *it;
-                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-                hdtn::Logger::getInstance()->logNotification("ingress", "Entry: " + entry.address + ":" + 
-                    std::to_string(entry.port) + ":" + entry.mode);
-            }
-        }
-        else {
-            std::cerr << "error: null registration query" << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", "Error: null registration query");
-            return false;
-        }
-
-
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
