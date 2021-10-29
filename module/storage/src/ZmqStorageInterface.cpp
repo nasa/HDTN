@@ -44,38 +44,7 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
     M_HDTN_EID_CUSTODY.Set(m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_myCustodialServiceId);
     m_hdtnOneProcessZmqInprocContextPtr = hdtnOneProcessZmqInprocContextPtr;
 
-    {
-        std::cout << "[storage] Executing registration ..." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "Executing Registration");
-        hdtn::HdtnRegsvr storeReg;
-        hdtn::HdtnRegsvr telemReg;
-        const std::string connect_regServerPath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqRegistrationServerAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqRegistrationServerPortPath));
-        storeReg.Init(connect_regServerPath, "storage", m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath, "push");
-        telemReg.Init(connect_regServerPath, "c2/telem", 10460, "rep"); //TODO FIX
-        storeReg.Reg();
-        telemReg.Reg();
-        std::cout << "[storage] Registration completed." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "Registration Completed");
-
-
-
-        hdtn::HdtnEntries_ptr entries = storeReg.Query("ingress");
-        while (!entries || entries->m_hdtnEntryList.empty()) {
-            boost::this_thread::sleep(boost::posix_time::seconds(1));
-            std::cout << "[storage] Waiting for available ingress system ..." << std::endl;
-            hdtn::Logger::getInstance()->logNotification("storage", "[storage] Waiting for available ingress system ...");
-            entries = storeReg.Query("ingress");
-        }
-        const hdtn::HdtnEntryList_t & entryList = entries->m_hdtnEntryList;
-
-        std::string remote = entryList.front().protocol + "://" + entryList.front().address + ":" + std::to_string(entryList.front().port);
-        std::cout << "[storage] Found available ingress: " << remote << " - connecting ..." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "[storage] Found available ingress: " + remote + " - connecting ...");
-    }
+    //{
 
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
 
