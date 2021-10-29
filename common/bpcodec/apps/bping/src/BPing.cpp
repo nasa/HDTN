@@ -39,7 +39,7 @@ bool BPing::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint6
     memcpy(&bPingData, data, sizeof(bPingData));
     const boost::posix_time::time_duration diff = nowTime - bPingData.sendTime;
     const double millisecs = (static_cast<double>(diff.total_microseconds())) * 0.001;
-    static const boost::format fmtTemplate("Ping received: sequence=%d, took %0.4f milliseconds");
+    static const boost::format fmtTemplate("Ping received: sequence=%d, took %0.3f milliseconds");
     boost::format fmt(fmtTemplate);
     fmt % bPingData.sequence % millisecs;
     std::cout << fmt.str() << std::endl;

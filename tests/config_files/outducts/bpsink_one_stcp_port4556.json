@@ -2,18 +2,15 @@
     "outductConfigName": "myconfig",
     "outductVector": [
         {
-            "name": "bpgen",
+            "name": "bpsink custody signals out",
             "convergenceLayer": "stcp",
-            "nextHopEndpointId": "ipn:10.1",
+            "nextHopEndpointId": "ipn:10.0",
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,
             "finalDestinationEidUris": [
-                "ipn:1.1",
-                "ipn:2.1",
-                "ipn:3.1",
-                "ipn:10.2047",
-                "ipn:2.2047"
+                "ipn:10.0",
+                "ipn:1.1"
             ],
             "keepAliveIntervalSeconds": 17
         }

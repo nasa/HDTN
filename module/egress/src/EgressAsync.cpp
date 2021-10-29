@@ -11,6 +11,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
     //m_flags = 0;
@@ -309,7 +310,8 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     }
                 }
                 else {
-                    std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for flow id " << finalDestEid.nodeId << std::endl;
+                    std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for " 
+                        << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId) << std::endl;
                 }
 
             }

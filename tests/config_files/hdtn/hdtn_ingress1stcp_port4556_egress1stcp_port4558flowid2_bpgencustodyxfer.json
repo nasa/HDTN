@@ -33,12 +33,11 @@
         "inductConfigName": "myconfig",
         "inductVector": [
             {
-                "name": "tcpcl_ingress",
-                "convergenceLayer": "tcpcl",
+                "name": "stcp_ingress",
+                "convergenceLayer": "stcp",
                 "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
-                "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15
             }
         ]
@@ -47,32 +46,30 @@
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl",
+                "name": "stcp_egress",
+                "convergenceLayer": "stcp",
                 "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:2.1"
+                    "ipn:2.1",
+                    "ipn:2.2047"
                 ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
+                "keepAliveIntervalSeconds": 17
             },
             {
-                "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl",
-                "nextHopEndpointId": "ipn:1.0",
+                "name": "stcp_egress",
+                "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:1.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4560,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:1.0"
+                    "ipn:1.0",
+                    "ipn:1.1"
                 ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
+                "keepAliveIntervalSeconds": 17
             }
         ]
     },

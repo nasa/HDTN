@@ -33,12 +33,20 @@
         "inductConfigName": "myconfig",
         "inductVector": [
             {
-                "name": "tcpcl_ingress",
+                "name": "tcpcl_bidirectional_ingress",
                 "convergenceLayer": "tcpcl",
                 "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
+                "keepAliveIntervalSeconds": 15
+            },
+            {
+                "name": "stcp_ingress_custody",
+                "convergenceLayer": "stcp",
+                "myEndpointId": "ipn:10.2",
+                "boundPort": 4557,
+                "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
             }
         ]
@@ -57,20 +65,6 @@
                     "ipn:2.1"
                 ],
                 "udpRateBps": 10000000000
-            },
-            {
-                "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl",
-                "nextHopEndpointId": "ipn:1.0",
-                "remoteHostname": "localhost",
-                "remotePort": 4560,
-                "bundlePipelineLimit": 5,
-                "finalDestinationEidUris": [
-                    "ipn:1.0"
-                ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
             }
         ]
     },
