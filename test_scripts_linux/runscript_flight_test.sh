@@ -8,10 +8,6 @@ gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json
 
 cd $HDTN_SOURCE_ROOT
 
-# registration server
-python3 ./common/regsvr/main.py &
-sleep 3
-
 # bpsink
 ./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:2.1 --inducts-config-file=$sink_config &
 bpsink_PID=$!
@@ -55,8 +51,6 @@ sleep 2
 echo "\nkilling egress..." && kill -2 $egress_PID
 sleep 2
 echo "\nkilling bpsink..." && kill -2 $bpsink_PID
-sleep 2
-echo "\nkilling registration server..." && pkill -9 -f main.py
 
 
 

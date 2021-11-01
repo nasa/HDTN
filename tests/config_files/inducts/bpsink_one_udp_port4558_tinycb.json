@@ -6,7 +6,7 @@
             "convergenceLayer": "udp",
             "myEndpointId": "ipn:2.1",
             "boundPort": 4558,
-            "numRxCircularBufferElements": 20,
+            "numRxCircularBufferElements": 10,
             "numRxCircularBufferBytesPerElement": 65535
         }
     ]

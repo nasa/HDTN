@@ -67,6 +67,8 @@ public:
 
     //Read
     uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids); //0 if empty, size if entry
+    uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestNodeIds); //0 if empty, size if entry
+    uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<std::pair<cbhe_eid_t, bool> > & availableDests); //0 if empty, size if entry
     bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
     bool ReturnCustodyIdToAwaitingSend(const uint64_t custodyId); //for expired custody timers
     catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer

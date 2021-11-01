@@ -4,9 +4,11 @@
 #include <boost/make_shared.hpp>
 #include <boost/lexical_cast.hpp>
 
-TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid) :
+TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
+    const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
-    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId, outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclAutoFragmentSizeBytes)
+    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
+        outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclAutoFragmentSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {}
 TcpclOutduct::~TcpclOutduct() {}
 

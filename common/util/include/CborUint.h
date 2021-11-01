@@ -42,7 +42,7 @@ uint64_t CborDecodeU64Classic(const uint8_t * const inputEncoded, uint8_t * numB
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t CborDecodeU64ClassicBufSize9(const uint8_t * const inputEncoded, uint8_t * numBytes);
 	
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
 //return output size
 unsigned int CborEncodeU64Fast(uint8_t * const outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize);
 
@@ -57,6 +57,6 @@ uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, uint8_t * numByte
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t * numBytes);
 
-#endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
 
 #endif      // _CBOR_UINT_H 

@@ -5,7 +5,9 @@
 #include <vector>
 #include "CborUint.h"
 #include <boost/timer/timer.hpp>
+#ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
+#endif
 
 /*
     //https://datatracker.ietf.org/doc/html/rfc8949#appendix-A
@@ -170,7 +172,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
         BOOST_REQUIRE_EQUAL(decodedValueClassic, valueToEncode);
 
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
 
         //encode fast
         encodedFast.resize(9);
@@ -198,7 +200,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
         BOOST_REQUIRE_EQUAL(decodedValueFast, valueToEncode);
 
-#endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
 
     }
 
@@ -239,7 +241,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
         CborDecodeU64Classic(encodedClassic.data(), &numBytesTakenToDecode, expectedEncodingSize - 1);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, 0);
 
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
 
         
         //fail encoding if buffer too small (must return encoding size 0)
@@ -266,7 +268,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
         CborDecodeU64Fast(encodedFast.data(), &numBytesTakenToDecode, expectedEncodingSize - 1);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, 0);
 
-#endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
 
     }
 
@@ -341,6 +343,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE_EQUAL(totalBytesEncodedClassicBufSize9, totalExpectedEncodingSize * LOOP_COUNT);
     }
 
+#ifdef USE_X86_HARDWARE_ACCELERATION
     //ENCODE ARRAY OF VALS (FAST)
     {
         std::cout << "encode fast\n";
@@ -376,7 +379,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         //std::cout << "totalBytesEncoded " << totalBytesEncoded << std::endl;
         BOOST_REQUIRE_EQUAL(totalBytesEncodedFastBufSize9, totalExpectedEncodingSize * LOOP_COUNT);
     }
-
+#endif
 
     //DECODE ARRAY OF VALS (CLASSIC)
     {
@@ -430,6 +433,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE(allDecodedVals == allExpectedDecodedValues);
     }
 
+#ifdef USE_X86_HARDWARE_ACCELERATION
     //DECODE ARRAY OF VALS (FAST)
     {
         std::cout << "decode fast\n";
@@ -481,7 +485,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE_EQUAL(totalBytesDecoded, totalExpectedEncodingSize * LOOP_COUNT);
         BOOST_REQUIRE(allDecodedVals == allExpectedDecodedValues);
     }
-
+#endif
     
 }
 

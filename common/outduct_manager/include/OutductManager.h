@@ -8,6 +8,7 @@
 #include <zmq.hpp>
 #include <boost/thread.hpp>
 #include "codec/bpv6.h"
+#include "TcpclBundleSource.h" //for OutductOpportunisticProcessReceivedBundleCallback_t
 
 class OutductManager {
 public:
@@ -15,7 +16,8 @@ public:
 
     OutductManager();
     ~OutductManager();
-    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
+    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
+        const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
     void Clear();
     bool AllReadyToForward() const;
     void StopAllOutducts();

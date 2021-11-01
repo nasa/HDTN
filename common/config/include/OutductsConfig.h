@@ -42,6 +42,7 @@ struct outduct_element_config_t {
 
     //specific to tcpcl
     uint64_t tcpclAutoFragmentSizeBytes;
+    bool tcpclAllowOpportunisticReceiveBundles;
 
     outduct_element_config_t();
     ~outduct_element_config_t();

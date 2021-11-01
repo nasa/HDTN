@@ -17,7 +17,6 @@
 #include <ingress.h>
 #include <fstream>
 #include <iostream>
-#include <reg.hpp>
 #include <thread>
 #include <zmq.hpp>
 #include <stdio.h>
@@ -64,26 +63,25 @@ class BoostIntegratedTestsFixture {
 public:
     BoostIntegratedTestsFixture();
     ~BoostIntegratedTestsFixture();
-    bool m_runningPythonServer;
-    void StopPythonServer();
+    //bool m_runningPythonServer;
+    //void StopPythonServer();
 private:
-    void StartPythonServer();
+    //void StartPythonServer();
     void MonitorExitKeypressThreadFunction();
-    std::unique_ptr<boost::process::child> m_childPtr;
-    std::unique_ptr<boost::thread> m_threadPythonPtr;
+    //std::unique_ptr<boost::process::child> m_childPtr;
+    //std::unique_ptr<boost::thread> m_threadPythonPtr;
 };
 
 BoostIntegratedTestsFixture::BoostIntegratedTestsFixture() {
     boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
     boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
-    m_threadPythonPtr = boost::make_unique<boost::thread>(boost::bind(&BoostIntegratedTestsFixture::StartPythonServer,
-                                                                      this));
+    //m_threadPythonPtr = boost::make_unique<boost::thread>(boost::bind(&BoostIntegratedTestsFixture::StartPythonServer, this));
 }
 
 BoostIntegratedTestsFixture::~BoostIntegratedTestsFixture() {
-    this->StopPythonServer();
+    //this->StopPythonServer();
 }
-
+/*
 void BoostIntegratedTestsFixture::StopPythonServer() {
     m_runningPythonServer = false;
     if (m_childPtr) {
@@ -113,10 +111,10 @@ void BoostIntegratedTestsFixture::StartPythonServer() {
         }
     }
 }
-
+*/
 void BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting " << std::endl << std::flush;
-    this->StopPythonServer();
+    //this->StopPythonServer();
 }
 
 void Delay(uint64_t seconds) {

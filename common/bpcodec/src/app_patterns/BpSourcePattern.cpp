@@ -18,6 +18,9 @@ BpSourcePattern::BpSourcePattern() : m_running(false) {
 
 BpSourcePattern::~BpSourcePattern() {
     Stop();
+    std::cout << "totalNonAdminRecordPayloadBytesRx: " << m_totalNonAdminRecordPayloadBytesRx << "\n";
+    std::cout << "totalNonAdminRecordBundleBytesRx: " << m_totalNonAdminRecordBundleBytesRx << "\n";
+    std::cout << "totalNonAdminRecordBundlesRx: " << m_totalNonAdminRecordBundlesRx << "\n";
 }
 
 void BpSourcePattern::Stop() {
@@ -36,7 +39,8 @@ void BpSourcePattern::Stop() {
 }
 
 void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
-    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId) {
+    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody) {
     if (m_running) {
         std::cerr << "error: BpSourcePattern::Start called while BpSourcePattern is already running" << std::endl;
         return;
@@ -47,20 +51,38 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     m_myCustodianEid.Set(m_myEid.nodeId, myCustodianServiceId);
     m_myCustodianEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, myCustodianServiceId);
     m_detectedNextCustodianSupportsCteb = false;
+    m_requireRxBundleBeforeNextTx = requireRxBundleBeforeNextTx;
 
-    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId, UINT16_MAX)) {
-        return;
-    }
+    m_totalNonAdminRecordPayloadBytesRx = 0;
+    m_totalNonAdminRecordBundleBytesRx = 0;
+    m_totalNonAdminRecordBundlesRx = 0;
 
 
+    OutductOpportunisticProcessReceivedBundleCallback_t outductOpportunisticProcessReceivedBundleCallback; //"null" function by default
     m_custodyTransferUseAcs = custodyTransferUseAcs;
     if (inductsConfigPtr) {
         m_useCustodyTransfer = true;
-        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeCustodySignalBundleReadyCallback, this, boost::placeholders::_1),
-            *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000); //todo 1MB max bundle size on custody signals
+        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1),
+            *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000, //todo 1MB max bundle size on custody signals
+            OnNewOpportunisticLinkCallback_t(), //unused "null" parameter
+            OnDeletedOpportunisticLinkCallback_t()); //unused "null" parameter
+    }
+    else if ((outductsConfig.m_outductElementConfigVector[0].convergenceLayer == "tcpcl") && (outductsConfig.m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles)) {
+        m_useCustodyTransfer = true;
+        outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
+        std::cout << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer\n";
     }
     else {
         m_useCustodyTransfer = false;
+    }
+
+    if (forceDisableCustody) { //for bping which needs to receive echo packets instead of admin records
+        m_useCustodyTransfer = false;
+    }
+
+
+    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId, UINT16_MAX, outductOpportunisticProcessReceivedBundleCallback)) {
+        return;
     }
 
     m_running = true;
@@ -76,6 +98,9 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
 
 
 void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
+
+    boost::mutex waitingForRxBundleBeforeNextTxMutex;
+    boost::mutex::scoped_lock waitingForRxBundleBeforeNextTxLock(waitingForRxBundleBeforeNextTxMutex);
 
     while (m_running) {
         std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
@@ -94,13 +119,13 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
     #define BP_MSG_BUFSZ             (65536 * 100) //todo
 
-    double sval = 0.0;
-    uint64_t sValU64 = 0;
+    boost::posix_time::time_duration sleepValTimeDuration = boost::posix_time::special_values::neg_infin;
     if(bundleRate) {
         std::cout << "Generating up to " << bundleRate << " bundles / second" << std::endl;
-        sval = 1000000.0 / bundleRate;   // sleep val in usec
+        const double sval = 1000000.0 / bundleRate;   // sleep val in usec
         ////sval *= BP_MSG_NBUF;
-        sValU64 = static_cast<uint64_t>(sval);
+        const uint64_t sValU64 = static_cast<uint64_t>(sval);
+        sleepValTimeDuration = boost::posix_time::microseconds(sValU64);
         std::cout << "Sleeping for " << sValU64 << " usec between bursts" << std::endl;
     }
     else {
@@ -135,7 +160,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::mutex::scoped_lock lock(localMutex);
 
     boost::asio::io_service ioService;
-    boost::asio::deadline_timer deadlineTimer(ioService, boost::posix_time::microseconds(sValU64));
+    boost::asio::deadline_timer deadlineTimer(ioService, sleepValTimeDuration);
     std::vector<uint8_t> bundleToSend;
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     while (m_running) { //keep thread alive if running
@@ -148,7 +173,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 std::cout << "timer error: " << ec.message() << std::endl;
                 return;
             }
-            deadlineTimer.expires_at(deadlineTimer.expires_at() + boost::posix_time::microseconds(sValU64));
+            deadlineTimer.expires_at(deadlineTimer.expires_at() + sleepValTimeDuration);
         }
         
         const uint64_t bundleSizeBytes = GetNextPayloadLength_Step1();
@@ -274,22 +299,24 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
         //send message
         while (m_running) {
+            m_isWaitingForRxBundleBeforeNextTx = true;
             if (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, 3)) {
                 std::cerr << "bpgen was unable to send a bundle for 3 seconds.. retrying" << std::endl;
             }
-            else {
+            else { //success forward
+                if (bundleToSend.size() != 0) {
+                    std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
+                    std::cerr << "bundleToSend.size() : " << bundleToSend.size() << std::endl;
+                }
                 ++m_bundleCount;
                 bundle_data += bundleSizeBytes;     // payload data
                 raw_data += bundleLength; // bundle overhead + payload data
+                while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) {
+                    m_waitingForRxBundleBeforeNextTxConditionVariable.timed_wait(waitingForRxBundleBeforeNextTxLock, boost::posix_time::milliseconds(10));
+                }
                 break;
             }
         }
-       
-        if (bundleToSend.size() != 0) {
-            std::cerr << "error in BpGenAsync::BpGenThreadFunc: bundleToSend was not moved in Forward" << std::endl;
-            std::cerr << "bundleToSend.size() : " << bundleToSend.size() << std::endl;
-        }
-
     }
     //todo m_outductManager.StopAllOutducts(); //wait for all pipelined bundles to complete before getting a finishedTime
     boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
@@ -306,9 +333,24 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             std::cout << "Bpgen Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(4));
         }
-        else if (m_useCustodyTransfer) {
-            std::cout << "Bpgen waiting for 10 seconds to receive custody transfers" << std::endl;
-            boost::this_thread::sleep(boost::posix_time::seconds(10));
+    }
+    if (m_useCustodyTransfer) {
+        uint64_t lastNumCustodyTransfers = UINT64_MAX;
+        while (true) {
+            const uint64_t totalCustodyTransfers = std::max(m_numRfc5050CustodyTransfers, m_numAcsCustodyTransfers);
+            if (totalCustodyTransfers == m_bundleCount) {
+                std::cout << "Bpgen received all custody transfers" << std::endl;
+                break;
+            }
+            else if (totalCustodyTransfers != lastNumCustodyTransfers) {
+                lastNumCustodyTransfers = totalCustodyTransfers;
+                std::cout << "Bpgen waiting for an additional 10 seconds to receive custody transfers" << std::endl;
+                boost::this_thread::sleep(boost::posix_time::seconds(10));
+            }
+            else {
+                std::cout << "Bpgen received no custody transfers for the last 10 seconds.. exiting" << std::endl;
+                break;
+            }
         }
     }
     std::cout << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers << std::endl;
@@ -328,7 +370,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
 }
 
-void BpSourcePattern::WholeCustodySignalBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void BpSourcePattern::WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
     //if more than 1 Induct, must protect shared resources with mutex.  Each Induct has
     //its own processing thread that calls this callback
 
@@ -339,82 +381,116 @@ void BpSourcePattern::WholeCustodySignalBundleReadyCallback(std::vector<uint8_t>
     }
     //check primary
     bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-    const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    if ((primary.flags & requiredPrimaryFlags) != requiredPrimaryFlags) {
-        std::cerr << "custody signal has wrong primary flags\n";
-        return;
-    }
     const cbhe_eid_t receivedFinalDestinationEid(primary.dst_node, primary.dst_svc);
-    if (receivedFinalDestinationEid != m_myCustodianEid) {
-        std::cerr << "custody signal has wrong destination\n";
-        return;
-    }
+    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+    if ((primary.flags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)
 
-    if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
-        std::cerr << "error admin record has canonical block\n";
-        return;
-    }
-    if (bv.m_applicationDataUnitStartPtr == NULL) { //admin record is not canonical
-        std::cerr << "error null application data unit\n";
-        return;
-    }
-    const uint8_t adminRecordType = (*bv.m_applicationDataUnitStartPtr >> 4);
-
-    if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::AGGREGATE_CUSTODY_SIGNAL)) {
-        m_detectedNextCustodianSupportsCteb = true;
-        ++m_numAcsPacketsReceived;
-        //check acs
-        AggregateCustodySignal acs;
-        if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_frontBuffer.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
-            std::cerr << "malformed ACS\n";
-            return;
-        }
-        if (!acs.DidCustodyTransferSucceed()) {
-            std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode()) << "\n";
+        
+        if (receivedFinalDestinationEid != m_myEid) {
+            std::cerr << "BpSourcePattern received a bundle with final destination " 
+                << Uri::GetIpnUriString(receivedFinalDestinationEid.nodeId, receivedFinalDestinationEid.serviceId)
+                << " that does not match this destination " << Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId) << "\n";
             return;
         }
 
-        m_mutexCtebSet.lock();
-        for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-            m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
-            FragmentSet::RemoveFragment(m_outstandingCtebCustodyIdsFragmentSet, *it);
+        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+        if (blocks.size() != 1) {
+            std::cerr << "error BpSourcePattern received a non-admin-record bundle with no payload block\n";
+            return;
         }
-        m_mutexCtebSet.unlock();
+        bpv6_canonical_block & payloadBlock = blocks[0]->header;
+        m_totalNonAdminRecordPayloadBytesRx += payloadBlock.length;
+        m_totalNonAdminRecordBundleBytesRx += bv.m_renderedBundle.size();
+        ++m_totalNonAdminRecordBundlesRx;
+
+        boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
+        if (!ProcessNonAdminRecordBundlePayload((const uint8_t *)blockBodyBuffer.data(), blockBodyBuffer.size())) {
+            std::cerr << "error ProcessNonAdminRecordBundlePayload\n";
+            return;
+        }
+        m_isWaitingForRxBundleBeforeNextTx = false;
+        m_waitingForRxBundleBeforeNextTxConditionVariable.notify_one();
     }
-    else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
-        CustodySignal cs;
-        uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
-        if (numBytesTakenToDecode == 0) {
-            std::cerr << "malformed CustodySignal\n";
+    else { //admin record
+
+        if (receivedFinalDestinationEid != m_myCustodianEid) {
+            std::cerr << "BpSourcePattern received an admin record bundle with final destination "
+                << Uri::GetIpnUriString(receivedFinalDestinationEid.nodeId, receivedFinalDestinationEid.serviceId)
+                << " that does not match this custodial destination " << Uri::GetIpnUriString(m_myCustodianEid.nodeId, m_myCustodianEid.serviceId) << "\n";
             return;
         }
-        if (!cs.DidCustodyTransferSucceed()) {
-            std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(cs.GetReasonCode()) << "\n";
+
+        if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
+            std::cerr << "error admin record has canonical block\n";
             return;
         }
-        if (cs.m_isFragment) {
-            std::cerr << "error custody signal with fragmentation received\n";
+        if (bv.m_applicationDataUnitStartPtr == NULL) { //admin record is not canonical
+            std::cerr << "error null application data unit\n";
             return;
         }
-        cbhe_bundle_uuid_nofragment_t uuid;
-        if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-            std::cerr << "error custody signal with bad ipn string\n";
+        const uint8_t adminRecordType = (*bv.m_applicationDataUnitStartPtr >> 4);
+
+        if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::AGGREGATE_CUSTODY_SIGNAL)) {
+            m_detectedNextCustodianSupportsCteb = true;
+            ++m_numAcsPacketsReceived;
+            //check acs
+            AggregateCustodySignal acs;
+            if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_frontBuffer.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
+                std::cerr << "malformed ACS\n";
+                return;
+            }
+            if (!acs.DidCustodyTransferSucceed()) {
+                std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode()) << "\n";
+                return;
+            }
+
+            m_mutexCtebSet.lock();
+            for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+                FragmentSet::RemoveFragment(m_outstandingCtebCustodyIdsFragmentSet, *it);
+            }
+            m_mutexCtebSet.unlock();
+        }
+        else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
+            CustodySignal cs;
+            uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
+            if (numBytesTakenToDecode == 0) {
+                std::cerr << "malformed CustodySignal\n";
+                return;
+            }
+            if (!cs.DidCustodyTransferSucceed()) {
+                std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(cs.GetReasonCode()) << "\n";
+                return;
+            }
+            if (cs.m_isFragment) {
+                std::cerr << "error custody signal with fragmentation received\n";
+                return;
+            }
+            cbhe_bundle_uuid_nofragment_t uuid;
+            if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+                std::cerr << "error custody signal with bad ipn string\n";
+                return;
+            }
+            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
+            uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+            m_mutexBundleUuidSet.lock();
+            const bool success = (m_cbheBundleUuidSet.erase(uuid) != 0);
+            m_mutexBundleUuidSet.unlock();
+            if (!success) {
+                std::cerr << "error rfc5050 custody signal received but bundle uuid not found\n";
+                return;
+            }
+            ++m_numRfc5050CustodyTransfers;
+        }
+        else {
+            std::cerr << "error unknown admin record type\n";
             return;
         }
-        uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-        uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
-        m_mutexBundleUuidSet.lock();
-        const bool success = (m_cbheBundleUuidSet.erase(uuid) != 0);
-        m_mutexBundleUuidSet.unlock();
-        if (!success) {
-            std::cerr << "error rfc5050 custody signal received but bundle uuid not found\n";
-            return;
-        }
-        ++m_numRfc5050CustodyTransfers;
-    }
-    else { 
-        std::cerr << "error unknown admin record type\n";
-        return;
     }
     
+}
+
+bool BpSourcePattern::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size) {
+    return true;
 }

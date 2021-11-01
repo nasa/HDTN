@@ -5,8 +5,9 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
+#ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
-
+#endif
 
 #define CBOR_UINT8_TYPE   (24)
 #define CBOR_UINT16_TYPE  (25)
@@ -16,38 +17,38 @@
 
 //return output size
 unsigned int CborEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
     return CborEncodeU64Fast(outputEncoded, valToEncodeU64, bufferSize);
 #else
     return CborEncodeU64Classic(outputEncoded, valToEncodeU64, bufferSize);
-#endif // SDNV_USE_HARDWARE_ACCELERATION
+#endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 //return output size
 unsigned int CborEncodeU64BufSize9(uint8_t * const outputEncoded, const uint64_t valToEncodeU64) {
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
     return CborEncodeU64FastBufSize9(outputEncoded, valToEncodeU64);
 #else
     return CborEncodeU64ClassicBufSize9(outputEncoded, valToEncodeU64);
-#endif // SDNV_USE_HARDWARE_ACCELERATION
+#endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
     return CborDecodeU64Fast(inputEncoded, numBytes, bufferSize);
 #else
     return CborDecodeU64Classic(inputEncoded, numBytes, bufferSize);
-#endif // SDNV_USE_HARDWARE_ACCELERATION
+#endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64BufSize9(const uint8_t * inputEncoded, uint8_t * numBytes) {
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#ifdef USE_X86_HARDWARE_ACCELERATION
     return CborDecodeU64FastBufSize9(inputEncoded, numBytes);
 #else
     return CborDecodeU64ClassicBufSize9(inputEncoded, numBytes);
-#endif // SDNV_USE_HARDWARE_ACCELERATION
+#endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 
@@ -278,9 +279,6 @@ uint64_t CborDecodeU64ClassicBufSize9(const uint8_t * const inputEncoded, uint8_
     return result;
 }
 
-#ifdef SDNV_USE_HARDWARE_ACCELERATION
-
-
 static const uint8_t msbToRequiredEncodingSize[64] = {
     1,1,1,1,2,2,2,2,
     3,3,3,3,3,3,3,3,
@@ -291,6 +289,9 @@ static const uint8_t msbToRequiredEncodingSize[64] = {
     9,9,9,9,9,9,9,9,
     9,9,9,9,9,9,9,9
 };
+
+#ifdef USE_X86_HARDWARE_ACCELERATION
+
 static const uint8_t encodingSizeToType[10] = {
     0, //size 0 = invalid
     0, //size 1 = the value itself
@@ -559,7 +560,7 @@ uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t *
 }
 
 
-#endif //#ifdef SDNV_USE_HARDWARE_ACCELERATION
+#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
 
 //return output size
 unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {

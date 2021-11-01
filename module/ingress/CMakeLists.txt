@@ -8,7 +8,6 @@ add_library(ingress_async_lib STATIC
 )
 
 target_link_libraries(ingress_async_lib 
-	hdtn_reg 
 	hdtn_util 
     log_lib
 	induct_manager_lib
@@ -30,7 +29,6 @@ add_executable(hdtn-ingress
 )
 
 target_link_libraries(hdtn-ingress
-	hdtn_reg
 	bpcodec
 	hdtn_util
     log_lib

@@ -9,7 +9,6 @@ add_executable(hdtn-scheduler
 )
 
 target_link_libraries(hdtn-scheduler
-	hdtn_reg
 	bpcodec
 	hdtn_util
 	config_lib

@@ -35,7 +35,6 @@ target_link_libraries(integrated-tests
 	${libzmq_LIB}
 	${pthread_LIB}
 	${STORAGE_LIBRARY_NAME}
-	hdtn_reg
 	hdtn_util
 	tcpcl_lib
 	stcp_lib
@@ -67,7 +66,6 @@ target_include_directories(cgr-test PUBLIC include
 )
 
 target_link_libraries(cgr-test
-    hdtn_reg
     bpcodec
     hdtn_util
     config_lib

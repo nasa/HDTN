@@ -16,6 +16,9 @@ private:
 public:
     typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
+    typedef boost::function<bool(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair)> TryGetOpportunisticDataFunction_t;
+    typedef boost::function<void()> NotifyOpportunisticDataAckedCallback_t;
+    typedef boost::function<void(TcpclBundleSink * thisTcpclBundleSinkPtr)> OnContactHeaderCallback_t;
 
     TcpclBundleSink(
         boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
@@ -25,9 +28,17 @@ public:
         const unsigned int circularBufferBytesPerVector,
         const uint64_t myNodeId,
         const uint64_t maxBundleSizeBytes,
-        const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
+        const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t(),
+        const OnContactHeaderCallback_t & onContactHeaderCallback = OnContactHeaderCallback_t(),
+        //const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction = TryGetOpportunisticDataFunction_t(),
+        //const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback = NotifyOpportunisticDataAckedCallback_t(),
+        const unsigned int maxUnacked = 10, const uint64_t maxFragmentSize = 100000000 ); //todo
     ~TcpclBundleSink();
     bool ReadyToBeDeleted();
+    uint64_t GetRemoteNodeId() const;
+    void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
+    void SetTryGetOpportunisticDataFunction(const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction);
+    void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
 private:
 
     void TryStartTcpReceive();
@@ -40,6 +51,7 @@ private:
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void PopCbThreadFunc();
     void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
+    
 
     //tcpcl received data callback functions
     void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
@@ -60,11 +72,15 @@ private:
     CONTACT_HEADER_FLAGS m_contactHeaderFlags;
     uint16_t m_keepAliveIntervalSeconds;
     std::string m_remoteEid;
+    uint64_t m_remoteNodeId;
     const std::string M_THIS_EID;
     std::vector<uint8_t> m_fragmentedBundleRxConcat;
 
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;
+    TryGetOpportunisticDataFunction_t m_tryGetOpportunisticDataFunction;
+    NotifyOpportunisticDataAckedCallback_t m_notifyOpportunisticDataAckedCallback;
+    const OnContactHeaderCallback_t m_onContactHeaderCallback;
 
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     boost::asio::io_service & m_tcpSocketIoServiceRef;
@@ -83,6 +99,22 @@ private:
     bool m_printedCbTooSmallNotice;
     volatile bool m_running;
     volatile bool m_safeToDelete;
+    volatile bool m_shutdownCalled;
+
+    const unsigned int MAX_UNACKED;
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
+    std::vector<uint64_t> m_bytesToAckCbVec;
+    std::vector<std::vector<uint64_t> > m_fragmentBytesToAckCbVec;
+    std::vector<uint64_t> m_fragmentVectorIndexCbVec;
+    const uint64_t M_MAX_FRAGMENT_SIZE;
+
+    //tcpcl stats
+    std::size_t m_totalDataSegmentsAcked;
+    std::size_t m_totalBytesAcked;
+    std::size_t m_totalDataSegmentsSent;
+    std::size_t m_totalFragmentedAcked;
+    std::size_t m_totalFragmentedSent;
+    std::size_t m_totalBundleBytesSent;
 };
 
 

@@ -217,8 +217,6 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
     if (session.catalogEntryPtr == NULL) {
         return 0;
     }
-
-
     session.nextLogicalSegment = 0;
     session.nextLogicalSegmentToCache = 0;
     session.cacheReadIndex = 0;
@@ -226,6 +224,33 @@ uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDi
 
     return session.catalogEntryPtr->bundleSizeBytes;
 }
+uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestNodeIds) { //0 if empty, size if entry
+
+    session.catalogEntryPtr = m_bundleStorageCatalog.PopEntryFromAwaitingSend(session.custodyId, availableDestNodeIds);
+    if (session.catalogEntryPtr == NULL) {
+        return 0;
+    }
+    session.nextLogicalSegment = 0;
+    session.nextLogicalSegmentToCache = 0;
+    session.cacheReadIndex = 0;
+    session.cacheWriteIndex = 0;
+
+    return session.catalogEntryPtr->bundleSizeBytes;
+}
+uint64_t BundleStorageManagerBase::PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<std::pair<cbhe_eid_t, bool> > & availableDests) { //0 if empty, size if entry
+
+    session.catalogEntryPtr = m_bundleStorageCatalog.PopEntryFromAwaitingSend(session.custodyId, availableDests);
+    if (session.catalogEntryPtr == NULL) {
+        return 0;
+    }
+    session.nextLogicalSegment = 0;
+    session.nextLogicalSegmentToCache = 0;
+    session.cacheReadIndex = 0;
+    session.cacheWriteIndex = 0;
+
+    return session.catalogEntryPtr->bundleSizeBytes;
+}
+
 
 bool BundleStorageManagerBase::ReturnTop(BundleStorageManagerSession_ReadFromDisk & session) { //0 if empty, size if entry
     return ((session.catalogEntryPtr != NULL) && m_bundleStorageCatalog.ReturnEntryToAwaitingSend(*session.catalogEntryPtr, session.custodyId));

@@ -1,0 +1,2 @@
+export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
+$HDTN_BUILD_ROOT/common/bpcodec/apps/bpreceivefile --save-directory=./received --my-uri-eid=ipn:2.1 --inducts-config-file=./tantalus_bpsink_bidirectional_tcp.json

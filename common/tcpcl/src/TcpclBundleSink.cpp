@@ -13,7 +13,11 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     const unsigned int circularBufferBytesPerVector,
     const uint64_t myNodeId,
     const uint64_t maxBundleSizeBytes,
-    const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback) :
+    const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback,
+    const OnContactHeaderCallback_t & onContactHeaderCallback,
+    //const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction,
+    //const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback,
+    const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
 
     //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
     //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
@@ -21,6 +25,7 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
 
     m_wholeBundleReadyCallback(wholeBundleReadyCallback),
     m_notifyReadyToDeleteCallback(notifyReadyToDeleteCallback),
+    m_onContactHeaderCallback(onContactHeaderCallback),
     m_tcpSocketPtr(tcpSocketPtr),
     m_tcpSocketIoServiceRef(tcpSocketIoServiceRef),
     m_noKeepAlivePacketReceivedTimer(tcpSocketIoServiceRef),
@@ -34,7 +39,20 @@ TcpclBundleSink::TcpclBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket>
     m_stateTcpReadActive(false),
     m_printedCbTooSmallNotice(false),
     m_running(false),
-    m_safeToDelete(false)
+    m_safeToDelete(false),
+    m_shutdownCalled(false),
+    MAX_UNACKED(maxUnacked + 5),
+    m_bytesToAckCb(MAX_UNACKED),
+    m_bytesToAckCbVec(MAX_UNACKED),
+    m_fragmentBytesToAckCbVec(MAX_UNACKED),
+    m_fragmentVectorIndexCbVec(MAX_UNACKED),
+    M_MAX_FRAGMENT_SIZE(maxFragmentSize),
+    m_totalDataSegmentsAcked(0),
+    m_totalBytesAcked(0),
+    m_totalDataSegmentsSent(0),
+    m_totalFragmentedAcked(0),
+    m_totalFragmentedSent(0),
+    m_totalBundleBytesSent(0)
 {
     m_tcpcl.SetContactHeaderReadCallback(boost::bind(&TcpclBundleSink::ContactHeaderCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
     m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&TcpclBundleSink::DataSegmentCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
@@ -147,6 +165,9 @@ void TcpclBundleSink::HandleTcpSend(const boost::system::error_code& error, std:
         std::cerr << "error in TcpclBundleSink::HandleTcpSend: " << error.message() << std::endl;
         DoTcpclShutdown(true, false);
     }
+    else {
+        TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
+    }
 }
 
 void TcpclBundleSink::HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred) {
@@ -182,6 +203,7 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
     //is disabled.
     m_keepAliveIntervalSeconds = keepAliveIntervalSeconds;
     m_remoteEid = localEid;
+    m_remoteNodeId = remoteNodeId;
     std::cout << "received valid contact header from " << m_remoteEid << std::endl;
 
     //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header
@@ -189,7 +211,7 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
     if(m_tcpSocketPtr) {
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingData.resize(1);
-        Tcpcl::GenerateContactHeader(el->m_underlyingData[0], static_cast<CONTACT_HEADER_FLAGS>(0), keepAliveIntervalSeconds, M_THIS_EID);
+        Tcpcl::GenerateContactHeader(el->m_underlyingData[0], CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, keepAliveIntervalSeconds, M_THIS_EID);
         el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
         m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
@@ -209,6 +231,9 @@ void TcpclBundleSink::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t
             m_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_keepAliveIntervalSeconds));
             m_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclBundleSink::OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
         }
+    }
+    if (m_onContactHeaderCallback) {
+        m_onContactHeaderCallback(this);
     }
 }
 
@@ -244,7 +269,41 @@ void TcpclBundleSink::DataSegmentCallback(std::vector<uint8_t> & dataSegmentData
 }
 
 void TcpclBundleSink::AckCallback(uint64_t totalBytesAcknowledged) {
-    std::cout << "TcpclBundleSink should never enter AckCallback" << std::endl;
+    const unsigned int readIndex = m_bytesToAckCb.GetIndexForRead();
+    if (readIndex == UINT32_MAX) { //empty
+        std::cerr << "error: AckCallback called with empty queue" << std::endl;
+    }
+    else {
+        std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[readIndex];
+        if (currentFragmentBytesVec.size()) { //this was fragmented
+            uint64_t & fragIdxRef = m_fragmentVectorIndexCbVec[readIndex];
+            const uint64_t expectedFragByteToAck = currentFragmentBytesVec[fragIdxRef++];
+            if (fragIdxRef == currentFragmentBytesVec.size()) {
+                currentFragmentBytesVec.resize(0);
+            }
+            if (expectedFragByteToAck == totalBytesAcknowledged) {
+                ++m_totalFragmentedAcked;
+            }
+            else {
+                std::cerr << "error in TcpclBundleSource::AckCallback: wrong fragment bytes acked: expected " << expectedFragByteToAck << " but got " << totalBytesAcknowledged << std::endl;
+            }
+        }
+
+        //now ack the entire bundle
+        if (currentFragmentBytesVec.empty()) {
+            if (m_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
+                ++m_totalDataSegmentsAcked;
+                m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
+                m_bytesToAckCb.CommitRead();
+                if (m_notifyOpportunisticDataAckedCallback) {
+                    m_notifyOpportunisticDataAckedCallback();
+                }
+            }
+            else {
+                std::cerr << "error in TcpclBundleSink::AckCallback: wrong bytes acked: expected " << m_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
+            }
+        }
+    }
 }
 
 void TcpclBundleSink::BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) {
@@ -319,6 +378,7 @@ void TcpclBundleSink::DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTi
 }
 
 void TcpclBundleSink::HandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut) {
+    m_shutdownCalled = true;
     if (!m_safeToDelete) {
         if (sendShutdownMessage) {
             std::cout << "Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
@@ -395,4 +455,141 @@ void TcpclBundleSink::OnSendShutdownMessageTimeout_TimerExpired(const boost::sys
 
 bool TcpclBundleSink::ReadyToBeDeleted() {
     return m_safeToDelete;
+}
+
+
+uint64_t TcpclBundleSink::GetRemoteNodeId() const {
+    return m_remoteNodeId;
+}
+
+void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread() {
+    if (m_shutdownCalled || m_safeToDelete) {
+        std::cerr << "opportunistic link unavailable" << std::endl;
+        return;
+    }
+    std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
+    const std::size_t totalDataSegmentsUnacked = m_totalDataSegmentsSent - m_totalDataSegmentsAcked;
+    const uint64_t bundlePipelineLimit = MAX_UNACKED - 5;
+    if ((totalDataSegmentsUnacked <= bundlePipelineLimit) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
+        std::size_t dataSize;
+        const uint8_t * dataToSendPtr;
+        bool usingZmqData;
+        if (bundleDataPair.first) { //this is zmq data
+            dataSize = bundleDataPair.first->size();
+            dataToSendPtr = (const uint8_t *) bundleDataPair.first->data();
+            usingZmqData = true;
+        }
+        else { //this is std::vector<uint8_t>
+            dataSize = bundleDataPair.second.size();
+            dataToSendPtr = bundleDataPair.second.data();
+            usingZmqData = false;
+        }
+
+        const unsigned int writeIndex = m_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
+        if (writeIndex == UINT32_MAX) { //push check
+            std::cerr << "Unexpected Error in TcpclBundleSink::TrySendOpportunisticBundleIfAvailable.. cannot get cb write index" << std::endl;
+            return;
+        }
+        m_bytesToAckCbVec[writeIndex] = dataSize;
+
+        ++m_totalDataSegmentsSent;
+        m_totalBundleBytesSent += dataSize;
+
+        std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[writeIndex];
+        currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
+        m_fragmentVectorIndexCbVec[writeIndex] = 0; //used by the ack callback
+        std::vector<TcpAsyncSenderElement*> elements;
+
+        if (M_MAX_FRAGMENT_SIZE && (dataSize > M_MAX_FRAGMENT_SIZE)) {
+            elements.reserve((dataSize / M_MAX_FRAGMENT_SIZE) + 2);
+            uint64_t dataIndex = 0;
+            while (true) {
+                uint64_t bytesToSend = std::min(dataSize - dataIndex, M_MAX_FRAGMENT_SIZE);
+                const bool isStartSegment = (dataIndex == 0);
+                const bool isEndSegment = ((bytesToSend + dataIndex) == dataSize);
+
+                TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+                el->m_constBufferVec.resize(2);
+                if (usingZmqData) {
+                    el->m_underlyingData.resize(1);
+                    if (isEndSegment) {
+                        el->m_underlyingDataZmq = std::move(bundleDataPair.first);
+                    }
+                }
+                else {
+                    el->m_underlyingData.resize(1 + isEndSegment);
+                    if (isEndSegment) {
+                        el->m_underlyingData[1] = std::move(bundleDataPair.second);
+                    }
+                }
+                Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], isStartSegment, isEndSegment, bytesToSend);
+                el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+                el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr + dataIndex, bytesToSend);
+                el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+                elements.push_back(el);
+
+
+                dataIndex += bytesToSend;
+                currentFragmentBytesVec.push_back(dataIndex); //bytes to ack must be cumulative of fragments
+
+                if (isEndSegment) {
+                    break;
+                }
+            }
+        }
+
+        m_bytesToAckCb.CommitWrite(); //pushed
+
+        //send length if requested
+        /*LENGTH messages MUST NOT be sent unless the corresponding flag bit is
+        set in the contact header.  If the flag bit is set, LENGTH messages
+        MAY be sent at the sender's discretion.  LENGTH messages MUST NOT be
+        sent unless the next DATA_SEGMENT message has the 'S' bit set to "1"
+        (i.e., just before the start of a new bundle).
+
+        TODO:
+        A receiver MAY send a BUNDLE_REFUSE message as soon as it receives a
+        LENGTH message without waiting for the next DATA_SEGMENT message.
+        The sender MUST be prepared for this and MUST associate the refusal
+        with the right bundle.*/
+        if ((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_SENDING_OF_LENGTH_MESSAGES)) & (static_cast<unsigned int>(m_contactHeaderFlags))) {
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingData.resize(1);
+            Tcpcl::GenerateBundleLength(el->m_underlyingData[0], dataSize);
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+        }
+
+        if (elements.size()) { //is fragmented
+            m_totalFragmentedSent += elements.size();
+            for (std::size_t i = 0; i < elements.size(); ++i) {
+                m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(elements[i]);
+            }
+        }
+        else {
+            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            if (usingZmqData) {
+                el->m_underlyingData.resize(1);
+                el->m_underlyingDataZmq = std::move(bundleDataPair.first);
+            }
+            else {
+                el->m_underlyingData.resize(2);
+                el->m_underlyingData[1] = std::move(bundleDataPair.second);
+            }
+            Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], true, true, dataSize);
+            el->m_constBufferVec.resize(2);
+            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+            el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
+            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+            m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+        }
+    }
+}
+
+void TcpclBundleSink::SetTryGetOpportunisticDataFunction(const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction) {
+    m_tryGetOpportunisticDataFunction = tryGetOpportunisticDataFunction;
+}
+void TcpclBundleSink::SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback) {
+    m_notifyOpportunisticDataAckedCallback = notifyOpportunisticDataAckedCallback;
 }

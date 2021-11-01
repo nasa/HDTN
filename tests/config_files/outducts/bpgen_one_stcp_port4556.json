@@ -11,7 +11,9 @@
             "finalDestinationEidUris": [
                 "ipn:1.1",
                 "ipn:2.1",
-                "ipn:3.1"
+                "ipn:3.1",
+                "ipn:10.2047",
+                "ipn:2.2047"
             ],
             "keepAliveIntervalSeconds": 17
         }

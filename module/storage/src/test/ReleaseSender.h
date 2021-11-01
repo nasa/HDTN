@@ -13,7 +13,7 @@
 #include "Environment.h"
 #include "JsonSerializable.h"
 #include "HdtnConfig.h"
-#include "reg.hpp"
+#include "zmq.hpp"
 
 typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
 struct ReleaseMessageEvent_t {

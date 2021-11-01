@@ -28,7 +28,6 @@ add_executable(unit-tests
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
-    ../../common/regsvr/lib/test/TestHdtnEntries.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
@@ -49,11 +48,10 @@ target_include_directories(unit-tests PUBLIC include
     ${libzmq_INCLUDE}
 )
 
-#target_link_libraries(boost-unit-tests hdtn_reg bpcodec ${Boost_LIBRARIES})
+#target_link_libraries(boost-unit-tests bpcodec ${Boost_LIBRARIES})
 target_link_libraries(unit-tests
 	${libzmq_LIB}
 	${pthread_LIB}
-	hdtn_reg
 	hdtn_util
 	tcpcl_lib
 	stcp_lib

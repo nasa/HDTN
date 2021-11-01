@@ -176,6 +176,8 @@ bool BundleStorageCatalog::RemoveEntryFromAwaitingSend(const catalog_entry_t & c
     }
     return false;
 }
+
+//this function requires fully qualified endpoint ids
 catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<cbhe_eid_t> & availableDestEids) {
     std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > destEidPlusPriorityArrayPtrs;
     destEidPlusPriorityArrayPtrs.reserve(availableDestEids.size());
@@ -187,6 +189,60 @@ catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & cust
             destEidPlusPriorityArrayPtrs.emplace_back(&currentAvailableLink, &(dmIt->second));
         }
     }
+    return PopEntryFromAwaitingSend(custodyId, destEidPlusPriorityArrayPtrs);
+}
+
+//this function ignores service ids
+catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<uint64_t> & availableDestNodeIds) {
+    std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > destEidPlusPriorityArrayPtrs;
+    destEidPlusPriorityArrayPtrs.reserve(availableDestNodeIds.size()); //todo
+
+    for (std::size_t i = 0; i < availableDestNodeIds.size(); ++i) {
+        const uint64_t nodeId = availableDestNodeIds[i];
+        const cbhe_eid_t currentAvailableLinkStart = cbhe_eid_t(nodeId, 0);
+        //lower bound points to equivalent or next greater
+        for (dest_eid_to_priorities_map_t::iterator dmIt = m_destEidToPrioritiesMap.lower_bound(currentAvailableLinkStart);
+            (dmIt != m_destEidToPrioritiesMap.end()) && (dmIt->first.nodeId == nodeId);
+            ++dmIt)
+        {
+            const cbhe_eid_t & currentAvailableLink = dmIt->first;
+            destEidPlusPriorityArrayPtrs.emplace_back(&currentAvailableLink, &(dmIt->second));
+        }
+    }
+    return PopEntryFromAwaitingSend(custodyId, destEidPlusPriorityArrayPtrs);
+}
+
+//this function uses the pair bool = true for any service ids
+catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<std::pair<cbhe_eid_t, bool> > & availableDests) {
+    std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > destEidPlusPriorityArrayPtrs;
+    destEidPlusPriorityArrayPtrs.reserve(availableDests.size()); //todo
+
+    for (std::size_t i = 0; i < availableDests.size(); ++i) {
+        if (availableDests[i].second) { //wildcard * for any service id
+            const uint64_t nodeId = availableDests[i].first.nodeId;
+            const cbhe_eid_t currentAvailableLinkStart = cbhe_eid_t(nodeId, 0);
+            //lower bound points to equivalent or next greater
+            for (dest_eid_to_priorities_map_t::iterator dmIt = m_destEidToPrioritiesMap.lower_bound(currentAvailableLinkStart);
+                (dmIt != m_destEidToPrioritiesMap.end()) && (dmIt->first.nodeId == nodeId);
+                ++dmIt)
+            {
+                const cbhe_eid_t & currentAvailableLink = dmIt->first;
+                destEidPlusPriorityArrayPtrs.emplace_back(&currentAvailableLink, &(dmIt->second));
+            }
+        }
+        else { //fully qualified eids
+            const cbhe_eid_t & currentAvailableLink = availableDests[i].first;
+            dest_eid_to_priorities_map_t::iterator dmIt = m_destEidToPrioritiesMap.find(currentAvailableLink);
+            if (dmIt != m_destEidToPrioritiesMap.end()) {
+                destEidPlusPriorityArrayPtrs.emplace_back(&currentAvailableLink, &(dmIt->second));
+            }
+        }
+    }
+    return PopEntryFromAwaitingSend(custodyId, destEidPlusPriorityArrayPtrs);
+}
+catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & custodyId,
+    const std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > & destEidPlusPriorityArrayPtrs)
+{
 
     //memset((uint8_t*)session.readCacheIsSegmentReady, 0, READ_CACHE_NUM_SEGMENTS_PER_SESSION);
     for (int i = NUMBER_OF_PRIORITIES - 1; i >= 0; --i) { //00 = bulk, 01 = normal, 10 = expedited

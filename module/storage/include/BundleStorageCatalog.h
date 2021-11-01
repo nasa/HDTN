@@ -40,6 +40,8 @@ public:
     bool CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const bpv6_primary_block & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
 
     catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<cbhe_eid_t> & availableDestEids);
+    catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<uint64_t> & availableDestNodeIds);
+    catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<std::pair<cbhe_eid_t, bool> > & availableDests);
     
     bool AddEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
     bool ReturnEntryToAwaitingSend(const catalog_entry_t & catalogEntry, const uint64_t custodyId);
@@ -50,6 +52,8 @@ public:
     uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
 
 private:
+    catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId,
+        const std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > & destEidPlusPriorityArrayPtrs);
     bool Insert_OrderBySequence(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert, const uint64_t mySequence);
     void Insert_OrderByFifo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
     void Insert_OrderByFilo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);

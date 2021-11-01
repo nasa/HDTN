@@ -11,6 +11,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
+#include "Uri.h"
 
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
     //m_flags = 0;
@@ -38,7 +39,8 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_hdtnConfig = hdtnConfig;
 
-    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes)) {
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes,
+        boost::bind(&hdtn::HegrManagerAsync::WholeBundleReadyCallback, this, boost::placeholders::_1))) {
         return;
     }
 
@@ -48,49 +50,80 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     m_bundleCount = 0;
     m_bundleData = 0;
     m_messageCount = 0;
-    if (hdtnOneProcessZmqInprocContextPtr) {
-        // socket for cut-through mode straight to egress
-        //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
-        //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
-        m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(std::string("inproc://bound_ingress_to_connecting_egress"));
-        m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(std::string("inproc://connecting_egress_to_bound_ingress"));
-        // socket for bundles from storage
-        m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(std::string("inproc://connecting_storage_to_bound_egress"));
-        m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(std::string("inproc://bound_egress_to_connecting_storage"));
+    try {
+        if (hdtnOneProcessZmqInprocContextPtr) {
+            // socket for cut-through mode straight to egress
+            //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
+            //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.
+            m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(std::string("inproc://bound_ingress_to_connecting_egress"));
+            m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(std::string("inproc://connecting_egress_to_bound_ingress"));
+            // socket for sending bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
+            m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->connect(std::string("inproc://connecting_egress_bundles_only_to_bound_ingress"));
+            // socket for bundles from storage
+            m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(std::string("inproc://connecting_storage_to_bound_egress"));
+            m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(std::string("inproc://bound_egress_to_connecting_storage"));
+            //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
+            m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        }
+        else {
+            // socket for cut-through mode straight to egress
+            m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
+            m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+            const std::string connect_boundIngressToConnectingEgressPath(
+                std::string("tcp://") +
+                m_hdtnConfig.m_zmqIngressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
+            m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(connect_boundIngressToConnectingEgressPath);
+            m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string connect_connectingEgressToBoundIngressPath(
+                std::string("tcp://") +
+                m_hdtnConfig.m_zmqIngressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundIngressPortPath));
+            m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(connect_connectingEgressToBoundIngressPath);
+            // socket for sending bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
+            m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string connect_connectingEgressBundlesOnlyToBoundIngressPath(
+                std::string("tcp://") +
+                m_hdtnConfig.m_zmqIngressAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath));
+            m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->connect(connect_connectingEgressBundlesOnlyToBoundIngressPath);
+            // socket for bundles from storage
+            m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+            const std::string bind_connectingStorageToBoundEgressPath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
+            m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(bind_connectingStorageToBoundEgressPath);
+            m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string bind_boundEgressToConnectingStoragePath(
+                std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
+            m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(bind_boundEgressToConnectingStoragePath);
+            //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
+            m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
+            m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
+        }
+        m_zmqPullSignalInprocSockPtr->bind(std::string("inproc://egress_condition_variable_notify_one"));
+        m_zmqPushSignalInprocSockPtr->connect(std::string("inproc://egress_condition_variable_notify_one"));
+        
+        //The ZMQ_SNDHWM option shall set the high water mark for outbound messages on the specified socket.
+        //The high water mark is a hard limit on the maximum number of outstanding messages ØMQ shall queue 
+        //in memory for any single peer that the specified socket is communicating with.
+        //If this limit has been reached the socket shall enter an exceptional state and depending on the socket type,
+        //ØMQ shall take appropriate action such as blocking or dropping sent messages.
+        const int hwm = 5; //todo
+        m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::sndhwm, hwm); //flow control
     }
-    else {
-        // socket for cut-through mode straight to egress
-        m_zmqCtx_ingressEgressPtr = boost::make_unique<zmq::context_t>();
-        m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::pull);
-        const std::string connect_boundIngressToConnectingEgressPath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqIngressAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
-        m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(connect_boundIngressToConnectingEgressPath);
-        m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_ingressEgressPtr, zmq::socket_type::push);
-        const std::string connect_connectingEgressToBoundIngressPath(
-            std::string("tcp://") +
-            m_hdtnConfig.m_zmqIngressAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundIngressPortPath));
-        m_zmqPushSock_connectingEgressToBoundIngressPtr->connect(connect_connectingEgressToBoundIngressPath);
-        // socket for bundles from storage
-        m_zmqCtx_storageEgressPtr = boost::make_unique<zmq::context_t>();
-        m_zmqPullSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::pull);
-        const std::string bind_connectingStorageToBoundEgressPath(
-            std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingStorageToBoundEgressPortPath));
-        m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(bind_connectingStorageToBoundEgressPath);
-        m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtx_storageEgressPtr, zmq::socket_type::push);
-        const std::string bind_boundEgressToConnectingStoragePath(
-            std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundEgressToConnectingStoragePortPath));
-        m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(bind_boundEgressToConnectingStoragePath);
+    catch (const zmq::error_t & ex) {
+        std::cerr << "error: egress cannot set up zmq socket: " << ex.what() << std::endl;
+        return;
     }
-    
     if (!m_running) {
         m_running = true;
         m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
@@ -99,7 +132,19 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 }
 
 void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
-    m_conditionVariableProcessZmqMessages.notify_one();
+    //m_conditionVariableProcessZmqMessages.notify_one();
+    if (m_needToSendSignal && m_mutexPushSignal.try_lock()) {
+        if (m_needToSendSignal) {
+            static const char signalByte = 0;
+            static const zmq::const_buffer signalByteConstBuf(&signalByte, sizeof(signalByte));
+            m_needToSendSignal = false;
+            ++m_totalEgressInprocSignalsSent;
+            if (!m_zmqPushSignalInprocSockPtr->send(signalByteConstBuf, zmq::send_flags::dontwait)) {
+                std::cout << "error in hdtn::HegrManagerAsync::OnSuccessfulBundleAck: unable to send signal\n";
+            }
+        }
+        m_mutexPushSignal.unlock();
+    }
 }
 
 static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
@@ -108,115 +153,7 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
     delete static_cast<hdtn::EgressAckHdr *>(data);
 }
 
-void hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc (
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb,
-    std::vector<hdtn::ToEgressHdr> & toEgressHeaderMessages,
-    std::vector<zmq::message_t> & payloadMessages)
-{
-    std::cout << "starting ProcessZmqMessagesThreadFunc with cb size " << toEgressHeaderMessages.size() << std::endl;
-    hdtn::Logger::getInstance()->logNotification("egress", "Starting ProcessZmqMessagesThreadFunc with cb size " + std::to_string(toEgressHeaderMessages.size()));
-    std::size_t totalCustodyTransfersSentToStorage = 0;
-    std::size_t totalCustodyTransfersSentToIngress = 0;
-    
-    typedef std::queue<std::unique_ptr<hdtn::EgressAckHdr> > queue_t;
-    typedef std::map<uint64_t, queue_t> outductuuid_needacksqueue_map_t;
 
-    outductuuid_needacksqueue_map_t outductUuidToNeedAcksQueueMap;
-
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-
-    while (m_running || (cb.GetIndexForRead() != UINT32_MAX)) { //keep thread alive if running or cb not empty
-
-
-        const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
-
-        if (consumeIndex != UINT32_MAX) { //if not empty
-            const hdtn::ToEgressHdr & toEgressHeader = toEgressHeaderMessages[consumeIndex];
-            zmq::message_t & zmqMessage = payloadMessages[consumeIndex];
-            const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
-            if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
-                std::unique_ptr<hdtn::EgressAckHdr> egressAckPtr = boost::make_unique<hdtn::EgressAckHdr>();
-                //memset 0 not needed because all values set below
-                egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
-                egressAckPtr->base.flags = 0;
-                egressAckPtr->finalDestEid = finalDestEid;
-                egressAckPtr->error = 0; //can set later before sending this ack if error
-                egressAckPtr->deleteNow = !toEgressHeader.hasCustody;
-                egressAckPtr->isToStorage = !toEgressHeader.isCutThroughFromIngress;
-                egressAckPtr->custodyId = toEgressHeader.custodyId;
-
-                outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
-                outduct->Forward(zmqMessage);
-                if (zmqMessage.size() != 0) {
-                    std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
-                    hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
-                }
-            }
-            else {
-                std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for flow id " << finalDestEid.nodeId << std::endl;
-            }
-            cb.CommitRead();
-        }
-        else {
-            //Check for tcpcl acks from a bpsink-like program.
-            //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
-            //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
-            // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
-            // order of the acks.
-            for (outductuuid_needacksqueue_map_t::iterator it = outductUuidToNeedAcksQueueMap.begin(); it != outductUuidToNeedAcksQueueMap.end(); ++it) {
-                const uint64_t outductUuid = it->first;
-                //const unsigned int fec = 1; //TODO
-                queue_t & q = it->second;
-                if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(outductUuid)) {
-                    const std::size_t numAckedRemaining = outduct->GetTotalDataSegmentsUnacked();
-                    while (q.size() > numAckedRemaining) {
-                        std::unique_ptr<hdtn::EgressAckHdr> & qItem = q.front();
-                        const bool isToStorage = qItem->isToStorage;
-                        //this is an optimization because we only have one chunk to send
-                        //The zmq_msg_init_data() function shall initialise the message object referenced by msg
-                        //to represent the content referenced by the buffer located at address data, size bytes long.
-                        //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
-                        //If provided, the deallocation function ffn shall be called once the data buffer is no longer
-                        //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-                        zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //unique_ptr goes "null" with release()
-                        if (isToStorage) {
-                            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
-                                std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
-                                hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
-                                break;
-                            }
-                            ++totalCustodyTransfersSentToStorage;
-                        }
-                        else {
-                            //send ack message by echoing back the block
-                            if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
-                                std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
-                                hdtn::Logger::getInstance()->logError("egress", "Error: zmq could not send ingress an ack from egress");
-                                break;
-                            }
-                            ++totalCustodyTransfersSentToIngress;
-                        }
-                        q.pop();
-                    }
-                }
-                else {
-                    std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: cannot find outductUuid " << outductUuid << std::endl;
-                }
-            }
-            m_conditionVariableProcessZmqMessages.timed_wait(lock, boost::posix_time::milliseconds(100)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-        }
-
-    }
-
-    std::cout << "ProcessZmqMessagesThreadFunc thread exiting\n";
-    hdtn::Logger::getInstance()->logNotification("egress", "ProcessZmqMessagesThreadFunc thread exiting");
-    std::cout << "totalCustodyTransfersSentToStorage: " << totalCustodyTransfersSentToStorage << std::endl;
-    hdtn::Logger::getInstance()->logInfo("egress", "totalCustodyTransfersSentToStorage: " + std::to_string(totalCustodyTransfersSentToStorage));
-    std::cout << "totalCustodyTransfersSentToIngress: " << totalCustodyTransfersSentToIngress << std::endl;
-    hdtn::Logger::getInstance()->logInfo("egress", "totalCustodyTransfersSentToIngress: " + std::to_string(totalCustodyTransfersSentToIngress));
-}
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
@@ -232,28 +169,32 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         std::cout << "Egress Terminated before all outducts could connect" << std::endl;
         return;
     }
+    m_needToSendSignal = true;
+    std::size_t totalCustodyTransfersSentToStorage = 0;
+    std::size_t totalCustodyTransfersSentToIngress = 0;
+    std::size_t totalEgressInprocSignalsReceived = 0;
+    m_totalEgressInprocSignalsSent = 0;
 
-    const unsigned int NUM_ZMQ_MESSAGES_CB = static_cast<unsigned int>(m_hdtnConfig.m_egressMaxBundlesAwaitingSend);
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable cb(NUM_ZMQ_MESSAGES_CB);
-    std::vector<hdtn::ToEgressHdr> toEgressHeaderMessages(NUM_ZMQ_MESSAGES_CB);
-    std::vector<zmq::message_t> payloadMessages(NUM_ZMQ_MESSAGES_CB);
-    boost::thread processZmqMessagesThread(boost::bind(
-        &hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc,
-        this,
-        boost::ref(cb),
-        boost::ref(toEgressHeaderMessages),
-        boost::ref(payloadMessages)));
+    char junkChar;
+    const zmq::mutable_buffer signalRxBufferJunk(&junkChar, sizeof(junkChar));
+
+    typedef std::queue<std::unique_ptr<hdtn::EgressAckHdr> > queue_t;
+    typedef std::map<uint64_t, queue_t> outductuuid_needacksqueue_map_t;
+
+    outductuuid_needacksqueue_map_t outductUuidToNeedAcksQueueMap;
+    std::set<uint64_t> availableDestOpportunisticNodeIdsSet;
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
-    static const unsigned int NUM_SOCKETS = 2;
+    static constexpr unsigned int NUM_SOCKETS = 3;
     m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
     m_zmqPullSock_connectingStorageToBoundEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSignalInprocSockPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
-    zmq::socket_t * const sockets[NUM_SOCKETS] = {
+    zmq::socket_t * const sockets[NUM_SOCKETS-1] = {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
         m_zmqPullSock_connectingStorageToBoundEgressPtr.get()
     };
@@ -269,18 +210,12 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
             continue;
         }
         if (rc > 0) {
-            for (unsigned int itemIndex = 0; itemIndex < NUM_SOCKETS; ++itemIndex) {
+            for (unsigned int itemIndex = 0; itemIndex < (NUM_SOCKETS - 1); ++itemIndex) { //skip m_zmqPullSignalInprocSockPtr in this loop
                 if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                     continue;
                 }
 
-                const unsigned int writeIndex = cb.GetIndexForWrite();
-                if (writeIndex == UINT32_MAX) {
-                    std::cerr << "error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full" << std::endl;
-                    hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ReadZmqThreadFunc(): cb is full");
-                    continue;
-                }
-                hdtn::ToEgressHdr & toEgressHeader = toEgressHeaderMessages[writeIndex];
+                hdtn::ToEgressHdr toEgressHeader;
                 const zmq::recv_buffer_result_t res = sockets[itemIndex]->recv(zmq::mutable_buffer(&toEgressHeader, sizeof(hdtn::ToEgressHdr)), zmq::recv_flags::none);
                 if (!res) {
                     std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr" << std::endl;
@@ -293,6 +228,16 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     hdtn::Logger::getInstance()->logError("egress", "Egress blockhdr message mismatch: untruncated = " + 
                         std::to_string(res->untruncated_size) +  " truncated = " + std::to_string(res->size) + " expected = " + 
                         std::to_string(sizeof(hdtn::ToEgressHdr)));
+                    continue;
+                }
+                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_EGRESS_ADD_OPPORTUNISTIC_LINK)) {
+                    std::cout << "egress adding opportunistic link " << toEgressHeader.finalDestEid.nodeId << std::endl;
+                    availableDestOpportunisticNodeIdsSet.insert(toEgressHeader.finalDestEid.nodeId);
+                    continue;
+                }
+                else if ((itemIndex == 0) && (toEgressHeader.base.type == HDTN_MSGTYPE_EGRESS_REMOVE_OPPORTUNISTIC_LINK)) {
+                    std::cout << "egress removing opportunistic link " << toEgressHeader.finalDestEid.nodeId << std::endl;
+                    availableDestOpportunisticNodeIdsSet.erase(toEgressHeader.finalDestEid.nodeId);
                     continue;
                 }
                 else if (toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS) {
@@ -310,23 +255,165 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 ++m_messageCount;
                 
                 
-                zmq::message_t & zmqMessage = payloadMessages[writeIndex];
+                zmq::message_t zmqMessageBundle;
                 //message guaranteed to be there due to the zmq::send_flags::sndmore
-                if (!sockets[itemIndex]->recv(zmqMessage, zmq::recv_flags::none)) {
+                if (!sockets[itemIndex]->recv(zmqMessageBundle, zmq::recv_flags::none)) {
                     std::cerr << "error on sockets[itemIndex]->recv\n";
                     continue;
                 }
                        
-                m_bundleData += zmqMessage.size();
+                m_bundleData += zmqMessageBundle.size();
                 ++m_bundleCount;
 
-                cb.CommitWrite();
-                m_conditionVariableProcessZmqMessages.notify_one();
+                const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
+                if ((itemIndex == 1) && availableDestOpportunisticNodeIdsSet.count(finalDestEid.nodeId)) { //from storage and opportunistic link available in ingress
+                    hdtn::EgressAckHdr * egressAckPtr = new hdtn::EgressAckHdr();
+                    //memset 0 not needed because all values set below
+                    egressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
+                    egressAckPtr->base.flags = 0;
+                    egressAckPtr->finalDestEid = finalDestEid;
+                    egressAckPtr->error = 0; //can set later before sending this ack if error
+                    egressAckPtr->deleteNow = !toEgressHeader.hasCustody;
+                    egressAckPtr->isToStorage = 1;
+                    egressAckPtr->custodyId = toEgressHeader.custodyId;
+
+                    zmq::message_t messageWithDataStolen(egressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
+                    if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                        std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                        hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                        break;
+                    }
+                    ++totalCustodyTransfersSentToStorage;
+
+                    boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
+                    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(zmqMessageBundle), zmq::send_flags::none)) { //blocks if above 5 high water mark
+                        std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
+                        hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
+                    }
+                }
+                else if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
+                    std::unique_ptr<hdtn::EgressAckHdr> egressAckPtr = boost::make_unique<hdtn::EgressAckHdr>();
+                    //memset 0 not needed because all values set below
+                    egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
+                    egressAckPtr->base.flags = 0;
+                    egressAckPtr->finalDestEid = finalDestEid;
+                    egressAckPtr->error = 0; //can set later before sending this ack if error
+                    egressAckPtr->deleteNow = !toEgressHeader.hasCustody;
+                    egressAckPtr->isToStorage = !toEgressHeader.isCutThroughFromIngress;
+                    egressAckPtr->custodyId = toEgressHeader.custodyId;
+
+                    outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
+                    outduct->Forward(zmqMessageBundle);
+                    if (zmqMessageBundle.size() != 0) {
+                        std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
+                        hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
+                    }
+                }
+                else {
+                    std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for " 
+                        << Uri::GetIpnUriString(finalDestEid.nodeId, finalDestEid.serviceId) << std::endl;
+                }
+
+            }
+            if ((items[NUM_SOCKETS - 1].revents & ZMQ_POLLIN)) { //m_zmqPullSignalInprocSockPtr                
+                const zmq::recv_buffer_result_t res = m_zmqPullSignalInprocSockPtr->recv(signalRxBufferJunk, zmq::recv_flags::none);
+                if (!res) {
+                    std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: signal not received" << std::endl;
+                }
+                else if ((res->truncated()) || (res->size != sizeof(junkChar))) {
+                    std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: signal message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(junkChar) << std::endl;
+                }
+                else {
+                    ++totalEgressInprocSignalsReceived;
+                }
+                m_needToSendSignal = true;
+                
+            }
+        }
+        //Check for tcpcl acks from a bpsink-like program.
+        //When acked, send an ack to storage containing the head segment id so that the bundle can be deleted from storage.
+        //We will assume that when the bpsink acks the packet through tcpcl that this will be custody transfer of the bundle
+        // and that storage is no longer responsible for it.  Tcpcl must be acked sequentially but storage doesn't care the
+        // order of the acks.
+        for (outductuuid_needacksqueue_map_t::iterator it = outductUuidToNeedAcksQueueMap.begin(); it != outductUuidToNeedAcksQueueMap.end(); ++it) {
+            const uint64_t outductUuid = it->first;
+            //const unsigned int fec = 1; //TODO
+            queue_t & q = it->second;
+            if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(outductUuid)) {
+                const std::size_t numAckedRemaining = outduct->GetTotalDataSegmentsUnacked();
+                while (q.size() > numAckedRemaining) {
+                    std::unique_ptr<hdtn::EgressAckHdr> & qItem = q.front();
+                    const bool isToStorage = qItem->isToStorage;
+                    //this is an optimization because we only have one chunk to send
+                    //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+                    //to represent the content referenced by the buffer located at address data, size bytes long.
+                    //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+                    //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+                    //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+                    zmq::message_t messageWithDataStolen(qItem.release(), sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //unique_ptr goes "null" with release()
+                    if (isToStorage) {
+                        if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                            std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                            hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                            break;
+                        }
+                        ++totalCustodyTransfersSentToStorage;
+                    }
+                    else {
+                        //send ack message by echoing back the block
+                        if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::dontwait)) {
+                            std::cout << "error: zmq could not send ingress an ack from egress" << std::endl;
+                            hdtn::Logger::getInstance()->logError("egress", "Error: zmq could not send ingress an ack from egress");
+                            break;
+                        }
+                        ++totalCustodyTransfersSentToIngress;
+                    }
+                    q.pop();
+                }
+            }
+            else {
+                std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: cannot find outductUuid " << outductUuid << std::endl;
             }
         }
     }
-    processZmqMessagesThread.join();
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
     hdtn::Logger::getInstance()->logNotification("egress", "HegrManagerAsync::ReadZmqThreadFunc thread exiting");
+    const std::string msgToStorage = "totalCustodyTransfersSentToStorage: " + boost::lexical_cast<std::string>(totalCustodyTransfersSentToStorage);
+    std::cout << msgToStorage << std::endl;
+    hdtn::Logger::getInstance()->logInfo("egress", msgToStorage);
+    const std::string msgToIngress = "totalCustodyTransfersSentToIngress: " + boost::lexical_cast<std::string>(totalCustodyTransfersSentToIngress);
+    std::cout << msgToIngress << std::endl;
+    hdtn::Logger::getInstance()->logInfo("egress", msgToIngress);
+    const std::string msgInprocRx = "totalEgressInprocSignalsReceived: " + boost::lexical_cast<std::string>(totalEgressInprocSignalsReceived);
+    std::cout << msgInprocRx << std::endl;
+    hdtn::Logger::getInstance()->logInfo("egress", msgInprocRx);
+    const std::string msgInprocTx = "m_totalEgressInprocSignalsSent: " + boost::lexical_cast<std::string>(m_totalEgressInprocSignalsSent);
+    std::cout << msgInprocTx << std::endl;
+    hdtn::Logger::getInstance()->logInfo("egress", msgInprocTx);
+    //
+}
+
+static void CustomCleanupStdVecUint8(void *data, void *hint) {
+    //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
+
+//from egress bidirectional tcpcl outduct receive path and opportunistic link potentially available in ingress (otherwise ingress will give it to storage if unavailable)
+void hdtn::HegrManagerAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+    //must protect shared resources with mutex.
+    //this is an optimization because we only have one chunk to send
+    //The zmq_msg_init_data() function shall initialise the message object referenced by msg
+    //to represent the content referenced by the buffer located at address data, size bytes long.
+    //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
+    //If provided, the deallocation function ffn shall be called once the data buffer is no longer
+    //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+    std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(wholeBundleVec));
+    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
+    boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
+    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::none)) { //blocks if above 5 high water mark
+        std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
+        hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
+    }
 }

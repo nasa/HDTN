@@ -8,10 +8,6 @@ gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json
 
 cd $HDTN_SOURCE_ROOT
 
-# registration server
-python3 ./common/regsvr/main.py &
-sleep 3
-
 # BP Receive File
 ./build/common/bpcodec/apps/bpreceivefile --save-directory=received --my-uri-eid=ipn:2.1 --inducts-config-file=$sink_config &
 bpreceive_PID=$!
@@ -34,8 +30,6 @@ sleep 2
 echo "\nkilling HDTN one process ..." && kill -2 $one_process_PID
 sleep 2
 echo "\nkilling bp receive file..." && kill -2 $bpreceive_PID
-sleep 2
-echo "\nkilling registration server..." && pkill -9 -f main.py
 
 
 

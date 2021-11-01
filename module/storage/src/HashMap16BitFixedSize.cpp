@@ -7,7 +7,9 @@
  */
 
 #include "HashMap16BitFixedSize.h"
+#ifdef USE_X86_HARDWARE_ACCELERATION
 #include <nmmintrin.h>
+#endif
 #include <boost/make_unique.hpp>
 #include <iostream>
 #include "CatalogEntry.h"
@@ -28,11 +30,16 @@ uint16_t HashMap16BitFixedSize<keyType, valueType>::GetHash(const cbhe_bundle_uu
     const uint64_t v4 = bundleUuid.srcEid.serviceId;
     const uint64_t v5 = bundleUuid.fragmentOffset;
     const uint64_t v6 = bundleUuid.dataLength;
-    
+#ifdef USE_X86_HARDWARE_ACCELERATION
     const uint32_t crc32 = static_cast<uint32_t>(
         _mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(UINT32_MAX, v1), v2), v3), v4), v5), v6)
     );
     return (static_cast<uint16_t>(crc32 >> 16)) ^ (static_cast<uint16_t>(crc32));
+#else
+    const uint64_t xor64 = v1 ^ v2 ^ v3 ^ v4 ^ v5 ^ v6;
+    const uint32_t xor32 = (static_cast<uint32_t>(xor64 >> 32)) ^ (static_cast<uint32_t>(xor64));
+    return (static_cast<uint16_t>(xor32 >> 16)) ^ (static_cast<uint16_t>(xor32));
+#endif
 }
 
 template <typename keyType, typename valueType>
@@ -41,9 +48,14 @@ uint16_t HashMap16BitFixedSize<keyType, valueType>::GetHash(const cbhe_bundle_uu
     const uint64_t v2 = bundleUuid.sequence;
     const uint64_t v3 = bundleUuid.srcEid.nodeId;
     const uint64_t v4 = bundleUuid.srcEid.serviceId;
-
+#ifdef USE_X86_HARDWARE_ACCELERATION
     const uint32_t crc32 = static_cast<uint32_t>(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(UINT32_MAX, v1), v2), v3), v4));
     return (static_cast<uint16_t>(crc32 >> 16)) ^ (static_cast<uint16_t>(crc32));
+#else
+    const uint64_t xor64 = v1 ^ v2 ^ v3 ^ v4;
+    const uint32_t xor32 = (static_cast<uint32_t>(xor64 >> 32)) ^ (static_cast<uint32_t>(xor64));
+    return (static_cast<uint16_t>(xor32 >> 16)) ^ (static_cast<uint16_t>(xor32));
+#endif
 }
 
 template <typename keyType, typename valueType>

@@ -12,7 +12,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
-#include "reg.hpp"
 
 void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
@@ -77,28 +76,8 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         std::cout << "starting EgressAsync.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("egress", "Starting EgressAsync");
-        hdtn::HdtnRegsvr regsvr;
-        const std::string connect_regServerPath(
-            std::string("tcp://") +
-            hdtnConfig->m_zmqRegistrationServerAddress +
-            std::string(":") +
-            boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
-        regsvr.Init(connect_regServerPath, "egress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PULL");
-        regsvr.Reg();
-        if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
-            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
-            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
-                const hdtn::HdtnEntry & entry = *it;
-                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-                hdtn::Logger::getInstance()->logInfo("egress", std::string(entry.address) + ":" + std::to_string(entry.port) + ":" + entry.mode);
-            }
-        }
-        else {
-            std::cerr << "error: null registration query" << std::endl;
-            hdtn::Logger::getInstance()->logError("egress", "Error: null registration query");
-            return 1;
-        }
-        hdtn::HegrManagerAsync egress;
+        
+	hdtn::HegrManagerAsync egress;
         egress.Init(*hdtnConfig);
 
         printf("Announcing presence of egress ...\n");

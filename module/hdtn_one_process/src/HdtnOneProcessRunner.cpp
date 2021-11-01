@@ -15,12 +15,12 @@
 #include <iostream>
 #include "Logger.h"
 #include "message.hpp"
-#include "reg.hpp"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
+
 
 
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction() {
@@ -95,20 +95,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         std::cout << "starting EgressAsync.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("egress", "Starting EgressAsync");
-        /*
-        if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
-            const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
-            for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
-                const hdtn::HdtnEntry & entry = *it;
-                std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-                hdtn::Logger::getInstance()->logInfo("egress", std::string(entry.address) + ":" + std::to_string(entry.port) + ":" + entry.mode);
-            }
-        }
-        else {
-            std::cerr << "error: null registration query" << std::endl;
-            hdtn::Logger::getInstance()->logError("egress", "Error: null registration query");
-            return 1;
-        }*/
 
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<hdtn::HegrManagerAsync> egressPtr = boost::make_unique<hdtn::HegrManagerAsync>();
@@ -116,18 +102,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         printf("Announcing presence of egress ...\n");
         hdtn::Logger::getInstance()->logNotification("egress", "Egress Present");
-        {
-            hdtn::HdtnRegsvr regsvr;
-            const std::string connect_regServerPath(
-                std::string("tcp://") +
-                hdtnConfig->m_zmqRegistrationServerAddress +
-                std::string(":") +
-                boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
-            regsvr.Init(connect_regServerPath, "egress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PULL");
-            regsvr.Reg();
-        }
         
-
 
         std::cout << "starting ingress.." << std::endl;
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
@@ -135,33 +110,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
         ingressPtr->Init(*hdtnConfig, isCutThroughOnlyTest, hdtnOneProcessZmqInprocContextPtr.get());
 
-        // finish registration stuff -ingress will find out what egress services have
-        // registered
-        {
-            hdtn::HdtnRegsvr regsvr;
-            const std::string connect_regServerPath(
-                std::string("tcp://") +
-                hdtnConfig->m_zmqRegistrationServerAddress +
-                std::string(":") +
-                boost::lexical_cast<std::string>(hdtnConfig->m_zmqRegistrationServerPortPath));
-            regsvr.Init(connect_regServerPath, "ingress", hdtnConfig->m_zmqBoundIngressToConnectingEgressPortPath, "PUSH");
-            regsvr.Reg();
-        
-            if (hdtn::HdtnEntries_ptr res = regsvr.Query()) {
-                const hdtn::HdtnEntryList_t & entryList = res->m_hdtnEntryList;
-                for (hdtn::HdtnEntryList_t::const_iterator it = entryList.cbegin(); it != entryList.cend(); ++it) {
-                    const hdtn::HdtnEntry & entry = *it;
-                    std::cout << entry.address << ":" << entry.port << ":" << entry.mode << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("ingress", "Entry: " + entry.address + ":" + 
-                        std::to_string(entry.port) + ":" + entry.mode);
-                }
-            }
-            else {
-                std::cerr << "error: null registration query" << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", "Error: null registration query");
-                return false;
-            }
-        }
 
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();

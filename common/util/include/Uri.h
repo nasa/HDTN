@@ -11,6 +11,7 @@ private:
 
 public:
     static std::string GetIpnUriString(const uint64_t eidNodeNumber, const uint64_t eidServiceNumber);
+    static std::string GetIpnUriStringAnyServiceNumber(const uint64_t eidNodeNumber);
     static bool ParseIpnUriString(const std::string & uri, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber);
 };
 

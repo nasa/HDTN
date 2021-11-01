@@ -8,7 +8,7 @@
 #include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/CustodyTransferManager.h"
 #include <boost/asio.hpp>
-
+#include "TcpclInduct.h"
 
 
 class BpSinkPattern {
@@ -17,7 +17,7 @@ public:
     void Stop();
     virtual ~BpSinkPattern();
     bool Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
-        bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes);
+        bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId = 2047);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:
@@ -26,6 +26,9 @@ private:
     void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
     void TransferRate_TimerExpired(const boost::system::error_code& e);
     void SendAcsFromTimerThread();
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
+    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
 public:
 
     uint64_t m_totalPayloadBytesRx;
@@ -44,8 +47,10 @@ private:
 
     InductManager m_inductManager;
     OutductManager m_outductManager;
-    bool m_useCustodyTransfer;
+    bool m_hasSendCapability;
+    bool m_hasSendCapabilityOverTcpclBidirectionalInduct;
     cbhe_eid_t m_myEid;
+    cbhe_eid_t m_myEidEcho;
     std::string m_myEidUriString;
     std::unique_ptr<CustodyTransferManager> m_custodyTransferManagerPtr;
     uint64_t m_nextCtebCustodyId;
@@ -56,6 +61,8 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexForward;
+    uint64_t m_tcpclOpportunisticRemoteNodeId;
+    TcpclInduct * m_tcpclInductPtr;
 };
 
 

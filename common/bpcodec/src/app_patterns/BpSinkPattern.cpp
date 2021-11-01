@@ -15,7 +15,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
-
+#include "TcpclInduct.h"
 
 BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
 
@@ -40,11 +40,12 @@ void BpSinkPattern::Stop() {
 }
 
 bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
-    bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes)
+    bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId)
 {
-
+    m_tcpclOpportunisticRemoteNodeId = 0;
     m_myEid = myEid;
     m_myEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId);
+    m_myEidEcho.Set(myEid.nodeId, myBpEchoServiceId);
 
     m_totalPayloadBytesRx = 0;
     m_totalBundleBytesRx = 0;
@@ -58,23 +59,36 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
     m_nextCtebCustodyId = 0;
 
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1), inductsConfig, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes);
+    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
+        inductsConfig, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
+        boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
 
     if (outductsConfigPtr) {
-        m_useCustodyTransfer = true;
+        m_hasSendCapability = true;
+        m_hasSendCapabilityOverTcpclBidirectionalInduct = false;
         m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX);
         while (!m_outductManager.AllReadyToForward()) {
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
         }
+    }
+    else if (inductsConfig.m_inductElementConfigVector[0].convergenceLayer == "tcpcl") {
+        m_hasSendCapability = true;
+        m_hasSendCapabilityOverTcpclBidirectionalInduct = true;
+        std::cout << "this bpsink pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer\n";
+    }
+    else {
+        m_hasSendCapability = false;
+        m_hasSendCapabilityOverTcpclBidirectionalInduct = false;
+    }
+
+    if (m_hasSendCapability) {
         m_custodyTransferManagerPtr = boost::make_unique<CustodyTransferManager>(isAcsAware, myEid.nodeId, myEid.serviceId);
         if (isAcsAware) {
             m_timerAcs.expires_from_now(boost::posix_time::seconds(1));
             m_timerAcs.async_wait(boost::bind(&BpSinkPattern::AcsNeedToSend_TimerExpired, this, boost::asio::placeholders::error));
         }
-    }
-    else {
-        m_useCustodyTransfer = false;
     }
     m_lastPtime = boost::posix_time::microsec_clock::universal_time();
     m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
@@ -102,16 +116,35 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
     const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
     const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
 
-    if (finalDestEid != m_myEid) {
+    
+
+    static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
+    const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
+    if (isEcho && (!m_hasSendCapability)) {
+        std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
+        return false;
+    }
+    
+    if ((!isEcho) && (finalDestEid != m_myEid)) {
         std::cerr << "bundle received has a destination that doesn't match my eid\n";
         return false;
     }
 
-
     //accept custody
-    if (m_useCustodyTransfer) {
+    if (m_hasSendCapability) { //has bidirectionality
         static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
-        if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+        
+        if (isEcho) {
+            primary.dst_node = primary.src_node;
+            primary.dst_svc = primary.src_svc;
+            primary.src_node = m_myEidEcho.nodeId;
+            primary.src_svc = m_myEidEcho.serviceId;
+            bv.m_primaryBlockView.SetManuallyModified();
+            bv.Render(messageSize + 10);
+            Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
+            return true;
+        }
+        else if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
             const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
             bpv6_primary_block primaryForCustodySignalRfc5050;
             m_mutexCtm.lock();
@@ -127,15 +160,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
                 if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
                     //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
                     const cbhe_eid_t custodySignalDestEid(primaryForCustodySignalRfc5050.dst_node, primaryForCustodySignalRfc5050.dst_svc);
-                    m_mutexForward.lock();
-                    bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle, 3);
-                    m_mutexForward.unlock();
-                    if (!successForward) {
-                        std::cerr << "error forwarding for 3 seconds for custody signal final dest eid (" << custodySignalDestEid.nodeId << "," << custodySignalDestEid.serviceId << ")\n";
-                    }
-                    else {
-                        //std::cout << "success forwarding\n";
-                    }
+                    Forward_ThreadSafe(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle);
                 }
                 else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
                     boost::asio::post(m_ioService, boost::bind(&BpSinkPattern::SendAcsFromTimerThread, this));
@@ -226,17 +251,53 @@ void BpSinkPattern::SendAcsFromTimerThread() {
         {
             //send an acs custody signal due to acs send timer
             const cbhe_eid_t custodySignalDestEid(it->first.dst_node, it->first.dst_svc);
-            m_mutexForward.lock();
-            bool successForward = m_outductManager.Forward_Blocking(custodySignalDestEid, it->second, 3);
-            m_mutexForward.unlock();
-            if (!successForward) {
-                std::cerr << "error forwarding for 3 seconds\n";
-            }
-            else {
-                //std::cout << "success forwarding\n";
-            }
-            
+            Forward_ThreadSafe(custodySignalDestEid, it->second);
         }
     }
 }
 
+void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+    if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
+    else {
+        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct\n";
+    }
+}
+void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
+    m_tcpclOpportunisticRemoteNodeId = 0;
+    std::cout << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+}
+
+bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend) {
+    bool successForward = false;
+    if (m_hasSendCapabilityOverTcpclBidirectionalInduct) {
+        //if (destEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
+        //    std::cerr << "error: node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId << std::endl;
+        //}
+        //else if (m_tcpclInductPtr) {
+        //note BpSink has no routing capability so it must send to the only connection available to it
+        if (m_tcpclInductPtr) {
+            m_mutexForward.lock();
+            //successForward = m_tcpclInductPtr->ForwardOnOpportunisticLink(destEid.nodeId, bundleToMoveAndSend, 3);
+            successForward = m_tcpclInductPtr->ForwardOnOpportunisticLink(m_tcpclOpportunisticRemoteNodeId, bundleToMoveAndSend, 3);
+            m_mutexForward.unlock();
+        }
+        else {
+            std::cerr << "error: tcpcl induct does not exist to forward\n";
+        }
+    }
+    else {
+        m_mutexForward.lock();
+        successForward = m_outductManager.Forward_Blocking(destEid, bundleToMoveAndSend, 3);
+        m_mutexForward.unlock();
+    }
+    if (!successForward) {
+        std::cerr << "error forwarding for 3 seconds\n";
+    }
+    else {
+        //std::cout << "success forwarding\n";
+    }
+    return successForward;
+}

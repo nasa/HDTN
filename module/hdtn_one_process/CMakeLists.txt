@@ -9,7 +9,6 @@ add_executable(hdtn-one-process
 )
 
 target_link_libraries(hdtn-one-process
-	hdtn_reg
 	bpcodec
 	hdtn_util
     log_lib

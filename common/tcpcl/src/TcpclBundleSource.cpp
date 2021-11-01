@@ -7,7 +7,8 @@
 #include "Uri.h"
 
 TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId, 
-    const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize) :
+    const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
+    const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
 m_noKeepAlivePacketReceivedTimer(m_ioService),
@@ -32,6 +33,9 @@ M_DESIRED_KEEPALIVE_INTERVAL_SECONDS(desiredKeeAliveIntervlSeconds),
 //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
 //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
 M_THIS_EID_STRING(Uri::GetIpnUriString(myNodeId, 0)),
+
+m_outductOpportunisticProcessReceivedBundleCallback(outductOpportunisticProcessReceivedBundleCallback),
+m_tcpReadSomeBufferVec(10000), //todo 10KB rx buffer
 
 m_totalDataSegmentsAcked(0),
 m_totalBytesAcked(0),
@@ -241,6 +245,7 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
 
     ++m_totalDataSegmentsSent;
     m_totalBundleBytesSent += dataZmq.size();
+    const uint64_t bundleLength = dataZmq.size();
 
     std::vector<uint64_t> & currentFragmentBytesVec = m_fragmentBytesToAckCbVec[writeIndex];
     currentFragmentBytesVec.resize(0); //will be zero size if not fragmented
@@ -281,6 +286,27 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
 
     m_bytesToAckCb.CommitWrite(); //pushed
 
+    //send length if requested
+    /*LENGTH messages MUST NOT be sent unless the corresponding flag bit is
+    set in the contact header.  If the flag bit is set, LENGTH messages
+    MAY be sent at the sender's discretion.  LENGTH messages MUST NOT be
+    sent unless the next DATA_SEGMENT message has the 'S' bit set to "1"
+    (i.e., just before the start of a new bundle).
+
+    TODO:
+    A receiver MAY send a BUNDLE_REFUSE message as soon as it receives a
+    LENGTH message without waiting for the next DATA_SEGMENT message.
+    The sender MUST be prepared for this and MUST associate the refusal
+    with the right bundle.*/
+    if ((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_SENDING_OF_LENGTH_MESSAGES)) & (static_cast<unsigned int>(m_contactHeaderFlags))) {
+        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingData.resize(1);
+        Tcpcl::GenerateBundleLength(el->m_underlyingData[0], bundleLength);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+        m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+    }
+
     if (elements.size()) { //is fragmented
         m_totalFragmentedSent += elements.size();
         for (std::size_t i = 0; i < elements.size(); ++i) {
@@ -294,7 +320,7 @@ bool TcpclBundleSource::Forward(zmq::message_t & dataZmq) {
         el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
         el->m_constBufferVec.resize(2);
         el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
-        el->m_constBufferVec[1] = boost::asio::buffer(boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size()));
+        el->m_constBufferVec[1] = boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size());
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
         m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
     }
@@ -397,7 +423,7 @@ void TcpclBundleSource::HandleTcpSendShutdown(const boost::system::error_code& e
 
 void TcpclBundleSource::StartTcpReceive() {
     m_tcpSocketPtr->async_read_some(
-        boost::asio::buffer(m_tcpReadSomeBuffer, 2000),
+        boost::asio::buffer(m_tcpReadSomeBufferVec),
         boost::bind(&TcpclBundleSource::HandleTcpReceiveSome, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
@@ -409,7 +435,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
-        m_tcpcl.HandleReceivedChars(m_tcpReadSomeBuffer, bytesTransferred);
+        m_tcpcl.HandleReceivedChars(m_tcpReadSomeBufferVec.data(), bytesTransferred);
         StartTcpReceive(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
@@ -417,7 +443,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
         DoTcpclShutdown(false, false);
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "Error in UartMcu::HandleTcpReceiveSome: " << error.message() << std::endl;
+        std::cerr << "Error in TcpclBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
     }
 }
 
@@ -464,9 +490,40 @@ void TcpclBundleSource::ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16
 
 }
 
+//for when tcpclAllowOpportunisticReceiveBundles is set to true (not designed for extremely high throughput)
 void TcpclBundleSource::DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
-
-    std::cout << "TcpclBundleSource should never enter DataSegmentCallback" << std::endl;
+    if (m_outductOpportunisticProcessReceivedBundleCallback) {
+        uint64_t bytesToAck = 0;
+        if (isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
+            bytesToAck = dataSegmentDataVec.size(); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
+            m_outductOpportunisticProcessReceivedBundleCallback(dataSegmentDataVec);
+            //std::cout << dataSegmentDataSharedPtr->size() << std::endl;
+        }
+        else {
+            if (isStartFlag) {
+                m_fragmentedBundleRxConcat.resize(0);
+            }
+            m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), dataSegmentDataVec.begin(), dataSegmentDataVec.end()); //concatenate
+            bytesToAck = m_fragmentedBundleRxConcat.size();
+            if (isEndFlag) { //fragmentation complete
+                m_outductOpportunisticProcessReceivedBundleCallback(m_fragmentedBundleRxConcat);
+            }
+        }
+        //send ack
+        if ((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS)) & (static_cast<unsigned int>(m_contactHeaderFlags))) {
+            if (m_tcpSocketPtr) {
+                TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+                el->m_underlyingData.resize(1);
+                Tcpcl::GenerateAckSegment(el->m_underlyingData[0], bytesToAck);
+                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+                el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
+                m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+            }
+        }
+    }
+    else {
+        std::cout << "TcpclBundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false" << std::endl;
+    }
 }
 
 void TcpclBundleSource::AckCallback(uint64_t totalBytesAcknowledged) {

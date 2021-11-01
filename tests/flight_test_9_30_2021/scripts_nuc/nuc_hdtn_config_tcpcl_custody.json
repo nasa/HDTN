@@ -2,24 +2,24 @@
     "hdtnConfigName": "my hdtn config",
     "mySchemeName": "unused_scheme_name",
     "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
     "isAcsAware": true,
     "acsMaxFillsPerAcsPacket": 100,
     "acsSendPeriodMilliseconds": 1000,
-    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 100000,
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
-    "egressMaxBundlesAwaitingSend": 40,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
     "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
-    "zmqContactGraphRoutingAddress": "tcp://localhost:5556",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
@@ -32,7 +32,7 @@
         "inductConfigName": "myconfig",
         "inductVector": [
             {
-                "name": "tcpcl_ingress",
+                "name": "from bpsendfile",
                 "convergenceLayer": "tcpcl",
                 "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
@@ -46,30 +46,20 @@
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "tcpcl_egress",
+                "name": "to tantalus",
                 "convergenceLayer": "tcpcl",
-                "nextHopEndpointId": "ipn:2.1",
-                "remoteHostname": "localhost",
-                "remotePort": 4558,
-                "bundlePipelineLimit": 5,
+                "nextHopEndpointId": "ipn:20.1",
+                "remoteHostname": "tantalus",
+                "remotePort": 4557,
+                "bundlePipelineLimit": 15,
                 "finalDestinationEidUris": [
-                    "ipn:2.1"
+                    "ipn:1.1",
+                    "ipn:2.1",
+                    "ipn:3.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000
-            },
-            {
-                "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl",
-                "nextHopEndpointId": "ipn:1.0",
-                "remoteHostname": "localhost",
-                "remotePort": 4560,
-                "bundlePipelineLimit": 5,
-                "finalDestinationEidUris": [
-                    "ipn:1.0"
-                ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000
+                "tcpclAutoFragmentSizeBytes": 20000000,
+                "tcpclAllowOpportunisticReceiveBundles": true
             }
         ]
     },
@@ -77,7 +67,7 @@
         "storageImplementation": "asio_single_threaded",
         "tryToRestoreFromDisk": false,
         "autoDeleteFilesOnExit": true,
-        "totalStorageCapacityBytes": 8192000000,
+        "totalStorageCapacityBytes": 81920000000,
         "storageDiskConfigVector": [
             {
                 "name": "d1",
