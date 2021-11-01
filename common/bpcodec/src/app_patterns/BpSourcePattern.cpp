@@ -335,8 +335,23 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         }
     }
     if (m_useCustodyTransfer) {
-        std::cout << "Bpgen waiting for an additional 10 seconds to receive custody transfers" << std::endl;
-        boost::this_thread::sleep(boost::posix_time::seconds(10));
+        uint64_t lastNumCustodyTransfers = UINT64_MAX;
+        while (true) {
+            const uint64_t totalCustodyTransfers = std::max(m_numRfc5050CustodyTransfers, m_numAcsCustodyTransfers);
+            if (totalCustodyTransfers == m_bundleCount) {
+                std::cout << "Bpgen received all custody transfers" << std::endl;
+                break;
+            }
+            else if (totalCustodyTransfers != lastNumCustodyTransfers) {
+                lastNumCustodyTransfers = totalCustodyTransfers;
+                std::cout << "Bpgen waiting for an additional 10 seconds to receive custody transfers" << std::endl;
+                boost::this_thread::sleep(boost::posix_time::seconds(10));
+            }
+            else {
+                std::cout << "Bpgen received no custody transfers for the last 10 seconds.. exiting" << std::endl;
+                break;
+            }
+        }
     }
     std::cout << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers << std::endl;
     std::cout << "m_numAcsCustodyTransfers: " << m_numAcsCustodyTransfers << std::endl;
