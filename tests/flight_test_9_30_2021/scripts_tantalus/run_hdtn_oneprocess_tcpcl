@@ -1,8 +1,3 @@
 export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
 export HDTN_SOURCE_ROOT=/home/btomko/hdtn
-# registration server
-python3 $HDTN_SOURCE_ROOT/common/regsvr/main.py &
-sleep 3
 $HDTN_BUILD_ROOT/module/hdtn_one_process/hdtn-one-process --hdtn-config-file=./tantalus_hdtn_config_tcpcl.json
-
-echo "\nkilling registration server..." && pkill -9 -f main.py
