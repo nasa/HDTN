@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_library(tcpcl_lib STATIC
     src/Tcpcl.cpp
+	src/TcpclV4.cpp
 	src/TcpclBundleSink.cpp
 	src/TcpclBundleSource.cpp
 )
