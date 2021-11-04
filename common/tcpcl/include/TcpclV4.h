@@ -171,7 +171,8 @@ public:
     };
 
 public:
-    typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
+    typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+        uint64_t transferId, const tcpclv4_extensions_t & transferExtensions)> DataSegmentContentsReadCallback_t;
     typedef boost::function<void(bool remoteHasEnabledTlsSecurity)> ContactHeaderReadCallback_t;
     typedef boost::function<void(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
         const std::string & remoteNodeEidUri, const tcpclv4_extensions_t & sessionExtensions)> SessionInitCallback_t;

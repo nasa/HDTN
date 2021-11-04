@@ -79,6 +79,17 @@ static BOOST_FORCEINLINE void NativeU32ToUnalignedBigEndian(uint8_t * const outp
 #endif
 }
 
+static BOOST_FORCEINLINE void ClearFourBytes(uint8_t * const output) {
+#ifndef USE_X86_HARDWARE_ACCELERATION
+    output[0] = 0;
+    output[1] = 0;
+    output[2] = 0;
+    output[3] = 0;
+#else
+    _mm_stream_si32((int32_t *)output, 0);
+#endif
+}
+
 static BOOST_FORCEINLINE uint16_t UnalignedBigEndianToNativeU16(const uint8_t * const data) {
 #if 1
     return ((static_cast<uint16_t>(data[0])) << 8) | data[1];
@@ -458,7 +469,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                 if (m_dataSegmentDataVec.size() == m_dataSegmentLength) {
                     m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                     if (m_dataSegmentContentsReadCallback) {
-                        m_dataSegmentContentsReadCallback(m_dataSegmentDataVec, m_dataSegmentStartFlag, m_dataSegmentEndFlag);
+                        m_dataSegmentContentsReadCallback(m_dataSegmentDataVec, m_dataSegmentStartFlag, m_dataSegmentEndFlag, m_transferId, boost::cref(m_transferExtensions));
                     }
                 }
                 else {
@@ -695,7 +706,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     else {
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                         if (m_sessionInitCallback) {
-                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, m_sessionExtensions);
+                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, boost::cref(m_sessionExtensions));
                         }
                     }
                 }
@@ -744,7 +755,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                         if (m_currentCountOfSessionExtensionEncodedBytes == m_sessionExtensionItemsLengthBytes) {
                             m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                             if (m_sessionInitCallback) {
-                                m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, m_sessionExtensions);
+                                m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, boost::cref(m_sessionExtensions));
                             }
                         }
                         else {
@@ -760,7 +771,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     if (m_currentCountOfSessionExtensionEncodedBytes == m_sessionExtensionItemsLengthBytes) {
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                         if (m_sessionInitCallback) {
-                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, m_sessionExtensions);
+                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, boost::cref(m_sessionExtensions));
                         }
                     }
                     else {
@@ -818,12 +829,15 @@ bool TcpclV4::GenerateSessionInitMessage(std::vector<uint8_t> & msg, uint16_t ke
     return ((ptr - msg.data()) == msg.size());
 }
 
+
 bool TcpclV4::GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegment, uint64_t transferId, const uint8_t * contents, uint64_t sizeContents) {
     static constexpr uint8_t startAndEndSegmentFlagsSet = 3U;
     const uint8_t dataSegmentFlags = startAndEndSegmentFlagsSet;
 
-    
-    dataSegment.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + 
+    //The Transfer Extension Length and Transfer
+    //Extension Item fields SHALL only be present when the 'START' flag
+    //is set to 1 on the message. (which it is here)
+    dataSegment.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(uint32_t)
         + sizeof(sizeContents) + sizeContents);
 
 
@@ -832,6 +846,8 @@ bool TcpclV4::GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegmen
     *ptr++ = dataSegmentFlags;
     NativeU64ToUnalignedBigEndian(ptr, transferId);
     ptr += sizeof(transferId);
+    ClearFourBytes(ptr); //transfer extension length 0
+    ptr += sizeof(uint32_t);
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
     memcpy(ptr, contents, sizeContents);
@@ -843,8 +859,10 @@ bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & 
     static constexpr uint8_t startAndEndSegmentFlagsSet = 3U;
     const uint8_t dataSegmentFlags = startAndEndSegmentFlagsSet;
 
-
-    dataSegmentHeaderDataVec.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(sizeContents));
+    //The Transfer Extension Length and Transfer
+    //Extension Item fields SHALL only be present when the 'START' flag
+    //is set to 1 on the message. (which it is here)
+    dataSegmentHeaderDataVec.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(uint32_t) + sizeof(sizeContents));
 
 
     uint8_t * ptr = &dataSegmentHeaderDataVec[0];
@@ -852,6 +870,8 @@ bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & 
     *ptr++ = dataSegmentFlags;
     NativeU64ToUnalignedBigEndian(ptr, transferId);
     ptr += sizeof(transferId);
+    ClearFourBytes(ptr); //transfer extension length 0
+    ptr += sizeof(uint32_t);
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
 
@@ -867,7 +887,7 @@ bool TcpclV4::GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegmen
 
     //The Transfer Extension Length and Transfer
     //Extension Item fields SHALL only be present when the 'START' flag
-    //is set to 1 on the message.
+    //is set to 1 on the message. (which it is here)
     const uint32_t transferExtensionsLengthBytes = static_cast<uint32_t>(transferExtensions.GetTotalDataRequiredForSerialization());
     dataSegment.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(transferExtensionsLengthBytes)
         + sizeof(sizeContents) + transferExtensionsLengthBytes + sizeContents);
@@ -896,7 +916,7 @@ bool TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & 
 
     //The Transfer Extension Length and Transfer
     //Extension Item fields SHALL only be present when the 'START' flag
-    //is set to 1 on the message.
+    //is set to 1 on the message. (which it is here)
     const uint32_t transferExtensionsLengthBytes = static_cast<uint32_t>(transferExtensions.GetTotalDataRequiredForSerialization());
     dataSegmentHeaderDataVec.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(transferExtensionsLengthBytes)
         + sizeof(sizeContents) + transferExtensionsLengthBytes);
@@ -925,7 +945,7 @@ bool TcpclV4::GenerateStartDataSegment(std::vector<uint8_t> & dataSegment, bool 
     
     //The Transfer Extension Length and Transfer
     //Extension Item fields SHALL only be present when the 'START' flag
-    //is set to 1 on the message.
+    //is set to 1 on the message. (which it is here)
     const uint32_t transferExtensionsLengthBytes = static_cast<uint32_t>(transferExtensions.GetTotalDataRequiredForSerialization());
     dataSegment.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(transferExtensionsLengthBytes)
         + sizeof(sizeContents) + transferExtensionsLengthBytes + sizeContents);
@@ -954,7 +974,7 @@ bool TcpclV4::GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegm
 
     //The Transfer Extension Length and Transfer
     //Extension Item fields SHALL only be present when the 'START' flag
-    //is set to 1 on the message.
+    //is set to 1 on the message. (which it is here)
     const uint32_t transferExtensionsLengthBytes = static_cast<uint32_t>(transferExtensions.GetTotalDataRequiredForSerialization());
     dataSegmentHeaderDataVec.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(transferExtensionsLengthBytes)
         + sizeof(sizeContents) + transferExtensionsLengthBytes);
@@ -983,7 +1003,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<
 
     //The Transfer Extension Length and Transfer
     //Extension Item fields SHALL only be present when the 'START' flag
-    //is set to 1 on the message.
+    //is set to 1 on the message. (which it is here)
     static const uint32_t transferExtensionsLengthBytes = static_cast<uint32_t>(tcpclv4_extension_t::SIZE_OF_SERIALIZED_TRANSFER_LENGTH_EXTENSION);
     dataSegment.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(transferExtensionsLengthBytes)
         + sizeof(sizeContents) + transferExtensionsLengthBytes + sizeContents);
@@ -1017,7 +1037,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(st
 
     //The Transfer Extension Length and Transfer
     //Extension Item fields SHALL only be present when the 'START' flag
-    //is set to 1 on the message.
+    //is set to 1 on the message. (which it is here)
     static const uint32_t transferExtensionsLengthBytes = static_cast<uint32_t>(tcpclv4_extension_t::SIZE_OF_SERIALIZED_TRANSFER_LENGTH_EXTENSION);
     dataSegmentHeaderDataVec.resize(sizeof(uint8_t) + sizeof(dataSegmentFlags) + sizeof(transferId) + sizeof(transferExtensionsLengthBytes)
         + sizeof(sizeContents) + transferExtensionsLengthBytes);

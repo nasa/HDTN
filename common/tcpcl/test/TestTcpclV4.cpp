@@ -12,6 +12,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
         uint16_t m_keepAliveInterval;
         uint64_t m_segmentMru;
         uint64_t m_transferMru;
+        uint64_t m_transferId;
         const std::string m_remoteNodeEidUri;
         TcpclV4::tcpclv4_extensions_t m_sessionExtensions;
         bool m_ackIsStart;
@@ -25,6 +26,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
         unsigned int m_numContactHeaderCallbackCount;
         unsigned int m_numSessionInitCallbackCount;
         uint64_t m_numSessionExtensionsProcessed;
+        uint64_t m_numTransferExtensionsProcessed;
         unsigned int m_numDataSegmentCallbackCountNoFragment;
         unsigned int m_numDataSegmentCallbackCountWithFragments;
         unsigned int m_numAckCallbackCount;
@@ -38,6 +40,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             m_keepAliveInterval(0x1234),
             m_segmentMru(1000000),
             m_transferMru(2000000),
+            m_transferId(0),
             m_remoteNodeEidUri("test Eid String!"),
             m_ackIsStart(true),
             m_ackIsEnd(true),
@@ -50,6 +53,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             m_numContactHeaderCallbackCount(0),
             m_numSessionInitCallbackCount(0),
             m_numSessionExtensionsProcessed(0),
+            m_numTransferExtensionsProcessed(0),
             m_numDataSegmentCallbackCountNoFragment(0),
             m_numDataSegmentCallbackCountWithFragments(0),
             m_numAckCallbackCount(0),
@@ -76,7 +80,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
                 boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4, boost::placeholders::_5));
 
             std::vector<uint8_t> msg;
-            TcpclV4::GenerateSessionInitMessage(msg, m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeEidUri, m_sessionExtensions);
+            BOOST_REQUIRE(TcpclV4::GenerateSessionInitMessage(msg, m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeEidUri, m_sessionExtensions));
             m_tcpcl.HandleReceivedChars(msg.data(), msg.size());
         }
         
@@ -85,7 +89,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
                 boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
 
             std::vector<uint8_t> ackSegment;
-            TcpclV4::GenerateAckSegment(ackSegment, m_ackIsStart, m_ackIsEnd, m_ackTransferId, m_ackBytesAcknowledged);
+            BOOST_REQUIRE(TcpclV4::GenerateAckSegment(ackSegment, m_ackIsStart, m_ackIsEnd, m_ackTransferId, m_ackBytesAcknowledged));
             m_tcpcl.HandleReceivedChars(ackSegment.data(), ackSegment.size());
         }
 
@@ -123,24 +127,26 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
 
             m_tcpcl.HandleReceivedChars(sessionTerminationMessage.data(), sessionTerminationMessage.size());
         }
-/*
+
         
 
-        void DoDataSegmentNoFragment() {
+        void DoDataSegmentNoFragment(bool doCharByChar) {
             std::vector<uint8_t> bundleSegment;
-            m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackNoFragment, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-            Tcpcl::GenerateDataSegment(bundleSegment, true, true, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size());
-            m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
-        }
-
-        void DoDataSegmentNoFragmentCharByChar() { //skip sdnv shortcut in data segment
-            std::vector<uint8_t> bundleSegment;
-            m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackNoFragment, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-            Tcpcl::GenerateDataSegment(bundleSegment, true, true, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size());
-            for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
-                m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+            m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackNoFragment, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5));
+            BOOST_REQUIRE(TcpclV4::GenerateNonFragmentedDataSegment(bundleSegment, m_transferId, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size()));
+            if (doCharByChar) {
+                //skip tcpcl state machine shortcut optimizations
+                for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
+                    m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+                }
+            }
+            else {
+                m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
             }
         }
+/*
+        
 
         void DoDataSegmentThreeFragments() {
             m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackWithFragments, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
@@ -188,15 +194,18 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             BOOST_REQUIRE(sessionExtensions == m_sessionExtensions);
             BOOST_REQUIRE(!(sessionExtensions != m_sessionExtensions));
         }
-        /*
-        void DataSegmentCallbackNoFragment(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
+        
+        void DataSegmentCallbackNoFragment(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+            uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions)
+        {
             ++m_numDataSegmentCallbackCountNoFragment;
+            m_numTransferExtensionsProcessed += transferExtensions.extensionsVec.size();
             BOOST_REQUIRE(isStartFlag);
             BOOST_REQUIRE(isEndFlag);
             const std::string rxBundleData(dataSegmentDataVec.data(), dataSegmentDataVec.data() + dataSegmentDataVec.size());
             BOOST_REQUIRE_EQUAL(m_bundleDataToSendNoFragment, rxBundleData);
         }
-
+/*
         void DataSegmentCallbackWithFragments(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 
             if (m_numDataSegmentCallbackCountWithFragments == 0) {
@@ -303,16 +312,19 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
     
 
-    /*
+    
     BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 0);
-    t.DoDataSegmentNoFragmentCharByChar();
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
+    t.DoDataSegmentNoFragment(false); //not char by char
     BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
-
-    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
-    t.DoDataSegmentNoFragment();
+    t.DoDataSegmentNoFragment(true); //char by char
     BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 2);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+/*
+
 
     BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 0);
     t.DoDataSegmentThreeFragments();
