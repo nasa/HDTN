@@ -1,7 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include "TcpclV4.h"
 #include <boost/bind/bind.hpp>
-
+#include <boost/endian/conversion.hpp>
 
 
 BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
@@ -15,6 +15,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
         uint64_t m_transferId;
         const std::string m_remoteNodeEidUri;
         TcpclV4::tcpclv4_extensions_t m_sessionExtensions;
+        TcpclV4::tcpclv4_extensions_t m_transferExtensions;
         bool m_ackIsStart;
         bool m_ackIsEnd;
         uint64_t m_ackTransferId;
@@ -34,6 +35,8 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
         unsigned int m_numMessageRejectCallbackCount;
         unsigned int m_numKeepAliveCallbackCount;
         unsigned int m_numSessionTerminationMessageCallbackCount;
+        uint64_t m_lastBundleLength;
+        uint64_t m_expectedBundleLength;
         std::string m_fragmentedBundleRxConcat;
         Test() :
             m_useTls(false),
@@ -84,13 +87,35 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             m_tcpcl.HandleReceivedChars(msg.data(), msg.size());
         }
         
-        void DoAck() {
+        uint64_t DoAck(bool doCharByChar, bool doSweep = false) {
             m_tcpcl.SetAckSegmentReadCallback(boost::bind(&Test::AckCallback, this, boost::placeholders::_1,
                 boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
 
             std::vector<uint8_t> ackSegment;
             BOOST_REQUIRE(TcpclV4::GenerateAckSegment(ackSegment, m_ackIsStart, m_ackIsEnd, m_ackTransferId, m_ackBytesAcknowledged));
-            m_tcpcl.HandleReceivedChars(ackSegment.data(), ackSegment.size());
+            if (doSweep) {
+                for (std::size_t off = 0; off < ackSegment.size(); ++off) {
+                    m_tcpcl.HandleReceivedChars(ackSegment.data(), off);
+                    m_tcpcl.HandleReceivedChars(ackSegment.data() + off, ackSegment.size() - off);
+                    /*if (off) {
+                        m_tcpcl.HandleReceivedChars(ackSegment.data(), off);
+                    }
+                    for (std::size_t i = off; i < ackSegment.size(); ++i) {
+                        m_tcpcl.HandleReceivedChar(ackSegment[i]);
+                    }*/
+                    BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+                }
+            }
+            else if (doCharByChar) {
+                //skip tcpcl state machine shortcut optimizations
+                for (std::size_t i = 0; i < ackSegment.size(); ++i) {
+                    m_tcpcl.HandleReceivedChar(ackSegment[i]);
+                }
+            }
+            else {
+                m_tcpcl.HandleReceivedChars(ackSegment.data(), ackSegment.size());
+            }
+            return ackSegment.size();
         }
 
         void DoBundleRefusal() {
@@ -130,11 +155,66 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
 
         
 
-        void DoDataSegmentNoFragment(bool doCharByChar) {
+        uint64_t DoDataSegmentNoFragment(bool doCharByChar, bool doXferExtensions, bool doSweep = false) {
             std::vector<uint8_t> bundleSegment;
             m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackNoFragment, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
                 boost::placeholders::_4, boost::placeholders::_5));
-            BOOST_REQUIRE(TcpclV4::GenerateNonFragmentedDataSegment(bundleSegment, m_transferId, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size()));
+            if (doXferExtensions) {
+                BOOST_REQUIRE(TcpclV4::GenerateNonFragmentedDataSegment(bundleSegment, m_transferId, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size(), m_transferExtensions));
+            }
+            else {
+                BOOST_REQUIRE(TcpclV4::GenerateNonFragmentedDataSegment(bundleSegment, m_transferId, (const uint8_t*)m_bundleDataToSendNoFragment.data(), m_bundleDataToSendNoFragment.size()));
+            }
+            if (doSweep) {
+                for (std::size_t off = 0; off < bundleSegment.size(); ++off) {
+                    m_tcpcl.HandleReceivedChars(bundleSegment.data(), off);
+                    m_tcpcl.HandleReceivedChars(bundleSegment.data() + off, bundleSegment.size() - off);
+                    /*if (off) {
+                        m_tcpcl.HandleReceivedChars(bundleSegment.data(), off);
+                    }
+                    for (std::size_t i = off; i < bundleSegment.size(); ++i) {
+                        m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+                    }*/
+                    BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+                }
+            }
+            else if (doCharByChar) {
+                //skip tcpcl state machine shortcut optimizations
+                for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
+                    m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+                }
+            }
+            else {
+                m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
+            }
+            return bundleSegment.size();
+        }
+
+
+        
+
+        void DoDataSegmentThreeFragments(bool doCharByChar, bool doLengthExtension) {
+            m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackWithFragments, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
+                boost::placeholders::_4, boost::placeholders::_5));
+            std::vector<uint8_t> bundleSegment;
+            static const TcpclV4::tcpclv4_extensions_t emptyExtensions;
+            static const std::string f1 = "fragOne ";
+            static const std::string f2 = "fragTwo ";
+            static const std::string f3 = "fragThree";
+            m_expectedBundleLength = f1.size() + f2.size() + f3.size();
+
+            BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+            m_fragmentedBundleRxConcat.clear();
+            BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, std::string(""));
+            BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 0);
+            
+            if (doLengthExtension) {
+                BOOST_REQUIRE(TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtension(bundleSegment, m_transferId, (const uint8_t*)f1.data(), f1.size(), m_expectedBundleLength));
+            }
+            else {
+                BOOST_REQUIRE(TcpclV4::GenerateStartDataSegment(bundleSegment, false, m_transferId, (const uint8_t*)f1.data(), f1.size(), emptyExtensions));
+            }
+            
             if (doCharByChar) {
                 //skip tcpcl state machine shortcut optimizations
                 for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
@@ -144,40 +224,40 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             else {
                 m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
             }
-        }
-/*
-        
-
-        void DoDataSegmentThreeFragments() {
-            m_tcpcl.SetDataSegmentContentsReadCallback(boost::bind(&Test::DataSegmentCallbackWithFragments, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
-            std::vector<uint8_t> bundleSegment;
-
-            BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
-            BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, std::string(""));
-            BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 0);
-            static const std::string f1 = "fragOne ";
-            Tcpcl::GenerateDataSegment(bundleSegment, true, false, (const uint8_t*)f1.data(), f1.size());
-            m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
 
             BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
             BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, f1);
             BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 1);
-            static const std::string f2 = "fragTwo ";
-            Tcpcl::GenerateDataSegment(bundleSegment, false, false, (const uint8_t*)f2.data(), f2.size());
-            m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
-
+            
+            BOOST_REQUIRE(TcpclV4::GenerateNonStartDataSegment(bundleSegment, false, m_transferId, (const uint8_t*)f2.data(), f2.size()));
+            if (doCharByChar) {
+                //skip tcpcl state machine shortcut optimizations
+                for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
+                    m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+                }
+            }
+            else {
+                m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
+            }
             BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
             BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, f1 + f2);
             BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 2);
-            static const std::string f3 = "fragThree";
-            Tcpcl::GenerateDataSegment(bundleSegment, false, true, (const uint8_t*)f3.data(), f3.size());
-            m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
-
+            
+            BOOST_REQUIRE(TcpclV4::GenerateNonStartDataSegment(bundleSegment, true, m_transferId, (const uint8_t*)f3.data(), f3.size()));
+            if (doCharByChar) {
+                //skip tcpcl state machine shortcut optimizations
+                for (std::size_t i = 0; i < bundleSegment.size(); ++i) {
+                    m_tcpcl.HandleReceivedChar(bundleSegment[i]);
+                }
+            }
+            else {
+                m_tcpcl.HandleReceivedChars(bundleSegment.data(), bundleSegment.size());
+            }
             BOOST_REQUIRE(m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
             BOOST_REQUIRE_EQUAL(m_fragmentedBundleRxConcat, f1+f2+f3);
             BOOST_REQUIRE_EQUAL(m_numDataSegmentCallbackCountWithFragments, 3);
         }
-        */
+        
         void ContactHeaderCallback(bool remoteHasEnabledTlsSecurity) {
             ++m_numContactHeaderCallbackCount;
             BOOST_REQUIRE(m_useTls == remoteHasEnabledTlsSecurity);
@@ -205,32 +285,45 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             const std::string rxBundleData(dataSegmentDataVec.data(), dataSegmentDataVec.data() + dataSegmentDataVec.size());
             BOOST_REQUIRE_EQUAL(m_bundleDataToSendNoFragment, rxBundleData);
         }
-/*
-        void DataSegmentCallbackWithFragments(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
+
+        void DataSegmentCallbackWithFragments(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+            uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions) {
 
             if (m_numDataSegmentCallbackCountWithFragments == 0) {
                 BOOST_REQUIRE(isStartFlag);
                 BOOST_REQUIRE(!isEndFlag);
+                BOOST_REQUIRE_LE(transferExtensions.extensionsVec.size(), 1);
+                if (transferExtensions.extensionsVec.size()) {
+                    BOOST_REQUIRE(transferExtensions.extensionsVec[0].IsCritical());
+                    BOOST_REQUIRE_EQUAL(transferExtensions.extensionsVec[0].type, 0x0001); //length extension type
+                    BOOST_REQUIRE_EQUAL(transferExtensions.extensionsVec[0].valueVec.size(), sizeof(m_lastBundleLength)); //length is 64 bit
+                    memcpy(&m_lastBundleLength, transferExtensions.extensionsVec[0].valueVec.data(), sizeof(m_lastBundleLength));
+                    boost::endian::big_to_native_inplace(m_lastBundleLength);
+                    BOOST_REQUIRE_EQUAL(m_lastBundleLength, m_expectedBundleLength);
+                }
             }
             else if (m_numDataSegmentCallbackCountWithFragments == 1) {
                 BOOST_REQUIRE(!isStartFlag);
                 BOOST_REQUIRE(!isEndFlag);
+                BOOST_REQUIRE_EQUAL(transferExtensions.extensionsVec.size(), 0);
             }
             else if (m_numDataSegmentCallbackCountWithFragments == 2) {
                 BOOST_REQUIRE(!isStartFlag);
                 BOOST_REQUIRE(isEndFlag);
+                BOOST_REQUIRE_EQUAL(transferExtensions.extensionsVec.size(), 0);
             }
             else {
                 BOOST_REQUIRE(false);
             }
             ++m_numDataSegmentCallbackCountWithFragments;
+            m_numTransferExtensionsProcessed += transferExtensions.extensionsVec.size();
 
             if (isStartFlag) {
                 m_fragmentedBundleRxConcat.resize(0);
             }
             const std::string rxBundleData(dataSegmentDataVec.data(), dataSegmentDataVec.data() + dataSegmentDataVec.size());
             m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), rxBundleData.begin(), rxBundleData.end()); //concatenate
-        }*/
+        }
 
         void AckCallback(bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged) {
             ++m_numAckCallbackCount;
@@ -311,30 +404,154 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
     BOOST_REQUIRE_EQUAL(t.m_numSessionExtensionsProcessed, 6);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
     
-
-    
+    uint64_t bundlesize;
+    //non fragmented data segment (no transfer extensions)
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
     BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 0);
     BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
-    t.DoDataSegmentNoFragment(false); //not char by char
+    t.m_transferId = 100000000000;
+    t.DoDataSegmentNoFragment(false, false); //not char by char
     BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
     BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
-    t.DoDataSegmentNoFragment(true); //char by char
-    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 2);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000001;
+    t.DoDataSegmentNoFragment(true, false); //char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
     BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
-/*
-
-
-    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 0);
-    t.DoDataSegmentThreeFragments();
-    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 3);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    bundlesize = t.DoDataSegmentNoFragment(true, false, true); //sweep
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, bundlesize);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
-    */
+
+    //non fragmented data segment (with transfer extensions)
+    //start with no transfer extensions
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000002;
+    t.DoDataSegmentNoFragment(false, true); //not char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000003;
+    t.DoDataSegmentNoFragment(true, true); //char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    bundlesize = t.DoDataSegmentNoFragment(true, true, true); //sweep
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, bundlesize);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 0);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    //add 1 extension
+    t.m_transferExtensions.extensionsVec.emplace_back(true, 10, std::vector<uint8_t>({ 0x5, 0x6, 0x07 }));
+    BOOST_REQUIRE(t.m_transferExtensions.extensionsVec.back().IsCritical());
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000004;
+    t.DoDataSegmentNoFragment(false, true); //not char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 1);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000005;
+    t.DoDataSegmentNoFragment(true, true); //char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 1);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    bundlesize = t.DoDataSegmentNoFragment(true, true, true); //sweep
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, bundlesize);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, bundlesize);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    //add another extension that is zero-length
+    t.m_transferExtensions.extensionsVec.emplace_back(true, 15, std::vector<uint8_t>());
+    BOOST_REQUIRE(t.m_transferExtensions.extensionsVec.back().IsCritical());
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000006;
+    t.DoDataSegmentNoFragment(false, true); //not char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 2);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000007;
+    t.DoDataSegmentNoFragment(true, true); //char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 2);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    bundlesize = t.DoDataSegmentNoFragment(true, true, true); //sweep
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, bundlesize);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 2 * bundlesize);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    //add a third extension
+    t.m_transferExtensions.extensionsVec.emplace_back(false, 20, std::vector<uint8_t>());
+    BOOST_REQUIRE(!t.m_transferExtensions.extensionsVec.back().IsCritical());
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000008;
+    t.DoDataSegmentNoFragment(false, true); //not char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 3);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    t.m_transferId = 100000000009;
+    t.DoDataSegmentNoFragment(true, true); //char by char
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, 1);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 3);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    t.m_numDataSegmentCallbackCountNoFragment = 0;
+    t.m_numTransferExtensionsProcessed = 0;
+    bundlesize = t.DoDataSegmentNoFragment(true, true, true); //sweep
+    BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountNoFragment, bundlesize);
+    BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, 3 * bundlesize);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+
+
+    //fragmented data segment
+    //not char by char
+    for (unsigned int whichTest = 0; whichTest <= 1; ++whichTest) {
+        const bool doLengthExtension = (whichTest == 1);
+        t.m_numDataSegmentCallbackCountWithFragments = 0;
+        t.m_numTransferExtensionsProcessed = 0;
+        t.m_transferId = 200000000001;
+        BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 0);
+        t.DoDataSegmentThreeFragments(false, doLengthExtension); //not char by char
+        BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 3);
+        BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, whichTest);
+        BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+        //char by char
+        t.m_numDataSegmentCallbackCountWithFragments = 0;
+        t.m_numTransferExtensionsProcessed = 0;
+        t.m_transferId = 200000000002;
+        BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 0);
+        t.DoDataSegmentThreeFragments(true, doLengthExtension); //char by char
+        BOOST_REQUIRE_EQUAL(t.m_numDataSegmentCallbackCountWithFragments, 3);
+        BOOST_REQUIRE_EQUAL(t.m_numTransferExtensionsProcessed, whichTest);
+        BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    }
+    
+    
+
+    uint64_t ackPayloadSize;
     BOOST_REQUIRE_EQUAL(t.m_numAckCallbackCount, 0);
     t.m_ackIsStart = true;
     t.m_ackIsEnd = false;
-    t.DoAck();
+    t.DoAck(false); //not char by char
     BOOST_REQUIRE_EQUAL(t.m_numAckCallbackCount, 1);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
     //repeat ack with start and end swapped
@@ -342,8 +559,13 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
     t.m_ackIsEnd = true;
     t.m_ackTransferId = 5555555555555;
     t.m_ackBytesAcknowledged = 888888888888;
-    t.DoAck();
+    t.DoAck(true); //char by char
     BOOST_REQUIRE_EQUAL(t.m_numAckCallbackCount, 2);
+    BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
+    //sweep test
+    t.m_numAckCallbackCount = 0;
+    ackPayloadSize = t.DoAck(true, true); //sweep
+    BOOST_REQUIRE_EQUAL(t.m_numAckCallbackCount, ackPayloadSize);
     BOOST_REQUIRE(t.m_tcpcl.m_mainRxState == TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE);
 
     

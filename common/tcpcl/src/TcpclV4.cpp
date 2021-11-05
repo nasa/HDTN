@@ -370,7 +370,6 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     if (m_dataSegmentStartFlag) {
                         if (numChars >= sizeof(uint32_t)) { //shortcut/optimization to read transfer extension items length (u32) now 
                             m_transferExtensionItemsLengthBytes = UnalignedBigEndianToNativeU32(rxVals);
-
                             numChars -= sizeof(uint32_t);
                             rxVals += sizeof(uint32_t);
                             m_transferExtensions.extensionsVec.clear();
@@ -413,7 +412,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     }
                 }
                 else { //not enough bytes to read transfer id (u64) now 
-                    //std::cout << "skipping tcpcl sdnv shortcut" << std::endl;
+                    //std::cout << "skipping tcpcl shortcut" << std::endl;
                     m_dataSegmentRxState = TCPCLV4_DATA_SEGMENT_RX_STATE::READ_TRANSFER_ID_U64;
                     m_readValueByteIndex = 0;
                 }
@@ -436,6 +435,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                 if (m_readValueByteIndex == sizeof(m_transferExtensionItemsLengthBytes)) {
                     m_transferExtensions.extensionsVec.clear();
                     if (m_transferExtensionItemsLengthBytes) {
+                        boost::endian::big_to_native_inplace(m_transferExtensionItemsLengthBytes);
                         m_transferExtensions.extensionsVec.reserve(5); //todo
                         m_currentCountOfTransferExtensionEncodedBytes = 0;
                         m_dataSegmentRxState = TCPCLV4_DATA_SEGMENT_RX_STATE::READ_ONE_START_SEGMENT_TRANSFER_EXTENSION_ITEM_FLAG;
@@ -469,8 +469,9 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                 if (m_dataSegmentDataVec.size() == m_dataSegmentLength) {
                     m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                     if (m_dataSegmentContentsReadCallback) {
-                        m_dataSegmentContentsReadCallback(m_dataSegmentDataVec, m_dataSegmentStartFlag, m_dataSegmentEndFlag, m_transferId, boost::cref(m_transferExtensions));
+                        m_dataSegmentContentsReadCallback(m_dataSegmentDataVec, m_dataSegmentStartFlag, m_dataSegmentEndFlag, m_transferId, m_transferExtensions);
                     }
+                    m_transferExtensions.extensionsVec.clear();
                 }
                 else {
                     const std::size_t bytesRemainingToCopy = m_dataSegmentLength - m_dataSegmentDataVec.size(); //guaranteed to be at least 1 from "if" above
@@ -696,9 +697,9 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
             else if (m_sessionInitRxState == TCPCLV4_SESSION_INIT_RX_STATE::READ_SESSION_EXTENSION_ITEMS_LENGTH_U32) {
                 (reinterpret_cast<uint8_t*>(&m_sessionExtensionItemsLengthBytes))[m_readValueByteIndex++] = rxVal; 
                 if (m_readValueByteIndex == sizeof(m_sessionExtensionItemsLengthBytes)) {
-                    boost::endian::big_to_native_inplace(m_sessionExtensionItemsLengthBytes);
                     m_sessionExtensions.extensionsVec.clear();
                     if (m_sessionExtensionItemsLengthBytes) {
+                        boost::endian::big_to_native_inplace(m_sessionExtensionItemsLengthBytes);
                         m_sessionExtensions.extensionsVec.reserve(5); //todo
                         m_currentCountOfSessionExtensionEncodedBytes = 0;
                         m_sessionInitRxState = TCPCLV4_SESSION_INIT_RX_STATE::READ_ONE_SESSION_EXTENSION_ITEM_FLAG;
@@ -706,7 +707,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     else {
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                         if (m_sessionInitCallback) {
-                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, boost::cref(m_sessionExtensions));
+                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, m_sessionExtensions);
                         }
                     }
                 }
@@ -755,7 +756,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                         if (m_currentCountOfSessionExtensionEncodedBytes == m_sessionExtensionItemsLengthBytes) {
                             m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                             if (m_sessionInitCallback) {
-                                m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, boost::cref(m_sessionExtensions));
+                                m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, m_sessionExtensions);
                             }
                         }
                         else {
@@ -771,7 +772,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     if (m_currentCountOfSessionExtensionEncodedBytes == m_sessionExtensionItemsLengthBytes) {
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                         if (m_sessionInitCallback) {
-                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, boost::cref(m_sessionExtensions));
+                            m_sessionInitCallback(m_keepAliveInterval, m_segmentMru, m_transferMru, m_remoteNodeUriStr, m_sessionExtensions);
                         }
                     }
                     else {
@@ -996,7 +997,7 @@ bool TcpclV4::GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegm
 
 
 bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<uint8_t> & dataSegment, uint64_t transferId,
-    const uint8_t * contents, uint64_t sizeContents)
+    const uint8_t * contents, uint64_t sizeContents, uint64_t totalBundleLengthToBeSent)
 {
     //bool isEndSegment is false
     static const uint8_t dataSegmentFlags = 1U << 1; //startSegmentFlagSet
@@ -1021,7 +1022,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<
     ptr += sizeof(transferId);
     NativeU32ToUnalignedBigEndian(ptr, transferExtensionsLengthBytes);
     ptr += sizeof(transferExtensionsLengthBytes);
-    ptr += tcpclv4_extension_t::SerializeTransferLengthExtension(ptr, sizeContents);
+    ptr += tcpclv4_extension_t::SerializeTransferLengthExtension(ptr, totalBundleLengthToBeSent);
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
     memcpy(ptr, contents, sizeContents);
@@ -1030,7 +1031,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<
     return ((ptr - dataSegment.data()) == dataSegment.size());
 }
 bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
-    uint64_t sizeContents)
+    uint64_t sizeContents, uint64_t totalBundleLengthToBeSent)
 {
     //bool isEndSegment is false
     static const uint8_t dataSegmentFlags = 1U << 1; // startSegmentFlagSet;
@@ -1055,7 +1056,7 @@ bool TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(st
     ptr += sizeof(transferId);
     NativeU32ToUnalignedBigEndian(ptr, transferExtensionsLengthBytes);
     ptr += sizeof(transferExtensionsLengthBytes);
-    ptr += tcpclv4_extension_t::SerializeTransferLengthExtension(ptr, sizeContents);
+    ptr += tcpclv4_extension_t::SerializeTransferLengthExtension(ptr, totalBundleLengthToBeSent);
     NativeU64ToUnalignedBigEndian(ptr, sizeContents);
     ptr += sizeof(sizeContents);
     

@@ -209,7 +209,7 @@ public:
     static bool GenerateStartDataSegment(std::vector<uint8_t> & dataSegment, bool isEndSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions);
     static bool GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<uint8_t> & dataSegment, uint64_t transferId,
-        const uint8_t * contents, uint64_t sizeContents);
+        const uint8_t * contents, uint64_t sizeContents, uint64_t totalBundleLengthToBeSent);
     static bool TcpclV4::GenerateNonStartDataSegment(std::vector<uint8_t> & dataSegment, bool isEndSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents);
 
@@ -221,7 +221,7 @@ public:
     static bool GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
         uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions);
     static bool GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
-        uint64_t sizeContents);
+        uint64_t sizeContents, uint64_t totalBundleLengthToBeSent);
     static bool TcpclV4::GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
         uint64_t sizeContents);
 
