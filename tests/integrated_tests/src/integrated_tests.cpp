@@ -56,6 +56,7 @@ int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
+int RunScheduler(const char * argv[], int argc, bool & running, std::string jsonFile);
 void Delay(uint64_t seconds);
 
 // Global Test Fixture.  Used to setup Python Registration server.
@@ -63,58 +64,20 @@ class BoostIntegratedTestsFixture {
 public:
     BoostIntegratedTestsFixture();
     ~BoostIntegratedTestsFixture();
-    //bool m_runningPythonServer;
-    //void StopPythonServer();
 private:
-    //void StartPythonServer();
     void MonitorExitKeypressThreadFunction();
-    //std::unique_ptr<boost::process::child> m_childPtr;
-    //std::unique_ptr<boost::thread> m_threadPythonPtr;
 };
 
 BoostIntegratedTestsFixture::BoostIntegratedTestsFixture() {
     boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
     boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
-    //m_threadPythonPtr = boost::make_unique<boost::thread>(boost::bind(&BoostIntegratedTestsFixture::StartPythonServer, this));
 }
 
 BoostIntegratedTestsFixture::~BoostIntegratedTestsFixture() {
-    //this->StopPythonServer();
-}
-/*
-void BoostIntegratedTestsFixture::StopPythonServer() {
-    m_runningPythonServer = false;
-    if (m_childPtr) {
-        m_childPtr->terminate();
-        m_childPtr->wait();
-        int result = m_childPtr->exit_code();
-        m_childPtr.reset();
-    }
 }
 
-void BoostIntegratedTestsFixture::StartPythonServer() {
-    m_runningPythonServer = true;
-    SignalHandler sigHandler(boost::bind(&BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction, this));
-    sigHandler.Start(false);
-    const boost::filesystem::path commandArg = Environment::GetPathHdtnSourceRoot() / "common" / "regsvr" / "main.py";
-#ifdef _WIN32
-    const std::string pythonExe = "python";
-#else
-    const std::string pythonExe = "python3";
-#endif
-    m_childPtr = boost::make_unique<boost::process::child>(boost::process::search_path(pythonExe),commandArg);
-    while(m_childPtr->running()) {
-        while(m_runningPythonServer) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
-            sigHandler.PollOnce();
-            //std::cout << "StartPythonServer is running. " << std::endl << std::flush;
-        }
-    }
-}
-*/
 void BoostIntegratedTestsFixture::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting " << std::endl << std::flush;
-    //this->StopPythonServer();
 }
 
 void Delay(uint64_t seconds) {
@@ -169,6 +132,14 @@ int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundl
     return 0;
 }
 
+int RunScheduler(const char * argv[], int argc, bool & running, std::string jsonFileName) {
+    {
+        Scheduler runner;
+        runner.Run(argc, argv, running, jsonFileName, true);
+    }
+    return 0;
+}
+
 bool TestSchedulerTcpcl() {
 
     Delay(DELAY_TEST);
@@ -178,7 +149,7 @@ bool TestSchedulerTcpcl() {
     bool runningIngress = true;
     bool runningEgress = true;
     bool runningStorage = true;
-   // bool runningScheduler = true;  //@nk
+    bool runningScheduler = true; 
     uint64_t bundlesSentBpgen[2] = {0,0};
     OutductFinalStats finalStats[2];
     FinalStatsBpSink finalStatsBpSink[2];
@@ -211,14 +182,23 @@ bool TestSchedulerTcpcl() {
     std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
     Delay(DELAY_THREAD);
 
-    //scheduler 
+    //scheduler
     Scheduler scheduler;
-    std::string eventFile = Scheduler::GetFullyQualifiedFilename("contactPlanIpn2.1.json");
-    std::thread threadScheduler(&Scheduler::ProcessContactsFile,&scheduler,&eventFile);
+    std::string contactsFile = "contactPlan.json";
+    static const std::string eventFileArg = "--contact-plan-file=" + contactsFile;
+
+    std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+    if ( !boost::filesystem::exists( jsonFileName ) ) {
+        std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
+        return false;
+    }
+
+    static const char * argsScheduler[] = { "scheduler", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
+    std::thread threadScheduler(&Scheduler::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), jsonFileName, true);
     Delay(1);
     
     //Ingress
-    static const char * argsIngress[] = { "ingress",hdtnConfigArg.c_str(), NULL };
+    static const char * argsIngress[] = { "ingress", hdtnConfigArg.c_str(), NULL };
     std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
     Delay(DELAY_THREAD);
 
@@ -249,11 +229,6 @@ bool TestSchedulerTcpcl() {
     runningBpgen[1] = false;
     threadBpgen0.join();
     threadBpgen1.join();
-
-     // Storage should not be stopped until after bundles release has finished.
-    while (! scheduler.m_timersFinished) {
-        Delay(1);
-    }
 
     // Do not stop storage until the bundles deleted equal number generated
     uint64_t totalBundlesBpgen = 0;
@@ -289,6 +264,7 @@ bool TestSchedulerTcpcl() {
     threadBpsink1.join();
     runningBpsink[0] = false;
     threadBpsink0.join();
+    runningScheduler = false;
     threadScheduler.join();
 
     // Get stats
@@ -320,14 +296,14 @@ bool TestSchedulerTcpcl() {
         return false;
     }
 
-//    if (totalBundlesBpgen != (bundleCountEgress)) {
-  //      BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles sent by egress "
-    //                 + std::to_string(bundleCountStorage) + ").");
-      //  return false;
-     //}
-    // if (totalBundlesBpgen != totalBundlesBpsink) {
-      //    BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
-        //        + std::to_string(totalBundlesBpsink) + ").");
+   if (totalBundlesBpgen != (bundleCountEgress)) {
+        BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles sent by egress "
+                     + std::to_string(bundleCountStorage) + ").");
+       return false;
+     }
+     //if (totalBundlesBpgen != totalBundlesBpsink) {
+       //  BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
+         //       + std::to_string(totalBundlesBpsink) + ").");
           //return false;
     //}
     if (totalBundlesBpgen != totalBundlesAckedBpgen) {
@@ -335,11 +311,11 @@ bool TestSchedulerTcpcl() {
                 + std::to_string(totalBundlesAckedBpgen) + ").");
         return false;
     }
-   // if (totalBundlesBpgen != totalBundlesAckedBpsink) {
-     //   BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPSINK "
-       //         + std::to_string(totalBundlesAckedBpsink) + ").");
+    //if (totalBundlesBpgen != totalBundlesAckedBpsink) {
+      //  BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPSINK "
+        //       + std::to_string(totalBundlesAckedBpsink) + ").");
         //return false;
-    //}
+   //}
     return true;
 }
 

@@ -10,8 +10,7 @@ port = "5556"
 context = zmq.Context()
 socket = context.socket(zmq.PAIR)
 socket.bind("tcp://127.0.0.1:%s" % port) #localhost caused error
-contact_plan = cp_load('pycgr/cgr_tables/cgrTable.json', 5000)
-
+contact_plan = cp_load('module/scheduler/src/contactPlan_RoutingTest.json', 5000)
 curr_time = 0
 
 while True:

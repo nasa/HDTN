@@ -133,6 +133,8 @@ struct IreleaseStartHdr {
     cbhe_eid_t finalDestinationEid;   // formerly flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
+    cbhe_eid_t prevHopEid;
+    cbhe_eid_t nextHopEid;
 };
 
 struct IreleaseStopHdr {
@@ -142,6 +144,8 @@ struct IreleaseStopHdr {
     uint8_t unused3;
     uint8_t unused4;
     cbhe_eid_t finalDestinationEid;
+    cbhe_eid_t prevHopEid;
+    cbhe_eid_t nextHopEid;
 };
 };  // namespace hdtn
 //#pragma pack (pop)
