@@ -724,16 +724,39 @@ void ZmqStorageInterface::ThreadFunc() {
                         hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr)");
                         continue;
                     }
+		   
+		    hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
+                    
+		    if (boost::lexical_cast<std::string>(m_hdtnConfig.m_myNodeId) !=
+ 	               (boost::lexical_cast<std::string>(iReleaseStartHdr->prevHopEid.nodeId))) {
+        	        return;
+		    }       
 
-                    hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
-                    const std::string msg = "finalDestEid (" 
-                        + Uri::GetIpnUriString(iReleaseStartHdr->finalDestinationEid.nodeId, iReleaseStartHdr->finalDestinationEid.serviceId) 
-                        + ") will be released from storage";
-                    std::cout << msg << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", msg);
-                    availableDestLinksSet.emplace(iReleaseStartHdr->finalDestinationEid, false); //false => fully qualified service id
-                }
-                else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
+		    std::string nextHop = Uri::GetIpnUriString(iReleaseStartHdr->nextHopEid.nodeId, iReleaseStartHdr->nextHopEid.serviceId);
+
+                    for (outduct_element_config_vector_t::const_iterator outductElementConfigVectorIt = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cbegin();
+                         outductElementConfigVectorIt != m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cend(); ++outductElementConfigVectorIt) {
+
+                        const outduct_element_config_t & outductElementConfig = *outductElementConfigVectorIt;
+                        if (outductElementConfig.nextHopEndpointId == nextHop) {
+                            for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin();
+                            finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
+                                const std::string finalDest = *finalDestinationEidUriIt;
+                                cbhe_eid_t finalDestinationEid;
+                                if (!Uri::ParseIpnUriString(finalDest, finalDestinationEid.nodeId, finalDestinationEid.serviceId)) {
+                                    std::cerr << "error: bad dest uri string: " << finalDest << std::endl;
+                                    continue;
+                                }
+                                const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(finalDestinationEid.nodeId) + ","
+                                + boost::lexical_cast<std::string>(finalDestinationEid.serviceId) + ") will be released from storage";
+                                std::cout << msg << std::endl;
+                                hdtn::Logger::getInstance()->logNotification("storage", msg);
+				availableDestLinksSet.emplace(finalDestinationEid, false); //false => fully qualified service id
+                            }
+                        }
+                    }
+
+                } else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                         std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
                         hdtn::Logger::getInstance()->logError("storage", "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)");
@@ -741,11 +764,36 @@ void ZmqStorageInterface::ThreadFunc() {
                     }
 
                     hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
-                    const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
-                        + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
-                    std::cout << msg << std::endl;
-                    hdtn::Logger::getInstance()->logNotification("storage", msg);
-                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
+
+		    if (boost::lexical_cast<std::string>(m_hdtnConfig.m_myNodeId) !=
+                       (boost::lexical_cast<std::string>(iReleaseStoptHdr->prevHopEid.nodeId))) {
+                        continue;
+                    }
+
+		    std::string nextHop = Uri::GetIpnUriString(iReleaseStoptHdr->nextHopEid.nodeId, iReleaseStoptHdr->nextHopEid.serviceId);
+
+                    for (outduct_element_config_vector_t::const_iterator outductElementConfigVectorIt = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cbegin();
+                         outductElementConfigVectorIt != m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cend(); ++outductElementConfigVectorIt) {
+
+                        const outduct_element_config_t & outductElementConfig = *outductElementConfigVectorIt;
+            		if (outductElementConfig.nextHopEndpointId == nextHop) {
+                            for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin();
+                            finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
+                                const std::string finalDest = *finalDestinationEidUriIt;
+                                cbhe_eid_t finalDestinationEid;
+                                if (!Uri::ParseIpnUriString(finalDest, finalDestinationEid.nodeId, finalDestinationEid.serviceId)) {
+                                    std::cerr << "error: bad dest uri string: " << finalDest << std::endl;
+                                    continue;
+                                }
+                    		const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(finalDestinationEid.nodeId) + ","
+                        	+ boost::lexical_cast<std::string>(finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
+                    		std::cout << msg << std::endl;
+                    		hdtn::Logger::getInstance()->logNotification("storage", msg);
+                    		availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestinationEid, false)); //false => fully qualified service id
+                	    }
+            		}
+        	    }
+
                 }
                 PrintReleasedLinks(availableDestLinksSet);
             }

@@ -237,7 +237,7 @@ void Scheduler::ProcessLinkDown(const boost::system::error_code& e, int src, int
 	 sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
 
          std::cout << " -- LINK DOWN Event sent sent for Link " << 
-                prevHopEid.nodeId << "===>" << nextHopEid.nodeId << "" <<  std::endl;
+                prevHopEid.nodeId << " ===> " << nextHopEid.nodeId << "" <<  std::endl;
 
      } else {
         std::cout << "timer dt2 cancelled\n";
@@ -269,7 +269,7 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, int src, int d
                         zmq::send_flags::none);
 
 	std::cout << " -- LINK UP Event sent sent for Link " <<
-                prevHopEid.nodeId << "===>" << nextHopEid.nodeId << "" <<  std::endl;
+                prevHopEid.nodeId << " ===> " << nextHopEid.nodeId << "" <<  std::endl;
 
     } else {
         std::cout << "timer dt cancelled\n";

@@ -4,18 +4,16 @@
             "contact": 0,
             "source": 1,
             "dest": 3,
-            "finalDestinationEid": "ipn:3.1",
-            "start": 10,
-            "end": 20,
+            "startTime": 10,
+            "endTime": 20,
             "rate": "1000"
         },
         {
             "contact": 1,
             "source": 1,
             "dest": 2,
-            "finalDestinationEid": "ipn:2.1",
-            "start": 30,
-            "end": 40,
+            "startTime": 30,
+            "endTime": 40,
             "rate": "1000"
         }
 

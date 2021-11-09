@@ -343,11 +343,35 @@ void Ingress::SchedulerEventHandler() {
             hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStartHdr");
             return;
         }
-        m_eidAvailableSetMutex.lock();
-        m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid);
-        m_eidAvailableSetMutex.unlock();
-        std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
-            << "," << iReleaseStartHdr->finalDestinationEid.serviceId << ")" << std::endl;
+
+	if (boost::lexical_cast<std::string>(m_hdtnConfig.m_myNodeId) !=
+           (boost::lexical_cast<std::string>(iReleaseStartHdr->prevHopEid.nodeId))) {
+            return;
+        }
+	
+	std::string nextHop = Uri::GetIpnUriString(iReleaseStartHdr->nextHopEid.nodeId, iReleaseStartHdr->nextHopEid.serviceId);
+	
+	for (outduct_element_config_vector_t::const_iterator outductElementConfigVectorIt = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cbegin(); 
+	     outductElementConfigVectorIt != m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cend(); ++outductElementConfigVectorIt) {
+
+            const outduct_element_config_t & outductElementConfig = *outductElementConfigVectorIt;
+            if (outductElementConfig.nextHopEndpointId == nextHop) {
+		for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin();
+	            finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
+                    const std::string finalDest = *finalDestinationEidUriIt;
+		    cbhe_eid_t finalDestinationEid;		 
+		    if (!Uri::ParseIpnUriString(finalDest, finalDestinationEid.nodeId, finalDestinationEid.serviceId)) {
+                        std::cerr << "error: bad dest uri string: " << finalDest << std::endl;
+                        continue;
+            	    }
+                    m_eidAvailableSetMutex.lock();
+                    m_finalDestEidAvailableSet.insert(finalDestinationEid);
+        	    m_eidAvailableSetMutex.unlock();
+		    std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << finalDestinationEid.nodeId
+                    << "," << finalDestinationEid.serviceId << ")" << std::endl;
+	    	}
+	    }
+	}
     }
     else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
         hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
@@ -356,11 +380,35 @@ void Ingress::SchedulerEventHandler() {
             hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr");
             return;
         }
-        m_eidAvailableSetMutex.lock();
-        m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->finalDestinationEid);
-        m_eidAvailableSetMutex.unlock();
-        std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
-            << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ")" << std::endl;
+
+	if (boost::lexical_cast<std::string>(m_hdtnConfig.m_myNodeId) !=
+           (boost::lexical_cast<std::string>(iReleaseStoptHdr->prevHopEid.nodeId))) {
+            return;
+        }
+
+	std::string nextHop = Uri::GetIpnUriString(iReleaseStoptHdr->nextHopEid.nodeId, iReleaseStoptHdr->nextHopEid.serviceId);
+
+        for (outduct_element_config_vector_t::const_iterator outductElementConfigVectorIt = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cbegin();
+             outductElementConfigVectorIt != m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cend(); ++outductElementConfigVectorIt) {
+
+            const outduct_element_config_t & outductElementConfig = *outductElementConfigVectorIt;
+            if (outductElementConfig.nextHopEndpointId == nextHop) {
+                for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); 
+                    finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
+                    const std::string finalDest = *finalDestinationEidUriIt;
+                    cbhe_eid_t finalDestinationEid;              
+                    if (!Uri::ParseIpnUriString(finalDest, finalDestinationEid.nodeId, finalDestinationEid.serviceId)) {
+                        std::cerr << "error: bad dest uri string: " << finalDest << std::endl;
+                        continue;
+                    }
+                    m_eidAvailableSetMutex.lock();
+                    m_finalDestEidAvailableSet.erase(finalDestinationEid);
+                    m_eidAvailableSetMutex.unlock();
+                    std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << finalDestinationEid.nodeId
+                    << "," << finalDestinationEid.serviceId << ")" << std::endl;
+                }
+            }
+        }
     }
 }
 

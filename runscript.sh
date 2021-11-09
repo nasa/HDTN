@@ -9,10 +9,6 @@ gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json
 
 cd $HDTN_SOURCE_ROOT
 
-# registration server
-#python3 ./common/regsvr/main.py &
-#sleep 3
-
 # bpsink1
 ./build/common/bpcodec/apps/bpsink-async --my-uri-eid=ipn:1.1 --inducts-config-file=$sink1_config &
 bpsink1_PID=$!
@@ -28,11 +24,6 @@ sleep 3
 egress_PID=$!
 sleep 3
 
-#Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
-scheduler_PID=$!
-sleep 1
-
 #Ingress
 ./build/module/ingress/hdtn-ingress --hdtn-config-file=$hdtn_config  &
 ingress_PID=$!
@@ -42,6 +33,11 @@ sleep 3
 ./build/module/storage/hdtn-storage --hdtn-config-file=$hdtn_config &
 storage_PID=$!
 sleep 3
+
+#Scheduler
+./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
+scheduler_PID=$!
+sleep 1
 
 # bpgen1
 ./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:101.1 --dest-uri-eid=ipn:1.1 --duration=40 --outducts-config-file=$gen_config &
@@ -71,7 +67,6 @@ echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
 sleep 2
 echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
 sleep 2
-#echo "\nkilling registration server..." && pkill -9 -f main.py
 
 
 

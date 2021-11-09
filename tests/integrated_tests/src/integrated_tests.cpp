@@ -182,6 +182,18 @@ bool TestSchedulerTcpcl() {
     std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
     Delay(DELAY_THREAD);
 
+    //Ingress
+    static const char * argsIngress[] = { "ingress", hdtnConfigArg.c_str(), NULL };
+    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
+    Delay(DELAY_THREAD);
+
+
+    //Storage
+    static const char * argsStorage[] = { "storage",hdtnConfigArg.c_str(),NULL };
+    StorageRunner storageRunner;
+    std::thread threadStorage(&StorageRunner::Run, &storageRunner, 2, argsStorage, std::ref(runningStorage), false);
+    Delay(DELAY_THREAD);
+
     //scheduler
     Scheduler scheduler;
     std::string contactsFile = "contactPlan.json";
@@ -196,18 +208,6 @@ bool TestSchedulerTcpcl() {
     static const char * argsScheduler[] = { "scheduler", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadScheduler(&Scheduler::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), jsonFileName, true);
     Delay(1);
-    
-    //Ingress
-    static const char * argsIngress[] = { "ingress", hdtnConfigArg.c_str(), NULL };
-    std::thread threadIngress(RunIngress,argsIngress,2,std::ref(runningIngress),&bundleCountIngress);
-    Delay(DELAY_THREAD);
-
-
-    //Storage
-    static const char * argsStorage[] = { "storage",hdtnConfigArg.c_str(),NULL };
-    StorageRunner storageRunner;
-    std::thread threadStorage(&StorageRunner::Run, &storageRunner, 2, argsStorage, std::ref(runningStorage), false);
-    Delay(DELAY_THREAD);
 
     
     //Bpgen1
@@ -301,10 +301,10 @@ bool TestSchedulerTcpcl() {
                      + std::to_string(bundleCountStorage) + ").");
        return false;
      }
-     //if (totalBundlesBpgen != totalBundlesBpsink) {
-       //  BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
-         //       + std::to_string(totalBundlesBpsink) + ").");
-          //return false;
+   //  if (totalBundlesBpgen != totalBundlesBpsink) {
+     //    BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles received by BPSINK "
+       //         + std::to_string(totalBundlesBpsink) + ").");
+         // return false;
     //}
     if (totalBundlesBpgen != totalBundlesAckedBpgen) {
         BOOST_ERROR("Bundles sent by BPGEN (" + std::to_string(totalBundlesBpgen) + ") != bundles acked by BPGEN "
