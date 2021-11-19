@@ -1,0 +1,130 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 32969,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqRegistrationServerAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqRegistrationServerPortPath": 10140,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqMaxMessagesPerPath": 100,
+    "zmqMaxMessageSizeBytes": 100000000,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "stcp ingress",
+                "convergenceLayer": "stcp",
+                "myEndpointId": "ipn:32969.1",
+                "boundPort": 4557,
+                "numRxCircularBufferElements": 200,
+                "keepAliveIntervalSeconds": 15
+            }, 
+	    {
+                "name": "i1",
+                "convergenceLayer": "ltp_over_udp",
+                "myEndpointId": "ipn:32969.2",
+                "boundPort": 1113,
+                "numRxCircularBufferElements": 100,
+                "thisLtpEngineId": 32969,
+                "remoteLtpEngineId": 32768,
+                "ltpReportSegmentMtu": 1000,
+                "oneWayLightTimeMs": 1000,
+                "oneWayMarginTimeMs": 200,
+                "clientServiceId": 1,
+                "preallocatedRedDataBytes": 200000,
+                "ltpMaxRetriesPerSerialNumber": 5,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpRemoteUdpHostname": "DTNME_Ground_Node",
+                "ltpRemoteUdpPort": 1113,
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+            }
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "stcp egress1",
+                "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:32935.1",
+                "remoteHostname": "ION_Space_Node",
+                "remotePort": 4557,
+                "bundlePipelineLimit": 500,
+                "finalDestinationEidUris": [
+                    "ipn:32935.1",
+                     "ipn:32935.64",
+                     "ipn:32935.65",
+		     "ipn:32935.2047"
+                ],
+		"keepAliveIntervalSeconds": 17
+            },
+            
+	    {
+                "name": "for egress",
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopEndpointId": "ipn:32768.1",
+                "remoteHostname": "DTNME_Ground_Node",
+                "remotePort": 1113,
+                "bundlePipelineLimit": 500,
+                "finalDestinationEidUris": [
+                    "ipn:32768.1",
+                    "ipn:32852.1",
+		    "ipn:32768.64",
+                    "ipn:32852.64",
+                    "ipn:32768.65",
+                    "ipn:32852.65",
+		    "ipn:32768.2047",
+		    "ipn:32852.2047"
+                ],
+                "thisLtpEngineId": 32969,
+                "remoteLtpEngineId": 32768,
+                "ltpDataSegmentMtu": 1000,
+                "oneWayLightTimeMs": 1000,
+                "oneWayMarginTimeMs": 200,
+                "clientServiceId": 1,
+                "numRxCircularBufferElements": 1000,
+                "ltpMaxRetriesPerSerialNumber": 500,
+                "ltpCheckpointEveryNthDataSegment": 0,
+                "ltpRandomNumberSizeBits": 64,
+                "ltpSenderBoundPort": 1113
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 81920000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}
+

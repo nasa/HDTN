@@ -343,35 +343,11 @@ void Ingress::SchedulerEventHandler() {
             hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStartHdr");
             return;
         }
-
-	if (boost::lexical_cast<std::string>(m_hdtnConfig.m_myNodeId) !=
-           (boost::lexical_cast<std::string>(iReleaseStartHdr->prevHopEid.nodeId))) {
-            return;
-        }
-	
-	std::string nextHop = Uri::GetIpnUriString(iReleaseStartHdr->nextHopEid.nodeId, iReleaseStartHdr->nextHopEid.serviceId);
-	
-	for (outduct_element_config_vector_t::const_iterator outductElementConfigVectorIt = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cbegin(); 
-	     outductElementConfigVectorIt != m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cend(); ++outductElementConfigVectorIt) {
-
-            const outduct_element_config_t & outductElementConfig = *outductElementConfigVectorIt;
-            if (outductElementConfig.nextHopEndpointId == nextHop) {
-		for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin();
-	            finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
-                    const std::string finalDest = *finalDestinationEidUriIt;
-		    cbhe_eid_t finalDestinationEid;		 
-		    if (!Uri::ParseIpnUriString(finalDest, finalDestinationEid.nodeId, finalDestinationEid.serviceId)) {
-                        std::cerr << "error: bad dest uri string: " << finalDest << std::endl;
-                        continue;
-            	    }
-                    m_eidAvailableSetMutex.lock();
-                    m_finalDestEidAvailableSet.insert(finalDestinationEid);
-        	    m_eidAvailableSetMutex.unlock();
-		    std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << finalDestinationEid.nodeId
-                    << "," << finalDestinationEid.serviceId << ")" << std::endl;
-	    	}
-	    }
-	}
+        m_eidAvailableSetMutex.lock();
+        m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid);
+        m_eidAvailableSetMutex.unlock();
+        std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
+            << "," << iReleaseStartHdr->finalDestinationEid.serviceId << ")" << std::endl;
     }
     else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
         hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
@@ -380,35 +356,11 @@ void Ingress::SchedulerEventHandler() {
             hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr");
             return;
         }
-
-	if (boost::lexical_cast<std::string>(m_hdtnConfig.m_myNodeId) !=
-           (boost::lexical_cast<std::string>(iReleaseStoptHdr->prevHopEid.nodeId))) {
-            return;
-        }
-
-	std::string nextHop = Uri::GetIpnUriString(iReleaseStoptHdr->nextHopEid.nodeId, iReleaseStoptHdr->nextHopEid.serviceId);
-
-        for (outduct_element_config_vector_t::const_iterator outductElementConfigVectorIt = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cbegin();
-             outductElementConfigVectorIt != m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.cend(); ++outductElementConfigVectorIt) {
-
-            const outduct_element_config_t & outductElementConfig = *outductElementConfigVectorIt;
-            if (outductElementConfig.nextHopEndpointId == nextHop) {
-                for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); 
-                    finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
-                    const std::string finalDest = *finalDestinationEidUriIt;
-                    cbhe_eid_t finalDestinationEid;              
-                    if (!Uri::ParseIpnUriString(finalDest, finalDestinationEid.nodeId, finalDestinationEid.serviceId)) {
-                        std::cerr << "error: bad dest uri string: " << finalDest << std::endl;
-                        continue;
-                    }
-                    m_eidAvailableSetMutex.lock();
-                    m_finalDestEidAvailableSet.erase(finalDestinationEid);
-                    m_eidAvailableSetMutex.unlock();
-                    std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << finalDestinationEid.nodeId
-                    << "," << finalDestinationEid.serviceId << ")" << std::endl;
-                }
-            }
-        }
+        m_eidAvailableSetMutex.lock();
+        m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->finalDestinationEid);
+        m_eidAvailableSetMutex.unlock();
+        std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
+            << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ")" << std::endl;
     }
 }
 
@@ -453,12 +405,13 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
 
 
     cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
-    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
     const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
     //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
-    static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+    static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
     const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
-    static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
+    static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+    //BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
     const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
     if (isEcho) {
         BundleViewV6 bv;
@@ -470,7 +423,9 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
         bvPrimary.dst_node = bvPrimary.src_node;
         bvPrimary.dst_svc = bvPrimary.src_svc;
         finalDestEid.Set(bvPrimary.dst_node, bvPrimary.dst_svc);
-        bvPrimary.src_node = M_HDTN_EID_ECHO.nodeId;
+        std::cerr << "Sending Ping for destination node" << bvPrimary.dst_node << 
+	       "destination service" << bvPrimary.dst_svc << std::endl;
+	bvPrimary.src_node = M_HDTN_EID_ECHO.nodeId;
         bvPrimary.src_svc = M_HDTN_EID_ECHO.serviceId;
         primary = bvPrimary;
         bv.m_primaryBlockView.SetManuallyModified();
