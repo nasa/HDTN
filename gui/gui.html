@@ -1,0 +1,27 @@
+
+
+<head>
+    <script src="plotly-2.6.3.in.js"></script>
+</head>
+
+<div id="data_rate" style="width:600px;height:250px;"></div>
+
+<script>
+    var rate_line = {
+        x: [1, 2, 3, 4],
+        y: [10, 15, 13, 17],
+        type: 'scatter'
+    };
+
+    var layout = {
+        title: 'HDTN Data Rates',
+        xaxis: {
+            title: "Timestamp (s)"
+        },
+        yaxis: {
+            title: "Data Rate (Mbps)
+        }
+    };
+
+    Plotly.newPlot("data_rate", rate_line, layout);
+</script>
