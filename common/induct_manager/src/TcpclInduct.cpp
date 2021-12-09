@@ -52,7 +52,10 @@ void TcpclInduct::StartTcpAccept() {
 void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         std::cout << "tcpcl tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
-        m_listTcpclBundleSinks.emplace_back(newTcpSocketPtr, m_ioService,
+        m_listTcpclBundleSinks.emplace_back(
+            m_inductConfig.keepAliveIntervalSeconds,
+            newTcpSocketPtr,
+            m_ioService,
             m_inductProcessBundleCallback,
             m_inductConfig.numRxCircularBufferElements,
             m_inductConfig.numRxCircularBufferBytesPerElement,

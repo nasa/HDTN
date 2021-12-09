@@ -215,6 +215,41 @@ uint64_t TcpclV4::tcpclv4_extensions_t::GetTotalDataRequiredForSerialization() c
     return maximumBytesRequired;
 }
 
+
+TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t() : isStartSegment(false), isEndSegment(false), transferId(0), totalBytesAcknowledged(0) { } //a default constructor: X()
+TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(bool paramIsStartSegment, bool paramIsEndSegment, uint64_t paramTransferId, uint64_t paramTotalBytesAcknowledged) :
+    isStartSegment(paramIsStartSegment), isEndSegment(paramIsEndSegment), transferId(paramTransferId), totalBytesAcknowledged(paramTotalBytesAcknowledged) {}
+TcpclV4::tcpclv4_ack_t::~tcpclv4_ack_t() { } //a destructor: ~X()
+TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(const tcpclv4_ack_t& o) :
+    isStartSegment(o.isStartSegment), isEndSegment(o.isEndSegment), transferId(o.transferId), totalBytesAcknowledged(o.totalBytesAcknowledged) { } //a copy constructor: X(const X&)
+TcpclV4::tcpclv4_ack_t::tcpclv4_ack_t(tcpclv4_ack_t&& o) :
+    isStartSegment(o.isStartSegment), isEndSegment(o.isEndSegment), transferId(o.transferId), totalBytesAcknowledged(o.totalBytesAcknowledged) { } //a move constructor: X(X&&)
+TcpclV4::tcpclv4_ack_t& TcpclV4::tcpclv4_ack_t::operator=(const tcpclv4_ack_t& o) { //a copy assignment: operator=(const X&)
+    isStartSegment = o.isStartSegment;
+    isEndSegment = o.isEndSegment;
+    transferId = o.transferId;
+    totalBytesAcknowledged = o.totalBytesAcknowledged;
+    return *this;
+}
+TcpclV4::tcpclv4_ack_t& TcpclV4::tcpclv4_ack_t::operator=(tcpclv4_ack_t && o) { //a move assignment: operator=(X&&)
+    isStartSegment = o.isStartSegment;
+    isEndSegment = o.isEndSegment;
+    transferId = o.transferId;
+    totalBytesAcknowledged = o.totalBytesAcknowledged;
+    return *this;
+}
+bool TcpclV4::tcpclv4_ack_t::operator==(const tcpclv4_ack_t & o) const {
+    return (isStartSegment == o.isStartSegment) && (isEndSegment == o.isEndSegment) && (transferId == o.transferId) && (totalBytesAcknowledged == o.totalBytesAcknowledged);
+}
+bool TcpclV4::tcpclv4_ack_t::operator!=(const tcpclv4_ack_t & o) const {
+    return (isStartSegment != o.isStartSegment) || (isEndSegment != o.isEndSegment) || (transferId != o.transferId) || (totalBytesAcknowledged != o.totalBytesAcknowledged);
+}
+std::ostream& operator<<(std::ostream& os, const TcpclV4::tcpclv4_ack_t & o) {
+    os << "[isStart:" << o.isStartSegment << ", isEnd:" << o.isEndSegment << ", transferId:" << o.transferId << ", totalBytesAcknowledged:" << o.totalBytesAcknowledged << "]";
+    return os;
+}
+
+
 TcpclV4::TcpclV4() : M_MAX_RX_BUNDLE_SIZE_BYTES(10000000) { //default 10MB unless changed by SetMaxReceiveBundleSizeBytes
     InitRx();
 }
@@ -560,22 +595,22 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
         else if (mainRxState == TCPCLV4_MAIN_RX_STATE::READ_ACK_SEGMENT) {
             if (m_dataAckRxState == TCPCLV4_DATA_ACK_RX_STATE::READ_MESSAGE_FLAGS_BYTE) {
                 m_ackFlags = rxVal;
-                m_ackStartFlag = ((m_ackFlags & (1U << 1)) != 0);
-                m_ackEndFlag = ((m_ackFlags & (1U << 0)) != 0);
+                m_ack.isStartSegment = ((m_ackFlags & (1U << 1)) != 0);
+                m_ack.isEndSegment = ((m_ackFlags & (1U << 0)) != 0);
 
                 if (numChars >= sizeof(uint64_t)) { //shortcut/optimization to read ack transfer id (u64) now 
-                    m_ackTransferId = UnalignedBigEndianToNativeU64(rxVals);
+                    m_ack.transferId = UnalignedBigEndianToNativeU64(rxVals);
                     numChars -= sizeof(uint64_t);
                     rxVals += sizeof(uint64_t);
                     
                     if (numChars >= sizeof(uint64_t)) { //shortcut/optimization to read acked length (u64) now 
-                        m_ackSegmentLength = UnalignedBigEndianToNativeU64(rxVals);
+                        m_ack.totalBytesAcknowledged = UnalignedBigEndianToNativeU64(rxVals);
 
                         numChars -= sizeof(uint64_t);
                         rxVals += sizeof(uint64_t);
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                         if (m_ackSegmentReadCallback) {
-                            m_ackSegmentReadCallback(m_ackStartFlag, m_ackEndFlag, m_ackTransferId, m_ackSegmentLength);
+                            m_ackSegmentReadCallback(m_ack);
                         }
                     }
                     else { //not enough bytes to read acked length (u64) now 
@@ -589,20 +624,20 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                 }
             }
             else if (m_dataAckRxState == TCPCLV4_DATA_ACK_RX_STATE::READ_TRANSFER_ID_U64) {
-                (reinterpret_cast<uint8_t*>(&m_ackTransferId))[m_readValueByteIndex++] = rxVal; 
-                if (m_readValueByteIndex == sizeof(m_ackTransferId)) {
-                    boost::endian::big_to_native_inplace(m_ackTransferId);
+                (reinterpret_cast<uint8_t*>(&m_ack.transferId))[m_readValueByteIndex++] = rxVal; 
+                if (m_readValueByteIndex == sizeof(m_ack.transferId)) {
+                    boost::endian::big_to_native_inplace(m_ack.transferId);
                     m_dataAckRxState = TCPCLV4_DATA_ACK_RX_STATE::READ_ACKNOWLEDGED_LENGTH_U64;
                     m_readValueByteIndex = 0;
                 }
             }
             else if (m_dataAckRxState == TCPCLV4_DATA_ACK_RX_STATE::READ_ACKNOWLEDGED_LENGTH_U64) {
-                (reinterpret_cast<uint8_t*>(&m_ackSegmentLength))[m_readValueByteIndex++] = rxVal; 
-                if (m_readValueByteIndex == sizeof(m_ackSegmentLength)) {
-                    boost::endian::big_to_native_inplace(m_ackSegmentLength);
+                (reinterpret_cast<uint8_t*>(&m_ack.totalBytesAcknowledged))[m_readValueByteIndex++] = rxVal; 
+                if (m_readValueByteIndex == sizeof(m_ack.totalBytesAcknowledged)) {
+                    boost::endian::big_to_native_inplace(m_ack.totalBytesAcknowledged);
                     m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE;
                     if (m_ackSegmentReadCallback) {
-                        m_ackSegmentReadCallback(m_ackStartFlag, m_ackEndFlag, m_ackTransferId, m_ackSegmentLength);
+                        m_ackSegmentReadCallback(m_ack);
                     }
                 }
             }
@@ -1107,22 +1142,24 @@ bool TcpclV4::GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataS
     return ((ptr - dataSegmentHeaderDataVec.data()) == dataSegmentHeaderDataVec.size());
 }
 
+bool TcpclV4::GenerateAckSegment(std::vector<uint8_t> & ackSegment, const tcpclv4_ack_t & ack) {
+    const uint8_t ackSegmentFlags = ((static_cast<uint8_t>(ack.isStartSegment)) << 1) | (static_cast<uint8_t>(ack.isEndSegment));
 
-bool TcpclV4::GenerateAckSegment(std::vector<uint8_t> & ackSegment, bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged) {
-
-    const uint8_t ackSegmentFlags = ((static_cast<uint8_t>(isStartSegment)) << 1) | (static_cast<uint8_t>(isEndSegment));
-
-    ackSegment.resize(sizeof(uint8_t) + sizeof(ackSegmentFlags) + sizeof(transferId) + sizeof(totalBytesAcknowledged));
+    ackSegment.resize(sizeof(uint8_t) + sizeof(ackSegmentFlags) + sizeof(ack.transferId) + sizeof(ack.totalBytesAcknowledged));
 
     uint8_t * ptr = &ackSegment[0];
     *ptr++ = static_cast<uint8_t>(TCPCLV4_MESSAGE_TYPE_BYTE_CODES::XFER_ACK);
     *ptr++ = ackSegmentFlags;
-    NativeU64ToUnalignedBigEndian(ptr, transferId);
-    ptr += sizeof(transferId);
-    NativeU64ToUnalignedBigEndian(ptr, totalBytesAcknowledged);
-    ptr += sizeof(totalBytesAcknowledged);
+    NativeU64ToUnalignedBigEndian(ptr, ack.transferId);
+    ptr += sizeof(ack.transferId);
+    NativeU64ToUnalignedBigEndian(ptr, ack.totalBytesAcknowledged);
+    ptr += sizeof(ack.totalBytesAcknowledged);
 
     return ((ptr - ackSegment.data()) == ackSegment.size());
+}
+
+bool TcpclV4::GenerateAckSegment(std::vector<uint8_t> & ackSegment, bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged) {
+    return GenerateAckSegment(ackSegment, tcpclv4_ack_t(isStartSegment, isEndSegment, transferId, totalBytesAcknowledged));
 }
 
 void TcpclV4::GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId) {

@@ -169,6 +169,23 @@ public:
         uint64_t Serialize(uint8_t * serialization) const;
         uint64_t GetTotalDataRequiredForSerialization() const;
     };
+    struct tcpclv4_ack_t {
+        bool isStartSegment;
+        bool isEndSegment;
+        uint64_t transferId;
+        uint64_t totalBytesAcknowledged;
+
+        tcpclv4_ack_t(); //a default constructor: X()
+        tcpclv4_ack_t(bool paramIsStartSegment, bool paramIsEndSegment, uint64_t paramTransferId, uint64_t paramTotalBytesAcknowledged);
+        ~tcpclv4_ack_t(); //a destructor: ~X()
+        tcpclv4_ack_t(const tcpclv4_ack_t& o); //a copy constructor: X(const X&)
+        tcpclv4_ack_t(tcpclv4_ack_t&& o); //a move constructor: X(X&&)
+        tcpclv4_ack_t& operator=(const tcpclv4_ack_t& o); //a copy assignment: operator=(const X&)
+        tcpclv4_ack_t& operator=(tcpclv4_ack_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const tcpclv4_ack_t & o) const; //operator ==
+        bool operator!=(const tcpclv4_ack_t & o) const; //operator !=
+        friend std::ostream& operator<<(std::ostream& os, const tcpclv4_ack_t& o);
+    };
 
 public:
     typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
@@ -176,7 +193,7 @@ public:
     typedef boost::function<void(bool remoteHasEnabledTlsSecurity)> ContactHeaderReadCallback_t;
     typedef boost::function<void(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
         const std::string & remoteNodeEidUri, const tcpclv4_extensions_t & sessionExtensions)> SessionInitCallback_t;
-    typedef boost::function<void(bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
+    typedef boost::function<void(const tcpclv4_ack_t & ack)> AckSegmentReadCallback_t;
     typedef boost::function<void(TCPCLV4_MESSAGE_REJECT_REASON_CODES refusalCode, uint8_t rejectedMessageHeader)> MessageRejectCallback_t;
     typedef boost::function<void(TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId)> BundleRefusalCallback_t;
     typedef boost::function<void()> KeepAliveCallback_t;
@@ -225,7 +242,7 @@ public:
     static bool TcpclV4::GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
         uint64_t sizeContents);
 
-
+    static bool GenerateAckSegment(std::vector<uint8_t> & ackSegment, const tcpclv4_ack_t & ack);
     static bool GenerateAckSegment(std::vector<uint8_t> & ackSegment, bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged);
     static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId);
     static void GenerateMessageRejection(std::vector<uint8_t> & rejectionMessage, TCPCLV4_MESSAGE_REJECT_REASON_CODES rejectionCode, uint8_t rejectedMessageHeader);
@@ -278,10 +295,7 @@ public:
 
     //ack segment
     uint8_t m_ackFlags;
-    bool m_ackStartFlag;
-    bool m_ackEndFlag;
-    uint64_t m_ackTransferId;
-    uint64_t m_ackSegmentLength;
+    tcpclv4_ack_t m_ack;
 
     //refuse message
     uint8_t m_messageRejectionReasonCode;

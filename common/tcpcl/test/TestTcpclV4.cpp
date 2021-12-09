@@ -88,8 +88,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
         }
         
         uint64_t DoAck(bool doCharByChar, bool doSweep = false) {
-            m_tcpcl.SetAckSegmentReadCallback(boost::bind(&Test::AckCallback, this, boost::placeholders::_1,
-                boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
+            m_tcpcl.SetAckSegmentReadCallback(boost::bind(&Test::AckCallback, this, boost::placeholders::_1));
 
             std::vector<uint8_t> ackSegment;
             BOOST_REQUIRE(TcpclV4::GenerateAckSegment(ackSegment, m_ackIsStart, m_ackIsEnd, m_ackTransferId, m_ackBytesAcknowledged));
@@ -325,12 +324,12 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             m_fragmentedBundleRxConcat.insert(m_fragmentedBundleRxConcat.end(), rxBundleData.begin(), rxBundleData.end()); //concatenate
         }
 
-        void AckCallback(bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged) {
+        void AckCallback(const TcpclV4::tcpclv4_ack_t & ack) {
             ++m_numAckCallbackCount;
-            BOOST_REQUIRE_EQUAL(m_ackIsStart, isStartSegment);
-            BOOST_REQUIRE_EQUAL(m_ackIsEnd, isEndSegment);
-            BOOST_REQUIRE_EQUAL(m_ackTransferId, transferId);
-            BOOST_REQUIRE_EQUAL(m_ackBytesAcknowledged, totalBytesAcknowledged);
+            BOOST_REQUIRE_EQUAL(m_ackIsStart, ack.isStartSegment);
+            BOOST_REQUIRE_EQUAL(m_ackIsEnd, ack.isEndSegment);
+            BOOST_REQUIRE_EQUAL(m_ackTransferId, ack.transferId);
+            BOOST_REQUIRE_EQUAL(m_ackBytesAcknowledged, ack.totalBytesAcknowledged);
         }
         
         void BundleRefusalCallback(TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId) {

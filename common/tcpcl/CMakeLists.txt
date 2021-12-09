@@ -9,6 +9,9 @@ add_library(tcpcl_lib STATIC
 	src/TcpclV4.cpp
 	src/TcpclBundleSink.cpp
 	src/TcpclBundleSource.cpp
+	src/TcpclV3BidirectionalLink.cpp
+	#src/TcpclV4BundleSource.cpp
+	#src/TcpclV4BidirectionalLink.cpp
 )
 
 target_link_libraries(tcpcl_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})

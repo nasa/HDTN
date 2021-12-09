@@ -16,13 +16,13 @@ std::size_t TcpclOutduct::GetTotalDataSegmentsUnacked() {
     return m_tcpclBundleSource.GetTotalDataSegmentsUnacked();
 }
 bool TcpclOutduct::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return m_tcpclBundleSource.Forward(bundleData, size);
+    return m_tcpclBundleSource.BaseClass_Forward(bundleData, size);
 }
 bool TcpclOutduct::Forward(zmq::message_t & movableDataZmq) {
-    return m_tcpclBundleSource.Forward(movableDataZmq);
+    return m_tcpclBundleSource.BaseClass_Forward(movableDataZmq);
 }
 bool TcpclOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
-    return m_tcpclBundleSource.Forward(movableDataVec);
+    return m_tcpclBundleSource.BaseClass_Forward(movableDataVec);
 }
 
 void TcpclOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
