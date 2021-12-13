@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for j in hdtn-one-process hdtn-ingress hdtn-egress-async hdtn-storage hdtn-scheduler bpsink-async bp  bpgen-async hdtn-router 
+for j in hdtn-one-process hdtn-ingress hdtn-egress-async hdtn-storage hdtn-scheduler bpsink-async  bpgen-async hdtn-router 
 do
 for i in `pidof $j`
 do
@@ -18,4 +18,6 @@ do
  kill -9 $i
 done
 done
+
+echo "Killing py_cgr server..." && pkill -9 -f py_cgr_client.py
 
