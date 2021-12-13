@@ -20,6 +20,7 @@ struct contactPlan_t {
     int contact;
     int source; 
     int dest; 
+    int finalDest;
     int start;
     int end;
     int rate; 

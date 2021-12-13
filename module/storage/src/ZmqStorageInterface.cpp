@@ -734,7 +734,8 @@ void ZmqStorageInterface::ThreadFunc() {
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.emplace(iReleaseStartHdr->finalDestinationEid, false); //false => fully qualified service id
-                }
+                    availableDestLinksSet.emplace(iReleaseStartHdr->nextHopEid, false);
+		}
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                         std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
@@ -748,7 +749,9 @@ void ZmqStorageInterface::ThreadFunc() {
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
-                }
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->nextHopEid, false)); //false => fully qualified service id
+
+		}
                 PrintReleasedLinks(availableDestLinksSet);
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //telemetry messages

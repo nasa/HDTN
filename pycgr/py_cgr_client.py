@@ -6,11 +6,12 @@ import random
 import json
 import re
 
-port = "5556"
+port = "4555"
 context = zmq.Context()
 socket = context.socket(zmq.PAIR)
 socket.bind("tcp://127.0.0.1:%s" % port) #localhost caused error
-contact_plan = cp_load('module/scheduler/src/contactPlan_RoutingTest.json', 5000)
+contact_plan = cp_load('module/scheduler/src/contactPlan.json', 5000)
+#contact_plan = cp_load('module/scheduler/src/contactPlan.json', 5000)
 curr_time = 0
 
 while True:
@@ -25,9 +26,9 @@ while True:
 
     root_contact.arrival_time = startTime
     route = cgr_dijkstra(root_contact, destinationId, contact_plan)
-    print("Here's the route")
+    print("***Here's the route")
     print(route)
-    print("sending next hop: " + str(route.next_node))
+    print("***sending next hop: " + str(route.next_node))
     socket.send_string(str(route.next_node))
     time.sleep(1)
 

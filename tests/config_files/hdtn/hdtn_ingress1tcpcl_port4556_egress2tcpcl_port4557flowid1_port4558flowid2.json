@@ -49,12 +49,12 @@
             {
                 "name": "tcpcl_egress1",
                 "convergenceLayer": "tcpcl",
-                "nextHopEndpointId": "ipn:1.1",
+                "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
-                "remotePort": 4557,
+                "remotePort": 4558,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:1.1"
+                    "ipn:2.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000,
@@ -68,8 +68,7 @@
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:2.1"
-                ],
+		],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true

@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.0)
-project(hdtn-scheduler)
+project(hdtn-router)
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(hdtn-scheduler 
-    src/scheduler.cpp
+add_executable(hdtn-router 
+    src/router.cpp
     src/main.cpp
-    # src/cgrServer.cpp
+    src/cgrServer.cpp
 )
 
-target_link_libraries(hdtn-scheduler
+target_link_libraries(hdtn-router
 	bpcodec
 	hdtn_util
 	config_lib
@@ -17,7 +17,7 @@ target_link_libraries(hdtn-scheduler
 	${Boost_LIBRARIES}
 )
 
-target_include_directories(hdtn-scheduler PUBLIC
+target_include_directories(hdtn-router PUBLIC
 	include
         lib/include
         ../../common/bpcodec/include

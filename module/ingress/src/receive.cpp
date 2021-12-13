@@ -345,6 +345,7 @@ void Ingress::SchedulerEventHandler() {
         }
         m_eidAvailableSetMutex.lock();
         m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid);
+	m_finalDestEidAvailableSet.insert(iReleaseStartHdr->nextHopEid);
         m_eidAvailableSetMutex.unlock();
         std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
             << "," << iReleaseStartHdr->finalDestinationEid.serviceId << ")" << std::endl;
@@ -358,9 +359,10 @@ void Ingress::SchedulerEventHandler() {
         }
         m_eidAvailableSetMutex.lock();
         m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->finalDestinationEid);
+	m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->nextHopEid);
         m_eidAvailableSetMutex.unlock();
         std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
-            << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ")" << std::endl;
+            << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ") " << std::endl;
     }
 }
 
