@@ -32,9 +32,6 @@ public:
     }
     volatile bool m_timersFinished;
 private:
-    //void RouteUpdate(const boost::system::error_code&, cbhe_eid_t nextHopEid,
-      //                 std::string event, zmq::socket_t * ptrSocket);
-
     void RouteUpdate(const boost::system::error_code& e, cbhe_eid_t nextHopEid,
                      cbhe_eid_t finalDestEid, std::string event, zmq::socket_t * ptrSocket);
     HdtnConfig m_hdtnConfig;

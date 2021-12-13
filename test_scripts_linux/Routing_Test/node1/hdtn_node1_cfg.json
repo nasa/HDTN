@@ -1,0 +1,96 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 1,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqRegistrationServerAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqRegistrationServerPortPath": 10140,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqMaxMessagesPerPath": 100,
+    "zmqMaxMessageSizeBytes": 100000000,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+            {
+                "name": "stcp ingress",
+                "convergenceLayer": "stcp",
+                "myEndpointId": "ipn:1.1",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 200,
+                "keepAliveIntervalSeconds": 15
+            }
+  	]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "stcp egress1",
+                "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:3.1",
+                "remoteHostname": "node3",
+                "remotePort": 4558,
+                "bundlePipelineLimit": 500,
+                "finalDestinationEidUris": [
+                    "ipn:200.1",
+		    "ipn:200.2047", 
+		    "ipn:3.1",
+		    "ipn:3.2047",
+		    "ipn:4.1",
+		    "ipn:4.2047",
+		    "ipn:1.1",
+		    "ipn:1.2047"
+		],
+		"keepAliveIntervalSeconds": 17
+            },
+            {
+                "name": "stcp egress2",
+                "convergenceLayer": "stcp",
+                "nextHopEndpointId": "ipn:2.1",
+                "remoteHostname": "node2",
+                "remotePort": 4558,
+                "bundlePipelineLimit": 500,
+                "finalDestinationEidUris": [
+		],
+		"keepAliveIntervalSeconds": 17
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 81920000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}
+

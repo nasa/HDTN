@@ -210,7 +210,7 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
                 boost::shared_ptr<Outduct>  outductPtr;
 		outductPtr = m_outductManager.GetOutductPtrByOutductUuid(outduct_id);
 		m_outductManager.SetOutductForFinalDestinationEid(finalDestEid, outductPtr);
-		std::cout << "***Egress: Egress update outduct based on optimal Route to Outduct Id " << outduct_id  
+		std::cout << "Egress: update outduct based on optimal Route to Outduct Id " << outduct_id  
 			 << " for finalDestEid " << finalDestEid.nodeId <<  std::endl;
 	     }
      }
@@ -250,8 +250,6 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     static constexpr unsigned int NUM_SOCKETS = 4;
     m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
     m_zmqPullSock_connectingStorageToBoundEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
-    //m_zmqSubSock_boundRouterToConnectingEgressPtr->set(zmq::sockopt::subscribe, "");
-
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
