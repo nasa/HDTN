@@ -25,6 +25,8 @@ public:
         const uint64_t myNodeId,
         const std::string & expectedRemoteEidUriStringIfNotEmpty
     );
+    virtual ~TcpclV3BidirectionalLink();
+
     bool BaseClass_Forward(const uint8_t* bundleData, const std::size_t size);
     bool BaseClass_Forward(std::vector<uint8_t> & dataVec);
     bool BaseClass_Forward(zmq::message_t & dataZmq);

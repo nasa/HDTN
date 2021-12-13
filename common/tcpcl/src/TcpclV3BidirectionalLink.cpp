@@ -93,6 +93,10 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     }
 }
 
+TcpclV3BidirectionalLink::~TcpclV3BidirectionalLink() {
+
+}
+
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSend: " << error.message() << std::endl;
