@@ -20,3 +20,9 @@ pycgr/py_cgr/py_cgr_lib/__pycache__/
 pycgr/py_cgr/py_cgr_lib/__pycache__/*
 
 .vscode/
+
+
+gui/build/*
+gui/external/*
+gui/external.install/*
+gui/root/*

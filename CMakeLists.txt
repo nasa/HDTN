@@ -1,29 +1,63 @@
 cmake_minimum_required(VERSION 3.0)
-project(hdtn-gui)
 
-link_directories(hdtn-gui ${CMAKE_INSTALL_PREFIX}/lib)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -DBOOST_SPIRIT_THREADSAFE")
-
-set(SOURCE_FILES
-	HidraLink.cpp  
-	HidraLinkMap.cpp  
-	JsonSerializable.cpp  
-	main.cpp  
-	SignalHandler.cpp  
-	WebsocketServer.cpp
-)
-
-set(
-	HDTN_LINK_LIB
-)
-
-if(UNIX AND NOT APPLE)
-	set(HDTN_LINK_LIB ${HDTN_LINK_LIB} rt)
+project(HDTN VERSION 1.0)
+#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_CXX_STANDARD 11)
+find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
+# define _WIN32_WINNT to use Windows 10 for boost
+if(WIN32)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    add_compile_definitions(_WIN32_WINNT=0x0A00)
 endif()
 
-add_executable(hdtn-gui ${SOURCE_FILES})
+#logging link type
+if(NOT Boost_USE_STATIC_LIBS)
+	add_compile_definitions(BOOST_LOG_DYN_LINK)
+endif()
 
-target_compile_definitions(hdtn-gui PUBLIC _GNU_SOURCE)
-target_include_directories(hdtn-gui PUBLIC include ${CMAKE_INSTALL_PREFIX}/include)
-target_link_libraries(hdtn-gui ${HDTN_LINK_LIB} pthread civetweb dl boost_thread boost_system boost_filesystem boost_regex)
+OPTION(SDNV_USE_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
+if(SDNV_USE_HARDWARE_ACCELERATION)
+    add_compile_definitions(SDNV_USE_HARDWARE_ACCELERATION)
+    if(NOT WIN32)
+        SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -msse -msse2 -mbmi -mbmi2 -mssse3 -msse4.1 -mavx -mavx2")
+    endif()
+endif()
+
+OPTION(LTP_RNG_USE_RDSEED "Use CPU RDSEED instruction as a source of randomness for LTP Random Number Generator" ON)
+if(LTP_RNG_USE_RDSEED)
+    add_compile_definitions(LTP_RNG_USE_RDSEED)
+    if(NOT WIN32)
+        SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mrdseed")
+    endif()
+endif()
+
+if (WIN32)
+	#add_compile_definitions(ZMQ_STATIC)
+	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
+	set(libzmq_LIB "C:/libzmq_msvc_x64/lib/libzmq-v141-mt-4_3_4.lib" CACHE FILEPATH "Libzmq library")
+	set(pthread_LIB "")
+else()
+	set(libzmq_INCLUDE "")
+	set(libzmq_LIB zmq)
+	set(pthread_LIB pthread)
+endif()
+
+add_subdirectory(common/bpcodec)
+add_subdirectory(common/logger)
+add_subdirectory(common/util)
+add_subdirectory(common/config)
+add_subdirectory(common/induct_manager)
+add_subdirectory(common/outduct_manager)
+add_subdirectory(common/tcpcl)
+add_subdirectory(common/ltp)
+add_subdirectory(common/stcp)
+add_subdirectory(common/udp)
+add_subdirectory(common/regsvr/lib)
+add_subdirectory(module/storage)
+add_subdirectory(module/ingress)
+add_subdirectory(module/egress)
+add_subdirectory(module/scheduler)
+add_subdirectory(module/hdtn_one_process)
+add_subdirectory(tests/unit_tests)
+add_subdirectory(tests/integrated_tests)
 

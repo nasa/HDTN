@@ -1,25 +1,17 @@
-cmake_minimum_require(VERSION 3.0)
+cmake_minimum_required(VERSION 3.0)
 project(hdtn-gui)
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(gui_lib
-    WebSocket.cpp
-)
+link_directories(hdtn-gui ${CMAKE_INSTALL_PREFIX}/lib)
 
-target_link_libraries(gui_lib
-
-}
 
 add_executable(hdtn-gui 
-
+    WebsocketServer.cpp
+    main.cpp
 )
 
-target_link_libraries(hdtn-gui
 
-)
-
-target_include_directories(hdtn-gui
-
-)
-
+target_compile_definitions(hdtn-gui PUBLIC _GNU_SOURCE)
+target_include_directories(hdtn-gui PUBLIC include ${CMAKE_INSTALL_PREFIX}/include)
+target_link_libraries(hdtn-gui pthread civetweb dl boost_thread boost_system boost_filesystem boost_regex)
 

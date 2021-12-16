@@ -1,0 +1,12 @@
+rm -rf out
+rm -rf libcivetweb.a
+rm -rf libcivetweb.so
+rm -rf libcivetweb.so.1
+rm -rf libcivetweb.so.1.15.0
+rm -rf civetweb
+rm -f civetweb_test
+cc -c -Wall -Wextra -Wshadow -Wformat-security -Winit-self -Wmissing-prototypes -DLINUX -Iinclude  -DUSE_STACK_SIZE=102400 -O2 -DNDEBUG -DOPENSSL_API_1_1 -DUSE_WEBSOCKET -fPIC -fPIC src/civetweb.c -o out/src/civetweb.o
+g++ -c -Wall -Wextra -Wshadow -Wformat-security -Winit-self -Wmissing-prototypes -DLINUX -Iinclude  -DUSE_STACK_SIZE=102400 -O2 -DNDEBUG -DOPENSSL_API_1_1 -DUSE_WEBSOCKET -fPIC -fPIC  src/CivetServer.cpp -o out/src/CivetServer.o
+g++ -shared -Wl,-soname,libcivetweb.so.1 -o libcivetweb.so.1.15.0 -Wall -Wextra -Wshadow -Wformat-security -Winit-self -Wmissing-prototypes -DLINUX -Iinclude  -DUSE_STACK_SIZE=102400 -O2 -DNDEBUG -DOPENSSL_API_1_1 -DUSE_WEBSOCKET -fPIC  out/src/civetweb.o out/src/CivetServer.o -lpthread -lm  -lrt -ldl
+ln -s -f libcivetweb.so.1 libcivetweb.so
+ln -s -f libcivetweb.so.1.15.0 libcivetweb.so.1
