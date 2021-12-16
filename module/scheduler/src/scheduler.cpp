@@ -188,10 +188,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             std::cerr << "Scheduler socket failed to bind: " << ex.what() << std::endl;
             return false;
         }
-
-
-
-        //socket.bind(bind_boundSchedulerPubSubPath);
+	
 	boost::asio::io_service service;
         boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
 
@@ -302,13 +299,6 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t fi
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);
 	linkEvent.finalDest = eventPt.second.get<int>("finalDestination", 0);
-	
-	// const std::string uriEid = eventPt.second.get<std::string>("finalDestinationEid", "");
-        //if (!Uri::ParseIpnUriString(uriEid, linkEvent.finalDestEid.nodeId, linkEvent.finalDestEid.serviceId)) {
-          //  std::cerr << "error: bad uri string: " << uriEid << std::endl;
-            //return false;
-        //}
-
         linkEvent.start = eventPt.second.get<int>("startTime", 0);
         linkEvent.end = eventPt.second.get<int>("endTime", 0);
         linkEvent.rate = eventPt.second.get<int>("rate", 0);
@@ -327,7 +317,7 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t fi
     try {
         socket.bind(bind_boundSchedulerPubSubPath);
     } catch (const zmq::error_t & ex) {
-    	std::cerr << "****scheduler socket failed to bind: " << ex.what() << std::endl;
+    	std::cerr << "Scheduler socket failed to bind: " << ex.what() << std::endl;
         return false;
     }
 

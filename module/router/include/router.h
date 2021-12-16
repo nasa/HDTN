@@ -25,7 +25,7 @@ public:
     bool Run(int argc, const char* const argv[], volatile bool & running,
                     std::string jsonEventFileName, bool useSignalHandler);
     int ComputeOptimalRoute(std::string* jsonEventFileName,
-                            cbhe_eid_t sourceEid, cbhe_eid_t finalDestEid);
+                            int sourceNode, cbhe_eid_t finalDestEid);
 
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/router/src/").string() + filename;

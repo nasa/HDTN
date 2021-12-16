@@ -30,7 +30,7 @@ python3 ./pycgr/py_cgr_client.py &
 sleep 1
 
 #Router
-./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --src-uri-eid=ipn:10.1 --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
+./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
 router_PID=$!
 sleep 1
 

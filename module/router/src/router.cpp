@@ -63,7 +63,6 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
 		("contact-plan-file", opt::value<std::string>()->default_value(Router::DEFAULT_FILE),
                 "Contact Plan file needed by CGR to compute the optimal route")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
-                ("src-uri-eid", opt::value<std::string>()->default_value("ipn:1.1"), "source Eid")
 		;
 
             opt::variables_map vm;
@@ -76,13 +75,14 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
             }
 
             const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
-
-            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
-            if (!hdtnConfig) {
+   
+	    if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
+                m_hdtnConfig = *ptrConfig;
+            } else {
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
-
+	    
 	    contactsFile = vm["contact-plan-file"].as<std::string>();
             if (contactsFile.length() < 1) {
                 std::cout << desc << "\n";
@@ -106,13 +106,6 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-	
-            const std::string mySourceUriEid = vm["src-uri-eid"].as<string>();
-            if (!Uri::ParseIpnUriString(mySourceUriEid, sourceEid.nodeId, sourceEid.serviceId)) {
-                std::cerr << "error: bad src uri string: " << mySourceUriEid << std::endl;
-                return false;
-            }
-
  	}
 
         catch (boost::bad_any_cast & e) {
@@ -132,8 +125,13 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
         std::cout << "starting Router.." << std::endl;
 	
 	Router router;
-     
-	router.ComputeOptimalRoute(&jsonEventFileName, sourceEid, finalDestEid);
+	int srcNode; 
+
+        srcNode = static_cast<int>(m_hdtnConfig.m_myNodeId); 
+
+       std::cout << "***srcNode****" << srcNode << std::endl;
+
+	router.ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid);
 
 	if (useSignalHandler) {
             sigHandler.Start(false);
@@ -179,18 +177,19 @@ void Router::RouteUpdate(const boost::system::error_code& e, cbhe_eid_t nextHopE
 }
 
 int Router::ComputeOptimalRoute(std::string* jsonEventFileName, 
-				cbhe_eid_t sourceEid, cbhe_eid_t finalDestEid)
+				int sourceNode, cbhe_eid_t finalDestEid)
 {
     m_timersFinished = false;
 
     CgrServer server;
-    std::cout << "ComputeOptimalRoute starting CGR server" << std::endl;
+    std::cout << "[Router] Starting CGR server" << std::endl;
     server.init("tcp://localhost:4555");
-    int nextHop = server.requestNextHop(sourceEid.nodeId, finalDestEid.nodeId, 0);
     
-    std::cout << "ComputeOptimalRoute Next hop is: " << std::to_string(nextHop) << std::endl;
+    int nextHop = server.requestNextHop(sourceNode, finalDestEid.nodeId, 0);
     
-    std::cout << "ComputeOptimalRoute Sending event to egress "  << std::endl;
+    std::cout << "[Router] CGR computed next hop : " << std::to_string(nextHop) << std::endl;
+    
+    std::cout << "[Router] Sending event to egress "  << std::endl;
 
     cbhe_eid_t nextHopEid;
     nextHopEid.nodeId = nextHop; 
@@ -198,18 +197,18 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName,
     
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
 
-    std::cout << "ComputeOptimalRoute Local Time:  " << timeLocal << std::endl << std::flush;
+    std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
 
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
     const std::string bind_boundRouterPubSubPath(std::string("tcp://*:10210"));
     try {
-            socket.bind(bind_boundRouterPubSubPath);
-	    std::cout << "router socket bound successfully to  " << bind_boundRouterPubSubPath << std::endl;
-        } catch (const zmq::error_t & ex) {
-            std::cerr << "****router socket failed to bind: " << ex.what() << std::endl;
-            return 0;
-        }
+        socket.bind(bind_boundRouterPubSubPath);
+	std::cout << "[Router] socket bound successfully to  " << bind_boundRouterPubSubPath << std::endl;
+    } catch (const zmq::error_t & ex) {
+        std::cerr << "[Router] socket failed to bind: " << ex.what() << std::endl;
+        return 0;
+    }
 
     //socket.bind(bind_boundRouterPubSubPath);
 
@@ -219,9 +218,9 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName,
 
     dt->expires_from_now(boost::posix_time::seconds(1));                     
     dt->async_wait(boost::bind(&Router::RouteUpdate,this,boost::asio::placeholders::error, 
-			        nextHopEid, finalDestEid, "RouteUpdate",
+			       nextHopEid, finalDestEid, "RouteUpdate",
         		       &socket));
-   ioService.run();
+    ioService.run();
     
     socket.close();
 

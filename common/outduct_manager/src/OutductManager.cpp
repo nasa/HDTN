@@ -74,7 +74,6 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                     return false;
                 }
                 m_finalDestEidToOutductMap[destEid] = outductSharedPtr;
-		
             }
 	    cbhe_eid_t nextHopEid;
             if (!Uri::ParseIpnUriString(thisOutductConfig.nextHopEndpointId, 
@@ -254,12 +253,11 @@ bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vect
 
 void OutductManager::SetOutductForFinalDestinationEid(const cbhe_eid_t finalDestEid, 
 		                              boost::shared_ptr<Outduct>  outductPtr) {
-        m_finalDestEidToOutductMapMutex.lock();
-        m_finalDestEidToOutductMap[finalDestEid] = outductPtr;
-	m_finalDestEidToOutductMapMutex.unlock();
+    m_finalDestEidToOutductMapMutex.lock();
+    m_finalDestEidToOutductMap[finalDestEid] = outductPtr;
+    m_finalDestEidToOutductMapMutex.unlock();
     return;
 }
-
 
 Outduct * OutductManager::GetOutductByFinalDestinationEid(const cbhe_eid_t & finalDestEid) {
     try {
@@ -288,7 +286,7 @@ Outduct * OutductManager::GetOutductByOutductUuid(const uint64_t uuid) {
         }
     }
     catch (const std::out_of_range &) {}
-
+    
     return NULL;
 }
 

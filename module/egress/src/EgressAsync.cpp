@@ -83,7 +83,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(std::string("inproc://connecting_storage_to_bound_egress"));
             m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(std::string("inproc://bound_egress_to_connecting_storage"));
-
+	    
 	    //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);

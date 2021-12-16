@@ -16,7 +16,7 @@ python3 ./pycgr/py_cgr_client.py &
 sleep 1
 
 #Router
-./build/module/router/hdtn-router --contact-plan-file=contactPlan_RoutingTest.json --src-uri-eid=ipn:2.1 --dest-uri-eid=ipn:200.1 --hdtn-config-file=$hdtn_config &
+./build/module/router/hdtn-router --contact-plan-file=contactPlan_RoutingTest.json --dest-uri-eid=ipn:200.1 --hdtn-config-file=$hdtn_config &
 sleep 1
 
 #Ingress
