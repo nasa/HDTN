@@ -30,6 +30,7 @@ HdtnConfig::HdtnConfig() :
     m_zmqStorageAddress("localhost"),
     m_zmqRegistrationServerAddress("localhost"),
     m_zmqSchedulerAddress("localhost"),
+    m_zmqRouterAddress("localhost"),
     m_zmqBoundIngressToConnectingEgressPortPath(10100),
     m_zmqConnectingEgressToBoundIngressPortPath(10160),
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(10161),
@@ -39,6 +40,7 @@ HdtnConfig::HdtnConfig() :
     m_zmqBoundEgressToConnectingStoragePortPath(10130),
     m_zmqRegistrationServerPortPath(10140),
     m_zmqBoundSchedulerPubSubPortPath(10200),
+    m_zmqBoundRouterPubSubPortPath(10210),
     m_zmqMaxMessagesPerPath(5),
     m_zmqMaxMessageSizeBytes(100000000),
     m_inductsConfig(),
@@ -69,6 +71,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_zmqStorageAddress(o.m_zmqStorageAddress),
     m_zmqRegistrationServerAddress(o.m_zmqRegistrationServerAddress),
     m_zmqSchedulerAddress(o.m_zmqSchedulerAddress),
+    m_zmqRouterAddress(o.m_zmqRouterAddress),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
     m_zmqConnectingEgressToBoundIngressPortPath(o.m_zmqConnectingEgressToBoundIngressPortPath),
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath),
@@ -78,6 +81,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_zmqBoundEgressToConnectingStoragePortPath(o.m_zmqBoundEgressToConnectingStoragePortPath),
     m_zmqRegistrationServerPortPath(o.m_zmqRegistrationServerPortPath),
     m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
+    m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqMaxMessagesPerPath(o.m_zmqMaxMessagesPerPath),
     m_zmqMaxMessageSizeBytes(o.m_zmqMaxMessageSizeBytes),
     m_inductsConfig(o.m_inductsConfig),
@@ -105,6 +109,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_zmqStorageAddress(std::move(o.m_zmqStorageAddress)),
     m_zmqRegistrationServerAddress(std::move(o.m_zmqRegistrationServerAddress)),
     m_zmqSchedulerAddress(std::move(o.m_zmqSchedulerAddress)),
+    m_zmqRouterAddress(std::move(o.m_zmqRouterAddress)),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
     m_zmqConnectingEgressToBoundIngressPortPath(o.m_zmqConnectingEgressToBoundIngressPortPath),
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath),
@@ -114,6 +119,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_zmqBoundEgressToConnectingStoragePortPath(o.m_zmqBoundEgressToConnectingStoragePortPath),
     m_zmqRegistrationServerPortPath(o.m_zmqRegistrationServerPortPath),
     m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
+    m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
     m_zmqMaxMessagesPerPath(o.m_zmqMaxMessagesPerPath),
     m_zmqMaxMessageSizeBytes(o.m_zmqMaxMessageSizeBytes),
     m_inductsConfig(std::move(o.m_inductsConfig)),
@@ -141,6 +147,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_zmqStorageAddress = o.m_zmqStorageAddress;
     m_zmqRegistrationServerAddress = o.m_zmqRegistrationServerAddress;
     m_zmqSchedulerAddress = o.m_zmqSchedulerAddress;
+    m_zmqRouterAddress = o.m_zmqRouterAddress;
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
     m_zmqConnectingEgressToBoundIngressPortPath = o.m_zmqConnectingEgressToBoundIngressPortPath;
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
@@ -150,6 +157,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_zmqBoundEgressToConnectingStoragePortPath = o.m_zmqBoundEgressToConnectingStoragePortPath;
     m_zmqRegistrationServerPortPath = o.m_zmqRegistrationServerPortPath;
     m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
+    m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqMaxMessagesPerPath = o.m_zmqMaxMessagesPerPath;
     m_zmqMaxMessageSizeBytes = o.m_zmqMaxMessageSizeBytes;
     m_inductsConfig = o.m_inductsConfig;
@@ -178,6 +186,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_zmqStorageAddress = std::move(o.m_zmqStorageAddress);
     m_zmqRegistrationServerAddress = std::move(o.m_zmqRegistrationServerAddress);
     m_zmqSchedulerAddress = std::move(o.m_zmqSchedulerAddress);
+    m_zmqRouterAddress = std::move(o.m_zmqRouterAddress);
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
     m_zmqConnectingEgressToBoundIngressPortPath = o.m_zmqConnectingEgressToBoundIngressPortPath;
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
@@ -187,6 +196,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_zmqBoundEgressToConnectingStoragePortPath = o.m_zmqBoundEgressToConnectingStoragePortPath;
     m_zmqRegistrationServerPortPath = o.m_zmqRegistrationServerPortPath;
     m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
+    m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
     m_zmqMaxMessagesPerPath = o.m_zmqMaxMessagesPerPath;
     m_zmqMaxMessageSizeBytes = o.m_zmqMaxMessageSizeBytes;
     m_inductsConfig = std::move(o.m_inductsConfig);
@@ -214,7 +224,8 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
         (m_zmqRegistrationServerAddress == o.m_zmqRegistrationServerAddress) &&
         (m_zmqSchedulerAddress == o.m_zmqSchedulerAddress) &&
-        (m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
+        (m_zmqRouterAddress == o.m_zmqRouterAddress) &&
+	(m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
         (m_zmqConnectingEgressToBoundIngressPortPath == o.m_zmqConnectingEgressToBoundIngressPortPath) &&
         (m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath == o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath) &&
         (m_zmqBoundIngressToConnectingStoragePortPath == o.m_zmqBoundIngressToConnectingStoragePortPath) &&
@@ -223,7 +234,8 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_zmqBoundEgressToConnectingStoragePortPath == o.m_zmqBoundEgressToConnectingStoragePortPath) &&
         (m_zmqRegistrationServerPortPath == o.m_zmqRegistrationServerPortPath) &&
         (m_zmqBoundSchedulerPubSubPortPath == o.m_zmqBoundSchedulerPubSubPortPath) &&
-        (m_zmqMaxMessagesPerPath == o.m_zmqMaxMessagesPerPath) &&
+        (m_zmqBoundRouterPubSubPortPath == o.m_zmqBoundRouterPubSubPortPath) &&
+	(m_zmqMaxMessagesPerPath == o.m_zmqMaxMessagesPerPath) &&
         (m_zmqMaxMessageSizeBytes == o.m_zmqMaxMessageSizeBytes) &&
         (m_inductsConfig == o.m_inductsConfig) &&
         (m_outductsConfig == o.m_outductsConfig) &&
@@ -259,7 +271,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_zmqStorageAddress = pt.get<std::string>("zmqStorageAddress");
         m_zmqRegistrationServerAddress = pt.get<std::string>("zmqRegistrationServerAddress");
         m_zmqSchedulerAddress = pt.get<std::string>("zmqSchedulerAddress");
-
+        m_zmqRouterAddress = pt.get<std::string>("zmqRouterAddress");
         m_zmqBoundIngressToConnectingEgressPortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingEgressPortPath");
         m_zmqConnectingEgressToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundIngressPortPath");
         m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath");
@@ -269,7 +281,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_zmqBoundEgressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundEgressToConnectingStoragePortPath");
         m_zmqRegistrationServerPortPath = pt.get<uint16_t>("zmqRegistrationServerPortPath");
         m_zmqBoundSchedulerPubSubPortPath = pt.get<uint16_t>("zmqBoundSchedulerPubSubPortPath");
-
+        m_zmqBoundRouterPubSubPortPath = pt.get<uint16_t>("zmqBoundRouterPubSubPortPath");
         m_zmqMaxMessagesPerPath = pt.get<uint64_t>("zmqMaxMessagesPerPath");
         m_zmqMaxMessageSizeBytes = pt.get<uint64_t>("zmqMaxMessageSizeBytes");
     }
@@ -353,6 +365,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("zmqStorageAddress", m_zmqStorageAddress);
     pt.put("zmqRegistrationServerAddress", m_zmqRegistrationServerAddress);
     pt.put("zmqSchedulerAddress", m_zmqSchedulerAddress);
+    pt.put("zmqRouterAddress", m_zmqRouterAddress);
     pt.put("zmqBoundIngressToConnectingEgressPortPath", m_zmqBoundIngressToConnectingEgressPortPath);
     pt.put("zmqConnectingEgressToBoundIngressPortPath", m_zmqConnectingEgressToBoundIngressPortPath);
     pt.put("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath", m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath);
@@ -362,6 +375,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("zmqBoundEgressToConnectingStoragePortPath", m_zmqBoundEgressToConnectingStoragePortPath);
     pt.put("zmqRegistrationServerPortPath", m_zmqRegistrationServerPortPath);
     pt.put("zmqBoundSchedulerPubSubPortPath", m_zmqBoundSchedulerPubSubPortPath);
+    pt.put("zmqBoundRouterPubSubPortPath", m_zmqBoundRouterPubSubPortPath);
     pt.put("zmqMaxMessagesPerPath", m_zmqMaxMessagesPerPath);
     pt.put("zmqMaxMessageSizeBytes", m_zmqMaxMessageSizeBytes);
 

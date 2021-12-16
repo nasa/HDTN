@@ -64,7 +64,7 @@ public:
     std::string m_zmqStorageAddress;
     std::string m_zmqRegistrationServerAddress;
     std::string m_zmqSchedulerAddress;
-
+    std::string m_zmqRouterAddress;
     uint16_t m_zmqBoundIngressToConnectingEgressPortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
     uint16_t m_zmqConnectingEgressToBoundIngressPortPath; //#define HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH "tcp://127.0.0.1:10160"
     uint16_t m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath; //"tcp://127.0.0.1:10161"
@@ -81,7 +81,7 @@ public:
 //pub-sub from scheduler to modules
 //#define HDTN_SCHEDULER_PATH "tcp://0.0.0.0:10200"
     uint16_t m_zmqBoundSchedulerPubSubPortPath; //#define HDTN_BOUND_SCHEDULER_PUBSUB_PATH "tcp://127.0.0.1:10200"
-
+    uint16_t m_zmqBoundRouterPubSubPortPath; //#define HDTN_BOUND_ROUTER_PUBSUB_PATH "tcp://127.0.0.1:10210"
     uint64_t m_zmqMaxMessagesPerPath;
     uint64_t m_zmqMaxMessageSizeBytes;
 

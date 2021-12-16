@@ -129,7 +129,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
 
         srcNode = static_cast<int>(m_hdtnConfig.m_myNodeId); 
 
-       std::cout << "***srcNode****" << srcNode << std::endl;
+        //std::cout << "***srcNode****" << srcNode << std::endl;
 
 	router.ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid);
 
@@ -161,7 +161,7 @@ void Router::RouteUpdate(const boost::system::error_code& e, cbhe_eid_t nextHopE
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-	std::cout << timeLocal << ": Sending Event Route Update to egress " << std::endl;
+	std::cout << timeLocal << ": [Router] Sending RouteUpdate event to Egress " << std::endl;
 
         hdtn::RouteUpdateHdr routingMsg;
         memset(&routingMsg, 0, sizeof(hdtn::RouteUpdateHdr));
@@ -187,21 +187,21 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName,
     
     int nextHop = server.requestNextHop(sourceNode, finalDestEid.nodeId, 0);
     
-    std::cout << "[Router] CGR computed next hop : " << std::to_string(nextHop) << std::endl;
+    std::cout << "[Router] CGR computed next hop: " << std::to_string(nextHop) << std::endl;
     
-    std::cout << "[Router] Sending event to egress "  << std::endl;
-
     cbhe_eid_t nextHopEid;
     nextHopEid.nodeId = nextHop; 
     nextHopEid.serviceId= 1;
     
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
 
-    std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
+    //std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
 
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
-    const std::string bind_boundRouterPubSubPath(std::string("tcp://*:10210"));
+    
+    const std::string bind_boundRouterPubSubPath(
+    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
     try {
         socket.bind(bind_boundRouterPubSubPath);
 	std::cout << "[Router] socket bound successfully to  " << bind_boundRouterPubSubPath << std::endl;
@@ -209,8 +209,6 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName,
         std::cerr << "[Router] socket failed to bind: " << ex.what() << std::endl;
         return 0;
     }
-
-    //socket.bind(bind_boundRouterPubSubPath);
 
     boost::asio::io_service ioService;
 

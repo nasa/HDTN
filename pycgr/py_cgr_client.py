@@ -28,7 +28,7 @@ while True:
     route = cgr_dijkstra(root_contact, destinationId, contact_plan)
     print("***Here's the route")
     print(route)
-    print("***sending next hop: " + str(route.next_node))
+    print("***Sending next hop: " + str(route.next_node))
     socket.send_string(str(route.next_node))
     time.sleep(1)
 

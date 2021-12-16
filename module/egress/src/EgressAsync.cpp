@@ -129,11 +129,13 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
         // socket for receiving events from router
         m_zmqSubSock_boundRouterToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-        const std::string connect_boundRouterPubSubPath(std::string("tcp://localhost:10210"));
-	//std::string("tcp://") +
-        //m_hdtnConfig.m_zmqSchedulerAddress +
-        //std::string(":") +
-        //boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+        //const std::string connect_boundRouterPubSubPath(std::string("tcp://localhost:10210"));
+
+	const std::string connect_boundRouterPubSubPath(
+	std::string("tcp://") +
+        m_hdtnConfig.m_zmqRouterAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
         try {
             m_zmqSubSock_boundRouterToConnectingEgressPtr->connect(connect_boundRouterPubSubPath);
             m_zmqSubSock_boundRouterToConnectingEgressPtr->set(zmq::sockopt::subscribe, "");
@@ -210,8 +212,7 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
                 boost::shared_ptr<Outduct>  outductPtr;
 		outductPtr = m_outductManager.GetOutductPtrByOutductUuid(outduct_id);
 		m_outductManager.SetOutductForFinalDestinationEid(finalDestEid, outductPtr);
-		std::cout << "Egress: update outduct based on optimal Route to Outduct Id " << outduct_id  
-			 << " for finalDestEid " << finalDestEid.nodeId <<  std::endl;
+		std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outduct_id << std::endl;
 	     }
      }
 }
@@ -380,7 +381,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
             }
 	    if (items[NUM_SOCKETS - 2].revents & ZMQ_POLLIN) { //events from Router
-                std::cout << "Egress Received Route Update event!! \n" << std::endl;
+                std::cout << "[Egress] Received RouteUpdate event!!" << std::endl;
 	        RouterEventHandler();
             }
 

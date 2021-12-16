@@ -35,7 +35,7 @@ int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTim
 
     //std::cout << std::to_string((uintptr_t)recvMsg.data()) << std::endl;
     //uintptr_t nextNode = (uintptr_t)recvMsg.data();
-    std::cout << "Next hop is " << myReceivedAsString << std::endl;
+    //std::cout << "Next hop is " << myReceivedAsString << std::endl;
     return stoi(myReceivedAsString); //nextNode;
 }
 
