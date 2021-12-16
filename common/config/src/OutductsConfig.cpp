@@ -12,7 +12,7 @@
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl", "tcpcl_v4" };
 
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
@@ -316,7 +316,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
 
-            if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl")) {
+            if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
             }
             else if (outductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
@@ -325,7 +325,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
 
-            if (outductElementConfig.convergenceLayer == "tcpcl") {
+            if ((outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 outductElementConfig.tcpclAutoFragmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclAutoFragmentSizeBytes");
                 outductElementConfig.tcpclAllowOpportunisticReceiveBundles = outductElementConfigPt.second.get<bool>("tcpclAllowOpportunisticReceiveBundles");
             }
@@ -411,10 +411,10 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);
         }
-        if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl")) {
+        if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("keepAliveIntervalSeconds", outductElementConfig.keepAliveIntervalSeconds);
         }
-        if (outductElementConfig.convergenceLayer == "tcpcl") {
+        if ((outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("tcpclAutoFragmentSizeBytes", outductElementConfig.tcpclAutoFragmentSizeBytes);
             outductElementConfigPt.put("tcpclAllowOpportunisticReceiveBundles", outductElementConfig.tcpclAllowOpportunisticReceiveBundles);
         }

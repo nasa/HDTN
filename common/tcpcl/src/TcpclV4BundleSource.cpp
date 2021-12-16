@@ -1,27 +1,29 @@
 #include <string>
 #include <iostream>
-#include "TcpclBundleSource.h"
+#include "TcpclV4BundleSource.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
-TcpclBundleSource::TcpclBundleSource(const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
+TcpclV4BundleSource::TcpclV4BundleSource(const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
     const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
 
-    TcpclV3BidirectionalLink(
-        "TcpclV3BundleSource",
+    TcpclV4BidirectionalLink(
+        "TcpclV4BundleSource",
         0, //shutdown message shall send 0 meaning infinite reconnection delay (sink shall not try to reconnect)
         false, //bundleSource shall NOT delete socket after shutdown
-        false, //contactHeaderMustReply,
+        true, //isActiveEntity,
         desiredKeepAliveIntervalSeconds,
         NULL, // NULL will create a local io_service
         maxUnacked,
-        100000000, //todo 100MB maxBundleSizeBytes for receive
         maxFragmentSize,
+        100000000, //todo 100MB maxBundleSizeBytes for receive
         myNodeId,
-        expectedRemoteEidUri
+        expectedRemoteEidUri,
+        false, //tryUseTls
+        false //tlsIsRequired
     ),
 m_work(m_base_ioServiceRef), //prevent stopping of ioservice until destructor
 m_resolver(m_base_ioServiceRef),
@@ -33,11 +35,11 @@ m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
 }
 
-TcpclBundleSource::~TcpclBundleSource() {
+TcpclV4BundleSource::~TcpclV4BundleSource() {
     Stop();
 }
 
-void TcpclBundleSource::Stop() {
+void TcpclV4BundleSource::Stop() {
     //prevent TcpclBundleSource from exiting before all bundles sent and acked
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
@@ -46,7 +48,7 @@ void TcpclBundleSource::Stop() {
     for (unsigned int attempt = 0; attempt < 10; ++attempt) {
         const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
         if (numUnacked) {
-            std::cout << "notice: TcpclBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+            std::cout << "notice: TcpclV4BundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
 
             std::cout << "   acked: " << m_base_totalBundlesAcked << std::endl;
             std::cout << "   total sent: " << m_base_totalBundlesSent << std::endl;
@@ -62,7 +64,7 @@ void TcpclBundleSource::Stop() {
         break;
     }
 
-    BaseClass_DoTcpclShutdown(true, false);
+    BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     while (!m_base_tcpclShutdownComplete) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(250));
     }
@@ -75,50 +77,50 @@ void TcpclBundleSource::Stop() {
     }
 
     //print stats
-    std::cout << "TcpclV3 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalBytesAcked " << m_base_totalBytesAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalBundlesSent " << m_base_totalBundlesSent << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBytesAcked " << m_base_totalBytesAcked << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBundlesSent " << m_base_totalBundlesSent << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
 }
 
-std::size_t TcpclBundleSource::GetTotalDataSegmentsAcked() {
+std::size_t TcpclV4BundleSource::GetTotalDataSegmentsAcked() {
     return m_base_totalBundlesAcked;
 }
 
-std::size_t TcpclBundleSource::GetTotalDataSegmentsSent() {
+std::size_t TcpclV4BundleSource::GetTotalDataSegmentsSent() {
     return m_base_totalBundlesSent;
 }
 
-std::size_t TcpclBundleSource::GetTotalDataSegmentsUnacked() {
+std::size_t TcpclV4BundleSource::GetTotalDataSegmentsUnacked() {
     return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
 }
 
-std::size_t TcpclBundleSource::GetTotalBundleBytesAcked() {
+std::size_t TcpclV4BundleSource::GetTotalBundleBytesAcked() {
     return m_base_totalBytesAcked;
 }
 
-std::size_t TcpclBundleSource::GetTotalBundleBytesSent() {
+std::size_t TcpclV4BundleSource::GetTotalBundleBytesSent() {
     return m_base_totalBundleBytesSent;
 }
 
-std::size_t TcpclBundleSource::GetTotalBundleBytesUnacked() {
+std::size_t TcpclV4BundleSource::GetTotalBundleBytesUnacked() {
     return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 }
 
 
 
 
-void TcpclBundleSource::Connect(const std::string & hostname, const std::string & port) {
+void TcpclV4BundleSource::Connect(const std::string & hostname, const std::string & port) {
 
     boost::asio::ip::tcp::resolver::query query(hostname, port);
-    m_resolver.async_resolve(query, boost::bind(&TcpclBundleSource::OnResolve,
+    m_resolver.async_resolve(query, boost::bind(&TcpclV4BundleSource::OnResolve,
                                                 this, boost::asio::placeholders::error,
                                                 boost::asio::placeholders::results));
 }
 
-void TcpclBundleSource::OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results) { // Resolved endpoints as a range.
+void TcpclV4BundleSource::OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results) { // Resolved endpoints as a range.
     if(ec) {
         std::cerr << "Error resolving: " << ec.message() << std::endl;
     }
@@ -130,20 +132,20 @@ void TcpclBundleSource::OnResolve(const boost::system::error_code & ec, boost::a
             *m_base_tcpSocketPtr,
             m_resolverResults,
             boost::bind(
-                &TcpclBundleSource::OnConnect,
+                &TcpclV4BundleSource::OnConnect,
                 this,
                 boost::asio::placeholders::error));
     }
 }
 
-void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
+void TcpclV4BundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
             std::cout << "Will try to reconnect after 2 seconds" << std::endl;
             m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
-            m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
+            m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&TcpclV4BundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
         return;
     }
@@ -157,24 +159,24 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
 
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingData.resize(1);
-        Tcpcl::GenerateContactHeader(el->m_underlyingData[0], CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_THIS_TCPCL_EID_STRING);
+        TcpclV4::GenerateContactHeader(el->m_underlyingData[0], M_BASE_TRY_USE_TLS);
         el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-        m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+        m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 
         StartTcpReceive();
     }
 }
 
-void TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
+void TcpclV4BundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "TcpclBundleSource Trying to reconnect..." << std::endl;
+        std::cout << "TcpclV4BundleSource Trying to reconnect..." << std::endl;
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,
             m_resolverResults,
             boost::bind(
-                &TcpclBundleSource::OnConnect,
+                &TcpclV4BundleSource::OnConnect,
                 this,
                 boost::asio::placeholders::error));
     }
@@ -183,29 +185,29 @@ void TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost:
 
 
 
-void TcpclBundleSource::StartTcpReceive() {
+void TcpclV4BundleSource::StartTcpReceive() {
     m_base_tcpSocketPtr->async_read_some(
         boost::asio::buffer(m_tcpReadSomeBufferVec),
-        boost::bind(&TcpclBundleSource::HandleTcpReceiveSome, this,
+        boost::bind(&TcpclV4BundleSource::HandleTcpReceiveSome, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred));
 }
-void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred) {
+void TcpclV4BundleSource::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
         //std::cout << "received " << bytesTransferred << "\n";
 
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
-        m_base_tcpclV3RxStateMachine.HandleReceivedChars(m_tcpReadSomeBufferVec.data(), bytesTransferred);
+        m_base_tcpclV4RxStateMachine.HandleReceivedChars(m_tcpReadSomeBufferVec.data(), bytesTransferred);
         StartTcpReceive(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "Tcp connection closed cleanly by peer" << std::endl;
-        BaseClass_DoTcpclShutdown(false, false);
+        BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+        std::cerr << "Error in TcpclV4BundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
     }
 }
 
@@ -222,32 +224,32 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
 
 
 
-void TcpclBundleSource::Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() {
+void TcpclV4BundleSource::Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() {
     if (m_base_reconnectionDelaySecondsIfNotZero) {
         m_reconnectAfterShutdownTimer.expires_from_now(boost::posix_time::seconds(m_base_reconnectionDelaySecondsIfNotZero));
-        m_reconnectAfterShutdownTimer.async_wait(boost::bind(&TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired, this, boost::asio::placeholders::error));
+        m_reconnectAfterShutdownTimer.async_wait(boost::bind(&TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired, this, boost::asio::placeholders::error));
     }
 }
 
-void TcpclBundleSource::Virtual_OnSuccessfulWholeBundleAcknowledged() {
+void TcpclV4BundleSource::Virtual_OnSuccessfulWholeBundleAcknowledged() {
     if (m_onSuccessfulAckCallback) {
         m_onSuccessfulAckCallback();
     }
 }
 
 //for when tcpclAllowOpportunisticReceiveBundles is set to true (not designed for extremely high throughput)
-void TcpclBundleSource::Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) {
+void TcpclV4BundleSource::Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) {
     if (m_outductOpportunisticProcessReceivedBundleCallback) {
         m_outductOpportunisticProcessReceivedBundleCallback(wholeBundleVec);
     }
     else {
-        std::cout << "TcpclBundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false" << std::endl;
+        std::cout << "TcpclV4BundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false" << std::endl;
     }
 }
 
 
 
-void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
+void TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         std::cout << "Trying to reconnect..." << std::endl;
@@ -258,16 +260,16 @@ void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost:
             *m_base_tcpSocketPtr,
             m_resolverResults,
             boost::bind(
-                &TcpclBundleSource::OnConnect,
+                &TcpclV4BundleSource::OnConnect,
                 this,
                 boost::asio::placeholders::error));
     }
 }
 
-bool TcpclBundleSource::ReadyToForward() {
+bool TcpclV4BundleSource::ReadyToForward() {
     return m_base_readyToForward;
 }
 
-void TcpclBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
+void TcpclV4BundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
     m_onSuccessfulAckCallback = callback;
 }

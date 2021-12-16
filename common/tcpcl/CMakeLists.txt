@@ -10,7 +10,8 @@ add_library(tcpcl_lib STATIC
 	src/TcpclBundleSink.cpp
 	src/TcpclBundleSource.cpp
 	src/TcpclV3BidirectionalLink.cpp
-	#src/TcpclV4BundleSource.cpp
+	src/TcpclV4BundleSource.cpp
+	src/TcpclV4BundleSink.cpp
 	src/TcpclV4BidirectionalLink.cpp
 )
 

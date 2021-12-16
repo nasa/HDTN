@@ -1,11 +1,11 @@
-#include "TcpclInduct.h"
+#include "TcpclV4Induct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/lexical_cast.hpp>
 
 //TCPCL INDUCT
-TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
+TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
     const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
     const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback) :
     Induct(inductProcessBundleCallback, inductConfig),
@@ -17,23 +17,24 @@ TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBund
 {
     m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
+
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 }
-TcpclInduct::~TcpclInduct() {
+TcpclV4Induct::~TcpclV4Induct() {
     if (m_tcpAcceptor.is_open()) {
         try {
             m_tcpAcceptor.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "Error closing TCP Acceptor in TcpclInduct::~TcpclInduct:  " << e.what() << std::endl;
+            std::cerr << "Error closing TCP Acceptor in TcpclV4Induct::~TcpclInduct:  " << e.what() << std::endl;
         }
     }
-    boost::asio::post(m_ioService, boost::bind(&TcpclInduct::DisableRemoveInactiveTcpConnections, this));
+    boost::asio::post(m_ioService, boost::bind(&TcpclV4Induct::DisableRemoveInactiveTcpConnections, this));
     while (m_allowRemoveInactiveTcpConnections) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
     }
-    m_listTcpclBundleSinks.clear(); //tcp bundle sink destructor is thread safe
+    m_listTcpclV4BundleSinks.clear(); //tcp bundle sink destructor is thread safe
     m_workPtr.reset();
     if (m_ioServiceThreadPtr) {
         m_ioServiceThreadPtr->join();
@@ -41,18 +42,18 @@ TcpclInduct::~TcpclInduct() {
     }
 }
 
-void TcpclInduct::StartTcpAccept() {
-    std::cout << "waiting for tcpcl tcp connections" << std::endl;
+void TcpclV4Induct::StartTcpAccept() {
+    std::cout << "waiting for tcpclv4 tcp connections" << std::endl;
     boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
 
     m_tcpAcceptor.async_accept(*newTcpSocketPtr,
-        boost::bind(&TcpclInduct::HandleTcpAccept, this, newTcpSocketPtr, boost::asio::placeholders::error));
+        boost::bind(&TcpclV4Induct::HandleTcpAccept, this, newTcpSocketPtr, boost::asio::placeholders::error));
 }
 
-void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
+void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
-        std::cout << "tcpcl tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
-        m_listTcpclBundleSinks.emplace_back(
+        std::cout << "tcpclv4 tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
+        m_listTcpclV4BundleSinks.emplace_back(
             m_inductConfig.keepAliveIntervalSeconds,
             newTcpSocketPtr,
             m_ioService,
@@ -61,8 +62,8 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
             m_inductConfig.numRxCircularBufferBytesPerElement,
             M_MY_NODE_ID,
             M_MAX_BUNDLE_SIZE_BYTES,
-            boost::bind(&TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived, this),
-            boost::bind(&TcpclInduct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
+            boost::bind(&TcpclV4Induct::ConnectionReadyToBeDeletedNotificationReceived, this),
+            boost::bind(&TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
             10, //const unsigned int maxUnacked, (todo)
             100000000); //const uint64_t maxFragmentSize = 100000000); (todo)
 
@@ -75,10 +76,10 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
 
 }
 
-void TcpclInduct::RemoveInactiveTcpConnections() {
+void TcpclV4Induct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclBundleSinks.remove_if([&callbackRef](TcpclBundleSink & sink) {
+        m_listTcpclV4BundleSinks.remove_if([&callbackRef](TcpclV4BundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
                     callbackRef(sink.GetRemoteNodeId());
@@ -92,37 +93,33 @@ void TcpclInduct::RemoveInactiveTcpConnections() {
     }
 }
 
-void TcpclInduct::DisableRemoveInactiveTcpConnections() {
+void TcpclV4Induct::DisableRemoveInactiveTcpConnections() {
     m_allowRemoveInactiveTcpConnections = false;
 }
 
-void TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived() {
-    boost::asio::post(m_ioService, boost::bind(&TcpclInduct::RemoveInactiveTcpConnections, this));
+void TcpclV4Induct::ConnectionReadyToBeDeletedNotificationReceived() {
+    boost::asio::post(m_ioService, boost::bind(&TcpclV4Induct::RemoveInactiveTcpConnections, this));
 }
 
-
-
-
-
-void TcpclInduct::OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr) {
+void TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread(TcpclV4BundleSink * thisTcpclBundleSinkPtr) {
     m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
     OpportunisticBundleQueue & opportunisticBundleQueue = m_mapNodeIdToOpportunisticBundleQueue[thisTcpclBundleSinkPtr->GetRemoteNodeId()];
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
-    thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclInduct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
-    thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclInduct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
+    thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclV4Induct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
+    thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclV4Induct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
     if (m_onNewOpportunisticLinkCallback) {
         m_onNewOpportunisticLinkCallback(thisTcpclBundleSinkPtr->GetRemoteNodeId(), this);
     }
 }
 
-void TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
-    for (std::list<TcpclBundleSink>::iterator it = m_listTcpclBundleSinks.begin(); it != m_listTcpclBundleSinks.end(); ++it) {
+void TcpclV4Induct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
+    for (std::list<TcpclV4BundleSink>::iterator it = m_listTcpclV4BundleSinks.begin(); it != m_listTcpclV4BundleSinks.end(); ++it) {
         if (it->GetRemoteNodeId() == remoteNodeId) {
             it->TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
         }
     }
 }
 
-void TcpclInduct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
-    boost::asio::post(m_ioService, boost::bind(&TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread, this, remoteNodeId));
+void TcpclV4Induct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
+    boost::asio::post(m_ioService, boost::bind(&TcpclV4Induct::NotifyBundleReadyToSend_FromIoServiceThread, this, remoteNodeId));
 }

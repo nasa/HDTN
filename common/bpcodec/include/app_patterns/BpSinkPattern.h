@@ -62,7 +62,7 @@ private:
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexForward;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
-    TcpclInduct * m_tcpclInductPtr;
+    Induct * m_tcpclInductPtr;
 };
 
 

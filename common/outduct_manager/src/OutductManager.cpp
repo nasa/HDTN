@@ -3,6 +3,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/make_shared.hpp>
 #include "TcpclOutduct.h"
+#include "TcpclV4Outduct.h"
 #include "StcpOutduct.h"
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
@@ -48,6 +49,14 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             }
             else {
                 outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex);
+            }
+        }
+        else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
+            if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+            }
+            else {
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex);
             }
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
