@@ -227,7 +227,7 @@ WebsocketServer::WebsocketServer(const std::string & documentRoot, const std::st
 	m_civetServerSharedPtr->addHandler(EXIT_URI, *m_exitHandlerSharedPtr);
 	m_civetServerSharedPtr->addWebSocketHandler("/websocket", *m_websocketHandlerSharedPtr);
 
-	std::cout << "Run server at http://localhost:" << portNumberAsString << "/d3gui.html" << std::endl;
+	std::cout << "Run server at http://localhost:" << portNumberAsString << std::endl;
 	std::cout << "Exit at http://localhost:" << portNumberAsString << EXIT_URI << std::endl;
 
 }
