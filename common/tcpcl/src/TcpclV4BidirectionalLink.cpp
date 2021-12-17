@@ -699,7 +699,6 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
     }
 
     if (!M_BASE_IS_ACTIVE_ENTITY) {
-        std::cout << "chc passive\n";
         //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header
         //use the same keepalive interval
         if (m_base_tcpSocketPtr) {
@@ -712,7 +711,6 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
         }
     }
     else {
-        std::cout << "chc active\n";
         //Since TcpclBundleSource sent the first contact header, it just got the reply back from the sink.  Now it's time to reply with a session init
         if (m_base_usingTls) {
             std::cout << "tls unsupported at this time\n";
@@ -734,7 +732,6 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
 void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
     const std::string & remoteNodeEidUri, const TcpclV4::tcpclv4_extensions_t & sessionExtensions)
 {
-    std::cout << "si callback\n";
     uint64_t remoteNodeId = UINT64_MAX;
     uint64_t remoteServiceId = UINT64_MAX;
     if (!Uri::ParseIpnUriString(remoteNodeEidUri, remoteNodeId, remoteServiceId)) {

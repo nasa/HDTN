@@ -67,7 +67,9 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
             OnNewOpportunisticLinkCallback_t(), //unused "null" parameter
             OnDeletedOpportunisticLinkCallback_t()); //unused "null" parameter
     }
-    else if ((outductsConfig.m_outductElementConfigVector[0].convergenceLayer == "tcpcl") && (outductsConfig.m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles)) {
+    else if (((outductsConfig.m_outductElementConfigVector[0].convergenceLayer == "tcpcl") || (outductsConfig.m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))
+        && (outductsConfig.m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles))
+    {
         m_useCustodyTransfer = true;
         outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
         std::cout << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer\n";
