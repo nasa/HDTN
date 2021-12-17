@@ -168,7 +168,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 	
 	Scheduler scheduler;
         if (!isPingTest) {
-	     scheduler.ProcessContactsFile(&jsonEventFileName, finalDestEid);
+	     scheduler.ProcessContactsFile(&jsonEventFileName);
              return true;
         }
 
@@ -283,7 +283,7 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, int src, int d
     }
 }
 
-int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t finalDest) 
+int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) 
 {
     m_timersFinished = false;
     contactPlanVector_t contactsVector;

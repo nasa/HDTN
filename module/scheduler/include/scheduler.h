@@ -34,7 +34,7 @@ public:
     ~Scheduler();
     bool Run(int argc, const char* const argv[], volatile bool & running,
                     std::string jsonEventFileName, bool useSignalHandler);
-    int ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t finalDest);
+    int ProcessContactsFile(std::string* jsonEventFileName);
     int ProcessComandLine(int argc, const char *argv[],
                           std::string& jsonEventFileName);
 
