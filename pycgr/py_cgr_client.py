@@ -36,10 +36,8 @@ context = zmq.Context()
 socket = context.socket(zmq.PAIR)
 socket.bind("tcp://127.0.0.1:%s" % port) #localhost caused error
 contact_plan = cp_load(sys.argv[2], 5000)
-
 #contact_plan = cp_load('module/scheduler/src/contactPlan.json', 5000)
 curr_time = 0
-
 
 while True:
     msg = socket.recv()
@@ -50,7 +48,6 @@ while True:
     destinationId = int(splitMessage[1])
     startTime = int(splitMessage[2])
     root_contact = Contact(sourceId, sourceId, 0, sys.maxsize, 100, 1, 0)
-
     root_contact.arrival_time = startTime
     route = cgr_dijkstra(root_contact, destinationId, contact_plan)
     print("***Here's the route")
@@ -58,4 +55,3 @@ while True:
     print("***Sending next hop: " + str(route.next_node))
     socket.send_string(str(route.next_node))
     time.sleep(1)
-

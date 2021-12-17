@@ -56,7 +56,7 @@ In another terminal, run:
 
 Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
 
-There are additional test scripts located under directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.   
+There are additional test scripts located under the directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.   
 
 Run Unit Tests
 ===============
@@ -70,5 +70,14 @@ After building HDTN (see above), the integrated tests can be run with the follow
 
 Run Contact Graph Routing
 =========================
-HDTN relies on PyCGR for its contact graph routing. To enable the PyCGR Client, in a separate window run:
-* python3 pycgr/py_cgr_client.py
+HDTN relies on PyCGR for its contact graph routing. We need to specify the location of the contactPlan file as argument. 
+To enable the PyCGR Client, in a separate window run:
+* python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json
+
+Routing
+=======
+The Router module communicates with the CGR client to get the next hop for the optimal route leading to the final destination,
+then sends a RouteUpdate event to Egress to update its Outduct to the outduct of that nextHop. If the link goes down
+unexpectedly or the contact plan gets updated, the router will be notified and will recalculate the next hop and send
+RouteUpdate events to egress accordingly. 
+An example of Routing scenario test with 4 HDTN nodes was added under $HDTN_SOURCE_ROOT/test_scripts_linux/Routing_Test
