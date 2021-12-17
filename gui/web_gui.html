@@ -3,7 +3,7 @@
 <head>
     <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
     <title>HDTN GUI</title>
-    <script src="plotly-2.6.3.in.js"></script>
+    <script src="plotly-2.6.3.min.js"></script>
 </head>
 
 <body>
@@ -12,10 +12,7 @@
     body {
         margin:0;
         font-family: Arial, Helvetica, sans-serif;
-    }
-
-    .background {
-        color: #121212;
+        background-color: #121212;
     }
 
     .topnav {
@@ -49,43 +46,49 @@
     <a href = "#stats">Statistics</a>
 </div>
 
-<div id="data_rate_graph" style="width:600px;height:250px;padding-left:16px"></div>
+<div id="data_rate_graph" style="width:600px;height:450px;padding-left:16px"></div>
 
 <div id="rate_stats">Graph Statistics Go Here</div>
 
 
 <script>
 
-    var data = {
+    var data = [{
         x: [1, 2, 3, 4],
         y: [10, 15, 13, 17],
-        type: 'scatter'
-    };
+        type: 'scatter',
+        line: {
+            color: "aqua"
+        }
+    }];
 
     var layout = {
         title: 'HDTN Data Rates',
+        paper_bgcolor: "#404040",
         plot_bgcolor: "#404040",
-        line: {
-            color: "#fff"
-        },
         xaxis: {
-            title: "Timestamp (s)"
+            title: "Timestamp (s)",
         },
         yaxis: {
-            title: "Data Rate (Mbps)
+            title: "Data Rate (Mbps)",
+        },
+        font:{
+            family: "Arial",
+            size: 18,
+            color: "white"
         }
     };
 
-    Plotly.newPlot("data_rate_graph", data, layout);
+    GRAPH = document.getElementById("data_rate_graph");
 
-    var myPlot = document.getElementById('data_rate_graph')
+    Plotly.newPlot(GRAPH, data, layout);
 
-    myPlot.on( , function(data){
+/*    myPlot.on( , function(data){
         yArray = ;
         xArray = ;
         var data_update = {x: [xArray], y: [yArray]};
         Plotly.update('graph', data_update, layout, 1)
-    });
+    });*/
 </script>
 
 
