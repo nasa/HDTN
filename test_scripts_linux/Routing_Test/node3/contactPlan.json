@@ -1,10 +1,10 @@
 {
     "contacts": [
-       {
+        {
             "contact": 1,
             "source": 100,
             "dest": 1,
-            "finalDestination": 200,
+	    "finalDestination": 200,
             "startTime": 0,
             "endTime": 120,
             "rate": 1000

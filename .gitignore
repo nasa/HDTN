@@ -21,30 +21,3 @@ pycgr/py_cgr/py_cgr_lib/__pycache__/*
 
 .vscode/
 
-cscope.out
-file.json 
-module/egress/src/.EgressAsync.cpp.swp
-module/scheduler/src/contactPlan_MHops.json 
-module/scheduler/src/contactPlan_MHops2.json 
-module/scheduler/src/contactPlan_MHops3.json
-module/scheduler/src/contactPlan_RoutingTest2.json
-module/scheduler/src/test.json
-module/storage/src/test/.release_message_sender.cpp.swp
-runscript2.sh
-runscript_fw_node2.sh
-runscript_fw_node3.sh
-runscript_ltp.sh
-runscript_src.sh
-runscript_stcp.sh
-tests/config_files/hdtn/bpsink_one_stcp_port4556.json
-tests/config_files/hdtn/hdtn_dest.json
-tests/config_files/hdtn/hdtn_fw.json
-tests/config_files/hdtn/hdtn_fw_node2.json
-tests/config_files/hdtn/hdtn_fw_node2_2.json
-tests/config_files/hdtn/hdtn_fw_node3.json
-tests/config_files/hdtn/hdtn_fw_node3_3.json
-tests/config_files/hdtn/hdtn_src.json
-tests/config_files/hdtn/hdtn_src2.json
-tests/config_files/inducts/bpgen_one_stcp_port4556.json
-tests/config_files/inducts/bpsink_one_stcp_port4556.json
-
