@@ -26,7 +26,7 @@ sleep 3
 
 #Routing
 # CGR server
-python3 ./pycgr/py_cgr_client.py &
+python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json &
 sleep 1
 
 #Router
@@ -43,7 +43,6 @@ sleep 3
 ./build/module/storage/hdtn-storage --hdtn-config-file=$hdtn_config &
 storage_PID=$!
 sleep 3
-
 
 #Scheduler
 ./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &

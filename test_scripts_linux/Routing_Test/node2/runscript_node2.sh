@@ -12,7 +12,7 @@ sleep 3
 
 #Routing
 # CGR server
-python3 ./pycgr/py_cgr_client.py &
+python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json &
 sleep 1
 
 #Router
