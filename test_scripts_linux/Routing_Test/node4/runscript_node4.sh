@@ -21,7 +21,7 @@ python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json &
 sleep 1
 
 #Router
-./build/module/router/hdtn-router --contact-plan-file=contactPlan_RoutingTest.json --dest-uri-eid=ipn:200.1 --hdtn-config-file=$hdtn_config &
+./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --dest-uri-eid=ipn:200.1 --hdtn-config-file=$hdtn_config &
 sleep 1
 
 #Ingress
@@ -33,6 +33,6 @@ sleep 3
 sleep 3
 
 #Scheduler
-./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan_RoutingTest.json --hdtn-config-file=$hdtn_config &
+./build/module/scheduler/hdtn-scheduler --contact-plan-file=contactPlan.json --hdtn-config-file=$hdtn_config &
 sleep 1
 
