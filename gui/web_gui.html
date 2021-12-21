@@ -38,6 +38,28 @@
         background-color: #04AA6D;
         color: white;
     }
+    
+    .table {
+        table-layout: fixed;
+        background-color: #7f7f7f;
+        color: white;
+        font-size: 20px;
+        text-align: center;
+        width: 600px;
+    }
+
+    .table th {
+        background-color: #04AA6D;
+        color: white;
+    }
+
+    .table td {
+        color: white;
+    }
+
+    .table tr:nth-child(odd) {
+        background-color: #404040;
+    }
 
 </style>
 
@@ -48,7 +70,25 @@
 
 <div id="data_rate_graph" style="width:600px;height:450px;padding-left:16px"></div>
 
-<div id="rate_stats">Graph Statistics Go Here</div>
+<div id="rate_stats" style="width:600px;height:450px;padding-left:16px;padding-top:16px">
+<table class="table">
+    <tr>
+        <th>Min</th>
+        <th>Max</th>
+        <th>Average</th>
+    </tr>
+    <tr>
+        <td id="max_data">17</td>
+        <td id="min_data">10</td>
+        <td id="avg_data">13.75</td>
+    </tr>
+</table>
+</div>
+
+<div id="engine_stats">
+
+
+</div>
 
 
 <script>
