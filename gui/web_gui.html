@@ -45,7 +45,6 @@
         color: white;
         font-size: 20px;
         text-align: center;
-        width: 600px;
     }
 
     .table th {
@@ -68,9 +67,9 @@
     <a href = "#stats">Statistics</a>
 </div>
 
-<div id="data_rate_graph" style="width:600px;height:450px;padding-left:16px"></div>
+<div id="data_rate_graph" style="width:600px;height:450px;padding-left:16px;padding-top:16px"></div>
 
-<div id="rate_stats" style="width:600px;height:450px;padding-left:16px;padding-top:16px">
+<div id="rate_stats" style="width:600px;height:75px;padding-left:16px;padding-top:16px">
 <table class="table">
     <tr>
         <th>Min</th>
@@ -85,9 +84,89 @@
 </table>
 </div>
 
-<div id="engine_stats">
+<div id="engine_stats" style="width:1200px;padding-left:16px;padding-top:16px">
+<table class="table">
+    <tr>
+        <th>LTP Engine Information</th>
+    </tr>
+    <tr>
+        <td>m_countAsyncSendCalls</td>
+        <td id="m_countAsyncSendCalls_data">1980</td>
+        <td>m_countCircularBufferOverruns</td>
+        <td id="m_countCircularBufferOverruns_data">0</td>
+    </tr>
+    <tr>
+        <td>m_numCheckpointTimerExpiredCallbacks</td>
+        <td id="m_numCheckpointTimerExpiredCallbacks_data">2</td>
+        <td>m_numDiscretionaryCheckpointsNotResent</td>
+        <td id="m_numDiscretionaryCheckpointsNotResent_data">0</td>
+    </tr>
+    <tr>
+        <td>m_numReportSegmentTimerExpiredCallbacks</td>
+        <td id="m_numReportSegmentTimerExpiredCallbacks_data">0</td>
+        <td>m_numReportSegmentsUnableToBeIssued</td>
+        <td id="m_numReportSegmentsUnableToBeIssued_data">0</td>
+    </tr>
+    <tr>
+        <td>m_numReportSegmentsTooLargeAndNeedingSplit</td>
+        <td id="m_numReportSegmentsTooLargeAndNeedingSplit_data">0</td>
+        <td>m_numReportSegmentsCreatedViaSplit</td>
+        <td id="m_numReportSegmentsCreatedViaSplit_data">0</td>
+    </tr>
+    <tr>
+        <td>expectedSessionOriginatorEngineId</td>
+        <td id="expectedSessionOriginatorEngineId_data">10</td>
+        <td>m_totalDataSegmentsSentSuccessfullyWithAck</td>
+        <td id="m_totalDataSegmentsSentSuccessfullyWithAck_data">988</td>
+    </tr>
+    <tr>
+        <td>m_totalDataSegmentsFailedToSend</td>
+        <td id="m_totalDataSegmentsFailedToSend_data">0</td>
+        <td>m_totalDataSegmentsSent</td>
+        <td id="m_totalDataSegmentsSent_data">988</td>
+    </tr>
+    <tr>
+        <td>m_totalBundleBytesSent</td>
+        <td id="m_totalBundleBytesSent_data">49845</td>
+        <td>m_totalStcpBytesSent</td>
+        <td id="m_totalStcpBytesSent_data">40508</td>
+    </tr>
+    <tr>
+        <td>m_totalDataSegmentsAckedByTcpSendCallback</td>
+        <td id="m_totalDataSegmentsAckedByTcpSendCallback_data">644</td>
+        <td>m_totalBytesAckedByTcpSendCallback</td>
+        <td id="m_totalBytesAckedByTcpSendCallback_data">40508</td>
+    </tr>
+    <tr>
+        <td>m_ingressBundleCountStorage</td>
+        <td id="m_ingressBundleCountStorage_data">20</td>
+        <td>m_ingressBundleCountEgress</td>
+        <td id="m_ingressBundleCountEgress_data"></td>
+    </tr>
+    <tr>
+        <td>m_ingressBundleCount</td>
+        <td id="m_ingressBundleCount_data">1615</td>
+        <td>m_ingressBundleData</td>
+        <td id="m_ingressBundleData_data">86295</td>
+    </tr>
+    <tr>
+        <td>Egress Message Count</td>
+        <td id="egressMsgCount_data">1632</td>
+        <td>Egress Bundle Count</td>
+        <td id="egressBundleCount_data">1632</td>
+    </tr>
+    <tr>
+        <td>Egress Bundle Data Bytes</td>
+        <td id="egressBundleDataBytes_data">87777</td>
+    </tr>
+    <tr>
+        <td>totalBundlesErasedFromStorage</td>
+        <td id="totalBundlesErasedFromSotrage_data">0</td>
+        <td>totalBundlesSentToEgressFromStorage</td>
+        <td id="totalBundlesSentToEgressFromStorage_data">37</td>
+    </tr>
 
-
+</table>
 </div>
 
 
