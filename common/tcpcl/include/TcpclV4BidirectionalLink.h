@@ -9,8 +9,9 @@
 #include "TcpclV4.h"
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "BidirectionalLink.h"
 
-class TcpclV4BidirectionalLink {
+class TcpclV4BidirectionalLink : public BidirectionalLink {
 public:
     /*
     //sink
@@ -49,7 +50,17 @@ public:
     bool BaseClass_Forward(zmq::message_t & dataZmq);
     bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData);
 
+    virtual std::size_t Virtual_GetTotalBundlesAcked();
+    virtual std::size_t Virtual_GetTotalBundlesSent();
+    virtual std::size_t Virtual_GetTotalBundlesUnacked();
+    virtual std::size_t Virtual_GetTotalBundleBytesAcked();
+    virtual std::size_t Virtual_GetTotalBundleBytesSent();
+    virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
+
+    virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
+
 protected:
+    void BaseClass_TryToWaitForAllBundlesToFinishSending();
     void BaseClass_DoTcpclShutdown(bool doCleanShutdown, TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() = 0;
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() = 0;

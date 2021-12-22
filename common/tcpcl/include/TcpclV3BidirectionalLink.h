@@ -9,8 +9,9 @@
 #include "Tcpcl.h"
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "BidirectionalLink.h"
 
-class TcpclV3BidirectionalLink {
+class TcpclV3BidirectionalLink : public BidirectionalLink {
 public:
     TcpclV3BidirectionalLink(
         const std::string & implementationStringForCout,
@@ -32,6 +33,14 @@ public:
     bool BaseClass_Forward(zmq::message_t & dataZmq);
     bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData);
     
+    virtual std::size_t Virtual_GetTotalBundlesAcked();
+    virtual std::size_t Virtual_GetTotalBundlesSent();
+    virtual std::size_t Virtual_GetTotalBundlesUnacked();
+    virtual std::size_t Virtual_GetTotalBundleBytesAcked();
+    virtual std::size_t Virtual_GetTotalBundleBytesSent();
+    virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
+
+    virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
 
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
@@ -65,7 +74,8 @@ protected:
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;
     std::vector<uint8_t> m_base_fragmentedBundleRxConcat;
 
-    const unsigned int M_BASE_MAX_UNACKED;
+    const unsigned int M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE;
+    const unsigned int M_BASE_UNACKED_BUNDLE_CB_SIZE;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_base_bytesToAckCb;
     std::vector<uint64_t> m_base_bytesToAckCbVec;
     std::vector<std::vector<uint64_t> > m_base_fragmentBytesToAckCbVec;
@@ -76,6 +86,7 @@ protected:
 
 protected:
     
+    void BaseClass_TryToWaitForAllBundlesToFinishSending();
     void BaseClass_DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() = 0;
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() = 0;

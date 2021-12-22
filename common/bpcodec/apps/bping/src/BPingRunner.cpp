@@ -40,8 +40,8 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         cbhe_eid_t myEid;
         cbhe_eid_t finalDestEid;
         uint64_t myCustodianServiceId;
-        OutductsConfig_ptr outductsConfig;
-        InductsConfig_ptr inductsConfig;
+        OutductsConfig_ptr outductsConfigPtr;
+        InductsConfig_ptr inductsConfigPtr;
         bool custodyTransferUseAcs;
 
         boost::program_options::options_description desc("Allowed options");
@@ -53,7 +53,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                     ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BPing Source Node Id.")
                     ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BPing sends to this final destination Eid.")
                     ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
-                    ("outducts-config-file", boost::program_options::value<std::string>()->default_value("outducts.json"), "Outducts Configuration File.")
+                    ("outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File.")
                     ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                     ;
@@ -79,27 +79,32 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                     return false;
                 }
 
-                const std::string configFileName = vm["outducts-config-file"].as<std::string>();
+                const std::string outductsConfigFileName = vm["outducts-config-file"].as<std::string>();
 
-                outductsConfig = OutductsConfig::CreateFromJsonFile(configFileName);
-                if (!outductsConfig) {
-                    std::cerr << "error loading config file: " << configFileName << std::endl;
-                    return false;
+                if (outductsConfigFileName.length()) {
+                    outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
+                    if (!outductsConfigPtr) {
+                        std::cerr << "error loading outduct config file: " << outductsConfigFileName << std::endl;
+                        return false;
+                    }
+                    std::size_t numOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
+                    if (numOutducts != 1) {
+                        std::cerr << "error: number of outducts is not 1: got " << numOutducts << std::endl;
+                    }
                 }
-                std::size_t numOutducts = outductsConfig->m_outductElementConfigVector.size();
-                if (numOutducts != 1) {
-                    std::cerr << "error: number of outducts is not 1: got " << numOutducts << std::endl;
+                else {
+                    std::cout << "notice: bping has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct\n";
                 }
 
                 //create induct for custody signals
                 const std::string inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<std::string>();
                 if (inductsConfigFileName.length()) {
-                    inductsConfig = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
-                    if (!inductsConfig) {
+                    inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
+                    if (!inductsConfigPtr) {
                         std::cerr << "error loading induct config file: " << inductsConfigFileName << std::endl;
                         return false;
                     }
-                    std::size_t numInducts = inductsConfig->m_inductElementConfigVector.size();
+                    std::size_t numInducts = inductsConfigPtr->m_inductElementConfigVector.size();
                     if (numInducts != 1) {
                         std::cerr << "error: number of inducts for custody signals is not 1: got " << numInducts << std::endl;
                     }
@@ -128,7 +133,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         std::cout << "starting BPing.." << std::endl;
 
         BPing bping;
-        bping.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, true, true);
+        bping.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, true, true);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);

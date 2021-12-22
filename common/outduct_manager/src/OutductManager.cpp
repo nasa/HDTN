@@ -260,7 +260,7 @@ Outduct * OutductManager::GetOutductByFinalDestinationEid(const cbhe_eid_t & fin
 }
 Outduct * OutductManager::GetOutductByOutductUuid(const uint64_t uuid) {
     try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec[uuid]) {
+        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
             return outductPtr.get();
         }
     }

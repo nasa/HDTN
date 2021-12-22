@@ -28,7 +28,7 @@ TcpclBundleSink::TcpclBundleSink(
         true, //contactHeaderMustReply
         desiredKeepAliveIntervalSeconds,
         &tcpSocketIoServiceRef,
-        maxUnacked + 5, //todo is +5??
+        maxUnacked,
         maxBundleSizeBytes,
         maxFragmentSize,
         myNodeId,
@@ -65,6 +65,9 @@ TcpclBundleSink::TcpclBundleSink(
 }
 
 TcpclBundleSink::~TcpclBundleSink() {
+    //prevent TcpclBundleSink Opportunistic sending of bundles from exiting before all bundles sent and acked
+    BaseClass_TryToWaitForAllBundlesToFinishSending();
+
     if (!m_base_sinkIsSafeToDelete) {
         BaseClass_DoTcpclShutdown(true, false);
         while (!m_base_sinkIsSafeToDelete) {
@@ -79,6 +82,14 @@ TcpclBundleSink::~TcpclBundleSink() {
         m_threadCbReaderPtr.reset(); //delete it
     }
     m_base_tcpAsyncSenderPtr.reset();
+
+    //print stats
+    std::cout << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
+    std::cout << "TcpclV3 Bundle Sink totalBytesAcked " << m_base_totalBytesAcked << std::endl;
+    std::cout << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_totalBundlesSent << std::endl;
+    std::cout << "TcpclV3 Bundle Sink totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
+    std::cout << "TcpclV3 Bundle Sink totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
+    std::cout << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
 }
 
 
@@ -147,7 +158,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
 }
 
 void TcpclBundleSink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {
-    TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
+    ////TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
 }
 
 void TcpclBundleSink::Virtual_OnContactHeaderCompletedSuccessfully() {
@@ -189,9 +200,8 @@ void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread(
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
-    const std::size_t totalDataSegmentsUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked;
-    const uint64_t bundlePipelineLimit = M_BASE_MAX_UNACKED - 5;
-    if ((totalDataSegmentsUnacked <= bundlePipelineLimit) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
+    const std::size_t totalBundlesUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    if ((totalBundlesUnacked < M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first));
     }
 }

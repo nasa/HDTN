@@ -42,11 +42,12 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_useLocalConditionVariableAckReceived(false), //for bundleSource destructor only
     m_base_reconnectionDelaySecondsIfNotZero(3), //bundle source only, default 3 unless remote says 0 in shutdown message
 
-    M_BASE_MAX_UNACKED(maxUnacked), //bundle sink has MAX_UNACKED(maxUnacked + 5),
-    m_base_bytesToAckCb(M_BASE_MAX_UNACKED),
-    m_base_bytesToAckCbVec(M_BASE_MAX_UNACKED),
-    m_base_fragmentBytesToAckCbVec(M_BASE_MAX_UNACKED),
-    m_base_fragmentVectorIndexCbVec(M_BASE_MAX_UNACKED),
+    M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE(maxUnacked), //bundle sink has MAX_UNACKED(maxUnacked + 5),
+    M_BASE_UNACKED_BUNDLE_CB_SIZE(maxUnacked + 5),
+    m_base_bytesToAckCb(M_BASE_UNACKED_BUNDLE_CB_SIZE),
+    m_base_bytesToAckCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
+    m_base_fragmentBytesToAckCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
+    m_base_fragmentVectorIndexCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     M_BASE_MAX_FRAGMENT_SIZE(maxFragmentSize),
 
 
@@ -72,7 +73,7 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_handleTcpSendCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
-    for (unsigned int i = 0; i < M_BASE_MAX_UNACKED; ++i) {
+    for (unsigned int i = 0; i < M_BASE_UNACKED_BUNDLE_CB_SIZE; ++i) {
         m_base_fragmentBytesToAckCbVec[i].reserve(100);
     }
 
@@ -95,6 +96,60 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
 
 TcpclV3BidirectionalLink::~TcpclV3BidirectionalLink() {
 
+}
+
+void TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending() {
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    m_base_useLocalConditionVariableAckReceived = true;
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+        const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
+        if (numUnacked) {
+            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": notice: destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+
+            std::cout << "   acked: " << m_base_totalBundlesAcked << std::endl;
+            std::cout << "   total sent: " << m_base_totalBundlesSent << std::endl;
+
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
+    }
+    m_base_useLocalConditionVariableAckReceived = false;
+}
+
+std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundlesAcked() {
+    return m_base_totalBundlesAcked;
+}
+
+std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundlesSent() {
+    return m_base_totalBundlesSent;
+}
+
+std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundlesUnacked() {
+    return m_base_totalBundlesSent - m_base_totalBundlesAcked;
+}
+
+std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundleBytesAcked() {
+    return m_base_totalBytesAcked;
+}
+
+std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundleBytesSent() {
+    return m_base_totalBundleBytesSent;
+}
+
+std::size_t TcpclV3BidirectionalLink::Virtual_GetTotalBundleBytesUnacked() {
+    return m_base_totalBundleBytesSent - m_base_totalBytesAcked;
+}
+
+unsigned int TcpclV3BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
+    return M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE;
 }
 
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {

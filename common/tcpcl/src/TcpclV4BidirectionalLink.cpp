@@ -110,6 +110,60 @@ TcpclV4BidirectionalLink::~TcpclV4BidirectionalLink() {
 
 }
 
+void TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending() {
+    boost::mutex localMutex;
+    boost::mutex::scoped_lock lock(localMutex);
+    m_base_useLocalConditionVariableAckReceived = true;
+    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
+    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
+        const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
+        if (numUnacked) {
+            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": notice: destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+
+            std::cout << "   acked: " << m_base_totalBundlesAcked << std::endl;
+            std::cout << "   total sent: " << m_base_totalBundlesSent << std::endl;
+
+            if (previousUnacked > numUnacked) {
+                previousUnacked = numUnacked;
+                attempt = 0;
+            }
+            m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+        break;
+    }
+    m_base_useLocalConditionVariableAckReceived = false;
+}
+
+std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesAcked() {
+    return m_base_totalBundlesAcked;
+}
+
+std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesSent() {
+    return m_base_totalBundlesSent;
+}
+
+std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundlesUnacked() {
+    return m_base_totalBundlesSent - m_base_totalBundlesAcked;
+}
+
+std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundleBytesAcked() {
+    return m_base_totalBytesAcked;
+}
+
+std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundleBytesSent() {
+    return m_base_totalBundleBytesSent;
+}
+
+std::size_t TcpclV4BidirectionalLink::Virtual_GetTotalBundleBytesUnacked() {
+    return m_base_totalBundleBytesSent - m_base_totalBytesAcked;
+}
+
+unsigned int TcpclV4BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
+    return M_BASE_MY_MAX_TX_UNACKED_BUNDLES;
+}
+
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSend: " << error.message() << std::endl;

@@ -13,7 +13,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
 TcpclV4Outduct::~TcpclV4Outduct() {}
 
 std::size_t TcpclV4Outduct::GetTotalDataSegmentsUnacked() {
-    return m_tcpclV4BundleSource.GetTotalDataSegmentsUnacked();
+    return m_tcpclV4BundleSource.Virtual_GetTotalBundlesUnacked();
 }
 bool TcpclV4Outduct::Forward(const uint8_t* bundleData, const std::size_t size) {
     return m_tcpclV4BundleSource.BaseClass_Forward(bundleData, size);
@@ -40,6 +40,6 @@ void TcpclV4Outduct::Stop() {
 }
 void TcpclV4Outduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclV4BundleSource.GetTotalDataSegmentsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclV4BundleSource.GetTotalDataSegmentsSent();
+    finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclV4BundleSource.Virtual_GetTotalBundlesAcked();
+    finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclV4BundleSource.Virtual_GetTotalBundlesSent();
 }

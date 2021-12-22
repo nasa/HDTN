@@ -12,6 +12,9 @@ Induct::Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback
 Induct::~Induct() {}
 
 Induct::OpportunisticBundleQueue::OpportunisticBundleQueue() {}
+Induct::OpportunisticBundleQueue::~OpportunisticBundleQueue() {
+    std::cout << "opportunistic link with m_remoteNodeId " << m_remoteNodeId << " terminated with " << m_dataToSendQueue.size() << " bundles queued\n";
+}
 std::size_t Induct::OpportunisticBundleQueue::GetQueueSize() {
     return m_dataToSendQueue.size();
 }
@@ -28,13 +31,15 @@ void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(std::pair<std::unique
     m_dataToSendQueue.push(std::move(msgPair));
 }
 bool Induct::OpportunisticBundleQueue::TryPop_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair) {
-    boost::mutex::scoped_lock lock(m_mutex);
-    if (m_dataToSendQueue.empty()) {
-        return false;
+    {
+        boost::mutex::scoped_lock lock(m_mutex);
+        if (m_dataToSendQueue.empty()) {
+            return false;
+        }
+        msgPair = std::move(m_dataToSendQueue.front());
+        m_dataToSendQueue.pop();
     }
-    msgPair = std::move(m_dataToSendQueue.front());
-    m_dataToSendQueue.pop();
-
+    m_conditionVariable.notify_all();
     return true;
 }
 void Induct::OpportunisticBundleQueue::WaitUntilNotifiedOr250MsTimeout() {
@@ -57,23 +62,37 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, const uint8
 }
 bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, std::vector<uint8_t> * vec8Ptr, const uint32_t timeoutSeconds) {
     m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
-    OpportunisticBundleQueue & opportunisticBundleQueue = m_mapNodeIdToOpportunisticBundleQueue[remoteNodeId];
+    std::map<uint64_t, OpportunisticBundleQueue>::iterator obqIt = m_mapNodeIdToOpportunisticBundleQueue.find(remoteNodeId);
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
+    if (obqIt == m_mapNodeIdToOpportunisticBundleQueue.end()) {
+        std::cout << "error in Induct::ForwardOnOpportunisticLink: opportunistic link with remoteNodeId " << remoteNodeId << " does not exist\n";
+        return false;
+    }
+    OpportunisticBundleQueue & opportunisticBundleQueue = obqIt->second;
     boost::posix_time::ptime timeoutExpiry((timeoutSeconds != 0) ?
         boost::posix_time::special_values::not_a_date_time :
         boost::posix_time::special_values::neg_infin); //allow zero time to fail immediately if full
-    while (opportunisticBundleQueue.GetQueueSize() > 5) { //todo
+    ////std::cout << "opportunisticBundleQueue.GetQueueSize() " << opportunisticBundleQueue.GetQueueSize() << std::endl;
+    //while (opportunisticBundleQueue.GetQueueSize() > 5) { //can't use queue size here, need to go on bundle acks (which limits the max queue size anyway)
+    //std::cout << "Virtual_GetTotalBundlesUnacked() " << opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetTotalBundlesUnacked() 
+    //    << " Virtual_GetMaxTxBundlesInPipeline() " << opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetMaxTxBundlesInPipeline() << "\n";
+    //const unsigned int maxBundlesInPipeline = opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetMaxTxBundlesInPipeline();
+    //while ((opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetTotalBundlesUnacked() >= maxBundlesInPipeline)
+    //    || (opportunisticBundleQueue.GetQueueSize() >= maxBundlesInPipeline))
+    while (opportunisticBundleQueue.GetQueueSize() >= opportunisticBundleQueue.m_maxTxBundlesInPipeline) {
         if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
             timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(timeoutSeconds);
         }
         else if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
-            std::string msg = "notice in TcpclInduct::ForwardOnOpportunisticLink: timed out after " +
+            std::string msg = "notice in Induct::ForwardOnOpportunisticLink: timed out after " +
                 boost::lexical_cast<std::string>(timeoutSeconds) +
                 " seconds because it has too many pending opportunistic bundles the queue for remoteNodeId " +
                 boost::lexical_cast<std::string>(remoteNodeId);
+            std::cout << msg << "\n";
             return false;
 
         }
+        Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(remoteNodeId);
         opportunisticBundleQueue.WaitUntilNotifiedOr250MsTimeout();
         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
     }
@@ -93,5 +112,6 @@ bool Induct::BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue &
     return opportunisticBundleQueue.TryPop_ThreadSafe(bundleDataPair);
 }
 void Induct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue) {
+    Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(opportunisticBundleQueue.m_remoteNodeId);
     opportunisticBundleQueue.NotifyAll();
 }

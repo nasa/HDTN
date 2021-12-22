@@ -18,12 +18,6 @@ public:
     ~TcpclV4BundleSource();
     void Stop();
     
-    std::size_t GetTotalDataSegmentsAcked();
-    std::size_t GetTotalDataSegmentsSent();
-    std::size_t GetTotalDataSegmentsUnacked();
-    std::size_t GetTotalBundleBytesAcked();
-    std::size_t GetTotalBundleBytesSent();
-    std::size_t GetTotalBundleBytesUnacked();
     void Connect(const std::string & hostname, const std::string & port);
     bool ReadyToForward();
     void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);

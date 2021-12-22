@@ -28,7 +28,7 @@ TcpclV4BundleSink::TcpclV4BundleSink(
         false, //false => sink is passive entity (not active)
         desiredKeepAliveIntervalSeconds,
         &tcpSocketIoServiceRef,
-        maxUnacked + 5, //todo is +5??
+        maxUnacked,
         maxFragmentSize,
         maxBundleSizeBytes,
         myNodeId,
@@ -67,6 +67,9 @@ TcpclV4BundleSink::TcpclV4BundleSink(
 }
 
 TcpclV4BundleSink::~TcpclV4BundleSink() {
+    //prevent TcpclV4BundleSink Opportunistic sending of bundles from exiting before all bundles sent and acked
+    BaseClass_TryToWaitForAllBundlesToFinishSending();
+
     if (!m_base_sinkIsSafeToDelete) {
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
         while (!m_base_sinkIsSafeToDelete) {
@@ -149,7 +152,7 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
 }
 
 void TcpclV4BundleSink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {
-    TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
+    ////TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
 }
 
 void TcpclV4BundleSink::Virtual_OnContactHeaderCompletedSuccessfully() {
@@ -191,9 +194,8 @@ void TcpclV4BundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThrea
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;
-    const std::size_t totalDataSegmentsUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked;
-    const uint64_t bundlePipelineLimit = M_BASE_MY_MAX_TX_UNACKED_BUNDLES - 5;
-    if ((totalDataSegmentsUnacked <= bundlePipelineLimit) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
+    const std::size_t totalBundlesUnacked = m_base_totalBundlesSent - m_base_totalBundlesAcked; //same as Virtual_GetTotalBundlesUnacked
+    if ((totalBundlesUnacked < M_BASE_MY_MAX_TX_UNACKED_BUNDLES) && m_tryGetOpportunisticDataFunction && m_tryGetOpportunisticDataFunction(bundleDataPair)) {
         BaseClass_Forward(bundleDataPair.first, bundleDataPair.second, static_cast<bool>(bundleDataPair.first));
     }
 }

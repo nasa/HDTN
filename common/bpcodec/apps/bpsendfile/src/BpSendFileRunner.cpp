@@ -29,9 +29,10 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         cbhe_eid_t myEid;
         cbhe_eid_t finalDestEid;
         uint64_t myCustodianServiceId;
-        OutductsConfig_ptr outductsConfig;
-        InductsConfig_ptr inductsConfig;
+        OutductsConfig_ptr outductsConfigPtr;
+        InductsConfig_ptr inductsConfigPtr;
         bool custodyTransferUseAcs;
+        bool forceDisableCustody;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -42,9 +43,10 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
                     ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
                     ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
-                    ("outducts-config-file", boost::program_options::value<std::string>()->default_value("outducts.json"), "Outducts Configuration File.")
+                    ("outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File.")
                     ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
+                    ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
                     ;
 
                 boost::program_options::variables_map vm;
@@ -55,6 +57,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                         std::cout << desc << "\n";
                         return false;
                 }
+                forceDisableCustody = (vm.count("force-disable-custody") != 0);
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
@@ -68,27 +71,32 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     return false;
                 }
 
-                const std::string configFileName = vm["outducts-config-file"].as<std::string>();
+                const std::string outductsConfigFileName = vm["outducts-config-file"].as<std::string>();
 
-                outductsConfig = OutductsConfig::CreateFromJsonFile(configFileName);
-                if (!outductsConfig) {
-                    std::cerr << "error loading config file: " << configFileName << std::endl;
-                    return false;
+                if (outductsConfigFileName.length()) {
+                    outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
+                    if (!outductsConfigPtr) {
+                        std::cerr << "error loading outducts config file: " << outductsConfigFileName << std::endl;
+                        return false;
+                    }
+                    std::size_t numBpGenOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
+                    if (numBpGenOutducts != 1) {
+                        std::cerr << "error: number of bpsendfile outducts is not 1: got " << numBpGenOutducts << std::endl;
+                    }
                 }
-                std::size_t numBpGenOutducts = outductsConfig->m_outductElementConfigVector.size();
-                if (numBpGenOutducts != 1) {
-                    std::cerr << "error: number of bpgen outducts is not 1: got " << numBpGenOutducts << std::endl;
+                else {
+                    std::cout << "notice: bpsendfile has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct\n";
                 }
 
                 //create induct for custody signals
                 const std::string inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<std::string>();
                 if (inductsConfigFileName.length()) {
-                    inductsConfig = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
-                    if (!inductsConfig) {
+                    inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
+                    if (!inductsConfigPtr) {
                         std::cerr << "error loading induct config file: " << inductsConfigFileName << std::endl;
                         return false;
                     }
-                    std::size_t numBpGenInducts = inductsConfig->m_inductElementConfigVector.size();
+                    std::size_t numBpGenInducts = inductsConfigPtr->m_inductElementConfigVector.size();
                     if (numBpGenInducts != 1) {
                         std::cerr << "error: number of bp gen inducts for custody signals is not 1: got " << numBpGenInducts << std::endl;
                     }
@@ -119,7 +127,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         if (bpSendFile.GetNumberOfFilesToSend() == 0) {
             return false;
         }
-        bpSendFile.Start(*outductsConfig, inductsConfig, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId);
+        bpSendFile.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId, false, forceDisableCustody);
 
         std::cout << "running BpSendFile\n";
         

@@ -59,6 +59,8 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
 
     m_nextCtebCustodyId = 0;
 
+    m_tcpclInductPtr = NULL;
+
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     if (inductsConfigPtr) {
         m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),

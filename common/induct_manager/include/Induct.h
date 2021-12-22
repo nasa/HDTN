@@ -9,6 +9,7 @@
 #include <boost/thread.hpp>
 #include <queue>
 #include <zmq.hpp>
+#include "BidirectionalLink.h"
 
 class Induct;
 typedef boost::function<void(std::vector<uint8_t> & movableBundle)> InductProcessBundleCallback_t;
@@ -30,6 +31,7 @@ public:
 protected:
     struct OpportunisticBundleQueue { //tcpcl only
         OpportunisticBundleQueue();
+        ~OpportunisticBundleQueue();
         std::size_t GetQueueSize();
         void PushMove_ThreadSafe(zmq::message_t & msg);
         void PushMove_ThreadSafe(std::vector<uint8_t> & msg);
@@ -41,6 +43,9 @@ protected:
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
         std::queue<std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > > m_dataToSendQueue;
+        //BidirectionalLink * m_bidirectionalLinkPtr;
+        uint64_t m_remoteNodeId;
+        unsigned int m_maxTxBundlesInPipeline;
     };
     //tcpcl only
     bool BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair);

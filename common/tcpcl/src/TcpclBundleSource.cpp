@@ -39,28 +39,7 @@ TcpclBundleSource::~TcpclBundleSource() {
 
 void TcpclBundleSource::Stop() {
     //prevent TcpclBundleSource from exiting before all bundles sent and acked
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    m_base_useLocalConditionVariableAckReceived = true;
-    std::size_t previousUnacked = std::numeric_limits<std::size_t>::max();
-    for (unsigned int attempt = 0; attempt < 10; ++attempt) {
-        const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
-        if (numUnacked) {
-            std::cout << "notice: TcpclBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
-
-            std::cout << "   acked: " << m_base_totalBundlesAcked << std::endl;
-            std::cout << "   total sent: " << m_base_totalBundlesSent << std::endl;
-
-            if (previousUnacked > numUnacked) {
-                previousUnacked = numUnacked;
-                attempt = 0;
-            }
-            m_base_localConditionVariableAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
-        }
-        break;
-    }
+    BaseClass_TryToWaitForAllBundlesToFinishSending();
 
     BaseClass_DoTcpclShutdown(true, false);
     while (!m_base_tcpclShutdownComplete) {
@@ -83,29 +62,7 @@ void TcpclBundleSource::Stop() {
     std::cout << "TcpclV3 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
 }
 
-std::size_t TcpclBundleSource::GetTotalDataSegmentsAcked() {
-    return m_base_totalBundlesAcked;
-}
 
-std::size_t TcpclBundleSource::GetTotalDataSegmentsSent() {
-    return m_base_totalBundlesSent;
-}
-
-std::size_t TcpclBundleSource::GetTotalDataSegmentsUnacked() {
-    return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
-}
-
-std::size_t TcpclBundleSource::GetTotalBundleBytesAcked() {
-    return m_base_totalBytesAcked;
-}
-
-std::size_t TcpclBundleSource::GetTotalBundleBytesSent() {
-    return m_base_totalBundleBytesSent;
-}
-
-std::size_t TcpclBundleSource::GetTotalBundleBytesUnacked() {
-    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
-}
 
 
 

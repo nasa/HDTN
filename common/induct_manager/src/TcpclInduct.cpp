@@ -77,12 +77,17 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
 
 void TcpclInduct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
+    //std::map<uint64_t, OpportunisticBundleQueue> & mapNodeIdToOpportunisticBundleQueueRef = m_mapNodeIdToOpportunisticBundleQueue;
+    //boost::mutex & mapNodeIdToOpportunisticBundleQueueMutexRef = m_mapNodeIdToOpportunisticBundleQueueMutex;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclBundleSinks.remove_if([&callbackRef](TcpclBundleSink & sink) {
+        m_listTcpclBundleSinks.remove_if([&callbackRef/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
                     callbackRef(sink.GetRemoteNodeId());
                 }
+                //mapNodeIdToOpportunisticBundleQueueMutexRef.lock();
+                //mapNodeIdToOpportunisticBundleQueueRef.erase(sink.GetRemoteNodeId());
+                //mapNodeIdToOpportunisticBundleQueueMutexRef.unlock();
                 return true;
             }
             else {
@@ -106,7 +111,11 @@ void TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived() {
 
 void TcpclInduct::OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr) {
     m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
+    m_mapNodeIdToOpportunisticBundleQueue.erase(thisTcpclBundleSinkPtr->GetRemoteNodeId());
     OpportunisticBundleQueue & opportunisticBundleQueue = m_mapNodeIdToOpportunisticBundleQueue[thisTcpclBundleSinkPtr->GetRemoteNodeId()];
+    //opportunisticBundleQueue.m_bidirectionalLinkPtr = thisTcpclBundleSinkPtr;
+    opportunisticBundleQueue.m_maxTxBundlesInPipeline = thisTcpclBundleSinkPtr->Virtual_GetMaxTxBundlesInPipeline();
+    opportunisticBundleQueue.m_remoteNodeId = thisTcpclBundleSinkPtr->GetRemoteNodeId();
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
     thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclInduct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
     thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclInduct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
