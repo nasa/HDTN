@@ -65,9 +65,12 @@
 <div class="topnav">
     <a class="active" href="#home">HDTN</a>
     <a href = "#stats">Statistics</a>
+    <a href = "#config">Config</a>
 </div>
 
-<div id="data_rate_graph" style="width:600px;height:450px;padding-left:16px;padding-top:16px"></div>
+<div id="data_rate_graph" style="width:600px;height:450px;float:left;padding-left:16px;padding-top:16px"></div>
+
+<div id="storage_egress_chart" style="width:500px;height:450px;overflow:hidden;padding-left:50px;padding-top:16px"></div>
 
 <div id="rate_stats" style="width:600px;height:75px;padding-left:16px;padding-top:16px">
 <table class="table">
@@ -172,7 +175,7 @@
 
 <script>
 
-    var data = [{
+    var rate_data = [{
         x: [1, 2, 3, 4],
         y: [10, 15, 13, 17],
         type: 'scatter',
@@ -200,7 +203,7 @@
 
     GRAPH = document.getElementById("data_rate_graph");
 
-    Plotly.newPlot(GRAPH, data, layout);
+    Plotly.newPlot(GRAPH, rate_data, layout);
 
 /*    myPlot.on( , function(data){
         yArray = ;
@@ -208,6 +211,26 @@
         var data_update = {x: [xArray], y: [yArray]};
         Plotly.update('graph', data_update, layout, 1)
     });*/
+
+
+    var pie_data = [{
+        values: [29,71],
+        labels: ['Storage', 'Egress'], 
+        type: 'pie'
+    }];
+
+    var pie_layout = {
+        height: 500,
+        width:500,
+        paper_bgcolor: "#404040",
+        font:{
+            family: "Arial",
+            size: 18,
+            color: "white"
+        }
+    };
+
+    Plotly.newPlot('storage_egress_chart', pie_data, pie_layout);
 </script>
 
 
