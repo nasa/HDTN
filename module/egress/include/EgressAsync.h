@@ -47,10 +47,11 @@ public:
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
-
+    void RouterEventHandler();
 private:
     void ReadZmqThreadFunc();
     void OnSuccessfulBundleAck(uint64_t outductUuidIndex);

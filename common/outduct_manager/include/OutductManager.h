@@ -23,7 +23,9 @@ public:
     void StopAllOutducts();
     Outduct * GetOutductByFinalDestinationEid(const cbhe_eid_t & finalDestEid);
     Outduct * GetOutductByOutductUuid(const uint64_t uuid);
-
+    void SetOutductForFinalDestinationEid(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr);
+    boost::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
+    Outduct * GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid);
     void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
 
     bool Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size);
@@ -51,6 +53,8 @@ private:
     };
 
     std::map<cbhe_eid_t, boost::shared_ptr<Outduct> > m_finalDestEidToOutductMap;
+    boost::mutex m_finalDestEidToOutductMapMutex;
+    std::map<cbhe_eid_t, boost::shared_ptr<Outduct> > m_nextHopEidToOutductMap;
     std::vector<boost::shared_ptr<Outduct> > m_outductsVec;
     std::vector<std::unique_ptr<thread_communication_t> > m_threadCommunicationVec;
     uint64_t m_numEventsTooManyUnackedBundles;

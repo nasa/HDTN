@@ -54,7 +54,7 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
              stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
              stopMsg.finalDestinationEid = *finalDestEid;
              socket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-             std::cout << " -- LINK DOWN Event sent for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
+             std::cout << " -- LINK DOWN Event sent for destination: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
 
         } else {
             std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
@@ -64,7 +64,7 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
             releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
             releaseMsg.finalDestinationEid = *finalDestEid;
             socket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-            std::cout << " -- LINK UP Event sent for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
+            std::cout << " -- LINK UP Event sent for destination: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
         }
 
         dt->expires_at(dt->expires_at() + boost::posix_time::seconds(5));
@@ -181,7 +181,14 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         zmq::socket_t socket(ctx, zmq::socket_type::pub);
         const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
-        socket.bind(bind_boundSchedulerPubSubPath);
+
+        try {
+            socket.bind(bind_boundSchedulerPubSubPath);
+        } catch (const zmq::error_t & ex) {
+            std::cerr << "Scheduler socket failed to bind: " << ex.what() << std::endl;
+            return false;
+        }
+	
 	boost::asio::io_service service;
         boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
 
@@ -213,38 +220,71 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
 
 
-void Scheduler::ProcessLinkDown(const boost::system::error_code& e, const cbhe_eid_t finalDestinationEid, std::string event, zmq::socket_t * ptrSocket) {
+void Scheduler::ProcessLinkDown(const boost::system::error_code& e, int src, int dest, cbhe_eid_t finalDestinationEid, 
+		std::string event, zmq::socket_t * ptrSocket) {
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     if (e != boost::asio::error::operation_aborted) {
-         std::cout <<  timeLocal << ": Processing Event " << event << " for finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ")" << std::endl;
+	 std::cout << timeLocal << ": Processing Event " << event << " from source node " << src << " to next Hop node " << dest << std::endl;
+
          hdtn::IreleaseStopHdr stopMsg;
+         cbhe_eid_t nextHopEid;
+         nextHopEid.nodeId = dest;
+         nextHopEid.serviceId = 1; 
+
+         cbhe_eid_t prevHopEid;
+         prevHopEid.nodeId = src;
+         prevHopEid.serviceId = 1;
+
          memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
          stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-         stopMsg.finalDestinationEid = finalDestinationEid;
-         ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-         std::cout << " -- LINK DOWN Event sent for finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ")" << std::endl;
+         stopMsg.nextHopEid = nextHopEid;
+         stopMsg.prevHopEid = prevHopEid;
+	 stopMsg.finalDestinationEid = finalDestinationEid;
+         ptrSocket->send(zmq::const_buffer(&stopMsg, 
+	 sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
+
+         std::cout << " -- LINK DOWN Event sent sent for Link " << 
+                prevHopEid.nodeId << " ===> " << nextHopEid.nodeId << "" <<  std::endl;
+
      } else {
         std::cout << "timer dt2 cancelled\n";
     }
 }
 
-void Scheduler::ProcessLinkUp(const boost::system::error_code& e, const cbhe_eid_t finalDestinationEid, std::string event, zmq::socket_t * ptrSocket) {
+void Scheduler::ProcessLinkUp(const boost::system::error_code& e, int src, int dest, cbhe_eid_t finalDestinationEid,
+	       	std::string event, zmq::socket_t * ptrSocket) {
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-	std::cout << timeLocal << ": Processing Event " << event << " for finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ")" << std::endl;
-    	hdtn::IreleaseStartHdr releaseMsg;
-    	memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-    	releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-    	releaseMsg.finalDestinationEid = finalDestinationEid;
-    	ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-    	std::cout << " -- LINK UP Event sent for finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ")" << std::endl;
+	std::cout << timeLocal << ": Processing Event " << event << " from source node " << src << " to next Hop node " << dest << std::endl;
+
+        hdtn::IreleaseStartHdr releaseMsg;
+        memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+        cbhe_eid_t nextHopEid;
+        nextHopEid.nodeId = dest;
+        nextHopEid.serviceId = 1;
+ 
+        cbhe_eid_t prevHopEid;
+        prevHopEid.nodeId = src;
+        prevHopEid.serviceId = 1;
+
+        releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
+        releaseMsg.nextHopEid = nextHopEid;
+        releaseMsg.prevHopEid = prevHopEid;
+        releaseMsg.finalDestinationEid = finalDestinationEid;     
+        ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)),
+                        zmq::send_flags::none);
+
+	std::cout << " -- LINK UP Event sent sent for Link " <<
+                prevHopEid.nodeId << " ===> " << nextHopEid.nodeId << "" <<  std::endl;
+
     } else {
         std::cout << "timer dt cancelled\n";
     }
 }
 
-int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) {
+int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) 
+{
     m_timersFinished = false;
     contactPlanVector_t contactsVector;
 
@@ -258,13 +298,9 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) {
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);
-        const std::string uriEid = eventPt.second.get<std::string>("finalDestinationEid", "");
-        if (!Uri::ParseIpnUriString(uriEid, linkEvent.finalDestEid.nodeId, linkEvent.finalDestEid.serviceId)) {
-            std::cerr << "error: bad uri string: " << uriEid << std::endl;
-            return false;
-        }
-        linkEvent.start = eventPt.second.get<int>("start", 0);
-        linkEvent.end = eventPt.second.get<int>("end", 0);
+	linkEvent.finalDest = eventPt.second.get<int>("finalDestination", 0);
+        linkEvent.start = eventPt.second.get<int>("startTime", 0);
+        linkEvent.end = eventPt.second.get<int>("endTime", 0);
         linkEvent.rate = eventPt.second.get<int>("rate", 0);
     }
 
@@ -277,7 +313,13 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) {
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
     const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
-    socket.bind(bind_boundSchedulerPubSubPath);
+
+    try {
+        socket.bind(bind_boundSchedulerPubSubPath);
+    } catch (const zmq::error_t & ex) {
+    	std::cerr << "Scheduler socket failed to bind: " << ex.what() << std::endl;
+        return false;
+    }
 
     boost::asio::io_service ioService;
 
@@ -292,14 +334,21 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) {
         SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
         SmartDeadlineTimer dt2 = boost::make_unique<boost::asio::deadline_timer>(ioService);
         
+        cbhe_eid_t finalDestination;
+        finalDestination.nodeId = contactsVector[i].finalDest; 
+        finalDestination.serviceId = 1; 
+
         dt->expires_from_now(boost::posix_time::seconds(contactsVector[i].start));
-        dt->async_wait(boost::bind(&Scheduler::ProcessLinkUp,this,boost::asio::placeholders::error, contactsVector[i].finalDestEid,
-                       "Link Available",&socket));
+        dt->async_wait(boost::bind(&Scheduler::ProcessLinkUp,this,boost::asio::placeholders::error, 
+				contactsVector[i].source, contactsVector[i].dest,
+                                finalDestination, "Link Available",&socket));
         vectorTimers.push_back(std::move(dt));
 
         dt2->expires_from_now(boost::posix_time::seconds(contactsVector[i].end + 1));                     
-        dt2->async_wait(boost::bind(&Scheduler::ProcessLinkDown,this,boost::asio::placeholders::error, contactsVector[i].finalDestEid,
-                                   "Link Unavailable",&socket));
+        dt2->async_wait(boost::bind(&Scheduler::ProcessLinkDown,this,boost::asio::placeholders::error, 
+				contactsVector[i].source, 
+				contactsVector[i].dest,
+        			finalDestination, "Link Unavailable",&socket));
         vectorTimers2.push_back(std::move(dt2));
     }
 

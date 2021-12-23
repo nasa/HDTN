@@ -44,6 +44,8 @@
 #define HDTN_MSGTYPE_IPRELOAD (0xFC05)    // preloads data because an event is scheduled to begin soon
 #define HDTN_MSGTYPE_IWORKSTATS (0xFC06)  // update on worker stats sent from worker to parent
 
+#define HDTN_MSGTYPE_ROUTEUPDATE (0xFC07) //Route Update Event from Router process
+
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE (0x5555)
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
@@ -68,6 +70,7 @@ struct ToEgressHdr {
     uint8_t unused4;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
+    cbhe_eid_t nextHopEid;
 
     //bool operator==(const ToEgressHdr & o) const {
     //    return (base == o.base) && (custodyId == o.custodyId);
@@ -82,6 +85,7 @@ struct EgressAckHdr {
     uint8_t unused1;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
+    cbhe_eid_t nextHopEid;
 
     //bool operator==(const EgressAckHdr & o) const {
     //    return (base == o.base) && (custodyId == o.custodyId);
@@ -133,6 +137,8 @@ struct IreleaseStartHdr {
     cbhe_eid_t finalDestinationEid;   // formerly flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
+    cbhe_eid_t prevHopEid;
+    cbhe_eid_t nextHopEid;
 };
 
 struct IreleaseStopHdr {
@@ -142,7 +148,19 @@ struct IreleaseStopHdr {
     uint8_t unused3;
     uint8_t unused4;
     cbhe_eid_t finalDestinationEid;
+    cbhe_eid_t prevHopEid;
+    cbhe_eid_t nextHopEid;
 };
+
+struct RouteUpdateHdr {
+    CommonHdr base;
+    uint8_t unused3;
+    uint8_t unused4;
+    cbhe_eid_t nextHopEid;
+    cbhe_eid_t finalDestEid;
+    uint64_t route[20]; //optimal route
+};
+
 };  // namespace hdtn
 //#pragma pack (pop)
 #endif

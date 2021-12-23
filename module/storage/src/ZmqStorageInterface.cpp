@@ -224,7 +224,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
 
     //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
-    const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+    const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
     if (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == forStats->M_HDTN_EID_CUSTODY)) {
         if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
             std::cerr << "error admin record has canonical block\n";
@@ -235,6 +235,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             return false;
         }
         const uint8_t adminRecordType = (*bv.m_applicationDataUnitStartPtr >> 4);
+        //std::cerr << "***bv.mapplicationDataUnit " << static_cast<int>(*bv.m_applicationDataUnitStartPtr)  << std::endl;
+	//std::cerr << " ***Admin Record type: " << static_cast<int>(adminRecordType) << std::endl;
 
         if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::AGGREGATE_CUSTODY_SIGNAL)) {
             ++forStats->m_numAcsPacketsReceived;
@@ -335,7 +337,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 
     //write non admin records to disk (unless newly generated below)
     const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(srcEid);
-    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
     if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
         bpv6_primary_block primaryForCustodySignalRfc5050;
         if (!ctm.ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
@@ -732,7 +734,8 @@ void ZmqStorageInterface::ThreadFunc() {
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.emplace(iReleaseStartHdr->finalDestinationEid, false); //false => fully qualified service id
-                }
+                    availableDestLinksSet.emplace(iReleaseStartHdr->nextHopEid, false);
+		}
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                         std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
@@ -746,7 +749,9 @@ void ZmqStorageInterface::ThreadFunc() {
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
-                }
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->nextHopEid, false)); //false => fully qualified service id
+
+		}
                 PrintReleasedLinks(availableDestLinksSet);
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //telemetry messages

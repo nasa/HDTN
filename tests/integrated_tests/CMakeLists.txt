@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 SET(STORAGE_LIBRARY_NAME storage_lib)
 add_executable(integrated-tests
 	src/it_test_main.cpp
-	src/integrated_tests.cpp
+        src/integrated_tests.cpp
 	../../common/logger/src/Logger.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp

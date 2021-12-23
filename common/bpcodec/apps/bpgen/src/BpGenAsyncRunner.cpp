@@ -137,7 +137,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
 
 
         std::cout << "starting BpGenAsync.." << std::endl;
-
+        std::cout << "Sending Bundles from BPGen Node " << myEid.nodeId << " to final Destination Node " << finalDestEid.nodeId << std::endl; 
         BpGenAsync bpGen(bundleSizeBytes);
         bpGen.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, false, forceDisableCustody);
 
