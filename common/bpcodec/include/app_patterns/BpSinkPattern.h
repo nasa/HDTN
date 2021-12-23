@@ -16,7 +16,7 @@ public:
     BpSinkPattern();
     void Stop();
     virtual ~BpSinkPattern();
-    bool Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
+    bool Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
         bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId = 2047);
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
@@ -62,7 +62,7 @@ private:
     boost::mutex m_mutexCtm;
     boost::mutex m_mutexForward;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
-    TcpclInduct * m_tcpclInductPtr;
+    Induct * m_tcpclInductPtr;
 };
 
 

@@ -66,6 +66,8 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     m_bundleCount = 0;
     m_bundleData = 0;
     m_messageCount = 0;
+
+    m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by router (and if one-process is not used)
     try {
         if (hdtnOneProcessZmqInprocContextPtr) {
             // socket for cut-through mode straight to egress
@@ -90,7 +92,6 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
         }
         else {
             // socket for cut-through mode straight to egress
-            m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
             m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
             const std::string connect_boundIngressToConnectingEgressPath(
                 std::string("tcp://") +
@@ -125,22 +126,24 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
+            
         }
 
         // socket for receiving events from router
         m_zmqSubSock_boundRouterToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
         //const std::string connect_boundRouterPubSubPath(std::string("tcp://localhost:10210"));
 
-	const std::string connect_boundRouterPubSubPath(
-	std::string("tcp://") +
-        m_hdtnConfig.m_zmqRouterAddress +
-        std::string(":") +
-        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
+        const std::string connect_boundRouterPubSubPath(
+            std::string("tcp://") +
+            m_hdtnConfig.m_zmqRouterAddress +
+            std::string(":") +
+            boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
         try {
             m_zmqSubSock_boundRouterToConnectingEgressPtr->connect(connect_boundRouterPubSubPath);
             m_zmqSubSock_boundRouterToConnectingEgressPtr->set(zmq::sockopt::subscribe, "");
             std::cout << "Egress connected and listening to events from Router " << connect_boundRouterPubSubPath << std::endl;
-        } catch (const zmq::error_t & ex) {
+        }
+        catch (const zmq::error_t & ex) {
             std::cerr << "error: egress cannot connect to router socket: " << ex.what() << std::endl;
             return;
         }
@@ -192,28 +195,27 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
 void hdtn::HegrManagerAsync::RouterEventHandler() {
     zmq::message_t message;
     if (!m_zmqSubSock_boundRouterToConnectingEgressPtr->recv(message, zmq::recv_flags::none)) {
-	 std::cerr << "Egress didn't receive event from Router process" << std::endl;
-         return;
-     }
-     if (message.size() < sizeof(CommonHdr)) {
-         return;
-     }
-     CommonHdr *common = (CommonHdr *)message.data();
-     switch (common->type) {
-     	case HDTN_MSGTYPE_ROUTEUPDATE:
-	    hdtn::RouteUpdateHdr * routeUpdateHdr = (hdtn::RouteUpdateHdr *)message.data();
-            cbhe_eid_t nextHopEid = routeUpdateHdr->nextHopEid;
-	    cbhe_eid_t finalDestEid = routeUpdateHdr->finalDestEid;
-	    Outduct * outduct = m_outductManager.GetOutductByNextHopEid(nextHopEid);
-	    unsigned int outduct_id = static_cast<int>(outduct->GetOutductUuid());
-	    Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid);
-	    unsigned int outduct2_id = static_cast<int>(outduct2->GetOutductUuid());
-	    if (outduct2_id != outduct_id) {
-                boost::shared_ptr<Outduct>  outductPtr;
-		outductPtr = m_outductManager.GetOutductPtrByOutductUuid(outduct_id);
-		m_outductManager.SetOutductForFinalDestinationEid(finalDestEid, outductPtr);
-		std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outduct_id << std::endl;
-	     }
+    std::cerr << "Egress didn't receive event from Router process" << std::endl;
+        return;
+    }
+    if (message.size() < sizeof(CommonHdr)) {
+        return;
+    }
+    CommonHdr *common = (CommonHdr *)message.data();
+    switch (common->type) {
+        case HDTN_MSGTYPE_ROUTEUPDATE:
+        hdtn::RouteUpdateHdr * routeUpdateHdr = (hdtn::RouteUpdateHdr *)message.data();
+        cbhe_eid_t nextHopEid = routeUpdateHdr->nextHopEid;
+        cbhe_eid_t finalDestEid = routeUpdateHdr->finalDestEid;
+        Outduct * outduct = m_outductManager.GetOutductByNextHopEid(nextHopEid);
+        const uint64_t outductId1 = outduct->GetOutductUuid();
+        Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid);
+        const uint64_t outductId2 = outduct2->GetOutductUuid();
+        if (outductId2 != outductId1) {
+            boost::shared_ptr<Outduct> outductPtr = m_outductManager.GetOutductSharedPtrByOutductUuid(outductId1);
+            m_outductManager.SetOutductForFinalDestinationEid(finalDestEid, outductPtr);
+            std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outductId1 << std::endl;
+        }
      }
 }
 
@@ -367,7 +369,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     egressAckPtr->isToStorage = !toEgressHeader.isCutThroughFromIngress;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
                     //std::cout << "*****Egress Outduct: " << static_cast<int>(outduct->GetOutductUuid()) << std::endl;
-		    outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
+                    outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
                     outduct->Forward(zmqMessageBundle);
                     if (zmqMessageBundle.size() != 0) {
                         std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
@@ -380,9 +382,9 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
 
             }
-	    if (items[NUM_SOCKETS - 2].revents & ZMQ_POLLIN) { //events from Router
+            if (items[NUM_SOCKETS - 2].revents & ZMQ_POLLIN) { //events from Router
                 std::cout << "[Egress] Received RouteUpdate event!!" << std::endl;
-	        RouterEventHandler();
+                RouterEventHandler();
             }
 
             if ((items[NUM_SOCKETS - 1].revents & ZMQ_POLLIN)) { //m_zmqPullSignalInprocSockPtr                

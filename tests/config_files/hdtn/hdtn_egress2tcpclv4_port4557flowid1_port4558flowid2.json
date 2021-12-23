@@ -1,0 +1,88 @@
+{
+    "hdtnConfigName": "my hdtn config",
+    "mySchemeName": "unused_scheme_name",
+    "myNodeId": 10,
+    "myBpEchoServiceId": 2047,
+    "myCustodialSsp": "unused_custodial_ssp",
+    "myCustodialServiceId": 0,
+    "isAcsAware": true,
+    "acsMaxFillsPerAcsPacket": 100,
+    "acsSendPeriodMilliseconds": 1000,
+    "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
+    "maxBundleSizeBytes": 10000000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxLtpReceiveUdpPacketSizeBytes": 65536,
+    "zmqIngressAddress": "localhost",
+    "zmqEgressAddress": "localhost",
+    "zmqStorageAddress": "localhost",
+    "zmqRegistrationServerAddress": "localhost",
+    "zmqSchedulerAddress": "localhost",
+    "zmqRouterAddress": "localhost",
+    "zmqBoundIngressToConnectingEgressPortPath": 10100,
+    "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqBoundIngressToConnectingStoragePortPath": 10110,
+    "zmqConnectingStorageToBoundIngressPortPath": 10150,
+    "zmqConnectingStorageToBoundEgressPortPath": 10120,
+    "zmqBoundEgressToConnectingStoragePortPath": 10130,
+    "zmqRegistrationServerPortPath": 10140,
+    "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqBoundRouterPubSubPortPath": 10210,
+    "zmqMaxMessagesPerPath": 5,
+    "zmqMaxMessageSizeBytes": 100000000,
+    "inductsConfig": {
+        "inductConfigName": "myconfig",
+        "inductVector": [
+
+        ]
+    },
+    "outductsConfig": {
+        "outductConfigName": "myconfig",
+        "outductVector": [
+            {
+                "name": "tcpcl_egress1",
+                "convergenceLayer": "tcpcl_v4",
+                "nextHopEndpointId": "ipn:1.1",
+                "remoteHostname": "localhost",
+                "remotePort": 4557,
+                "bundlePipelineLimit": 50,
+                "finalDestinationEidUris": [
+                    "ipn:1.1"
+                ],
+                "keepAliveIntervalSeconds": 17,
+                "tcpclAutoFragmentSizeBytes": 200000,
+                "tcpclAllowOpportunisticReceiveBundles": true
+            },
+            {
+                "name": "tcpcl_egress2",
+                "convergenceLayer": "tcpcl_v4",
+                "nextHopEndpointId": "ipn:2.1",
+                "remoteHostname": "localhost",
+                "remotePort": 4558,
+                "bundlePipelineLimit": 50,
+                "finalDestinationEidUris": [
+                    "ipn:2.1"
+                ],
+                "keepAliveIntervalSeconds": 17,
+                "tcpclAutoFragmentSizeBytes": 200000,
+                "tcpclAllowOpportunisticReceiveBundles": true
+            }
+        ]
+    },
+    "storageConfig": {
+        "storageImplementation": "asio_single_threaded",
+        "tryToRestoreFromDisk": false,
+        "autoDeleteFilesOnExit": true,
+        "totalStorageCapacityBytes": 8192000000,
+        "storageDiskConfigVector": [
+            {
+                "name": "d1",
+                "storeFilePath": ".\/store1.bin"
+            },
+            {
+                "name": "d2",
+                "storeFilePath": ".\/store2.bin"
+            }
+        ]
+    }
+}

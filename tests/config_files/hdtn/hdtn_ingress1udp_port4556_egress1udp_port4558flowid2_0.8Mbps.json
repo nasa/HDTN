@@ -18,7 +18,6 @@
     "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
     "zmqRouterAddress": "localhost",
-    "zmqContactGraphRoutingAddress": "tcp://localhost:5556",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,

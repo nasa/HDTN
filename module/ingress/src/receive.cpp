@@ -443,7 +443,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
     const bool linkIsUp = (m_finalDestEidAvailableSet.count(finalDestEid) != 0);
     m_eidAvailableSetMutex.unlock();
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.lock();
-    std::map<uint64_t, TcpclInduct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);
+    std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
     bool shouldTryToUseCustThrough = (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
@@ -640,13 +640,19 @@ void Ingress::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool is
 
 void Ingress::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
     if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
-        std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+        std::cout << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*\n";
+        SendOpportunisticLinkMessages(remoteNodeId, true);
+        boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
+        m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
+    }
+    else if (TcpclV4Induct * tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*\n";
         SendOpportunisticLinkMessages(remoteNodeId, true);
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
     }
     else {
-        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct\n";
+        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct\n";
     }
 }
 void Ingress::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {

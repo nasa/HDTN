@@ -3,6 +3,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/make_shared.hpp>
 #include "TcpclInduct.h"
+#include "TcpclV4Induct.h"
 #include "StcpInduct.h"
 #include "UdpInduct.h"
 #include "LtpOverUdpInduct.h"
@@ -22,6 +23,10 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
         const induct_element_config_t & thisInductConfig = *it;
         if (thisInductConfig.convergenceLayer == "tcpcl") {
             m_inductsList.emplace_back(boost::make_unique<TcpclInduct>(inductProcessBundleCallback, thisInductConfig,
+                myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
+        }
+        else if (thisInductConfig.convergenceLayer == "tcpcl_v4") {
+            m_inductsList.emplace_back(boost::make_unique<TcpclV4Induct>(inductProcessBundleCallback, thisInductConfig,
                 myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }
         else if (thisInductConfig.convergenceLayer == "stcp") {

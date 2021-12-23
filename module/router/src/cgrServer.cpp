@@ -1,6 +1,8 @@
 #include "cgrServer.h"
+#include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 
-void CgrServer::init(std::string address)
+void CgrServer::init(const std::string & address)
 {
     std::cout << "starting init" << std::endl;
     std::cout << "socket reset" << std::endl;
@@ -19,23 +21,25 @@ void CgrServer::init(std::string address)
     cgrSock->connect(address); //"tcp://localhost:5556"
 }
 
-int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTime)
+uint64_t CgrServer::requestNextHop(uint64_t currentNode, uint64_t destinationNode, uint64_t startTime)
 {
-    std::string message = std::to_string(currentNode) + "|" + std::to_string(destinationNode) 
-        + "|" + std::to_string(startTime);
+    //const std::string message = boost::lexical_cast<std::string>(currentNode) + "|" + boost::lexical_cast<std::string>(destinationNode)
+    //    + "|" + boost::lexical_cast<std::string>(startTime);
+    static const boost::format fmtTemplate("%d|%d|%d");
+    boost::format fmt(fmtTemplate);
+    fmt % currentNode % destinationNode % startTime;
+    const std::string message(std::move(fmt.str()));
 
     //cgrSock->send(&msg, zmq::send_flags::none);
     std::cout << "Sending CGR request" << std::endl;
-    cgrSock->send(zmq::const_buffer(message.c_str(), strlen(message.c_str())), zmq::send_flags::none);
+    cgrSock->send(zmq::const_buffer(message.data(), message.size()), zmq::send_flags::none);
     std::cout << "Waiting to receive message back" << std::endl;
     zmq::message_t recvMessage;
     cgrSock->recv(recvMessage, zmq::recv_flags::none);
 
-    std::string myReceivedAsString((const char *)recvMessage.data(), (const char *)recvMessage.data() + recvMessage.size());
+    const std::string myReceivedAsString((const char *)recvMessage.data(), ((const char *)recvMessage.data()) + recvMessage.size());
 
-    //std::cout << std::to_string((uintptr_t)recvMsg.data()) << std::endl;
-    //uintptr_t nextNode = (uintptr_t)recvMsg.data();
     //std::cout << "Next hop is " << myReceivedAsString << std::endl;
-    return stoi(myReceivedAsString); //nextNode;
+    return boost::lexical_cast<uint64_t>(myReceivedAsString); //nextNode;
 }
 

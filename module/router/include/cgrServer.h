@@ -16,7 +16,7 @@ class CgrServer
 
     std::string address: IP address of py_cgr listener
     */
-    void init(std::string address);
+    void init(const std::string & address);
 
     /*
     Sends a request to py_cgr over zmq and listens to for a response.
@@ -27,5 +27,5 @@ class CgrServer
 
     returns ID of the next node according to shortest path using Dijkstra's algorithm.
     */
-    int requestNextHop(int currentNode, int destinationNode, int startTime);
+    uint64_t requestNextHop(uint64_t currentNode, uint64_t destinationNode, uint64_t startTime);
 };

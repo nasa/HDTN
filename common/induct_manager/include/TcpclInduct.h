@@ -13,51 +13,9 @@ public:
         const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
         const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
     virtual ~TcpclInduct();
-    bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, std::vector<uint8_t> & dataVec, const uint32_t timeoutSeconds);
-    bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t & dataZmq, const uint32_t timeoutSeconds);
-    bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds);
+    
 private:
-    struct OpportunisticBundleQueue {
-        OpportunisticBundleQueue() {
-
-        }
-        std::size_t GetQueueSize() {
-            return m_dataToSendQueue.size();
-        }
-        void PushMove_ThreadSafe(zmq::message_t & msg) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            m_dataToSendQueue.emplace(boost::make_unique<zmq::message_t>(std::move(msg)), std::vector<uint8_t>());
-        }
-        void PushMove_ThreadSafe(std::vector<uint8_t> & msg) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            m_dataToSendQueue.emplace(std::unique_ptr<zmq::message_t>(), std::move(msg));
-        }
-        void PushMove_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            m_dataToSendQueue.push(std::move(msgPair));
-        }
-        bool TryPop_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            if (m_dataToSendQueue.empty()) {
-                return false;
-            }
-            msgPair = std::move(m_dataToSendQueue.front());
-            m_dataToSendQueue.pop();
-                
-            return true;
-        }
-        void WaitUntilNotifiedOr250MsTimeout() {
-            boost::mutex::scoped_lock lock(m_mutex);
-            m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-        }
-        void NotifyAll() {
-            m_conditionVariable.notify_all();
-        }
-        boost::mutex m_mutex;
-        boost::condition_variable m_conditionVariable;
-        std::queue<std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > > m_dataToSendQueue;
-    };
-
+    
 
     TcpclInduct();
     void StartTcpAccept();
@@ -65,11 +23,9 @@ private:
     void ConnectionReadyToBeDeletedNotificationReceived();
     void RemoveInactiveTcpConnections();
     void DisableRemoveInactiveTcpConnections();
-    bool ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, std::vector<uint8_t> * vec8Ptr, const uint32_t timeoutSeconds);
-    bool BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair);
     void OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr);
-    void BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue);
-    bool NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
 
     boost::asio::io_service m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
@@ -82,10 +38,7 @@ private:
 
     
 
-    std::map<uint64_t, OpportunisticBundleQueue> m_mapNodeIdToOpportunisticBundleQueue;
-    boost::mutex m_mapNodeIdToOpportunisticBundleQueueMutex;
-    const OnNewOpportunisticLinkCallback_t m_onNewOpportunisticLinkCallback;
-    const OnDeletedOpportunisticLinkCallback_t m_onDeletedOpportunisticLinkCallback;
+    
 };
 
 

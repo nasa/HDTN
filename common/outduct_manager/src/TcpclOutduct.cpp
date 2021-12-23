@@ -13,16 +13,16 @@ TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const
 TcpclOutduct::~TcpclOutduct() {}
 
 std::size_t TcpclOutduct::GetTotalDataSegmentsUnacked() {
-    return m_tcpclBundleSource.GetTotalDataSegmentsUnacked();
+    return m_tcpclBundleSource.Virtual_GetTotalBundlesUnacked();
 }
 bool TcpclOutduct::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return m_tcpclBundleSource.Forward(bundleData, size);
+    return m_tcpclBundleSource.BaseClass_Forward(bundleData, size);
 }
 bool TcpclOutduct::Forward(zmq::message_t & movableDataZmq) {
-    return m_tcpclBundleSource.Forward(movableDataZmq);
+    return m_tcpclBundleSource.BaseClass_Forward(movableDataZmq);
 }
 bool TcpclOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
-    return m_tcpclBundleSource.Forward(movableDataVec);
+    return m_tcpclBundleSource.BaseClass_Forward(movableDataVec);
 }
 
 void TcpclOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
@@ -40,6 +40,6 @@ void TcpclOutduct::Stop() {
 }
 void TcpclOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_convergenceLayer = m_outductConfig.convergenceLayer;
-    finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclBundleSource.GetTotalDataSegmentsAcked();
-    finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclBundleSource.GetTotalDataSegmentsSent();
+    finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclBundleSource.Virtual_GetTotalBundlesAcked();
+    finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclBundleSource.Virtual_GetTotalBundlesSent();
 }

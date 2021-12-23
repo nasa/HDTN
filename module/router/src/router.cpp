@@ -125,9 +125,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
         std::cout << "starting Router.." << std::endl;
 	
 	Router router;
-	int srcNode; 
-
-        srcNode = static_cast<int>(m_hdtnConfig.m_myNodeId); 
+	const uint64_t srcNode = m_hdtnConfig.m_myNodeId; 
 
         //std::cout << "***srcNode****" << srcNode << std::endl;
 
@@ -176,8 +174,7 @@ void Router::RouteUpdate(const boost::system::error_code& e, cbhe_eid_t nextHopE
     }
 }
 
-int Router::ComputeOptimalRoute(std::string* jsonEventFileName, 
-				int sourceNode, cbhe_eid_t finalDestEid)
+int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceNode, cbhe_eid_t finalDestEid)
 {
     m_timersFinished = false;
 
@@ -185,16 +182,15 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName,
     std::cout << "[Router] Starting CGR server" << std::endl;
     server.init("tcp://localhost:4555");
     
-    int nextHop = server.requestNextHop(sourceNode, finalDestEid.nodeId, 0);
+    const uint64_t nextHop = server.requestNextHop(sourceNode, finalDestEid.nodeId, 0);
     
-    std::cout << "[Router] CGR computed next hop: " << std::to_string(nextHop) << std::endl;
+    std::cout << "[Router] CGR computed next hop: " << nextHop << std::endl;
     
     cbhe_eid_t nextHopEid;
     nextHopEid.nodeId = nextHop; 
     nextHopEid.serviceId= 1;
     
-    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-
+    //boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
     //std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
 
     zmq::context_t ctx;

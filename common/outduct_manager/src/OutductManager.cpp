@@ -3,6 +3,7 @@
 #include <boost/make_unique.hpp>
 #include <boost/make_shared.hpp>
 #include "TcpclOutduct.h"
+#include "TcpclV4Outduct.h"
 #include "StcpOutduct.h"
 #include "UdpOutduct.h"
 #include "LtpOverUdpOutduct.h"
@@ -49,6 +50,14 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             }
             else {
                 outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex);
+            }
+        }
+        else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
+            if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+            }
+            else {
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex);
             }
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
@@ -251,8 +260,7 @@ bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vect
     return false;
 }
 
-void OutductManager::SetOutductForFinalDestinationEid(const cbhe_eid_t finalDestEid, 
-		                              boost::shared_ptr<Outduct>  outductPtr) {
+void OutductManager::SetOutductForFinalDestinationEid(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr) {
     m_finalDestEidToOutductMapMutex.lock();
     m_finalDestEidToOutductMap[finalDestEid] = outductPtr;
     m_finalDestEidToOutductMapMutex.unlock();
@@ -262,7 +270,7 @@ void OutductManager::SetOutductForFinalDestinationEid(const cbhe_eid_t finalDest
 Outduct * OutductManager::GetOutductByFinalDestinationEid(const cbhe_eid_t & finalDestEid) {
     try {
         if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-	    return outductPtr.get();
+            return outductPtr.get();
         }
     }
     catch (const std::out_of_range &) {}
@@ -272,7 +280,7 @@ Outduct * OutductManager::GetOutductByFinalDestinationEid(const cbhe_eid_t & fin
 Outduct * OutductManager::GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid) {
     try {
         if (boost::shared_ptr<Outduct> & outductPtr = m_nextHopEidToOutductMap.at(nextHopEid)) {
-                return outductPtr.get();
+            return outductPtr.get();
         }
     }
     catch (const std::out_of_range &) {}
@@ -281,7 +289,7 @@ Outduct * OutductManager::GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid) 
 
 Outduct * OutductManager::GetOutductByOutductUuid(const uint64_t uuid) {
     try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec[uuid]) {
+        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
             return outductPtr.get();
         }
     }
@@ -290,9 +298,9 @@ Outduct * OutductManager::GetOutductByOutductUuid(const uint64_t uuid) {
     return NULL;
 }
 
-boost::shared_ptr<Outduct>  OutductManager::GetOutductPtrByOutductUuid(const uint64_t uuid) {
+boost::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(const uint64_t uuid) {
     try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec[uuid]) {
+        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
             return outductPtr;
         }
     }
@@ -300,4 +308,3 @@ boost::shared_ptr<Outduct>  OutductManager::GetOutductPtrByOutductUuid(const uin
 
     return NULL;
 }
-

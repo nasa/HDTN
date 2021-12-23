@@ -13,10 +13,10 @@ TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBund
     m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
     M_MY_NODE_ID(myNodeId),
     m_allowRemoveInactiveTcpConnections(true),
-    M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes),
-    m_onNewOpportunisticLinkCallback(onNewOpportunisticLinkCallback),
-    m_onDeletedOpportunisticLinkCallback(onDeletedOpportunisticLinkCallback)
+    M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)    
 {
+    m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
+    m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
     StartTcpAccept();
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 }
@@ -52,7 +52,10 @@ void TcpclInduct::StartTcpAccept() {
 void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         std::cout << "tcpcl tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
-        m_listTcpclBundleSinks.emplace_back(newTcpSocketPtr, m_ioService,
+        m_listTcpclBundleSinks.emplace_back(
+            m_inductConfig.keepAliveIntervalSeconds,
+            newTcpSocketPtr,
+            m_ioService,
             m_inductProcessBundleCallback,
             m_inductConfig.numRxCircularBufferElements,
             m_inductConfig.numRxCircularBufferBytesPerElement,
@@ -74,12 +77,17 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
 
 void TcpclInduct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;
+    //std::map<uint64_t, OpportunisticBundleQueue> & mapNodeIdToOpportunisticBundleQueueRef = m_mapNodeIdToOpportunisticBundleQueue;
+    //boost::mutex & mapNodeIdToOpportunisticBundleQueueMutexRef = m_mapNodeIdToOpportunisticBundleQueueMutex;
     if (m_allowRemoveInactiveTcpConnections) {
-        m_listTcpclBundleSinks.remove_if([&callbackRef](TcpclBundleSink & sink) {
+        m_listTcpclBundleSinks.remove_if([&callbackRef/*, &mapNodeIdToOpportunisticBundleQueueMutexRef, &mapNodeIdToOpportunisticBundleQueueRef*/](TcpclBundleSink & sink) {
             if (sink.ReadyToBeDeleted()) {
                 if (callbackRef) {
                     callbackRef(sink.GetRemoteNodeId());
                 }
+                //mapNodeIdToOpportunisticBundleQueueMutexRef.lock();
+                //mapNodeIdToOpportunisticBundleQueueRef.erase(sink.GetRemoteNodeId());
+                //mapNodeIdToOpportunisticBundleQueueMutexRef.unlock();
                 return true;
             }
             else {
@@ -97,55 +105,17 @@ void TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived() {
     boost::asio::post(m_ioService, boost::bind(&TcpclInduct::RemoveInactiveTcpConnections, this));
 }
 
-bool TcpclInduct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, std::vector<uint8_t> & dataVec, const uint32_t timeoutSeconds) {
-    return ForwardOnOpportunisticLink(remoteNodeId, NULL, &dataVec, timeoutSeconds);
-}
-bool TcpclInduct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t & dataZmq, const uint32_t timeoutSeconds) {
-    return ForwardOnOpportunisticLink(remoteNodeId, &dataZmq, NULL, timeoutSeconds);
-}
-bool TcpclInduct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds) {
-    std::vector<uint8_t> dataVec(bundleData, bundleData + size);
-    return ForwardOnOpportunisticLink(remoteNodeId, NULL, &dataVec, timeoutSeconds);
-}
-bool TcpclInduct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::message_t * zmqMsgPtr, std::vector<uint8_t> * vec8Ptr, const uint32_t timeoutSeconds) {
-    m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
-    OpportunisticBundleQueue & opportunisticBundleQueue = m_mapNodeIdToOpportunisticBundleQueue[remoteNodeId];
-    m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
-    boost::posix_time::ptime timeoutExpiry((timeoutSeconds != 0) ?
-        boost::posix_time::special_values::not_a_date_time :
-        boost::posix_time::special_values::neg_infin); //allow zero time to fail immediately if full
-    while (opportunisticBundleQueue.GetQueueSize() > 5) { //todo
-        if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
-            timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(timeoutSeconds);
-        }
-        else if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
-            std::string msg = "notice in TcpclInduct::ForwardOnOpportunisticLink: timed out after " +
-                boost::lexical_cast<std::string>(timeoutSeconds) +
-                " seconds because it has too many pending opportunistic bundles the queue for remoteNodeId " +
-                boost::lexical_cast<std::string>(remoteNodeId);
-            return false;
-
-        }
-        opportunisticBundleQueue.WaitUntilNotifiedOr250MsTimeout();
-        //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-    }
-    if (zmqMsgPtr) {
-        opportunisticBundleQueue.PushMove_ThreadSafe(*zmqMsgPtr);
-    }
-    else {
-        opportunisticBundleQueue.PushMove_ThreadSafe(*vec8Ptr);
-    }
-    boost::asio::post(m_ioService, boost::bind(&TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread, this, remoteNodeId));
-    return true;
-}
 
 
-bool TcpclInduct::BundleSinkTryGetData_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue, std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair) {
-    return opportunisticBundleQueue.TryPop_ThreadSafe(bundleDataPair);
-}
+
+
 void TcpclInduct::OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr) {
     m_mapNodeIdToOpportunisticBundleQueueMutex.lock();
+    m_mapNodeIdToOpportunisticBundleQueue.erase(thisTcpclBundleSinkPtr->GetRemoteNodeId());
     OpportunisticBundleQueue & opportunisticBundleQueue = m_mapNodeIdToOpportunisticBundleQueue[thisTcpclBundleSinkPtr->GetRemoteNodeId()];
+    //opportunisticBundleQueue.m_bidirectionalLinkPtr = thisTcpclBundleSinkPtr;
+    opportunisticBundleQueue.m_maxTxBundlesInPipeline = thisTcpclBundleSinkPtr->Virtual_GetMaxTxBundlesInPipeline();
+    opportunisticBundleQueue.m_remoteNodeId = thisTcpclBundleSinkPtr->GetRemoteNodeId();
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
     thisTcpclBundleSinkPtr->SetTryGetOpportunisticDataFunction(boost::bind(&TcpclInduct::BundleSinkTryGetData_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue), boost::placeholders::_1));
     thisTcpclBundleSinkPtr->SetNotifyOpportunisticDataAckedCallback(boost::bind(&TcpclInduct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread, this, boost::ref(opportunisticBundleQueue)));
@@ -154,15 +124,14 @@ void TcpclInduct::OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * 
     }
 }
 
-void TcpclInduct::BundleSinkNotifyOpportunisticDataAcked_FromIoServiceThread(OpportunisticBundleQueue & opportunisticBundleQueue) {
-    opportunisticBundleQueue.NotifyAll();
-}
-
-bool TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
+void TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
     for (std::list<TcpclBundleSink>::iterator it = m_listTcpclBundleSinks.begin(); it != m_listTcpclBundleSinks.end(); ++it) {
         if (it->GetRemoteNodeId() == remoteNodeId) {
             it->TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
         }
     }
-    return false;
+}
+
+void TcpclInduct::Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId) {
+    boost::asio::post(m_ioService, boost::bind(&TcpclInduct::NotifyBundleReadyToSend_FromIoServiceThread, this, remoteNodeId));
 }
