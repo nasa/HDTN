@@ -24,8 +24,11 @@ public:
 private:
     TcpclV4Outduct();
 
-
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::asio::ssl::context m_shareableSslContext;
+#endif
     TcpclV4BundleSource m_tcpclV4BundleSource;
+
 };
 
 

@@ -47,6 +47,7 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     m_base_sinkIsSafeToDelete(false), //bundleSink
     m_base_tcpclShutdownComplete(true), //bundleSource
     m_base_useLocalConditionVariableAckReceived(false), //for bundleSource destructor only
+    m_base_doUpgradeSocketToSsl(false),
     m_base_reconnectionDelaySecondsIfNotZero(3), //bundle source only, start at 3, increases with exponential back-off mechanism
 
     m_base_myNextTransferId(0),
@@ -262,15 +263,27 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(std::vector<uint8_t
     //multiple XFER_SEGMENT messages without waiting for the corresponding
     //XFER_ACK responses.  This enables pipelining of messages on a
     //transfer stream.
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if (m_base_sslStreamSharedPtr) {
+#else
     if (m_base_tcpSocketPtr) {
+#endif
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
         el->m_underlyingData.resize(1);
         TcpclV4::GenerateAckSegment(el->m_underlyingData[0], TcpclV4::tcpclv4_ack_t(isStartFlag, isEndFlag, transferId, bytesToAck));
         el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_usingTls) {
+            m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_ThreadSafe(el);
+        }
+        else {
+            m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
+        }
+#else
         m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+#endif
     }
-
 
 }
 
@@ -325,17 +338,30 @@ void TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpir
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         //SEND KEEPALIVE PACKET
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_sslStreamSharedPtr) {
+#else
         if (m_base_tcpSocketPtr) {
+#endif
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingData.resize(1);
             TcpclV4::GenerateKeepAliveMessage(el->m_underlyingData[0]);
             el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+#ifdef OPENSSL_SUPPORT_ENABLED
+            if (m_base_usingTls) {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
+            }
+            else {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
+            }
+#else
             m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
-
+#endif
             m_base_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_base_keepAliveIntervalSeconds));
             m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
         }
+
     }
     else {
         //std::cout << "timer cancelled\n";
@@ -375,7 +401,12 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
         // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
 
         m_base_readyToForward = false;
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (doCleanShutdown && m_base_tcpAsyncSenderSslPtr && m_base_sslStreamSharedPtr) {
+#else
         if (doCleanShutdown && m_base_tcpAsyncSenderPtr && m_base_tcpSocketPtr) {
+#endif
+        
             std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending session terminination packet to cleanly close tcpcl.. " << std::endl;
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingData.resize(1);
@@ -406,7 +437,16 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
 
             el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendShutdownCallback;
+#ifdef OPENSSL_SUPPORT_ENABLED
+            if (m_base_usingTls) {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_NotThreadSafe(el); //HandleSocketShutdown runs in same thread as socket so special thread safety not needed
+            }
+            else {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //HandleSocketShutdown runs in same thread as socket so special thread safety not needed
+            }
+#else
             m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //HandleSocketShutdown runs in same thread as socket so special thread safety not needed
+#endif
 
             m_base_sendSessionTerminationMessageTimeoutTimer.expires_from_now(boost::posix_time::seconds(3));
             m_base_sendSessionTerminationMessageTimeoutTimer.async_wait(boost::bind(
@@ -468,20 +508,39 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
     //final code to shut down tcp sockets
     if (M_BASE_DELETE_SOCKET_AFTER_SHUTDOWN) { //for bundle sink
         std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Async Sender" << std::endl;
+#ifdef OPENSSL_SUPPORT_ENABLED
+        m_base_tcpAsyncSenderSslPtr.reset();
+#else
         m_base_tcpAsyncSenderPtr.reset();
+#endif
     }
+
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::asio::ip::tcp::socket & socketRef = m_base_sslStreamSharedPtr->next_layer();
+    if (m_base_sslStreamSharedPtr) {
+#else
+    boost::asio::ip::tcp::socket & socketRef = *m_base_tcpSocketPtr;
     if (m_base_tcpSocketPtr) {
-        if (m_base_tcpSocketPtr->is_open()) {
+#endif
+    
+        if (socketRef.is_open()) {
+            try {
+                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " cancelling TCP socket operations.." << std::endl;
+                socketRef.cancel();
+            }
+            catch (const boost::system::system_error & e) {
+                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what() << std::endl;
+            }
             try {
                 std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " shutting down TCP socket.." << std::endl;
-                m_base_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
+                socketRef.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
             }
             catch (const boost::system::system_error & e) {
                 std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what() << std::endl;
             }
             try {
                 std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " closing TCP socket socket.." << std::endl;
-                m_base_tcpSocketPtr->close();
+                socketRef.close();
             }
             catch (const boost::system::system_error & e) {
                 std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what() << std::endl;
@@ -489,10 +548,17 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
         }
         if (M_BASE_DELETE_SOCKET_AFTER_SHUTDOWN) { //for bundle sink
             std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Socket" << std::endl;
+#ifdef OPENSSL_SUPPORT_ENABLED
+            if (m_base_sslStreamSharedPtr.use_count() != 1) {
+                std::cerr << "error m_base_sslStreamSharedPtr.use_count() != 1" << std::endl;
+            }
+            m_base_sslStreamSharedPtr = boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >();
+#else
             if (m_base_tcpSocketPtr.use_count() != 1) {
                 std::cerr << "error m_base_tcpSocketPtr.use_count() != 1" << std::endl;
-            }
+        }
             m_base_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+#endif
         }
         else {
             //don't delete the tcp socket or async sender because the Forward function is multi-threaded without a mutex to
@@ -655,7 +721,16 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     if (elements.size()) { //is fragmented
         m_base_totalFragmentedSent += elements.size();
         for (std::size_t i = 0; i < elements.size(); ++i) {
+#ifdef OPENSSL_SUPPORT_ENABLED
+            if (m_base_usingTls) {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_ThreadSafe(elements[i]);
+            }
+            else {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(elements[i]);
+            }
+#else
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(elements[i]);
+#endif
         }
     }
     else {
@@ -682,7 +757,16 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(true, true, transferId, dataSize);
         m_base_segmentsToAckCbPtr->CommitWrite(); //pushed
 
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_usingTls) {
+            m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_ThreadSafe(el);
+        }
+        else {
+            m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
+        }
+#else
         m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+#endif
     }
     return true;
 }
@@ -748,36 +832,53 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
     if (M_BASE_TLS_IS_REQUIRED && (!m_base_usingTls)) {
         //contact failure
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_ContactHeaderCallback: tls is required by this entity." << std::endl;
-        BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE, false);
+        BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE, false); //will send shutdown with tls disabled
         return;
     }
 
     if (!M_BASE_IS_ACTIVE_ENTITY) {
-        //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header
-        //use the same keepalive interval
+        //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header (contact headers are sent without tls)
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_sslStreamSharedPtr) {
+#else
         if (m_base_tcpSocketPtr) {
+#endif
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingData.resize(1);
             TcpclV4::GenerateContactHeader(el->m_underlyingData[0], m_base_usingTls);
             el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+#ifdef OPENSSL_SUPPORT_ENABLED
+            m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
+#else
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+#endif
         }
     }
     else {
         //Since TcpclBundleSource sent the first contact header, it just got the reply back from the sink.  Now it's time to reply with a session init
         if (m_base_usingTls) {
-            std::cout << "tls unsupported at this time\n";
+            m_base_doUpgradeSocketToSsl = true;
+            std::cout << "upgrading tcp socket to tls tcp socket..\n";
         }
         else {
+#ifdef OPENSSL_SUPPORT_ENABLED
+            if (m_base_sslStreamSharedPtr) {
+#else
             if (m_base_tcpSocketPtr) {
+#endif
                 TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
                 el->m_underlyingData.resize(1);
                 TcpclV4::GenerateSessionInitMessage(el->m_underlyingData[0], M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
                     M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES, M_BASE_THIS_TCPCL_EID_STRING, TcpclV4::tcpclv4_extensions_t());
                 el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
                 el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+                
+#ifdef OPENSSL_SUPPORT_ENABLED
+                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+#else
                 m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+#endif
             }
         }
     }
@@ -887,14 +988,28 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     if (!M_BASE_IS_ACTIVE_ENTITY) {
         //Since TcpclBundleSink was waiting for a session init, it just got one.  Now it's time to reply with a session init
         //use the negotiated keepalive interval
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_sslStreamSharedPtr) {
+#else
         if (m_base_tcpSocketPtr) {
+#endif
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingData.resize(1);
             TcpclV4::GenerateSessionInitMessage(el->m_underlyingData[0], m_base_keepAliveIntervalSeconds, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
                 M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES, M_BASE_THIS_TCPCL_EID_STRING, TcpclV4::tcpclv4_extensions_t());
             el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+#ifdef OPENSSL_SUPPORT_ENABLED
+            if (m_base_usingTls) {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+            }
+            else {
+                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+            }
+#else
             m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+#endif
+            
         }
     }
 

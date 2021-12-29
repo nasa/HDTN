@@ -11,7 +11,11 @@ private:
     TcpclV4BundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclV4BundleSource(const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
+    TcpclV4BundleSource(
+#ifdef OPENSSL_SUPPORT_ENABLED
+        boost::asio::ssl::context & shareableSslContextRef,
+#endif
+        const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
         const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
 
@@ -27,8 +31,13 @@ private:
     void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
     void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void StartTcpReceive();
-    void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
+    void StartTcpReceiveUnsecure();
+    void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred);
+#ifdef OPENSSL_SUPPORT_ENABLED
+    void StartTcpReceiveSecure();
+    void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred);
+    void HandleSslHandshake(const boost::system::error_code & error);
+#endif
     void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
 
@@ -38,7 +47,9 @@ private:
 
     
     
-    
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::asio::ssl::context & m_shareableSslContextRef;
+#endif
     boost::asio::io_service::work m_work;
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::deadline_timer m_reconnectAfterShutdownTimer;

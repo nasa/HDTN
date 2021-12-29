@@ -10,6 +10,12 @@
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
+#ifdef OPENSSL_SUPPORT_ENABLED
+#include <boost/asio/ssl.hpp>
+
+//generate a key with:
+//c:\hdtn_ssl_certificates>C:\openssl-1.1.1e_msvc2017\bin\openssl.exe req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config C:\Users\btomko\Downloads\openssl-1.1.1e\apps\openssl.cnf
+#endif
 
 class TcpclV4BidirectionalLink : public BidirectionalLink {
 public:
@@ -116,6 +122,7 @@ protected:
     volatile bool m_base_sinkIsSafeToDelete; //bundleSink
     volatile bool m_base_tcpclShutdownComplete; //bundleSource
     volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
+    bool m_base_doUpgradeSocketToSsl;
     boost::condition_variable m_base_localConditionVariableAckReceived;
     uint64_t m_base_reconnectionDelaySecondsIfNotZero; //bundle source only, increases with exponential back-off mechanism
 
@@ -123,8 +130,13 @@ protected:
     uint64_t m_base_myNextTransferId;
     std::string m_base_tcpclRemoteEidString;
     uint64_t m_base_tcpclRemoteNodeId;
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > m_base_sslStreamSharedPtr;
+    std::unique_ptr<TcpAsyncSenderSsl> m_base_tcpAsyncSenderSslPtr;
+#else
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
     std::unique_ptr<TcpAsyncSender> m_base_tcpAsyncSenderPtr;
+#endif
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;
     std::vector<uint8_t> m_base_fragmentedBundleRxConcat;

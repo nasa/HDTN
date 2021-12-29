@@ -7,9 +7,28 @@
 TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
-    m_tcpclV4BundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
+
+#ifdef OPENSSL_SUPPORT_ENABLED
+    m_shareableSslContext(boost::asio::ssl::context::sslv23),
+    m_tcpclV4BundleSource(m_shareableSslContext,
+#else
+    m_tcpclV4BundleSource(
+#endif
+    outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
         outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclAutoFragmentSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
-{}
+{
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if (false){//M_BASE_TRY_USE_TLS) {
+        try {
+            m_shareableSslContext.load_verify_file("C:/hdtn_ssl_certificates/cert.pem");
+        }
+        catch (boost::system::system_error & e) {
+            std::cout << "error in TcpclV4Outduct constructor: " << e.what() << std::endl;
+            return;
+        }
+    }
+#endif
+}
 TcpclV4Outduct::~TcpclV4Outduct() {}
 
 std::size_t TcpclV4Outduct::GetTotalDataSegmentsUnacked() {
