@@ -26,7 +26,7 @@ TcpclV4BundleSource::TcpclV4BundleSource(
         100000000, //todo 100MB maxBundleSizeBytes for receive
         myNodeId,
         expectedRemoteEidUri,
-        false, //tryUseTls
+        true, //tryUseTls
         false //tlsIsRequired
     ),
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -132,18 +132,7 @@ void TcpclV4BundleSource::OnConnect(const boost::system::error_code & ec) {
     if (m_base_tcpSocketPtr) {
         m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_base_ioServiceRef);
 #endif
-
-        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-        el->m_underlyingData.resize(1);
-        TcpclV4::GenerateContactHeader(el->m_underlyingData[0], M_BASE_TRY_USE_TLS);
-        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
-        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-        //(contact headers are sent without tls)
-#ifdef OPENSSL_SUPPORT_ENABLED
-        m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
-#else
-        m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
-#endif
+        BaseClass_SendContactHeader(); //(contact headers are sent without tls)
         StartTcpReceiveUnsecure();
     }
 }
@@ -192,6 +181,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure(const boost::system::erro
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
             m_base_doUpgradeSocketToSsl = false;
+            std::cout << "source calling client handshake\n";
             m_base_sslStreamSharedPtr->async_handshake(boost::asio::ssl::stream_base::client,
                 boost::bind(&TcpclV4BundleSource::HandleSslHandshake, this, boost::asio::placeholders::error));
         }
@@ -221,7 +211,6 @@ void TcpclV4BundleSource::StartTcpReceiveSecure() {
 void TcpclV4BundleSource::HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
         //std::cout << "received " << bytesTransferred << "\n";
-
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
@@ -241,6 +230,7 @@ void TcpclV4BundleSource::HandleSslHandshake(const boost::system::error_code & e
     if (!error) {
         std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
         StartTcpReceiveSecure();
+        BaseClass_SendSessionInit(); //I am the active entity and will send a session init first
     }
     else {
         std::cout << "SSL/TLS Handshake failed: " << error.message() << "\n";

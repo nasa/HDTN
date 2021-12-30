@@ -87,6 +87,7 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     
 
     m_base_handleTcpSendCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+    m_base_handleTcpSendContactHeaderCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
 
 
@@ -175,6 +176,17 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
     }
 }
 
+void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred) {
+    if (error) {
+        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendContactHeader: " << error.message() << std::endl;
+        BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
+    }
+    else {
+        std::cout << "contact header sent\n";
+        Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
+    }
+}
+
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendShutdown: " << error.message() << std::endl;
@@ -185,6 +197,7 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::syst
 }
 
 void TcpclV4BidirectionalLink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {}
+void TcpclV4BidirectionalLink::Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() {}
 
 void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
     uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions)
@@ -793,7 +806,7 @@ void TcpclV4BidirectionalLink::BaseClass_BundleRefusalCallback(TCPCLV4_TRANSFER_
 
 void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEnabledTlsSecurity) {
     //We are the active entity
-
+    std::cout << "rx contact header\n";
     //The first negotiation is on the TCPCL protocol version to use.  The
     //active entity always sends its Contact Header first and waits for a
     //response from the passive entity.  During contact initiation, the
@@ -836,57 +849,74 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
         return;
     }
 
+    m_base_doUpgradeSocketToSsl = m_base_usingTls;
     if (!M_BASE_IS_ACTIVE_ENTITY) {
         //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header (contact headers are sent without tls)
-#ifdef OPENSSL_SUPPORT_ENABLED
-        if (m_base_sslStreamSharedPtr) {
-#else
-        if (m_base_tcpSocketPtr) {
-#endif
-            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
-            TcpclV4::GenerateContactHeader(el->m_underlyingData[0], m_base_usingTls);
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
-            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-#ifdef OPENSSL_SUPPORT_ENABLED
-            m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
-#else
-            m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
-#endif
-        }
+        std::cout << "sink send contact header\n";
+        BaseClass_SendContactHeader();
     }
     else {
         //Since TcpclBundleSource sent the first contact header, it just got the reply back from the sink.  Now it's time to reply with a session init
+        std::cout << "bundle source send session init\n";
         if (m_base_usingTls) {
-            m_base_doUpgradeSocketToSsl = true;
+            std::cout << "using tls\n";
             std::cout << "upgrading tcp socket to tls tcp socket..\n";
         }
         else {
-#ifdef OPENSSL_SUPPORT_ENABLED
-            if (m_base_sslStreamSharedPtr) {
-#else
-            if (m_base_tcpSocketPtr) {
-#endif
-                TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-                el->m_underlyingData.resize(1);
-                TcpclV4::GenerateSessionInitMessage(el->m_underlyingData[0], M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
-                    M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES, M_BASE_THIS_TCPCL_EID_STRING, TcpclV4::tcpclv4_extensions_t());
-                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
-                el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-                
-#ifdef OPENSSL_SUPPORT_ENABLED
-                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
-#else
-                m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
-#endif
-            }
+            BaseClass_SendSessionInit();
         }
+    }
+}
+
+void TcpclV4BidirectionalLink::BaseClass_SendSessionInit() {
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if (m_base_sslStreamSharedPtr) {
+#else
+    if (m_base_tcpSocketPtr) {
+#endif
+        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingData.resize(1);
+        TcpclV4::GenerateSessionInitMessage(el->m_underlyingData[0], M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
+            M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES, M_BASE_THIS_TCPCL_EID_STRING, TcpclV4::tcpclv4_extensions_t());
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_usingTls) {
+            m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+        }
+        else {
+            m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+        }
+#else
+        m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
+#endif
+    }
+}
+
+void TcpclV4BidirectionalLink::BaseClass_SendContactHeader() {
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if (m_base_sslStreamSharedPtr) {
+#else
+    if (m_base_tcpSocketPtr) {
+#endif
+        TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingData.resize(1);
+        TcpclV4::GenerateContactHeader(el->m_underlyingData[0], M_BASE_TRY_USE_TLS);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendContactHeaderCallback;
+#ifdef OPENSSL_SUPPORT_ENABLED
+        m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
+#else
+        m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
+#endif
     }
 }
 
 void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
     const std::string & remoteNodeEidUri, const TcpclV4::tcpclv4_extensions_t & sessionExtensions)
 {
+    std::cout << "rx session init\n";
     uint64_t remoteNodeId = UINT64_MAX;
     uint64_t remoteServiceId = UINT64_MAX;
     if (!Uri::ParseIpnUriString(remoteNodeEidUri, remoteNodeId, remoteServiceId)) {
@@ -988,29 +1018,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     if (!M_BASE_IS_ACTIVE_ENTITY) {
         //Since TcpclBundleSink was waiting for a session init, it just got one.  Now it's time to reply with a session init
         //use the negotiated keepalive interval
-#ifdef OPENSSL_SUPPORT_ENABLED
-        if (m_base_sslStreamSharedPtr) {
-#else
-        if (m_base_tcpSocketPtr) {
-#endif
-            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
-            TcpclV4::GenerateSessionInitMessage(el->m_underlyingData[0], m_base_keepAliveIntervalSeconds, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
-                M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES, M_BASE_THIS_TCPCL_EID_STRING, TcpclV4::tcpclv4_extensions_t());
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
-            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-#ifdef OPENSSL_SUPPORT_ENABLED
-            if (m_base_usingTls) {
-                m_base_tcpAsyncSenderSslPtr->AsyncSendSecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
-            }
-            else {
-                m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
-            }
-#else
-            m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
-#endif
-            
-        }
+        BaseClass_SendSessionInit();
     }
 
     if (m_base_keepAliveIntervalSeconds) { //non-zero
@@ -1030,7 +1038,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     }
 
     m_base_readyToForward = true;
-    Virtual_OnContactHeaderCompletedSuccessfully();
+    Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 }
 
-void TcpclV4BidirectionalLink::Virtual_OnContactHeaderCompletedSuccessfully() {}
+void TcpclV4BidirectionalLink::Virtual_OnSessionInitReceivedAndProcessedSuccessfully() {}

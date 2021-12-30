@@ -9,7 +9,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
     Outduct(outductConfig, outductUuid),
 
 #ifdef OPENSSL_SUPPORT_ENABLED
-    m_shareableSslContext(boost::asio::ssl::context::sslv23),
+    m_shareableSslContext(boost::asio::ssl::context::tlsv12_client),
     m_tcpclV4BundleSource(m_shareableSslContext,
 #else
     m_tcpclV4BundleSource(
@@ -18,14 +18,17 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
         outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclAutoFragmentSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
-    if (false){//M_BASE_TRY_USE_TLS) {
+    if (true){//M_BASE_TRY_USE_TLS) {
         try {
             m_shareableSslContext.load_verify_file("C:/hdtn_ssl_certificates/cert.pem");
+            m_shareableSslContext.set_verify_mode(boost::asio::ssl::verify_peer);
         }
         catch (boost::system::system_error & e) {
             std::cout << "error in TcpclV4Outduct constructor: " << e.what() << std::endl;
             return;
         }
+        m_shareableSslContext.set_verify_callback(
+            boost::bind(&TcpclV4Outduct::VerifyCertificate, this, boost::placeholders::_1, boost::placeholders::_2));
     }
 #endif
 }
@@ -62,3 +65,24 @@ void TcpclV4Outduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_tcpclV4BundleSource.Virtual_GetTotalBundlesAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_tcpclV4BundleSource.Virtual_GetTotalBundlesSent();
 }
+
+
+#ifdef OPENSSL_SUPPORT_ENABLED
+bool TcpclV4Outduct::VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx) {
+    // The verify callback can be used to check whether the certificate that is
+    // being presented is valid for the peer. For example, RFC 2818 describes
+    // the steps involved in doing this for HTTPS. Consult the OpenSSL
+    // documentation for more details. Note that the callback is called once
+    // for each certificate in the certificate chain, starting from the root
+    // certificate authority.
+
+    // In this example we will simply print the certificate's subject name.
+    char subject_name[256];
+    X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+    X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+    std::cout << "Verifying " << subject_name << "  preverified=" << preverified << "\n";
+
+    //return preverified;
+    return true;
+}
+#endif

@@ -10,7 +10,7 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
     const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback) :
     Induct(inductProcessBundleCallback, inductConfig),
 #ifdef OPENSSL_SUPPORT_ENABLED
-    m_shareableSslContext(boost::asio::ssl::context::sslv23),
+    m_shareableSslContext(boost::asio::ssl::context::tlsv12_server),
 #endif
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
     m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
@@ -19,16 +19,18 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)    
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
-    if (false) { //(M_BASE_TRY_USE_TLS) {
+    if (true) { //(M_BASE_TRY_USE_TLS) {
         try {
             m_shareableSslContext.set_options(
                 boost::asio::ssl::context::default_workarounds
                 | boost::asio::ssl::context::no_sslv2
+                | boost::asio::ssl::context::no_sslv3
                 | boost::asio::ssl::context::single_dh_use);
             //m_shareableSslContext.set_password_callback(boost::bind(&server::get_password, this));
             //m_shareableSslContext.use_certificate_chain_file("server.pem");
+            m_shareableSslContext.use_certificate_file("C:/hdtn_ssl_certificates/cert.pem", boost::asio::ssl::context::pem);
             m_shareableSslContext.use_private_key_file("C:/hdtn_ssl_certificates/privatekey.pem", boost::asio::ssl::context::pem);
-            //m_shareableSslContext.use_tmp_dh_file("dh4096.pem");
+            m_shareableSslContext.use_tmp_dh_file("C:/hdtn_ssl_certificates/dh4096.pem");
         }
         catch (boost::system::system_error & e) {
             std::cout << "error in TcpclV4Induct constructor: " << e.what() << std::endl;

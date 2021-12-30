@@ -37,7 +37,7 @@ TcpclV4BundleSink::TcpclV4BundleSink(
         maxBundleSizeBytes,
         myNodeId,
         "", //expectedRemoteEidUri empty => don't check remote connections to this sink (allow all ipn's)
-        false, //tryUseTls
+        true, //tryUseTls
         false //tlsIsRequired
     ),
     
@@ -113,6 +113,7 @@ void TcpclV4BundleSink::HandleSslHandshake(const boost::system::error_code & err
         std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
         m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceiveSecure
         TryStartTcpReceiveSecure();
+        //BaseClass_SendSessionInit(); I am the passive entity and will send (from within my session init rx callback) a session init when i first receive a session init from the active entity (from bundle source)
     }
     else {
         std::cout << "SSL/TLS Handshake failed: " << error.message() << "\n";
@@ -223,9 +224,10 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
         m_circularIndexBuffer.CommitRead();
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
+            std::cout << "sink going to call handshake\n";
             m_base_doUpgradeSocketToSsl = false;
             tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveSecure, this);
-            boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclV4BundleSink::DoSslUpgrade, this)); //keep this a thread safe operation by letting ioService thread run it
+            //boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclV4BundleSink::DoSslUpgrade, this)); //keep this a thread safe operation by letting ioService thread run it
         }
 #endif
     }
@@ -237,8 +239,14 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
 void TcpclV4BundleSink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {
     ////TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
 }
+void TcpclV4BundleSink::Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() {
+    std::cout << "sink virtual contact header sent\n";
+    if (m_base_usingTls) {
+        DoSslUpgrade();
+    }
+}
 
-void TcpclV4BundleSink::Virtual_OnContactHeaderCompletedSuccessfully() {
+void TcpclV4BundleSink::Virtual_OnSessionInitReceivedAndProcessedSuccessfully() {
     if (m_onContactHeaderCallback) {
         m_onContactHeaderCallback(this);
     }

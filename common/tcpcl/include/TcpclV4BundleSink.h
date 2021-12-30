@@ -57,7 +57,8 @@ private:
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
     virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec);
     virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnContactHeaderCompletedSuccessfully();
+    virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
+    virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 
     
 
