@@ -10,6 +10,8 @@
 #include "EgressAsync.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
+#include "WebsocketServer.h"
+
 
 #include <fstream>
 #include <iostream>
@@ -123,6 +125,28 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
+
+        const std::string DOCUMENT_ROOT = "../../gui/";
+        const std::string HTML_FILE_NAME = "web_gui.html";
+        const std::string PORT_NUMBER_AS_STRING = "8086";
+
+        const boost::filesystem::path htmlMainFilePath = boost::filesystem::path(DOCUMENT_ROOT) / boost::filesystem::path(HTML_FILE_NAME);
+        if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
+            std::cout << "found " << htmlMainFilePath.string() << std::endl;
+        }
+        else {
+            std::cout << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml" << std::endl;
+            return 1;
+        }
+
+
+        std::cout << "starting websocket server\n";
+        WebsocketServer server(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING);
+
+        while (running && !server.RequestsExit()) {
+            boost::this_thread::sleep(boost::posix_time::seconds(1));
+        }
+
         std::cout << "ingress, egress, and storage up and running" << std::endl;
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::milliseconds(250));
