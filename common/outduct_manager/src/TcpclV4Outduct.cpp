@@ -11,7 +11,14 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
     Outduct(outductConfig, outductUuid),
 
 #ifdef OPENSSL_SUPPORT_ENABLED
+
+ //tls version 1.3 requires boost 1.69 beta 1 or greater
+#if (BOOST_VERSION >= 106900)
     m_shareableSslContext((outductConfig.useTlsVersion1_3) ? boost::asio::ssl::context::tlsv13_client : boost::asio::ssl::context::tlsv12_client),
+#else
+    m_shareableSslContext(boost::asio::ssl::context::tlsv12_client),
+#endif
+
     m_tcpclV4BundleSource(m_shareableSslContext,
 #else
     m_tcpclV4BundleSource(
@@ -22,6 +29,11 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     if (outductConfig.tryUseTls) {
+#if (BOOST_VERSION < 106900)
+        if (outductConfig.useTlsVersion1_3) {
+            std::cout << "warning: TLS Version 1.3 was specified but that requires compiling with boost version 1.69.0-beta1 or greater.. using TLS Version 1.2 instead.\n";
+        }
+#endif
         try {
             m_shareableSslContext.load_verify_file(outductConfig.certificationAuthorityPemFileForVerification);//"C:/hdtn_ssl_certificates/cert.pem");
             m_shareableSslContext.set_verify_mode(boost::asio::ssl::verify_peer);
