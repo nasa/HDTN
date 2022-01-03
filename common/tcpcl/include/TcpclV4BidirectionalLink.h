@@ -13,8 +13,12 @@
 #ifdef OPENSSL_SUPPORT_ENABLED
 #include <boost/asio/ssl.hpp>
 
-//generate a key with:
-//C:\openssl-1.1.1e_msvc2017\bin\openssl.exe req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config C:\Users\btomko\Downloads\openssl-1.1.1e\apps\openssl.cnf
+//generate an x509 version 3 key with an IPN URI subjectAltName:
+//C:\openssl-1.1.1e_msvc2017\bin\openssl.exe req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config C:\Users\btomko\Downloads\openssl-1.1.1e\apps\openssl.cnf
+
+//generate the dh file:
+//C:\openssl-1.1.1e_msvc2017\bin\openssl.exe dhparam -outform PEM -out dh4096.pem 4096
+
 #endif
 
 class TcpclV4BidirectionalLink : public BidirectionalLink {
@@ -127,6 +131,7 @@ protected:
     volatile bool m_base_tcpclShutdownComplete; //bundleSource
     volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
     bool m_base_doUpgradeSocketToSsl;
+    bool m_base_didSuccessfulSslHandshake;
     boost::condition_variable m_base_localConditionVariableAckReceived;
     uint64_t m_base_reconnectionDelaySecondsIfNotZero; //bundle source only, increases with exponential back-off mechanism
 

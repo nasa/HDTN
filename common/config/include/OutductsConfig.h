@@ -40,9 +40,17 @@ struct outduct_element_config_t {
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
 
-    //specific to tcpcl
+    //specific to tcpcl all versions
     uint64_t tcpclAutoFragmentSizeBytes;
     bool tcpclAllowOpportunisticReceiveBundles;
+
+    //specific to tcpcl version 4 (clients)
+    bool tryUseTls;
+    bool tlsIsRequired;
+    bool useTlsVersion1_3;
+    bool doX509CertificateVerification;
+    bool verifySubjectAltNameInX509Certificate;
+    std::string certificationAuthorityPemFileForVerification;
 
     outduct_element_config_t();
     ~outduct_element_config_t();

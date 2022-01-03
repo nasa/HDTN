@@ -11,6 +11,8 @@ TcpclV4BundleSink::TcpclV4BundleSink(
 #else
     boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
 #endif
+    const bool tlsSuccessfullyConfigured,
+    const bool tlsIsRequired,
     const uint16_t desiredKeepAliveIntervalSeconds, //new
     boost::asio::io_service & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
@@ -37,8 +39,8 @@ TcpclV4BundleSink::TcpclV4BundleSink(
         maxBundleSizeBytes,
         myNodeId,
         "", //expectedRemoteEidUri empty => don't check remote connections to this sink (allow all ipn's)
-        true, //tryUseTls
-        false //tlsIsRequired
+        tlsSuccessfullyConfigured, //tryUseTls
+        tlsIsRequired //tlsIsRequired
     ),
     
 
@@ -111,6 +113,7 @@ void TcpclV4BundleSink::DoSslUpgrade() { //must run within Io Service Thread
 void TcpclV4BundleSink::HandleSslHandshake(const boost::system::error_code & error) {
     if (!error) {
         std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
+        m_base_didSuccessfulSslHandshake = true;
         m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceiveSecure
         TryStartTcpReceiveSecure();
         //BaseClass_SendSessionInit(); I am the passive entity and will send (from within my session init rx callback) a session init when i first receive a session init from the active entity (from bundle source)

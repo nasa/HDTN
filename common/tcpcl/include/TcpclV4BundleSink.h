@@ -19,6 +19,8 @@ public:
 #else
         boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
 #endif
+        const bool tlsSuccessfullyConfigured,
+        const bool tlsIsRequired,
         const uint16_t desiredKeepAliveIntervalSeconds,
         boost::asio::io_service & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,

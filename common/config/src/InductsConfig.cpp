@@ -31,7 +31,13 @@ induct_element_config_t::induct_element_config_t() :
     ltpRemoteUdpHostname(""),
     ltpRemoteUdpPort(0),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
-    keepAliveIntervalSeconds(0) {}
+    keepAliveIntervalSeconds(0),
+
+    tlsIsRequired(false),
+    certificatePemFile(""),
+    privateKeyPemFile(""),
+    diffieHellmanParametersPemFile("") {}
+
 induct_element_config_t::~induct_element_config_t() {}
 
 
@@ -55,7 +61,12 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     ltpRemoteUdpHostname(o.ltpRemoteUdpHostname),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
-    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
+    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
+
+    tlsIsRequired(o.tlsIsRequired),
+    certificatePemFile(o.certificatePemFile),
+    privateKeyPemFile(o.privateKeyPemFile),
+    diffieHellmanParametersPemFile(o.diffieHellmanParametersPemFile) { }
 
 //a move constructor: X(X&&)
 induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
@@ -77,7 +88,12 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     ltpRemoteUdpHostname(std::move(o.ltpRemoteUdpHostname)),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
-    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds) { }
+    keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
+
+    tlsIsRequired(o.tlsIsRequired),
+    certificatePemFile(std::move(o.certificatePemFile)),
+    privateKeyPemFile(std::move(o.privateKeyPemFile)),
+    diffieHellmanParametersPemFile(std::move(o.diffieHellmanParametersPemFile)) { }
 
 //a copy assignment: operator=(const X&)
 induct_element_config_t& induct_element_config_t::operator=(const induct_element_config_t& o) {
@@ -100,6 +116,11 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
+
+    tlsIsRequired = o.tlsIsRequired;
+    certificatePemFile = o.certificatePemFile;
+    privateKeyPemFile = o.privateKeyPemFile;
+    diffieHellmanParametersPemFile = o.diffieHellmanParametersPemFile;
     return *this;
 }
 
@@ -124,6 +145,11 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
+
+    tlsIsRequired = o.tlsIsRequired;
+    certificatePemFile = std::move(o.certificatePemFile);
+    privateKeyPemFile = std::move(o.privateKeyPemFile);
+    diffieHellmanParametersPemFile = std::move(o.diffieHellmanParametersPemFile);
     return *this;
 }
 
@@ -146,7 +172,12 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (ltpRemoteUdpHostname == o.ltpRemoteUdpHostname) &&
         (ltpRemoteUdpPort == o.ltpRemoteUdpPort) &&
         (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
-        (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds);
+        (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
+        
+        (tlsIsRequired == o.tlsIsRequired) &&
+        (certificatePemFile == o.certificatePemFile) &&
+        (privateKeyPemFile == o.privateKeyPemFile) &&
+        (diffieHellmanParametersPemFile == o.diffieHellmanParametersPemFile);
 }
 
 InductsConfig::InductsConfig() {
@@ -265,6 +296,26 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     << " has an stcp or tcpcl induct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
                 return false;
             }
+
+            if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
+                inductElementConfig.tlsIsRequired = inductElementConfigPt.second.get<bool>("tlsIsRequired");
+                inductElementConfig.certificatePemFile = inductElementConfigPt.second.get<std::string>("certificatePemFile");
+                inductElementConfig.privateKeyPemFile = inductElementConfigPt.second.get<std::string>("privateKeyPemFile");
+                inductElementConfig.diffieHellmanParametersPemFile = inductElementConfigPt.second.get<std::string>("diffieHellmanParametersPemFile");
+            }
+            else {
+                static const std::vector<std::string> VALID_TCPCL_V4_INDUCT_PARAMETERS = {
+                    "tlsIsRequired", "certificatePemFile",
+                    "privateKeyPemFile", "diffieHellmanParametersPemFile" };
+
+                for (std::vector<std::string>::const_iterator it = VALID_TCPCL_V4_INDUCT_PARAMETERS.cbegin(); it != VALID_TCPCL_V4_INDUCT_PARAMETERS.cend(); ++it) {
+                    if (inductElementConfigPt.second.count(*it) != 0) {
+                        std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                            << " has a tcpcl_v4 induct only configuration parameter of \"" << (*it) << "\".. please remove" << std::endl;
+                        return false;
+                    }
+                }
+            }
         }
         catch (const boost::property_tree::ptree_error & e) {
             std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: " << e.what() << std::endl;
@@ -339,6 +390,12 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);
+        }
+        if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
+            inductElementConfigPt.put("tlsIsRequired", inductElementConfig.tlsIsRequired);
+            inductElementConfigPt.put("certificatePemFile", inductElementConfig.certificatePemFile);
+            inductElementConfigPt.put("privateKeyPemFile", inductElementConfig.privateKeyPemFile);
+            inductElementConfigPt.put("diffieHellmanParametersPemFile", inductElementConfig.diffieHellmanParametersPemFile);
         }
     }
 

@@ -48,6 +48,7 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     m_base_tcpclShutdownComplete(true), //bundleSource
     m_base_useLocalConditionVariableAckReceived(false), //for bundleSource destructor only
     m_base_doUpgradeSocketToSsl(false),
+    m_base_didSuccessfulSslHandshake(false),
     m_base_reconnectionDelaySecondsIfNotZero(3), //bundle source only, start at 3, increases with exponential back-off mechanism
 
     m_base_myNextTransferId(0),
@@ -917,6 +918,15 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     const std::string & remoteNodeEidUri, const TcpclV4::tcpclv4_extensions_t & sessionExtensions)
 {
     std::cout << "rx session init\n";
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if (m_base_didSuccessfulSslHandshake) {
+        const std::string sslVersionString(SSL_get_version(m_base_sslStreamSharedPtr->native_handle()));
+        std::cout << "tcpclv4 using secure protocol: " << sslVersionString << std::endl;
+    }
+    else {
+        std::cout << "notice: TLS is disabled\n";
+    }
+#endif
     uint64_t remoteNodeId = UINT64_MAX;
     uint64_t remoteServiceId = UINT64_MAX;
     if (!Uri::ParseIpnUriString(remoteNodeEidUri, remoteNodeId, remoteServiceId)) {

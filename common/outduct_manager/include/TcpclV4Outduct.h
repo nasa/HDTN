@@ -26,7 +26,7 @@ private:
 
 #ifdef OPENSSL_SUPPORT_ENABLED
     boost::asio::ssl::context m_shareableSslContext;
-    bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx);
+    bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx, const std::string & nextHopEndpointIdStrWithServiceIdZero, bool doVerifyNextHopEndpointIdStr, bool doX509CertificateVerification);
 #endif
     TcpclV4BundleSource m_tcpclV4BundleSource;
 

@@ -54,6 +54,26 @@
         },
         {
             "name": "o4",
+            "convergenceLayer": "tcpcl_v4",
+            "nextHopEndpointId": "ipn:1.1",
+            "remoteHostname": "localhost",
+            "remotePort": 4560,
+            "bundlePipelineLimit": 50,
+            "finalDestinationEidUris": [
+                "ipn:3.1"
+            ],
+            "keepAliveIntervalSeconds": 17,
+            "tcpclAutoFragmentSizeBytes": 200000,
+            "tcpclAllowOpportunisticReceiveBundles": true,
+            "tryUseTls": false,
+            "tlsIsRequired": false,
+            "useTlsVersion1_3": false,
+            "doX509CertificateVerification": false,
+            "verifySubjectAltNameInX509Certificate": false,
+            "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert.pem"
+        },
+        {
+            "name": "o4",
             "convergenceLayer": "stcp",
             "nextHopEndpointId": "ipn:53.1",
             "remoteHostname": "localhost",

@@ -52,12 +52,12 @@
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true,
-                "tryUseTls": false,
-                "tlsIsRequired": false,
-                "useTlsVersion1_3": false,
-                "doX509CertificateVerification": false,
-                "verifySubjectAltNameInX509Certificate": false,
-                "certificationAuthorityPemFileForVerification": ""
+                "tryUseTls": true,
+                "tlsIsRequired": true,
+                "useTlsVersion1_3": true,
+                "doX509CertificateVerification": true,
+                "verifySubjectAltNameInX509Certificate": true,
+                "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert_ipn1.0.pem"
             },
             {
                 "name": "tcpcl_egress2",
@@ -72,12 +72,12 @@
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true,
-                "tryUseTls": false,
-                "tlsIsRequired": false,
-                "useTlsVersion1_3": false,
-                "doX509CertificateVerification": false,
-                "verifySubjectAltNameInX509Certificate": false,
-                "certificationAuthorityPemFileForVerification": ""
+                "tryUseTls": true,
+                "tlsIsRequired": true,
+                "useTlsVersion1_3": true,
+                "doX509CertificateVerification": true,
+                "verifySubjectAltNameInX509Certificate": true,
+                "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert_ipn2.0.pem"
             }
         ]
     },

@@ -41,7 +41,7 @@ private:
     const uint64_t M_MY_NODE_ID;
     volatile bool m_allowRemoveInactiveTcpConnections;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
-
+    bool m_tlsSuccessfullyConfigured;
 };
 
 

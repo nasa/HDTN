@@ -40,7 +40,11 @@
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
-                "keepAliveIntervalSeconds": 15
+                "keepAliveIntervalSeconds": 15,
+                "tlsIsRequired": false,
+                "certificatePemFile": "",
+                "privateKeyPemFile": "",
+                "diffieHellmanParametersPemFile": ""
             }
         ]
     },
@@ -60,7 +64,13 @@
                 ],
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
+                "tcpclAllowOpportunisticReceiveBundles": true,
+                "tryUseTls": false,
+                "tlsIsRequired": false,
+                "useTlsVersion1_3": false,
+                "doX509CertificateVerification": false,
+                "verifySubjectAltNameInX509Certificate": false,
+                "certificationAuthorityPemFileForVerification": ""
             }
         ]
     },

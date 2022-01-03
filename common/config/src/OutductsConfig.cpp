@@ -39,7 +39,15 @@ outduct_element_config_t::outduct_element_config_t() :
 
     keepAliveIntervalSeconds(0),
     tcpclAutoFragmentSizeBytes(0),
-    tcpclAllowOpportunisticReceiveBundles(true) {}
+    tcpclAllowOpportunisticReceiveBundles(true),
+
+    tryUseTls(false),
+    tlsIsRequired(false),
+    useTlsVersion1_3(false),
+    doX509CertificateVerification(false),
+    verifySubjectAltNameInX509Certificate(false),
+    certificationAuthorityPemFileForVerification("") {}
+
 outduct_element_config_t::~outduct_element_config_t() {}
 
 
@@ -69,7 +77,14 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes),
-    tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles) { }
+    tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
+
+    tryUseTls(o.tryUseTls),
+    tlsIsRequired(o.tlsIsRequired),
+    useTlsVersion1_3(o.useTlsVersion1_3),
+    doX509CertificateVerification(o.doX509CertificateVerification),
+    verifySubjectAltNameInX509Certificate(o.verifySubjectAltNameInX509Certificate),
+    certificationAuthorityPemFileForVerification(o.certificationAuthorityPemFileForVerification) { }
 
 //a move constructor: X(X&&)
 outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
@@ -97,7 +112,14 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
     tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes),
-    tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles) { }
+    tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
+
+    tryUseTls(o.tryUseTls),
+    tlsIsRequired(o.tlsIsRequired),
+    useTlsVersion1_3(o.useTlsVersion1_3),
+    doX509CertificateVerification(o.doX509CertificateVerification),
+    verifySubjectAltNameInX509Certificate(o.verifySubjectAltNameInX509Certificate),
+    certificationAuthorityPemFileForVerification(std::move(o.certificationAuthorityPemFileForVerification)) { }
 
 //a copy assignment: operator=(const X&)
 outduct_element_config_t& outduct_element_config_t::operator=(const outduct_element_config_t& o) {
@@ -127,6 +149,13 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
 
     tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
     tcpclAllowOpportunisticReceiveBundles = o.tcpclAllowOpportunisticReceiveBundles;
+
+    tryUseTls = o.tryUseTls;
+    tlsIsRequired = o.tlsIsRequired;
+    useTlsVersion1_3 = o.useTlsVersion1_3;
+    doX509CertificateVerification = o.doX509CertificateVerification;
+    verifySubjectAltNameInX509Certificate = o.verifySubjectAltNameInX509Certificate;
+    certificationAuthorityPemFileForVerification = o.certificationAuthorityPemFileForVerification;
     return *this;
 }
 
@@ -158,6 +187,13 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
 
     tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
     tcpclAllowOpportunisticReceiveBundles = o.tcpclAllowOpportunisticReceiveBundles;
+
+    tryUseTls = o.tryUseTls;
+    tlsIsRequired = o.tlsIsRequired;
+    useTlsVersion1_3 = o.useTlsVersion1_3;
+    doX509CertificateVerification = o.doX509CertificateVerification;
+    verifySubjectAltNameInX509Certificate = o.verifySubjectAltNameInX509Certificate;
+    certificationAuthorityPemFileForVerification = std::move(o.certificationAuthorityPemFileForVerification);
     return *this;
 }
 
@@ -187,7 +223,14 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
         (tcpclAutoFragmentSizeBytes == o.tcpclAutoFragmentSizeBytes) &&
-        (tcpclAllowOpportunisticReceiveBundles == o.tcpclAllowOpportunisticReceiveBundles);
+        (tcpclAllowOpportunisticReceiveBundles == o.tcpclAllowOpportunisticReceiveBundles) &&
+        
+        (tryUseTls == o.tryUseTls) &&
+        (tlsIsRequired == o.tlsIsRequired) &&
+        (useTlsVersion1_3 == o.useTlsVersion1_3) &&
+        (doX509CertificateVerification == o.doX509CertificateVerification) &&
+        (verifySubjectAltNameInX509Certificate == o.verifySubjectAltNameInX509Certificate) &&
+        (certificationAuthorityPemFileForVerification == o.certificationAuthorityPemFileForVerification);
 }
 
 OutductsConfig::OutductsConfig() {
@@ -312,7 +355,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
             else if (outductElementConfigPt.second.count("udpRateBps") != 0) {
                 std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a udp induct only configuration parameter of \"udpRateBps\".. please remove" << std::endl;
+                    << " has a udp outduct only configuration parameter of \"udpRateBps\".. please remove" << std::endl;
                 return false;
             }
 
@@ -321,7 +364,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
             else if (outductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
                 std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has an stcp or tcpcl induct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
+                    << " has an stcp or tcpcl outduct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
                 return false;
             }
 
@@ -331,8 +374,30 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
             else if (outductElementConfigPt.second.count("tcpclAutoFragmentSizeBytes") != 0) {
                 std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a tcpcl induct only configuration parameter of \"tcpclAutoFragmentSizeBytes\".. please remove" << std::endl;
+                    << " has a tcpcl outduct only configuration parameter of \"tcpclAutoFragmentSizeBytes\".. please remove" << std::endl;
                 return false;
+            }
+
+            if (outductElementConfig.convergenceLayer == "tcpcl_v4") {
+                outductElementConfig.tryUseTls = outductElementConfigPt.second.get<bool>("tryUseTls");
+                outductElementConfig.tlsIsRequired = outductElementConfigPt.second.get<bool>("tlsIsRequired");
+                outductElementConfig.useTlsVersion1_3 = outductElementConfigPt.second.get<bool>("useTlsVersion1_3");
+                outductElementConfig.doX509CertificateVerification = outductElementConfigPt.second.get<bool>("doX509CertificateVerification");
+                outductElementConfig.verifySubjectAltNameInX509Certificate = outductElementConfigPt.second.get<bool>("verifySubjectAltNameInX509Certificate");
+                outductElementConfig.certificationAuthorityPemFileForVerification = outductElementConfigPt.second.get<std::string>("certificationAuthorityPemFileForVerification");
+            }
+            else {
+                static const std::vector<std::string> VALID_TCPCL_V4_OUTDUCT_PARAMETERS = { 
+                    "tryUseTls", "tlsIsRequired", "useTlsVersion1_3",
+                    "doX509CertificateVerification", "verifySubjectAltNameInX509Certificate", "certificationAuthorityPemFileForVerification" };
+                
+                for (std::vector<std::string>::const_iterator it = VALID_TCPCL_V4_OUTDUCT_PARAMETERS.cbegin(); it != VALID_TCPCL_V4_OUTDUCT_PARAMETERS.cend(); ++it) {
+                    if (outductElementConfigPt.second.count(*it) != 0) {
+                        std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                            << " has a tcpcl_v4 outduct only configuration parameter of \"" << (*it) << "\".. please remove" << std::endl;
+                        return false;
+                    }
+                }
             }
         }
         catch (const boost::property_tree::ptree_error & e) {
@@ -417,6 +482,14 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         if ((outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("tcpclAutoFragmentSizeBytes", outductElementConfig.tcpclAutoFragmentSizeBytes);
             outductElementConfigPt.put("tcpclAllowOpportunisticReceiveBundles", outductElementConfig.tcpclAllowOpportunisticReceiveBundles);
+        }
+        if (outductElementConfig.convergenceLayer == "tcpcl_v4") {
+            outductElementConfigPt.put("tryUseTls", outductElementConfig.tryUseTls);
+            outductElementConfigPt.put("tlsIsRequired", outductElementConfig.tlsIsRequired);
+            outductElementConfigPt.put("useTlsVersion1_3", outductElementConfig.useTlsVersion1_3);
+            outductElementConfigPt.put("doX509CertificateVerification", outductElementConfig.doX509CertificateVerification);
+            outductElementConfigPt.put("verifySubjectAltNameInX509Certificate", outductElementConfig.verifySubjectAltNameInX509Certificate);
+            outductElementConfigPt.put("certificationAuthorityPemFileForVerification", outductElementConfig.certificationAuthorityPemFileForVerification);
         }
     }
 

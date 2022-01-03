@@ -33,14 +33,26 @@
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
-
+            {
+                "name": "tcpcl_ingress",
+                "convergenceLayer": "tcpcl_v4",
+                "myEndpointId": "ipn:10.1",
+                "boundPort": 4556,
+                "numRxCircularBufferElements": 200,
+                "numRxCircularBufferBytesPerElement": 20000,
+                "keepAliveIntervalSeconds": 15,
+                "tlsIsRequired": true,
+                "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert_ipn10.0.pem",
+                "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey_ipn10.0.pem",
+                "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096_ipn10.0.pem"
+            }
         ]
     },
     "outductsConfig": {
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "tcpcl_egress1",
+                "name": "tcpcl_egress",
                 "convergenceLayer": "tcpcl_v4",
                 "nextHopEndpointId": "ipn:1.1",
                 "remoteHostname": "localhost",
@@ -52,32 +64,12 @@
                 "keepAliveIntervalSeconds": 17,
                 "tcpclAutoFragmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true,
-                "tryUseTls": false,
-                "tlsIsRequired": false,
-                "useTlsVersion1_3": false,
-                "doX509CertificateVerification": false,
-                "verifySubjectAltNameInX509Certificate": false,
-                "certificationAuthorityPemFileForVerification": ""
-            },
-            {
-                "name": "tcpcl_egress2",
-                "convergenceLayer": "tcpcl_v4",
-                "nextHopEndpointId": "ipn:2.1",
-                "remoteHostname": "localhost",
-                "remotePort": 4558,
-                "bundlePipelineLimit": 50,
-                "finalDestinationEidUris": [
-                    "ipn:2.1"
-                ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true,
-                "tryUseTls": false,
-                "tlsIsRequired": false,
-                "useTlsVersion1_3": false,
-                "doX509CertificateVerification": false,
-                "verifySubjectAltNameInX509Certificate": false,
-                "certificationAuthorityPemFileForVerification": ""
+                "tryUseTls": true,
+                "tlsIsRequired": true,
+                "useTlsVersion1_3": true,
+                "doX509CertificateVerification": true,
+                "verifySubjectAltNameInX509Certificate": true,
+                "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert_ipn1.0.pem"
             }
         ]
     },

@@ -10,6 +10,7 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 #ifdef OPENSSL_SUPPORT_ENABLED
     boost::asio::ssl::context & shareableSslContextRef,
 #endif
+    const bool tryUseTls, const bool tlsIsRequired,
     const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
     const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
@@ -26,8 +27,8 @@ TcpclV4BundleSource::TcpclV4BundleSource(
         100000000, //todo 100MB maxBundleSizeBytes for receive
         myNodeId,
         expectedRemoteEidUri,
-        true, //tryUseTls
-        false //tlsIsRequired
+        tryUseTls, //tryUseTls
+        tlsIsRequired //tlsIsRequired
     ),
 #ifdef OPENSSL_SUPPORT_ENABLED
     m_shareableSslContextRef(shareableSslContextRef),
@@ -229,6 +230,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeSecure(const boost::system::error_
 void TcpclV4BundleSource::HandleSslHandshake(const boost::system::error_code & error) {
     if (!error) {
         std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
+        m_base_didSuccessfulSslHandshake = true;
         StartTcpReceiveSecure();
         BaseClass_SendSessionInit(); //I am the active entity and will send a session init first
     }
