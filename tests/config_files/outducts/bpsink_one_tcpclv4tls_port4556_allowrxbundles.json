@@ -12,8 +12,8 @@
 
             ],
             "keepAliveIntervalSeconds": 17,
-            "tcpclAutoFragmentSizeBytes": 200000,
             "tcpclAllowOpportunisticReceiveBundles": true,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
             "tryUseTls": true,
             "tlsIsRequired": true,
             "useTlsVersion1_3": true,

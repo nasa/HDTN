@@ -12,7 +12,7 @@
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
@@ -38,9 +38,10 @@ outduct_element_config_t::outduct_element_config_t() :
     udpRateBps(0),
 
     keepAliveIntervalSeconds(0),
-    tcpclAutoFragmentSizeBytes(0),
+    tcpclV3MyMaxTxSegmentSizeBytes(0),
     tcpclAllowOpportunisticReceiveBundles(true),
 
+    tcpclV4MyMaxRxSegmentSizeBytes(0),
     tryUseTls(false),
     tlsIsRequired(false),
     useTlsVersion1_3(false),
@@ -76,9 +77,10 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     udpRateBps(o.udpRateBps),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
-    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes),
+    tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
     tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
 
+    tcpclV4MyMaxRxSegmentSizeBytes(o.tcpclV4MyMaxRxSegmentSizeBytes),
     tryUseTls(o.tryUseTls),
     tlsIsRequired(o.tlsIsRequired),
     useTlsVersion1_3(o.useTlsVersion1_3),
@@ -111,9 +113,10 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     udpRateBps(o.udpRateBps),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
-    tcpclAutoFragmentSizeBytes(o.tcpclAutoFragmentSizeBytes),
+    tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
     tcpclAllowOpportunisticReceiveBundles(o.tcpclAllowOpportunisticReceiveBundles),
 
+    tcpclV4MyMaxRxSegmentSizeBytes(o.tcpclV4MyMaxRxSegmentSizeBytes),
     tryUseTls(o.tryUseTls),
     tlsIsRequired(o.tlsIsRequired),
     useTlsVersion1_3(o.useTlsVersion1_3),
@@ -147,9 +150,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
-    tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
+    tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
     tcpclAllowOpportunisticReceiveBundles = o.tcpclAllowOpportunisticReceiveBundles;
 
+    tcpclV4MyMaxRxSegmentSizeBytes = o.tcpclV4MyMaxRxSegmentSizeBytes;
     tryUseTls = o.tryUseTls;
     tlsIsRequired = o.tlsIsRequired;
     useTlsVersion1_3 = o.useTlsVersion1_3;
@@ -185,9 +189,10 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
-    tcpclAutoFragmentSizeBytes = o.tcpclAutoFragmentSizeBytes;
+    tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
     tcpclAllowOpportunisticReceiveBundles = o.tcpclAllowOpportunisticReceiveBundles;
 
+    tcpclV4MyMaxRxSegmentSizeBytes = o.tcpclV4MyMaxRxSegmentSizeBytes;
     tryUseTls = o.tryUseTls;
     tlsIsRequired = o.tlsIsRequired;
     useTlsVersion1_3 = o.useTlsVersion1_3;
@@ -222,9 +227,10 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
-        (tcpclAutoFragmentSizeBytes == o.tcpclAutoFragmentSizeBytes) &&
+        (tcpclV3MyMaxTxSegmentSizeBytes == o.tcpclV3MyMaxTxSegmentSizeBytes) &&
         (tcpclAllowOpportunisticReceiveBundles == o.tcpclAllowOpportunisticReceiveBundles) &&
         
+        (tcpclV4MyMaxRxSegmentSizeBytes == o.tcpclV4MyMaxRxSegmentSizeBytes) &&
         (tryUseTls == o.tryUseTls) &&
         (tlsIsRequired == o.tlsIsRequired) &&
         (useTlsVersion1_3 == o.useTlsVersion1_3) &&
@@ -359,7 +365,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
 
-            if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
+            if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
             }
             else if (outductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
@@ -368,17 +374,26 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 return false;
             }
 
-            if ((outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
-                outductElementConfig.tcpclAutoFragmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclAutoFragmentSizeBytes");
+            if (outductElementConfig.convergenceLayer == "tcpcl_v3") {
+                outductElementConfig.tcpclV3MyMaxTxSegmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclV3MyMaxTxSegmentSizeBytes");
+            }
+            else if (outductElementConfigPt.second.count("tcpclV3MyMaxTxSegmentSizeBytes") != 0) {
+                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a tcpcl_v3 outduct only configuration parameter of \"tcpclV3MyMaxTxSegmentSizeBytes\".. please remove" << std::endl;
+                return false;
+            }
+
+            if ((outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 outductElementConfig.tcpclAllowOpportunisticReceiveBundles = outductElementConfigPt.second.get<bool>("tcpclAllowOpportunisticReceiveBundles");
             }
-            else if (outductElementConfigPt.second.count("tcpclAutoFragmentSizeBytes") != 0) {
+            else if (outductElementConfigPt.second.count("tcpclAllowOpportunisticReceiveBundles") != 0) {
                 std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a tcpcl outduct only configuration parameter of \"tcpclAutoFragmentSizeBytes\".. please remove" << std::endl;
+                    << " has a tcpcl (all versions) outduct only configuration parameter of \"tcpclAllowOpportunisticReceiveBundles\".. please remove" << std::endl;
                 return false;
             }
 
             if (outductElementConfig.convergenceLayer == "tcpcl_v4") {
+                outductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclV4MyMaxRxSegmentSizeBytes");
                 outductElementConfig.tryUseTls = outductElementConfigPt.second.get<bool>("tryUseTls");
                 outductElementConfig.tlsIsRequired = outductElementConfigPt.second.get<bool>("tlsIsRequired");
                 outductElementConfig.useTlsVersion1_3 = outductElementConfigPt.second.get<bool>("useTlsVersion1_3");
@@ -388,7 +403,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
             else {
                 static const std::vector<std::string> VALID_TCPCL_V4_OUTDUCT_PARAMETERS = { 
-                    "tryUseTls", "tlsIsRequired", "useTlsVersion1_3",
+                    "tcpclV4MyMaxRxSegmentSizeBytes", "tryUseTls", "tlsIsRequired", "useTlsVersion1_3",
                     "doX509CertificateVerification", "verifySubjectAltNameInX509Certificate", "certificationAuthorityPemFileForVerification" };
                 
                 for (std::vector<std::string>::const_iterator it = VALID_TCPCL_V4_OUTDUCT_PARAMETERS.cbegin(); it != VALID_TCPCL_V4_OUTDUCT_PARAMETERS.cend(); ++it) {
@@ -476,14 +491,17 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);
         }
-        if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
+        if ((outductElementConfig.convergenceLayer == "stcp") || (outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("keepAliveIntervalSeconds", outductElementConfig.keepAliveIntervalSeconds);
         }
-        if ((outductElementConfig.convergenceLayer == "tcpcl") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
-            outductElementConfigPt.put("tcpclAutoFragmentSizeBytes", outductElementConfig.tcpclAutoFragmentSizeBytes);
+        if (outductElementConfig.convergenceLayer == "tcpcl_v3") {
+            outductElementConfigPt.put("tcpclV3MyMaxTxSegmentSizeBytes", outductElementConfig.tcpclV3MyMaxTxSegmentSizeBytes);
+        }
+        if ((outductElementConfig.convergenceLayer == "tcpcl_v3") || (outductElementConfig.convergenceLayer == "tcpcl_v4")) {
             outductElementConfigPt.put("tcpclAllowOpportunisticReceiveBundles", outductElementConfig.tcpclAllowOpportunisticReceiveBundles);
         }
         if (outductElementConfig.convergenceLayer == "tcpcl_v4") {
+            outductElementConfigPt.put("tcpclV4MyMaxRxSegmentSizeBytes", outductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes);
             outductElementConfigPt.put("tryUseTls", outductElementConfig.tryUseTls);
             outductElementConfigPt.put("tlsIsRequired", outductElementConfig.tlsIsRequired);
             outductElementConfigPt.put("useTlsVersion1_3", outductElementConfig.useTlsVersion1_3);

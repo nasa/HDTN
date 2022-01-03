@@ -30,12 +30,13 @@
         },
         {
             "name": "i3",
-            "convergenceLayer": "tcpcl",
+            "convergenceLayer": "tcpcl_v3",
             "myEndpointId": "ipn:1.3",
             "boundPort": 4558,
             "numRxCircularBufferElements": 1009,
             "numRxCircularBufferBytesPerElement": 2000,
-            "keepAliveIntervalSeconds": 16
+            "keepAliveIntervalSeconds": 16,
+            "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
         },
         {
             "name": "i4",
@@ -45,6 +46,7 @@
             "numRxCircularBufferElements": 1009,
             "numRxCircularBufferBytesPerElement": 2000,
             "keepAliveIntervalSeconds": 16,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
             "tlsIsRequired": false,
             "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert.pem",
             "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey.pem",

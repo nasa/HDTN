@@ -12,7 +12,7 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 #endif
     const bool tryUseTls, const bool tlsIsRequired,
     const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
-    const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
+    const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t myMaxRxSegmentSizeBytes, const uint64_t myMaxRxBundleSizeBytes,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
 
     TcpclV4BidirectionalLink(
@@ -23,8 +23,8 @@ TcpclV4BundleSource::TcpclV4BundleSource(
         desiredKeepAliveIntervalSeconds,
         NULL, // NULL will create a local io_service
         maxUnacked,
-        maxFragmentSize,
-        100000000, //todo 100MB maxBundleSizeBytes for receive
+        myMaxRxSegmentSizeBytes,
+        myMaxRxBundleSizeBytes, //100000000, //todo 100MB maxBundleSizeBytes for receive
         myNodeId,
         expectedRemoteEidUri,
         tryUseTls, //tryUseTls

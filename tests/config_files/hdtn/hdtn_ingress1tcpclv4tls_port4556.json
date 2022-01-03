@@ -41,6 +41,7 @@
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15,
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
                 "tlsIsRequired": true,
                 "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert_ipn10.0.pem",
                 "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey_ipn10.0.pem",

@@ -30,12 +30,13 @@
         },
         {
             "name": "i3",
-            "convergenceLayer": "tcpcl",
+            "convergenceLayer": "tcpcl_v3",
             "myEndpointId": "ipn:3.1",
             "boundPort": 4558,
             "numRxCircularBufferElements": 1009,
             "numRxCircularBufferBytesPerElement": 2000,
-            "keepAliveIntervalSeconds": 16
+            "keepAliveIntervalSeconds": 16,
+            "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
         },
         {
             "name": "i4",

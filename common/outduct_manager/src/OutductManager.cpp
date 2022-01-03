@@ -27,6 +27,7 @@ void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const Outdu
 }
 
 bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
+    const uint64_t maxOpportunisticRxBundleSizeBytes,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback)
 {
     LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
@@ -44,7 +45,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         boost::shared_ptr<Outduct> outductSharedPtr;
         const uint64_t uuidIndex = nextOutductUuidIndex++;
         m_threadCommunicationVec[uuidIndex] = boost::make_unique<thread_communication_t>();
-        if (thisOutductConfig.convergenceLayer == "tcpcl") {
+        if (thisOutductConfig.convergenceLayer == "tcpcl_v3") {
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
                 outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
             }
@@ -54,10 +55,10 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         }
         else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
-                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback);
             }
             else {
-                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex);
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes);
             }
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {

@@ -17,7 +17,7 @@ public:
 #endif
         const bool tryUseTls, const bool tlsIsRequired,
         const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
-        const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
+        const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t myMaxRxSegmentSizeBytes, const uint64_t myMaxRxBundleSizeBytes,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
 
     ~TcpclV4BundleSource();

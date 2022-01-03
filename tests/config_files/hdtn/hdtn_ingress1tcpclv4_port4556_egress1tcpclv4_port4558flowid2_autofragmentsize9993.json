@@ -28,20 +28,24 @@
     "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 60,
+    "zmqMaxMessagesPerPath": 5,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
             {
                 "name": "tcpcl_ingress",
-                "convergenceLayer": "tcpcl_v3",
+                "convergenceLayer": "tcpcl_v4",
                 "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15,
-                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
+                "tcpclV4MyMaxRxSegmentSizeBytes": 9993,
+                "tlsIsRequired": false,
+                "certificatePemFile": "",
+                "privateKeyPemFile": "",
+                "diffieHellmanParametersPemFile": ""
             }
         ]
     },
@@ -50,17 +54,24 @@
         "outductVector": [
             {
                 "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl_v3",
+                "convergenceLayer": "tcpcl_v4",
                 "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 60,
+                "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
-                    "ipn:2.1"
+                    "ipn:2.1",
+                    "ipn:2.2047"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
+                "tcpclAllowOpportunisticReceiveBundles": true,
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+                "tryUseTls": false,
+                "tlsIsRequired": false,
+                "useTlsVersion1_3": false,
+                "doX509CertificateVerification": false,
+                "verifySubjectAltNameInX509Certificate": false,
+                "certificationAuthorityPemFileForVerification": ""
             }
         ]
     },

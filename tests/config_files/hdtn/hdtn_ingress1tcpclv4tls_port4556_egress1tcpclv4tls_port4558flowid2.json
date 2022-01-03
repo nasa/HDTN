@@ -41,6 +41,7 @@
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15,
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
                 "tlsIsRequired": true,
                 "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert_ipn10.0.pem",
                 "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey_ipn10.0.pem",
@@ -63,8 +64,8 @@
                     "ipn:2.2047"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true,
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
                 "tryUseTls": true,
                 "tlsIsRequired": true,
                 "useTlsVersion1_3": true,

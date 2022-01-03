@@ -10,7 +10,7 @@
 #include <boost/foreach.hpp>
 #include <iostream>
 
-static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl", "tcpcl_v4" };
+static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
 induct_element_config_t::induct_element_config_t() :
     name(""),
@@ -33,6 +33,9 @@ induct_element_config_t::induct_element_config_t() :
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
     keepAliveIntervalSeconds(0),
 
+    tcpclV3MyMaxTxSegmentSizeBytes(0),
+
+    tcpclV4MyMaxRxSegmentSizeBytes(0),
     tlsIsRequired(false),
     certificatePemFile(""),
     privateKeyPemFile(""),
@@ -63,6 +66,9 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
+    tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
+
+    tcpclV4MyMaxRxSegmentSizeBytes(o.tcpclV4MyMaxRxSegmentSizeBytes),
     tlsIsRequired(o.tlsIsRequired),
     certificatePemFile(o.certificatePemFile),
     privateKeyPemFile(o.privateKeyPemFile),
@@ -90,6 +96,9 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
+    tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
+
+    tcpclV4MyMaxRxSegmentSizeBytes(o.tcpclV4MyMaxRxSegmentSizeBytes),
     tlsIsRequired(o.tlsIsRequired),
     certificatePemFile(std::move(o.certificatePemFile)),
     privateKeyPemFile(std::move(o.privateKeyPemFile)),
@@ -117,6 +126,9 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
+    tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
+
+    tcpclV4MyMaxRxSegmentSizeBytes = o.tcpclV4MyMaxRxSegmentSizeBytes;
     tlsIsRequired = o.tlsIsRequired;
     certificatePemFile = o.certificatePemFile;
     privateKeyPemFile = o.privateKeyPemFile;
@@ -146,6 +158,9 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
+    tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
+
+    tcpclV4MyMaxRxSegmentSizeBytes = o.tcpclV4MyMaxRxSegmentSizeBytes;
     tlsIsRequired = o.tlsIsRequired;
     certificatePemFile = std::move(o.certificatePemFile);
     privateKeyPemFile = std::move(o.privateKeyPemFile);
@@ -174,6 +189,9 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
+        (tcpclV3MyMaxTxSegmentSizeBytes == o.tcpclV3MyMaxTxSegmentSizeBytes) &&
+
+        (tcpclV4MyMaxRxSegmentSizeBytes == o.tcpclV4MyMaxRxSegmentSizeBytes) &&
         (tlsIsRequired == o.tlsIsRequired) &&
         (certificatePemFile == o.certificatePemFile) &&
         (privateKeyPemFile == o.privateKeyPemFile) &&
@@ -246,7 +264,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 return false;
             }
             inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
-            if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
+            if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 inductElementConfig.numRxCircularBufferBytesPerElement = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement");
             }
             else if (inductElementConfigPt.second.count("numRxCircularBufferBytesPerElement")) { //not used by stcp or ltp
@@ -288,7 +306,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 }
             }
 
-            if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
+            if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
                 inductElementConfig.keepAliveIntervalSeconds = inductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
             }
             else if (inductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
@@ -297,7 +315,17 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 return false;
             }
 
+            if (inductElementConfig.convergenceLayer == "tcpcl_v3") {
+                inductElementConfig.tcpclV3MyMaxTxSegmentSizeBytes = inductElementConfigPt.second.get<uint64_t>("tcpclV3MyMaxTxSegmentSizeBytes");
+            }
+            else if (inductElementConfigPt.second.count("tcpclV3MyMaxTxSegmentSizeBytes") != 0) {
+                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                    << " has a tcpcl_v3 induct only configuration parameter of \"tcpclV3MyMaxTxSegmentSizeBytes\".. please remove" << std::endl;
+                return false;
+            }
+
             if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
+                inductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes = inductElementConfigPt.second.get<uint64_t>("tcpclV4MyMaxRxSegmentSizeBytes");
                 inductElementConfig.tlsIsRequired = inductElementConfigPt.second.get<bool>("tlsIsRequired");
                 inductElementConfig.certificatePemFile = inductElementConfigPt.second.get<std::string>("certificatePemFile");
                 inductElementConfig.privateKeyPemFile = inductElementConfigPt.second.get<std::string>("privateKeyPemFile");
@@ -305,7 +333,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             }
             else {
                 static const std::vector<std::string> VALID_TCPCL_V4_INDUCT_PARAMETERS = {
-                    "tlsIsRequired", "certificatePemFile",
+                    "tcpclV4MyMaxRxSegmentSizeBytes", "tlsIsRequired", "certificatePemFile",
                     "privateKeyPemFile", "diffieHellmanParametersPemFile" };
 
                 for (std::vector<std::string>::const_iterator it = VALID_TCPCL_V4_INDUCT_PARAMETERS.cbegin(); it != VALID_TCPCL_V4_INDUCT_PARAMETERS.cend(); ++it) {
@@ -371,7 +399,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         inductElementConfigPt.put("myEndpointId", inductElementConfig.myEndpointId);
         inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
-        if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
+        if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("numRxCircularBufferBytesPerElement", inductElementConfig.numRxCircularBufferBytesPerElement);
         }
         if (inductElementConfig.convergenceLayer == "ltp_over_udp") {
@@ -388,10 +416,14 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
             inductElementConfigPt.put("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
         }
-        if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
+        if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);
         }
+        if (inductElementConfig.convergenceLayer == "tcpcl_v3") {
+            inductElementConfigPt.put("tcpclV3MyMaxTxSegmentSizeBytes", inductElementConfig.tcpclV3MyMaxTxSegmentSizeBytes);
+        }
         if (inductElementConfig.convergenceLayer == "tcpcl_v4") {
+            inductElementConfigPt.put("tcpclV4MyMaxRxSegmentSizeBytes", inductElementConfig.tcpclV4MyMaxRxSegmentSizeBytes);
             inductElementConfigPt.put("tlsIsRequired", inductElementConfig.tlsIsRequired);
             inductElementConfigPt.put("certificatePemFile", inductElementConfig.certificatePemFile);
             inductElementConfigPt.put("privateKeyPemFile", inductElementConfig.privateKeyPemFile);

@@ -14,8 +14,8 @@
                 "ipn:3.1"
             ],
             "keepAliveIntervalSeconds": 17,
-            "tcpclAutoFragmentSizeBytes": 200000,
             "tcpclAllowOpportunisticReceiveBundles": false,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
             "tryUseTls": false,
             "tlsIsRequired": false,
             "useTlsVersion1_3": false,

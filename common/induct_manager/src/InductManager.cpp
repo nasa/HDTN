@@ -21,7 +21,7 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
     const induct_element_config_vector_t & configsVec = inductsConfig.m_inductElementConfigVector;
     for (induct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {
         const induct_element_config_t & thisInductConfig = *it;
-        if (thisInductConfig.convergenceLayer == "tcpcl") {
+        if (thisInductConfig.convergenceLayer == "tcpcl_v3") {
             m_inductsList.emplace_back(boost::make_unique<TcpclInduct>(inductProcessBundleCallback, thisInductConfig,
                 myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }

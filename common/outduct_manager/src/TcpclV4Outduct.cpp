@@ -6,6 +6,7 @@
 #include "Uri.h"
 
 TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
+    const uint64_t maxOpportunisticRxBundleSizeBytes,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
 
@@ -17,7 +18,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
 #endif
         outductConfig.tryUseTls, outductConfig.tlsIsRequired,
         outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
-        outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclAutoFragmentSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
+        outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclV4MyMaxRxSegmentSizeBytes, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     if (outductConfig.tryUseTls) {

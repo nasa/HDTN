@@ -59,7 +59,7 @@
         "outductVector": [
             {
                 "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl",
+                "convergenceLayer": "tcpcl_v3",
                 "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
@@ -68,7 +68,7 @@
                     "ipn:2.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
+                "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
                 "tcpclAllowOpportunisticReceiveBundles": true
             }
         ]

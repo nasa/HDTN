@@ -70,7 +70,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
             boost::bind(&BpSourcePattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
     }
     else if ((outductsConfigPtr)
-        && ((outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl") || (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))
+        && ((outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))
         && (outductsConfigPtr->m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles)
         )
     {
@@ -89,7 +89,9 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     
     if (outductsConfigPtr) {
         m_useInductForSendingBundles = false;
-        if (!m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, m_myEid.nodeId, UINT16_MAX, outductOpportunisticProcessReceivedBundleCallback)) {
+        if (!m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, m_myEid.nodeId, UINT16_MAX,
+            10000000, //todo 10MB max rx opportunistic bundle
+            outductOpportunisticProcessReceivedBundleCallback)) {
             return;
         }
     }

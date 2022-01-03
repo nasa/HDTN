@@ -40,11 +40,14 @@ struct outduct_element_config_t {
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
 
+    //specific to tcpcl version 3 (clients)
+    uint64_t tcpclV3MyMaxTxSegmentSizeBytes;
+
     //specific to tcpcl all versions
-    uint64_t tcpclAutoFragmentSizeBytes;
     bool tcpclAllowOpportunisticReceiveBundles;
 
     //specific to tcpcl version 4 (clients)
+    uint64_t tcpclV4MyMaxRxSegmentSizeBytes;
     bool tryUseTls;
     bool tlsIsRequired;
     bool useTlsVersion1_3;
