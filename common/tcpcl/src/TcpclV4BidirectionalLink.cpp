@@ -183,7 +183,6 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost:
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else {
-        std::cout << "contact header sent\n";
         Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
     }
 }
@@ -853,14 +852,11 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
     m_base_doUpgradeSocketToSsl = m_base_usingTls;
     if (!M_BASE_IS_ACTIVE_ENTITY) {
         //Since TcpclBundleSink was waiting for a contact header, it just got one.  Now it's time to reply with a contact header (contact headers are sent without tls)
-        std::cout << "sink send contact header\n";
         BaseClass_SendContactHeader();
     }
     else {
         //Since TcpclBundleSource sent the first contact header, it just got the reply back from the sink.  Now it's time to reply with a session init
-        std::cout << "bundle source send session init\n";
         if (m_base_usingTls) {
-            std::cout << "using tls\n";
             std::cout << "upgrading tcp socket to tls tcp socket..\n";
         }
         else {

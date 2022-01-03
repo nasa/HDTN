@@ -243,7 +243,6 @@ void TcpclV4BundleSink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() 
     ////TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
 }
 void TcpclV4BundleSink::Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() {
-    std::cout << "sink virtual contact header sent\n";
     if (m_base_usingTls) {
         DoSslUpgrade();
     }
