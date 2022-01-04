@@ -15,7 +15,7 @@ target_link_libraries(hdtn-one-process
 	ingress_async_lib
 	storage_lib
 	egress_async_lib
-    webserver
+    hdtn_gui
 	${libzmq_LIB}
 	${pthread_LIB}
 	${Boost_LIBRARIES}
@@ -24,6 +24,5 @@ target_include_directories(hdtn-one-process PUBLIC
 	include
 	${Boost_INCLUDE_DIRS}
 	${libzmq_INCLUDE}
-    ../gui
 )
 
