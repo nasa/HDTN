@@ -39,7 +39,7 @@
         },
         {
             "name": "o3",
-            "convergenceLayer": "tcpcl",
+            "convergenceLayer": "tcpcl_v3",
             "nextHopEndpointId": "ipn:52.1",
             "remoteHostname": "localhost",
             "remotePort": 4558,
@@ -49,8 +49,28 @@
                 "ipn:26.1"
             ],
             "keepAliveIntervalSeconds": 16,
-            "tcpclAutoFragmentSizeBytes": 200000,
+            "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
             "tcpclAllowOpportunisticReceiveBundles": true
+        },
+        {
+            "name": "o4",
+            "convergenceLayer": "tcpcl_v4",
+            "nextHopEndpointId": "ipn:1.1",
+            "remoteHostname": "localhost",
+            "remotePort": 4560,
+            "bundlePipelineLimit": 50,
+            "finalDestinationEidUris": [
+                "ipn:3.1"
+            ],
+            "keepAliveIntervalSeconds": 17,
+            "tcpclAllowOpportunisticReceiveBundles": true,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+            "tryUseTls": false,
+            "tlsIsRequired": false,
+            "useTlsVersion1_3": false,
+            "doX509CertificateVerification": false,
+            "verifySubjectAltNameInX509Certificate": false,
+            "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert.pem"
         },
         {
             "name": "o4",

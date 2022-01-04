@@ -9,6 +9,7 @@
 class TcpclV4Outduct : public Outduct {
 public:
     TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
+        const uint64_t maxOpportunisticRxBundleSizeBytes,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
     virtual ~TcpclV4Outduct();
     virtual std::size_t GetTotalDataSegmentsUnacked();
@@ -24,8 +25,12 @@ public:
 private:
     TcpclV4Outduct();
 
-
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::asio::ssl::context m_shareableSslContext;
+    bool VerifyCertificate(bool preverified, boost::asio::ssl::verify_context& ctx, const std::string & nextHopEndpointIdStrWithServiceIdZero, bool doVerifyNextHopEndpointIdStr, bool doX509CertificateVerification);
+#endif
     TcpclV4BundleSource m_tcpclV4BundleSource;
+
 };
 
 

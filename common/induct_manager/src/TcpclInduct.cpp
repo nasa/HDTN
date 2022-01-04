@@ -64,7 +64,7 @@ void TcpclInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket
             boost::bind(&TcpclInduct::ConnectionReadyToBeDeletedNotificationReceived, this),
             boost::bind(&TcpclInduct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
             10, //const unsigned int maxUnacked, (todo)
-            100000000); //const uint64_t maxFragmentSize = 100000000); (todo)
+            m_inductConfig.tcpclV3MyMaxTxSegmentSizeBytes); //const uint64_t maxFragmentSize = 100000000); (todo)
 
         StartTcpAccept(); //only accept if there was no error
     }

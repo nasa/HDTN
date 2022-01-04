@@ -48,7 +48,7 @@
         "outductVector": [
             {
                 "name": "to tantalus",
-                "convergenceLayer": "tcpcl",
+                "convergenceLayer": "tcpcl_v3",
                 "nextHopEndpointId": "ipn:20.1",
                 "remoteHostname": "tantalus",
                 "remotePort": 4557,
@@ -59,7 +59,7 @@
                     "ipn:3.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 20000000,
+                "tcpclV3MyMaxTxSegmentSizeBytes": 20000000,
                 "tcpclAllowOpportunisticReceiveBundles": true
             }
         ]

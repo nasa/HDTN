@@ -20,6 +20,9 @@ that perform writes) until this operation completes.
 #include <queue>
 #include <boost/function.hpp>
 #include <zmq.hpp>
+#ifdef OPENSSL_SUPPORT_ENABLED
+#include <boost/asio/ssl.hpp>
+#endif
 
 struct TcpAsyncSenderElement {
     typedef boost::function<void(const boost::system::error_code& error, std::size_t bytes_transferred)> OnSuccessfulSendCallbackByIoServiceThread_t;
@@ -59,6 +62,36 @@ private:
 
 };
 
+#ifdef OPENSSL_SUPPORT_ENABLED
+class TcpAsyncSenderSsl {
+private:
+    TcpAsyncSenderSsl();
+public:
+    typedef boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > ssl_stream_sharedptr_t;
 
+    TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef);
+
+    ~TcpAsyncSenderSsl();
+
+    void AsyncSendSecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    void AsyncSendSecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    void AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    void AsyncSendUnsecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+private:
+
+    void HandleTcpSendSecure(const boost::system::error_code& error, std::size_t bytes_transferred);
+    void HandleTcpSendUnsecure(const boost::system::error_code& error, std::size_t bytes_transferred);
+
+
+    boost::asio::io_service & m_ioServiceRef;
+    ssl_stream_sharedptr_t m_sslStreamSharedPtr;
+    std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
+
+
+    volatile bool m_writeInProgress;
+
+};
+#endif
 
 #endif //_TCP_ASYNC_SENDER_H

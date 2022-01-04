@@ -3,13 +3,17 @@
     "inductVector": [
         {
             "name": "tcpcl_bpsink",
-            "convergenceLayer": "tcpcl_v3",
+            "convergenceLayer": "tcpcl_v4",
             "myEndpointId": "ipn:2.1",
             "boundPort": 4558,
             "numRxCircularBufferElements": 200,
             "numRxCircularBufferBytesPerElement": 20000,
             "keepAliveIntervalSeconds": 15,
-            "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
+            "tcpclV4MyMaxRxSegmentSizeBytes": 9997,
+            "tlsIsRequired": false,
+            "certificatePemFile": "",
+            "privateKeyPemFile": "",
+            "diffieHellmanParametersPemFile": ""
         }
     ]
 }

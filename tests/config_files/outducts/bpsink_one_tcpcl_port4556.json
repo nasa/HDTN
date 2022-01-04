@@ -3,7 +3,7 @@
     "outductVector": [
         {
             "name": "bpsink custody signals out",
-            "convergenceLayer": "tcpcl",
+            "convergenceLayer": "tcpcl_v3",
             "nextHopEndpointId": "ipn:10.0",
             "remoteHostname": "localhost",
             "remotePort": 4556,
@@ -13,7 +13,7 @@
                 "ipn:1.2047"
             ],
             "keepAliveIntervalSeconds": 17,
-            "tcpclAutoFragmentSizeBytes": 200000,
+            "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
             "tcpclAllowOpportunisticReceiveBundles": false
         }
     ]

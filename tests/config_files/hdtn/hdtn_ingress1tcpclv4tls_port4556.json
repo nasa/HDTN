@@ -28,40 +28,31 @@
     "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 60,
+    "zmqMaxMessagesPerPath": 5,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
             {
                 "name": "tcpcl_ingress",
-                "convergenceLayer": "tcpcl_v3",
+                "convergenceLayer": "tcpcl_v4",
                 "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15,
-                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+                "tlsIsRequired": true,
+                "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert_ipn10.0.pem",
+                "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey_ipn10.0.pem",
+                "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096_ipn10.0.pem"
             }
         ]
     },
     "outductsConfig": {
         "outductConfigName": "myconfig",
         "outductVector": [
-            {
-                "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl_v3",
-                "nextHopEndpointId": "ipn:2.1",
-                "remoteHostname": "localhost",
-                "remotePort": 4558,
-                "bundlePipelineLimit": 60,
-                "finalDestinationEidUris": [
-                    "ipn:2.1"
-                ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
-            }
+
         ]
     },
     "storageConfig": {

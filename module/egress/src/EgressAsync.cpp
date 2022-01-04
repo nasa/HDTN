@@ -55,7 +55,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_hdtnConfig = hdtnConfig;
 
-    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes,
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
         boost::bind(&hdtn::HegrManagerAsync::WholeBundleReadyCallback, this, boost::placeholders::_1))) {
         return;
     }
@@ -209,11 +209,11 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
         cbhe_eid_t finalDestEid = routeUpdateHdr->finalDestEid;
         Outduct * outduct = m_outductManager.GetOutductByNextHopEid(nextHopEid);
         const uint64_t outductId1 = outduct->GetOutductUuid();
-        Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid);
+        Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid);
         const uint64_t outductId2 = outduct2->GetOutductUuid();
         if (outductId2 != outductId1) {
             boost::shared_ptr<Outduct> outductPtr = m_outductManager.GetOutductSharedPtrByOutductUuid(outductId1);
-            m_outductManager.SetOutductForFinalDestinationEid(finalDestEid, outductPtr);
+            m_outductManager.SetOutductForFinalDestinationEid_ThreadSafe(finalDestEid, outductPtr);
             std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outductId1 << std::endl;
         }
      }
@@ -357,7 +357,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                         hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
                     }
                 }
-                else if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid(finalDestEid)) {
+                else if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
                     std::unique_ptr<hdtn::EgressAckHdr> egressAckPtr = boost::make_unique<hdtn::EgressAckHdr>();
                     //memset 0 not needed because all values set below
                     egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;

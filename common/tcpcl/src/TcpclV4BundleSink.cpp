@@ -6,8 +6,14 @@
 #include "Uri.h"
 
 TcpclV4BundleSink::TcpclV4BundleSink(
-    const uint16_t desiredKeepAliveIntervalSeconds, //new
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
+#else
     boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+#endif
+    const bool tlsSuccessfullyConfigured,
+    const bool tlsIsRequired,
+    const uint16_t desiredKeepAliveIntervalSeconds, //new
     boost::asio::io_service & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     //ConnectionClosedCallback_t connectionClosedCallback,
@@ -33,8 +39,8 @@ TcpclV4BundleSink::TcpclV4BundleSink(
         maxBundleSizeBytes,
         myNodeId,
         "", //expectedRemoteEidUri empty => don't check remote connections to this sink (allow all ipn's)
-        false, //tryUseTls
-        false //tlsIsRequired
+        tlsSuccessfullyConfigured, //tryUseTls
+        tlsIsRequired //tlsIsRequired
     ),
     
 
@@ -51,19 +57,24 @@ TcpclV4BundleSink::TcpclV4BundleSink(
     m_printedCbTooSmallNotice(false),
     m_running(false)
 {
+#ifdef OPENSSL_SUPPORT_ENABLED
+    m_base_sslStreamSharedPtr = sslStreamSharedPtr;
+    m_base_tcpAsyncSenderSslPtr = boost::make_unique<TcpAsyncSenderSsl>(m_base_sslStreamSharedPtr, m_base_ioServiceRef);
+#else
     m_base_tcpSocketPtr = tcpSocketPtr;
+    m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_tcpSocketIoServiceRef);
+#endif
 
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_tcpReceiveBuffersCbVec[i].resize(M_CIRCULAR_BUFFER_BYTES_PER_VECTOR);
     }
 
-    m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_tcpSocketIoServiceRef);
     
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&TcpclV4BundleSink::PopCbThreadFunc, this)); //create and start the worker thread
 
-    TryStartTcpReceive();
+    TryStartTcpReceiveUnsecure();
 }
 
 TcpclV4BundleSink::~TcpclV4BundleSink() {
@@ -83,14 +94,38 @@ TcpclV4BundleSink::~TcpclV4BundleSink() {
         m_threadCbReaderPtr->join();
         m_threadCbReaderPtr.reset(); //delete it
     }
+#ifdef OPENSSL_SUPPORT_ENABLED
+    m_base_tcpAsyncSenderSslPtr.reset();
+#else
     m_base_tcpAsyncSenderPtr.reset();
+#endif
 }
 
 
+#ifdef OPENSSL_SUPPORT_ENABLED
+void TcpclV4BundleSink::DoSslUpgrade() { //must run within Io Service Thread
+    m_base_sslStreamSharedPtr->next_layer().cancel(); //cancel any active receives
+    m_stateTcpReadActive = true; //keep TryStartTcpReceive() from restarting a receive (until handshake complete)
+    m_base_sslStreamSharedPtr->async_handshake(boost::asio::ssl::stream_base::server,
+        boost::bind(&TcpclV4BundleSink::HandleSslHandshake, this, boost::asio::placeholders::error));
+}
 
+void TcpclV4BundleSink::HandleSslHandshake(const boost::system::error_code & error) {
+    if (!error) {
+        std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
+        m_base_didSuccessfulSslHandshake = true;
+        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceiveSecure
+        TryStartTcpReceiveSecure();
+        //BaseClass_SendSessionInit(); I am the passive entity and will send (from within my session init rx callback) a session init when i first receive a session init from the active entity (from bundle source)
+    }
+    else {
+        std::cout << "SSL/TLS Handshake failed: " << error.message() << "\n";
+        BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
+    }
+}
 
-void TcpclV4BundleSink::TryStartTcpReceive() {
-    if ((!m_stateTcpReadActive) && (m_base_tcpSocketPtr)) {
+void TcpclV4BundleSink::TryStartTcpReceiveSecure() { //must run within Io Service Thread
+    if ((!m_stateTcpReadActive) && (m_base_sslStreamSharedPtr)) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == UINT32_MAX) {
             if (!m_printedCbTooSmallNotice) {
@@ -100,22 +135,67 @@ void TcpclV4BundleSink::TryStartTcpReceive() {
         }
         else {
             m_stateTcpReadActive = true;
-            m_base_tcpSocketPtr->async_read_some(
+            m_base_sslStreamSharedPtr->async_read_some(
                 boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
-                boost::bind(&TcpclV4BundleSink::HandleTcpReceiveSome, this,
+                boost::bind(&TcpclV4BundleSink::HandleTcpReceiveSomeSecure, this,
                     boost::asio::placeholders::error,
                     boost::asio::placeholders::bytes_transferred,
                     writeIndex));
         }
     }
 }
-void TcpclV4BundleSink::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
+
+void TcpclV4BundleSink::HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
     if (!error) {
         m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
         m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
         m_conditionVariableCb.notify_one();
-        TryStartTcpReceive(); //restart operation only if there was no error
+        TryStartTcpReceiveSecure(); //restart operation only if there was no error
+    }
+    else if (error == boost::asio::error::eof) {
+        std::cout << "TcpclBundleSink Tcp connection closed cleanly by peer" << std::endl;
+        BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
+    }
+    else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
+        std::cerr << "Error in TcpclV4BundleSink::HandleTcpReceiveSomeSecure: " << error.message() << std::endl;
+    }
+}
+
+void TcpclV4BundleSink::TryStartTcpReceiveUnsecure() { //must run within Io Service Thread
+    if ((!m_stateTcpReadActive) && (m_base_sslStreamSharedPtr)) {
+        boost::asio::ip::tcp::socket & socketRef = m_base_sslStreamSharedPtr->next_layer();
+#else
+void TcpclV4BundleSink::TryStartTcpReceiveUnsecure() { //must run within Io Service Thread
+    if ((!m_stateTcpReadActive) && (m_base_tcpSocketPtr)) {
+        boost::asio::ip::tcp::socket & socketRef = *m_base_tcpSocketPtr;
+#endif
+    
+        const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
+        if (writeIndex == UINT32_MAX) {
+            if (!m_printedCbTooSmallNotice) {
+                m_printedCbTooSmallNotice = true;
+                std::cout << "notice in TcpclV4BundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
+            }
+        }
+        else {
+            m_stateTcpReadActive = true;
+            socketRef.async_read_some(
+                boost::asio::buffer(m_tcpReceiveBuffersCbVec[writeIndex]),
+                boost::bind(&TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred,
+                    writeIndex));
+        }
+    }
+}
+void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
+    if (!error) {
+        m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
+        m_circularIndexBuffer.CommitWrite(); //write complete at this point
+        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
+        m_conditionVariableCb.notify_one();
+        TryStartTcpReceiveUnsecure(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
         std::cout << "TcpclBundleSink Tcp connection closed cleanly by peer" << std::endl;
@@ -130,12 +210,13 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
 
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
+    boost::function<void()> tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveUnsecure, this);
 
     while (m_running || (m_circularIndexBuffer.GetIndexForRead() != UINT32_MAX)) { //keep thread alive if running or cb not empty
 
 
         const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-        boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclV4BundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
+        boost::asio::post(m_tcpSocketIoServiceRef, tryStartTcpReceiveFunction); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == UINT32_MAX) { //if empty
             m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -143,8 +224,15 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
         }
 
         m_base_tcpclV4RxStateMachine.HandleReceivedChars(m_tcpReceiveBuffersCbVec[consumeIndex].data(), m_tcpReceiveBytesTransferredCbVec[consumeIndex]);
-
         m_circularIndexBuffer.CommitRead();
+#ifdef OPENSSL_SUPPORT_ENABLED
+        if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
+            std::cout << "sink going to call handshake\n";
+            m_base_doUpgradeSocketToSsl = false;
+            tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveSecure, this);
+            //boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclV4BundleSink::DoSslUpgrade, this)); //keep this a thread safe operation by letting ioService thread run it
+        }
+#endif
     }
 
     std::cout << "TcpclBundleSink Circular buffer reader thread exiting\n";
@@ -154,8 +242,15 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
 void TcpclV4BundleSink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {
     ////TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
 }
+void TcpclV4BundleSink::Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() {
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if (m_base_usingTls) {
+        DoSslUpgrade();
+    }
+#endif
+}
 
-void TcpclV4BundleSink::Virtual_OnContactHeaderCompletedSuccessfully() {
+void TcpclV4BundleSink::Virtual_OnSessionInitReceivedAndProcessedSuccessfully() {
     if (m_onContactHeaderCallback) {
         m_onContactHeaderCallback(this);
     }

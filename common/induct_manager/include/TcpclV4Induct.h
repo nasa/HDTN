@@ -19,13 +19,19 @@ private:
 
     TcpclV4Induct();
     void StartTcpAccept();
-    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error);
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::asio::ssl::context m_shareableSslContext;
+    void HandleTcpAccept(boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error);
+#else
+    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code & error);
+#endif
     void ConnectionReadyToBeDeletedNotificationReceived();
     void RemoveInactiveTcpConnections();
     void DisableRemoveInactiveTcpConnections();
     void OnContactHeaderCallback_FromIoServiceThread(TcpclV4BundleSink * thisTcpclBundleSinkPtr);
     void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
     virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+
 
     boost::asio::io_service m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;
@@ -35,7 +41,7 @@ private:
     const uint64_t M_MY_NODE_ID;
     volatile bool m_allowRemoveInactiveTcpConnections;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
-
+    bool m_tlsSuccessfullyConfigured;
 };
 
 

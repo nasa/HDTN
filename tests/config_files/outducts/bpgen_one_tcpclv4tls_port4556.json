@@ -16,12 +16,12 @@
             "keepAliveIntervalSeconds": 17,
             "tcpclAllowOpportunisticReceiveBundles": false,
             "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
-            "tryUseTls": false,
-            "tlsIsRequired": false,
-            "useTlsVersion1_3": false,
-            "doX509CertificateVerification": false,
-            "verifySubjectAltNameInX509Certificate": false,
-            "certificationAuthorityPemFileForVerification": ""
+            "tryUseTls": true,
+            "tlsIsRequired": true,
+            "useTlsVersion1_3": true,
+            "doX509CertificateVerification": true,
+            "verifySubjectAltNameInX509Certificate": true,
+            "certificationAuthorityPemFileForVerification": "C:\/hdtn_ssl_certificates\/cert_ipn10.0.pem"
         }
     ]
 }

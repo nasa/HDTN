@@ -9,12 +9,46 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
     const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
     const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback) :
     Induct(inductProcessBundleCallback, inductConfig),
+#ifdef OPENSSL_SUPPORT_ENABLED
+    m_shareableSslContext(boost::asio::ssl::context::sslv23_server),
+#endif
     m_tcpAcceptor(m_ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), inductConfig.boundPort)),
     m_workPtr(boost::make_unique<boost::asio::io_service::work>(m_ioService)),
     M_MY_NODE_ID(myNodeId),
     m_allowRemoveInactiveTcpConnections(true),
     M_MAX_BUNDLE_SIZE_BYTES(maxBundleSizeBytes)    
 {
+    m_tlsSuccessfullyConfigured = false;
+#ifdef OPENSSL_SUPPORT_ENABLED
+    if ((inductConfig.certificatePemFile.length() > 0) && (inductConfig.privateKeyPemFile.length() > 0)) { //(M_BASE_TRY_USE_TLS) {
+        try {
+            //tcpclv4 server supports tls 1.2 and 1.3 only
+            m_shareableSslContext.set_options(
+                boost::asio::ssl::context::default_workarounds
+                | boost::asio::ssl::context::no_sslv2
+                | boost::asio::ssl::context::no_sslv3
+                | boost::asio::ssl::context::no_tlsv1
+                | boost::asio::ssl::context::no_tlsv1_1
+                | boost::asio::ssl::context::single_dh_use);
+            //m_shareableSslContext.set_password_callback(boost::bind(&server::get_password, this));
+            //m_shareableSslContext.use_certificate_chain_file("server.pem");
+            m_shareableSslContext.use_certificate_file(inductConfig.certificatePemFile, boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/cert.pem"
+            m_shareableSslContext.use_private_key_file(inductConfig.privateKeyPemFile, boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/privatekey.pem"
+            if (inductConfig.diffieHellmanParametersPemFile.length() > 0) {
+                std::cout << "notice: tcpclv4 induct using diffie hellman parameters file\n";
+                m_shareableSslContext.use_tmp_dh_file(inductConfig.diffieHellmanParametersPemFile); //"C:/hdtn_ssl_certificates/dh4096.pem"
+            }
+            m_tlsSuccessfullyConfigured = true;
+        }
+        catch (boost::system::system_error & e) {
+            std::cout << "error in TcpclV4Induct constructor: " << e.what() << ": tls shall be disabled for this induct" << std::endl;
+        }
+    }
+    if ((!m_tlsSuccessfullyConfigured) && inductConfig.tlsIsRequired) {
+        std::cout << "error in TcpclV4Induct constructor: TLS is required but tls is not properly configured.. this induct shall be disabled for safety." << std::endl;
+        return;
+    }
+#endif
     m_onNewOpportunisticLinkCallback = onNewOpportunisticLinkCallback;
     m_onDeletedOpportunisticLinkCallback = onDeletedOpportunisticLinkCallback;
 
@@ -44,18 +78,37 @@ TcpclV4Induct::~TcpclV4Induct() {
 
 void TcpclV4Induct::StartTcpAccept() {
     std::cout << "waiting for tcpclv4 tcp connections" << std::endl;
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > newSslStreamPtr =
+        boost::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_ioService, m_shareableSslContext);
+    m_tcpAcceptor.async_accept(newSslStreamPtr->next_layer(),
+        boost::bind(&TcpclV4Induct::HandleTcpAccept, this, newSslStreamPtr, boost::asio::placeholders::error));
+#else
     boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
-
     m_tcpAcceptor.async_accept(*newTcpSocketPtr,
         boost::bind(&TcpclV4Induct::HandleTcpAccept, this, newTcpSocketPtr, boost::asio::placeholders::error));
+#endif
+    
+
+    
 }
 
+#ifdef OPENSSL_SUPPORT_ENABLED
+void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error) {
+    if (!error) {
+        std::cout << "tcpclv4 tcp connection: " << newSslStreamSharedPtr->next_layer().remote_endpoint().address() << ":" << newSslStreamSharedPtr->next_layer().remote_endpoint().port() << std::endl;
+        m_listTcpclV4BundleSinks.emplace_back(
+            newSslStreamSharedPtr,
+#else
 void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         std::cout << "tcpclv4 tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
         m_listTcpclV4BundleSinks.emplace_back(
-            m_inductConfig.keepAliveIntervalSeconds,
             newTcpSocketPtr,
+#endif
+            m_tlsSuccessfullyConfigured,
+            m_inductConfig.tlsIsRequired,
+            m_inductConfig.keepAliveIntervalSeconds,
             m_ioService,
             m_inductProcessBundleCallback,
             m_inductConfig.numRxCircularBufferElements,
@@ -65,7 +118,7 @@ void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::sock
             boost::bind(&TcpclV4Induct::ConnectionReadyToBeDeletedNotificationReceived, this),
             boost::bind(&TcpclV4Induct::OnContactHeaderCallback_FromIoServiceThread, this, boost::placeholders::_1),
             10, //const unsigned int maxUnacked, (todo)
-            100000000); //const uint64_t maxFragmentSize = 100000000); (todo)
+            m_inductConfig.tcpclV4MyMaxRxSegmentSizeBytes); //const uint64_t maxFragmentSize = 100000000); (todo)
 
         StartTcpAccept(); //only accept if there was no error
     }
@@ -75,6 +128,7 @@ void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::sock
 
 
 }
+
 
 void TcpclV4Induct::RemoveInactiveTcpConnections() {
     const OnDeletedOpportunisticLinkCallback_t & callbackRef = m_onDeletedOpportunisticLinkCallback;

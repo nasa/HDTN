@@ -10,10 +10,10 @@
             "numRxCircularBufferBytesPerElement": 20000,
             "keepAliveIntervalSeconds": 15,
             "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
-            "tlsIsRequired": false,
-            "certificatePemFile": "",
-            "privateKeyPemFile": "",
-            "diffieHellmanParametersPemFile": ""
+            "tlsIsRequired": true,
+            "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert_ipn1.0.pem",
+            "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey_ipn1.0.pem",
+            "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096_ipn1.0.pem"
         }
     ]
 }

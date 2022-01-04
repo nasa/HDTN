@@ -14,8 +14,14 @@ public:
     typedef boost::function<void(TcpclV4BundleSink * thisTcpclBundleSinkPtr)> OnContactHeaderCallback_t;
 
     TcpclV4BundleSink(
-        const uint16_t desiredKeepAliveIntervalSeconds,
+#ifdef OPENSSL_SUPPORT_ENABLED
+        boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
+#else
         boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+#endif
+        const bool tlsSuccessfullyConfigured,
+        const bool tlsIsRequired,
+        const uint16_t desiredKeepAliveIntervalSeconds,
         boost::asio::io_service & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
@@ -35,8 +41,15 @@ public:
     void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
 private:
 
-    void TryStartTcpReceive();
-    void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    
+#ifdef OPENSSL_SUPPORT_ENABLED
+    void DoSslUpgrade();
+    void HandleSslHandshake(const boost::system::error_code & error);
+    void TryStartTcpReceiveSecure();
+    void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+#endif
+    void TryStartTcpReceiveUnsecure();
+    void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
     void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
     void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
@@ -46,7 +59,8 @@ private:
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
     virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec);
     virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnContactHeaderCompletedSuccessfully();
+    virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
+    virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 
     
 

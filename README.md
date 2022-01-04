@@ -81,3 +81,12 @@ then sends a RouteUpdate event to Egress to update its Outduct to the outduct of
 unexpectedly or the contact plan gets updated, the router will be notified and will recalculate the next hop and send
 RouteUpdate events to egress accordingly. 
 An example of Routing scenario test with 4 HDTN nodes was added under $HDTN_SOURCE_ROOT/test_scripts_linux/Routing_Test
+
+TLS Support for TCPCL Version 4
+=======
+TLS Versions 1.2 and 1.3 are supported for the TCPCL Version 4 convergence layer.  The X.509 certificates must be version 3 in order to validate IPN URIs using the X.509 "Subject Alternative Name" field.  HDTN must be compiled with ENABLE_OPENSSL_SUPPORT turned on in CMake.
+To generate (using a single command) a certificate (which is installed on both an outduct and an induct) and a private key (which is installed on an induct only), such that the induct has a Node Id of 10, use the following command:
+* openssl req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config /path/to/openssl.cnf
+
+To generate the Diffie-Hellman parameters PEM file (which is installed on an induct only), use the following command:
+* openssl dhparam -outform PEM -out dh4096.pem 4096

@@ -27,6 +27,7 @@ void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const Outdu
 }
 
 bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
+    const uint64_t maxOpportunisticRxBundleSizeBytes,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback)
 {
     LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
@@ -37,14 +38,13 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
     uint64_t nextOutductUuidIndex = 0;
     std::set<std::string> usedFinalDestEidSet;
     const outduct_element_config_vector_t & configsVec = outductsConfig.m_outductElementConfigVector;
-    m_threadCommunicationVec.resize(configsVec.size());
-    m_outductsVec.resize(configsVec.size());
+    m_threadCommunicationVec.reserve(configsVec.size());
+    m_outductsVec.reserve(configsVec.size());
     for (outduct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {
         const outduct_element_config_t & thisOutductConfig = *it;
         boost::shared_ptr<Outduct> outductSharedPtr;
-        const uint64_t uuidIndex = nextOutductUuidIndex++;
-        m_threadCommunicationVec[uuidIndex] = boost::make_unique<thread_communication_t>();
-        if (thisOutductConfig.convergenceLayer == "tcpcl") {
+        const uint64_t uuidIndex = nextOutductUuidIndex;
+        if (thisOutductConfig.convergenceLayer == "tcpcl_v3") {
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
                 outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
             }
@@ -53,11 +53,17 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             }
         }
         else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
+#ifndef OPENSSL_SUPPORT_ENABLED
+            if (thisOutductConfig.tlsIsRequired) {
+                std::cout << "error in OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.. this outduct shall be disabled." << std::endl;
+                continue;
+            }
+#endif
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
-                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback);
             }
             else {
-                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex);
+                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes);
             }
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
@@ -71,6 +77,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         }
 
         if (outductSharedPtr) {
+            ++nextOutductUuidIndex;
+            m_threadCommunicationVec.push_back(std::move(boost::make_unique<thread_communication_t>())); //uuid will be the array index
             for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin(); itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
                 const std::string & finalDestinationEidUri = *itDestUri;
                 if (usedFinalDestEidSet.insert(finalDestinationEidUri).second == false) { //not inserted, flowId already exists
@@ -84,19 +92,18 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                 }
                 m_finalDestEidToOutductMap[destEid] = outductSharedPtr;
             }
-	    cbhe_eid_t nextHopEid;
-            if (!Uri::ParseIpnUriString(thisOutductConfig.nextHopEndpointId, 
-				       nextHopEid.nodeId, nextHopEid.serviceId)) {
+            cbhe_eid_t nextHopEid;
+            if (!Uri::ParseIpnUriString(thisOutductConfig.nextHopEndpointId, nextHopEid.nodeId, nextHopEid.serviceId)) {
                 std::cerr << "error in OutductManager::LoadOutductsFromConfig: nextHopEndpointId " <<
-		thisOutductConfig.nextHopEndpointId << " is invalid." << std::endl;
+                    thisOutductConfig.nextHopEndpointId << " is invalid." << std::endl;
                 return false;
             }
 
-	    m_nextHopEidToOutductMap[nextHopEid] = outductSharedPtr;
+            m_nextHopEidToOutductMap[nextHopEid] = outductSharedPtr;
 
             outductSharedPtr->SetOnSuccessfulAckCallback(boost::bind(&OutductManager::OnSuccessfulBundleAck, this, uuidIndex));
             outductSharedPtr->Connect();
-            m_outductsVec[uuidIndex] = std::move(outductSharedPtr);
+            m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
         }
         else {
             std::cerr << "error in OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " is invalid." << std::endl;
@@ -129,152 +136,128 @@ void OutductManager::StopAllOutducts() {
 }
 
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size) {
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                std::cerr << "bundle pipeline limit exceeded" << std::endl;
-                return false;
-            }
-            else {
-                return outductPtr->Forward(bundleData, size);
-            }
+    if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+            std::cerr << "bundle pipeline limit exceeded" << std::endl;
+            return false;
+        }
+        else {
+            return outductPtr->Forward(bundleData, size);
         }
     }
-    catch (const std::out_of_range &) {
+    else {
         std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
+        return false;
     }
-    return false;
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq) {
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                std::cerr << "bundle pipeline limit exceeded" << std::endl;
-                return false;
-            }
-            else {
-                return outductPtr->Forward(movableDataZmq);
-            }
+    if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+            std::cerr << "bundle pipeline limit exceeded" << std::endl;
+            return false;
+        }
+        else {
+            return outductPtr->Forward(movableDataZmq);
         }
     }
-    catch (const std::out_of_range &) {
+    else {
         std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
+        return false;
     }
-    return false;
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec) {
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                std::cerr << "bundle pipeline limit exceeded" << std::endl;
-                return false;
-            }
-            else {
-                return outductPtr->Forward(movableDataVec);
-            }
+    if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+            std::cerr << "bundle pipeline limit exceeded" << std::endl;
+            return false;
+        }
+        else {
+            return outductPtr->Forward(movableDataVec);
         }
     }
-    catch (const std::out_of_range &) {
+    else {
         std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
+        return false;
     }
-    return false;
 }
 
 
 bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds) {
-    if (timeoutSeconds == 0) {
+    boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+    if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
+        while (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+            const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+            if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                timeoutExpiry = nowTime + boost::posix_time::seconds(timeoutSeconds);
+            }
+            if (timeoutExpiry <= nowTime) {
+                return false;
+            }
+            m_threadCommunicationVec[outductPtr->GetOutductUuid()]->Wait250msOrUntilNotified();
+            ++m_numEventsTooManyUnackedBundles;
+        }
+        return outductPtr->Forward(bundleData, size);
+    }
+    else {
+        std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
         return false;
     }
-    const uint64_t loopCount = timeoutSeconds * 4;
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            for (uint64_t i = 0; ; ++i) {
-                if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                    ++m_numEventsTooManyUnackedBundles;
-                    if (i == loopCount) {
-                        return false;
-                    }
-                    m_threadCommunicationVec[outductPtr->GetOutductUuid()]->Wait250msOrUntilNotified();
-                }
-                else {
-                    return outductPtr->Forward(bundleData, size);
-                }
-            }
-        }
-    }
-    catch (const std::out_of_range &) {
-        std::cerr << "error in  OutductManager::Forward_Blocking: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
-    }
-    return false;
 }
 bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds) {
-    if (timeoutSeconds == 0) {
+    boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+    if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
+        while (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+            const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+            if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                timeoutExpiry = nowTime + boost::posix_time::seconds(timeoutSeconds);
+            }
+            if (timeoutExpiry <= nowTime) {
+                return false;
+            }
+            m_threadCommunicationVec[outductPtr->GetOutductUuid()]->Wait250msOrUntilNotified();
+            ++m_numEventsTooManyUnackedBundles;
+        }
+        return outductPtr->Forward(movableDataZmq);
+    }
+    else {
+        std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
         return false;
     }
-    const uint64_t loopCount = timeoutSeconds * 4;
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            for (uint64_t i = 0; ; ++i) {
-                if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                    ++m_numEventsTooManyUnackedBundles;
-                    if (i == loopCount) {
-                        return false;
-                    }
-                    m_threadCommunicationVec[outductPtr->GetOutductUuid()]->Wait250msOrUntilNotified();
-                }
-                else {
-                    return outductPtr->Forward(movableDataZmq);
-                }
-            }
-        }
-    }
-    catch (const std::out_of_range &) {
-        std::cerr << "error in  OutductManager::Forward_Blocking: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
-    }
-    return false;
 }
 bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds) {
-    if (timeoutSeconds == 0) {
+    boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+    if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
+        while (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+            const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+            if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                timeoutExpiry = nowTime + boost::posix_time::seconds(timeoutSeconds);
+            }
+            if (timeoutExpiry <= nowTime) {
+                return false;
+            }
+            m_threadCommunicationVec[outductPtr->GetOutductUuid()]->Wait250msOrUntilNotified();
+            ++m_numEventsTooManyUnackedBundles;
+        }
+        return outductPtr->Forward(movableDataVec);
+    }
+    else {
+        std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
         return false;
     }
-    const uint64_t loopCount = timeoutSeconds * 4;
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            for (uint64_t i = 0; ; ++i) {
-                if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-                    ++m_numEventsTooManyUnackedBundles;
-                    if (i == loopCount) {
-                        return false;
-                    }
-                    m_threadCommunicationVec[outductPtr->GetOutductUuid()]->Wait250msOrUntilNotified();
-                }
-                else {
-                    return outductPtr->Forward(movableDataVec);
-                }
-            }
-        }
-    }
-    catch (const std::out_of_range &) {
-        std::cerr << "error in  OutductManager::Forward_Blocking: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
-    }
-    return false;
 }
 
-void OutductManager::SetOutductForFinalDestinationEid(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr) {
+void OutductManager::SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr) {
     m_finalDestEidToOutductMapMutex.lock();
     m_finalDestEidToOutductMap[finalDestEid] = outductPtr;
     m_finalDestEidToOutductMapMutex.unlock();
-    return;
 }
 
-Outduct * OutductManager::GetOutductByFinalDestinationEid(const cbhe_eid_t & finalDestEid) {
-    try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_finalDestEidToOutductMap.at(finalDestEid)) {
-            return outductPtr.get();
-        }
-    }
-    catch (const std::out_of_range &) {}
-    return NULL;
+Outduct * OutductManager::GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid) {
+    m_finalDestEidToOutductMapMutex.lock();
+    std::map<cbhe_eid_t, boost::shared_ptr<Outduct> >::iterator it = m_finalDestEidToOutductMap.find(finalDestEid);
+    Outduct * const retVal = (it != m_finalDestEidToOutductMap.end()) ? it->second.get() : NULL;
+    m_finalDestEidToOutductMapMutex.unlock();
+    return retVal;
 }
 
 Outduct * OutductManager::GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid) {

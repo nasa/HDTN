@@ -50,8 +50,14 @@
                     "ipn:1.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
+                "tcpclAllowOpportunisticReceiveBundles": true,
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+                "tryUseTls": false,
+                "tlsIsRequired": false,
+                "useTlsVersion1_3": false,
+                "doX509CertificateVerification": false,
+                "verifySubjectAltNameInX509Certificate": false,
+                "certificationAuthorityPemFileForVerification": ""
             },
             {
                 "name": "tcpcl_egress2",
@@ -64,8 +70,14 @@
                     "ipn:2.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 200000,
-                "tcpclAllowOpportunisticReceiveBundles": true
+                "tcpclAllowOpportunisticReceiveBundles": true,
+                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+                "tryUseTls": false,
+                "tlsIsRequired": false,
+                "useTlsVersion1_3": false,
+                "doX509CertificateVerification": false,
+                "verifySubjectAltNameInX509Certificate": false,
+                "certificationAuthorityPemFileForVerification": ""
             }
         ]
     },

@@ -10,6 +10,16 @@
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
+#ifdef OPENSSL_SUPPORT_ENABLED
+#include <boost/asio/ssl.hpp>
+
+//generate an x509 version 3 key with an IPN URI subjectAltName:
+//C:\openssl-1.1.1e_msvc2017\bin\openssl.exe req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config C:\Users\btomko\Downloads\openssl-1.1.1e\apps\openssl.cnf
+
+//generate the dh file:
+//C:\openssl-1.1.1e_msvc2017\bin\openssl.exe dhparam -outform PEM -out dh4096.pem 4096
+
+#endif
 
 class TcpclV4BidirectionalLink : public BidirectionalLink {
 public:
@@ -60,13 +70,16 @@ public:
     virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
 
 protected:
+    void BaseClass_SendContactHeader();
+    void BaseClass_SendSessionInit();
     void BaseClass_TryToWaitForAllBundlesToFinishSending();
     void BaseClass_DoTcpclShutdown(bool doCleanShutdown, TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() = 0;
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() = 0;
     virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) = 0;
     virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnContactHeaderCompletedSuccessfully();
+    virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
+    virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 
 private:
     void BaseClass_DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
@@ -88,6 +101,7 @@ private:
     void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
     void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    void BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred);
     void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     
     void BaseClass_CloseAndDeleteSockets();
@@ -116,6 +130,8 @@ protected:
     volatile bool m_base_sinkIsSafeToDelete; //bundleSink
     volatile bool m_base_tcpclShutdownComplete; //bundleSource
     volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
+    bool m_base_doUpgradeSocketToSsl;
+    bool m_base_didSuccessfulSslHandshake;
     boost::condition_variable m_base_localConditionVariableAckReceived;
     uint64_t m_base_reconnectionDelaySecondsIfNotZero; //bundle source only, increases with exponential back-off mechanism
 
@@ -123,9 +139,15 @@ protected:
     uint64_t m_base_myNextTransferId;
     std::string m_base_tcpclRemoteEidString;
     uint64_t m_base_tcpclRemoteNodeId;
+#ifdef OPENSSL_SUPPORT_ENABLED
+    boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > m_base_sslStreamSharedPtr;
+    std::unique_ptr<TcpAsyncSenderSsl> m_base_tcpAsyncSenderSslPtr;
+#else
     boost::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
     std::unique_ptr<TcpAsyncSender> m_base_tcpAsyncSenderPtr;
+#endif
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;
+    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendContactHeaderCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;
     std::vector<uint8_t> m_base_fragmentedBundleRxConcat;
 
