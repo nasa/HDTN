@@ -49,6 +49,13 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 
 TcpclV4BundleSource::~TcpclV4BundleSource() {
     Stop();
+    //print stats
+    std::cout << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBytesAcked " << m_base_totalBytesAcked << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBundlesSent " << m_base_totalBundlesSent << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
+    std::cout << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
 }
 
 void TcpclV4BundleSource::Stop() {
@@ -70,14 +77,6 @@ void TcpclV4BundleSource::Stop() {
         m_ioServiceThreadPtr->join();
         m_ioServiceThreadPtr.reset(); //delete it
     }
-
-    //print stats
-    std::cout << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalBytesAcked " << m_base_totalBytesAcked << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalBundlesSent " << m_base_totalBundlesSent << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
 }
 
 
