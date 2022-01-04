@@ -21,9 +21,9 @@ public:
     void Clear();
     bool AllReadyToForward() const;
     void StopAllOutducts();
-    Outduct * GetOutductByFinalDestinationEid(const cbhe_eid_t & finalDestEid);
+    Outduct * GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid);
     Outduct * GetOutductByOutductUuid(const uint64_t uuid);
-    void SetOutductForFinalDestinationEid(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr);
+    void SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr);
     boost::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
     Outduct * GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid);
     void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);

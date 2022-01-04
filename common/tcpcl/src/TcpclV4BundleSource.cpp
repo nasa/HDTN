@@ -27,7 +27,11 @@ TcpclV4BundleSource::TcpclV4BundleSource(
         myMaxRxBundleSizeBytes, //100000000, //todo 100MB maxBundleSizeBytes for receive
         myNodeId,
         expectedRemoteEidUri,
+#ifdef OPENSSL_SUPPORT_ENABLED
         tryUseTls, //tryUseTls
+#else
+        false,
+#endif
         tlsIsRequired //tlsIsRequired
     ),
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -40,7 +44,6 @@ TcpclV4BundleSource::TcpclV4BundleSource(
     m_outductOpportunisticProcessReceivedBundleCallback(outductOpportunisticProcessReceivedBundleCallback),
     m_tcpReadSomeBufferVec(10000) //todo 10KB rx buffer
 {
-
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_base_ioServiceRef));
 }
 

@@ -243,9 +243,11 @@ void TcpclV4BundleSink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() 
     ////TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
 }
 void TcpclV4BundleSink::Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() {
+#ifdef OPENSSL_SUPPORT_ENABLED
     if (m_base_usingTls) {
         DoSslUpgrade();
     }
+#endif
 }
 
 void TcpclV4BundleSink::Virtual_OnSessionInitReceivedAndProcessedSuccessfully() {

@@ -26,6 +26,12 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
                 myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }
         else if (thisInductConfig.convergenceLayer == "tcpcl_v4") {
+#ifndef OPENSSL_SUPPORT_ENABLED
+            if (thisInductConfig.tlsIsRequired) {
+                std::cout << "error in InductManager::LoadInductsFromConfig: TLS is required for this tcpcl v4 induct but HDTN is not compiled with OpenSSL support.. this induct shall be disabled." << std::endl;
+                continue;
+            }
+#endif
             m_inductsList.emplace_back(boost::make_unique<TcpclV4Induct>(inductProcessBundleCallback, thisInductConfig,
                 myNodeId, maxBundleSizeBytes, onNewOpportunisticLinkCallback, onDeletedOpportunisticLinkCallback));
         }

@@ -45,7 +45,7 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
         }
     }
     if ((!m_tlsSuccessfullyConfigured) && inductConfig.tlsIsRequired) {
-        std::cout << "error in TcpclV4Induct constructor: tls is required but tls is not properly configured.. this induct shall be disabled for safety." << std::endl;
+        std::cout << "error in TcpclV4Induct constructor: TLS is required but tls is not properly configured.. this induct shall be disabled for safety." << std::endl;
         return;
     }
 #endif
