@@ -6,7 +6,7 @@
  ****************************************************************************
  */
 
-
+/*
 #include "codec/bpv7.h"
 #include <cstdio>
 #include <cstring>
@@ -165,3 +165,4 @@ namespace hdtn {
     }
 
 }
+*/

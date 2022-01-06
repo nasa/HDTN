@@ -50,7 +50,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
     newPrimary.lifetime = 1000; //todo
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&newPrimary, (char *)buffer, 0, 0);
+    retVal = newPrimary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, 0);
     if (retVal == 0) {
         return false;
     }
@@ -119,7 +119,7 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std
     SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
     newPrimary.lifetime = 1000; //todo
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&newPrimary, (char *)buffer, 0, 0);
+    retVal = newPrimary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, 0);
     if (retVal == 0) {
         return false;
     }

@@ -8,6 +8,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_library(bpcodec STATIC
         src/codec/bpv7.cpp
         src/codec/bpv6.cpp
+		src/codec/Cbhe.cpp
         src/codec/bpv6-ext-block.cpp
 		src/codec/Bpv6AdministrativeRecords.cpp
 		src/codec/AggregateCustodySignal.cpp
@@ -18,7 +19,6 @@ add_library(bpcodec STATIC
         src/codec/cbor/cgoto/codec.cpp
         src/codec/cbor/standard/codec.cpp
         src/codec/cbor/memo/codec.cpp
-        src/codec/crc.cpp
 		src/codec/Bpv7Crc.cpp
 )
 

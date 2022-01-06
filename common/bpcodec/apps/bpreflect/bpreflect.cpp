@@ -240,7 +240,7 @@ int main(int argc, char* argv[]) {
             uint64_t curr_seq = 0;
 
             int32_t offset = 0;
-            offset += cbhe_bpv6_primary_block_decode(&primary, mbuf, 0, sz);
+            offset += primary.cbhe_bpv6_primary_block_decode(mbuf, 0, sz);
             if(0 == offset) {
                 printf("Malformed bundle received - aborting.\n");
                 return -2;
@@ -253,7 +253,7 @@ int main(int argc, char* argv[]) {
             val_tmp = primary.src_svc;
             primary.src_svc = primary.dst_svc;
             primary.dst_svc = val_tmp;
-            encode_len = cbhe_bpv6_primary_block_encode(&primary, mbuf, 0, sz);
+            encode_len = primary.cbhe_bpv6_primary_block_encode(mbuf, 0, sz);
             if(encode_len != offset) {
                 printf("Unable to update primary block: encoded value length mismatch.\n");
                 printf("%d expected, %d actual\n", (int)offset, (int)encode_len);

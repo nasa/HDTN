@@ -485,7 +485,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 custodyIdHeadSegment = storageSegmentHeader.custodyId;
 
                 //copy bundle header and store to maps, push segmentId to chain vec
-                std::size_t offset = cbhe_bpv6_primary_block_decode(&primary, (const char*)(dataReadBuf + SEGMENT_RESERVED_SPACE), 0, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
+                std::size_t offset = primary.cbhe_bpv6_primary_block_decode((const char*)(dataReadBuf + SEGMENT_RESERVED_SPACE), 0, BUNDLE_STORAGE_PER_SEGMENT_SIZE);
                 if (offset == 0) {
                     return false;//Malformed bundle
                 }

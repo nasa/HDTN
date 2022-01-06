@@ -63,33 +63,33 @@ int main(int argc, char* argv[]) {
     bpv6_primary.lifetime = 3600;
     bpv6_primary.creation = bpv6_unix_to_5050(time(0));
     bpv6_primary.sequence = 1;
-    offset = cbhe_bpv6_primary_block_encode(&bpv6_primary, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+    offset = bpv6_primary.cbhe_bpv6_primary_block_encode((char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
 
     // write a previous hop insertion header ...
     bpv6_block.type = BPV6_BLOCKTYPE_PREV_HOP_INSERTION;
     bpv6_block.flags = 0;
     bpv6_block.length = 2;
-    offset += bpv6_canonical_block_encode(&bpv6_block, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+    offset += bpv6_block.bpv6_canonical_block_encode((char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
     offset += 2;
 
     // write a trash extension block header ...
     bpv6_block.type = 0x50;
     bpv6_block.flags = 0;
     bpv6_block.length = 4;
-    offset += bpv6_canonical_block_encode(&bpv6_block, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+    offset += bpv6_block.bpv6_canonical_block_encode((char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
     offset += 4;
 
     // write a trash extension block header ...
     bpv6_block.type = 0x51;
     bpv6_block.flags = 0;
     bpv6_block.length = 6;
-    offset += bpv6_canonical_block_encode(&bpv6_block, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+    offset += bpv6_block.bpv6_canonical_block_encode((char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
     offset += 6;
 
     bpv6_block.type = BPV6_BLOCKTYPE_PAYLOAD;
     bpv6_block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
     bpv6_block.length = 11;
-    offset += bpv6_canonical_block_encode(&bpv6_block, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+    offset += bpv6_block.bpv6_canonical_block_encode((char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
     memcpy(bpv6_buf + offset, payload, strlen(payload));
     offset += strlen(payload);
 
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
         start = rdtsc_time_start();
         offset = bpv6_primary_block_decode(&bpv6_primary, (char *)bpv6_buf, 0, BUNDLE_SZ_MAX);
         while((bpv6_block.flags & BPV6_BLOCKFLAG_LAST_BLOCK) != BPV6_BLOCKFLAG_LAST_BLOCK) {
-            offset += bpv6_canonical_block_decode(&bpv6_block, (char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
+            offset += bpv6_block.bpv6_canonical_block_decode((char *)bpv6_buf, offset, BUNDLE_SZ_MAX);
             offset += bpv6_block.length;
         }
         tsc_bpv6_decode_elapsed += rdtsc_time_end() - start;

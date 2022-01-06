@@ -117,14 +117,14 @@ bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catal
     const uint32_t flags = bpv6_bundle_get_gflags(primary.flags);
     if (flags & BPV6_BUNDLEFLAG_CUSTODY) {
         if (flags & BPV6_BUNDLEFLAG_FRAGMENT) {
-            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(cbhe_bundle_uuid_t(primary), custodyId);
+            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidFromPrimary(), custodyId);
             if (p == NULL) {
                 return false;
             }
             catalogEntryToTake.ptrUuidKeyInMap = &p->first;
         }
         else {
-            const uuidnofrag_to_custid_hashmap_t::key_value_pair_t * p = m_uuidNoFragToCustodyIdHashMap.Insert(cbhe_bundle_uuid_nofragment_t(primary), custodyId);
+            const uuidnofrag_to_custid_hashmap_t::key_value_pair_t * p = m_uuidNoFragToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidNoFragmentFromPrimary(), custodyId);
             if (p == NULL) {
                 return false;
             }

@@ -32,7 +32,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_blo
 
     
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, 0);
+    retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, 0);
     BOOST_REQUIRE_GT(retVal, 0);
     buffer += retVal;
     payloadSize -= retVal;
@@ -43,7 +43,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_blo
     payloadSize -= SdnvGetNumBytesRequiredToEncode(payloadSize - 1); //as close as possible
     block.length = payloadSize;
 
-    retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, 0);
+    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, 0);
     BOOST_REQUIRE_GT(retVal, 0);
     buffer += retVal;
     for (uint64_t i = 0; i < payloadSize; ++i) {

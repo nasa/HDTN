@@ -68,7 +68,7 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
     primary.lifetime = PRIMARY_LIFETIME;
     primary.sequence = PRIMARY_SEQ;
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -81,7 +81,7 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
         block.length = blockBody.length();
 
 
-        retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+        retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
         if (retVal == 0) {
             return 0;
         }

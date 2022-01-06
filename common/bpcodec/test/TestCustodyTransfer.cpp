@@ -49,7 +49,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     primary.lifetime = PRIMARY_LIFETIME;
     primary.sequence = PRIMARY_SEQ;
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -59,7 +59,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     block.flags = 0;// BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
-    retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -105,7 +105,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     primary.lifetime = PRIMARY_LIFETIME;
     primary.sequence = PRIMARY_SEQ;
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -115,7 +115,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
-    retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //pretend it was time to send acs
         std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
         std::vector<uint8_t> & serializedAcsBundleFromHdtn = primaryPlusSerializedBundle.second;
-        //bpv6_primary_block_print(&originalPrimaryFromOriginator);
+        //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(primaryPlusSerializedBundle,
             cbhe_eid_t(originalPrimaryFromOriginator.custodian_node, originalPrimaryFromOriginator.custodian_svc),
             BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION));
@@ -468,7 +468,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //pretend it was time to send acs
         std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
         std::vector<uint8_t> & serializedAcsBundleFromHdtn = primaryPlusSerializedBundle.second;
-        //bpv6_primary_block_print(&originalPrimaryFromOriginator);
+        //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(primaryPlusSerializedBundle,
             cbhe_eid_t(originalPrimaryFromOriginator.custodian_node, originalPrimaryFromOriginator.custodian_svc),
             BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE));

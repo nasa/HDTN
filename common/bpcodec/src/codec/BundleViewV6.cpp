@@ -39,7 +39,7 @@ BundleViewV6::BundleViewV6() {}
 BundleViewV6::~BundleViewV6() {}
 
 bool BundleViewV6::Load() {
-    std::size_t offset = cbhe_bpv6_primary_block_decode(&m_primaryBlockView.header, (const char*)m_renderedBundle.data(), 0, m_renderedBundle.size());
+    std::size_t offset = m_primaryBlockView.header.cbhe_bpv6_primary_block_decode((const char*)m_renderedBundle.data(), 0, m_renderedBundle.size());
     if (offset == 0) {
         return false;//Malformed bundle received
     }
@@ -62,7 +62,7 @@ bool BundleViewV6::Load() {
         cbv.dirty = false;
         cbv.markedForDeletion = false;
         bpv6_canonical_block & canonical = cbv.header;
-        const uint32_t canonicalBlockHeaderSize = bpv6_canonical_block_decode(&canonical, (const char*)m_renderedBundle.data(), offset, m_renderedBundle.size());
+        const uint32_t canonicalBlockHeaderSize = canonical.bpv6_canonical_block_decode((const char*)m_renderedBundle.data(), offset, m_renderedBundle.size());
         if (canonicalBlockHeaderSize == 0) {
             return false;
         }
@@ -87,7 +87,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
     uint8_t * const bufferBegin = buffer;
     if (m_primaryBlockView.dirty) {
         //std::cout << "pd\n";
-        const uint64_t retVal = cbhe_bpv6_primary_block_encode(&m_primaryBlockView.header, (char *)buffer, 0, maxBundleSizeBytes);
+        const uint64_t retVal = m_primaryBlockView.header.cbhe_bpv6_primary_block_encode((char *)buffer, 0, maxBundleSizeBytes);
         if (retVal == 0) {
             return false;
         }
@@ -120,7 +120,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
         }
         if (it->dirty) {
             //always reencode canonical block if dirty
-            const uint64_t sizeHeader = bpv6_canonical_block_encode(&it->header, (char *)buffer, 0, 0);
+            const uint64_t sizeHeader = it->header.bpv6_canonical_block_encode((char *)buffer, 0, 0);
             if (sizeHeader <= 2) {
                 return false;
             }

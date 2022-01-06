@@ -8,7 +8,6 @@
 #include "codec/bpv6.h"
 #include "codec/bpv7.h"
 #include "codec/bpv6-ext-block.h"
-#include "codec/crc.h"
 
 #define BUNDLE_SZ_MAX  (8192)
 
@@ -47,12 +46,12 @@ int main(int argc, char* argv[]) {
     int crc_result=0;
 
 
-    offset = cbhe_bpv6_primary_block_decode(&bpv6_primary, (char *)bpv6_buf, 0,sz);
-    bpv6_primary_block_print(&bpv6_primary);
+    offset = bpv6_primary.cbhe_bpv6_primary_block_decode((char *)bpv6_buf, 0,sz);
+    bpv6_primary.bpv6_primary_block_print();
 
     while((bpv6_block.flags & BPV6_BLOCKFLAG_LAST_BLOCK) != BPV6_BLOCKFLAG_LAST_BLOCK){
     	block_start=offset;
-    	offset += bpv6_canonical_block_decode(&bpv6_block, (char *)bpv6_buf, offset,sz);
+    	offset += bpv6_block.bpv6_canonical_block_decode((char *)bpv6_buf, offset,sz);
     	switch(bpv6_block.type){
     	case BPV6_BLOCKTYPE_CUST_TRANSFER_EXT:{
     		bpv6_cust_transfer_ext_block bpv6_cteb;
@@ -60,16 +59,16 @@ int main(int argc, char* argv[]) {
     		bpv6_cteb.type=bpv6_block.type;
     		bpv6_cteb.flags=bpv6_block.flags;
     		bpv6_cteb.length=bpv6_block.length;
-    		bpv6_cteb_decode(&bpv6_cteb,(char *)bpv6_buf,block_start,offset,sz);
-    		bpv6_cteb_print(&bpv6_cteb);
+            bpv6_cteb.bpv6_cteb_decode((char *)bpv6_buf,block_start,offset,sz);
+            bpv6_cteb.bpv6_cteb_print();
     		break;
     	}
     	case BPV6_BLOCKTYPE_BPLIB_BIB :{
     		bpv6_bib.type=bpv6_block.type;
     		bpv6_bib.flags=bpv6_block.flags;
     		bpv6_bib.length=bpv6_block.length;
-    		bpv6_bib_decode(&bpv6_bib,(char *)bpv6_buf,offset,sz);
-    		bpv6_bib_print(&bpv6_bib);
+            bpv6_bib.bpv6_bib_decode((char *)bpv6_buf,offset,sz);
+            bpv6_bib.bpv6_bib_print();
     		break;
     	}
     	case BPV6_BLOCKTYPE_PREV_HOP_INSERTION :{
@@ -78,8 +77,8 @@ int main(int argc, char* argv[]) {
     		bpv6_phn.type=bpv6_block.type;
     		bpv6_phn.flags=bpv6_block.flags;
     		bpv6_phn.length=bpv6_block.length;
-    		bpv6_prev_hop_decode(&bpv6_phn,(char *)bpv6_buf,block_start,offset,sz);
-    		bpv6_prev_hop_print(&bpv6_phn);
+            bpv6_phn.bpv6_prev_hop_decode((char *)bpv6_buf,block_start,offset,sz);
+            bpv6_phn.bpv6_prev_hop_print();
     		break;
     	 }
     	case BPV6_BLOCKTYPE_BUNDLE_AGE :{
@@ -88,14 +87,15 @@ int main(int argc, char* argv[]) {
     		bpv6_bae.type=bpv6_block.type;
     		bpv6_bae.flags=bpv6_block.flags;
     		bpv6_bae.length=bpv6_block.length;
-    		bpv6_bundle_age_decode(&bpv6_bae,(char *)bpv6_buf,offset,sz);
-    		bpv6_bundle_age_print(&bpv6_bae);
+            bpv6_bae.bpv6_bundle_age_decode((char *)bpv6_buf,offset,sz);
+            bpv6_bae.bpv6_bundle_age_print();
     		break;
     	}
     	case BPV6_BLOCKTYPE_PAYLOAD :{
     		uint8_t payload[bpv6_block.length];
     		memcpy(payload,(bpv6_buf+offset),bpv6_block.length);
-    		bpv6_canonical_block_print(&bpv6_block);
+            bpv6_block.bpv6_canonical_block_print();
+#if 0
     		if((bpv6_bib.security_result_len>0)&&(bpv6_bib.cipher_suite_id==BPLIB_BIB_CRC16_X25))
     		{
     			crc_result=bib_verify(&payload, bpv6_block.length,&bpv6_bib);
@@ -106,6 +106,7 @@ int main(int argc, char* argv[]) {
     			else
     				printf("CRC verification failed for payload\n");
     		}
+#endif
     		break;
     	}
 

@@ -5,9 +5,25 @@
  * @author Gilbert Clark (GRC-LCN0)
  */
 
-#ifndef HDTN_BPV7_H
-#define HDTN_BPV7_H
+#ifndef BPV7_H
+#define BPV7_H
+#include <cstdint>
+#include <cstddef>
 
+struct Bpv7PrimaryBlock {
+    uint64_t bundleProcessingControlFlags;
+    uint32_t crc;
+
+};
+
+
+
+
+
+
+
+
+#if 0
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -189,5 +205,6 @@ namespace hdtn {
 #ifdef __cplusplus
 }
 #endif
+#endif
 
-#endif //HDTN_BPV7_H
+#endif //BPV7_H

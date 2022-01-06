@@ -400,7 +400,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
         return false;
     }
     bpv6_primary_block primary;
-    if (!cbhe_bpv6_primary_block_decode(&primary, (const char*)rxMsg.data(), 0, messageSize)) {
+    if (!primary.cbhe_bpv6_primary_block_decode((const char*)rxMsg.data(), 0, messageSize)) {
         std::cerr << "error in Ingress::Process: malformed bundle received\n";
         return false;
     }

@@ -221,14 +221,14 @@ int main(int argc, char* argv[]) {
             uint64_t curr_seq = 0;
 
             int32_t offset = 0;
-            offset += cbhe_bpv6_primary_block_decode(&primary, mbuf, offset, sz);
+            offset += primary.cbhe_bpv6_primary_block_decode(mbuf, offset, sz);
             if(0 == offset) {
                 printf("Malformed bundle received - aborting.\n");
                 return -2;
             }
             bool is_payload = false;
             while(!is_payload) {
-                int32_t tres = bpv6_canonical_block_decode(&payload, mbuf, offset, sz);
+                int32_t tres = payload.bpv6_canonical_block_decode(mbuf, offset, sz);
                 if(tres <= 0) {
                     printf("Failed to parse extension block - aborting.\n");
                     return -3;

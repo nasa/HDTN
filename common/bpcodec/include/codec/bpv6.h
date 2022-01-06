@@ -10,30 +10,8 @@
 
 #include <stdlib.h>
 #include <stdint.h>
- 
-/*
-#ifdef __cplusplus
-#include <vector>
-#include <boost/asio/buffer.hpp>
-struct Bpv6CanonicalBlockView {
-    CANONICAL_BLOCK_TYPE_CODES m_typeCode;
-    uint64_t m_blockProcessingControlFlags;
-    boost::asio::const_buffer m_actualSerializedBodyPtr; //includes length
+#include "codec/Cbhe.h"
 
-    boost::asio::const_buffer m_actualSerializedHeaderAndBodyPtr;
-    std::vector<uint8_t> m_optionalSerializedStorage;
-
-    void AddCanonicalBlockProcessingControlFlag(BLOCK_PROCESSING_CONTROL_FLAGS flag);
-    bool HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS flag) const;
-};
-struct CbheBundleV6 {
-    bpv6_primary_block m_primary;
-    std::vector<bpv6_canonical_block> m_canonicalBlockHeadersVec;
-};
-#endif
- */
-
-#ifdef __cplusplus
 enum class CANONICAL_BLOCK_TYPE_CODES : uint8_t {
     BUNDLE_PAYLOAD_BLOCK = 1,
     CUSTODY_TRANSFER_ENHANCEMENT_BLOCK = 10
@@ -49,11 +27,6 @@ enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
     BLOCK_CONTAINS_AN_EID_REFERENCE_FIELD = 1 << 6
 };
 
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
@@ -118,7 +91,7 @@ extern "C" {
 /**
  * Structure that contains information necessary for an RFC5050-compatible primary block
  */
-typedef struct bpv6_primary_block {
+struct bpv6_primary_block {
     uint8_t  version;
     uint8_t  vpad[7];
     uint64_t flags;
@@ -138,7 +111,41 @@ typedef struct bpv6_primary_block {
     uint64_t report_svc;
     uint64_t custodian_node;
     uint64_t custodian_svc;    // 64 bytes
-} bpv6_primary_block;
+
+    /**
+     * Dumps a primary block to stdout in a human-readable way
+     *
+     * @param primary Primary block to print
+     */
+    void bpv6_primary_block_print() const;
+
+    /**
+     * Reads an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block from a buffer and decodes it into 'primary'
+     *
+     * @param primary structure into which values should be decoded
+     * @param buffer target from which values should be decoded
+     * @param offset offset into target from which values should be decoded
+     * @param bufsz maximum size of the buffer
+     * @return the number of bytes the primary block was decoded from, or 0 on failure to decode
+     */
+    uint32_t cbhe_bpv6_primary_block_decode(const char* buffer, const size_t offset, const size_t bufsz);
+
+    /**
+     * Writes an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block into a buffer as encoded from 'primary'.  Note that block length is automatically
+     * computed based on the encoded length of other fields ... but that the block length cannot exceed 128 bytes, or
+     * encoding will fail.
+     *
+     * @param primary structure from which values should be read and encoded
+     * @param buffer target into which values should be encoded
+     * @param offset offset into target into which values should be encoded
+     * @param bufsz maximum size of the buffer
+     * @return the number of bytes the primary block was encoded into, or 0 on failure to encode
+     */
+    uint32_t cbhe_bpv6_primary_block_encode(char* buffer, const size_t offset, const size_t bufsz) const;
+
+    cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
+    cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
+};
 
 #define BPV6_BLOCKTYPE_PAYLOAD              (1)
 #define BPV6_BLOCKTYPE_AUTHENTICATION       (2)
@@ -162,151 +169,49 @@ typedef struct bpv6_primary_block {
 /**
  * Structure that contains information necessary for a 5050-compatible canonical block
  */
-typedef struct bpv6_canonical_block {
+struct bpv6_canonical_block {
     uint8_t type;
     uint8_t tpad[7];
     uint64_t flags;
     uint64_t length;
-} bpv6_canonical_block;
 
+    /**
+     * Dumps a canonical block to stdout in a human-readable fashion
+     *
+     * @param block Canonical block which should be displayed
+     */
+    void bpv6_canonical_block_print() const;
 
-/**
- * Dumps a primary block to stdout in a human-readable way
- *
- * @param primary Primary block to print
- */
-void bpv6_primary_block_print(bpv6_primary_block* primary);
+    /**
+     * Print just the block flags for a generic canonical block
+     *
+     * @param block The canonical block with flags to be displayed
+     */
+    void bpv6_block_flags_print() const;
 
-/**
- * Reads an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block from a buffer and decodes it into 'primary'
- *
- * @param primary structure into which values should be decoded
- * @param buffer target from which values should be decoded
- * @param offset offset into target from which values should be decoded
- * @param bufsz maximum size of the buffer
- * @return the number of bytes the primary block was decoded from, or 0 on failure to decode
- */
-uint32_t cbhe_bpv6_primary_block_decode(bpv6_primary_block* primary, const char* buffer, const size_t offset, const size_t bufsz);
+    /**
+     * Reads an RFC5050 canonical block from a buffer and decodes it into 'block'
+     *
+     * @param block structure into which values should be decoded
+     * @param buffer target from which values should be read
+     * @param offset offset into target from which values should be read
+     * @param bufsz maximum size of the buffer
+     * @return the number of bytes the canonical block was encoded into, or 0 on failure to decode
+     */
+    uint32_t bpv6_canonical_block_decode(const char* buffer, const size_t offset, const size_t bufsz);
 
-/**
- * Writes an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block into a buffer as encoded from 'primary'.  Note that block length is automatically
- * computed based on the encoded length of other fields ... but that the block length cannot exceed 128 bytes, or
- * encoding will fail.
- *
- * @param primary structure from which values should be read and encoded
- * @param buffer target into which values should be encoded
- * @param offset offset into target into which values should be encoded
- * @param bufsz maximum size of the buffer
- * @return the number of bytes the primary block was encoded into, or 0 on failure to encode
- */
-uint32_t cbhe_bpv6_primary_block_encode(const bpv6_primary_block* primary, char* buffer, const size_t offset, const size_t bufsz);
-
-/**
- * Dumps a canonical block to stdout in a human-readable fashion
- *
- * @param block Canonical block which should be displayed
- */
-void bpv6_canonical_block_print(bpv6_canonical_block* block);
-
-/**
- * Reads an RFC5050 canonical block from a buffer and decodes it into 'block'
- *
- * @param block structure into which values should be decoded
- * @param buffer target from which values should be read
- * @param offset offset into target from which values should be read
- * @param bufsz maximum size of the buffer
- * @return the number of bytes the canonical block was encoded into, or 0 on failure to decode
- */
-uint32_t bpv6_canonical_block_decode(bpv6_canonical_block* block, const char* buffer, const size_t offset, const size_t bufsz);
-
-/**
- * Writes an RFC5050 canonical into a buffer as encoded by 'block'
- *
- * @param block structure from which values should be read and encoded
- * @param buffer target into which values should be encoded
- * @param offset offset into target into which values should be encoded
- * @param bufsz maximum size of the buffer
- * @return the number of bytes the canonical block was encoded into, or 0 on failure to encode
- */
-uint32_t bpv6_canonical_block_encode(const bpv6_canonical_block* block, char* buffer, const size_t offset, const size_t bufsz);
-
-#ifdef __cplusplus
-struct cbhe_eid_t {
-    uint64_t nodeId;
-    uint64_t serviceId;
-    
-    cbhe_eid_t(); //a default constructor: X()
-    cbhe_eid_t(uint64_t paramNodeId, uint64_t paramServiceId);
-    ~cbhe_eid_t(); //a destructor: ~X()
-    cbhe_eid_t(const cbhe_eid_t& o); //a copy constructor: X(const X&)
-    cbhe_eid_t(cbhe_eid_t&& o); //a move constructor: X(X&&)
-    cbhe_eid_t& operator=(const cbhe_eid_t& o); //a copy assignment: operator=(const X&)
-    cbhe_eid_t& operator=(cbhe_eid_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const cbhe_eid_t & o) const; //operator ==
-    bool operator!=(const cbhe_eid_t & o) const; //operator !=
-    bool operator<(const cbhe_eid_t & o) const; //operator < so it can be used as a map key
-    void Set(uint64_t paramNodeId, uint64_t paramServiceId);
+    /**
+     * Writes an RFC5050 canonical into a buffer as encoded by 'block'
+     *
+     * @param block structure from which values should be read and encoded
+     * @param buffer target into which values should be encoded
+     * @param offset offset into target into which values should be encoded
+     * @param bufsz maximum size of the buffer
+     * @return the number of bytes the canonical block was encoded into, or 0 on failure to encode
+     */
+    uint32_t bpv6_canonical_block_encode(char* buffer, const size_t offset, const size_t bufsz) const;
 };
 
-struct cbhe_bundle_uuid_t {
 
-    //The creation timestamp is a pair of SDNVs that,
-    //together with the source endpoint ID and (if the bundle is a
-    //fragment) the fragment offset and payload length, serve to
-    //identify the bundle.
-    //A source Bundle Protocol Agent must never create two distinct bundles with the same source
-    //endpoint ID and bundle creation timestamp.The combination of
-    //source endpoint ID and bundle creation timestamp therefore serves
-    //to identify a single transmission request, enabling it to be
-    //acknowledged by the receiving application
-
-    uint64_t creationSeconds;
-    uint64_t sequence;
-    cbhe_eid_t srcEid;
-    //below if isFragment (default 0 if not a fragment)
-    uint64_t fragmentOffset;
-    uint64_t dataLength;      // 64 bytes
-
-
-
-    cbhe_bundle_uuid_t(); //a default constructor: X()
-    cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
-        uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength);
-    cbhe_bundle_uuid_t(const bpv6_primary_block & primary);
-    ~cbhe_bundle_uuid_t(); //a destructor: ~X()
-    cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
-    cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
-    cbhe_bundle_uuid_t& operator=(const cbhe_bundle_uuid_t& o); //a copy assignment: operator=(const X&)
-    cbhe_bundle_uuid_t& operator=(cbhe_bundle_uuid_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const cbhe_bundle_uuid_t & o) const; //operator ==
-    bool operator!=(const cbhe_bundle_uuid_t & o) const; //operator !=
-    bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
-};
-
-struct cbhe_bundle_uuid_nofragment_t {
-
-    uint64_t creationSeconds;
-    uint64_t sequence;
-    cbhe_eid_t srcEid;
-
-    cbhe_bundle_uuid_nofragment_t(); //a default constructor: X()
-    cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId);
-    cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary);
-    cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment);
-    ~cbhe_bundle_uuid_nofragment_t(); //a destructor: ~X()
-    cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o); //a copy constructor: X(const X&)
-    cbhe_bundle_uuid_nofragment_t(cbhe_bundle_uuid_nofragment_t&& o); //a move constructor: X(X&&)
-    cbhe_bundle_uuid_nofragment_t& operator=(const cbhe_bundle_uuid_nofragment_t& o); //a copy assignment: operator=(const X&)
-    cbhe_bundle_uuid_nofragment_t& operator=(cbhe_bundle_uuid_nofragment_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const cbhe_bundle_uuid_nofragment_t & o) const; //operator ==
-    bool operator!=(const cbhe_bundle_uuid_nofragment_t & o) const; //operator !=
-    bool operator<(const cbhe_bundle_uuid_nofragment_t & o) const; //operator < so it can be used as a map key
-};
-#endif
-
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif //BPV6_H

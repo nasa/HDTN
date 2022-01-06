@@ -262,7 +262,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         primary.lifetime = 1000;
         primary.sequence = seq;
         uint64_t retVal;
-        retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+        retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
         if (retVal == 0) {
             std::cout << "primary encode error\n";
             m_running = false;
@@ -290,7 +290,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             }
             //always prepare for rfc5050 style custody transfer if next hop doesn't support acs
             if (!m_detectedNextCustodianSupportsCteb) { //prevent map from filling up endlessly if we're using cteb
-                cbhe_bundle_uuid_nofragment_t uuid(primary);
+                cbhe_bundle_uuid_nofragment_t uuid = primary.GetCbheBundleUuidNoFragmentFromPrimary();
                 m_mutexBundleUuidSet.lock();
                 const bool success = m_cbheBundleUuidSet.insert(uuid).second;
                 m_mutexBundleUuidSet.unlock();
@@ -308,7 +308,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
         block.length = bundleSizeBytes;
 
-        retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+        retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
         if (retVal == 0) {
             std::cout << "payload canonical encode error\n";
             m_running = false;

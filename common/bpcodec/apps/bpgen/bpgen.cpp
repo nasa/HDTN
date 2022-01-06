@@ -226,13 +226,13 @@ int main(int argc, char* argv[]) {
             primary.creation = (uint64_t)bpv6_unix_to_5050(curr_time);
             primary.sequence = seq;
             uint64_t tsc_start = rdtsc();
-            bundle_length = cbhe_bpv6_primary_block_encode(&primary, curr_buf, 0, BP_MSG_BUFSZ);
+            bundle_length = primary.cbhe_bpv6_primary_block_encode(curr_buf, 0, BP_MSG_BUFSZ);
             tsc_total += rdtsc() - tsc_start;
             block.type = BPV6_BLOCKTYPE_PAYLOAD;
             block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
             block.length = gen_sz;
             tsc_start = rdtsc();
-            bundle_length += bpv6_canonical_block_encode(&block, curr_buf, bundle_length, BP_MSG_BUFSZ);
+            bundle_length += block.bpv6_canonical_block_encode(curr_buf, bundle_length, BP_MSG_BUFSZ);
             tsc_total += rdtsc() - tsc_start;
             hdr->tsc = rdtsc();
             clock_gettime(CLOCK_REALTIME, &hdr->abstime);
