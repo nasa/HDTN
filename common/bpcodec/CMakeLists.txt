@@ -19,6 +19,7 @@ add_library(bpcodec STATIC
         src/codec/cbor/standard/codec.cpp
         src/codec/cbor/memo/codec.cpp
         src/codec/crc.cpp
+		src/codec/Bpv7Crc.cpp
 )
 
 
