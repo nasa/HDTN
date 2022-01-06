@@ -168,7 +168,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 	
 	Scheduler scheduler;
         if (!isPingTest) {
-	     scheduler.ProcessContactsFile(&jsonEventFileName, finalDestEid);
+	     scheduler.ProcessContactsFile(&jsonEventFileName);
              return true;
         }
 
@@ -181,7 +181,14 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         zmq::socket_t socket(ctx, zmq::socket_type::pub);
         const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
-        socket.bind(bind_boundSchedulerPubSubPath);
+
+        try {
+            socket.bind(bind_boundSchedulerPubSubPath);
+        } catch (const zmq::error_t & ex) {
+            std::cerr << "Scheduler socket failed to bind: " << ex.what() << std::endl;
+            return false;
+        }
+	
 	boost::asio::io_service service;
         boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
 
@@ -276,7 +283,7 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, int src, int d
     }
 }
 
-int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t finalDest) 
+int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) 
 {
     m_timersFinished = false;
     contactPlanVector_t contactsVector;
@@ -291,6 +298,7 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t fi
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);
+	linkEvent.finalDest = eventPt.second.get<int>("finalDestination", 0);
         linkEvent.start = eventPt.second.get<int>("startTime", 0);
         linkEvent.end = eventPt.second.get<int>("endTime", 0);
         linkEvent.rate = eventPt.second.get<int>("rate", 0);
@@ -305,7 +313,13 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t fi
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
     const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
-    socket.bind(bind_boundSchedulerPubSubPath);
+
+    try {
+        socket.bind(bind_boundSchedulerPubSubPath);
+    } catch (const zmq::error_t & ex) {
+    	std::cerr << "Scheduler socket failed to bind: " << ex.what() << std::endl;
+        return false;
+    }
 
     boost::asio::io_service ioService;
 
@@ -320,17 +334,21 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, cbhe_eid_t fi
         SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
         SmartDeadlineTimer dt2 = boost::make_unique<boost::asio::deadline_timer>(ioService);
         
+        cbhe_eid_t finalDestination;
+        finalDestination.nodeId = contactsVector[i].finalDest; 
+        finalDestination.serviceId = 1; 
+
         dt->expires_from_now(boost::posix_time::seconds(contactsVector[i].start));
         dt->async_wait(boost::bind(&Scheduler::ProcessLinkUp,this,boost::asio::placeholders::error, 
 				contactsVector[i].source, contactsVector[i].dest,
-                                finalDest, "Link Available",&socket));
+                                finalDestination, "Link Available",&socket));
         vectorTimers.push_back(std::move(dt));
 
         dt2->expires_from_now(boost::posix_time::seconds(contactsVector[i].end + 1));                     
         dt2->async_wait(boost::bind(&Scheduler::ProcessLinkDown,this,boost::asio::placeholders::error, 
 				contactsVector[i].source, 
 				contactsVector[i].dest,
-        			finalDest, "Link Unavailable",&socket));
+        			finalDestination, "Link Unavailable",&socket));
         vectorTimers2.push_back(std::move(dt2));
     }
 

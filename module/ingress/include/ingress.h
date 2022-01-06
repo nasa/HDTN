@@ -16,7 +16,7 @@
 #include <queue>
 #include <boost/atomic.hpp>
 #include "TcpclInduct.h"
-
+#include "TcpclV4Induct.h"
 
 namespace hdtn {
 
@@ -126,7 +126,7 @@ private:
     std::set<cbhe_eid_t> m_finalDestEidAvailableSet;
     std::vector<uint64_t> m_schedulerRxBufPtrToStdVec64;
 
-    std::map<uint64_t, TcpclInduct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
+    std::map<uint64_t, Induct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
     boost::mutex m_availableDestOpportunisticNodeIdToTcpclInductMapMutex;
 };
 

@@ -35,6 +35,9 @@ void Tcpcl::SetShutdownMessageCallback(ShutdownMessageCallback_t callback) {
 void Tcpcl::SetMaxReceiveBundleSizeBytes(const uint64_t maxRxBundleSizeBytes) {
     M_MAX_RX_BUNDLE_SIZE_BYTES = maxRxBundleSizeBytes;
 }
+uint64_t Tcpcl::GetMaxReceiveBundleSizeBytes() const {
+    return M_MAX_RX_BUNDLE_SIZE_BYTES;
+}
 
 void Tcpcl::InitRx() {
     m_mainRxState = TCPCL_MAIN_RX_STATE::READ_CONTACT_HEADER;

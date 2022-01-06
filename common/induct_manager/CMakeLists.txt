@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_library(induct_manager_lib STATIC
 	src/Induct.cpp
 	src/TcpclInduct.cpp
+	src/TcpclV4Induct.cpp
 	src/StcpInduct.cpp
     src/UdpInduct.cpp
 	src/LtpOverUdpInduct.cpp

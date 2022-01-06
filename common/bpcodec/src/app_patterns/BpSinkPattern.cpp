@@ -16,6 +16,7 @@
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include "TcpclInduct.h"
+#include "TcpclV4Induct.h"
 
 BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
 
@@ -39,7 +40,7 @@ void BpSinkPattern::Stop() {
     std::cout << "totalBundlesRx: " << m_totalBundlesRx << "\n";
 }
 
-bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr & outductsConfigPtr,
+bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
     bool isAcsAware, const cbhe_eid_t & myEid, uint32_t processingLagMs, const uint64_t maxBundleSizeBytes, const uint64_t myBpEchoServiceId)
 {
     m_tcpclOpportunisticRemoteNodeId = 0;
@@ -58,22 +59,26 @@ bool BpSinkPattern::Init(const InductsConfig & inductsConfig, OutductsConfig_ptr
 
     m_nextCtebCustodyId = 0;
 
+    m_tcpclInductPtr = NULL;
+
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
-    m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
-        inductsConfig, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
-        boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-        boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
+    if (inductsConfigPtr) {
+        m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
+            *inductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
+            boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+            boost::bind(&BpSinkPattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
+    }
 
     if (outductsConfigPtr) {
         m_hasSendCapability = true;
         m_hasSendCapabilityOverTcpclBidirectionalInduct = false;
-        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX);
+        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes, boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1));
         while (!m_outductManager.AllReadyToForward()) {
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
         }
     }
-    else if (inductsConfig.m_inductElementConfigVector[0].convergenceLayer == "tcpcl") {
+    else if ((inductsConfigPtr) && ((inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))) {
         m_hasSendCapability = true;
         m_hasSendCapabilityOverTcpclBidirectionalInduct = true;
         std::cout << "this bpsink pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer\n";
@@ -118,7 +123,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
 
     
 
-    static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
+    static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON;
     const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
     if (isEcho && (!m_hasSendCapability)) {
         std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
@@ -132,7 +137,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
 
     //accept custody
     if (m_hasSendCapability) { //has bidirectionality
-        static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
+        static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
         
         if (isEcho) {
             primary.dst_node = primary.src_node;
@@ -261,8 +266,12 @@ void BpSinkPattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, 
         std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
+    else if (m_tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*\n";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
     else {
-        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct\n";
+        std::cerr << "error in BpSinkPattern::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct\n";
     }
 }
 void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {

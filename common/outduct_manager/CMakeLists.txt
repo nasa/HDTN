@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_library(outduct_manager_lib STATIC
 	src/Outduct.cpp
 	src/TcpclOutduct.cpp
+	src/TcpclV4Outduct.cpp
 	src/StcpOutduct.cpp
     src/UdpOutduct.cpp
 	src/LtpOverUdpOutduct.cpp

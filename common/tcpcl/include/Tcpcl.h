@@ -100,6 +100,7 @@ public:
     void SetKeepAliveCallback(KeepAliveCallback_t callback);
     void SetShutdownMessageCallback(ShutdownMessageCallback_t callback);
     void SetMaxReceiveBundleSizeBytes(const uint64_t maxRxBundleSizeBytes);
+    uint64_t GetMaxReceiveBundleSizeBytes() const;
 
     void InitRx();
     void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);

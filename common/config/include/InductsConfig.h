@@ -36,6 +36,16 @@ struct induct_element_config_t {
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
 
+    //specific to tcpcl version 3 (servers)
+    uint64_t tcpclV3MyMaxTxSegmentSizeBytes;
+
+    //specific to tcpcl version 4 (servers)
+    uint64_t tcpclV4MyMaxRxSegmentSizeBytes;
+    bool tlsIsRequired;
+    std::string certificatePemFile;
+    std::string privateKeyPemFile;
+    std::string diffieHellmanParametersPemFile;
+
     induct_element_config_t();
     ~induct_element_config_t();
 

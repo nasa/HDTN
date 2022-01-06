@@ -25,6 +25,16 @@ sleep 3
 egress_PID=$!
 sleep 3
 
+#Routing
+# CGR server
+python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json &
+sleep 1
+
+#Router
+./build/module/router/hdtn-router --contact-plan-file=contactPlan.json --dest-uri-eid=ipn:2.1 --hdtn-config-file=$hdtn_config &
+router_PID=$!
+sleep 1
+
 #Ingress
 ./build/module/ingress/hdtn-ingress --hdtn-config-file=$hdtn_config  &
 ingress_PID=$!
@@ -60,6 +70,8 @@ echo "\nkilling HDTN storage..." && kill -2 $storage_PID
 sleep 2
 echo "\nkilling HDTN ingress..." && kill -2 $ingress_PID
 sleep 2
+echo "\nkilling Router..." && kill -2 $router_PID
+sleep 2
 echo "\nkilling scheduler..." && kill -2 $scheduler_PID
 sleep 2
 echo "\nkilling egress..." && kill -2 $egress_PID
@@ -68,6 +80,5 @@ echo "\nkilling bpsink2..." && kill -2 $bpsink2_PID
 sleep 2
 echo "\nkilling bpsink1..." && kill -2 $bpsink1_PID
 sleep 2
-
-
+echo "\nkilling py_cgr server..." && pkill -9 -f py_cgr_client.py
 

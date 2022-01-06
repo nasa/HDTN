@@ -35,7 +35,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             desc.add_options()
                 ("help", "Produce help message.")
                 ("save-directory", boost::program_options::value<std::string>()->default_value(""), "Directory to save file(s) to.  Empty=>DoNotSaveToDisk")
-                ("inducts-config-file", boost::program_options::value<std::string>()->default_value("inducts.json"), "Inducts Configuration File.")
+                ("inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File.")
                 ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpReceiveFile Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
@@ -57,14 +57,19 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             }
 
             const std::string configFileNameInducts = vm["inducts-config-file"].as<std::string>();
-            inductsConfigPtr = InductsConfig::CreateFromJsonFile(configFileNameInducts);
-            if (!inductsConfigPtr) {
-                std::cerr << "error loading config file: " << configFileNameInducts << std::endl;
-                return false;
+            if (configFileNameInducts.length()) {
+                inductsConfigPtr = InductsConfig::CreateFromJsonFile(configFileNameInducts);
+                if (!inductsConfigPtr) {
+                    std::cerr << "error loading config file: " << configFileNameInducts << std::endl;
+                    return false;
+                }
+                std::size_t numInducts = inductsConfigPtr->m_inductElementConfigVector.size();
+                if (numInducts != 1) {
+                    std::cerr << "error: number of BpReceiveFile inducts is not 1: got " << numInducts << std::endl;
+                }
             }
-            std::size_t numInducts = inductsConfigPtr->m_inductElementConfigVector.size();
-            if (numInducts != 1) {
-                std::cerr << "error: number of BpReceiveFile inducts is not 1: got " << numInducts << std::endl;
+            else {
+                std::cout << "notice: BpReceiveFile has no induct... bundle data will have to flow in through a bidirectional tcpcl outduct\n";
             }
 
             //create outduct for custody signals
@@ -101,7 +106,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
 
         std::cout << "starting BpReceiveFile.." << std::endl;
         BpReceiveFile bpReceiveFile(saveDirectory);
-        bpReceiveFile.Init(*inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
+        bpReceiveFile.Init(inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
 
 
         if (useSignalHandler) {

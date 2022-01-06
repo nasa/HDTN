@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 11)
 add_executable(hdtn-scheduler 
     src/scheduler.cpp
     src/main.cpp
-    src/cgrServer.cpp
 )
 
 target_link_libraries(hdtn-scheduler
@@ -21,7 +20,6 @@ target_include_directories(hdtn-scheduler PUBLIC
 	include
         lib/include
         ../../common/bpcodec/include
-        ../../common/regsvr/lib/include
         ../../common/include
 	${Boost_INCLUDE_DIRS}
 	${libzmq_INCLUDE}

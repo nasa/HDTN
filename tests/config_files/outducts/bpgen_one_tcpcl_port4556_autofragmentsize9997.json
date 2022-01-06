@@ -3,7 +3,7 @@
     "outductVector": [
         {
             "name": "bpgen",
-            "convergenceLayer": "tcpcl",
+            "convergenceLayer": "tcpcl_v3",
             "nextHopEndpointId": "ipn:10.1",
             "remoteHostname": "localhost",
             "remotePort": 4556,
@@ -14,7 +14,7 @@
                 "ipn:3.1"
             ],
             "keepAliveIntervalSeconds": 17,
-            "tcpclAutoFragmentSizeBytes": 9997,
+            "tcpclV3MyMaxTxSegmentSizeBytes": 9997,
             "tcpclAllowOpportunisticReceiveBundles": false
         }
     ]

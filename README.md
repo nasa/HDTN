@@ -56,7 +56,7 @@ In another terminal, run:
 
 Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
 
-There are additional test scripts located under directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.   
+There are additional test scripts located under the directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.   
 
 Run Unit Tests
 ===============
@@ -70,5 +70,23 @@ After building HDTN (see above), the integrated tests can be run with the follow
 
 Run Contact Graph Routing
 =========================
-HDTN relies on PyCGR for its contact graph routing. To enable the PyCGR Client, in a separate window run:
-* python3 pycgr/py_cgr_client.py
+HDTN relies on PyCGR for its contact graph routing. We need to specify the location of the contactPlan file as argument. 
+To enable the PyCGR Client, in a separate window run:
+* python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json
+
+Routing
+=======
+The Router module communicates with the CGR client to get the next hop for the optimal route leading to the final destination,
+then sends a RouteUpdate event to Egress to update its Outduct to the outduct of that nextHop. If the link goes down
+unexpectedly or the contact plan gets updated, the router will be notified and will recalculate the next hop and send
+RouteUpdate events to egress accordingly. 
+An example of Routing scenario test with 4 HDTN nodes was added under $HDTN_SOURCE_ROOT/test_scripts_linux/Routing_Test
+
+TLS Support for TCPCL Version 4
+=======
+TLS Versions 1.2 and 1.3 are supported for the TCPCL Version 4 convergence layer.  The X.509 certificates must be version 3 in order to validate IPN URIs using the X.509 "Subject Alternative Name" field.  HDTN must be compiled with ENABLE_OPENSSL_SUPPORT turned on in CMake.
+To generate (using a single command) a certificate (which is installed on both an outduct and an induct) and a private key (which is installed on an induct only), such that the induct has a Node Id of 10, use the following command:
+* openssl req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config /path/to/openssl.cnf
+
+To generate the Diffie-Hellman parameters PEM file (which is installed on an induct only), use the following command:
+* openssl dhparam -outform PEM -out dh4096.pem 4096

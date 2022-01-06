@@ -1,0 +1,19 @@
+{
+    "inductConfigName": "myconfig",
+    "inductVector": [
+        {
+            "name": "tcpcl_bpsink",
+            "convergenceLayer": "tcpcl_v4",
+            "myEndpointId": "ipn:1.1",
+            "boundPort": 4557,
+            "numRxCircularBufferElements": 200,
+            "numRxCircularBufferBytesPerElement": 20000,
+            "keepAliveIntervalSeconds": 15,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+            "tlsIsRequired": true,
+            "certificatePemFile": "C:\/hdtn_ssl_certificates\/cert_ipn1.0.pem",
+            "privateKeyPemFile": "C:\/hdtn_ssl_certificates\/privatekey_ipn1.0.pem",
+            "diffieHellmanParametersPemFile": "C:\/hdtn_ssl_certificates\/dh4096_ipn1.0.pem"
+        }
+    ]
+}

@@ -1,38 +1,24 @@
 #ifndef _TCPCL_BUNDLE_SOURCE_H
 #define _TCPCL_BUNDLE_SOURCE_H 1
 
-#include <string>
-#include <boost/thread.hpp>
-#include <boost/asio.hpp>
-#include <map>
-#include <vector>
-#include "Tcpcl.h"
-#include "TcpAsyncSender.h"
-#include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "TcpclV3BidirectionalLink.h"
 
 typedef boost::function<void(std::vector<uint8_t> & movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
 
 //tcpcl
-class TcpclBundleSource {
+class TcpclBundleSource : public TcpclV3BidirectionalLink {
 private:
     TcpclBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const uint64_t myNodeId,
+    TcpclBundleSource(const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
         const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
 
     ~TcpclBundleSource();
     void Stop();
-    bool Forward(const uint8_t* bundleData, const std::size_t size);
-    bool Forward(zmq::message_t & dataZmq);
-    bool Forward(std::vector<uint8_t> & dataVec);
-    std::size_t GetTotalDataSegmentsAcked();
-    std::size_t GetTotalDataSegmentsSent();
-    std::size_t GetTotalDataSegmentsUnacked();
-    std::size_t GetTotalBundleBytesAcked();
-    std::size_t GetTotalBundleBytesSent();
-    std::size_t GetTotalBundleBytesUnacked();
+    
+    
     void Connect(const std::string & hostname, const std::string & port);
     bool ReadyToForward();
     void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
@@ -44,76 +30,44 @@ private:
     void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
-    void OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
-    void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    void DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
     void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
-    void DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
 
-    //tcpcl received data callback functions
-    void ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    void DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
-    void AckCallback(uint64_t totalBytesAcknowledged);
-    void BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
-    void NextBundleLengthCallback(uint64_t nextBundleLength);
-    void KeepAliveCallback();
-    void ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
-                                             bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds);
-
-
-    std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
-    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;
-    TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendShutdownCallback;
-
-    Tcpcl m_tcpcl;
-    boost::asio::io_service m_ioService;
+    virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
+    virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
+    virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec);
+    
+    
+    
     boost::asio::io_service::work m_work;
     boost::asio::ip::tcp::resolver m_resolver;
-    boost::asio::deadline_timer m_noKeepAlivePacketReceivedTimer;
-    boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
-    boost::asio::deadline_timer m_sendShutdownMessageTimeoutTimer;
     boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
     boost::asio::deadline_timer m_reconnectAfterOnConnectErrorTimer;
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    
     boost::asio::ip::tcp::resolver::results_type m_resolverResults;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    boost::condition_variable m_localConditionVariableAckReceived;
+    
 
     //tcpcl vars
-    CONTACT_HEADER_FLAGS m_contactHeaderFlags;
-    std::string m_localEid;
-    uint16_t m_keepAliveIntervalSeconds;
-    uint64_t m_reconnectionDelaySecondsIfNotZero;
-    const unsigned int MAX_UNACKED;
-    CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckCb;
-    std::vector<uint64_t> m_bytesToAckCbVec;
-    std::vector<std::vector<uint64_t> > m_fragmentBytesToAckCbVec;
-    std::vector<uint64_t> m_fragmentVectorIndexCbVec;
-    const uint64_t M_MAX_FRAGMENT_SIZE;
-    volatile bool m_readyToForward;
-    volatile bool m_tcpclShutdownComplete;
-    bool m_shutdownCalled;
-    volatile bool m_useLocalConditionVariableAckReceived;
-    const uint16_t M_DESIRED_KEEPALIVE_INTERVAL_SECONDS;
-    const std::string M_THIS_EID_STRING;
-    std::string M_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING;
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
 
     //opportunistic receive bundles
     const OutductOpportunisticProcessReceivedBundleCallback_t m_outductOpportunisticProcessReceivedBundleCallback;
-    std::vector<uint8_t> m_fragmentedBundleRxConcat;
+
 
     std::vector<uint8_t> m_tcpReadSomeBufferVec;
 
-public:
-    //tcpcl stats
-    std::size_t m_totalDataSegmentsAcked;
-    std::size_t m_totalBytesAcked;
-    std::size_t m_totalDataSegmentsSent;
-    std::size_t m_totalFragmentedAcked;
-    std::size_t m_totalFragmentedSent;
-    std::size_t m_totalBundleBytesSent;
 };
 
 

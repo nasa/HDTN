@@ -15,7 +15,7 @@ public:
     BpSourcePattern();
     virtual ~BpSourcePattern();
     void Stop();
-    void Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
+    void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
         const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
         const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false);
 
@@ -37,6 +37,8 @@ protected:
 private:
     void BpSourcePatternThreadFunc(uint32_t bundleRate);
     void WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
+    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 
 
     OutductManager m_outductManager;
@@ -45,6 +47,7 @@ private:
     volatile bool m_running;
     bool m_useCustodyTransfer;
     bool m_custodyTransferUseAcs;
+    bool m_useInductForSendingBundles;
     cbhe_eid_t m_finalDestinationEid;
     cbhe_eid_t m_myEid;
     uint64_t m_myCustodianServiceId;
@@ -58,6 +61,8 @@ private:
     bool m_requireRxBundleBeforeNextTx;
     volatile bool m_isWaitingForRxBundleBeforeNextTx;
     boost::condition_variable m_waitingForRxBundleBeforeNextTxConditionVariable;
+    uint64_t m_tcpclOpportunisticRemoteNodeId;
+    Induct * m_tcpclInductPtr;
 public:
     volatile bool m_allOutductsReady;
 };

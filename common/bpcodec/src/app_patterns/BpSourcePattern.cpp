@@ -9,7 +9,8 @@
 #include <time.h>
 #include "TimestampUtil.h"
 #include "codec/bpv6.h"
-
+#include "TcpclInduct.h"
+#include "TcpclV4Induct.h"
 
 
 BpSourcePattern::BpSourcePattern() : m_running(false) {
@@ -38,7 +39,7 @@ void BpSourcePattern::Stop() {
     
 }
 
-void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
+void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
     const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody) {
     if (m_running) {
@@ -57,6 +58,7 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
     m_totalNonAdminRecordBundleBytesRx = 0;
     m_totalNonAdminRecordBundlesRx = 0;
 
+    m_tcpclInductPtr = NULL;
 
     OutductOpportunisticProcessReceivedBundleCallback_t outductOpportunisticProcessReceivedBundleCallback; //"null" function by default
     m_custodyTransferUseAcs = custodyTransferUseAcs;
@@ -64,10 +66,14 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
         m_useCustodyTransfer = true;
         m_inductManager.LoadInductsFromConfig(boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1),
             *inductsConfigPtr, m_myEid.nodeId, UINT16_MAX, 1000000, //todo 1MB max bundle size on custody signals
-            OnNewOpportunisticLinkCallback_t(), //unused "null" parameter
-            OnDeletedOpportunisticLinkCallback_t()); //unused "null" parameter
+            boost::bind(&BpSourcePattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+            boost::bind(&BpSourcePattern::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
     }
-    else if ((outductsConfig.m_outductElementConfigVector[0].convergenceLayer == "tcpcl") && (outductsConfig.m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles)) {
+    else if ((outductsConfigPtr)
+        && ((outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (outductsConfigPtr->m_outductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))
+        && (outductsConfigPtr->m_outductElementConfigVector[0].tcpclAllowOpportunisticReceiveBundles)
+        )
+    {
         m_useCustodyTransfer = true;
         outductOpportunisticProcessReceivedBundleCallback = boost::bind(&BpSourcePattern::WholeRxBundleReadyCallback, this, boost::placeholders::_1);
         std::cout << "this bpsource pattern detected tcpcl convergence layer which is bidirectional.. supporting custody transfer\n";
@@ -80,9 +86,17 @@ void BpSourcePattern::Start(const OutductsConfig & outductsConfig, InductsConfig
         m_useCustodyTransfer = false;
     }
 
-
-    if (!m_outductManager.LoadOutductsFromConfig(outductsConfig, m_myEid.nodeId, UINT16_MAX, outductOpportunisticProcessReceivedBundleCallback)) {
-        return;
+    
+    if (outductsConfigPtr) {
+        m_useInductForSendingBundles = false;
+        if (!m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, m_myEid.nodeId, UINT16_MAX,
+            10000000, //todo 10MB max rx opportunistic bundle
+            outductOpportunisticProcessReceivedBundleCallback)) {
+            return;
+        }
+    }
+    else {
+        m_useInductForSendingBundles = true;
     }
 
     m_running = true;
@@ -103,11 +117,21 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::mutex::scoped_lock waitingForRxBundleBeforeNextTxLock(waitingForRxBundleBeforeNextTxMutex);
 
     while (m_running) {
-        std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
-        if (m_outductManager.AllReadyToForward()) {
-            std::cout << "Outduct ready to forward" << std::endl;
-            break;
+        if (m_useInductForSendingBundles) {
+            std::cout << "Waiting for Tcpcl opportunistic link on the induct to become available for forwarding bundles..." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+            if (m_tcpclInductPtr) {
+                std::cout << "Induct opportunistic link ready to forward" << std::endl;
+                break;
+            }
+        }
+        else {
+            std::cout << "Waiting for Outduct to become ready to forward..." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+            if (m_outductManager.AllReadyToForward()) {
+                std::cout << "Outduct ready to forward" << std::endl;
+                break;
+            }
         }
     }
     if (!m_running) {
@@ -129,14 +153,25 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         std::cout << "Sleeping for " << sValU64 << " usec between bursts" << std::endl;
     }
     else {
-
-        if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
-            std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to " << outduct->GetOutductMaxBundlesInPipeline() << " unacked bundles" << std::endl;
+        if (m_useInductForSendingBundles) {
+            if (m_tcpclInductPtr) {
+                std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to ??? unacked bundles" << std::endl;
+            }
+            else {
+                std::cerr << "error: null induct" << std::endl;
+                return;
+            }
         }
         else {
-            std::cerr << "error: null outduct" << std::endl;
-            return;
+            if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+                std::cout << "bundle rate of zero used.. Going as fast as possible by allowing up to " << outduct->GetOutductMaxBundlesInPipeline() << " unacked bundles" << std::endl;
+            }
+            else {
+                std::cerr << "error: null outduct" << std::endl;
+                return;
+            }
         }
+        
     }
 
     std::size_t numEventsTooManyUnackedBundles = 0;
@@ -300,8 +335,12 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         //send message
         while (m_running) {
             m_isWaitingForRxBundleBeforeNextTx = true;
-            if (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, 3)) {
-                std::cerr << "bpgen was unable to send a bundle for 3 seconds.. retrying" << std::endl;
+            if ((!m_useInductForSendingBundles) && (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, 3))) {
+                std::cerr << "BpSourcePattern was unable to send a bundle for 3 seconds on the outduct.. retrying" << std::endl;
+            }
+            else if (m_useInductForSendingBundles && (!m_tcpclInductPtr->ForwardOnOpportunisticLink(m_tcpclOpportunisticRemoteNodeId, bundleToSend, 3))) {
+                //note BpSource has no routing capability so it must send to the only connection available to it
+                std::cerr << "BpSourcePattern was unable to send a bundle for 3 seconds on the opportunistic induct.. retrying" << std::endl;
             }
             else { //success forward
                 if (bundleToSend.size() != 0) {
@@ -328,9 +367,13 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         std::cout << "numEventsTooManyUnackedBundles: " << numEventsTooManyUnackedBundles << std::endl;
     }
 
-    if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
+    if (m_useInductForSendingBundles) {
+        std::cout << "BpSourcePattern Keeping Tcpcl Induct Opportunistic link open for 4 seconds to finish sending" << std::endl;
+        boost::this_thread::sleep(boost::posix_time::seconds(4));
+    }
+    else if (Outduct * outduct = m_outductManager.GetOutductByOutductUuid(0)) {
         if (outduct->GetConvergenceLayerName() == "ltp_over_udp") {
-            std::cout << "Bpgen Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
+            std::cout << "BpSourcePattern Keeping UDP open for 4 seconds to acknowledge report segments" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(4));
         }
     }
@@ -339,16 +382,16 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         while (true) {
             const uint64_t totalCustodyTransfers = std::max(m_numRfc5050CustodyTransfers, m_numAcsCustodyTransfers);
             if (totalCustodyTransfers == m_bundleCount) {
-                std::cout << "Bpgen received all custody transfers" << std::endl;
+                std::cout << "BpSourcePattern received all custody transfers" << std::endl;
                 break;
             }
             else if (totalCustodyTransfers != lastNumCustodyTransfers) {
                 lastNumCustodyTransfers = totalCustodyTransfers;
-                std::cout << "Bpgen waiting for an additional 10 seconds to receive custody transfers" << std::endl;
+                std::cout << "BpSourcePattern waiting for an additional 10 seconds to receive custody transfers" << std::endl;
                 boost::this_thread::sleep(boost::posix_time::seconds(10));
             }
             else {
-                std::cout << "Bpgen received no custody transfers for the last 10 seconds.. exiting" << std::endl;
+                std::cout << "BpSourcePattern received no custody transfers for the last 10 seconds.. exiting" << std::endl;
                 break;
             }
         }
@@ -367,7 +410,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         printf("Sent raw_data (bundle overhead + payload data) at %0.4f Mbits/sec\n", rateMbps);
     }
 
-    std::cout << "BpGenAsync::BpGenThreadFunc thread exiting\n";
+    std::cout << "BpSourcePattern::BpSourcePatternThreadFunc thread exiting\n";
 }
 
 void BpSourcePattern::WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
@@ -493,4 +536,22 @@ void BpSourcePattern::WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBun
 
 bool BpSourcePattern::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size) {
     return true;
+}
+
+void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
+    if (m_tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
+    else if (m_tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
+        std::cout << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*\n";
+        m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
+    }
+    else {
+        std::cerr << "error in BpSourcePattern::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct\n";
+    }
+}
+void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
+    m_tcpclOpportunisticRemoteNodeId = 0;
+    std::cout << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
 }

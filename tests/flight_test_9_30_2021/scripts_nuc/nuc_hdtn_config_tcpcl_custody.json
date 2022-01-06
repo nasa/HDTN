@@ -17,6 +17,7 @@
     "zmqStorageAddress": "localhost",
     "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
+    "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
@@ -26,6 +27,7 @@
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
+    "zmqBoundRouterPubSubPortPath": 10210,
     "zmqMaxMessagesPerPath": 5,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
@@ -33,12 +35,13 @@
         "inductVector": [
             {
                 "name": "from bpsendfile",
-                "convergenceLayer": "tcpcl",
+                "convergenceLayer": "tcpcl_v3",
                 "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
-                "keepAliveIntervalSeconds": 15
+                "keepAliveIntervalSeconds": 15,
+                "tcpclV3MyMaxTxSegmentSizeBytes": 100000000
             }
         ]
     },
@@ -47,7 +50,7 @@
         "outductVector": [
             {
                 "name": "to tantalus",
-                "convergenceLayer": "tcpcl",
+                "convergenceLayer": "tcpcl_v3",
                 "nextHopEndpointId": "ipn:20.1",
                 "remoteHostname": "tantalus",
                 "remotePort": 4557,
@@ -58,7 +61,7 @@
                     "ipn:3.1"
                 ],
                 "keepAliveIntervalSeconds": 17,
-                "tcpclAutoFragmentSizeBytes": 20000000,
+                "tcpclV3MyMaxTxSegmentSizeBytes": 20000000,
                 "tcpclAllowOpportunisticReceiveBundles": true
             }
         ]

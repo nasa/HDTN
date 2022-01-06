@@ -1,0 +1,25 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpsink custody signals out",
+            "convergenceLayer": "tcpcl_v4",
+            "nextHopEndpointId": "ipn:10.0",
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "bundlePipelineLimit": 5,
+            "finalDestinationEidUris": [
+
+            ],
+            "keepAliveIntervalSeconds": 17,
+            "tcpclAllowOpportunisticReceiveBundles": true,
+            "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
+            "tryUseTls": false,
+            "tlsIsRequired": false,
+            "useTlsVersion1_3": false,
+            "doX509CertificateVerification": false,
+            "verifySubjectAltNameInX509Certificate": false,
+            "certificationAuthorityPemFileForVerification": ""
+        }
+    ]
+}

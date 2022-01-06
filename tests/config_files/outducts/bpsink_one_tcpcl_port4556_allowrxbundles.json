@@ -1,0 +1,19 @@
+{
+    "outductConfigName": "myconfig",
+    "outductVector": [
+        {
+            "name": "bpsink custody signals out",
+            "convergenceLayer": "tcpcl_v3",
+            "nextHopEndpointId": "ipn:10.0",
+            "remoteHostname": "localhost",
+            "remotePort": 4556,
+            "bundlePipelineLimit": 5,
+            "finalDestinationEidUris": [
+
+            ],
+            "keepAliveIntervalSeconds": 17,
+            "tcpclV3MyMaxTxSegmentSizeBytes": 200000,
+            "tcpclAllowOpportunisticReceiveBundles": true
+        }
+    ]
+}

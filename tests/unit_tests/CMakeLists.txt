@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
+	../../common/tcpcl/test/TestTcpclV4.cpp
 	../../common/ltp/test/TestLtp.cpp
 	../../common/ltp/test/TestLtpFragmentSet.cpp
 	../../common/ltp/test/TestLtpSessionRecreationPreventer.cpp

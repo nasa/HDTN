@@ -2,98 +2,74 @@
     "contacts": [
        {
             "contact": 1,
+            "source": 100,
+            "dest": 1,
+            "finalDestination": 200,
+            "startTime": 0,
+            "endTime": 120,
+            "rate": 1000
+       },
+       {
+            "contact": 2,
             "source": 1,
             "dest": 2,
+	    "finalDestination": 200,
             "startTime": 0,
-            "endTime": 12,
-            "rate": 1000
-        },
-	{
-            "contact": 2,
-            "source": 2,
-            "dest": 1,
-            "startTime": 0,
-            "endTime": 12,
+            "endTime": 120,
             "rate": 1000
         },
 	{
             "contact": 3,
             "source": 2,
             "dest": 4,
+	    "finalDestination": 200,
             "startTime": 11,
-            "endTime": 15,
+            "endTime": 150,
             "rate": 1000
         },
 	{
             "contact": 4,
             "source": 4,
-            "dest": 2,
-            "startTime": 11,
-            "endTime": 15,
+            "dest": 200,
+	    "finalDestination": 200,
+            "startTime": 0,
+            "endTime": 150,
             "rate": 1000
         },
 	{
             "contact": 5,
             "source": 1,
             "dest": 3,
+	    "finalDestination": 200,
             "startTime": 11,
-            "endTime": 15,
+            "endTime": 150,
             "rate": 1000
         },
-	{
+        {
             "contact": 6,
-            "source": 3,
-            "dest": 1,
-            "startTime": 11,
-            "endTime": 15,
+            "source": 1,
+            "dest": 2,
+	    "finalDestination": 200,
+            "startTime": 17,
+            "endTime": 200,
             "rate": 1000
         },
         {
             "contact": 7,
-            "source": 1,
-            "dest": 2,
-            "startTime": 17,
-            "endTime": 20,
-            "rate": 1000
-        },
-	{
-            "contact": 8,
-            "source": 2,
-            "dest": 1,
-            "startTime": 17,
-            "endTime": 20,
-            "rate": 1000
-        },
-        {
-            "contact": 9,
             "source": 2,
             "dest": 4,
+	    "finalDestination": 200,
             "startTime": 20,
-            "endTime": 25,
-            "rate": 1000
-        },
-	{
-            "contact": 10,
-            "source": 4,
-            "dest": 2,
-            "startTime": 20,
-            "endTime": 25,
+            "endTime": 250,
             "rate": 1000
         },
         {
-            "contact": 11,
+            "contact": 8,
             "source": 3,
             "dest": 4,
+	    "finalDestination": 200,
             "startTime": 25,
-            "endTime": 30,
-            "rate": 1000
-        },
-	{
-            "contact": 12,
-            "source": 4,
-            "dest": 3,
-            "startTime": 25,
-            "endTime": 30,
+            "endTime": 300,
             "rate": 1000
         }
     ]
