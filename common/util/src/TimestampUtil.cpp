@@ -258,48 +258,10 @@ std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv7_creation_ti
 //sequence counter MAY be reset to zero whenever the current time
 //advances by one millisecond.
 uint64_t TimestampUtil::bpv7_creation_timestamp_t::SerializeBpv7(uint8_t * serialization) const {
-    uint8_t * serializationBase = serialization;
-    *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
-    serialization += CborEncodeU64BufSize9(serialization, millisecondsSinceStartOfYear2000);
-    serialization += CborEncodeU64BufSize9(serialization, sequenceNumber);
-    return serialization - serializationBase;
+    return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber);
 }
 bool TimestampUtil::bpv7_creation_timestamp_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
-    uint8_t cborUintSize;
-    const uint8_t * const serializationBase = serialization;
-
-    const uint8_t initialCborByte = *serialization++;
-    if ((initialCborByte != ((4U << 5) | 2U)) || //major type 4, additional information 2 (array of length 2)
-        (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
-        return false;
-    }
-
-    millisecondsSinceStartOfYear2000 = CborDecodeU64BufSize9(serialization, &cborUintSize);
-    if (cborUintSize == 0) {
-        return false; //failure
-    }
-    serialization += cborUintSize;
-
-    sequenceNumber = CborDecodeU64BufSize9(serialization, &cborUintSize);
-    if (cborUintSize == 0) {
-        return false; //failure
-    }
-    serialization += cborUintSize;
-
-    //An implementation of the Bundle Protocol MAY accept a sequence of
-    //bytes that does not conform to the Bundle Protocol specification
-    //(e.g., one that represents data elements in fixed-length arrays
-    //rather than indefinite-length arrays) and transform it into
-    //conformant BP structure before processing it.
-    if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
-        const uint8_t breakStopCode = *serialization++;
-        if (breakStopCode != 0xff) {
-            return false;
-        }
-    }
-
-    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
-    return true;
+    return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, millisecondsSinceStartOfYear2000, sequenceNumber);
 }
 void TimestampUtil::bpv7_creation_timestamp_t::SetZero() {
     millisecondsSinceStartOfYear2000 = 0;
@@ -312,7 +274,7 @@ boost::posix_time::ptime TimestampUtil::bpv7_creation_timestamp_t::GetPtime() co
 
 void TimestampUtil::bpv7_creation_timestamp_t::SetFromPtime(const boost::posix_time::ptime & posixTimeValue) {
     const boost::posix_time::time_duration diff = posixTimeValue - TimestampUtil::GetRfc5050Epoch();
-    millisecondsSinceStartOfYear2000 = static_cast<uint64_t>(diff.total_seconds());
+    millisecondsSinceStartOfYear2000 = static_cast<uint64_t>(diff.total_milliseconds());
 }
 
 std::string TimestampUtil::bpv7_creation_timestamp_t::GetUtcTimestampString(bool forFileName) const {

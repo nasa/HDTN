@@ -59,4 +59,8 @@ uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t *
 
 #endif //#ifdef USE_X86_HARDWARE_ACCELERATION
 
+//array ops
+uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t element1, const uint64_t element2);
+bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t & element1, uint64_t & element2);
+
 #endif      // _CBOR_UINT_H 
