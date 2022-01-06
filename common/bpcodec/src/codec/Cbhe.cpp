@@ -8,6 +8,7 @@
 
 #include "codec/Cbhe.h"
 #include <utility>
+#include <CborUint.h>
 
 cbhe_eid_t::cbhe_eid_t() :
     nodeId(0),
@@ -47,6 +48,60 @@ bool cbhe_eid_t::operator<(const cbhe_eid_t & o) const {
 void cbhe_eid_t::Set(uint64_t paramNodeId, uint64_t paramServiceId) {
     nodeId = paramNodeId;
     serviceId = paramServiceId;
+}
+
+//For transmission as a BP endpoint ID, the
+//scheme-specific part of a URI of the ipn scheme the SSP SHALL be
+//represented as a CBOR array comprising two items.  The first item of
+//this array SHALL be the EID's node number (a number that identifies
+//the node) represented as a CBOR unsigned integer.  The second item
+//of this array SHALL be the EID's service number (a number that
+//identifies some application service) represented as a CBOR unsigned
+//integer.  For all other purposes, URIs of the ipn scheme are encoded
+//exclusively in US-ASCII characters.
+uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
+    uint8_t * serializationBase = serialization;
+    *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
+    serialization += CborEncodeU64BufSize9(serialization, nodeId);
+    serialization += CborEncodeU64BufSize9(serialization, serviceId);
+    return serialization - serializationBase;
+}
+bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
+    uint8_t cborUintSize;
+    const uint8_t * const serializationBase = serialization;
+
+    const uint8_t initialCborByte = *serialization++;
+    if ((initialCborByte != ((4U << 5) | 2U)) || //major type 4, additional information 2 (array of length 2)
+        (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
+        return false;
+    }
+
+    nodeId = CborDecodeU64BufSize9(serialization, &cborUintSize);
+    if (cborUintSize == 0) {
+        return false; //failure
+    }
+    serialization += cborUintSize;
+
+    serviceId = CborDecodeU64BufSize9(serialization, &cborUintSize);
+    if (cborUintSize == 0) {
+        return false; //failure
+    }
+    serialization += cborUintSize;
+
+    //An implementation of the Bundle Protocol MAY accept a sequence of
+    //bytes that does not conform to the Bundle Protocol specification
+    //(e.g., one that represents data elements in fixed-length arrays
+    //rather than indefinite-length arrays) and transform it into
+    //conformant BP structure before processing it.
+    if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
+        const uint8_t breakStopCode = *serialization++;
+        if (breakStopCode != 0xff) {
+            return false;
+        }
+    }
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
 }
 
 
