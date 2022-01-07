@@ -9,29 +9,53 @@
 #define BPV7_H
 #include <cstdint>
 #include <cstddef>
+#include "Cbhe.h"
+#include "TimestampUtil.h"
 
 #define BPV7_CRC_TYPE_NONE        0
 #define BPV7_CRC_TYPE_CRC16_X25   1
 #define BPV7_CRC_TYPE_CRC32C      2
 
 
-struct Bpv7PrimaryBlock {
-    uint64_t bundleProcessingControlFlags;
-    
-    uint32_t m_crcValue;
-    uint8_t m_crcType;
+#define BPV7_BUNDLEFLAG_ISFRAGMENT      (0x0001)
+#define BPV7_BUNDLEFLAG_ADMINRECORD     (0x0002)
+#define BPV7_BUNDLEFLAG_NOFRAGMENT      (0x0004)
+#define BPV7_BUNDLEFLAG_USER_APP_ACK_REQUESTED      (0x0020)
+#define BPV7_BUNDLEFLAG_STATUSTIME_REQUESTED      (0x0040)
+#define BPV7_BUNDLEFLAG_RECEPTION_STATUS_REPORTS_REQUESTED    (0x4000)
+#define BPV7_BUNDLEFLAG_FORWARDING_STATUS_REPORTS_REQUESTED    (0x10000)
+#define BPV7_BUNDLEFLAG_DELIVERY_STATUS_REPORTS_REQUESTED    (0x20000)
+#define BPV7_BUNDLEFLAG_DELETION_STATUS_REPORTS_REQUESTED    (0x40000)
 
-    Bpv7PrimaryBlock(); //a default constructor: X()
-    ~Bpv7PrimaryBlock(); //a destructor: ~X()
-    Bpv7PrimaryBlock(const Bpv7PrimaryBlock& o); //a copy constructor: X(const X&)
-    Bpv7PrimaryBlock(Bpv7PrimaryBlock&& o); //a move constructor: X(X&&)
-    Bpv7PrimaryBlock& operator=(const Bpv7PrimaryBlock& o); //a copy assignment: operator=(const X&)
-    Bpv7PrimaryBlock& operator=(Bpv7PrimaryBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7PrimaryBlock & o) const; //operator ==
-    bool operator!=(const Bpv7PrimaryBlock & o) const; //operator !=
-    bool operator<(const Bpv7PrimaryBlock & o) const; //operator < so it can be used as a map key
+
+
+
+
+
+struct Bpv7CbhePrimaryBlock {
+    uint64_t m_bundleProcessingControlFlags;
+    cbhe_eid_t m_destinationEid;
+    cbhe_eid_t m_sourceNodeId; //A "node ID" is an EID that identifies the administrative endpoint of a node (uses eid data type).
+    cbhe_eid_t m_reportToEid;
+    TimestampUtil::bpv7_creation_timestamp_t m_creationTimestamp;
+    uint64_t m_lifetimeMilliseconds;
+    uint64_t m_fragmentOffset;
+    uint64_t m_totalApplicationDataUnitLength;
+    uint32_t m_deserializedCrc32;
+    uint16_t m_deserializedCrc16;
+    uint8_t m_crcType; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
+
+    Bpv7CbhePrimaryBlock(); //a default constructor: X()
+    ~Bpv7CbhePrimaryBlock(); //a destructor: ~X()
+    Bpv7CbhePrimaryBlock(const Bpv7CbhePrimaryBlock& o); //a copy constructor: X(const X&)
+    Bpv7CbhePrimaryBlock(Bpv7CbhePrimaryBlock&& o); //a move constructor: X(X&&)
+    Bpv7CbhePrimaryBlock& operator=(const Bpv7CbhePrimaryBlock& o); //a copy assignment: operator=(const X&)
+    Bpv7CbhePrimaryBlock& operator=(Bpv7CbhePrimaryBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7CbhePrimaryBlock & o) const; //operator ==
+    bool operator!=(const Bpv7CbhePrimaryBlock & o) const; //operator !=
+    void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
-    bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode);
+    bool DeserializeBpv7(uint8_t * serialization, uint8_t * numBytesTakenToDecode); //serialization must be temporarily modifyable to zero crc and restore it
 };
 
 
@@ -52,42 +76,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdint.h>
 
-#define BPV7_CCSDS_VERSION         (7)
-#define BPV7_VERSION_OFFSET        (2)
-#define BPV7_MAX_PATHLEN           (232)
 
-#define BPV7_EID_SCHEME_DTN        (1)
-#define BPV7_EID_SCHEME_IPN        (2)
-
-#define bpv7_field_count(VALUE)    (VALUE & 0x1F)
-
-#define BPV7_MAGIC_NOFRAGMENT_LE      (0x1907899f)
-#define BPV7_MAGIC_FRAGMENT_LE        (0x19078b9f)
-
-#define BPV7_MAGIC_NOFRAGMENT_BE      (0x9f890719)
-#define BPV7_MAGIC_FRAGMENT_BE        (0x9f8b0719)
-
-#define BPV7_MAGIC_NOFRAGMENT         (BPV7_MAGIC_NOFRAGMENT_LE)
-#define BPV7_MAGIC_FRAGMENT           (BPV7_MAGIC_FRAGMENT_LE)
-
-#define BPV7_DTN_EPOCH             (946684800)  // See: 4.1.6
-
-#define BPV7_BUNDLEFLAG_TEMPLATE        (0x2000)
-
-#define BPV7_BUNDLEFLAG_DELETESTATUS    (0x1000)
-#define BPV7_BUNDLEFLAG_DELIVERYSTATUS  (0x0800)
-#define BPV7_BUNDLEFLAG_FORWARDSTATUS   (0x0400)
-#define BPV7_BUNDLEFLAG_RECEIVESTATUS   (0x0100)
-#define BPV7_BUNDLEFLAG_STATUSTIME      (0x0040)
-#define BPV7_BUNDLEFLAG_USERAPPACK      (0x0020)
-#define BPV7_BUNDLEFLAG_NOFRAGMENT      (0x0004)
-#define BPV7_BUNDLEFLAG_ADMINRECORD     (0x0002)
-#define BPV7_BUNDLEFLAG_ISFRAGMENT      (0x0001)
-
-#define bpv7_cbor_major_type(value)   (value >> 5)
-#define BPV7_CBOR_TYPE_UINT           (0)
-#define BPV7_CBOR_TYPE_BYTESTRING     (2)
-#define BPV7_CBOR_TYPE_ARRAY          (4)
 
 namespace hdtn {
 #pragma pack(push, 1)

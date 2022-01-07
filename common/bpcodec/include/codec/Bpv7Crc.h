@@ -17,6 +17,8 @@ public:
 
     static uint64_t SerializeCrc16ForBpv7(uint8_t * serialization, const uint16_t crc16);
     static uint64_t SerializeCrc32ForBpv7(uint8_t * serialization, const uint32_t crc32);
+    static uint64_t SerializeZeroedCrc16ForBpv7(uint8_t * serialization);
+    static uint64_t SerializeZeroedCrc32ForBpv7(uint8_t * serialization);
     static bool DeserializeCrc16ForBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint16_t & crc16);
     static bool DeserializeCrc32ForBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint32_t & crc32);
 };

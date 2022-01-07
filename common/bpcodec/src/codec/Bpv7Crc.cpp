@@ -83,6 +83,20 @@ uint64_t Bpv7Crc::SerializeCrc32ForBpv7(uint8_t * serialization, const uint32_t 
     *serialization = static_cast<uint8_t>(crc32); //lsb last
     return 5;
 }
+uint64_t Bpv7Crc::SerializeZeroedCrc16ForBpv7(uint8_t * serialization) {
+    *serialization++ = (2U << 5) | 2U; //major type 2, additional information 2 (byte string of length 2)
+    *serialization++ = 0;
+    *serialization = 0;
+    return 3;
+}
+uint64_t Bpv7Crc::SerializeZeroedCrc32ForBpv7(uint8_t * serialization) {
+    *serialization++ = (2U << 5) | 4U; //major type 2, additional information 4 (byte string of length 4)
+    *serialization++ = 0;
+    *serialization++ = 0;
+    *serialization++ = 0;
+    *serialization = 0;
+    return 5;
+}
 bool Bpv7Crc::DeserializeCrc16ForBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint16_t & crc16) {
     const uint8_t initialCborByte = *serialization++;
     if (initialCborByte != ((2U << 5) | 2U)) { //major type 2, additional information 2 (byte string of length 2)
