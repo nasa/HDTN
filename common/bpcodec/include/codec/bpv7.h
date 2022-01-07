@@ -10,10 +10,28 @@
 #include <cstdint>
 #include <cstddef>
 
+#define BPV7_CRC_TYPE_NONE        0
+#define BPV7_CRC_TYPE_CRC16_X25   1
+#define BPV7_CRC_TYPE_CRC32C      2
+
+
 struct Bpv7PrimaryBlock {
     uint64_t bundleProcessingControlFlags;
-    uint32_t crc;
+    
+    uint32_t m_crcValue;
+    uint8_t m_crcType;
 
+    Bpv7PrimaryBlock(); //a default constructor: X()
+    ~Bpv7PrimaryBlock(); //a destructor: ~X()
+    Bpv7PrimaryBlock(const Bpv7PrimaryBlock& o); //a copy constructor: X(const X&)
+    Bpv7PrimaryBlock(Bpv7PrimaryBlock&& o); //a move constructor: X(X&&)
+    Bpv7PrimaryBlock& operator=(const Bpv7PrimaryBlock& o); //a copy assignment: operator=(const X&)
+    Bpv7PrimaryBlock& operator=(Bpv7PrimaryBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7PrimaryBlock & o) const; //operator ==
+    bool operator!=(const Bpv7PrimaryBlock & o) const; //operator !=
+    bool operator<(const Bpv7PrimaryBlock & o) const; //operator < so it can be used as a map key
+    uint64_t SerializeBpv7(uint8_t * serialization) const;
+    bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode);
 };
 
 

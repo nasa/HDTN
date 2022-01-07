@@ -5,9 +5,11 @@
  *
  ****************************************************************************
  */
+#include "codec/bpv7.h"
+
 
 /*
-#include "codec/bpv7.h"
+
 #include <cstdio>
 #include <cstring>
 //#include <netinet/in.h> //for htons not declared
