@@ -126,7 +126,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             sigHandler.Start(false);
         }
 
-        const std::string DOCUMENT_ROOT = "../../gui/";
+        const std::string DOCUMENT_ROOT = "module/gui/";
         const std::string HTML_FILE_NAME = "web_gui.html";
         const std::string PORT_NUMBER_AS_STRING = "8086";
 

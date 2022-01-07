@@ -25,3 +25,5 @@ module/gui/build/*
 module/gui/external/*
 module/gui/external.install/*
 module/gui/root/*
+
+*.bin
