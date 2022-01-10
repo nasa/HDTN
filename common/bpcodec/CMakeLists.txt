@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 add_library(bpcodec STATIC
-        src/codec/bpv7.cpp
+        src/codec/Bpv7CbhePrimaryBlock.cpp
+		src/codec/Bpv7CanonicalBlock.cpp
         src/codec/bpv6.cpp
 		src/codec/Cbhe.cpp
         src/codec/bpv6-ext-block.cpp

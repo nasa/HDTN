@@ -28,7 +28,17 @@
 #define BPV7_BUNDLEFLAG_DELETION_STATUS_REPORTS_REQUESTED    (0x40000)
 
 
+#define BPV7_BLOCKFLAG_MUST_BE_REPLICATED   (0x01)
+#define BPV7_BLOCKFLAG_STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED   (0x02)
+#define BPV7_BLOCKFLAG_DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED   (0x04)
+#define BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED   (0x10)
 
+
+
+
+#define BPV7_BLOCKTYPE_PAYLOAD      (0x01)
+#define BPV7_BLOCKTYPE_PREVHOP      (0x07)
+#define BPV7_BLOCKTYPE_AGE          (0x08)
 
 
 
@@ -55,13 +65,34 @@ struct Bpv7CbhePrimaryBlock {
     bool operator!=(const Bpv7CbhePrimaryBlock & o) const; //operator !=
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
-    bool DeserializeBpv7(uint8_t * serialization, uint8_t * numBytesTakenToDecode); //serialization must be temporarily modifyable to zero crc and restore it
+    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode); //serialization must be temporarily modifyable to zero crc and restore it
 };
 
+struct Bpv7CanonicalBlock {
 
-
-
-
+    uint64_t m_blockNumber;
+    uint64_t m_blockProcessingControlFlags;
+    uint8_t * m_dataPtr; //if NULL, data won't be copied (just allocated) and crc won't be computed
+    uint64_t m_dataLength;
+    uint32_t m_deserializedCrc32;
+    uint16_t m_deserializedCrc16;
+    uint8_t m_blockTypeCode; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
+    uint8_t m_crcType; //placed uint8 at the end of struct for more efficient memory usage
+    
+    
+    Bpv7CanonicalBlock(); //a default constructor: X()
+    ~Bpv7CanonicalBlock(); //a destructor: ~X()
+    Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv7CanonicalBlock& operator=(const Bpv7CanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv7CanonicalBlock& operator=(Bpv7CanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7CanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
+    void SetZero();
+    uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
+    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode); //serialization must be temporarily modifyable to zero crc and restore it
+};
 
 
 
@@ -136,14 +167,7 @@ namespace hdtn {
      */
     uint32_t bpv7_primary_block_encode(bpv7_primary_block* primary, char* buffer, size_t offset, size_t bufsz);
 
-#define BPV7_BLOCKFLAG_DEL_NOPROC   (0x08)
-#define BPV7_BLOCKFLAG_RPT_NOPROC   (0x04)
-#define BPV7_BLOCKFLAG_RMV_NOPROC   (0x02)
-#define BPV7_BLOCKFLAG_REPLICATED   (0x01)
 
-#define BPV7_BLOCKTYPE_PAYLOAD      (0x01)
-#define BPV7_BLOCKTYPE_PREVHOP      (0x07)
-#define BPV7_BLOCKTYPE_AGE          (0x08)
 
     typedef struct bpv7_canonical_block {
         uint8_t        block_type;

@@ -1,0 +1,346 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ ****************************************************************************
+ */
+#include "codec/bpv7.h"
+#include "codec/Bpv7Crc.h"
+#include "CborUint.h"
+
+Bpv7CanonicalBlock::Bpv7CanonicalBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
+Bpv7CanonicalBlock::~Bpv7CanonicalBlock() { } //a destructor: ~X()
+Bpv7CanonicalBlock::Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o) :
+    m_blockNumber(o.m_blockNumber),
+    m_blockProcessingControlFlags(o.m_blockProcessingControlFlags),
+    m_dataPtr(o.m_dataPtr),
+    m_dataLength(o.m_dataLength),
+    m_deserializedCrc32(o.m_deserializedCrc32),
+    m_deserializedCrc16(o.m_deserializedCrc16),
+    m_blockTypeCode(o.m_blockTypeCode),
+    m_crcType(o.m_crcType) { } //a copy constructor: X(const X&)
+Bpv7CanonicalBlock::Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o) :
+    m_blockNumber(o.m_blockNumber),
+    m_blockProcessingControlFlags(o.m_blockProcessingControlFlags),
+    m_dataPtr(o.m_dataPtr),
+    m_dataLength(o.m_dataLength),
+    m_deserializedCrc32(o.m_deserializedCrc32),
+    m_deserializedCrc16(o.m_deserializedCrc16),
+    m_blockTypeCode(o.m_blockTypeCode),
+    m_crcType(o.m_crcType) { } //a move constructor: X(X&&)
+Bpv7CanonicalBlock& Bpv7CanonicalBlock::operator=(const Bpv7CanonicalBlock& o) { //a copy assignment: operator=(const X&)
+    m_blockNumber = o.m_blockNumber;
+    m_blockProcessingControlFlags = o.m_blockProcessingControlFlags;
+    m_dataPtr = o.m_dataPtr;
+    m_dataLength = o.m_dataLength;
+    m_deserializedCrc32 = o.m_deserializedCrc32;
+    m_deserializedCrc16 = o.m_deserializedCrc16;
+    m_blockTypeCode = o.m_blockTypeCode;
+    m_crcType = o.m_crcType;
+    return *this;
+}
+Bpv7CanonicalBlock& Bpv7CanonicalBlock::operator=(Bpv7CanonicalBlock && o) { //a move assignment: operator=(X&&)
+    m_blockNumber = o.m_blockNumber;
+    m_blockProcessingControlFlags = o.m_blockProcessingControlFlags;
+    m_dataPtr = o.m_dataPtr;
+    m_dataLength = o.m_dataLength;
+    m_deserializedCrc32 = o.m_deserializedCrc32;
+    m_deserializedCrc16 = o.m_deserializedCrc16;
+    m_blockTypeCode = o.m_blockTypeCode;
+    m_crcType = o.m_crcType;
+    return *this;
+}
+bool Bpv7CanonicalBlock::operator==(const Bpv7CanonicalBlock & o) const {
+    return (m_blockNumber == o.m_blockNumber)
+        && (m_blockProcessingControlFlags == o.m_blockProcessingControlFlags)
+        && (m_dataPtr == o.m_dataPtr)
+        && (m_dataLength == o.m_dataLength)        
+        && (m_deserializedCrc32 == o.m_deserializedCrc32)
+        && (m_deserializedCrc16 == o.m_deserializedCrc16)
+        && (m_blockTypeCode == o.m_blockTypeCode)
+        && (m_crcType == o.m_crcType);
+}
+bool Bpv7CanonicalBlock::operator!=(const Bpv7CanonicalBlock & o) const {
+    return !(*this == o);
+}
+void Bpv7CanonicalBlock::SetZero() {
+    memset(this, 0, sizeof(*this));
+}
+
+
+
+uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
+    uint8_t * const serializationBase = serialization;
+
+    //Every block other than the primary block (all such blocks are termed
+    //"canonical" blocks) SHALL be represented as a CBOR array; the number
+    //of elements in the array SHALL be 5 (if CRC type is zero) or 6
+    //(otherwise).
+    const bool hasCrc = (m_crcType != 0);
+    const uint8_t cborArraySize = 5 + hasCrc;
+    *serialization++ = (4U << 5) | cborArraySize; //major type 4, additional information [5..6]
+    
+    //The fields of every canonical block SHALL be as follows, listed in
+    //the order in which they MUST appear:
+
+    //Block type code, an unsigned integer. Bundle block type code 1
+    //indicates that the block is a bundle payload block. Block type
+    //codes 2 through 9 are explicitly reserved as noted later in
+    //this specification.  Block type codes 192 through 255 are not
+    //reserved and are available for private and/or experimental use.
+    //All other block type code values are reserved for future use.
+    serialization += CborEncodeU64BufSize9(serialization, m_blockTypeCode);
+
+    //Block number, an unsigned integer as discussed in 4.1 above.
+    //Block number SHALL be represented as a CBOR unsigned integer.
+    serialization += CborEncodeU64BufSize9(serialization, m_blockNumber);
+
+    //Block processing control flags as discussed in Section 4.2.4
+    //above.
+    //The block processing control flags SHALL be represented as a CBOR
+    //unsigned integer item, the value of which SHALL be processed as a
+    //bit field indicating the control flag values as follows (note that
+    //bit numbering in this instance is reversed from the usual practice,
+    //beginning with the low-order bit instead of the high-order bit, for
+    //agreement with the bit numbering of the bundle processing control
+    //flags):
+    serialization += CborEncodeU64BufSize9(serialization, m_blockProcessingControlFlags);
+
+    //CRC type as discussed in Section 4.2.1 above.
+    //CRC type is an unsigned integer type code for which the following
+    //values (and no others) are valid:
+    //
+    //   0 indicates "no CRC is present."
+    //   1 indicates "a standard X-25 CRC-16 is present." [CRC16]
+    //   2 indicates "a standard CRC32C (Castagnoli) CRC-32 is present."
+    //     [RFC4960]
+    //
+    //CRC type SHALL be represented as a CBOR unsigned integer.
+    //(cbor uint's < 24 are the value itself)
+    *serialization++ = m_crcType;
+    
+    //Block-type-specific data represented as a single definite-
+    //length CBOR byte string, i.e., a CBOR byte string that is not
+    //of indefinite length.  For each type of block, the block-type-
+    //specific data byte string is the serialization, in a block-
+    //type-specific manner, of the data conveyed by that type of
+    //block; definitions of blocks are required to define the manner
+    //in which block-type-specific data are serialized within the
+    //block-type-specific data field. For the Payload Block in
+    //particular (block type 1), the block-type-specific data field,
+    //termed the "payload", SHALL be an application data unit, or
+    //some contiguous extent thereof, represented as a definite-
+    //length CBOR byte string.
+    uint8_t * const byteStringHeaderStartPtr = serialization;
+    serialization += CborEncodeU64BufSize9(serialization, m_dataLength);
+    *byteStringHeaderStartPtr |= (2U << 5); //change from major type 0 (unsigned integer) to major type 2 (byte string)
+    uint8_t * const byteStringAllocatedDataStartPtr = serialization;
+
+    bool doCrcComputation = false;
+    if (m_dataPtr) { //if not NULL, copy data and compute crc
+        memcpy(byteStringAllocatedDataStartPtr, m_dataPtr, m_dataLength);
+        doCrcComputation = true;
+    }
+    //else { }//if NULL, data won't be copied (just allocated) and crc won't be computed
+    m_dataPtr = byteStringAllocatedDataStartPtr;  //m_dataPtr now points to new allocated or copied data within the block
+
+    serialization += m_dataLength; //todo safety check on data length
+
+    if (hasCrc) {
+        //If and only if the value of the CRC type field of this block is
+        //non-zero, a CRC. If present, the length and nature of the CRC
+        //SHALL be as indicated by the CRC type and the CRC SHALL be
+        //computed over the concatenation of all bytes of the block
+        //(including CBOR "break" characters) including the CRC field
+        //itself, which for this purpose SHALL be temporarily populated
+        //with all bytes set to zero.
+        uint8_t * const crcStartPtr = serialization;
+        if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+            serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
+            const uint64_t blockSerializedLength = serialization - serializationBase;
+            if (doCrcComputation) {
+                uint16_t crc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, blockSerializedLength);
+                Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, crc16);
+            }
+            return blockSerializedLength;
+        }
+        else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+            serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
+            const uint64_t blockSerializedLength = serialization - serializationBase;
+            if (doCrcComputation) {
+                uint32_t crc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, blockSerializedLength);
+                Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, crc32);
+            }
+            return blockSerializedLength;
+        }
+        else {
+            //error
+            return 0;
+        }
+    }
+    else {
+        return serialization - serializationBase;
+    }
+}
+
+void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized) {
+
+    if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 3U);
+        Bpv7Crc::SerializeZeroedCrc16ForBpv7(crcStartPtr);
+        uint16_t crc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, sizeSerialized);
+        Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, crc16);
+    }
+    else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 5U);
+        Bpv7Crc::SerializeZeroedCrc32ForBpv7(crcStartPtr);
+        uint32_t crc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, sizeSerialized);
+        Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, crc32);
+    }
+}
+
+//serialization must be temporarily modifyable to zero crc and restore it
+bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode) {
+    uint8_t cborSizeDecoded;
+    const uint8_t * const serializationBase = serialization;
+
+    //Every block other than the primary block (all such blocks are termed
+    //"canonical" blocks) SHALL be represented as a CBOR array; the number
+    //of elements in the array SHALL be 5 (if CRC type is zero) or 6
+    //(otherwise).
+    const uint8_t initialCborByte = *serialization++;
+    const uint8_t cborMajorType = initialCborByte >> 5;
+    const uint8_t cborArraySize = initialCborByte & 0x1f;
+    if ((cborMajorType != 4U) || //major type 4
+        ((cborArraySize - 5U) > (6U-5U))) { //additional information [5..6] (array of length [5..6])
+        return false;
+    }
+
+    //The fields of every canonical block SHALL be as follows, listed in
+    //the order in which they MUST appear:
+
+    //Block type code, an unsigned integer. Bundle block type code 1
+    //indicates that the block is a bundle payload block. Block type
+    //codes 2 through 9 are explicitly reserved as noted later in
+    //this specification.  Block type codes 192 through 255 are not
+    //reserved and are available for private and/or experimental use.
+    //All other block type code values are reserved for future use.
+    m_blockTypeCode = static_cast<uint8_t>(CborDecodeU64BufSize9(serialization, &cborSizeDecoded));
+    if ((cborSizeDecoded == 0) || (cborSizeDecoded > 2)) { //uint8_t should be size 1 or 2 encoded bytes
+        return false; //failure
+    }
+    serialization += cborSizeDecoded;
+
+    //Block number, an unsigned integer as discussed in 4.1 above.
+    //Block number SHALL be represented as a CBOR unsigned integer.
+    m_blockNumber = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+    if (cborSizeDecoded == 0) {
+        return false; //failure
+    }
+    serialization += cborSizeDecoded;
+
+    //Block processing control flags as discussed in Section 4.2.4
+    //above.
+    //The block processing control flags SHALL be represented as a CBOR
+    //unsigned integer item, the value of which SHALL be processed as a
+    //bit field indicating the control flag values as follows (note that
+    //bit numbering in this instance is reversed from the usual practice,
+    //beginning with the low-order bit instead of the high-order bit, for
+    //agreement with the bit numbering of the bundle processing control
+    //flags):
+    m_blockProcessingControlFlags = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+    if (cborSizeDecoded == 0) {
+        return false; //failure
+    }
+    serialization += cborSizeDecoded;
+
+    //CRC type as discussed in Section 4.2.1 above.
+    //CRC type is an unsigned integer type code for which the following
+    //values (and no others) are valid:
+    //
+    //   0 indicates "no CRC is present."
+    //   1 indicates "a standard X-25 CRC-16 is present." [CRC16]
+    //   2 indicates "a standard CRC32C (Castagnoli) CRC-32 is present."
+    //     [RFC4960]
+    //
+    //CRC type SHALL be represented as a CBOR unsigned integer.
+    //(cbor uint's < 24 are the value itself)
+    m_crcType = *serialization++;
+
+    //verify cbor array size
+    const bool hasCrc = (m_crcType != 0);
+    const uint8_t expectedCborArraySize = 5 + hasCrc;
+    if (expectedCborArraySize != cborArraySize) {
+        return false; //failure
+    }
+
+    //Block-type-specific data represented as a single definite-
+    //length CBOR byte string, i.e., a CBOR byte string that is not
+    //of indefinite length.  For each type of block, the block-type-
+    //specific data byte string is the serialization, in a block-
+    //type-specific manner, of the data conveyed by that type of
+    //block; definitions of blocks are required to define the manner
+    //in which block-type-specific data are serialized within the
+    //block-type-specific data field. For the Payload Block in
+    //particular (block type 1), the block-type-specific data field,
+    //termed the "payload", SHALL be an application data unit, or
+    //some contiguous extent thereof, represented as a definite-
+    //length CBOR byte string.
+    uint8_t * const byteStringHeaderStartPtr = serialization;
+    const uint8_t cborMajorTypeByteString = (*byteStringHeaderStartPtr) >> 5;
+    if (cborMajorTypeByteString != 2) {
+        return false; //failure
+    }
+    *byteStringHeaderStartPtr &= (7U << 5); //temporarily zero out major type to 0 to make it unsigned integer
+    m_dataLength = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+    *byteStringHeaderStartPtr |= (2U << 5); // restore to major type to 2 (change from major type 0 (unsigned integer) to major type 2 (byte string))
+    if (cborSizeDecoded == 0) {
+        return false; //failure
+    }
+    serialization += cborSizeDecoded;
+    
+    m_dataPtr = serialization;
+    serialization += m_dataLength; //todo safety check on data length
+
+    if (hasCrc) {
+        //If and only if the value of the CRC type field of this block is
+        //non-zero, a CRC. If present, the length and nature of the CRC
+        //SHALL be as indicated by the CRC type and the CRC SHALL be
+        //computed over the concatenation of all bytes of the block
+        //(including CBOR "break" characters) including the CRC field
+        //itself, which for this purpose SHALL be temporarily populated
+        //with all bytes set to zero.
+        uint8_t * const crcStartPtr = serialization;
+        if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+            if (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc16)) {
+                return false;
+            }
+            serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
+            const uint64_t blockSerializedLength = serialization - serializationBase;
+            const uint16_t computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, blockSerializedLength);
+            Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_deserializedCrc16); //restore original received crc after zeroing
+            numBytesTakenToDecode = blockSerializedLength;
+            return (computedCrc16 == m_deserializedCrc16);
+        }
+        else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+            if (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc32)) {
+                return false;
+            }
+            serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
+            const uint64_t blockSerializedLength = serialization - serializationBase;
+            const uint32_t computedCrc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, blockSerializedLength);
+            Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, m_deserializedCrc32); //restore original received crc after zeroing
+            numBytesTakenToDecode = blockSerializedLength;
+            return (computedCrc32 == m_deserializedCrc32);
+        }
+        else {
+            //error
+            return false;
+        }
+    }
+    else {
+        numBytesTakenToDecode = serialization - serializationBase;
+        return true;
+    }
+}
