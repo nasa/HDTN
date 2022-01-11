@@ -17,6 +17,7 @@ add_library(bpcodec STATIC
 		src/codec/CustodyIdAllocator.cpp
 		src/codec/CustodyTransferManager.cpp
 		src/codec/BundleViewV6.cpp
+		src/codec/BundleViewV7.cpp
         src/codec/cbor/cgoto/codec.cpp
         src/codec/cbor/standard/codec.cpp
         src/codec/cbor/memo/codec.cpp

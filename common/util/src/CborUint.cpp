@@ -580,23 +580,28 @@ uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t ele
     serialization += CborEncodeU64BufSize9(serialization, element2);
     return serialization - serializationBase;
 }
-bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t & element1, uint64_t & element2) {
+bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize, uint64_t & element1, uint64_t & element2) {
     uint8_t cborUintSize;
     const uint8_t * const serializationBase = serialization;
 
+    if (bufferSize == 0) {
+        return false;
+    }
+    --bufferSize;
     const uint8_t initialCborByte = *serialization++;
     if ((initialCborByte != ((4U << 5) | 2U)) || //major type 4, additional information 2 (array of length 2)
         (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
         return false;
     }
 
-    element1 = CborDecodeU64BufSize9(serialization, &cborUintSize);
+    element1 = CborDecodeU64(serialization, &cborUintSize, bufferSize);
     if (cborUintSize == 0) {
         return false; //failure
     }
     serialization += cborUintSize;
+    bufferSize -= cborUintSize;
 
-    element2 = CborDecodeU64BufSize9(serialization, &cborUintSize);
+    element2 = CborDecodeU64(serialization, &cborUintSize, bufferSize);
     if (cborUintSize == 0) {
         return false; //failure
     }
@@ -608,6 +613,10 @@ bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numB
     //rather than indefinite-length arrays) and transform it into
     //conformant BP structure before processing it.
     if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
+        bufferSize -= cborUintSize; //from element 2 above
+        if (bufferSize == 0) {
+            return false;
+        }
         const uint8_t breakStopCode = *serialization++;
         if (breakStopCode != 0xff) {
             return false;

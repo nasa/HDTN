@@ -83,7 +83,7 @@ public:
         bool operator<(const bpv7_creation_timestamp_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const bpv7_creation_timestamp_t& o);
         uint64_t SerializeBpv7(uint8_t * serialization) const;
-        bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode);
+        bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
         void SetZero();
         boost::posix_time::ptime GetPtime() const;
         void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);

@@ -223,9 +223,13 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) const {
 }
 
 //serialization must be temporarily modifyable to zero crc and restore it
-bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode) {
+bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t cborSizeDecoded;
     const uint8_t * const serializationBase = serialization;
+
+    if (bufferSize < Bpv7CbhePrimaryBlock::smallestSerializedPrimarySize) {
+        return false;
+    }
 
     //Each primary block SHALL be represented as a CBOR array; the number
     //of elements in the array SHALL be 8 (if the bundle is not a fragment
@@ -253,6 +257,8 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
     if (bpVersion != 7) {
         return false;
     }
+
+    
 
     //Bundle Processing Control Flags: The Bundle Processing Control Flags
     //are discussed in Section 4.2.3. above.
@@ -286,6 +292,8 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
     //(cbor uint's < 24 are the value itself)
     m_crcType = *serialization++;
 
+    bufferSize -= (3 + cborSizeDecoded); //for initialCborByte and bpVersion and crcType and flags.. min size now at 17-3-9=5
+
     //verify cbor array size
     const bool hasCrc = (m_crcType != 0);
     const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG_ISFRAGMENT) != 0);
@@ -297,36 +305,40 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
     //Destination EID: The Destination EID field identifies the bundle
     //endpoint that is the bundle's destination, i.e., the endpoint that
     //contains the node(s) at which the bundle is to be delivered.
-    if(!m_destinationEid.DeserializeBpv7(serialization, &cborSizeDecoded)) { // cborSizeDecoded will never be 0 if function returns true
+    if(!m_destinationEid.DeserializeBpv7(serialization, &cborSizeDecoded, bufferSize)) { // cborSizeDecoded will never be 0 if function returns true
         return false; //failure
     }
     serialization += cborSizeDecoded;
+    bufferSize -= cborSizeDecoded;
 
     //Source node ID: The Source node ID field identifies the bundle node
     //at which the bundle was initially transmitted, except that Source
     //node ID may be the null endpoint ID in the event that the bundle's
     //source chooses to remain anonymous.
-    if (!m_sourceNodeId.DeserializeBpv7(serialization, &cborSizeDecoded)) { // cborSizeDecoded will never be 0 if function returns true
+    if (!m_sourceNodeId.DeserializeBpv7(serialization, &cborSizeDecoded, bufferSize)) { // cborSizeDecoded will never be 0 if function returns true
         return false; //failure
     }
     serialization += cborSizeDecoded;
+    bufferSize -= cborSizeDecoded;
 
     //Report-to EID: The Report-to EID field identifies the bundle
     //endpoint to which status reports pertaining to the forwarding and
     //delivery of this bundle are to be transmitted.
-    if (!m_reportToEid.DeserializeBpv7(serialization, &cborSizeDecoded)) { // cborSizeDecoded will never be 0 if function returns true
+    if (!m_reportToEid.DeserializeBpv7(serialization, &cborSizeDecoded, bufferSize)) { // cborSizeDecoded will never be 0 if function returns true
         return false; //failure
     }
     serialization += cborSizeDecoded;
+    bufferSize -= cborSizeDecoded;
 
     //Creation Timestamp: The creation timestamp comprises two unsigned
     //integers that, together with the source node ID and (if the bundle
     //is a fragment) the fragment offset and payload length, serve to
     //identify the bundle. See 4.2.7 above for the definition of this field.
-    if (!m_creationTimestamp.DeserializeBpv7(serialization, &cborSizeDecoded)) { // cborSizeDecoded will never be 0 if function returns true
+    if (!m_creationTimestamp.DeserializeBpv7(serialization, &cborSizeDecoded, bufferSize)) { // cborSizeDecoded will never be 0 if function returns true
         return false; //failure
     }
     serialization += cborSizeDecoded;
+    bufferSize -= cborSizeDecoded;
 
     //Lifetime: The lifetime field is an unsigned integer that indicates
     //the time at which the bundle's payload will no longer be useful,
@@ -336,11 +348,12 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
     //exceeds its lifetime, bundle nodes need no longer retain or forward
     //the bundle; the bundle SHOULD be deleted from the network...
     //Bundle lifetime SHALL be represented as a CBOR unsigned integer item.
-    m_lifetimeMilliseconds = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+    m_lifetimeMilliseconds = CborDecodeU64(serialization, &cborSizeDecoded, bufferSize);
     if (cborSizeDecoded == 0) {
         return false; //failure
     }
     serialization += cborSizeDecoded;
+    bufferSize -= cborSizeDecoded;
 
     if (isFragment) {
         //Fragment offset: If and only if the Bundle Processing Control Flags
@@ -349,11 +362,12 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
         //offset SHALL be represented as a CBOR unsigned integer indicating
         //the offset from the start of the original application data unit at
         //which the bytes comprising the payload of this bundle were located.
-        m_fragmentOffset = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+        m_fragmentOffset = CborDecodeU64(serialization, &cborSizeDecoded, bufferSize);
         if (cborSizeDecoded == 0) {
             return false; //failure
         }
         serialization += cborSizeDecoded;
+        bufferSize -= cborSizeDecoded;
 
         //Total Application Data Unit Length: If and only if the Bundle
         //Processing Control Flags of this Primary block indicate that the
@@ -362,11 +376,12 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
         //SHALL be represented as a CBOR unsigned integer indicating the total
         //length of the original application data unit of which this bundle's
         //payload is a part.
-        m_totalApplicationDataUnitLength = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+        m_totalApplicationDataUnitLength = CborDecodeU64(serialization, &cborSizeDecoded, bufferSize);
         if (cborSizeDecoded == 0) {
             return false; //failure
         }
         serialization += cborSizeDecoded;
+        bufferSize -= cborSizeDecoded;
     }
 
     if (hasCrc) {
@@ -380,7 +395,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
         //temporarily populated with all bytes set to zero.
         uint8_t * const crcStartPtr = serialization;
         if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
-            if (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc16)) {
+            if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc16))) {
                 return false;
             }
             serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
@@ -391,7 +406,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
             return (computedCrc16 == m_deserializedCrc16);
         }
         else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
-            if (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc32)) {
+            if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc32))) {
                 return false;
             }
             serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);

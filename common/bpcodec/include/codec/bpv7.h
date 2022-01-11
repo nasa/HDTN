@@ -43,6 +43,17 @@
 
 
 struct Bpv7CbhePrimaryBlock {
+    static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
+        1 + //cbor initial byte denoting cbor array
+        1 + //bundle version 7 byte
+        1 + //m_bundleProcessingControlFlags
+        1 + //crc type code byte
+        3 + //destEid
+        3 + //srcNodeId
+        3 + //reportToEid
+        3 + //creation timestamp
+        1; //lifetime;
+
     uint64_t m_bundleProcessingControlFlags;
     cbhe_eid_t m_destinationEid;
     cbhe_eid_t m_sourceNodeId; //A "node ID" is an EID that identifies the administrative endpoint of a node (uses eid data type).
@@ -65,10 +76,20 @@ struct Bpv7CbhePrimaryBlock {
     bool operator!=(const Bpv7CbhePrimaryBlock & o) const; //operator !=
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
-    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode); //serialization must be temporarily modifyable to zero crc and restore it
+    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
 };
 
 struct Bpv7CanonicalBlock {
+
+    static constexpr uint64_t smallestSerializedCanonicalSize = //uint64_t bufferSize
+        1 + //cbor initial byte denoting cbor array
+        1 + //block type code byte
+        1 + //block number
+        1 + //m_blockProcessingControlFlags
+        1 + //crc type code byte
+        1 + //byte string header
+        0 + //data
+        0; //crc if not present
 
     uint64_t m_blockNumber;
     uint64_t m_blockProcessingControlFlags;
@@ -91,7 +112,7 @@ struct Bpv7CanonicalBlock {
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
-    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode); //serialization must be temporarily modifyable to zero crc and restore it
+    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
 };
 
 

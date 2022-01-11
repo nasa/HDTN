@@ -62,8 +62,8 @@ void cbhe_eid_t::Set(uint64_t paramNodeId, uint64_t paramServiceId) {
 uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
     return CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
 }
-bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
-    return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, nodeId, serviceId);
+bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
+    return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, bufferSize, nodeId, serviceId);
 }
 
 
