@@ -4,6 +4,7 @@
 #include <string>
 #include <ctime>
 #include <boost/date_time.hpp>
+#include <ostream>
 
 class TimestampUtil {
 private:

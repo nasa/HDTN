@@ -62,8 +62,8 @@ struct Bpv7CbhePrimaryBlock {
     uint64_t m_lifetimeMilliseconds;
     uint64_t m_fragmentOffset;
     uint64_t m_totalApplicationDataUnitLength;
-    uint32_t m_deserializedCrc32;
-    uint16_t m_deserializedCrc16;
+    uint32_t m_computedCrc32; //computed after serialization or deserialization
+    uint16_t m_computedCrc16; //computed after serialization or deserialization
     uint8_t m_crcType; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
 
     Bpv7CbhePrimaryBlock(); //a default constructor: X()
@@ -75,7 +75,7 @@ struct Bpv7CbhePrimaryBlock {
     bool operator==(const Bpv7CbhePrimaryBlock & o) const; //operator ==
     bool operator!=(const Bpv7CbhePrimaryBlock & o) const; //operator !=
     void SetZero();
-    uint64_t SerializeBpv7(uint8_t * serialization) const;
+    uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_computedCrcXX
     bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
 };
 
@@ -95,8 +95,8 @@ struct Bpv7CanonicalBlock {
     uint64_t m_blockProcessingControlFlags;
     uint8_t * m_dataPtr; //if NULL, data won't be copied (just allocated) and crc won't be computed
     uint64_t m_dataLength;
-    uint32_t m_deserializedCrc32;
-    uint16_t m_deserializedCrc16;
+    uint32_t m_computedCrc32; //computed after serialization or deserialization
+    uint16_t m_computedCrc16; //computed after serialization or deserialization
     uint8_t m_blockTypeCode; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
     uint8_t m_crcType; //placed uint8 at the end of struct for more efficient memory usage
     

@@ -49,6 +49,10 @@ void cbhe_eid_t::Set(uint64_t paramNodeId, uint64_t paramServiceId) {
     nodeId = paramNodeId;
     serviceId = paramServiceId;
 }
+std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
+    os << "ipn: " << o.nodeId << "." << o.serviceId;
+    return os;
+}
 
 //For transmission as a BP endpoint ID, the
 //scheme-specific part of a URI of the ipn scheme the SSP SHALL be

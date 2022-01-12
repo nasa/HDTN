@@ -8,6 +8,7 @@
 #include "codec/bpv7.h"
 #include "codec/Bpv7Crc.h"
 #include "CborUint.h"
+#include <boost/format.hpp>
 
 Bpv7CanonicalBlock::Bpv7CanonicalBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
 Bpv7CanonicalBlock::~Bpv7CanonicalBlock() { } //a destructor: ~X()
@@ -16,8 +17,8 @@ Bpv7CanonicalBlock::Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o) :
     m_blockProcessingControlFlags(o.m_blockProcessingControlFlags),
     m_dataPtr(o.m_dataPtr),
     m_dataLength(o.m_dataLength),
-    m_deserializedCrc32(o.m_deserializedCrc32),
-    m_deserializedCrc16(o.m_deserializedCrc16),
+    m_computedCrc32(o.m_computedCrc32),
+    m_computedCrc16(o.m_computedCrc16),
     m_blockTypeCode(o.m_blockTypeCode),
     m_crcType(o.m_crcType) { } //a copy constructor: X(const X&)
 Bpv7CanonicalBlock::Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o) :
@@ -25,8 +26,8 @@ Bpv7CanonicalBlock::Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o) :
     m_blockProcessingControlFlags(o.m_blockProcessingControlFlags),
     m_dataPtr(o.m_dataPtr),
     m_dataLength(o.m_dataLength),
-    m_deserializedCrc32(o.m_deserializedCrc32),
-    m_deserializedCrc16(o.m_deserializedCrc16),
+    m_computedCrc32(o.m_computedCrc32),
+    m_computedCrc16(o.m_computedCrc16),
     m_blockTypeCode(o.m_blockTypeCode),
     m_crcType(o.m_crcType) { } //a move constructor: X(X&&)
 Bpv7CanonicalBlock& Bpv7CanonicalBlock::operator=(const Bpv7CanonicalBlock& o) { //a copy assignment: operator=(const X&)
@@ -34,8 +35,8 @@ Bpv7CanonicalBlock& Bpv7CanonicalBlock::operator=(const Bpv7CanonicalBlock& o) {
     m_blockProcessingControlFlags = o.m_blockProcessingControlFlags;
     m_dataPtr = o.m_dataPtr;
     m_dataLength = o.m_dataLength;
-    m_deserializedCrc32 = o.m_deserializedCrc32;
-    m_deserializedCrc16 = o.m_deserializedCrc16;
+    m_computedCrc32 = o.m_computedCrc32;
+    m_computedCrc16 = o.m_computedCrc16;
     m_blockTypeCode = o.m_blockTypeCode;
     m_crcType = o.m_crcType;
     return *this;
@@ -45,8 +46,8 @@ Bpv7CanonicalBlock& Bpv7CanonicalBlock::operator=(Bpv7CanonicalBlock && o) { //a
     m_blockProcessingControlFlags = o.m_blockProcessingControlFlags;
     m_dataPtr = o.m_dataPtr;
     m_dataLength = o.m_dataLength;
-    m_deserializedCrc32 = o.m_deserializedCrc32;
-    m_deserializedCrc16 = o.m_deserializedCrc16;
+    m_computedCrc32 = o.m_computedCrc32;
+    m_computedCrc16 = o.m_computedCrc16;
     m_blockTypeCode = o.m_blockTypeCode;
     m_crcType = o.m_crcType;
     return *this;
@@ -56,8 +57,8 @@ bool Bpv7CanonicalBlock::operator==(const Bpv7CanonicalBlock & o) const {
         && (m_blockProcessingControlFlags == o.m_blockProcessingControlFlags)
         && (m_dataPtr == o.m_dataPtr)
         && (m_dataLength == o.m_dataLength)        
-        && (m_deserializedCrc32 == o.m_deserializedCrc32)
-        && (m_deserializedCrc16 == o.m_deserializedCrc16)
+        && (m_computedCrc32 == o.m_computedCrc32)
+        && (m_computedCrc16 == o.m_computedCrc16)
         && (m_blockTypeCode == o.m_blockTypeCode)
         && (m_crcType == o.m_crcType);
 }
@@ -160,8 +161,9 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
             serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             if (doCrcComputation) {
-                uint16_t crc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, blockSerializedLength);
-                Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, crc16);
+                m_computedCrc32 = 0;
+                m_computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, blockSerializedLength);
+                Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16);
             }
             return blockSerializedLength;
         }
@@ -169,8 +171,9 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
             serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             if (doCrcComputation) {
-                uint32_t crc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, blockSerializedLength);
-                Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, crc32);
+                m_computedCrc16 = 0;
+                m_computedCrc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, blockSerializedLength);
+                Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, m_computedCrc32);
             }
             return blockSerializedLength;
         }
@@ -180,6 +183,8 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
         }
     }
     else {
+        m_computedCrc32 = 0;
+        m_computedCrc16 = 0;
         return serialization - serializationBase;
     }
 }
@@ -189,14 +194,16 @@ void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializati
     if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
         uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 3U);
         Bpv7Crc::SerializeZeroedCrc16ForBpv7(crcStartPtr);
-        uint16_t crc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, sizeSerialized);
-        Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, crc16);
+        m_computedCrc32 = 0;
+        m_computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, sizeSerialized);
+        Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16);
     }
     else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
         uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 5U);
         Bpv7Crc::SerializeZeroedCrc32ForBpv7(crcStartPtr);
-        uint32_t crc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, sizeSerialized);
-        Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, crc32);
+        m_computedCrc16 = 0;
+        m_computedCrc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, sizeSerialized);
+        Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, m_computedCrc32);
     }
 }
 
@@ -305,7 +312,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & num
     if (cborMajorTypeByteString != 2) {
         return false; //failure
     }
-    *byteStringHeaderStartPtr &= (7U << 5); //temporarily zero out major type to 0 to make it unsigned integer
+    *byteStringHeaderStartPtr &= 0x1f; //temporarily zero out major type to 0 to make it unsigned integer
     m_dataLength = CborDecodeU64(byteStringHeaderStartPtr, &cborSizeDecoded, bufferSize);
     *byteStringHeaderStartPtr |= (2U << 5); // restore to major type to 2 (change from major type 0 (unsigned integer) to major type 2 (byte string))
     if (cborSizeDecoded == 0) {
@@ -332,26 +339,48 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & num
         bufferSize -= m_dataLength; //only need to do this if hasCrc
         uint8_t * const crcStartPtr = serialization;
         if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
-            if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc16))) {
+            m_computedCrc32 = 0;
+            if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_computedCrc16))) {
                 return false;
             }
             serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             const uint16_t computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, blockSerializedLength);
-            Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_deserializedCrc16); //restore original received crc after zeroing
+            Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16); //restore original received crc after zeroing
             numBytesTakenToDecode = blockSerializedLength;
-            return (computedCrc16 == m_deserializedCrc16);
+            if (computedCrc16 == m_computedCrc16) {
+                return true;
+            }
+            else {
+                static const boost::format fmtTemplate("Error: Bpv7CanonicalBlock deserialize Crc16_X25 mismatch: block came with crc %04x but Decode just computed %04x");
+                boost::format fmt(fmtTemplate);
+                fmt % m_computedCrc16 % computedCrc16;
+                const std::string message(std::move(fmt.str()));
+                std::cout << message << "\n";
+                return false;
+            }
         }
         else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
-            if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_deserializedCrc32))) {
+            m_computedCrc16 = 0;
+            if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_computedCrc32))) {
                 return false;
             }
             serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             const uint32_t computedCrc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, blockSerializedLength);
-            Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, m_deserializedCrc32); //restore original received crc after zeroing
+            Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, m_computedCrc32); //restore original received crc after zeroing
             numBytesTakenToDecode = blockSerializedLength;
-            return (computedCrc32 == m_deserializedCrc32);
+            if (computedCrc32 == m_computedCrc32) {
+                return true;
+            }
+            else {
+                static const boost::format fmtTemplate("Error: Bpv7CanonicalBlock deserialize Crc32C mismatch: block came with crc %08x but Decode just computed %08x");
+                boost::format fmt(fmtTemplate);
+                fmt % m_computedCrc32 % computedCrc32;
+                const std::string message(std::move(fmt.str()));
+                std::cout << message << "\n";
+                return false;
+            }
         }
         else {
             //error
@@ -359,6 +388,8 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & num
         }
     }
     else {
+        m_computedCrc32 = 0;
+        m_computedCrc16 = 0;
         numBytesTakenToDecode = serialization - serializationBase;
         return true;
     }

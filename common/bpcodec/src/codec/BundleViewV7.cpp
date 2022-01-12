@@ -86,7 +86,6 @@ bool BundleViewV7::Load() {
                 return false;
             }
             const uint64_t bundleSerializedLength = serialization - serializationBase;
-
             return (bundleSerializedLength == m_renderedBundle.size()); //todo aggregation support
         }
         else if ((static_cast<uint64_t>(serialization - serializationBase)) >= m_renderedBundle.size()) {
@@ -147,6 +146,7 @@ bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
         it->actualSerializedBlockPtr = boost::asio::buffer(serialization, sizeSerialized);
         serialization += sizeSerialized;
     }
+    *serialization++ = 0xff; //0xff is break character
     m_backBuffer.resize(serialization - serializationBase);
     m_frontBuffer.swap(m_backBuffer); //m_frontBuffer is now the rendered bundle
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
@@ -156,6 +156,13 @@ bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
 void BundleViewV7::AppendCanonicalBlock(const Bpv7CanonicalBlock & header) {
     m_listCanonicalBlockView.emplace_back();
     Bpv7CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
+    cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
+    cbv.markedForDeletion = false;
+    cbv.header = header;
+}
+void BundleViewV7::PrependCanonicalBlock(const Bpv7CanonicalBlock & header) {
+    m_listCanonicalBlockView.emplace_front();
+    Bpv7CanonicalBlockView & cbv = m_listCanonicalBlockView.front();
     cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
     cbv.markedForDeletion = false;
     cbv.header = header;

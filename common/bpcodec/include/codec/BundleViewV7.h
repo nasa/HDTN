@@ -70,6 +70,7 @@ public:
     ~BundleViewV7();
 
     void AppendCanonicalBlock(const Bpv7CanonicalBlock & header);
+    void PrependCanonicalBlock(const Bpv7CanonicalBlock & header);
     std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
     void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
@@ -79,9 +80,10 @@ public:
     bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size);
     bool IsValid() const;
     bool Render(const std::size_t maxBundleSizeBytes);
+    void Reset(); //should be private
 private:
     bool Load();
-    void Reset();
+    
     
 public:
     Bpv7PrimaryBlockView m_primaryBlockView;

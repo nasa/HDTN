@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <ostream>
 
 struct cbhe_eid_t {
     uint64_t nodeId;
@@ -28,6 +29,7 @@ struct cbhe_eid_t {
     void Set(uint64_t paramNodeId, uint64_t paramServiceId);
     uint64_t SerializeBpv7(uint8_t * serialization) const;
     bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+    friend std::ostream& operator<<(std::ostream& os, const cbhe_eid_t& o);
 };
 
 struct cbhe_bundle_uuid_t {
