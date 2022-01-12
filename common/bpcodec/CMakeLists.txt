@@ -18,16 +18,8 @@ add_library(bpcodec STATIC
 		src/codec/CustodyTransferManager.cpp
 		src/codec/BundleViewV6.cpp
 		src/codec/BundleViewV7.cpp
-        src/codec/cbor/cgoto/codec.cpp
-        src/codec/cbor/standard/codec.cpp
-        src/codec/cbor/memo/codec.cpp
 		src/codec/Bpv7Crc.cpp
 )
-
-
-#add_compile_definitions(BPV7_CBOR_CGOTO)
-add_compile_definitions(BPV7_CBOR_STD)
-#add_compile_definitions(BPV7_CBOR_MEMOIZE)
 
 target_link_libraries(bpcodec hdtn_util)
 target_include_directories(bpcodec PUBLIC include)
