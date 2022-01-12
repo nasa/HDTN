@@ -585,20 +585,17 @@ bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numB
     const uint8_t * const serializationBase = serialization;
 
     if (bufferSize == 0) {
-        std::cout << "eid1\n";
         return false;
     }
     --bufferSize;
     const uint8_t initialCborByte = *serialization++;
     if ((initialCborByte != ((4U << 5) | 2U)) && //major type 4, additional information 2 (array of length 2)
         (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
-        std::cout << "eid2 initialCborByte: " << (int)initialCborByte << "\n";
         return false;
     }
 
     element1 = CborDecodeU64(serialization, &cborUintSize, bufferSize);
     if (cborUintSize == 0) {
-        std::cout << "eid3\n";
         return false; //failure
     }
     serialization += cborUintSize;
@@ -606,7 +603,6 @@ bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numB
 
     element2 = CborDecodeU64(serialization, &cborUintSize, bufferSize);
     if (cborUintSize == 0) {
-        std::cout << "eid4\n";
         return false; //failure
     }
     serialization += cborUintSize;
@@ -619,12 +615,10 @@ bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numB
     if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
         bufferSize -= cborUintSize; //from element 2 above
         if (bufferSize == 0) {
-            std::cout << "eid5\n";
             return false;
         }
         const uint8_t breakStopCode = *serialization++;
         if (breakStopCode != 0xff) {
-            std::cout << "eid6\n";
             return false;
         }
     }
