@@ -33,7 +33,8 @@ public:
 
     uint64_t m_totalPayloadBytesRx;
     uint64_t m_totalBundleBytesRx;
-    uint64_t m_totalBundlesRx;
+    uint64_t m_totalBundlesVersion6Rx;
+    uint64_t m_totalBundlesVersion7Rx;
 
     uint64_t m_lastPayloadBytesRx;
     uint64_t m_lastBundleBytesRx;

@@ -208,7 +208,7 @@ void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializati
 }
 
 //serialization must be temporarily modifyable to zero crc and restore it
-bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
+bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify) {
     uint8_t cborSizeDecoded;
     const uint8_t * const serializationBase = serialization;
 
@@ -343,11 +343,15 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & num
             if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_computedCrc16))) {
                 return false;
             }
-            serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
+            serialization += 3;
             const uint64_t blockSerializedLength = serialization - serializationBase;
+            numBytesTakenToDecode = blockSerializedLength;
+            if (skipCrcVerify) {
+                return true;
+            }
+            Bpv7Crc::SerializeZeroedCrc16ForBpv7(crcStartPtr);
             const uint16_t computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, blockSerializedLength);
             Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16); //restore original received crc after zeroing
-            numBytesTakenToDecode = blockSerializedLength;
             if (computedCrc16 == m_computedCrc16) {
                 return true;
             }
@@ -365,11 +369,15 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & num
             if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_computedCrc32))) {
                 return false;
             }
-            serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
+            serialization += 5;
             const uint64_t blockSerializedLength = serialization - serializationBase;
+            numBytesTakenToDecode = blockSerializedLength;
+            if (skipCrcVerify) {
+                return true;
+            }
+            Bpv7Crc::SerializeZeroedCrc32ForBpv7(crcStartPtr);
             const uint32_t computedCrc32 = Bpv7Crc::Crc32C_Unaligned(serializationBase, blockSerializedLength);
             Bpv7Crc::SerializeCrc32ForBpv7(crcStartPtr, m_computedCrc32); //restore original received crc after zeroing
-            numBytesTakenToDecode = blockSerializedLength;
             if (computedCrc32 == m_computedCrc32) {
                 return true;
             }

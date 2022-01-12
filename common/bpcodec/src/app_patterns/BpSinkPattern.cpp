@@ -17,6 +17,7 @@
 #include "Uri.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "codec/BundleViewV7.h"
 
 BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
 
@@ -37,7 +38,8 @@ void BpSinkPattern::Stop() {
 
     std::cout << "totalPayloadBytesRx: " << m_totalPayloadBytesRx << "\n";
     std::cout << "totalBundleBytesRx: " << m_totalBundleBytesRx << "\n";
-    std::cout << "totalBundlesRx: " << m_totalBundlesRx << "\n";
+    std::cout << "m_totalBundlesVersion6Rx: " << m_totalBundlesVersion6Rx << "\n";
+    std::cout << "m_totalBundlesVersion7Rx: " << m_totalBundlesVersion7Rx << "\n";
 }
 
 bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
@@ -50,7 +52,8 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
 
     m_totalPayloadBytesRx = 0;
     m_totalBundleBytesRx = 0;
-    m_totalBundlesRx = 0;
+    m_totalBundlesVersion6Rx = 0;
+    m_totalBundlesVersion7Rx = 0;
 
     m_lastPayloadBytesRx = 0;
     m_lastBundleBytesRx = 0;
@@ -111,86 +114,143 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
         boost::this_thread::sleep(boost::posix_time::milliseconds(M_EXTRA_PROCESSING_TIME_MS));
     }
 
-    
-    BundleViewV6 bv;
-    if (!bv.SwapInAndLoadBundle(rxBuf)) { //invalid bundle
-        std::cerr << "malformed bundle\n";
-        return false;
-    }
-    bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-    const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
-    const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
-
-    
-
-    static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON;
-    const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
-    if (isEcho && (!m_hasSendCapability)) {
-        std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
-        return false;
-    }
-    
-    if ((!isEcho) && (finalDestEid != m_myEid)) {
-        std::cerr << "bundle received has a destination that doesn't match my eid\n";
-        return false;
-    }
-
-    //accept custody
-    if (m_hasSendCapability) { //has bidirectionality
-        static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
-        
-        if (isEcho) {
-            primary.dst_node = primary.src_node;
-            primary.dst_svc = primary.src_svc;
-            primary.src_node = m_myEidEcho.nodeId;
-            primary.src_svc = m_myEidEcho.serviceId;
-            bv.m_primaryBlockView.SetManuallyModified();
-            bv.Render(messageSize + 10);
-            Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
-            return true;
+    const uint8_t firstByte = rxBuf[0];
+    const bool isBpVersion6 = (firstByte == 6);
+    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+    if (isBpVersion6) {
+        BundleViewV6 bv;
+        if (!bv.SwapInAndLoadBundle(rxBuf)) { //invalid bundle
+            std::cerr << "malformed bundle\n";
+            return false;
         }
-        else if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
-            const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
-            bpv6_primary_block primaryForCustodySignalRfc5050;
-            m_mutexCtm.lock();
-            const bool successfullyProcessedCustody = m_custodyTransferManagerPtr->ProcessCustodyOfBundle(bv, true,
-                newCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-                m_bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050);
-            m_mutexCtm.unlock();
-            if (!successfullyProcessedCustody) {
-                std::cerr << "error unable to process custody\n";
-                return false;
+        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
+        const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
+
+
+
+        static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON;
+        const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
+        if (isEcho && (!m_hasSendCapability)) {
+            std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
+            return false;
+        }
+
+        if ((!isEcho) && (finalDestEid != m_myEid)) {
+            std::cerr << "bundle received has a destination that doesn't match my eid\n";
+            return false;
+        }
+
+        //accept custody
+        if (m_hasSendCapability) { //has bidirectionality
+            static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
+
+            if (isEcho) {
+                primary.dst_node = primary.src_node;
+                primary.dst_svc = primary.src_svc;
+                primary.src_node = m_myEidEcho.nodeId;
+                primary.src_svc = m_myEidEcho.serviceId;
+                bv.m_primaryBlockView.SetManuallyModified();
+                bv.Render(messageSize + 10);
+                Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
+                return true;
             }
-            else {
-                if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
-                    //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
-                    const cbhe_eid_t custodySignalDestEid(primaryForCustodySignalRfc5050.dst_node, primaryForCustodySignalRfc5050.dst_svc);
-                    Forward_ThreadSafe(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle);
+            else if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+                const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
+                bpv6_primary_block primaryForCustodySignalRfc5050;
+                m_mutexCtm.lock();
+                const bool successfullyProcessedCustody = m_custodyTransferManagerPtr->ProcessCustodyOfBundle(bv, true,
+                    newCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
+                    m_bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050);
+                m_mutexCtm.unlock();
+                if (!successfullyProcessedCustody) {
+                    std::cerr << "error unable to process custody\n";
+                    return false;
                 }
-                else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
-                    boost::asio::post(m_ioService, boost::bind(&BpSinkPattern::SendAcsFromTimerThread, this));
+                else {
+                    if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
+                        //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
+                        const cbhe_eid_t custodySignalDestEid(primaryForCustodySignalRfc5050.dst_node, primaryForCustodySignalRfc5050.dst_svc);
+                        Forward_ThreadSafe(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle);
+                    }
+                    else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
+                        boost::asio::post(m_ioService, boost::bind(&BpSinkPattern::SendAcsFromTimerThread, this));
+                    }
                 }
             }
         }
-    }
 
-    std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-    bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
-    if (blocks.size() != 1) {
-        std::cerr << "error payload block not found\n";
-        return false;
-    }
-    bpv6_canonical_block & payloadBlock = blocks[0]->header;
-    m_totalPayloadBytesRx += payloadBlock.length;
-    m_totalBundleBytesRx += messageSize;
-    ++m_totalBundlesRx;
+        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+        if (blocks.size() != 1) {
+            std::cerr << "error payload block not found\n";
+            return false;
+        }
+        bpv6_canonical_block & payloadBlock = blocks[0]->header;
+        m_totalPayloadBytesRx += payloadBlock.length;
+        m_totalBundleBytesRx += messageSize;
+        ++m_totalBundlesVersion6Rx;
 
-    boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
-    if (!ProcessPayload((const uint8_t *)blockBodyBuffer.data(), blockBodyBuffer.size())) {
-        std::cerr << "error ProcessPayload\n";
-        return false;
+        boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
+        if (!ProcessPayload((const uint8_t *)blockBodyBuffer.data(), blockBodyBuffer.size())) {
+            std::cerr << "error ProcessPayload\n";
+            return false;
+        }
     }
-    
+    else if (isBpVersion7) {
+        BundleViewV7 bv;
+        if (!bv.SwapInAndLoadBundle(rxBuf)) { //invalid bundle
+            std::cerr << "malformed bpv7 bundle\n";
+            return false;
+        }
+        Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        const cbhe_eid_t finalDestEid = primary.m_destinationEid;
+        const cbhe_eid_t srcEid = primary.m_sourceNodeId;
+
+
+
+
+        static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+        const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
+        if (isEcho && (!m_hasSendCapability)) {
+            std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
+            return false;
+        }
+
+        if ((!isEcho) && (finalDestEid != m_myEid)) {
+            std::cerr << "bundle received has a destination that doesn't match my eid\n";
+            return false;
+        }
+
+        if (m_hasSendCapability) { //has bidirectionality
+            if (isEcho) {
+                primary.m_destinationEid = primary.m_sourceNodeId;
+                primary.m_sourceNodeId = m_myEidEcho;
+                bv.m_primaryBlockView.SetManuallyModified();
+                bv.Render(messageSize + 10);
+                Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
+                return true;
+            }
+        }
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+
+        if (blocks.size() != 1) {
+            std::cerr << "error payload block not found\n";
+            return false;
+        }
+
+        const uint64_t payloadDataLength = blocks[0]->header.m_dataLength;
+        const uint8_t * payloadDataPtr = blocks[0]->header.m_dataPtr;
+        m_totalPayloadBytesRx += payloadDataLength;
+        m_totalBundleBytesRx += messageSize;
+        ++m_totalBundlesVersion7Rx;
+
+        if (!ProcessPayload(payloadDataPtr, payloadDataLength)) {
+            std::cerr << "error ProcessPayload\n";
+            return false;
+        }
+    }
 
     return true;
 }
@@ -220,7 +280,7 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
         boost::posix_time::ptime finishedTime = boost::posix_time::microsec_clock::universal_time();
         const uint64_t totalPayloadBytesRx = m_totalPayloadBytesRx;
         const uint64_t totalBundleBytesRx = m_totalBundleBytesRx;
-        const uint64_t totalBundlesRx = m_totalBundlesRx;
+        const uint64_t totalBundlesRx = m_totalBundlesVersion6Rx + m_totalBundlesVersion7Rx;
         boost::posix_time::time_duration diff = finishedTime - m_lastPtime;
         const uint64_t diffTotalPayloadBytesRx = totalPayloadBytesRx - m_lastPayloadBytesRx;
         const uint64_t diffBundleBytesRx = totalBundleBytesRx - m_lastBundleBytesRx;

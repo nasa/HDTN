@@ -75,14 +75,14 @@ public:
     std::size_t GetNumCanonicalBlocks() const;
     void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
     std::size_t DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode);
-    bool LoadBundle(uint8_t * bundleData, const std::size_t size);
-    bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData);
-    bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size);
+    bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false);
+    bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks = false);
+    bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false);
     bool IsValid() const;
     bool Render(const std::size_t maxBundleSizeBytes);
     void Reset(); //should be private
 private:
-    bool Load();
+    bool Load(const bool skipCrcVerifyInCanonicalBlocks);
     
     
 public:

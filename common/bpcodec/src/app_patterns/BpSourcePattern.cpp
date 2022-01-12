@@ -11,7 +11,7 @@
 #include "codec/bpv6.h"
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
-
+#include "codec/BundleViewV7.h"
 
 BpSourcePattern::BpSourcePattern() : m_running(false) {
 
@@ -41,7 +41,7 @@ void BpSourcePattern::Stop() {
 
 void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
     const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
-    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody) {
+    const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
     if (m_running) {
         std::cerr << "error: BpSourcePattern::Start called while BpSourcePattern is already running" << std::endl;
         return;
@@ -53,6 +53,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     m_myCustodianEidUriString = Uri::GetIpnUriString(m_myEid.nodeId, myCustodianServiceId);
     m_detectedNextCustodianSupportsCteb = false;
     m_requireRxBundleBeforeNextTx = requireRxBundleBeforeNextTx;
+    m_useBpVersion7 = useBpVersion7;
 
     m_totalNonAdminRecordPayloadBytesRx = 0;
     m_totalNonAdminRecordBundleBytesRx = 0;
@@ -185,6 +186,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
    
 
     uint64_t lastTimeRfc5050 = 0;
+    uint64_t lastMillisecondsSinceStartOfYear2000 = 0;
     
     uint64_t seq = 0;
     
@@ -211,126 +213,189 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             deadlineTimer.expires_at(deadlineTimer.expires_at() + sleepValTimeDuration);
         }
         
-        const uint64_t bundleSizeBytes = GetNextPayloadLength_Step1();
-        if (bundleSizeBytes == 0) {
-            std::cout << "bundleSizeBytes == 0... out of work.. exiting\n";
+        const uint64_t payloadSizeBytes = GetNextPayloadLength_Step1();
+        if (payloadSizeBytes == 0) {
+            std::cout << "payloadSizeBytes == 0... out of work.. exiting\n";
             m_running = false;
             continue;
         }
+        uint64_t bundleLength;
         
-        bundleToSend.resize(bundleSizeBytes + 1000);
-        
-
-        
-
-        uint8_t * buffer = bundleToSend.data();
-        uint8_t * const serializationBase = buffer;
-        const uint64_t currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
-            
-        if(currentTimeRfc5050 == lastTimeRfc5050) {
-            ++seq;
-        }
-        else {
-            /*gettimeofday(&tv, NULL);
-            double elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-            elapsed -= start;
-            start = start + elapsed;
-            fprintf(log, "%0.6f, %lu, %lu, %lu, %lu\n", elapsed, bundle_count, raw_data, bundle_data, tsc_total);
-            fflush(log);
-            bundle_count = 0;
-            bundle_data = 0;
-            raw_data = 0;
-            tsc_total = 0;*/
-            seq = 0;
-        }
-        lastTimeRfc5050 = currentTimeRfc5050;
-            
-        bpv6_primary_block primary;
-        memset(&primary, 0, sizeof(bpv6_primary_block));
-        primary.version = 6;
-        primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
-        if (m_useCustodyTransfer) {
-            primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
-            primary.custodian_node = m_myEid.nodeId;
-            primary.custodian_svc = m_myCustodianServiceId;
-        }
-        primary.src_node = m_myEid.nodeId;
-        primary.src_svc = m_myEid.serviceId;
-        primary.dst_node = m_finalDestinationEid.nodeId;
-        primary.dst_svc = m_finalDestinationEid.serviceId;
-        primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
-        primary.lifetime = 1000;
-        primary.sequence = seq;
-        uint64_t retVal;
-        retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
-        if (retVal == 0) {
-            std::cout << "primary encode error\n";
-            m_running = false;
-            continue;
-        }
-        buffer += retVal;
-
-        if (m_useCustodyTransfer) {
-            if (m_custodyTransferUseAcs) {
-                const uint64_t ctebCustodyId = nextCtebCustodyId++;
-                bpv6_canonical_block returnedCanonicalBlock;
-                retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, 0, //0=> not last block
-                    ctebCustodyId, m_myCustodianEidUriString, returnedCanonicalBlock);
-
-                if (retVal == 0) {
-                    std::cout << "cteb encode error\n";
-                    m_running = false;
-                    continue;
-                }
-                buffer += retVal;
-
-                m_mutexCtebSet.lock();
-                FragmentSet::InsertFragment(m_outstandingCtebCustodyIdsFragmentSet, FragmentSet::data_fragment_t(ctebCustodyId, ctebCustodyId));
-                m_mutexCtebSet.unlock();
+        if (m_useBpVersion7) {
+            BundleViewV7 bv;
+            Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+            //primary.SetZero();
+            primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG_NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+            primary.m_sourceNodeId = m_myEid;
+            primary.m_destinationEid = m_finalDestinationEid;
+            if (m_useCustodyTransfer) { //not supported yet
+                primary.m_bundleProcessingControlFlags |= BPV7_BUNDLEFLAG_RECEPTION_STATUS_REPORTS_REQUESTED; //??
+                primary.m_reportToEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
             }
-            //always prepare for rfc5050 style custody transfer if next hop doesn't support acs
-            if (!m_detectedNextCustodianSupportsCteb) { //prevent map from filling up endlessly if we're using cteb
-                cbhe_bundle_uuid_nofragment_t uuid = primary.GetCbheBundleUuidNoFragmentFromPrimary();
-                m_mutexBundleUuidSet.lock();
-                const bool success = m_cbheBundleUuidSet.insert(uuid).second;
-                m_mutexBundleUuidSet.unlock();
-                if (!success) {
-                    std::cerr << "error insert bundle uuid\n";
-                    m_running = false;
-                    continue;
-                }
+            else {
+                primary.m_reportToEid.Set(0, 0);
             }
-                
-        }
-        bpv6_canonical_block block;
-        //memset 0 not needed because all fields set below
-        block.type = BPV6_BLOCKTYPE_PAYLOAD;
-        block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
-        block.length = bundleSizeBytes;
+            primary.m_creationTimestamp.SetTimeFromNow();
+            if (primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 == lastMillisecondsSinceStartOfYear2000) {
+                ++seq;
+            }
+            else {
+                seq = 0;
+            }
+            lastMillisecondsSinceStartOfYear2000 = primary.m_creationTimestamp.millisecondsSinceStartOfYear2000;
+            primary.m_creationTimestamp.sequenceNumber = seq;
+            primary.m_lifetimeMilliseconds = 1000000;
+            primary.m_crcType = BPV7_CRC_TYPE_CRC32C;
+            bv.m_primaryBlockView.SetManuallyModified();
 
-        retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
-        if (retVal == 0) {
-            std::cout << "payload canonical encode error\n";
-            m_running = false;
-            continue;
-        }
-        buffer += retVal;
+            //append payload block
+            {
+                Bpv7CanonicalBlock payloadBlock;
+                //payloadBlock.SetZero();
 
+                payloadBlock.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+                payloadBlock.m_blockProcessingControlFlags = 0;
+                payloadBlock.m_blockNumber = 0;
+                payloadBlock.m_crcType = BPV7_CRC_TYPE_CRC32C;
+                payloadBlock.m_dataLength = payloadSizeBytes;
+                payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
+                bv.AppendCanonicalBlock(payloadBlock);
+            }
 
-        if (!CopyPayload_Step2(buffer)) {
-            std::cout << "copy payload error\n";
-            m_running = false;
-            continue;
-        }
+            //render bundle to the front buffer
+            if (!bv.Render(payloadSizeBytes + 1000)) {
+                std::cout << "error rendering bpv7 bundle\n";
+                return;
+            }
+
+            BundleViewV7::Bpv7CanonicalBlockView & payloadBlockView = bv.m_listCanonicalBlockView.back(); //payload block must be the last block
+
+            //manually copy data to preallocated space and compute crc
+            if (!CopyPayload_Step2(payloadBlockView.header.m_dataPtr)) { //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
+                std::cout << "copy payload error\n";
+                m_running = false;
+                continue;
+            }
+            payloadBlockView.header.RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
             
-        buffer += bundleSizeBytes;
+            //move the bundle out of bundleView
+            bundleToSend = std::move(bv.m_frontBuffer);
+            bundleLength = bundleToSend.size();
+        }
+        else { //bp version 6
+            bundleToSend.resize(payloadSizeBytes + 1000);
 
-        const uint64_t bundleLength = buffer - serializationBase;
-            
-        
 
-        bundleToSend.resize(bundleLength);
-        
+
+
+            uint8_t * buffer = bundleToSend.data();
+            uint8_t * const serializationBase = buffer;
+            const uint64_t currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
+
+            if (currentTimeRfc5050 == lastTimeRfc5050) {
+                ++seq;
+            }
+            else {
+                /*gettimeofday(&tv, NULL);
+                double elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
+                elapsed -= start;
+                start = start + elapsed;
+                fprintf(log, "%0.6f, %lu, %lu, %lu, %lu\n", elapsed, bundle_count, raw_data, bundle_data, tsc_total);
+                fflush(log);
+                bundle_count = 0;
+                bundle_data = 0;
+                raw_data = 0;
+                tsc_total = 0;*/
+                seq = 0;
+            }
+            lastTimeRfc5050 = currentTimeRfc5050;
+
+            bpv6_primary_block primary;
+            memset(&primary, 0, sizeof(bpv6_primary_block));
+            primary.version = 6;
+            primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+            if (m_useCustodyTransfer) {
+                primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
+                primary.custodian_node = m_myEid.nodeId;
+                primary.custodian_svc = m_myCustodianServiceId;
+            }
+            primary.src_node = m_myEid.nodeId;
+            primary.src_svc = m_myEid.serviceId;
+            primary.dst_node = m_finalDestinationEid.nodeId;
+            primary.dst_svc = m_finalDestinationEid.serviceId;
+            primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
+            primary.lifetime = 1000;
+            primary.sequence = seq;
+            uint64_t retVal;
+            retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
+            if (retVal == 0) {
+                std::cout << "primary encode error\n";
+                m_running = false;
+                continue;
+            }
+            buffer += retVal;
+
+            if (m_useCustodyTransfer) {
+                if (m_custodyTransferUseAcs) {
+                    const uint64_t ctebCustodyId = nextCtebCustodyId++;
+                    bpv6_canonical_block returnedCanonicalBlock;
+                    retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, 0, //0=> not last block
+                        ctebCustodyId, m_myCustodianEidUriString, returnedCanonicalBlock);
+
+                    if (retVal == 0) {
+                        std::cout << "cteb encode error\n";
+                        m_running = false;
+                        continue;
+                    }
+                    buffer += retVal;
+
+                    m_mutexCtebSet.lock();
+                    FragmentSet::InsertFragment(m_outstandingCtebCustodyIdsFragmentSet, FragmentSet::data_fragment_t(ctebCustodyId, ctebCustodyId));
+                    m_mutexCtebSet.unlock();
+                }
+                //always prepare for rfc5050 style custody transfer if next hop doesn't support acs
+                if (!m_detectedNextCustodianSupportsCteb) { //prevent map from filling up endlessly if we're using cteb
+                    cbhe_bundle_uuid_nofragment_t uuid = primary.GetCbheBundleUuidNoFragmentFromPrimary();
+                    m_mutexBundleUuidSet.lock();
+                    const bool success = m_cbheBundleUuidSet.insert(uuid).second;
+                    m_mutexBundleUuidSet.unlock();
+                    if (!success) {
+                        std::cerr << "error insert bundle uuid\n";
+                        m_running = false;
+                        continue;
+                    }
+                }
+
+            }
+            bpv6_canonical_block block;
+            //memset 0 not needed because all fields set below
+            block.type = BPV6_BLOCKTYPE_PAYLOAD;
+            block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
+            block.length = payloadSizeBytes;
+
+            retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
+            if (retVal == 0) {
+                std::cout << "payload canonical encode error\n";
+                m_running = false;
+                continue;
+            }
+            buffer += retVal;
+
+
+            if (!CopyPayload_Step2(buffer)) {
+                std::cout << "copy payload error\n";
+                m_running = false;
+                continue;
+            }
+
+            buffer += payloadSizeBytes;
+
+            bundleLength = buffer - serializationBase;
+
+
+
+            bundleToSend.resize(bundleLength);
+        }
 
         //send message
         while (m_running) {
@@ -348,7 +413,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     std::cerr << "bundleToSend.size() : " << bundleToSend.size() << std::endl;
                 }
                 ++m_bundleCount;
-                bundle_data += bundleSizeBytes;     // payload data
+                bundle_data += payloadSizeBytes;     // payload data
                 raw_data += bundleLength; // bundle overhead + payload data
                 while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) {
                     m_waitingForRxBundleBeforeNextTxConditionVariable.timed_wait(waitingForRxBundleBeforeNextTxLock, boost::posix_time::milliseconds(10));

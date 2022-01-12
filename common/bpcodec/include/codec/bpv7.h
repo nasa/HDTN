@@ -112,7 +112,7 @@ struct Bpv7CanonicalBlock {
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
-    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
+    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify); //serialization must be temporarily modifyable to zero crc and restore it
 };
 
 

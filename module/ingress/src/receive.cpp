@@ -17,6 +17,7 @@
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 #include "codec/BundleViewV6.h"
+#include "codec/BundleViewV7.h"
 
 namespace hdtn {
 
@@ -399,43 +400,81 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
             << m_hdtnConfig.m_maxBundleSizeBytes << " bytes\n";
         return false;
     }
-    bpv6_primary_block primary;
-    if (!primary.cbhe_bpv6_primary_block_decode((const char*)rxMsg.data(), 0, messageSize)) {
-        std::cerr << "error in Ingress::Process: malformed bundle received\n";
-        return false;
-    }
-
-
-    cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
-    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
-    const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
-    //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
-    static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
-    static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
-    //BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
-    const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
-    if (isEcho) {
-        BundleViewV6 bv;
-        if (!bv.LoadBundle((uint8_t *)rxMsg.data(), rxMsg.size())) {
-            std::cerr << "malformed bundle\n";
+    cbhe_eid_t finalDestEid;
+    bool requestsCustody;
+    bool isAdminRecordForHdtnStorage;
+    const uint8_t firstByte = ((const uint8_t*)rxMsg.data())[0];
+    const bool isBpVersion6 = (firstByte == 6);
+    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+    if (isBpVersion6) {
+        bpv6_primary_block primary;
+        if (!primary.cbhe_bpv6_primary_block_decode((const char*)rxMsg.data(), 0, messageSize)) {
+            std::cerr << "error in Ingress::Process: malformed bundle received\n";
             return false;
         }
-        bpv6_primary_block & bvPrimary = bv.m_primaryBlockView.header;
-        bvPrimary.dst_node = bvPrimary.src_node;
-        bvPrimary.dst_svc = bvPrimary.src_svc;
-        finalDestEid.Set(bvPrimary.dst_node, bvPrimary.dst_svc);
-        std::cerr << "Sending Ping for destination node" << bvPrimary.dst_node << 
-	       "destination service" << bvPrimary.dst_svc << std::endl;
-	bvPrimary.src_node = M_HDTN_EID_ECHO.nodeId;
-        bvPrimary.src_svc = M_HDTN_EID_ECHO.serviceId;
-        primary = bvPrimary;
-        bv.m_primaryBlockView.SetManuallyModified();
-        bv.Render(messageSize + 10);
-        std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-        rxMsg = std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer));
-        messageSize = rxMsg.size();
+        finalDestEid.Set(primary.dst_node, primary.dst_svc);
+        static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
+        requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
+        //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
+        static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+        isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+        static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+        //BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
+        const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
+        if (isEcho) {
+            BundleViewV6 bv;
+            if (!bv.LoadBundle((uint8_t *)rxMsg.data(), rxMsg.size())) {
+                std::cerr << "malformed bundle\n";
+                return false;
+            }
+            bpv6_primary_block & bvPrimary = bv.m_primaryBlockView.header;
+            bvPrimary.dst_node = bvPrimary.src_node;
+            bvPrimary.dst_svc = bvPrimary.src_svc;
+            finalDestEid.Set(bvPrimary.dst_node, bvPrimary.dst_svc);
+            std::cerr << "Sending Ping for destination node" << bvPrimary.dst_node <<
+                "destination service" << bvPrimary.dst_svc << std::endl;
+            bvPrimary.src_node = M_HDTN_EID_ECHO.nodeId;
+            bvPrimary.src_svc = M_HDTN_EID_ECHO.serviceId;
+            primary = bvPrimary;
+            bv.m_primaryBlockView.SetManuallyModified();
+            bv.Render(messageSize + 10);
+            std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+            rxMsg = std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer));
+            messageSize = rxMsg.size();
+        }
     }
+    else if (isBpVersion7) {
+        BundleViewV7 bv;
+        if (!bv.LoadBundle((uint8_t *)rxMsg.data(), rxMsg.size(), true)) { //todo true => skip canonical block crc checks to increase speed
+            std::cout << "error in Ingress::Process: malformed version 7 bundle received\n";
+            return false;
+        }
+        Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        finalDestEid = primary.m_destinationEid;
+        requestsCustody = false; //custody unsupported at this time
+        //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
+        static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG_ADMINRECORD;
+        isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+        static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+        const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
+        if (isEcho) {
+            primary.m_destinationEid = primary.m_sourceNodeId;
+            finalDestEid = primary.m_sourceNodeId;
+            std::cerr << "Sending Ping for destination " << finalDestEid << std::endl;
+            primary.m_sourceNodeId = M_HDTN_EID_ECHO;
+            bv.m_primaryBlockView.SetManuallyModified();
+            bv.Render(messageSize + 10);
+            std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+            rxMsg = std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer));
+            messageSize = rxMsg.size();
+        }
+    }
+    else {
+        std::cout << "error in Ingress::Process: unsupported bundle version received\n";
+        return false;
+    }
+    
+    
     //if (isAdminRecordForHdtnStorage) {
     //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
     //}
@@ -511,7 +550,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
             
         //memset 0 not needed because all values set below
         toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
-        toEgressHdr->base.flags = static_cast<uint16_t>(primary.flags);
+        toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
         toEgressHdr->finalDestEid = finalDestEid;
         toEgressHdr->hasCustody = requestsCustody;
         toEgressHdr->isCutThroughFromIngress = 1;
@@ -566,7 +605,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
 
         //memset 0 not needed because all values set below
         toStorageHdr->base.type = HDTN_MSGTYPE_STORE;
-        toStorageHdr->base.flags = static_cast<uint16_t>(primary.flags);
+        toStorageHdr->base.flags = 0; //flags not used by storage // static_cast<uint16_t>(primary.flags);
         toStorageHdr->ingressUniqueId = ingressToStorageUniqueId;
 
         //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
