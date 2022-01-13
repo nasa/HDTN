@@ -163,15 +163,34 @@ bool Bpv7HopCountCanonicalBlock::operator!=(const Bpv7HopCountCanonicalBlock & o
 }
 
 uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
-    //The Previous Node block, block type 6, identifies the node that
-    //forwarded this bundle to the local node (i.e., to the node at which
-    //the bundle currently resides); its block-type-specific data is the
-    //node ID of that forwarder node which SHALL take the form of a node
-    //ID represented as described in Section 4.2.5.2. above.  If the local
-    //node is the source of the bundle, then the bundle MUST NOT contain
-    //any Previous Node block.  Otherwise the bundle SHOULD contain one
-    //(1) occurrence of this type of block and MUST NOT contain more than
-    //one.
+    //The Hop Count block, block type 10, contains two unsigned integers,
+    //hop limit and hop count.  A "hop" is here defined as an occasion on
+    //which a bundle was forwarded from one node to another node.  Hop
+    //limit MUST be in the range 1 through 255. The hop limit value SHOULD
+    //NOT be changed at any time after creation of the Hop Count block;
+    //the hop count value SHOULD initially be zero and SHOULD be increased
+    //by 1 on each hop.
+    //
+    //The hop count block is mainly intended as a safety mechanism, a
+    //means of identifying bundles for removal from the network that can
+    //never be delivered due to a persistent forwarding error.  Hop count
+    //is particularly valuable as a defense against routing anomalies that
+    //might cause a bundle to be forwarded in a cyclical "ping-pong"
+    //fashion between two nodes.  When a bundle's hop count exceeds its
+    //hop limit, the bundle SHOULD be deleted for the reason "hop limit
+    //exceeded", following the bundle deletion procedure defined in
+    //Section 5.10.
+    //
+    //Procedures for determining the appropriate hop limit for a bundle
+    //are beyond the scope of this specification.
+    //
+    //The block-type-specific data in a hop count block SHALL be
+    //represented as a CBOR array comprising two items.  The first item of
+    //this array SHALL be the bundle's hop limit, represented as a CBOR
+    //unsigned integer.  The second item of this array SHALL be the
+    //bundle's hop count, represented as a CBOR unsigned integer. A bundle
+    //MAY contain one occurrence of this type of block but MUST NOT
+    //contain more than one.
     m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
     uint8_t tempData[largestSerializedDataOnlySize];
     m_dataPtr = tempData;
