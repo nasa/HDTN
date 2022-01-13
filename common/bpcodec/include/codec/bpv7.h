@@ -36,9 +36,10 @@
 
 
 
-#define BPV7_BLOCKTYPE_PAYLOAD      (0x01)
-#define BPV7_BLOCKTYPE_PREVHOP      (0x07)
-#define BPV7_BLOCKTYPE_AGE          (0x08)
+#define BPV7_BLOCKTYPE_PAYLOAD            1U
+#define BPV7_BLOCKTYPE_PREVIOUS_NODE      6U
+#define BPV7_BLOCKTYPE_BUNDLE_AGE         7U
+#define BPV7_BLOCKTYPE_HOP_COUNT          10U
 
 
 
@@ -102,161 +103,81 @@ struct Bpv7CanonicalBlock {
     
     
     Bpv7CanonicalBlock(); //a default constructor: X()
-    ~Bpv7CanonicalBlock(); //a destructor: ~X()
+    virtual ~Bpv7CanonicalBlock(); //a destructor: ~X()
     Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o); //a copy constructor: X(const X&)
     Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o); //a move constructor: X(X&&)
     Bpv7CanonicalBlock& operator=(const Bpv7CanonicalBlock& o); //a copy assignment: operator=(const X&)
     Bpv7CanonicalBlock& operator=(Bpv7CanonicalBlock&& o); //a move assignment: operator=(X&&)
     bool operator==(const Bpv7CanonicalBlock & o) const; //operator ==
     bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
-    void SetZero();
-    uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    //virtual void SetZero();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
-    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify); //serialization must be temporarily modifyable to zero crc and restore it
+    static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify);
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
 
+struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
+    static constexpr uint64_t largestSerializedDataOnlySize =
+        1 + //cbor initial byte denoting cbor array (major type 4, additional information 2)
+        9 + //node number
+        9; //service number
+        
+    Bpv7PreviousNodeCanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv7PreviousNodeCanonicalBlock(); //a destructor: ~X()
+    Bpv7PreviousNodeCanonicalBlock(const Bpv7PreviousNodeCanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv7PreviousNodeCanonicalBlock(Bpv7PreviousNodeCanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv7PreviousNodeCanonicalBlock& operator=(const Bpv7PreviousNodeCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv7PreviousNodeCanonicalBlock& operator=(Bpv7PreviousNodeCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator !=
+    //virtual void SetZero();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
-#if 0
-#ifdef __cplusplus
-extern "C" {
-#endif
+    cbhe_eid_t m_previousNode;
+};
 
-#ifdef __APPLE__
-#include <unitypes.h>
-#endif
-#include <stdlib.h>
-#include <stdint.h>
+struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
+    static constexpr uint64_t largestSerializedDataOnlySize = 9;
 
+    Bpv7BundleAgeCanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv7BundleAgeCanonicalBlock(); //a destructor: ~X()
+    Bpv7BundleAgeCanonicalBlock(const Bpv7BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv7BundleAgeCanonicalBlock(Bpv7BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv7BundleAgeCanonicalBlock& operator=(const Bpv7BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv7BundleAgeCanonicalBlock& operator=(Bpv7BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7BundleAgeCanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv7BundleAgeCanonicalBlock & o) const; //operator !=
+    //virtual void SetZero();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
+    uint64_t m_bundleAgeMilliseconds;
+};
 
-namespace hdtn {
-#pragma pack(push, 1)
-    typedef struct bpv7_hdr {
-        union {
-            uint8_t   bytes[4];
-            uint32_t  magic;       // pack first four elements into single 32 bit value
-        } hdr;
+struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
+    static constexpr uint64_t largestSerializedDataOnlySize =
+        1 + //cbor initial byte denoting cbor array (major type 4, additional information 2)
+        9 + //hop limit
+        9; //hop count
 
-        uint16_t flags;     // bundle flags go here
-        uint8_t  crc;       // CRC type
-    } /*__attribute__((packed))*/ bpv7_hdr;
+    Bpv7HopCountCanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv7HopCountCanonicalBlock(); //a destructor: ~X()
+    Bpv7HopCountCanonicalBlock(const Bpv7HopCountCanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv7HopCountCanonicalBlock(Bpv7HopCountCanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv7HopCountCanonicalBlock& operator=(const Bpv7HopCountCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv7HopCountCanonicalBlock& operator=(Bpv7HopCountCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7HopCountCanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv7HopCountCanonicalBlock & o) const; //operator !=
+    //virtual void SetZero();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
-    typedef struct bpv7_eid {
-        uint8_t  type;
-        uint8_t  _padding[7];
-        uint64_t node;
-        uint64_t service;
-        char     path[BPV7_MAX_PATHLEN];
-    } /*__attribute__((packed))*/ bpv7_ipn_eid;
+    uint64_t m_hopLimit;
+    uint64_t m_hopCount;
+};
 
-    typedef struct bpv7_primary_block {
-        uint8_t        version;
-        uint8_t        crc_type;
-        uint16_t       flags;
-        uint8_t        crc_data[4];
-        uint64_t       creation;
-        uint64_t       sequence;
-        uint64_t       lifetime;
-        uint64_t       offset;
-        uint64_t       app_length;
-        uint8_t        _padding2[16];  // pad to 64 bytes
-        bpv7_eid       dst;            // +256 + 64
-        bpv7_eid       src;            // +512 + 64
-        bpv7_eid       report;         // +768 + 64
-    } /*__attribute__((packed)) __attribute__(( aligned(64) ))*/ bpv7_primary_block;
-
-    /**
-     * Reads a bpbis primary block from a buffer and decodes it into 'primary'
-     *
-     * @param primary structure into which values should be decoded
-     * @param buffer target from which values should be decoded
-     * @param offset offset into target from which values should be decoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the primary block was decoded from, or 0 on failure to decode
-     */
-    uint32_t bpv7_primary_block_decode(bpv7_primary_block* primary, char* buffer, size_t offset, size_t bufsz);
-
-    /**
-     * Writes a bpbis primary block into a buffer as encoded from 'primary'.
-     *
-     * @param primary structure from which values should be read and encoded
-     * @param buffer target into which values should be encoded
-     * @param offset offset into target into which values should be encoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the primary block was encoded into, or 0 on failure to encode
-     */
-    uint32_t bpv7_primary_block_encode(bpv7_primary_block* primary, char* buffer, size_t offset, size_t bufsz);
-
-
-
-    typedef struct bpv7_canonical_block {
-        uint8_t        block_type;
-        uint8_t        flags;
-        uint8_t        crc_type;
-        uint8_t        padding[1];
-        uint32_t       block_id;
-        // keep track of the offset at which the block starts, and the length of the block
-        uint64_t       offset;
-        uint64_t       len;
-        uint8_t        crc_data[4];
-        uint8_t        padding2[4];
-    } /*__attribute__((packed)) __attribute__(( aligned(64) ))*/ bpv7_canonical_block;
-#pragma pack(pop)
-    /**
-     * Reads a bundle canonical block from a buffer and decodes it as 'block'
-     *
-     * @param block location into which data should be decoded
-     * @param buffer target from which values should be decoded
-     * @param offset offset into target from which values should be decoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the canonical block was decoded from, or 0 on error
-     */
-    uint32_t bpv7_canonical_block_decode(bpv7_canonical_block* block, char* buffer, size_t offset, size_t bufsz);
-
-    /**
-     * Writes a bundle primary block into a buffer as encoded from 'primary'.
-     *
-     * @param block structure from which values should be read and encoded
-     * @param buffer target into which values should be encoded
-     * @param offset offset into target into which values should be encoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the canonical block was encoded into, or 0 on error
-     */
-    uint32_t bpv7_canonical_block_encode(bpv7_canonical_block* block, char* buffer, size_t offset, size_t bufsz);
-
-    /**
-     * Initializes the CBOR routines for use.  Only must be called explicitly if the application is threaded *and*
-     * CBOR encoding / decoding will be handled in multiple threads at once.
-     */
-     void cbor_init();
-
-    /**
-     * Decodes an unsigned integer CBOR type into memory location 'dst'
-     *
-     * @param dst Decoded unsigned integer value
-     * @param src Encoded unsigned integer value
-     * @param offset Offset into src from which data will be read
-     * @param bufsz Maximum size of 'src'
-     * @return Non-zero number of bytes advanced, or 0 on error
-     */
-    uint8_t cbor_decode_uint(uint64_t* dst, uint8_t* src, uint64_t offset, uint64_t bufsz);
-
-    /**
-     * Encodes an unsigned integer CBOR type into memory location 'dst'
-     *
-     * @param dst Encoded unsigned integer value
-     * @param src Decoded unsigned integer value
-     * @param offset Offset into 'dst' at which data will be written
-     * @param bufsz Maximum size of 'dst'
-     * @return Non-zero number of bytes advanced, or 0 on error
-     */
-     uint8_t cbor_encode_uint(uint8_t* dst, uint64_t src, uint64_t offset, uint64_t bufsz);
-}
-
-#ifdef __cplusplus
-}
-#endif
-#endif
 
 #endif //BPV7_H

@@ -250,7 +250,8 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
             //append payload block
             {
-                Bpv7CanonicalBlock payloadBlock;
+                std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+                Bpv7CanonicalBlock & payloadBlock = *payloadBlockPtr;
                 //payloadBlock.SetZero();
 
                 payloadBlock.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
@@ -259,7 +260,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 payloadBlock.m_crcType = BPV7_CRC_TYPE_CRC32C;
                 payloadBlock.m_dataLength = payloadSizeBytes;
                 payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
-                bv.AppendCanonicalBlock(payloadBlock);
+                bv.AppendMoveCanonicalBlock(payloadBlockPtr);
             }
 
             //render bundle to the front buffer
@@ -271,12 +272,12 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             BundleViewV7::Bpv7CanonicalBlockView & payloadBlockView = bv.m_listCanonicalBlockView.back(); //payload block must be the last block
 
             //manually copy data to preallocated space and compute crc
-            if (!CopyPayload_Step2(payloadBlockView.header.m_dataPtr)) { //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
+            if (!CopyPayload_Step2(payloadBlockView.headerPtr->m_dataPtr)) { //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
                 std::cout << "copy payload error\n";
                 m_running = false;
                 continue;
             }
-            payloadBlockView.header.RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
+            payloadBlockView.headerPtr->RecomputeCrcAfterDataModification((uint8_t*)payloadBlockView.actualSerializedBlockPtr.data(), payloadBlockView.actualSerializedBlockPtr.size()); //recompute crc
             
             //move the bundle out of bundleView
             bundleToSend = std::move(bv.m_frontBuffer);

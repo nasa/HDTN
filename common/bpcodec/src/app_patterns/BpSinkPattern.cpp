@@ -240,8 +240,8 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
             return false;
         }
 
-        const uint64_t payloadDataLength = blocks[0]->header.m_dataLength;
-        const uint8_t * payloadDataPtr = blocks[0]->header.m_dataPtr;
+        const uint64_t payloadDataLength = blocks[0]->headerPtr->m_dataLength;
+        const uint8_t * payloadDataPtr = blocks[0]->headerPtr->m_dataPtr;
         m_totalPayloadBytesRx += payloadDataLength;
         m_totalBundleBytesRx += messageSize;
         ++m_totalBundlesVersion7Rx;

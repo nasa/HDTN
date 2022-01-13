@@ -58,7 +58,7 @@ public:
         void SetManuallyModified();
     };
     struct Bpv7CanonicalBlockView {
-        Bpv7CanonicalBlock header;
+        std::unique_ptr<Bpv7CanonicalBlock> headerPtr;
         boost::asio::const_buffer actualSerializedBlockPtr;
         bool dirty;
         bool markedForDeletion;
@@ -69,8 +69,8 @@ public:
     BundleViewV7();
     ~BundleViewV7();
 
-    void AppendCanonicalBlock(const Bpv7CanonicalBlock & header);
-    void PrependCanonicalBlock(const Bpv7CanonicalBlock & header);
+    void AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
+    void PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
     std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
     void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
