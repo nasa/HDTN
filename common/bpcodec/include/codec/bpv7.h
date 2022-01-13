@@ -174,6 +174,7 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     //virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    bool TryReserializeExtensionBlockDataWithoutResizeBpv7();
 
     uint64_t m_hopLimit;
     uint64_t m_hopCount;

@@ -449,6 +449,48 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 4);
         }
+
+        //attempt to increase hop count without rerendering whole bundle
+        {
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv7HopCountCanonicalBlock* hopCountBlockPtr = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(hopCountBlockPtr);
+            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockTypeCode, BPV7_BLOCKTYPE_HOP_COUNT);
+            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockNumber, 3);
+            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopLimit, HOP_LIMIT);
+            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopCount, HOP_COUNT);
+
+            uint8_t * bundlePtrStart = (uint8_t*)(bv.m_renderedBundle.data());
+            std::size_t bundleSize = bv.m_renderedBundle.size();
+            uint8_t * blockPtrStart = (uint8_t*)(blocks[0]->actualSerializedBlockPtr.data());
+            std::size_t blockSize = blocks[0]->actualSerializedBlockPtr.size();
+            std::vector<uint8_t> bundleUnmodified(bundlePtrStart, bundlePtrStart + bundleSize);
+            ++hopCountBlockPtr->m_hopCount;
+            BOOST_REQUIRE(hopCountBlockPtr->TryReserializeExtensionBlockDataWithoutResizeBpv7());
+            blocks[0]->headerPtr->RecomputeCrcAfterDataModification(blockPtrStart, blockSize);
+            std::vector<uint8_t> bundleModifiedButSameSize(bundlePtrStart, bundlePtrStart + bundleSize);
+            BOOST_REQUIRE(bundleSerializedOriginal == bundleUnmodified);
+            BOOST_REQUIRE(bundleSerializedOriginal != bundleModifiedButSameSize);
+            BOOST_REQUIRE_EQUAL(bundleSerializedOriginal.size(), bundleModifiedButSameSize.size());
+            {
+                BundleViewV7 bv2;
+                BOOST_REQUIRE(bv2.LoadBundle(&bundleModifiedButSameSize[0], bundleModifiedButSameSize.size()));
+                //get hop count
+                {
+                    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
+                    bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks2);
+                    BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
+                    Bpv7HopCountCanonicalBlock* hopCountBlockPtr2 = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks2[0]->headerPtr.get());
+                    BOOST_REQUIRE(hopCountBlockPtr2);
+                    BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_HOP_COUNT);
+                    BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_blockNumber, 3);
+                    BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_hopLimit, HOP_LIMIT);
+                    BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_hopCount, HOP_COUNT + 1); //increased by 1
+                }
+            }
+        }
     }
 }
 

@@ -198,6 +198,19 @@ uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     return Bpv7CanonicalBlock::SerializeBpv7(serialization);
 }
 
+bool Bpv7HopCountCanonicalBlock::TryReserializeExtensionBlockDataWithoutResizeBpv7() {
+    //If hop count doesn't transition from 23 to 24, and hop limit doesn't change, then
+    //this block can be updated in place without data resize modifications.
+    //If successful, call blocks[0]->headerPtr->RecomputeCrcAfterDataModification((uint8_t*)blocks[0]->actualSerializedBlockPtr.data(), blocks[0]->actualSerializedBlockPtr.size());
+    m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
+    uint8_t tempData[largestSerializedDataOnlySize];
+    if (m_dataLength == CborTwoUint64ArraySerialize(tempData, m_hopLimit, m_hopCount)) {
+        memcpy(m_dataPtr, tempData, m_dataLength);
+        return true;
+    }
+    return false;
+}
+
 bool Bpv7HopCountCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
     uint8_t numBytesTakenToDecode;
     return ((m_dataPtr != NULL) && (CborTwoUint64ArrayDeserialize(m_dataPtr, &numBytesTakenToDecode, m_dataLength, m_hopLimit, m_hopCount)) && (numBytesTakenToDecode == m_dataLength));
