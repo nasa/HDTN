@@ -260,6 +260,9 @@ std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv7_creation_ti
 uint64_t TimestampUtil::bpv7_creation_timestamp_t::SerializeBpv7(uint8_t * serialization) const {
     return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber);
 }
+uint64_t TimestampUtil::bpv7_creation_timestamp_t::GetSerializationSize() const {
+    return CborTwoUint64ArraySerializationSize(millisecondsSinceStartOfYear2000, sequenceNumber);
+}
 bool TimestampUtil::bpv7_creation_timestamp_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
     return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, bufferSize, millisecondsSinceStartOfYear2000, sequenceNumber);
 }

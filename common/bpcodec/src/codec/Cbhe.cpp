@@ -66,6 +66,9 @@ std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
 uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
     return CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
 }
+uint64_t cbhe_eid_t::GetSerializationSize() const {
+    return CborTwoUint64ArraySerializationSize(nodeId, serviceId);
+}
 bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
     return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, bufferSize, nodeId, serviceId);
 }

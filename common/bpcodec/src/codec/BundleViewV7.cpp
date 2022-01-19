@@ -2,6 +2,7 @@
 #include <iostream>
 #include <boost/next_prior.hpp>
 #include "Uri.h"
+#include "PaddedVectorUint8.h"
 
 void BundleViewV7::Bpv7PrimaryBlockView::SetManuallyModified() {
     dirty = true;
@@ -95,9 +96,63 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks) {
 
 }
 bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
-    //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     m_backBuffer.resize(maxBundleSizeBytes);
-    uint8_t * serialization = &m_backBuffer[0];
+    uint64_t sizeSerialized;
+    if (!Render(&m_backBuffer[0], sizeSerialized, false)) {
+        return false;
+    }
+    m_backBuffer.resize(sizeSerialized);
+    m_frontBuffer.swap(m_backBuffer); //m_frontBuffer is now the rendered bundle
+    m_renderedBundle = boost::asio::buffer(m_frontBuffer);
+    return true;
+}
+
+//keep the huge payload last block (relatively speaking to the rest of the blocks) in place and render everything before
+bool BundleViewV7::RenderInPlace(const std::size_t paddingLeft) {
+    const uint64_t originalBundleSize = m_renderedBundle.size();
+    uint64_t newBundleSize;
+    if (!GetSerializationSize(newBundleSize)) {
+        return false;
+    }
+
+    uint8_t * newStart;
+    uint64_t maxRenderSpaceRequired;
+
+    if (m_listCanonicalBlockView.size() == 0) { //payload block must exist
+        return false;
+    }
+    const uint64_t payloadLastBlockSize = m_listCanonicalBlockView.back().actualSerializedBlockPtr.size();
+
+    if (newBundleSize > originalBundleSize) { //shift left, will overlap paddingLeft
+        //std::cout << "new bigger bundle\n";
+        const uint64_t diff = newBundleSize - originalBundleSize;
+        if (diff > paddingLeft) {
+            return false;
+        }
+        newStart = ((uint8_t*)m_renderedBundle.data()) - diff;
+        maxRenderSpaceRequired = (newBundleSize - payloadLastBlockSize) + 10;
+    }
+    else {  //if (newBundleSize <= originalBundleSize) { //shift right
+        //std::cout << "new smaller or same size bundle\n";
+        const uint64_t diff = originalBundleSize - newBundleSize;
+        newStart = ((uint8_t*)m_renderedBundle.data()) + diff;
+        maxRenderSpaceRequired = (originalBundleSize - payloadLastBlockSize) + 10;
+    }
+    std::vector<uint8_t> tmpRender(maxRenderSpaceRequired);
+    uint64_t sizeSerialized;
+    if (!Render(&tmpRender[0], sizeSerialized, true)) { //render to temporary space first
+        return false;
+    }
+    //everything not dirty so memcpy will be used in next Render step
+    if (!Render(newStart, sizeSerialized, true)) { //render to newStart
+        return false;
+    }
+    //std::cout << "originalBundleSize " << originalBundleSize << " newBundleSize " << newBundleSize << " sizeSerialized " << sizeSerialized << "\n";
+    m_renderedBundle = boost::asio::buffer(newStart, newBundleSize);
+    return true;
+}
+bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bool terminateBeforeLastBlock) {
+    //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     uint8_t * const serializationBase = serialization;
     *serialization++ = (4U << 5) | 31U; //major type 4, additional information 31 (Indefinite-Length Array)
     if (m_primaryBlockView.dirty) {
@@ -125,9 +180,18 @@ bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
 
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
-        if (isLastBlock && (it->headerPtr->m_blockTypeCode != BPV7_BLOCKTYPE_PAYLOAD)) {
-            std::cerr << "error in BundleViewV7::Render: last block is not payload block\n";
-            return false;
+        if (isLastBlock) {
+            if (it->headerPtr->m_blockTypeCode != BPV7_BLOCKTYPE_PAYLOAD) {
+                std::cerr << "error in BundleViewV7::Render: last block is not payload block\n";
+                return false;
+            }
+            if (terminateBeforeLastBlock) {
+                if (it->dirty) {
+                    return false;
+                }
+                sizeSerialized = (serialization - serializationBase);
+                return true;
+            }
         }
         uint64_t sizeSerialized;
         if (it->dirty) { //always reencode canonical block if dirty
@@ -146,9 +210,44 @@ bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
         serialization += sizeSerialized;
     }
     *serialization++ = 0xff; //0xff is break character
-    m_backBuffer.resize(serialization - serializationBase);
-    m_frontBuffer.swap(m_backBuffer); //m_frontBuffer is now the rendered bundle
-    m_renderedBundle = boost::asio::buffer(m_frontBuffer);
+    sizeSerialized = (serialization - serializationBase);
+    return true;
+}
+bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
+    serializationSize = 2; //major type 4, additional information 31 (Indefinite-Length Array) + cbor break character 0xff
+    if (m_primaryBlockView.dirty) {
+        const uint64_t sizeSerialized = m_primaryBlockView.header.GetSerializationSize();
+        if (sizeSerialized == 0) {
+            return false;
+        }
+        serializationSize += sizeSerialized;
+    }
+    else {
+        serializationSize += m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
+    }
+    
+    for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
+        const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
+        if (isLastBlock && (it->headerPtr->m_blockTypeCode != BPV7_BLOCKTYPE_PAYLOAD)) {
+            std::cerr << "error in BundleViewV7::GetSerializationSize: last block is not payload block\n";
+            return false;
+        }
+        uint64_t sizeSerialized;
+        if (it->markedForDeletion) {
+            sizeSerialized = 0;
+        }
+        else if (it->dirty) { //always reencode canonical block if dirty
+            sizeSerialized = it->headerPtr->GetSerializationSize();
+            if (sizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
+                return false;
+            }
+        }
+        else {
+            //std::cout << "cnd\n";
+            sizeSerialized = it->actualSerializedBlockPtr.size();
+        }
+        serializationSize += sizeSerialized;
+    }
     return true;
 }
 
@@ -166,6 +265,7 @@ void BundleViewV7::PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock>
     cbv.markedForDeletion = false;
     cbv.headerPtr = std::move(headerPtr);
 }
+
 std::size_t BundleViewV7::GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const {
     std::size_t count = 0;
     for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {

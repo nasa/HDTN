@@ -56,6 +56,9 @@ uint64_t Bpv7PreviousNodeCanonicalBlock::SerializeBpv7(uint8_t * serialization) 
     m_dataLength = m_previousNode.SerializeBpv7(tempData);
     return Bpv7CanonicalBlock::SerializeBpv7(serialization);
 }
+uint64_t Bpv7PreviousNodeCanonicalBlock::GetSerializationSize() const {
+    return Bpv7CanonicalBlock::GetSerializationSize(m_previousNode.GetSerializationSize());
+}
 
 bool Bpv7PreviousNodeCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
     uint8_t numBytesTakenToDecode;
@@ -116,6 +119,9 @@ uint64_t Bpv7BundleAgeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     m_dataPtr = tempData;
     m_dataLength = CborEncodeU64BufSize9(tempData, m_bundleAgeMilliseconds);
     return Bpv7CanonicalBlock::SerializeBpv7(serialization);
+}
+uint64_t Bpv7BundleAgeCanonicalBlock::GetSerializationSize() const {
+    return Bpv7CanonicalBlock::GetSerializationSize(CborGetEncodingSizeU64(m_bundleAgeMilliseconds));
 }
 
 bool Bpv7BundleAgeCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
@@ -196,6 +202,9 @@ uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     m_dataPtr = tempData;
     m_dataLength = CborTwoUint64ArraySerialize(tempData, m_hopLimit, m_hopCount);
     return Bpv7CanonicalBlock::SerializeBpv7(serialization);
+}
+uint64_t Bpv7HopCountCanonicalBlock::GetSerializationSize() const {
+    return Bpv7CanonicalBlock::GetSerializationSize(CborTwoUint64ArraySerializationSize(m_hopLimit, m_hopCount));
 }
 
 bool Bpv7HopCountCanonicalBlock::TryReserializeExtensionBlockDataWithoutResizeBpv7() {

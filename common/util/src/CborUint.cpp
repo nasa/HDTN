@@ -33,6 +33,15 @@ unsigned int CborEncodeU64BufSize9(uint8_t * const outputEncoded, const uint64_t
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
+//return output size
+unsigned int CborGetEncodingSizeU64(const uint64_t valToEncodeU64) {
+#ifdef USE_X86_HARDWARE_ACCELERATION
+    return CborGetEncodingSizeU64Fast(valToEncodeU64);
+#else
+    return CborGetEncodingSizeU64Classic(valToEncodeU64);
+#endif // USE_X86_HARDWARE_ACCELERATION
+}
+
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
@@ -166,6 +175,28 @@ unsigned int CborEncodeU64ClassicBufSize9(uint8_t * const outputEncoded, const u
         return 9;
     }
     return 0;
+}
+
+//return output size
+unsigned int CborGetEncodingSizeU64Classic(const uint64_t valToEncodeU64) {
+    if (valToEncodeU64 < CBOR_UINT8_TYPE) {
+        return 1;
+    }
+    else if (valToEncodeU64 <= UINT8_MAX) {
+        return 2;
+    }
+    else if (valToEncodeU64 <= UINT16_MAX) {
+        return 3;
+    }
+    else if (valToEncodeU64 <= UINT32_MAX) {
+        return 5;
+    }
+    else if (valToEncodeU64 <= UINT64_MAX) {
+        return 9;
+    }
+    else {
+        return 0;
+    }
 }
 
 //return decoded value (return invalid number that must be ignored on failure)
@@ -454,6 +485,18 @@ unsigned int CborEncodeU64FastBufSize9(uint8_t * const outputEncoded, const uint
     return encodingSize;
 }
 
+//return output size
+unsigned int CborGetEncodingSizeU64Fast(const uint64_t valToEncodeU64) {
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
+    //bitscan seems to have undefined behavior on a value of zero
+    //msb will be 0 if value to encode < 24
+    const unsigned int msb = (static_cast<bool>(valToEncodeU64 >= CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+    const uint32_t requiredEncodingSizePlusTypePlusShifts = msbToRequiredEncodingSizePlusTypePlusShifts[msb];
+    const uint8_t encodingSize = (uint8_t)requiredEncodingSizePlusTypePlusShifts;
+
+    return encodingSize;
+}
+
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
@@ -579,6 +622,12 @@ uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t ele
     serialization += CborEncodeU64BufSize9(serialization, element1);
     serialization += CborEncodeU64BufSize9(serialization, element2);
     return serialization - serializationBase;
+}
+uint64_t CborTwoUint64ArraySerializationSize(const uint64_t element1, const uint64_t element2) {
+    uint64_t serializationSize = 1; //cbor first byte major type 4, additional information 2
+    serializationSize += CborGetEncodingSizeU64(element1);
+    serializationSize += CborGetEncodingSizeU64(element2);
+    return serializationSize;
 }
 bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize, uint64_t & element1, uint64_t & element2) {
     uint8_t cborUintSize;
