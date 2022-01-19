@@ -21,8 +21,8 @@ public:
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:
-    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-    bool Process(std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
+    void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    bool Process(padded_vector_uint8_t & rxBuf, const std::size_t messageSize);
     void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
     void TransferRate_TimerExpired(const boost::system::error_code& e);
     void SendAcsFromTimerThread();

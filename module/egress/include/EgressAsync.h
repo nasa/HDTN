@@ -55,7 +55,7 @@ public:
 private:
     void ReadZmqThreadFunc();
     void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
-    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+    void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
 
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;

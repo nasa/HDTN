@@ -41,11 +41,11 @@ public:
     int Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest,
              zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
-    bool Process(std::vector<uint8_t> && rxBuf);
+    bool Process(padded_vector_uint8_t && rxBuf);
     bool Process(zmq::message_t && rxMsg);
     void ReadZmqAcksThreadFunc();
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
-    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+    void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
     void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);

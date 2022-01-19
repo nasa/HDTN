@@ -193,7 +193,7 @@ void TcpclBundleSource::Virtual_OnSuccessfulWholeBundleAcknowledged() {
 }
 
 //for when tcpclAllowOpportunisticReceiveBundles is set to true (not designed for extremely high throughput)
-void TcpclBundleSource::Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) {
+void TcpclBundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) {
     if (m_outductOpportunisticProcessReceivedBundleCallback) {
         m_outductOpportunisticProcessReceivedBundleCallback(wholeBundleVec);
     }

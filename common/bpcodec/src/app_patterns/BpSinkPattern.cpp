@@ -108,7 +108,7 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
 
 
 
-bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t messageSize) {
+bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t messageSize) {
 
     if (M_EXTRA_PROCESSING_TIME_MS) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(M_EXTRA_PROCESSING_TIME_MS));
@@ -119,7 +119,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
         BundleViewV6 bv;
-        if (!bv.SwapInAndLoadBundle(rxBuf)) { //invalid bundle
+        if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             std::cerr << "malformed bundle\n";
             return false;
         }
@@ -199,7 +199,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
     }
     else if (isBpVersion7) {
         BundleViewV7 bv;
-        if (!bv.SwapInAndLoadBundle(rxBuf)) { //invalid bundle
+        if (!bv.LoadBundle(rxBuf.data(), rxBuf.size())) { //invalid bundle
             std::cerr << "malformed bpv7 bundle\n";
             return false;
         }
@@ -255,7 +255,7 @@ bool BpSinkPattern::Process(std::vector<uint8_t> & rxBuf, const std::size_t mess
     return true;
 }
 
-void BpSinkPattern::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void BpSinkPattern::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
     Process(wholeBundleVec, wholeBundleVec.size());

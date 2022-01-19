@@ -36,7 +36,7 @@ protected:
     virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
 private:
     void BpSourcePatternThreadFunc(uint32_t bundleRate);
-    void WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+    void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 

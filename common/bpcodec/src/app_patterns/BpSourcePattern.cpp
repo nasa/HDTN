@@ -479,12 +479,12 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     std::cout << "BpSourcePattern::BpSourcePatternThreadFunc thread exiting\n";
 }
 
-void BpSourcePattern::WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {
     //if more than 1 Induct, must protect shared resources with mutex.  Each Induct has
     //its own processing thread that calls this callback
 
     BundleViewV6 bv;
-    if (!bv.SwapInAndLoadBundle(wholeBundleVec)) {
+    if (!bv.LoadBundle(wholeBundleVec.data(), wholeBundleVec.size())) {
         std::cerr << "malformed custody signal\n";
         return;
     }
@@ -545,7 +545,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBun
             ++m_numAcsPacketsReceived;
             //check acs
             AggregateCustodySignal acs;
-            if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_frontBuffer.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
+            if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_renderedBundle.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
                 std::cerr << "malformed ACS\n";
                 return;
             }

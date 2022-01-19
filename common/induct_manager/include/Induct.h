@@ -10,9 +10,10 @@
 #include <queue>
 #include <zmq.hpp>
 #include "BidirectionalLink.h"
+#include "PaddedVectorUint8.h"
 
 class Induct;
-typedef boost::function<void(std::vector<uint8_t> & movableBundle)> InductProcessBundleCallback_t;
+typedef boost::function<void(padded_vector_uint8_t & movableBundle)> InductProcessBundleCallback_t;
 typedef boost::function<void(const uint64_t remoteNodeId, Induct* thisInductPtr)> OnNewOpportunisticLinkCallback_t;
 typedef boost::function<void(const uint64_t remoteNodeId)> OnDeletedOpportunisticLinkCallback_t;
 

@@ -199,7 +199,7 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::syst
 void TcpclV4BidirectionalLink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {}
 void TcpclV4BidirectionalLink::Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread() {}
 
-void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
     uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions)
 {
     bool detectedLengthExtension = false;

@@ -368,6 +368,11 @@ void Ingress::SchedulerEventHandler() {
 }
 
 
+static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
+    delete static_cast<padded_vector_uint8_t*>(hint);
+}
+
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
     //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
     delete static_cast<std::vector<uint8_t>*>(hint);
@@ -381,15 +386,15 @@ static void CustomCleanupToStorageHdr(void *data, void *hint) {
     delete static_cast<hdtn::ToStorageHdr*>(hint);
 }
 
-bool Ingress::Process(std::vector<uint8_t> && rxBuf) {
+bool Ingress::Process(padded_vector_uint8_t && rxBuf) {
     //this is an optimization because we only have one chunk to send
     //The zmq_msg_init_data() function shall initialise the message object referenced by msg
     //to represent the content referenced by the buffer located at address data, size bytes long.
     //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
     //If provided, the deallocation function ffn shall be called once the data buffer is no longer
     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-    std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
-    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
+    padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(rxBuf));
+    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer);
     return Process(std::move(messageWithDataStolen));
 }
 bool Ingress::Process(zmq::message_t && rxMsg) {
@@ -638,7 +643,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
 
 
 
-void Ingress::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void Ingress::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
     Process(std::move(wholeBundleVec));

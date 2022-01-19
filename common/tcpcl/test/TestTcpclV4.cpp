@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             BOOST_REQUIRE(!(sessionExtensions != m_sessionExtensions));
         }
         
-        void DataSegmentCallbackNoFragment(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+        void DataSegmentCallbackNoFragment(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
             uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions)
         {
             ++m_numDataSegmentCallbackCountNoFragment;
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(TcpclV4FullTestCase)
             BOOST_REQUIRE_EQUAL(m_bundleDataToSendNoFragment, rxBundleData);
         }
 
-        void DataSegmentCallbackWithFragments(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+        void DataSegmentCallbackWithFragments(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
             uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions) {
 
             if (m_numDataSegmentCallbackCountWithFragments == 0) {

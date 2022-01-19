@@ -467,13 +467,13 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     //
 }
 
-static void CustomCleanupStdVecUint8(void *data, void *hint) {
+static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
     //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
-    delete static_cast<std::vector<uint8_t>*>(hint);
+    delete static_cast<padded_vector_uint8_t*>(hint);
 }
 
 //from egress bidirectional tcpcl outduct receive path and opportunistic link potentially available in ingress (otherwise ingress will give it to storage if unavailable)
-void hdtn::HegrManagerAsync::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void hdtn::HegrManagerAsync::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {
     //must protect shared resources with mutex.
     //this is an optimization because we only have one chunk to send
     //The zmq_msg_init_data() function shall initialise the message object referenced by msg
@@ -481,8 +481,8 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(std::vector<uint8_t> & who
     //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
     //If provided, the deallocation function ffn shall be called once the data buffer is no longer
     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-    std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(wholeBundleVec));
-    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
+    padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(wholeBundleVec));
+    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupPaddedVecUint8, rxBufRawPointer);
     boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
     if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(messageWithDataStolen), zmq::send_flags::none)) { //blocks if above 5 high water mark
         std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
