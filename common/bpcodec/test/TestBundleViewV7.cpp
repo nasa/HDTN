@@ -96,7 +96,9 @@ static void ChangeCanonicalBlockAndRender(BundleViewV7 & bv, uint8_t oldType, ui
     BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
 }
 
-static void GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const std::vector<std::string> & canonicalBodyStringsVec, BundleViewV7 & bv, const uint8_t crcTypeToUse) {
+static void GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const std::vector<uint8_t> & blockNumbersToUse,
+    const std::vector<std::string> & canonicalBodyStringsVec, BundleViewV7 & bv, const uint8_t crcTypeToUse)
+{
 
     Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     primary.SetZero();
@@ -119,7 +121,7 @@ static void GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const
 
         block.m_blockTypeCode = canonicalTypesVec[i];
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-        block.m_blockNumber = i;
+        block.m_blockNumber = blockNumbersToUse[i];
         block.m_crcType = crcTypeToUse;
         const std::string & blockBody = canonicalBodyStringsVec[i];
         block.m_dataLength = blockBody.size();
@@ -135,13 +137,14 @@ static void GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const
 BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
 {
     const std::vector<uint8_t> canonicalTypesVec = { 5,3,2,BPV7_BLOCKTYPE_PAYLOAD }; //last block must be payload block
+    const std::vector<uint8_t> blockNumbersToUse = { 2,3,4,1 }; //The block number of the payload block is always 1.
     const std::vector<std::string> canonicalBodyStringsVec = { "The ", "quick ", " brown", " fox" };
     const std::vector<uint8_t> crcTypesVec = { BPV7_CRC_TYPE_NONE, BPV7_CRC_TYPE_CRC16_X25, BPV7_CRC_TYPE_CRC32C }; //last block must be payload block
     for (std::size_t crcI = 0; crcI < crcTypesVec.size(); ++crcI) {
         const uint8_t crcTypeToUse = crcTypesVec[crcI];
 
         BundleViewV7 bv;
-        GenerateBundle(canonicalTypesVec, canonicalBodyStringsVec, bv, crcTypeToUse);
+        GenerateBundle(canonicalTypesVec, blockNumbersToUse, canonicalBodyStringsVec, bv, crcTypeToUse);
         std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
         //std::cout << "renderedsize: " << bv.m_frontBuffer.size() << "\n";
 
@@ -243,6 +246,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
             bv.GetCanonicalBlocksByType(canonicalTypesVec.front(), blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            const uint64_t blockNumber = blocks[0]->headerPtr->m_blockNumber;
             blocks[0]->markedForDeletion = true;
             //std::cout << "render delete last block\n";
             BOOST_REQUIRE(bv.Render(5000));
@@ -259,7 +263,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             //std::cout << "canonicalSize=" << canonicalSize << "\n";
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size() - canonicalSize);
 
-            PrependCanonicalBlockAndRender(bv, canonicalTypesVec.front(), std::string(canonicalBodyStringsVec.front()), 0, crcTypeToUse); //0 was block number 0 from GenerateBundle
+            PrependCanonicalBlockAndRender(bv, canonicalTypesVec.front(), std::string(canonicalBodyStringsVec.front()), blockNumber, crcTypeToUse); //0 was block number 0 from GenerateBundle
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size());
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal); //back to equal
         }
@@ -269,6 +273,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
             bv.GetCanonicalBlocksByType(canonicalTypesVec.front(), blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            const uint64_t blockNumber = blocks[0]->headerPtr->m_blockNumber;
             blocks[0]->markedForDeletion = true;
             //std::cout << "render delete last block\n";
             BOOST_REQUIRE(bv.Render(5000));
@@ -285,7 +290,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size() - canonicalSize);
 
             bv.m_backBuffer.assign(bv.m_backBuffer.size(), 0); //make sure zeroed out
-            PrependCanonicalBlockAndRender_AllocateOnly(bv, canonicalTypesVec.front(), canonicalBodyStringsVec.front().length(), 0, crcTypeToUse); //0 was block number 0 from GenerateBundle
+            PrependCanonicalBlockAndRender_AllocateOnly(bv, canonicalTypesVec.front(), canonicalBodyStringsVec.front().length(), blockNumber, crcTypeToUse); //0 was block number 0 from GenerateBundle
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size());
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedOriginal); //still not equal, need to copy data
             bv.GetCanonicalBlocksByType(canonicalTypesVec.front(), blocks); //get new preallocated block
@@ -353,10 +358,11 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 1;
+            block.m_blockNumber = 2;
             block.m_crcType = crcTypeToUse;
             block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);
             bv.AppendMoveCanonicalBlock(blockPtr);
+            BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 3);
         }
 
         //add bundle age block
@@ -366,7 +372,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 2;
+            block.m_blockNumber = 3;
             block.m_crcType = crcTypeToUse;
             block.m_bundleAgeMilliseconds = BUNDLE_AGE_MS;
             bv.AppendMoveCanonicalBlock(blockPtr);
@@ -379,7 +385,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 3;
+            block.m_blockNumber = 4;
             block.m_crcType = crcTypeToUse;
             block.m_hopLimit = HOP_LIMIT;
             block.m_hopCount = HOP_COUNT;
@@ -395,7 +401,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
 
             block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 4;
+            block.m_blockNumber = 1; //must be 1
             block.m_crcType = crcTypeToUse;
             block.m_dataLength = payloadString.size();
             block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
@@ -429,6 +435,8 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCKTYPE_HOP_COUNT), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCKTYPE_PAYLOAD), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(100), 0);
+
+        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 5);
         
         //get previous node
         {
@@ -438,7 +446,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7PreviousNodeCanonicalBlock* previousNodeBlockPtr = dynamic_cast<Bpv7PreviousNodeCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(previousNodeBlockPtr);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PREVIOUS_NODE);
-            BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockNumber, 1);
+            BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockNumber, 2);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.nodeId, PREVIOUS_NODE);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.serviceId, PREVIOUS_SVC);
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), previousNodeBlockPtr->GetSerializationSize());
@@ -452,7 +460,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7BundleAgeCanonicalBlock* bundleAgeBlockPtr = dynamic_cast<Bpv7BundleAgeCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(bundleAgeBlockPtr);
             BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_blockTypeCode, BPV7_BLOCKTYPE_BUNDLE_AGE);
-            BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_blockNumber, 2);
+            BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_blockNumber, 3);
             BOOST_REQUIRE_EQUAL(bundleAgeBlockPtr->m_bundleAgeMilliseconds, BUNDLE_AGE_MS);
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), bundleAgeBlockPtr->GetSerializationSize());
         }
@@ -465,7 +473,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7HopCountCanonicalBlock* hopCountBlockPtr = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(hopCountBlockPtr);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockTypeCode, BPV7_BLOCKTYPE_HOP_COUNT);
-            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockNumber, 3);
+            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockNumber, 4);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopLimit, HOP_LIMIT);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopCount, HOP_COUNT);
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), hopCountBlockPtr->GetSerializationSize());
@@ -481,7 +489,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //std::cout << "s: " << s << "\n";
             BOOST_REQUIRE_EQUAL(s, payloadString);
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
-            BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 4);
+            BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
         }
 
@@ -493,7 +501,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7HopCountCanonicalBlock* hopCountBlockPtr = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(hopCountBlockPtr);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockTypeCode, BPV7_BLOCKTYPE_HOP_COUNT);
-            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockNumber, 3);
+            BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_blockNumber, 4);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopLimit, HOP_LIMIT);
             BOOST_REQUIRE_EQUAL(hopCountBlockPtr->m_hopCount, HOP_COUNT);
 
@@ -520,7 +528,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
                     Bpv7HopCountCanonicalBlock* hopCountBlockPtr2 = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks2[0]->headerPtr.get());
                     BOOST_REQUIRE(hopCountBlockPtr2);
                     BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_HOP_COUNT);
-                    BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_blockNumber, 3);
+                    BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_blockNumber, 4);
                     BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_hopLimit, HOP_LIMIT);
                     BOOST_REQUIRE_EQUAL(hopCountBlockPtr2->m_hopCount, HOP_COUNT + 1); //increased by 1
                 }
@@ -571,7 +579,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
 
             block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 4;
+            block.m_blockNumber = 1; //must be 1
             block.m_crcType = crcTypeToUse;
             block.m_dataLength = payloadString.size();
             block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
@@ -613,7 +621,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             //std::cout << "s: " << s << "\n";
             BOOST_REQUIRE_EQUAL(s, payloadString);
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
-            BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 4);
+            BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
         }
 
         //prepend previous node block
@@ -623,7 +631,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             //block.SetZero();
 
             block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
-            block.m_blockNumber = 1;
+            block.m_blockNumber = 2;
             block.m_crcType = crcTypeToUse;
             block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);
             bv.PrependMoveCanonicalBlock(blockPtr);
@@ -649,7 +657,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             Bpv7PreviousNodeCanonicalBlock* previousNodeBlockPtr = dynamic_cast<Bpv7PreviousNodeCanonicalBlock*>(blocks[0]->headerPtr.get());
             BOOST_REQUIRE(previousNodeBlockPtr);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PREVIOUS_NODE);
-            BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockNumber, 1);
+            BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_blockNumber, 2);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.nodeId, PREVIOUS_NODE);
             BOOST_REQUIRE_EQUAL(previousNodeBlockPtr->m_previousNode.serviceId, PREVIOUS_SVC);
             BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), previousNodeBlockPtr->GetSerializationSize());
@@ -667,7 +675,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             //std::cout << "s: " << s << "\n";
             BOOST_REQUIRE_EQUAL(s, payloadString);
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
-            BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 4);
+            BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
         }
 
         BOOST_REQUIRE(bv.RenderInPlace(0)); //0 => expecting not to go into left padded space due to removal

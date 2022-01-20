@@ -77,6 +77,9 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks) {
         //SHALL be followed by a CBOR "break" stop code, terminating the
         //array.
         if (cbv.headerPtr->m_blockTypeCode == BPV7_BLOCKTYPE_PAYLOAD) { //last block
+            if (cbv.headerPtr->m_blockNumber != 1) { //The block number of the payload block is always 1.
+                return false;
+            }
             if (bufferSize == 0) {
                 return false;
             }
@@ -185,6 +188,11 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
                 std::cerr << "error in BundleViewV7::Render: last block is not payload block\n";
                 return false;
             }
+            if (it->headerPtr->m_blockNumber != 1) { //The block number of the payload block is always 1.
+                std::cerr << "error in BundleViewV7::Render: last block (payload block) has block number " << it->headerPtr->m_blockNumber 
+                    << " but the block number of the payload block is always 1.\n";
+                return false;
+            }
             if (terminateBeforeLastBlock) {
                 if (it->dirty) {
                     return false;
@@ -283,6 +291,16 @@ void BundleViewV7::GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode
             blocks.push_back(&(*it));
         }
     }
+}
+uint64_t BundleViewV7::GetNextFreeCanonicalBlockNumber() const {
+    uint64_t largestCanonicalBlockNumber = 1;
+    for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
+        const uint64_t blockNumber = it->headerPtr->m_blockNumber;
+        if (largestCanonicalBlockNumber < blockNumber) {
+            largestCanonicalBlockNumber = blockNumber;
+        }
+    }
+    return largestCanonicalBlockNumber + 1;
 }
 std::size_t BundleViewV7::DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode) {
     std::size_t count = 0;

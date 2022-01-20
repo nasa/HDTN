@@ -248,7 +248,20 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             primary.m_crcType = BPV7_CRC_TYPE_CRC32C;
             bv.m_primaryBlockView.SetManuallyModified();
 
-            //append payload block
+            //add hop count block (before payload last block)
+            {
+                std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
+                Bpv7HopCountCanonicalBlock & block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
+
+                block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+                block.m_blockNumber = 2;
+                block.m_crcType = BPV7_CRC_TYPE_CRC32C;
+                block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
+                block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
+                bv.AppendMoveCanonicalBlock(blockPtr);
+            }
+
+            //append payload block (must be last block)
             {
                 std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
                 Bpv7CanonicalBlock & payloadBlock = *payloadBlockPtr;
@@ -256,7 +269,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                 payloadBlock.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
                 payloadBlock.m_blockProcessingControlFlags = 0;
-                payloadBlock.m_blockNumber = 0;
+                payloadBlock.m_blockNumber = 1; //must be 1
                 payloadBlock.m_crcType = BPV7_CRC_TYPE_CRC32C;
                 payloadBlock.m_dataLength = payloadSizeBytes;
                 payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)

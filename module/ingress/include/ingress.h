@@ -41,8 +41,8 @@ public:
     int Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest,
              zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
-    bool Process(padded_vector_uint8_t && rxBuf);
-    bool Process(zmq::message_t && rxMsg);
+    bool ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
+        std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData);
     void ReadZmqAcksThreadFunc();
     void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
     void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);

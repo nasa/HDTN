@@ -40,6 +40,11 @@ void BpSinkPattern::Stop() {
     std::cout << "totalBundleBytesRx: " << m_totalBundleBytesRx << "\n";
     std::cout << "m_totalBundlesVersion6Rx: " << m_totalBundlesVersion6Rx << "\n";
     std::cout << "m_totalBundlesVersion7Rx: " << m_totalBundlesVersion7Rx << "\n";
+    for (std::size_t i = 0; i < m_hopCounts.size(); ++i) {
+        if (m_hopCounts[i] != 0) {
+            std::cout << "received " << m_hopCounts[i] << " bundles with a hop count of " << i << ".\n";
+        }
+    }
 }
 
 bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_ptr & outductsConfigPtr,
@@ -54,6 +59,8 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_totalBundleBytesRx = 0;
     m_totalBundlesVersion6Rx = 0;
     m_totalBundlesVersion7Rx = 0;
+    m_hopCounts.assign(256, 0);
+    m_lastPreviousNode.Set(0, 0);
 
     m_lastPayloadBytesRx = 0;
     m_lastBundleBytesRx = 0;
@@ -232,7 +239,54 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 return true;
             }
         }
+        //get previous node
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PREVIOUS_NODE, blocks);
+        if (blocks.size() > 1) {
+            std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple previous node blocks\n";
+            return false;
+        }
+        else if (blocks.size() == 1) { 
+            if (Bpv7PreviousNodeCanonicalBlock* previousNodeBlockPtr = dynamic_cast<Bpv7PreviousNodeCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                if (m_lastPreviousNode != previousNodeBlockPtr->m_previousNode) {
+                    m_lastPreviousNode = previousNodeBlockPtr->m_previousNode;
+                    std::cout << "bp version 7 bundles coming in from previous node " << m_lastPreviousNode << "\n";
+                }
+            }
+            else {
+                std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed\n";
+                return false;
+            }
+        }
+
+        //get hop count if exists
+        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks);
+        if (blocks.size() > 1) {
+            std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple hop count blocks\n";
+            return false;
+        }
+        else if (blocks.size() == 1) {
+            if (Bpv7HopCountCanonicalBlock* hopCountBlockPtr = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
+                const uint64_t newHopCount = hopCountBlockPtr->m_hopCount + 1;
+                //When a bundle's hop count exceeds its
+                //hop limit, the bundle SHOULD be deleted for the reason "hop limit
+                //exceeded", following the bundle deletion procedure defined in
+                //Section 5.10.
+                //Hop limit MUST be in the range 1 through 255.
+                if ((newHopCount > hopCountBlockPtr->m_hopLimit) || (newHopCount > 255)) {
+                    std::cout << "notice: BpSinkPattern::Process dropping version 7 bundle with hop count " << newHopCount << "\n";
+                    return false;
+                }
+                ++m_hopCounts[newHopCount];
+            }
+            else {
+                std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
+                return false;
+            }
+        }
+
+        //get payload block
         bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
 
         if (blocks.size() != 1) {

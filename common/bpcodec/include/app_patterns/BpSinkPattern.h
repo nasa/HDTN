@@ -40,8 +40,8 @@ public:
     uint64_t m_lastBundleBytesRx;
     uint64_t m_lastBundlesRx;
     boost::posix_time::ptime m_lastPtime;
-
-    
+    cbhe_eid_t m_lastPreviousNode;
+    std::vector<uint64_t> m_hopCounts;
 
 private:
     uint32_t M_EXTRA_PROCESSING_TIME_MS;

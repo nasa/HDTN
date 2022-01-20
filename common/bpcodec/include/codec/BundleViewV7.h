@@ -75,6 +75,7 @@ public:
     std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
     void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
+    uint64_t GetNextFreeCanonicalBlockNumber() const;
     std::size_t DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode);
     bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false);
     bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks = false);
