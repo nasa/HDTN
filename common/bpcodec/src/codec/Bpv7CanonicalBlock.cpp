@@ -66,9 +66,17 @@ bool Bpv7CanonicalBlock::operator==(const Bpv7CanonicalBlock & o) const {
 bool Bpv7CanonicalBlock::operator!=(const Bpv7CanonicalBlock & o) const {
     return !(*this == o);
 }
-//void Bpv7CanonicalBlock::SetZero() {
-//    memset(this, 0, sizeof(*this)); //bad, clears vtable ptr
-//}
+void Bpv7CanonicalBlock::SetZero() {
+    //memset(this, 0, sizeof(*this)); //bad, clears vtable ptr
+    m_blockNumber = 0;
+    m_blockProcessingControlFlags = 0;
+    m_dataPtr = 0;
+    m_dataLength = 0;
+    m_computedCrc32 = 0;
+    m_computedCrc16 = 0;
+    m_blockTypeCode = 0;
+    m_crcType = 0;
+}
 
 
 

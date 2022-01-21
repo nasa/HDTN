@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "codec/Cbhe.h"
+#include "codec/PrimaryBlock.h"
 
 enum class CANONICAL_BLOCK_TYPE_CODES : uint8_t {
     BUNDLE_PAYLOAD_BLOCK = 1,
@@ -91,9 +92,7 @@ enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
 /**
  * Structure that contains information necessary for an RFC5050-compatible primary block
  */
-struct bpv6_primary_block {
-    uint8_t  version;
-    uint8_t  vpad[7];
+struct bpv6_primary_block : public PrimaryBlock {
     uint64_t flags;
     uint64_t block_length;
     uint64_t creation;
@@ -111,6 +110,8 @@ struct bpv6_primary_block {
     uint64_t report_svc;
     uint64_t custodian_node;
     uint64_t custodian_svc;    // 64 bytes
+
+    void SetZero();
 
     /**
      * Dumps a primary block to stdout in a human-readable way
@@ -143,8 +144,10 @@ struct bpv6_primary_block {
      */
     uint32_t cbhe_bpv6_primary_block_encode(char* buffer, const size_t offset, const size_t bufsz) const;
 
-    cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
-    cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
+    virtual bool HasCustodyFlagSet() const;
+    virtual bool HasFragmentationFlagSet() const;
+    virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
+    virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
 };
 
 #define BPV6_BLOCKTYPE_PAYLOAD              (1)
@@ -170,10 +173,11 @@ struct bpv6_primary_block {
  * Structure that contains information necessary for a 5050-compatible canonical block
  */
 struct bpv6_canonical_block {
-    uint8_t type;
-    uint8_t tpad[7];
     uint64_t flags;
     uint64_t length;
+    uint8_t type; //should be at beginning but here do to better packing
+
+    void SetZero();
 
     /**
      * Dumps a canonical block to stdout in a human-readable fashion

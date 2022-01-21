@@ -1,16 +1,10 @@
-/**
- * Simple encoder / decoder for bpbis-14 bundles.
- *
- * NOTICE: This code should be considered experimental, and should thus not be used in critical applications / contexts.
- * @author Gilbert Clark (GRC-LCN0)
- */
-
 #ifndef BPV7_H
-#define BPV7_H
+#define BPV7_H 1
 #include <cstdint>
 #include <cstddef>
 #include "Cbhe.h"
 #include "TimestampUtil.h"
+#include "codec/PrimaryBlock.h"
 
 #define BPV7_CRC_TYPE_NONE        0
 #define BPV7_CRC_TYPE_CRC16_X25   1
@@ -43,7 +37,7 @@
 
 
 
-struct Bpv7CbhePrimaryBlock {
+struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
         1 + //cbor initial byte denoting cbor array
         1 + //bundle version 7 byte
@@ -79,6 +73,11 @@ struct Bpv7CbhePrimaryBlock {
     uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_computedCrcXX
     uint64_t GetSerializationSize() const;
     bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
+
+    virtual bool HasCustodyFlagSet() const;
+    virtual bool HasFragmentationFlagSet() const;
+    virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
+    virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
 };
 
 struct Bpv7CanonicalBlock {
@@ -121,7 +120,7 @@ struct Bpv7CanonicalBlock {
     Bpv7CanonicalBlock& operator=(Bpv7CanonicalBlock&& o); //a move assignment: operator=(X&&)
     bool operator==(const Bpv7CanonicalBlock & o) const; //operator ==
     bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
-    //virtual void SetZero();
+    virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
     uint64_t GetSerializationSize(const uint64_t dataLength) const;
@@ -145,7 +144,7 @@ struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
     Bpv7PreviousNodeCanonicalBlock& operator=(Bpv7PreviousNodeCanonicalBlock&& o); //a move assignment: operator=(X&&)
     bool operator==(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator ==
     bool operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator !=
-    //virtual void SetZero();
+    virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
@@ -164,7 +163,7 @@ struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
     Bpv7BundleAgeCanonicalBlock& operator=(Bpv7BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
     bool operator==(const Bpv7BundleAgeCanonicalBlock & o) const; //operator ==
     bool operator!=(const Bpv7BundleAgeCanonicalBlock & o) const; //operator !=
-    //virtual void SetZero();
+    virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
@@ -186,7 +185,7 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     Bpv7HopCountCanonicalBlock& operator=(Bpv7HopCountCanonicalBlock&& o); //a move assignment: operator=(X&&)
     bool operator==(const Bpv7HopCountCanonicalBlock & o) const; //operator ==
     bool operator!=(const Bpv7HopCountCanonicalBlock & o) const; //operator !=
-    //virtual void SetZero();
+    virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();

@@ -143,8 +143,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
                 bpv6_primary_block primary;
-                memset(&primary, 0, sizeof(bpv6_primary_block));
-                primary.version = 6;
+                primary.SetZero();
                 primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                     bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
                 primary.src_node = PRIMARY_SRC_NODE;

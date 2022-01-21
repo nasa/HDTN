@@ -28,7 +28,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_blo
     
     
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     
     uint64_t retVal;
@@ -150,8 +150,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
 
             BundleStorageManagerSession_WriteToDisk sessionWrite;
             bpv6_primary_block primary;
-            memset(&primary, 0, sizeof(bpv6_primary_block));
-            primary.version = 6;
+            primary.SetZero();
             primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                 bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
             primary.src_node = PRIMARY_SRC_NODE;
@@ -302,8 +301,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
                 bpv6_primary_block primary;
-                memset(&primary, 0, sizeof(bpv6_primary_block));
-                primary.version = 6;
+                primary.SetZero();
                 primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                     bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
                 primary.src_node = PRIMARY_SRC_NODE;

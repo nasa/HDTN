@@ -27,6 +27,7 @@ struct cbhe_eid_t {
     bool operator!=(const cbhe_eid_t & o) const; //operator !=
     bool operator<(const cbhe_eid_t & o) const; //operator < so it can be used as a map key
     void Set(uint64_t paramNodeId, uint64_t paramServiceId);
+    void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
     uint64_t GetSerializationSize() const;
     bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);

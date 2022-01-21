@@ -36,10 +36,9 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     uint8_t * buffer = serializationBase;
 
     
-    memset(&newPrimary, 0, sizeof(bpv6_primary_block));
-    newPrimary.version = 6;
+    newPrimary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     newPrimary.flags = bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
@@ -105,10 +104,9 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std
     uint8_t * buffer = serializationBase;
 
     
-    memset(&newPrimary, 0, sizeof(bpv6_primary_block));
-    newPrimary.version = 6;
+    newPrimary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     newPrimary.flags = //bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);

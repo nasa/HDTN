@@ -39,6 +39,11 @@ bool Bpv7PreviousNodeCanonicalBlock::operator==(const Bpv7PreviousNodeCanonicalB
 bool Bpv7PreviousNodeCanonicalBlock::operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const {
     return !(*this == o);
 }
+void Bpv7PreviousNodeCanonicalBlock::SetZero() {
+    Bpv7CanonicalBlock::SetZero();
+    m_previousNode.SetZero();
+    m_blockTypeCode = BPV7_BLOCKTYPE_PREVIOUS_NODE;
+}
 
 uint64_t Bpv7PreviousNodeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //The Previous Node block, block type 6, identifies the node that
@@ -93,6 +98,11 @@ bool Bpv7BundleAgeCanonicalBlock::operator==(const Bpv7BundleAgeCanonicalBlock &
 }
 bool Bpv7BundleAgeCanonicalBlock::operator!=(const Bpv7BundleAgeCanonicalBlock & o) const {
     return !(*this == o);
+}
+void Bpv7BundleAgeCanonicalBlock::SetZero() {
+    Bpv7CanonicalBlock::SetZero();
+    m_bundleAgeMilliseconds = 0;
+    m_blockTypeCode = BPV7_BLOCKTYPE_BUNDLE_AGE;
 }
 
 uint64_t Bpv7BundleAgeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
@@ -166,6 +176,12 @@ bool Bpv7HopCountCanonicalBlock::operator==(const Bpv7HopCountCanonicalBlock & o
 }
 bool Bpv7HopCountCanonicalBlock::operator!=(const Bpv7HopCountCanonicalBlock & o) const {
     return !(*this == o);
+}
+void Bpv7HopCountCanonicalBlock::SetZero() {
+    Bpv7CanonicalBlock::SetZero();
+    m_hopLimit = 0;
+    m_hopCount = 0;
+    m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
 }
 
 uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {

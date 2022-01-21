@@ -32,10 +32,9 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     uint8_t * const serializationBase = buffer;
 
     bpv6_primary_block primary;
-    memset(&primary, 0, sizeof(bpv6_primary_block));
-    primary.version = 6;
+    primary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY);
@@ -88,10 +87,9 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     uint8_t * const serializationBase = buffer;
 
     bpv6_primary_block primary;
-    memset(&primary, 0, sizeof(bpv6_primary_block));
-    primary.version = 6;
+    primary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY);

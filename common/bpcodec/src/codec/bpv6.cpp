@@ -15,8 +15,28 @@
 #include "Sdnv.h"
 #include <utility>
 
+void bpv6_primary_block::SetZero() {
+    flags = 0;
+    block_length = 0;
+    creation = 0;
+    sequence = 0;
+    lifetime = 0;
+    fragment_offset = 0;
+    data_length = 0;      // 64 bytes
+
+    // for the IPN scheme, we use NODE.SVC
+    dst_node = 0;
+    dst_svc = 0;
+    src_node = 0;
+    src_svc = 0;
+    report_node = 0;
+    report_svc = 0;
+    custodian_node = 0;
+    custodian_svc = 0;
+}
+
 uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_decode(const char* buffer, const size_t offset, const size_t bufsz) {
-    version = buffer[offset];
+    const uint8_t version = buffer[offset];
     uint64_t index = offset + 1;
     uint8_t sdnvSize;
 
@@ -155,13 +175,9 @@ uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_decode(const char* buffer, 
 }
 
 uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_encode(char* buffer, const size_t offset, const size_t bufsz) const {
-    buffer[offset] = version;
+    buffer[offset] = BPV6_CCSDS_VERSION;
     uint64_t index = offset + 1;
     uint64_t sdnvSize;
-
-    if(version != BPV6_CCSDS_VERSION) {
-        return 0;
-    }
 
     sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], flags);
     index += sdnvSize;
@@ -216,6 +232,12 @@ uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_encode(char* buffer, const 
 
 }
 
+void bpv6_canonical_block::SetZero() {
+    flags = 0;
+    length = 0;
+    type = 0;
+}
+
 uint32_t bpv6_canonical_block::bpv6_canonical_block_decode(const char* buffer, const size_t offset, const size_t bufsz) {
     uint64_t index = offset;
     uint8_t sdnvSize;
@@ -263,7 +285,7 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const s
 }
 
 void bpv6_primary_block::bpv6_primary_block_print() const {
-    printf("BPv%d / Primary block (%d bytes)\n", (int)version, (int)block_length);
+    printf("BPv6 / Primary block (%d bytes)\n", (int)block_length);
     printf("Flags: 0x%" PRIx64 "\n", flags);
     uint32_t flags = bpv6_bundle_get_gflags(flags);
     if(flags & BPV6_BUNDLEFLAG_NOFRAGMENT) {
@@ -376,6 +398,13 @@ void bpv6_canonical_block::bpv6_block_flags_print() const {
         printf("* This block was forwarded without being processed.\n");
     }
 
+}
+
+bool bpv6_primary_block::HasCustodyFlagSet() const {
+    return (flags & BPV6_BUNDLEFLAG_CUSTODY);
+}
+bool bpv6_primary_block::HasFragmentationFlagSet() const {
+    return (flags & BPV6_BUNDLEFLAG_FRAGMENT);
 }
 
 cbhe_bundle_uuid_t bpv6_primary_block::GetCbheBundleUuidFromPrimary() const {

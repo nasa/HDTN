@@ -49,6 +49,10 @@ void cbhe_eid_t::Set(uint64_t paramNodeId, uint64_t paramServiceId) {
     nodeId = paramNodeId;
     serviceId = paramServiceId;
 }
+void cbhe_eid_t::SetZero() {
+    nodeId = 0;
+    serviceId = 0;
+}
 std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
     os << "ipn: " << o.nodeId << "." << o.serviceId;
     return os;

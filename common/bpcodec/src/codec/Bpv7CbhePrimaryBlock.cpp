@@ -81,7 +81,18 @@ bool Bpv7CbhePrimaryBlock::operator!=(const Bpv7CbhePrimaryBlock & o) const {
     return !(*this == o);
 }
 void Bpv7CbhePrimaryBlock::SetZero() {
-    memset(this, 0, sizeof(*this));
+    //memset(this, 0, sizeof(*this)); //does not work for virtual classes
+    m_bundleProcessingControlFlags = 0;
+    m_destinationEid.SetZero();
+    m_sourceNodeId.SetZero();
+    m_reportToEid.SetZero();
+    m_creationTimestamp.SetZero();
+    m_lifetimeMilliseconds = 0;
+    m_fragmentOffset = 0;
+    m_totalApplicationDataUnitLength = 0;
+    m_computedCrc32 = 0;
+    m_computedCrc16 = 0;
+    m_crcType = 0;
 }
 
 
@@ -471,4 +482,28 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
         numBytesTakenToDecode = serialization - serializationBase;
         return true;
     }
+}
+
+bool Bpv7CbhePrimaryBlock::HasCustodyFlagSet() const {
+    return false; //unsupported at this time (flags & BPV6_BUNDLEFLAG_CUSTODY);
+}
+bool Bpv7CbhePrimaryBlock::HasFragmentationFlagSet() const {
+    return (m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG_ISFRAGMENT);
+}
+
+cbhe_bundle_uuid_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {
+    cbhe_bundle_uuid_t uuid;
+    uuid.creationSeconds = m_creationTimestamp.millisecondsSinceStartOfYear2000;
+    uuid.sequence = m_creationTimestamp.sequenceNumber;
+    uuid.srcEid = m_sourceNodeId;
+    uuid.fragmentOffset = m_fragmentOffset;
+    uuid.dataLength = m_totalApplicationDataUnitLength;
+    return uuid;
+}
+cbhe_bundle_uuid_nofragment_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidNoFragmentFromPrimary() const {
+    cbhe_bundle_uuid_nofragment_t uuid;
+    uuid.creationSeconds = m_creationTimestamp.millisecondsSinceStartOfYear2000;
+    uuid.sequence = m_creationTimestamp.sequenceNumber;
+    uuid.srcEid = m_sourceNodeId;
+    return uuid;
 }

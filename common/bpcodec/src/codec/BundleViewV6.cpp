@@ -231,7 +231,7 @@ bool BundleViewV6::IsValid() const {
 
 
 void BundleViewV6::Reset() {
-    memset(&m_primaryBlockView.header, 0, sizeof(bpv6_primary_block));
+    m_primaryBlockView.header.SetZero();
     m_listCanonicalBlockView.clear();
     m_applicationDataUnitStartPtr = NULL;
 

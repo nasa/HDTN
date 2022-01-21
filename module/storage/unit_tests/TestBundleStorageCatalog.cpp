@@ -8,7 +8,6 @@
 
 bpv6_primary_block CreatePrimary(const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
     bpv6_primary_block p;
-    p.version = 6;
     
     p.flags = 0;
     if (reqCustody) {
