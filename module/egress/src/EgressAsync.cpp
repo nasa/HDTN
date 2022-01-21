@@ -352,9 +352,13 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     ++totalCustodyTransfersSentToStorage;
 
                     boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
+                    static const char messageFlags = 0; //0 => from storage and needs no processing
+                    static const zmq::const_buffer messageFlagsConstBuf(&messageFlags, sizeof(messageFlags));
+                    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(messageFlagsConstBuf, zmq::send_flags::sndmore)) { //blocks if above 5 high water mark
+                        std::cout << "error in egress WholeBundleReadyCallback: zmq could not send messageFlagsConstBuf to ingress" << std::endl;
+                    }
                     if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(zmqMessageBundle), zmq::send_flags::none)) { //blocks if above 5 high water mark
                         std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
-                        hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
                     }
                 }
                 else if (Outduct * outduct = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
@@ -481,12 +485,16 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(padded_vector_uint8_t & wh
     //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
     //If provided, the deallocation function ffn shall be called once the data buffer is no longer
     //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
+    static const char messageFlags = 1; //1 => from egress and needs processing
+    static const zmq::const_buffer messageFlagsConstBuf(&messageFlags, sizeof(messageFlags));
     padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(wholeBundleVec));
     zmq::message_t paddedMessageWithDataStolen(rxBufRawPointer->data() - rxBufRawPointer->get_allocator().PADDING_ELEMENTS_BEFORE,
         rxBufRawPointer->size() + rxBufRawPointer->get_allocator().TOTAL_PADDING_ELEMENTS, CustomCleanupPaddedVecUint8, rxBufRawPointer);
     boost::mutex::scoped_lock lock(m_mutexPushBundleToIngress);
+    if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(messageFlagsConstBuf, zmq::send_flags::sndmore)) { //blocks if above 5 high water mark
+        std::cout << "error in egress WholeBundleReadyCallback: zmq could not send messageFlagsConstBuf to ingress" << std::endl;
+    }
     if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(paddedMessageWithDataStolen), zmq::send_flags::none)) { //blocks if above 5 high water mark
         std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "Error: zmq could not send ingress an ack from storage");
     }
 }

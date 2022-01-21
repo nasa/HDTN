@@ -39,7 +39,16 @@ BundleViewV6::BundleViewV6() {}
 BundleViewV6::~BundleViewV6() {}
 
 bool BundleViewV6::Load() {
-    std::size_t offset = m_primaryBlockView.header.cbhe_bpv6_primary_block_decode((const char*)m_renderedBundle.data(), 0, m_renderedBundle.size());
+    const uint8_t * const serializationBase = (uint8_t*)m_renderedBundle.data();
+    uint8_t * serialization = (uint8_t*)m_renderedBundle.data();
+    uint64_t bufferSize = m_renderedBundle.size() + 16; //TODO ASSUME PADDED
+    uint64_t decodedBlockSize;
+
+    if (!m_primaryBlockView.header.DeserializeBpv6(serialization, decodedBlockSize, bufferSize)) {
+        return false;
+    }
+
+    std::size_t offset = decodedBlockSize;
     if (offset == 0) {
         return false;//Malformed bundle received
     }
@@ -87,7 +96,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
     uint8_t * const bufferBegin = buffer;
     if (m_primaryBlockView.dirty) {
         //std::cout << "pd\n";
-        const uint64_t retVal = m_primaryBlockView.header.cbhe_bpv6_primary_block_encode((char *)buffer, 0, maxBundleSizeBytes);
+        const uint64_t retVal = m_primaryBlockView.header.SerializeBpv6(buffer);
         if (retVal == 0) {
             return false;
         }

@@ -6,8 +6,7 @@
 #include <set>
 
 
-bpv6_primary_block CreatePrimary(const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
-    bpv6_primary_block p;
+static void CreatePrimary(bpv6_primary_block & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
     
     p.flags = 0;
     if (reqCustody) {
@@ -20,15 +19,10 @@ bpv6_primary_block CreatePrimary(const cbhe_eid_t & srcEid, const cbhe_eid_t & d
     p.fragment_offset = 0;
     p.data_length = 0;
 
-    p.dst_node = destEid.nodeId;
-    p.dst_svc = destEid.serviceId;
-    p.src_node = srcEid.nodeId;
-    p.src_svc = srcEid.serviceId;
-    p.report_node = 0;
-    p.report_svc = 0;
-    p.custodian_node = 1;
-    p.custodian_svc = 1;    // 64 bytes
-    return p;
+    p.m_destinationEid = destEid;
+    p.m_sourceNodeId = srcEid;
+    p.m_reportToEid.SetZero();
+    p.m_custodianEid.Set(1, 1);
 }
 
 
@@ -42,8 +36,11 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
         BundleStorageCatalog bsc;
         std::vector<bpv6_primary_block> primaries;
         std::vector<catalog_entry_t> catalogEntryCopiesForVerification;
+        primaries.reserve(10);
+        catalogEntryCopiesForVerification.reserve(10);
         for (std::size_t i = 0; i < 10; ++i) {
-            primaries.push_back(CreatePrimary(cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, 1000, i));
+            primaries.emplace_back();
+            CreatePrimary(primaries.back(), cbhe_eid_t(500, 500), cbhe_eid_t(501, 501), true, 1000, i);
             catalog_entry_t catalogEntryToTake;
             catalogEntryToTake.Init(primaries[i], 1000 + i, 1, NULL);
             catalogEntryToTake.segmentIdChainVec = { static_cast<segment_id_t>(i) };

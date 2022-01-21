@@ -102,14 +102,10 @@ struct bpv6_primary_block : public PrimaryBlock {
     uint64_t data_length;      // 64 bytes
 
     // for the IPN scheme, we use NODE.SVC
-    uint64_t dst_node;
-    uint64_t dst_svc;
-    uint64_t src_node;
-    uint64_t src_svc;
-    uint64_t report_node;
-    uint64_t report_svc;
-    uint64_t custodian_node;
-    uint64_t custodian_svc;    // 64 bytes
+    cbhe_eid_t m_destinationEid;
+    cbhe_eid_t m_sourceNodeId;
+    cbhe_eid_t m_reportToEid;
+    cbhe_eid_t m_custodianEid;
 
     void SetZero();
 
@@ -120,29 +116,9 @@ struct bpv6_primary_block : public PrimaryBlock {
      */
     void bpv6_primary_block_print() const;
 
-    /**
-     * Reads an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block from a buffer and decodes it into 'primary'
-     *
-     * @param primary structure into which values should be decoded
-     * @param buffer target from which values should be decoded
-     * @param offset offset into target from which values should be decoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the primary block was decoded from, or 0 on failure to decode
-     */
-    uint32_t cbhe_bpv6_primary_block_decode(const char* buffer, const size_t offset, const size_t bufsz);
+    bool DeserializeBpv6(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    uint64_t SerializeBpv6(uint8_t * serialization) const;
 
-    /**
-     * Writes an RFC5050 with RFC6260 Compressed Bundle Header Encoding (CBHE) primary block into a buffer as encoded from 'primary'.  Note that block length is automatically
-     * computed based on the encoded length of other fields ... but that the block length cannot exceed 128 bytes, or
-     * encoding will fail.
-     *
-     * @param primary structure from which values should be read and encoded
-     * @param buffer target into which values should be encoded
-     * @param offset offset into target into which values should be encoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the primary block was encoded into, or 0 on failure to encode
-     */
-    uint32_t cbhe_bpv6_primary_block_encode(char* buffer, const size_t offset, const size_t bufsz) const;
 
     virtual bool HasCustodyFlagSet() const;
     virtual bool HasFragmentationFlagSet() const;

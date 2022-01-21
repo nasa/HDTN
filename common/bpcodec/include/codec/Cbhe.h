@@ -29,8 +29,13 @@ struct cbhe_eid_t {
     void Set(uint64_t paramNodeId, uint64_t paramServiceId);
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
-    uint64_t GetSerializationSize() const;
+    uint64_t GetSerializationSizeBpv7() const;
     bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+
+    uint64_t SerializeBpv6(uint8_t * serialization) const;
+    uint64_t GetSerializationSizeBpv6() const;
+    bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+
     friend std::ostream& operator<<(std::ostream& os, const cbhe_eid_t& o);
 };
 

@@ -8,7 +8,8 @@
 
 #include "codec/Cbhe.h"
 #include <utility>
-#include <CborUint.h>
+#include "CborUint.h"
+#include "Sdnv.h"
 
 cbhe_eid_t::cbhe_eid_t() :
     nodeId(0),
@@ -54,7 +55,12 @@ void cbhe_eid_t::SetZero() {
     serviceId = 0;
 }
 std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
-    os << "ipn: " << o.nodeId << "." << o.serviceId;
+    if ((o.nodeId == 0) && (o.serviceId == 0)) {
+        os << "dtn:none";
+    }
+    else {
+        os << "ipn: " << o.nodeId << "." << o.serviceId;
+    }
     return os;
 }
 
@@ -70,11 +76,48 @@ std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
 uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
     return CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
 }
-uint64_t cbhe_eid_t::GetSerializationSize() const {
+uint64_t cbhe_eid_t::GetSerializationSizeBpv7() const {
     return CborTwoUint64ArraySerializationSize(nodeId, serviceId);
 }
 bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
     return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, bufferSize, nodeId, serviceId);
+}
+
+
+uint64_t cbhe_eid_t::SerializeBpv6(uint8_t * serialization) const {
+    uint8_t * const serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, nodeId);
+    serialization += SdnvEncodeU64(serialization, serviceId);
+    return serialization - serializationBase;
+}
+uint64_t cbhe_eid_t::GetSerializationSizeBpv6() const {
+    return SdnvGetNumBytesRequiredToEncode(nodeId) + SdnvGetNumBytesRequiredToEncode(serviceId);
+}
+bool cbhe_eid_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
+    uint8_t sdnvSize;
+    const uint8_t * const serializationBase = serialization;
+
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    nodeId = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    serviceId = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
 }
 
 
@@ -90,12 +133,6 @@ cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t p
     srcEid(paramSrcNodeId, paramSrcServiceId),
     fragmentOffset(paramFragmentOffset),
     dataLength(paramDataLength) { }
-/*cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(const bpv6_primary_block & primary) :
-    creationSeconds(primary.creation),
-    sequence(primary.sequence),
-    srcEid(primary.src_node, primary.src_svc),
-    fragmentOffset(primary.fragment_offset),
-    dataLength(primary.data_length) { }*/
 cbhe_bundle_uuid_t::~cbhe_bundle_uuid_t() { } //a destructor: ~X()
 cbhe_bundle_uuid_t::cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o) : 
     creationSeconds(o.creationSeconds),
@@ -165,10 +202,6 @@ cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(uint64_t paramCreat
     creationSeconds(paramCreationSeconds),
     sequence(paramSequence),
     srcEid(paramSrcNodeId, paramSrcServiceId) { }
-/*cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary) :
-    creationSeconds(primary.creation),
-    sequence(primary.sequence),
-    srcEid(primary.src_node, primary.src_svc) { }*/
 cbhe_bundle_uuid_nofragment_t::cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment) :
     creationSeconds(bundleUuidWithFragment.creationSeconds),
     sequence(bundleUuidWithFragment.sequence),

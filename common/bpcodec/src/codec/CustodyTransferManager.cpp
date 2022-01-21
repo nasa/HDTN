@@ -42,14 +42,12 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
 
     newPrimary.flags = bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
-    newPrimary.src_node = m_myCustodianNodeId;
-    newPrimary.src_svc = m_myCustodianServiceId;
-    newPrimary.dst_node = primaryFromSender.custodian_node;
-    newPrimary.dst_svc = primaryFromSender.custodian_svc;
+    newPrimary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
+    newPrimary.m_destinationEid = primaryFromSender.m_custodianEid;
     SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
     newPrimary.lifetime = 1000; //todo
     uint64_t retVal;
-    retVal = newPrimary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, 0);
+    retVal = newPrimary.SerializeBpv6(buffer);
     if (retVal == 0) {
         return false;
     }
@@ -58,7 +56,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     CustodySignal sig;
     sig.m_copyOfBundleCreationTimestampTimeSeconds = primaryFromSender.creation;
     sig.m_copyOfBundleCreationTimestampSequenceNumber = primaryFromSender.sequence;
-    sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.src_node, primaryFromSender.src_svc);
+    sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.m_sourceNodeId.nodeId, primaryFromSender.m_sourceNodeId.serviceId);
     //REQ D4.2.2.7 An ACS-aware bundle protocol agent shall utilize the ACS bundle timestamp
     //time as the ‘Time of Signal’ when executing RFC 5050 section 6.3
     sig.SetTimeOfSignalGeneration(TimestampUtil::GenerateDtnTimeNow());//add custody
@@ -110,14 +108,12 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std
 
     newPrimary.flags = //bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
-    newPrimary.src_node = m_myCustodianNodeId;
-    newPrimary.src_svc = m_myCustodianServiceId;
-    newPrimary.dst_node = custodianEid.nodeId;
-    newPrimary.dst_svc = custodianEid.serviceId;
+    newPrimary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
+    newPrimary.m_destinationEid = custodianEid;
     SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
     newPrimary.lifetime = 1000; //todo
     uint64_t retVal;
-    retVal = newPrimary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, 0);
+    retVal = newPrimary.SerializeBpv6(buffer);
     if (retVal == 0) {
         return false;
     }
@@ -179,7 +175,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
     custodySignalRfc5050SerializedBundle.resize(0);
     bpv6_primary_block & primary = bv.m_primaryBlockView.header;
     //bpv6_primary_block originalPrimaryFromSender = primary; //make a copy
-    cbhe_eid_t custodianEidFromPrimary(primary.custodian_node, primary.custodian_svc);
+    const cbhe_eid_t custodianEidFromPrimary(primary.m_custodianEid);
 
     if (m_isAcsAware) {
         bool validCtebPresent = false;
@@ -254,8 +250,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             //  b) the bundle protocol agent shall update the custodian of the Primary Bundle Block and the CTEB as identified in D3.3;
 
             //update primary bundle block (pbb) with new custodian (do this after creating a custody signal to avoid copying the primary)
-            primary.custodian_node = m_myCustodianNodeId;
-            primary.custodian_svc = m_myCustodianServiceId;
+            primary.m_custodianEid.Set(m_myCustodianNodeId, m_myCustodianServiceId);
             bv.m_primaryBlockView.SetManuallyModified(); //will update after render
 
                         
@@ -333,8 +328,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             }
 
             //update primary bundle block (pbb) with new custodian (do this after creating a custody signal to avoid copying the primary)
-            primary.custodian_node = m_myCustodianNodeId;
-            primary.custodian_svc = m_myCustodianServiceId;
+            primary.m_custodianEid.Set(m_myCustodianNodeId, m_myCustodianServiceId);
             bv.m_primaryBlockView.SetManuallyModified(); //will update after render
         }
         else {

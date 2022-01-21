@@ -86,7 +86,7 @@ bool catalog_entry_t::HasCustody() const {
 }
 void catalog_entry_t::Init(const bpv6_primary_block & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap) {
     bundleSizeBytes = paramBundleSizeBytes;
-    destEid = cbhe_eid_t(primary.dst_node, primary.dst_svc);
+    destEid = primary.m_destinationEid;
     encodedAbsExpirationAndCustodyAndPriority = bpv6_bundle_get_priority(primary.flags) | ((primary.creation + primary.lifetime) << 4);
     if (primary.flags & BPV6_BUNDLEFLAG_CUSTODY) {
         if (primary.flags & BPV6_BUNDLEFLAG_FRAGMENT) {

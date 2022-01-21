@@ -62,7 +62,7 @@ uint64_t Bpv7PreviousNodeCanonicalBlock::SerializeBpv7(uint8_t * serialization) 
     return Bpv7CanonicalBlock::SerializeBpv7(serialization);
 }
 uint64_t Bpv7PreviousNodeCanonicalBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(m_previousNode.GetSerializationSize());
+    return Bpv7CanonicalBlock::GetSerializationSize(m_previousNode.GetSerializationSizeBpv7());
 }
 
 bool Bpv7PreviousNodeCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {

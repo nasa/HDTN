@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+//must be at least sizeof(_m128i)
+#define SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE 16
+
 //return output size
 unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64);
 

@@ -131,8 +131,8 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             return false;
         }
         bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-        const cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
-        const cbhe_eid_t srcEid(primary.src_node, primary.src_svc);
+        const cbhe_eid_t finalDestEid(primary.m_destinationEid);
+        const cbhe_eid_t srcEid(primary.m_sourceNodeId);
 
 
 
@@ -153,10 +153,8 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
 
             if (isEcho) {
-                primary.dst_node = primary.src_node;
-                primary.dst_svc = primary.src_svc;
-                primary.src_node = m_myEidEcho.nodeId;
-                primary.src_svc = m_myEidEcho.serviceId;
+                primary.m_destinationEid = primary.m_sourceNodeId;
+                primary.m_sourceNodeId = m_myEidEcho;
                 bv.m_primaryBlockView.SetManuallyModified();
                 bv.Render(messageSize + 10);
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
@@ -177,7 +175,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 else {
                     if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
                         //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
-                        const cbhe_eid_t custodySignalDestEid(primaryForCustodySignalRfc5050.dst_node, primaryForCustodySignalRfc5050.dst_svc);
+                        const cbhe_eid_t & custodySignalDestEid = primaryForCustodySignalRfc5050.m_destinationEid;
                         Forward_ThreadSafe(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle);
                     }
                     else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
@@ -369,7 +367,7 @@ void BpSinkPattern::SendAcsFromTimerThread() {
             it != serializedPrimariesAndBundlesList.end(); ++it)
         {
             //send an acs custody signal due to acs send timer
-            const cbhe_eid_t custodySignalDestEid(it->first.dst_node, it->first.dst_svc);
+            const cbhe_eid_t & custodySignalDestEid = it->first.m_destinationEid;
             Forward_ThreadSafe(custodySignalDestEid, it->second);
         }
     }

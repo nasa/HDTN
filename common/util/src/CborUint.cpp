@@ -617,7 +617,7 @@ unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
 }
 
 uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t element1, const uint64_t element2) {
-    uint8_t * serializationBase = serialization;
+    uint8_t * const serializationBase = serialization;
     *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
     serialization += CborEncodeU64BufSize9(serialization, element1);
     serialization += CborEncodeU64BufSize9(serialization, element2);

@@ -243,9 +243,9 @@ uint64_t Bpv7CbhePrimaryBlock::GetSerializationSize() const {
 
     uint64_t serializationSize = 3; //cbor byte (major type 4, additional information [8..11]) + version7 + crcType
     serializationSize += CborGetEncodingSizeU64(m_bundleProcessingControlFlags);
-    serializationSize += m_destinationEid.GetSerializationSize();
-    serializationSize += m_sourceNodeId.GetSerializationSize();
-    serializationSize += m_reportToEid.GetSerializationSize();
+    serializationSize += m_destinationEid.GetSerializationSizeBpv7();
+    serializationSize += m_sourceNodeId.GetSerializationSizeBpv7();
+    serializationSize += m_reportToEid.GetSerializationSizeBpv7();
     serializationSize += m_creationTimestamp.GetSerializationSize();
     serializationSize += CborGetEncodingSizeU64(m_lifetimeMilliseconds);
     serializationSize += (static_cast<uint8_t>(CborGetEncodingSizeU64(m_fragmentOffset))) * isFragment; //branchless

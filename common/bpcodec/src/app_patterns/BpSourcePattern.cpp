@@ -329,18 +329,15 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
             if (m_useCustodyTransfer) {
                 primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
-                primary.custodian_node = m_myEid.nodeId;
-                primary.custodian_svc = m_myCustodianServiceId;
+                primary.m_custodianEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
             }
-            primary.src_node = m_myEid.nodeId;
-            primary.src_svc = m_myEid.serviceId;
-            primary.dst_node = m_finalDestinationEid.nodeId;
-            primary.dst_svc = m_finalDestinationEid.serviceId;
+            primary.m_sourceNodeId = m_myEid;
+            primary.m_destinationEid = m_finalDestinationEid;
             primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
             primary.lifetime = 1000;
             primary.sequence = seq;
             uint64_t retVal;
-            retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
+            retVal = primary.SerializeBpv6(buffer);
             if (retVal == 0) {
                 std::cout << "primary encode error\n";
                 m_running = false;
@@ -501,16 +498,15 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         return;
     }
     //check primary
-    bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-    const cbhe_eid_t receivedFinalDestinationEid(primary.dst_node, primary.dst_svc);
+    const bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+    const cbhe_eid_t & receivedFinalDestinationEid = primary.m_destinationEid;
     static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
     if ((primary.flags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)
 
         
         if (receivedFinalDestinationEid != m_myEid) {
-            std::cerr << "BpSourcePattern received a bundle with final destination " 
-                << Uri::GetIpnUriString(receivedFinalDestinationEid.nodeId, receivedFinalDestinationEid.serviceId)
-                << " that does not match this destination " << Uri::GetIpnUriString(m_myEid.nodeId, m_myEid.serviceId) << "\n";
+            std::cerr << "BpSourcePattern received a bundle with final destination " << receivedFinalDestinationEid
+                << " that does not match this destination " << m_myEid << "\n";
             return;
         }
 

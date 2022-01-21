@@ -32,7 +32,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_blo
 
     
     uint64_t retVal;
-    retVal = primary.cbhe_bpv6_primary_block_encode((char *)buffer, 0, 0);
+    retVal = primary.SerializeBpv6(buffer);
     BOOST_REQUIRE_GT(retVal, 0);
     buffer += retVal;
     payloadSize -= retVal;
@@ -153,12 +153,9 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             primary.SetZero();
             primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                 bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
-            primary.src_node = PRIMARY_SRC_NODE;
-            primary.src_svc = PRIMARY_SRC_SVC;
-            primary.dst_node = DEST_LINKS[linkId].nodeId;
-            primary.dst_svc = DEST_LINKS[linkId].serviceId;
-            primary.custodian_node = 0;
-            primary.custodian_svc = 0;
+            primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+            primary.m_destinationEid = DEST_LINKS[linkId];
+            primary.m_custodianEid.SetZero();
             primary.creation = 0;
             primary.lifetime = absExpiration;
             primary.sequence = PRIMARY_SEQ;
@@ -304,12 +301,9 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                 primary.SetZero();
                 primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                     bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
-                primary.src_node = PRIMARY_SRC_NODE;
-                primary.src_svc = PRIMARY_SRC_SVC;
-                primary.dst_node = DEST_LINKS[linkId].nodeId;
-                primary.dst_svc = DEST_LINKS[linkId].serviceId;
-                primary.custodian_node = 0;
-                primary.custodian_svc = 0;
+                primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+                primary.m_destinationEid = DEST_LINKS[linkId];
+                primary.m_custodianEid.SetZero();
                 primary.creation = 0;
                 primary.lifetime = absExpiration;
                 primary.sequence = PRIMARY_SEQ;
@@ -403,7 +397,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                 BOOST_REQUIRE_EQUAL(mapBundleSizeToBundleData.count(totalBytesRead), 1);
                 BOOST_REQUIRE_EQUAL(mapBundleSizeToBundleData[totalBytesRead].size(), totalBytesRead);
                 BOOST_REQUIRE(mapBundleSizeToBundleData[totalBytesRead] == dataReadBack);
-                BOOST_REQUIRE_EQUAL(sessionRead.catalogEntryPtr->destEid.nodeId, mapBundleSizeToPrimary[totalBytesRead].dst_node);
+                BOOST_REQUIRE_EQUAL(sessionRead.catalogEntryPtr->destEid.nodeId, mapBundleSizeToPrimary[totalBytesRead].m_destinationEid.nodeId);
                 BOOST_REQUIRE_EQUAL(sessionRead.catalogEntryPtr->GetPriorityIndex(), bpv6_bundle_get_priority(mapBundleSizeToPrimary[totalBytesRead].flags));
 
                 BOOST_REQUIRE_MESSAGE(bsm.RemoveReadBundleFromDisk(sessionRead), "error freeing bundle from disk");

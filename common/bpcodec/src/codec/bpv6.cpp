@@ -14,6 +14,7 @@
 #include <inttypes.h>
 #include "Sdnv.h"
 #include <utility>
+#include <iostream>
 
 void bpv6_primary_block::SetZero() {
     flags = 0;
@@ -25,106 +26,103 @@ void bpv6_primary_block::SetZero() {
     data_length = 0;      // 64 bytes
 
     // for the IPN scheme, we use NODE.SVC
-    dst_node = 0;
-    dst_svc = 0;
-    src_node = 0;
-    src_svc = 0;
-    report_node = 0;
-    report_svc = 0;
-    custodian_node = 0;
-    custodian_svc = 0;
+    m_destinationEid.SetZero();
+    m_sourceNodeId.SetZero();
+    m_reportToEid.SetZero();
+    m_custodianEid.SetZero();
 }
 
-uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_decode(const char* buffer, const size_t offset, const size_t bufsz) {
-    const uint8_t version = buffer[offset];
-    uint64_t index = offset + 1;
+bool bpv6_primary_block::DeserializeBpv6(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
+    const uint8_t * const serializationBase = serialization;
 
-    if(version != BPV6_CCSDS_VERSION) {
-        return 0;
+    if (bufferSize < (SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE + 1)) { //version plus flags
+        return false;
     }
+    const uint8_t version = *serialization++;
+    --bufferSize;
+    if(version != BPV6_CCSDS_VERSION) {
+        return false;
+    }
+    flags = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+    const bool isFragment = ((flags & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
+
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    block_length = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    if (!m_destinationEid.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
+        return false; //failure
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    if (!m_sourceNodeId.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
+        return false; //failure
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    if (!m_reportToEid.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
+        return false; //failure
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
     
-    flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) { 
-        return 0; //return 0 on failure
+    if (!m_custodianEid.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
+        return false; //failure
     }
-    index += sdnvSize;
-    const bool isFragment = ((bpv6_bundle_get_gflags(flags) & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    block_length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    creation = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return 0; //return 0 on failure
+        return false;
     }
-    index += sdnvSize;
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    dst_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    sequence = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return 0; //return 0 on failure
+        return false;
     }
-    index += sdnvSize;
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    dst_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    lifetime = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
-        return 0; //return 0 on failure
+        return false;
     }
-    index += sdnvSize;
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    src_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
+    if (bufferSize == 0) { //dictionary length
+        return false;
     }
-    index += sdnvSize;
-
-    src_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    report_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    report_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    custodian_node = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    custodian_svc = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    creation = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    sequence = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    lifetime = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    if (buffer[index] != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
+    const uint8_t dictionaryLength = *serialization++;
+    --bufferSize;
+    if (dictionaryLength != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
         //RFC6260
         //3.2.  Reception
         //
@@ -146,90 +144,75 @@ uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_decode(const char* buffer, 
         //    bundle will be judged to be malformed.The behavior of the bundle
         //    protocol agent in this circumstance is an implementation matter.
         printf("error: cbhe bpv6 primary decode: dictionary size not 0\n");
-        return 0;
+        return false;
     }
-    index += 1;
 
     // Skip the entirety of the dictionary - we assume an IPN scheme
-    //index += 0;
 
     if(isFragment) {
-        fragment_offset = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-        if (sdnvSize == 0) {
-            return 0; //return 0 on failure
+        if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+            return false;
         }
-        index += sdnvSize;
+        fragment_offset = SdnvDecodeU64(serialization, &sdnvSize);
+        if (sdnvSize == 0) {
+            return false;
+        }
+        serialization += sdnvSize;
+        bufferSize -= sdnvSize;
 
-        data_length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-        if (sdnvSize == 0) {
-            return 0; //return 0 on failure
+        if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+            return false;
         }
-        index += sdnvSize;
+        data_length = SdnvDecodeU64(serialization, &sdnvSize);
+        if (sdnvSize == 0) {
+            return false;
+        }
+        serialization += sdnvSize;
+        bufferSize -= sdnvSize;
     }
     else {
         fragment_offset = 0;
         data_length = 0;
     }
 
-    return static_cast<uint32_t>(index - offset);
+    numBytesTakenToDecode = serialization - serializationBase;
+    return true;
 }
 
-uint32_t bpv6_primary_block::cbhe_bpv6_primary_block_encode(char* buffer, const size_t offset, const size_t bufsz) const {
-    buffer[offset] = BPV6_CCSDS_VERSION;
-    uint64_t index = offset + 1;
-    uint64_t sdnvSize;
+uint64_t bpv6_primary_block::SerializeBpv6(uint8_t * serialization) const {
+    uint8_t * const serializationBase = serialization;
 
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], flags);
-    index += sdnvSize;
+    *serialization++ = BPV6_CCSDS_VERSION;
+    serialization += SdnvEncodeU64(serialization, flags);
     const bool isFragment = ((bpv6_bundle_get_gflags(flags) & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
 
-    const uint64_t blockLengthOffset = index;
-    ++index;  // we skip one byte so we can come back and write it later
-
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], dst_node);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], dst_svc);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], src_node);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], src_svc);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], report_node);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], report_svc);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], custodian_node);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], custodian_svc);
-    index += sdnvSize;
-
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], creation);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], sequence);
-    index += sdnvSize;
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], lifetime);
-    index += sdnvSize;
-
+    uint8_t * const blockLengthPtrForLater = serialization++; // we skip one byte so we can come back and write it later
+    
+    serialization += m_destinationEid.SerializeBpv6(serialization);
+    serialization += m_sourceNodeId.SerializeBpv6(serialization);
+    serialization += m_reportToEid.SerializeBpv6(serialization);
+    serialization += m_custodianEid.SerializeBpv6(serialization);
+    
+    serialization += SdnvEncodeU64(serialization, creation);
+    serialization += SdnvEncodeU64(serialization, sequence);
+    serialization += SdnvEncodeU64(serialization, lifetime);
+    
     // encode a zero-length dictionary
-    buffer[index] = 0; // 1-byte sdnv's are the value itself
-    index += 1; //this is a 1-byte sdnv
+    *serialization++ = 0; // 1-byte sdnv's are the value itself
 
     if (isFragment) {
-        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], fragment_offset);
-        index += sdnvSize;
-        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], data_length);
-        index += sdnvSize;
+        serialization += SdnvEncodeU64(serialization, fragment_offset);
+        serialization += SdnvEncodeU64(serialization, data_length);
     }
 
-    const uint64_t blockLength = index - (blockLengthOffset + 1);
+    const uint64_t blockLength = serialization - (blockLengthPtrForLater + 1);
     if (blockLength > 127) { // our encoding failed because our block length was too long ...
         printf("error in cbhe_bpv6_primary_block_encode: blockLength > 127\n");
         return 0;
     }
-    buffer[blockLengthOffset] = static_cast<int8_t>(blockLength); // 1-byte sdnv's are the value itself
+    *blockLengthPtrForLater = static_cast<uint8_t>(blockLength); // 1-byte sdnv's are the value itself
     
-    return static_cast<uint32_t>(index - offset);
-
+    return serialization - serializationBase;
 }
 
 void bpv6_canonical_block::SetZero() {
@@ -322,19 +305,11 @@ void bpv6_primary_block::bpv6_primary_block_print() const {
     flags = bpv6_bundle_get_priority(flags);
     printf("Priority: %u\n", flags);
 
-    printf("Destination: ipn:%d.%d\n", (int)dst_node, (int)dst_svc);
-    if(src_node != 0) {
-        printf("Source: ipn:%d.%d\n", (int)src_node, (int)src_svc);
-    }
-    else {
-        printf("Source: dtn:none\n");
-    }
-    if(custodian_node != 0) {
-        printf("Custodian: ipn:%d.%d\n", (int)custodian_node, (int)custodian_svc);
-    }
-    if(report_node != 0) {
-        printf("Report-to: ipn:%d.%d\n", (int)report_node, (int)report_svc);
-    }
+    std::cout << "Destination: " << m_destinationEid << "\n";
+    std::cout << "Source: " << m_sourceNodeId << "\n";
+    std::cout << "Custodian: " << m_custodianEid << "\n";
+    std::cout << "Report-to: " << m_reportToEid << "\n";
+
     printf("Creation: %" PRIu64 " / %" PRIu64 "\n", creation, sequence);
     printf("Lifetime: %" PRIu64 "\n", lifetime);
 }
@@ -411,7 +386,7 @@ cbhe_bundle_uuid_t bpv6_primary_block::GetCbheBundleUuidFromPrimary() const {
     cbhe_bundle_uuid_t uuid;
     uuid.creationSeconds = creation;
     uuid.sequence = sequence;
-    uuid.srcEid.Set(src_node, src_svc);
+    uuid.srcEid = m_sourceNodeId;
     uuid.fragmentOffset = fragment_offset;
     uuid.dataLength = data_length;
     return uuid;
@@ -420,6 +395,6 @@ cbhe_bundle_uuid_nofragment_t bpv6_primary_block::GetCbheBundleUuidNoFragmentFro
     cbhe_bundle_uuid_nofragment_t uuid;
     uuid.creationSeconds = creation;
     uuid.sequence = sequence;
-    uuid.srcEid.Set(src_node, src_svc);
+    uuid.srcEid = m_sourceNodeId;
     return uuid;
 }

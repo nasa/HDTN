@@ -183,7 +183,7 @@ static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & 
 {
     const bpv6_primary_block & primary = primaryPlusSerializedBundle.first;
     const std::vector<uint8_t> & acsBundleSerialized = primaryPlusSerializedBundle.second;
-    const cbhe_eid_t hdtnSrcEid(primary.src_node, primary.src_svc);
+    const cbhe_eid_t & hdtnSrcEid = primary.m_sourceNodeId;
     const uint64_t newCustodyIdForAcsCustodySignal = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
     //write custody signal to disk
@@ -214,8 +214,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     std::vector<uint8_t> & bufferSpaceForCustodySignalRfc5050SerializedBundle,
     cbhe_eid_t & finalDestEidReturned, ZmqStorageInterface * forStats)
 {
-    cbhe_eid_t finalDestEid;
-    cbhe_eid_t srcEid;
+    
+    
     const uint8_t firstByte = ((const uint8_t*)message->data())[0];
     const bool isBpVersion6 = (firstByte == 6);
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
@@ -225,14 +225,13 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             std::cerr << "malformed bundle\n";
             return false;
         }
-        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-        finalDestEid.Set(primary.dst_node, primary.dst_svc);
-        finalDestEidReturned = finalDestEid;
-        srcEid.Set(primary.src_node, primary.src_svc);
+        const bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        finalDestEidReturned = primary.m_destinationEid;
+        
 
         //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
         const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-        if (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == forStats->M_HDTN_EID_CUSTODY)) {
+        if (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == forStats->M_HDTN_EID_CUSTODY)) {
             if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
                 std::cerr << "error admin record has canonical block\n";
                 return false;
@@ -343,7 +342,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         }
 
         //write non admin records to disk (unless newly generated below)
-        const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(srcEid);
+        const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
         static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
         if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
             bpv6_primary_block primaryForCustodySignalRfc5050;
@@ -356,7 +355,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             }
             else {
                 if (!bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
-                    const cbhe_eid_t hdtnSrcEid(primaryForCustodySignalRfc5050.src_node, primaryForCustodySignalRfc5050.src_svc);
+                    const cbhe_eid_t & hdtnSrcEid = primaryForCustodySignalRfc5050.m_sourceNodeId;
                     const uint64_t newCustodyIdFor5050CustodySignal = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
                     //write custody signal to disk
