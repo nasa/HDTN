@@ -191,7 +191,8 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
         const uint32_t quickCrc = (crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 0 : 
             (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
             boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc32;
-        ChangeCanonicalBlockAndRender(bv, 3, 6, std::string("slow "));
+        std::string slowString("slow ");
+        ChangeCanonicalBlockAndRender(bv, 3, 6, slowString);
         const uint32_t slowCrc = (crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 1 :
             (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
             boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc32;
@@ -207,7 +208,8 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
         BOOST_REQUIRE(bv.m_frontBuffer == bv.m_backBuffer);
 
         //revert 2nd block
-        ChangeCanonicalBlockAndRender(bv, 6, 3, std::string("quick "));
+        std::string quickString("quick ");
+        ChangeCanonicalBlockAndRender(bv, 6, 3, quickString);
         const uint32_t quickCrc2 = (crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 0 :
             (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
             boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc32;
@@ -263,7 +265,8 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             //std::cout << "canonicalSize=" << canonicalSize << "\n";
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size() - canonicalSize);
 
-            PrependCanonicalBlockAndRender(bv, canonicalTypesVec.front(), std::string(canonicalBodyStringsVec.front()), blockNumber, crcTypeToUse); //0 was block number 0 from GenerateBundle
+            std::string frontString(canonicalBodyStringsVec.front());
+            PrependCanonicalBlockAndRender(bv, canonicalTypesVec.front(), frontString, blockNumber, crcTypeToUse); //0 was block number 0 from GenerateBundle
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size());
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal); //back to equal
         }
