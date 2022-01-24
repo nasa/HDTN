@@ -398,3 +398,22 @@ cbhe_bundle_uuid_nofragment_t bpv6_primary_block::GetCbheBundleUuidNoFragmentFro
     uuid.srcEid = m_sourceNodeId;
     return uuid;
 }
+
+cbhe_eid_t bpv6_primary_block::GetFinalDestinationEid() const {
+    return m_destinationEid;
+}
+uint8_t bpv6_primary_block::GetPriority() const {
+    return static_cast<uint8_t>(bpv6_bundle_get_priority(flags));
+}
+uint64_t bpv6_primary_block::GetExpirationSeconds() const {
+    return creation + lifetime;
+}
+uint64_t bpv6_primary_block::GetSequenceForSecondsScale() const {
+    return sequence;
+}
+uint64_t bpv6_primary_block::GetExpirationMilliseconds() const {
+    return (creation + lifetime) * 1000;
+}
+uint64_t bpv6_primary_block::GetSequenceForMillisecondsScale() const {
+    return sequence;
+}

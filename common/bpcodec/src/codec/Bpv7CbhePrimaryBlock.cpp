@@ -507,3 +507,23 @@ cbhe_bundle_uuid_nofragment_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidNoFragmentF
     uuid.srcEid = m_sourceNodeId;
     return uuid;
 }
+
+cbhe_eid_t Bpv7CbhePrimaryBlock::GetFinalDestinationEid() const {
+    return m_destinationEid;
+}
+uint8_t Bpv7CbhePrimaryBlock::GetPriority() const {
+    return 2; //priority not supported so keep it high by default
+}
+uint64_t Bpv7CbhePrimaryBlock::GetExpirationSeconds() const {
+    return (m_creationTimestamp.millisecondsSinceStartOfYear2000 + m_lifetimeMilliseconds) / 1000;
+}
+uint64_t Bpv7CbhePrimaryBlock::GetSequenceForSecondsScale() const {
+    uint64_t rem = m_creationTimestamp.millisecondsSinceStartOfYear2000 % 1000;
+    return (rem << 50) | m_creationTimestamp.sequenceNumber;
+}
+uint64_t Bpv7CbhePrimaryBlock::GetExpirationMilliseconds() const {
+    return m_creationTimestamp.millisecondsSinceStartOfYear2000 + m_lifetimeMilliseconds;
+}
+uint64_t Bpv7CbhePrimaryBlock::GetSequenceForMillisecondsScale() const {
+    return m_creationTimestamp.sequenceNumber;
+}

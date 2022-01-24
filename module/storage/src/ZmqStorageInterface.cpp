@@ -221,7 +221,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
         BundleViewV6 bv;
-        if (!bv.LoadBundle((uint8_t *)message->data(), message->size())) { //invalid bundle
+        if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), true)) { //invalid bundle
             std::cerr << "malformed bundle\n";
             return false;
         }
@@ -404,8 +404,34 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 
     }
     else if (isBpVersion7) {
-        std::cout << "error in ZmqStorageInterface Write: bpv7 unsupported at this time\n";
-        return false;
+        BundleViewV7 bv;
+        if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), true, true)) { //invalid bundle
+            std::cerr << "malformed bundle\n";
+            return false;
+        }
+        const Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        finalDestEidReturned = primary.m_destinationEid;
+
+        //write bundle
+        BundleStorageManagerSession_WriteToDisk sessionWrite;
+        uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, bv.m_renderedBundle.size());
+        //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
+        if (totalSegmentsRequired == 0) {
+            std::cerr << "out of space\n";
+            hdtn::Logger::getInstance()->logError("storage", "Out of space");
+            return false;
+        }
+        //totalSegmentsStoredOnDisk += totalSegmentsRequired;
+        //totalBytesWrittenThisTest += size;
+        const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
+        const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
+        if (totalBytesPushed != bv.m_renderedBundle.size()) {
+            const std::string msg = "totalBytesPushed != size";
+            std::cerr << msg << "\n";
+            hdtn::Logger::getInstance()->logError("storage", msg);
+            return false;
+        }
+        return true;
     }
     else {
         std::cout << "error in ZmqStorageInterface Write: unsupported bundle version detected\n";

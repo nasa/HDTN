@@ -38,7 +38,7 @@ bool BundleViewV6::Bpv6CanonicalBlockView::HasBlockProcessingControlFlagSet(cons
 BundleViewV6::BundleViewV6() {}
 BundleViewV6::~BundleViewV6() {}
 
-bool BundleViewV6::Load() {
+bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
     const uint8_t * const serializationBase = (uint8_t*)m_renderedBundle.data();
     uint8_t * serialization = (uint8_t*)m_renderedBundle.data();
     uint64_t bufferSize = m_renderedBundle.size() + 16; //TODO ASSUME PADDED
@@ -62,6 +62,10 @@ bool BundleViewV6::Load() {
     m_primaryBlockView.dirty = false;
     m_applicationDataUnitStartPtr = (static_cast<const uint8_t*>(m_renderedBundle.data())) + offset;
     if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
+        return true;
+    }
+
+    if (loadPrimaryBlockOnly) {
         return true;
     }
 
@@ -214,22 +218,22 @@ std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const uint8_t canonical
     }
     return count;
 }
-bool BundleViewV6::LoadBundle(uint8_t * bundleData, const std::size_t size) {
+bool BundleViewV6::LoadBundle(uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly) {
     Reset();
     m_renderedBundle = boost::asio::buffer(bundleData, size);
-    return Load();
+    return Load(loadPrimaryBlockOnly);
 }
-bool BundleViewV6::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData) {
+bool BundleViewV6::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.swap(bundleData);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
-    return Load();
+    return Load(loadPrimaryBlockOnly);
 }
-bool BundleViewV6::CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size) {
+bool BundleViewV6::CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.assign(bundleData, bundleData + size);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
-    return Load();
+    return Load(loadPrimaryBlockOnly);
 }
 bool BundleViewV6::IsValid() const {
     if (GetCanonicalBlockCountByType(BPV6_BLOCKTYPE_PAYLOAD) > 1) {

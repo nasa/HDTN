@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include "MemoryManagerTreeArray.h"
-#include "codec/bpv6.h"
+#include "codec/PrimaryBlock.h"
 
 struct catalog_entry_t {
     uint64_t bundleSizeBytes;
@@ -28,7 +28,7 @@ struct catalog_entry_t {
     bool HasCustodyAndFragmentation() const;
     bool HasCustodyAndNonFragmentation() const;
     bool HasCustody() const;
-    void Init(const bpv6_primary_block & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap);
+    void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap);
 };
 
 #endif //_CATALOG_ENTRY_H

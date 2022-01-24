@@ -124,6 +124,12 @@ struct bpv6_primary_block : public PrimaryBlock {
     virtual bool HasFragmentationFlagSet() const;
     virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
     virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
+    virtual cbhe_eid_t GetFinalDestinationEid() const;
+    virtual uint8_t GetPriority() const;
+    virtual uint64_t GetExpirationSeconds() const;
+    virtual uint64_t GetSequenceForSecondsScale() const;
+    virtual uint64_t GetExpirationMilliseconds() const;
+    virtual uint64_t GetSequenceForMillisecondsScale() const;
 };
 
 #define BPV6_BLOCKTYPE_PAYLOAD              (1)

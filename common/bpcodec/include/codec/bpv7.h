@@ -78,6 +78,12 @@ struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     virtual bool HasFragmentationFlagSet() const;
     virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
     virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
+    virtual cbhe_eid_t GetFinalDestinationEid() const;
+    virtual uint8_t GetPriority() const;
+    virtual uint64_t GetExpirationSeconds() const;
+    virtual uint64_t GetSequenceForSecondsScale() const;
+    virtual uint64_t GetExpirationMilliseconds() const;
+    virtual uint64_t GetSequenceForMillisecondsScale() const;
 };
 
 struct Bpv7CanonicalBlock {

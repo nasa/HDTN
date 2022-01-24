@@ -13,6 +13,8 @@
 #include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
+#include "codec/BundleViewV6.h"
+#include "codec/BundleViewV7.h"
 
  //#ifdef _MSC_VER //Windows tests
  //static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "map0.bin", "map1.bin", "map2.bin", "map3.bin" };
@@ -123,7 +125,7 @@ const MemoryManagerTreeArray & BundleStorageManagerBase::GetMemoryManagerConstRe
 }
 
 
-uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, const bpv6_primary_block & bundlePrimaryBlock, const uint64_t bundleSizeBytes) {
+uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk & session, const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes) {
     catalog_entry_t & catalogEntry = session.catalogEntry;
     segment_id_chain_vec_t & segmentIdChainVec = catalogEntry.segmentIdChainVec;
     const uint64_t totalSegmentsRequired = (bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
@@ -140,7 +142,7 @@ uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk 
     return 0;
 }
 
-int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDisk & session, const bpv6_primary_block & bundlePrimaryBlock,
+int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDisk & session, const PrimaryBlock & bundlePrimaryBlock,
     const uint64_t custodyId, const uint8_t * buf, std::size_t size)
 {
     catalog_entry_t & catalogEntry = session.catalogEntry;
@@ -188,7 +190,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
 
 //return total bytes pushed
 uint64_t BundleStorageManagerBase::PushAllSegments(BundleStorageManagerSession_WriteToDisk & session,
-    const bpv6_primary_block & bundlePrimaryBlock,
+    const PrimaryBlock & bundlePrimaryBlock,
     const uint64_t custodyId, const uint8_t * allData, const std::size_t allDataSize)
 {
     uint64_t totalBytesCopied = 0;
@@ -437,6 +439,8 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
     }
 
     bool restoreInProgress = true;
+    BundleViewV6 bv6;
+    BundleViewV7 bv7;
     for (segment_id_t potentialHeadSegmentId = 0; restoreInProgress; ++potentialHeadSegmentId) {
         if (!m_memoryManager.IsSegmentFree(potentialHeadSegmentId)) continue;
         segment_id_t segmentId = potentialHeadSegmentId;
@@ -445,6 +449,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
         segment_id_chain_vec_t & segmentIdChainVec = catalogEntry.segmentIdChainVec;
         bool headSegmentFound = false;
         uint64_t custodyIdHeadSegment;
+        PrimaryBlock * primaryBasePtr = NULL;
         for (session.nextLogicalSegment = 0; ; ++session.nextLogicalSegment) {
             const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
             FILE * const fileHandle = fileHandlesVec[diskIndex];
@@ -474,29 +479,47 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 hdtn::Logger::getInstance()->logError("storage", msg);
                 return false;
             }
-            bpv6_primary_block primary;
 
             StorageSegmentHeader storageSegmentHeader;
             memcpy(&storageSegmentHeader, dataReadBuf, SEGMENT_RESERVED_SPACE);
             storageSegmentHeader.ToNativeEndianInplace(); //should optimize out and do nothing
 
+            
             if ((session.nextLogicalSegment == 0) && (storageSegmentHeader.bundleSizeBytes != UINT64_MAX)) { //head segment
                 headSegmentFound = true;
                 custodyIdHeadSegment = storageSegmentHeader.custodyId;
 
-                //copy bundle header and store to maps, push segmentId to chain vec
-                uint64_t decodedBlockSize;
-                if (!primary.DeserializeBpv6(dataReadBuf + SEGMENT_RESERVED_SPACE, decodedBlockSize, BUNDLE_STORAGE_PER_SEGMENT_SIZE)) {
+                uint8_t * bundleDataBegin = dataReadBuf + SEGMENT_RESERVED_SPACE;
+                
+                const uint8_t firstByte = bundleDataBegin[0];
+                const bool isBpVersion6 = (firstByte == 6);
+                const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+                if (isBpVersion6) {
+                    if (!bv6.LoadBundle(bundleDataBegin, BUNDLE_STORAGE_PER_SEGMENT_SIZE, true)) { //load primary only
+                        std::cerr << "malformed bundle\n";
+                        return false;
+                    }
+                    bpv6_primary_block & primary = bv6.m_primaryBlockView.header;
+                    primaryBasePtr = &primary;
+                }
+                else if (isBpVersion7) {
+                    if (!bv7.LoadBundle(bundleDataBegin, BUNDLE_STORAGE_PER_SEGMENT_SIZE, true, true)) { //load primary only
+                        std::cerr << "malformed bundle\n";
+                        return false;
+                    }
+                    Bpv7CbhePrimaryBlock & primary = bv7.m_primaryBlockView.header;
+                    primaryBasePtr = &primary;
+                }
+                else {
+                    std::cout << "error in BundleStorageManagerBase::RestoreFromDisk: unknown bundle version detected\n";
                     return false;
                 }
-                
-
                 const uint64_t totalSegmentsRequired = (storageSegmentHeader.bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((storageSegmentHeader.bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 
                 //std::cout << "tot segs req " << totalSegmentsRequired << "\n";
                 *totalBytesRestored += storageSegmentHeader.bundleSizeBytes;
                 *totalSegmentsRestored += totalSegmentsRequired;
-                catalogEntry.Init(primary, storageSegmentHeader.bundleSizeBytes, totalSegmentsRequired, NULL); //NULL replaced later at CatalogIncomingBundleForStore
+                catalogEntry.Init(*primaryBasePtr, storageSegmentHeader.bundleSizeBytes, totalSegmentsRequired, NULL); //NULL replaced later at CatalogIncomingBundleForStore
             }
             if (!headSegmentFound) break;
             if (custodyIdHeadSegment != storageSegmentHeader.custodyId) { //shall be the same across all segments
@@ -529,7 +552,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                     hdtn::Logger::getInstance()->logError("storage", msg);
                     return false;
                 }
-                m_bundleStorageCatalog.CatalogIncomingBundleForStore(catalogEntry, primary, storageSegmentHeader.custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
+                m_bundleStorageCatalog.CatalogIncomingBundleForStore(catalogEntry, *primaryBasePtr, storageSegmentHeader.custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
                 *totalBundlesRestored += 1;
                 break;
                 //std::cout << "write complete\n";

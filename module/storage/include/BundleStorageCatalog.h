@@ -9,7 +9,7 @@
 #include <utility>
 #include <string>
 #include "MemoryManagerTreeArray.h"
-#include "codec/bpv6.h"
+#include "codec/PrimaryBlock.h"
 #include "HashMap16BitFixedSize.h"
 #include <boost/bimap.hpp>
 #include <boost/date_time.hpp>

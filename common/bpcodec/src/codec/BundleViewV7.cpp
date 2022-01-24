@@ -15,7 +15,7 @@ void BundleViewV7::Bpv7CanonicalBlockView::SetManuallyModified() {
 BundleViewV7::BundleViewV7() {}
 BundleViewV7::~BundleViewV7() {}
 
-bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks) {
+bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
     const uint8_t * const serializationBase = (uint8_t*)m_renderedBundle.data();
     uint8_t * serialization = (uint8_t*)m_renderedBundle.data();
     uint64_t bufferSize = m_renderedBundle.size();
@@ -51,6 +51,10 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks) {
     m_applicationDataUnitStartPtr = serializationPrimaryBlockBeginPtr + decodedBlockSize;
     //todo application data unit length?
     if (m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG_ADMINRECORD)) {
+        return true;
+    }
+
+    if (loadPrimaryBlockOnly) {
         return true;
     }
 
@@ -312,22 +316,22 @@ std::size_t BundleViewV7::DeleteAllCanonicalBlocksByType(const uint8_t canonical
     }
     return count;
 }
-bool BundleViewV7::LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks) {
+bool BundleViewV7::LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
     Reset();
     m_renderedBundle = boost::asio::buffer(bundleData, size);
-    return Load(skipCrcVerifyInCanonicalBlocks);
+    return Load(skipCrcVerifyInCanonicalBlocks, loadPrimaryBlockOnly);
 }
-bool BundleViewV7::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks) {
+bool BundleViewV7::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.swap(bundleData);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
-    return Load(skipCrcVerifyInCanonicalBlocks);
+    return Load(skipCrcVerifyInCanonicalBlocks, loadPrimaryBlockOnly);
 }
-bool BundleViewV7::CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks) {
+bool BundleViewV7::CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.assign(bundleData, bundleData + size);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
-    return Load(skipCrcVerifyInCanonicalBlocks);
+    return Load(skipCrcVerifyInCanonicalBlocks, loadPrimaryBlockOnly);
 }
 bool BundleViewV7::IsValid() const {
     if (GetCanonicalBlockCountByType(BPV7_BLOCKTYPE_PAYLOAD) > 1) {

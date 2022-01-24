@@ -79,13 +79,13 @@ public:
     std::size_t GetNumCanonicalBlocks() const;
     void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks);
     std::size_t DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode);
-    bool LoadBundle(uint8_t * bundleData, const std::size_t size);
-    bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData);
-    bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size);
+    bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
+    bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool loadPrimaryBlockOnly = false);
+    bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
     bool IsValid() const;
     bool Render(const std::size_t maxBundleSizeBytes);
 private:
-    bool Load();
+    bool Load(const bool loadPrimaryBlockOnly);
     void Reset();
     
 public:
