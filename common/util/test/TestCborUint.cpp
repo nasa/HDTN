@@ -5,6 +5,7 @@
 #include <vector>
 #include "CborUint.h"
 #include <boost/timer/timer.hpp>
+#include <algorithm>
 #ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
 #endif
@@ -290,6 +291,8 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     const std::vector<pairVS> testValuesPlusEncodedSizes2(testValuesPlusEncodedSizes.cbegin() + 21, testValuesPlusEncodedSizes.cend()); //create an even mix of various encoding sizes
 #endif
     
+    // shuffle to prevent branch prediction
+    std::random_shuffle(testValuesPlusEncodedSizes2.begin(), testValuesPlusEncodedSizes2.end());
 
     unsigned int totalExpectedEncodingSize = 0;
     std::vector<uint64_t> allExpectedDecodedValues;

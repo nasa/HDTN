@@ -45,7 +45,12 @@ unsigned int CborGetEncodingSizeU64(const uint64_t valToEncodeU64) {
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return CborDecodeU64Fast(inputEncoded, numBytes, bufferSize);
+    if (bufferSize >= 9) {
+        return CborDecodeU64FastBufSize9(inputEncoded, numBytes);
+    }
+    else {
+        return CborDecodeU64Fast(inputEncoded, numBytes, bufferSize);
+    }
 #else
     return CborDecodeU64Classic(inputEncoded, numBytes, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
@@ -556,50 +561,48 @@ uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, uint8_t * numByte
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t * numBytes) {
-    *numBytes = 0; //initialize to invalid
-    uint64_t result = 0;
-    const uint8_t type = inputEncoded[0];
-    
-    if (type < CBOR_UINT8_TYPE) {
-        result = type;
-        *numBytes = 1;
-    }
-    else if (type == CBOR_UINT8_TYPE) {
-        result = inputEncoded[1];
-        *numBytes = 2;
-    }
-    else if (type == CBOR_UINT16_TYPE) {
 #if 1
-        result = ((static_cast<uint16_t>(inputEncoded[1])) << 8) | inputEncoded[2];
-#else
-        result = static_cast<uint16_t>(_loadbe_i16(&inputEncoded[1]));
-#endif
-        *numBytes = 3;
-    }
-    else if (type == CBOR_UINT32_TYPE) {//_mm_load_ss
-        //const __m128i enc = _mm_loadu_si32((__m128i const*)(&inputEncoded[1])); //SSE2 Load unaligned 32-bit integer from memory into the first element of dst.
-#if 1
-        const __m128i enc = _mm_castps_si128(_mm_load_ss((float const*)(&inputEncoded[1]))); //Load a single-precision (32-bit) floating-point element from memory into the lower of dst, and zero the upper 3 elements. mem_addr does not need to be aligned on any particular boundary.
-        const uint32_t result32Be = _mm_cvtsi128_si32(enc); //SSE2 Copy the lower 32-bit integer in a to dst.
-        result = boost::endian::big_to_native(result32Be);
-#else
-        result = static_cast<uint32_t>(_loadbe_i32(&inputEncoded[1]));
-#endif
-        *numBytes = 5;
-    }
-    else if (type == CBOR_UINT64_TYPE) {
-        //const __m128i enc = _mm_loadl_epi64((__m128i const*)(&inputEncoded[1])); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
-#if 1
-        const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[1]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
-        const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
-        result = boost::endian::big_to_native(result64Be);
-#else
-        result = static_cast<uint64_t>(_loadbe_i64(&inputEncoded[1]));
-#endif
-        *numBytes = 9;
-    }
+    static const uint8_t RIGHT_SHIFTS[CBOR_UINT64_TYPE + 1] = {
+        56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, //type = 0..23
+        56, 48, 32, 0 //type = 24..27
+    };
+    static const uint8_t NUM_BYTES[CBOR_UINT64_TYPE + 1] = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //type = 0..23
+        2, 3, 5, 9 //type = 24..27
+    };
 
-    return result;
+    const uint8_t type = inputEncoded[0];
+    if (type > CBOR_UINT64_TYPE) { //branch prediction should never enter here
+        *numBytes = 0;
+        return 0;
+    }
+    *numBytes = NUM_BYTES[type];
+    const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[static_cast<uint8_t>(type >= CBOR_UINT8_TYPE)]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
+    const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
+    //const uint64_t result64Be = *(reinterpret_cast<const uint64_t*>(&inputEncoded[static_cast<uint8_t>(type >= CBOR_UINT8_TYPE)]));
+    return (static_cast<uint64_t>(boost::endian::big_to_native(result64Be))) >> RIGHT_SHIFTS[type];
+#else
+    static constexpr uint16_t A = (1 << 8) | 56; //type = 0..23
+    static constexpr uint16_t B = (2 << 8) | 56; //type = 24
+    static constexpr uint16_t C = (3 << 8) | 48; //type = 25
+    static constexpr uint16_t D = (5 << 8) | 32; //type = 26
+    static constexpr uint16_t E = (9 << 8) | 0; //type = 27
+    static const uint16_t NUM_BYTES_PLUS_RIGHT_SHIFTS[CBOR_UINT64_TYPE + 1] = {
+        A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, //type = 0..23
+        B, C, D, E //type = 24..27
+    };
+
+    const uint8_t type = inputEncoded[0];
+    if (type > CBOR_UINT64_TYPE) { //branch prediction should never enter here
+        *numBytes = 0;
+        return 0;
+    }
+    const uint16_t rightShiftsPlusNumBytes = NUM_BYTES_PLUS_RIGHT_SHIFTS[type];
+    *numBytes = rightShiftsPlusNumBytes >> 8;
+    const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[static_cast<uint8_t>(type >= CBOR_UINT8_TYPE)]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
+    const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
+    return (static_cast<uint64_t>(boost::endian::big_to_native(result64Be))) >> (static_cast<uint8_t>(rightShiftsPlusNumBytes));
+#endif
 }
 
 
