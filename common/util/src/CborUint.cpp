@@ -678,3 +678,90 @@ bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numB
     *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
     return true;
 }
+
+
+uint64_t CborArbitrarySizeUint64ArraySerialize(uint8_t * serialization, const std::vector<uint64_t> & elements) {
+    uint8_t * const serializationBase = serialization;
+
+    uint8_t * const arrayHeaderStartPtr = serialization;
+    serialization += CborEncodeU64BufSize9(serialization, elements.size());
+    *arrayHeaderStartPtr |= (4U << 5); //change from major type 0 (unsigned integer) to major type 4 (array)
+
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+        serialization += CborEncodeU64BufSize9(serialization, elements[i]);
+    }
+    return serialization - serializationBase;
+}
+uint64_t CborArbitrarySizeUint64ArraySerializationSize(const std::vector<uint64_t> & elements) {
+    uint64_t serializationSize = CborGetEncodingSizeU64(elements.size());
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+        serializationSize += CborGetEncodingSizeU64(elements[i]);
+    }
+    return serializationSize;
+}
+bool CborArbitrarySizeUint64ArrayDeserialize(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, std::vector<uint64_t> & elements, const uint64_t maxElements) {
+    uint8_t cborUintSizeDecoded;
+    const uint8_t * const serializationBase = serialization;
+
+    if (bufferSize == 0) {
+        return false;
+    }
+    const uint8_t initialCborByte = *serialization; //buffer size verified above
+    if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
+        //An implementation of the Bundle Protocol MAY accept a sequence of
+        //bytes that does not conform to the Bundle Protocol specification
+        //(e.g., one that represents data elements in fixed-length arrays
+        //rather than indefinite-length arrays) and transform it into
+        //conformant BP structure before processing it.
+        ++serialization;
+        --bufferSize;
+        elements.resize(0);
+        elements.reserve(maxElements);
+        for (std::size_t i = 0; i < maxElements; ++i) {
+            elements.push_back(CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize));
+            if (cborUintSizeDecoded == 0) {
+                return false; //failure
+            }
+            serialization += cborUintSizeDecoded;
+            bufferSize -= cborUintSizeDecoded;
+        }
+        if (bufferSize == 0) {
+            return false;
+        }
+        const uint8_t breakStopCode = *serialization++;
+        if (breakStopCode != 0xff) {
+            return false;
+        }
+    }
+    else {
+        uint8_t * const arrayHeaderStartPtr = serialization; //buffer size verified above
+        const uint8_t cborMajorTypeArray = (*arrayHeaderStartPtr) >> 5;
+        if (cborMajorTypeArray != 4) {
+            return false; //failure
+        }
+        *arrayHeaderStartPtr &= 0x1f; //temporarily zero out major type to 0 to make it unsigned integer
+        const uint64_t numElements = CborDecodeU64(arrayHeaderStartPtr, &cborUintSizeDecoded, bufferSize);
+        *arrayHeaderStartPtr |= (4U << 5); // restore to major type to 4 (change from major type 0 (unsigned integer) to major type 4 (array))
+        if (cborUintSizeDecoded == 0) {
+            return false; //failure
+        }
+        if (numElements > maxElements) {
+            return false; //failure
+        }
+        serialization += cborUintSizeDecoded;
+        bufferSize -= cborUintSizeDecoded;
+
+        elements.resize(numElements);
+        for (std::size_t i = 0; i < numElements; ++i) {
+            elements[i] = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
+            if (cborUintSizeDecoded == 0) {
+                return false; //failure
+            }
+            serialization += cborUintSizeDecoded;
+            bufferSize -= cborUintSizeDecoded;
+        }
+    }
+
+    numBytesTakenToDecode = (serialization - serializationBase);
+    return true;
+}

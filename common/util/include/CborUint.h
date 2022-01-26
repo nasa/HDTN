@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <vector>
 
 //return output size
 //unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64);
@@ -72,5 +73,9 @@ uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t *
 uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t element1, const uint64_t element2);
 uint64_t CborTwoUint64ArraySerializationSize(const uint64_t element1, const uint64_t element2);
 bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize, uint64_t & element1, uint64_t & element2);
+
+uint64_t CborArbitrarySizeUint64ArraySerialize(uint8_t * serialization, const std::vector<uint64_t> & elements);
+uint64_t CborArbitrarySizeUint64ArraySerializationSize(const std::vector<uint64_t> & elements);
+bool CborArbitrarySizeUint64ArrayDeserialize(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, std::vector<uint64_t> & elements, const uint64_t maxElements);
 
 #endif      // _CBOR_UINT_H 

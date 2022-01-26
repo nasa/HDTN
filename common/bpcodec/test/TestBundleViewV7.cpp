@@ -690,3 +690,76 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
         }
     }
 }
+
+
+BOOST_AUTO_TEST_CASE(Bpv7BlockIntegrityBlockTestCase)
+{
+    const uint8_t crcTypeToUse = BPV7_CRC_TYPE_CRC32C;
+    Bpv7BlockIntegrityBlock bib;
+    bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+    bib.m_blockNumber = 2;
+    bib.m_crcType = crcTypeToUse;
+    bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 5000, 6000 });
+    bib.m_cipherSuiteId = 7000;
+    bib.m_cipherSuiteFlags = 0;
+    bib.SetSecuritySourcePresent();
+    bib.SetCipherSuiteParametersPresent();
+    bib.m_securitySourceOptional.Set(5, 6);
+    bib.m_cipherSuiteParametersOptional.resize(2);
+    {
+        bib.m_cipherSuiteParametersOptional[0].first = BPV7_ASB_VALUE_UNIT_TEST;
+        std::unique_ptr<Bpv7AbstractSecurityBlockValueUnitTest> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUnitTest>();
+        v->m_unitTestValue = 500;
+        bib.m_cipherSuiteParametersOptional[0].second = std::move(v);
+    }
+    {
+        bib.m_cipherSuiteParametersOptional[1].first = BPV7_ASB_VALUE_UNIT_TEST;
+        std::unique_ptr<Bpv7AbstractSecurityBlockValueUnitTest> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUnitTest>();
+        v->m_unitTestValue = 501;
+        bib.m_cipherSuiteParametersOptional[1].second = std::move(v);
+    }
+    bib.m_securityResults.resize(2);
+    {
+        bib.m_securityResults[0].first = BPV7_ASB_VALUE_UNIT_TEST;
+        std::unique_ptr<Bpv7AbstractSecurityBlockValueUnitTest> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUnitTest>();
+        v->m_unitTestValue = 502;
+        bib.m_securityResults[0].second = std::move(v);
+    }
+    {
+        bib.m_securityResults[1].first = BPV7_ASB_VALUE_UNIT_TEST;
+        std::unique_ptr<Bpv7AbstractSecurityBlockValueUnitTest> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUnitTest>();
+        v->m_unitTestValue = 503;
+        bib.m_securityResults[1].second = std::move(v);
+    }
+
+    for(unsigned int i=0; i<3; ++i) {
+        if (i == 1) {
+            bib.ClearSecuritySourcePresent();
+        }
+        if (i == 2) {
+            bib.ClearCipherSuiteParametersPresent();
+        }
+        std::vector<uint8_t> serializationVec(1000);
+        const uint64_t sizeSerialized = bib.SerializeBpv7(serializationVec.data());
+        BOOST_REQUIRE_GT(sizeSerialized, 0);
+        //std::cout << "sizeSerialized " << sizeSerialized << "\n";
+        serializationVec.resize(sizeSerialized);
+        std::vector<uint8_t> serializationVecCopy(serializationVec);
+        BOOST_REQUIRE_EQUAL(sizeSerialized, bib.GetSerializationSize());
+        std::unique_ptr<Bpv7CanonicalBlock> bib2;
+        uint64_t tmpNumBytesTakenToDecode64;
+        BOOST_REQUIRE(Bpv7CanonicalBlock::DeserializeBpv7(bib2, serializationVec.data(), tmpNumBytesTakenToDecode64, 1000, false));
+        Bpv7BlockIntegrityBlock* bibDeserializedPtr = dynamic_cast<Bpv7BlockIntegrityBlock*>(bib2.get());
+        BOOST_REQUIRE(bibDeserializedPtr);
+        BOOST_REQUIRE_EQUAL(sizeSerialized, tmpNumBytesTakenToDecode64);
+        BOOST_REQUIRE(bib == *bibDeserializedPtr);
+    
+        std::vector<uint8_t> serializationAgainVec(1000);
+        const uint64_t sizeSerializedAgain = bibDeserializedPtr->SerializeBpv7(serializationAgainVec.data());
+        BOOST_REQUIRE_GT(sizeSerializedAgain, 0);
+        serializationAgainVec.resize(sizeSerializedAgain);
+        BOOST_REQUIRE(serializationAgainVec == serializationVecCopy);
+        BOOST_REQUIRE(serializationAgainVec == serializationVec);
+    }
+}
+

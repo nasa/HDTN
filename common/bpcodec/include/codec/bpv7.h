@@ -29,13 +29,16 @@
 
 
 
+// https://www.iana.org/assignments/bundle/bundle.xhtml#block-types
+#define BPV7_BLOCKTYPE_PAYLOAD                     1U
+#define BPV7_BLOCKTYPE_PREVIOUS_NODE               6U
+#define BPV7_BLOCKTYPE_BUNDLE_AGE                  7U
+#define BPV7_BLOCKTYPE_HOP_COUNT                   10U
+#define BPV7_BLOCKTYPE_BLOCK_INTEGRITY             11U
+#define BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY       12U
 
-#define BPV7_BLOCKTYPE_PAYLOAD            1U
-#define BPV7_BLOCKTYPE_PREVIOUS_NODE      6U
-#define BPV7_BLOCKTYPE_BUNDLE_AGE         7U
-#define BPV7_BLOCKTYPE_HOP_COUNT          10U
-
-
+//abstract security block values
+#define BPV7_ASB_VALUE_UNIT_TEST 10000U
 
 struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
@@ -199,6 +202,103 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
 
     uint64_t m_hopLimit;
     uint64_t m_hopCount;
+};
+
+struct Bpv7AbstractSecurityBlockValueBase {
+    virtual uint64_t SerializeBpv7(uint8_t * serialization) = 0;
+    virtual uint64_t GetSerializationSize() const = 0;
+    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
+    virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
+};
+struct Bpv7AbstractSecurityBlockValueUnitTest : public Bpv7AbstractSecurityBlockValueBase {
+    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
+
+    uint64_t m_unitTestValue;
+};
+
+struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
+
+    typedef std::vector<uint64_t> security_targets_t;
+    typedef uint64_t cipher_suite_id_t;
+    typedef uint8_t cipher_suite_flags_t;
+    //generic typedefs for cipher suite parameters and security results
+    typedef uint64_t id_t;
+    typedef std::unique_ptr<Bpv7AbstractSecurityBlockValueBase> value_ptr_t;
+    typedef std::pair<id_t, value_ptr_t> id_value_pair_t;
+    typedef std::vector<id_value_pair_t> id_value_pairs_vec_t;
+    //cipher suite parameters:
+    typedef id_t parameter_id_t;
+    typedef value_ptr_t parameter_value_t;
+    typedef id_value_pair_t cipher_suite_parameter_t;
+    typedef id_value_pairs_vec_t cipher_suite_parameters_t;
+    //security result:
+    typedef id_t security_result_id_t;
+    typedef value_ptr_t security_result_value_t;
+    typedef id_value_pair_t security_result_t;
+    typedef id_value_pairs_vec_t security_results_t;
+
+
+    Bpv7AbstractSecurityBlock(); //a default constructor: X()
+    virtual ~Bpv7AbstractSecurityBlock(); //a destructor: ~X()
+    Bpv7AbstractSecurityBlock(const Bpv7AbstractSecurityBlock& o) = delete; //a copy constructor: X(const X&)
+    Bpv7AbstractSecurityBlock(Bpv7AbstractSecurityBlock&& o); //a move constructor: X(X&&)
+    Bpv7AbstractSecurityBlock& operator=(const Bpv7AbstractSecurityBlock& o) = delete; //a copy assignment: operator=(const X&)
+    Bpv7AbstractSecurityBlock& operator=(Bpv7AbstractSecurityBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7AbstractSecurityBlock & o) const; //operator ==
+    bool operator!=(const Bpv7AbstractSecurityBlock & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    bool IsSecuritySourcePresent() const;
+    void SetSecuritySourcePresent();
+    void ClearSecuritySourcePresent();
+    bool IsCipherSuiteParametersPresent() const;
+    void SetCipherSuiteParametersPresent();
+    void ClearCipherSuiteParametersPresent();
+
+    static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec);
+    static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
+    static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec, const uint64_t maxElements);
+    static bool DeserializeIdValuePairBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pair_t & idValuePair);
+    static bool IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2);
+
+    security_targets_t m_securityTargets;
+    cipher_suite_id_t m_cipherSuiteId;
+    cipher_suite_flags_t m_cipherSuiteFlags;
+    cbhe_eid_t m_securitySourceOptional;
+    cipher_suite_parameters_t m_cipherSuiteParametersOptional;
+    security_results_t m_securityResults;
+
+
+    
+};
+
+struct Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
+    Bpv7BlockIntegrityBlock(); //a default constructor: X()
+    virtual ~Bpv7BlockIntegrityBlock(); //a destructor: ~X()
+    Bpv7BlockIntegrityBlock(const Bpv7BlockIntegrityBlock& o) = delete; //a copy constructor: X(const X&)
+    Bpv7BlockIntegrityBlock(Bpv7BlockIntegrityBlock&& o); //a move constructor: X(X&&)
+    Bpv7BlockIntegrityBlock& operator=(const Bpv7BlockIntegrityBlock& o) = delete; //a copy assignment: operator=(const X&)
+    Bpv7BlockIntegrityBlock& operator=(Bpv7BlockIntegrityBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7BlockIntegrityBlock & o) const; //operator ==
+    bool operator!=(const Bpv7BlockIntegrityBlock & o) const; //operator !=
+    virtual void SetZero();
+};
+
+struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
+    Bpv7BlockConfidentialityBlock(); //a default constructor: X()
+    virtual ~Bpv7BlockConfidentialityBlock(); //a destructor: ~X()
+    Bpv7BlockConfidentialityBlock(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy constructor: X(const X&)
+    Bpv7BlockConfidentialityBlock(Bpv7BlockConfidentialityBlock&& o); //a move constructor: X(X&&)
+    Bpv7BlockConfidentialityBlock& operator=(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy assignment: operator=(const X&)
+    Bpv7BlockConfidentialityBlock& operator=(Bpv7BlockConfidentialityBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7BlockConfidentialityBlock & o) const; //operator ==
+    bool operator!=(const Bpv7BlockConfidentialityBlock & o) const; //operator !=
+    virtual void SetZero();
 };
 
 
