@@ -700,23 +700,22 @@ BOOST_AUTO_TEST_CASE(Bpv7BlockIntegrityBlockTestCase)
     bib.m_blockNumber = 2;
     bib.m_crcType = crcTypeToUse;
     bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 5000, 6000 });
-    bib.m_cipherSuiteId = 7000;
-    bib.m_cipherSuiteFlags = 0;
-    bib.SetSecuritySourcePresent();
-    bib.SetCipherSuiteParametersPresent();
-    bib.m_securitySourceOptional.Set(5, 6);
-    bib.m_cipherSuiteParametersOptional.resize(2);
+    bib.m_securityContextId = 7000;
+    bib.m_securityContextFlags = 0;
+    bib.SetSecurityContextParametersPresent();
+    bib.m_securitySource.Set(5, 6);
+    bib.m_securityContextParametersOptional.resize(2);
     {
-        bib.m_cipherSuiteParametersOptional[0].first = BPV7_ASB_VALUE_UNIT_TEST;
+        bib.m_securityContextParametersOptional[0].first = BPV7_ASB_VALUE_UNIT_TEST;
         std::unique_ptr<Bpv7AbstractSecurityBlockValueUnitTest> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUnitTest>();
         v->m_unitTestValue = 500;
-        bib.m_cipherSuiteParametersOptional[0].second = std::move(v);
+        bib.m_securityContextParametersOptional[0].second = std::move(v);
     }
     {
-        bib.m_cipherSuiteParametersOptional[1].first = BPV7_ASB_VALUE_UNIT_TEST;
+        bib.m_securityContextParametersOptional[1].first = BPV7_ASB_VALUE_UNIT_TEST;
         std::unique_ptr<Bpv7AbstractSecurityBlockValueUnitTest> v = boost::make_unique<Bpv7AbstractSecurityBlockValueUnitTest>();
         v->m_unitTestValue = 501;
-        bib.m_cipherSuiteParametersOptional[1].second = std::move(v);
+        bib.m_securityContextParametersOptional[1].second = std::move(v);
     }
     bib.m_securityResults.resize(2);
     {
@@ -732,12 +731,9 @@ BOOST_AUTO_TEST_CASE(Bpv7BlockIntegrityBlockTestCase)
         bib.m_securityResults[1].second = std::move(v);
     }
 
-    for(unsigned int i=0; i<3; ++i) {
+    for(unsigned int i=0; i<2; ++i) {
         if (i == 1) {
-            bib.ClearSecuritySourcePresent();
-        }
-        if (i == 2) {
-            bib.ClearCipherSuiteParametersPresent();
+            bib.ClearSecurityContextParametersPresent();
         }
         std::vector<uint8_t> serializationVec(1000);
         const uint64_t sizeSerialized = bib.SerializeBpv7(serializationVec.data());

@@ -222,8 +222,8 @@ struct Bpv7AbstractSecurityBlockValueUnitTest : public Bpv7AbstractSecurityBlock
 struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
 
     typedef std::vector<uint64_t> security_targets_t;
-    typedef uint64_t cipher_suite_id_t;
-    typedef uint8_t cipher_suite_flags_t;
+    typedef uint64_t security_context_id_t;
+    typedef uint8_t security_context_flags_t;
     //generic typedefs for cipher suite parameters and security results
     typedef uint64_t id_t;
     typedef std::unique_ptr<Bpv7AbstractSecurityBlockValueBase> value_ptr_t;
@@ -232,8 +232,8 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     //cipher suite parameters:
     typedef id_t parameter_id_t;
     typedef value_ptr_t parameter_value_t;
-    typedef id_value_pair_t cipher_suite_parameter_t;
-    typedef id_value_pairs_vec_t cipher_suite_parameters_t;
+    typedef id_value_pair_t security_context_parameter_t;
+    typedef id_value_pairs_vec_t security_context_parameters_t;
     //security result:
     typedef id_t security_result_id_t;
     typedef value_ptr_t security_result_value_t;
@@ -253,12 +253,9 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
-    bool IsSecuritySourcePresent() const;
-    void SetSecuritySourcePresent();
-    void ClearSecuritySourcePresent();
-    bool IsCipherSuiteParametersPresent() const;
-    void SetCipherSuiteParametersPresent();
-    void ClearCipherSuiteParametersPresent();
+    bool IsSecurityContextParametersPresent() const;
+    void SetSecurityContextParametersPresent();
+    void ClearSecurityContextParametersPresent();
 
     static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec);
     static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
@@ -267,10 +264,10 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     static bool IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2);
 
     security_targets_t m_securityTargets;
-    cipher_suite_id_t m_cipherSuiteId;
-    cipher_suite_flags_t m_cipherSuiteFlags;
-    cbhe_eid_t m_securitySourceOptional;
-    cipher_suite_parameters_t m_cipherSuiteParametersOptional;
+    security_context_id_t m_securityContextId;
+    security_context_flags_t m_securityContextFlags;
+    cbhe_eid_t m_securitySource;
+    security_context_parameters_t m_securityContextParametersOptional;
     security_results_t m_securityResults;
 
 

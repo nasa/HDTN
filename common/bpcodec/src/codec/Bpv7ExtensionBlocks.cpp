@@ -254,33 +254,33 @@ Bpv7AbstractSecurityBlock::~Bpv7AbstractSecurityBlock() { } //a destructor: ~X()
 Bpv7AbstractSecurityBlock::Bpv7AbstractSecurityBlock(Bpv7AbstractSecurityBlock&& o) :
     Bpv7CanonicalBlock(std::move(o)),
     m_securityTargets(std::move(o.m_securityTargets)),
-    m_cipherSuiteId(o.m_cipherSuiteId),
-    m_cipherSuiteFlags(o.m_cipherSuiteFlags),
-    m_securitySourceOptional(std::move(o.m_securitySourceOptional)),
-    m_cipherSuiteParametersOptional(std::move(o.m_cipherSuiteParametersOptional)),
+    m_securityContextId(o.m_securityContextId),
+    m_securityContextFlags(o.m_securityContextFlags),
+    m_securitySource(std::move(o.m_securitySource)),
+    m_securityContextParametersOptional(std::move(o.m_securityContextParametersOptional)),
     m_securityResults(std::move(o.m_securityResults)) { } //a move constructor: X(X&&)
 Bpv7AbstractSecurityBlock& Bpv7AbstractSecurityBlock::operator=(Bpv7AbstractSecurityBlock && o) { //a move assignment: operator=(X&&)
     m_securityTargets = std::move(o.m_securityTargets);
-    m_cipherSuiteId = o.m_cipherSuiteId;
-    m_cipherSuiteFlags = o.m_cipherSuiteFlags;
-    m_securitySourceOptional = std::move(o.m_securitySourceOptional);
-    m_cipherSuiteParametersOptional = std::move(o.m_cipherSuiteParametersOptional);
+    m_securityContextId = o.m_securityContextId;
+    m_securityContextFlags = o.m_securityContextFlags;
+    m_securitySource = std::move(o.m_securitySource);
+    m_securityContextParametersOptional = std::move(o.m_securityContextParametersOptional);
     m_securityResults = std::move(o.m_securityResults);
     return static_cast<Bpv7AbstractSecurityBlock&>(Bpv7CanonicalBlock::operator=(std::move(o)));
 }
 bool Bpv7AbstractSecurityBlock::operator==(const Bpv7AbstractSecurityBlock & o) const {
     const bool initialTest = (m_securityTargets == o.m_securityTargets)
-        && (m_cipherSuiteId == o.m_cipherSuiteId)
-        && (m_cipherSuiteFlags == o.m_cipherSuiteFlags)
-        && ((IsSecuritySourcePresent()) ? (m_securitySourceOptional == o.m_securitySourceOptional) : true)
+        && (m_securityContextId == o.m_securityContextId)
+        && (m_securityContextFlags == o.m_securityContextFlags)
+        && (m_securitySource == o.m_securitySource)
         //&& ((IsCipherSuiteParametersPresent()) ? (m_cipherSuiteParametersOptional == o.m_cipherSuiteParametersOptional) : true)
         //&& (m_securityResults == o.m_securityResults)
         && Bpv7CanonicalBlock::operator==(o);
     if (!initialTest) {
         return false;
     }
-    if (IsCipherSuiteParametersPresent()) {
-        if (!Bpv7AbstractSecurityBlock::IsEqual(m_cipherSuiteParametersOptional, o.m_cipherSuiteParametersOptional)) {
+    if (IsSecurityContextParametersPresent()) {
+        if (!Bpv7AbstractSecurityBlock::IsEqual(m_securityContextParametersOptional, o.m_securityContextParametersOptional)) {
             return false;
         }
     }
@@ -292,47 +292,43 @@ bool Bpv7AbstractSecurityBlock::operator!=(const Bpv7AbstractSecurityBlock & o) 
 void Bpv7AbstractSecurityBlock::SetZero() {
     Bpv7CanonicalBlock::SetZero();
     m_securityTargets.clear();
-    m_cipherSuiteId = 0;
-    m_cipherSuiteFlags = 0;
-    m_securitySourceOptional.SetZero();
-    m_cipherSuiteParametersOptional.clear();
+    m_securityContextId = 0;
+    m_securityContextFlags = 0;
+    m_securitySource.SetZero();
+    m_securityContextParametersOptional.clear();
     m_securityResults.clear();
     m_blockTypeCode = 0; //??
 }
 
-//Cipher Suite Flags:
-//This field identifies which optional fields are present in the security block.
-//This field SHALL be represented as a CBOR unsigned integer containing a bit field of 5 bits indicating
-//the presence or absence of other security block fields, as follows.
-//    Bit 1
-//        (the most-significant bit, 0x10): reserved.
-//    Bit 2
-//        (0x08): reserved.
-//    Bit 3
-//        (0x04): reserved.
-//    Bit 4
-//        (0x02): Security Source Present Flag.
-//    Bit 5
-//        (the least-significant bit, 0x01): Cipher Suite Parameters Present Flag.
-//        In this field, a value of 1 indicates that the associated security block field MUST be included in the security block.
-//        A value of 0 indicates that the associated security block field MUST NOT be in the security block.
-bool Bpv7AbstractSecurityBlock::IsSecuritySourcePresent() const {
-    return ((m_cipherSuiteFlags & 0x2) != 0);
+
+//Security Context Flags:
+//This field identifies which optional fields are present in the
+//security block.  This field SHALL be represented as a CBOR
+//unsigned integer whose contents shall be interpreted as a bit
+//field.  Each bit in this bit field indicates the presence (bit
+//set to 1) or absence (bit set to 0) of optional data in the
+//security block.  The association of bits to security block data
+//is defined as follows.
+//
+//Bit 0  (the least-significant bit, 0x01): Security Context
+//    Parameters Present Flag.
+//
+//Bit >0 Reserved
+//
+//Implementations MUST set reserved bits to 0 when writing this
+//field and MUST ignore the values of reserved bits when reading
+//this field.  For unreserved bits, a value of 1 indicates that
+//the associated security block field MUST be included in the
+//security block.  A value of 0 indicates that the associated
+//security block field MUST NOT be in the security block.
+bool Bpv7AbstractSecurityBlock::IsSecurityContextParametersPresent() const {
+    return ((m_securityContextFlags & 0x1) != 0);
 }
-void Bpv7AbstractSecurityBlock::SetSecuritySourcePresent() {
-    m_cipherSuiteFlags |= 0x2;
+void Bpv7AbstractSecurityBlock::SetSecurityContextParametersPresent() {
+    m_securityContextFlags |= 0x1;
 }
-void Bpv7AbstractSecurityBlock::ClearSecuritySourcePresent() {
-    m_cipherSuiteFlags &= ~(static_cast<uint8_t>(0x2));
-}
-bool Bpv7AbstractSecurityBlock::IsCipherSuiteParametersPresent() const {
-    return ((m_cipherSuiteFlags & 0x1) != 0);
-}
-void Bpv7AbstractSecurityBlock::SetCipherSuiteParametersPresent() {
-    m_cipherSuiteFlags |= 0x1;
-}
-void Bpv7AbstractSecurityBlock::ClearCipherSuiteParametersPresent() {
-    m_cipherSuiteFlags &= ~(static_cast<uint8_t>(0x1));
+void Bpv7AbstractSecurityBlock::ClearSecurityContextParametersPresent() {
+    m_securityContextFlags &= ~(static_cast<uint8_t>(0x1));
 }
 
 uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
@@ -340,79 +336,115 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     std::vector<uint8_t> tempData(1000); //todo size
     uint8_t * serializationTempData = tempData.data();
 
-    //The fields of the ASB SHALL be as follows, listed in the order in which they must appear.
+    //The fields of the ASB SHALL be as follows, listed in the order in
+    //which they must appear.  The encoding of these fields MUST be in
+    //accordance with the canonical forms provided in Section 4.
 
+    
     //Security Targets:
-    //This field identifies the block(s) targeted by the security operation(s)
-    //represented by this security block. Each target block is represented by
-    //its unique Block Number. This field SHALL be represented by a CBOR array of data items.
-    //Each target within this CBOR array SHALL be represented by a CBOR unsigned integer.
-    //This array MUST have at least 1 entry and each entry MUST represent the Block Number
-    //of a block that exists in the bundle. There MUST NOT be duplicate entries in this array.
+    //This field identifies the block(s) targeted by the security
+    //operation(s) represented by this security block.  Each target
+    //block is represented by its unique Block Number.  This field
+    //SHALL be represented by a CBOR array of data items.  Each
+    //target within this CBOR array SHALL be represented by a CBOR
+    //unsigned integer.  This array MUST have at least 1 entry and
+    //each entry MUST represent the Block Number of a block that
+    //exists in the bundle.  There MUST NOT be duplicate entries in
+    //this array.  The order of elements in this list has no semantic
+    //meaning outside of the context of this block.  Within the
+    //block, the ordering of targets must match the ordering of
+    //results associated with these targets.
     serializationTempData += CborArbitrarySizeUint64ArraySerialize(serializationTempData, m_securityTargets);
 
-    //Cipher Suite Id:
-    //This field identifies the cipher suite used to implement the security service represented
-    //by this block and applied to each security target. This field SHALL be represented by a CBOR unsigned integer.
-    serializationTempData += CborEncodeU64BufSize9(serializationTempData, m_cipherSuiteId);
+    //Security Context Id:
+    //This field identifies the security context used to implement
+    //the security service represented by this block and applied to
+    //each security target.  This field SHALL be represented by a
+    //CBOR unsigned integer.  The values for this Id should come from
+    //the registry defined in Section 11.3
+    serializationTempData += CborEncodeU64BufSize9(serializationTempData, m_securityContextId);
 
-    //Cipher Suite Flags:
-    //This field identifies which optional fields are present in the security block.
-    //This field SHALL be represented as a CBOR unsigned integer containing a bit field of 5 bits indicating
-    //the presence or absence of other security block fields, as follows.
-    //    Bit 1
-    //        (the most-significant bit, 0x10): reserved.
-    //    Bit 2
-    //        (0x08): reserved.
-    //    Bit 3
-    //        (0x04): reserved.
-    //    Bit 4
-    //        (0x02): Security Source Present Flag.
-    //    Bit 5
-    //        (the least-significant bit, 0x01): Cipher Suite Parameters Present Flag.
-    //        In this field, a value of 1 indicates that the associated security block field MUST be included in the security block.
-    //        A value of 0 indicates that the associated security block field MUST NOT be in the security block.
-    serializationTempData += CborEncodeU64BufSize9(serializationTempData, m_cipherSuiteFlags);
+    //Security Context Flags:
+    //This field identifies which optional fields are present in the
+    //security block.  This field SHALL be represented as a CBOR
+    //unsigned integer whose contents shall be interpreted as a bit
+    //field.  Each bit in this bit field indicates the presence (bit
+    //set to 1) or absence (bit set to 0) of optional data in the
+    //security block.  The association of bits to security block data
+    //is defined as follows.
+    //
+    //Bit 0  (the least-significant bit, 0x01): Security Context
+    //    Parameters Present Flag.
+    //
+    //Bit >0 Reserved
+    //
+    //Implementations MUST set reserved bits to 0 when writing this
+    //field and MUST ignore the values of reserved bits when reading
+    //this field.  For unreserved bits, a value of 1 indicates that
+    //the associated security block field MUST be included in the
+    //security block.  A value of 0 indicates that the associated
+    //security block field MUST NOT be in the security block.
+    serializationTempData += CborEncodeU64BufSize9(serializationTempData, m_securityContextFlags);
 
-    //Security Source (Optional Field):
-    //This field identifies the Endpoint that inserted the security block in the bundle.
-    //If the security source field is not present then the source MAY be inferred from other information,
-    //such as the bundle source or the previous hop, as defined by security policy.
-    //This field SHALL be represented by a CBOR array in accordance with [BPBIS] rules for representing Endpoint Identifiers (EIDs).
-    if (IsSecuritySourcePresent()) {
-        serializationTempData += m_securitySourceOptional.SerializeBpv7(serializationTempData);
-    }
+    //Security Source:
+    //This field identifies the Endpoint that inserted the security
+    //block in the bundle.  This field SHALL be represented by a CBOR
+    //array in accordance with [I-D.ietf-dtn-bpbis] rules for
+    //representing Endpoint Identifiers (EIDs).
+    serializationTempData += m_securitySource.SerializeBpv7(serializationTempData);
 
-    //Cipher Suite Parameters (Optional Field):
-    //This field captures one or more cipher suite parameters that should be provided to security-aware
-    //nodes when processing the security service described by this security block.
-    //This field SHALL be represented by a CBOR array. Each entry in this array is a single cipher suite parameter.
-    //A single cipher suite parameter SHALL also be represented as a CBOR array
-    //comprising a 2-tuple of the id and value of the parameter, as follows.
-    //    Parameter Id. This field identifies which cipher suite parameter is being specified.
-    //      This field SHALL be represented as a CBOR unsigned integer. Parameter ids are selected as described in Section 3.10.
-    //    Parameter Value. This field captures the value associated with this parameter.
-    //      This field SHALL be represented by the applicable CBOR representation of the parameter, in accordance with Section 3.10.
-    if (IsCipherSuiteParametersPresent()) {
-        serializationTempData += SerializeIdValuePairsVecBpv7(serializationTempData, m_cipherSuiteParametersOptional);
+    //Security Context Parameters (Optional):
+    //This field captures one or more security context parameters
+    //that should be used when processing the security service
+    //described by this security block.  This field SHALL be
+    //represented by a CBOR array.  Each entry in this array is a
+    //single security context parameter.  A single parameter SHALL
+    //also be represented as a CBOR array comprising a 2-tuple of the
+    //id and value of the parameter, as follows.
+    //
+    //*  Parameter Id.  This field identifies which parameter is
+    //   being specified.  This field SHALL be represented as a CBOR
+    //   unsigned integer.  Parameter Ids are selected as described
+    //   in Section 3.10.
+    //
+    //*  Parameter Value.  This field captures the value associated
+    //   with this parameter.  This field SHALL be represented by the
+    //   applicable CBOR representation of the parameter, in
+    //   accordance with Section 3.10.
+    if (IsSecurityContextParametersPresent()) {
+        serializationTempData += SerializeIdValuePairsVecBpv7(serializationTempData, m_securityContextParametersOptional);
     }
 
     //Security Results:
-    //This field captures the results of applying a security service to the security targets of the security block.
-    //This field SHALL be represented as a CBOR array of target results.
-    //Each entry in this array represents the set of security results for a specific security target.
-    //The target results MUST be ordered identically to the Security Targets field of the security block.
-    //This means that the first set of target results in this array corresponds to the first entry in
-    //the Security Targets field of the security block, and so on.
-    //There MUST be one entry in this array for each entry in the Security Targets field of the security block.
-    //The set of security results for a target is also represented as a CBOR array of individual results.
-    //An individual result is represented as a 2-tuple of a result id and a result value, defined as follows.
-    //    Result Id. This field identifies which security result is being specified.
-    //        Some security results capture the primary output of a cipher suite.
-    //        Other security results contain additional annotative information from cipher suite processing.
-    //        This field SHALL be represented as a CBOR unsigned integer. Security result ids will be as specified in Section 3.10.
-    //    Result Value. This field captures the value associated with the result.
-    //        This field SHALL be represented by the applicable CBOR representation of the result value, in accordance with Section 3.10.
+    //This field captures the results of applying a security service
+    //to the security targets of the security block.  This field
+    //SHALL be represented as a CBOR array of target results.  Each
+    //entry in this array represents the set of security results for
+    //a specific security target.  The target results MUST be ordered
+    //identically to the Security Targets field of the security
+    //block.  This means that the first set of target results in this
+    //array corresponds to the first entry in the Security Targets
+    //field of the security block, and so on.  There MUST be one
+    //entry in this array for each entry in the Security Targets
+    //field of the security block.
+    //
+    //The set of security results for a target is also represented as
+    //a CBOR array of individual results.  An individual result is
+    //represented as a 2-tuple of a result id and a result value,
+    //defined as follows.
+    //
+    //*  Result Id.  This field identifies which security result is
+    //   being specified.  Some security results capture the primary
+    //   output of a cipher suite.  Other security results contain
+    //   additional annotative information from cipher suite
+    //   processing.  This field SHALL be represented as a CBOR
+    //   unsigned integer.  Security result Ids will be as specified
+    //   in Section 3.10.
+    //
+    //*  Result Value.  This field captures the value associated with
+    //   the result.  This field SHALL be represented by the
+    //   applicable CBOR representation of the result value, in
+    //   accordance with Section 3.10.
     serializationTempData += SerializeIdValuePairsVecBpv7(serializationTempData, m_securityResults);
     
     m_dataPtr = tempData.data();
@@ -421,13 +453,11 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
 }
 uint64_t Bpv7AbstractSecurityBlock::GetSerializationSize() const {
     uint64_t serializationSize = CborArbitrarySizeUint64ArraySerializationSize(m_securityTargets);
-    serializationSize += CborGetEncodingSizeU64(m_cipherSuiteId);
-    serializationSize += CborGetEncodingSizeU64(m_cipherSuiteFlags);
-    if (IsSecuritySourcePresent()) {
-        serializationSize += m_securitySourceOptional.GetSerializationSizeBpv7();
-    }
-    if (IsCipherSuiteParametersPresent()) {
-        serializationSize += IdValuePairsVecBpv7SerializationSize(m_cipherSuiteParametersOptional);
+    serializationSize += CborGetEncodingSizeU64(m_securityContextId);
+    serializationSize += CborGetEncodingSizeU64(m_securityContextFlags);
+    serializationSize += m_securitySource.GetSerializationSizeBpv7();
+    if (IsSecurityContextParametersPresent()) {
+        serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityContextParametersOptional);
     }
     serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityResults);
     return Bpv7CanonicalBlock::GetSerializationSize(serializationSize);
@@ -450,7 +480,7 @@ bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
     serialization += tmpNumBytesTakenToDecode64;
     bufferSize -= tmpNumBytesTakenToDecode64;
 
-    m_cipherSuiteId = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
+    m_securityContextId = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
     if (cborUintSizeDecoded == 0) {
         return false; //failure
     }
@@ -464,20 +494,18 @@ bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
     if(tmpCipherSuiteFlags64 > 0x1f) {
         return false; //failure
     }
-    m_cipherSuiteFlags = static_cast<uint8_t>(tmpCipherSuiteFlags64);
+    m_securityContextFlags = static_cast<uint8_t>(tmpCipherSuiteFlags64);
     serialization += cborUintSizeDecoded;
     bufferSize -= cborUintSizeDecoded;
 
-    if (IsSecuritySourcePresent()) {
-        if(!m_securitySourceOptional.DeserializeBpv7(serialization, &numBytesTakenToDecode, m_dataLength)) {
-            return false; //failure
-        }
-        serialization += numBytesTakenToDecode;
-        bufferSize -= numBytesTakenToDecode;
+    if(!m_securitySource.DeserializeBpv7(serialization, &numBytesTakenToDecode, m_dataLength)) {
+        return false; //failure
     }
+    serialization += numBytesTakenToDecode;
+    bufferSize -= numBytesTakenToDecode;
 
-    if (IsCipherSuiteParametersPresent()) {
-        if(!DeserializeIdValuePairsVecBpv7(serialization, tmpNumBytesTakenToDecode64, bufferSize, m_cipherSuiteParametersOptional, maxElements)) {
+    if (IsSecurityContextParametersPresent()) {
+        if(!DeserializeIdValuePairsVecBpv7(serialization, tmpNumBytesTakenToDecode64, bufferSize, m_securityContextParametersOptional, maxElements)) {
             return false; //failure
         }
         serialization += tmpNumBytesTakenToDecode64;
