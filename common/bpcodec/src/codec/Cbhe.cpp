@@ -64,6 +64,25 @@ std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
     return os;
 }
 
+
+//Each BP endpoint ID (EID) SHALL be represented as a CBOR array
+//comprising two items.
+//The first item of the array SHALL be the code number identifying the
+//endpoint ID's URI scheme, as defined in the registry of URI scheme
+//code numbers for Bundle Protocol.  Each URI scheme code number SHALL
+//be represented as a CBOR unsigned integer.
+//The second item of the array SHALL be the applicable CBOR
+//representation of the scheme-specific part (SSP) of the EID, defined
+//as noted in the references(s) for the URI scheme code number
+//registry entry for the EID's URI scheme.
+//   $eid /= [
+//     uri-code: 2,
+//     SSP: [
+//       nodenum: uint,
+//       servicenum: uint
+//     ]
+//   ]
+//
 //For transmission as a BP endpoint ID, the
 //scheme-specific part of a URI of the ipn scheme the SSP SHALL be
 //represented as a CBOR array comprising two items.  The first item of
@@ -74,13 +93,53 @@ std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
 //integer.  For all other purposes, URIs of the ipn scheme are encoded
 //exclusively in US-ASCII characters.
 uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
-    return CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
+    uint8_t * const serializationBase = serialization;
+    *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
+    *serialization++ = 2; //uri-code: 2
+    serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
+    return serialization - serializationBase;
 }
 uint64_t cbhe_eid_t::GetSerializationSizeBpv7() const {
-    return CborTwoUint64ArraySerializationSize(nodeId, serviceId);
+    return 2 + CborTwoUint64ArraySerializationSize(nodeId, serviceId); //2 => outer array byte + uri-code byte
 }
 bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
-    return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, bufferSize, nodeId, serviceId);
+    const uint8_t * const serializationBase = serialization;
+    if (bufferSize < 2) {
+        return false;
+    }
+    bufferSize -= 2; //initialCborByte + uriCodeByte
+    const uint8_t initialCborByte = *serialization++;
+    if ((initialCborByte != ((4U << 5) | 2U)) && //major type 4, additional information 2 (array of length 2)
+        (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
+        return false;
+    }
+    const uint8_t uriCodeByte = *serialization++;
+    if (uriCodeByte != 2) {
+        return false;
+    }
+    uint8_t numBytesTakenToDecodeUri;
+    if (!CborTwoUint64ArrayDeserialize(serialization, &numBytesTakenToDecodeUri, bufferSize, nodeId, serviceId)) {
+        return false;
+    }
+    serialization += numBytesTakenToDecodeUri;
+    //An implementation of the Bundle Protocol MAY accept a sequence of
+    //bytes that does not conform to the Bundle Protocol specification
+    //(e.g., one that represents data elements in fixed-length arrays
+    //rather than indefinite-length arrays) and transform it into
+    //conformant BP structure before processing it.
+    if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
+        bufferSize -= numBytesTakenToDecodeUri; //from element 2 above
+        if (bufferSize == 0) {
+            return false;
+        }
+        const uint8_t breakStopCode = *serialization++;
+        if (breakStopCode != 0xff) {
+            return false;
+        }
+    }
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
 }
 
 
