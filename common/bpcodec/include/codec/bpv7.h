@@ -5,6 +5,7 @@
 #include "Cbhe.h"
 #include "TimestampUtil.h"
 #include "codec/PrimaryBlock.h"
+#include "codec/Cose.h"
 
 #define BPV7_CRC_TYPE_NONE        0
 #define BPV7_CRC_TYPE_CRC16_X25   1
@@ -37,8 +38,163 @@
 #define BPV7_BLOCKTYPE_BLOCK_INTEGRITY             11U
 #define BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY       12U
 
+//https://www.iana.org/assignments/bundle/bundle.xhtml
+enum class BPSEC_SECURITY_CONTEXT_IDENTIFIERS {
+    //name = value          Description
+    //------------          -----------
+    BIB_HMAC_SHA2 = 1, //   BIB-HMAC-SHA2  [RFC-ietf-dtn-bpsec-default-sc-11]
+    BCB_AES_GCM = 2 //      BCB-AES-GCM    [RFC-ietf-dtn-bpsec-default-sc-11]
+};
+enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS {
+    //name = value                       Description
+    //------------                       -----------
+    INCLUDE_PRIMARY_BLOCK_FLAG = 0, //   [RFC-ietf-dtn-bpsec-default-sc-11]
+    INCLUDE_TARGET_HEADER_FLAG = 1, //   [RFC-ietf-dtn-bpsec-default-sc-11]
+    INCLUDE_SECURITY_HEADER_FLAG = 2 //  [RFC-ietf-dtn-bpsec-default-sc-11]
+};
+enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS {
+    //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/ 3.3.3.  Integrity Scope Flags
+    //Bit 0 (the low-order bit, 0x0001): Primary Block Flag.
+    //Bit 1 (0x0002): Target Header Flag.
+    //Bit 2 (0x0004): Security Header Flag.
+    NO_ADDITIONAL_SCOPE = 0,
+    INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
+    INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
+    INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+};
+/*
+//https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
+3.3.4.  Enumerations
+
+   The BIB-HMAC-SHA2 security context parameters are listed in Table 2.
+   In this table, the "Parm Id" column refers to the expected Parameter
+   Identifier described in [I-D.ietf-dtn-bpsec], Section 3.10 "Parameter
+   and Result Identification".
+
+   If the default value column is empty, this indicates that the
+   security parameter does not have a default value.
+
+   BIB-HMAC-SHA2 Security Parameters
+
+      +=========+=============+====================+===============+
+      | Parm Id |  Parm Name  | CBOR Encoding Type | Default Value |
+      +=========+=============+====================+===============+
+      |    1    | SHA Variant |  unsigned integer  |       6       |
+      +---------+-------------+--------------------+---------------+
+      |    2    | Wrapped Key |    Byte String     |               |
+      +---------+-------------+--------------------+---------------+
+      |    3    |  Integrity  |  unsigned integer  |       7       |
+      |         | Scope Flags |                    |               |
+      +---------+-------------+--------------------+---------------+
+
+                                 Table 2*/
+enum class BPSEC_BIB_HMAX_SHA2_SECURITY_PARAMETERS {
+    SHA_VARIANT = 1,
+    WRAPPED_KEY = 2,
+    INTEGRITY_SCOPE_FLAGS = 3
+};
+/*
+//https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
+3.4.  Results
+
+   The BIB-HMAC-SHA2 security context results are listed in Table 3.  In
+   this table, the "Result Id" column refers to the expected Result
+   Identifier described in [I-D.ietf-dtn-bpsec], Section 3.10 "Parameter
+   and Result Identification".
+
+   BIB-HMAC-SHA2 Security Results
+
+       +========+==========+===============+======================+
+       | Result |  Result  | CBOR Encoding |     Description      |
+       |   Id   |   Name   |      Type     |                      |
+       +========+==========+===============+======================+
+       |   1    | Expected |  byte string  |  The output of the   |
+       |        |   HMAC   |               | HMAC calculation at  |
+       |        |          |               | the security source. |
+       +--------+----------+---------------+----------------------+
+
+                                 Table 3*/
+enum class BPSEC_BIB_HMAX_SHA2_SECURITY_RESULTS {
+    EXPECTED_HMAC = 1
+};
+
+enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS { //BPSec BCB-AES-GCM AAD Scope Flag
+    //name = value                       Description
+    //------------                       -----------
+    INCLUDE_PRIMARY_BLOCK_FLAG = 0, //   [RFC-ietf-dtn-bpsec-default-sc-11]
+    INCLUDE_TARGET_HEADER_FLAG = 1, //   [RFC-ietf-dtn-bpsec-default-sc-11]
+    INCLUDE_SECURITY_HEADER_FLAG = 2 //  [RFC-ietf-dtn-bpsec-default-sc-11]
+};
+enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS {
+    //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/ 4.3.4.  AAD Scope Flags
+    //Bit 0 (the low-order bit, 0x0001): Primary Block Flag.
+    //Bit 1 (0x0002): Target Header Flag.
+    //Bit 2 (0x0004): Security Header Flag.
+    NO_ADDITIONAL_SCOPE = 0,
+    INCLUDE_PRIMARY_BLOCK = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_PRIMARY_BLOCK_FLAG)),
+    INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
+    INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
+};
+/*
+//https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
+4.3.5.  Enumerations
+
+   The BCB-AES-GCM security context parameters are listed in Table 5.
+   In this table, the "Parm Id" column refers to the expected Parameter
+   Identifier described in [I-D.ietf-dtn-bpsec], Section 3.10 "Parameter
+   and Result Identification".
+
+   If the default value column is empty, this indicates that the
+   security parameter does not have a default value.
+
+   BCB-AES-GCM Security Parameters
+
+     +=========+================+====================+===============+
+     | Parm Id |   Parm Name    | CBOR Encoding Type | Default Value |
+     +=========+================+====================+===============+
+     |    1    | Initialization |    Byte String     |               |
+     |         |     Vector     |                    |               |
+     +---------+----------------+--------------------+---------------+
+     |    2    |  AES Variant   |  Unsigned Integer  |       3       |
+     +---------+----------------+--------------------+---------------+
+     |    3    |  Wrapped Key   |    Byte String     |               |
+     +---------+----------------+--------------------+---------------+
+     |    4    |   AAD Scope    |  Unsigned Integer  |       7       |
+     |         |     Flags      |                    |               |
+     +---------+----------------+--------------------+---------------+
+
+                                  Table 5*/
+enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS {
+    INITIALIZATION_VECTOR = 1,
+    AES_VARIANT = 2,
+    WRAPPED_KEY = 3,
+    AAD_SCOPE_FLAGS = 4
+};
+/*
+//https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
+4.4.2.  Enumerations
+
+   The BCB-AES-GCM security context results are listed in Table 6.  In
+   this table, the "Result Id" column refers to the expected Result
+   Identifier described in [I-D.ietf-dtn-bpsec], Section 3.10 "Parameter
+   and Result Identification".
+
+   BCB-AES-GCM Security Results
+
+          +===========+====================+====================+
+          | Result Id |    Result Name     | CBOR Encoding Type |
+          +===========+====================+====================+
+          |     1     | Authentication Tag |    Byte String     |
+          +-----------+--------------------+--------------------+
+
+                                  Table 6*/
+enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS {
+    AUTHENTICATION_TAG = 1
+};
+
 //abstract security block values
-#define BPV7_ASB_VALUE_UNIT_TEST 10000U
+#define BPV7_ASB_VALUE_UINT 1
+#define BPV7_ASB_VALUE_BYTE_STRING 2
 
 struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
@@ -210,13 +366,21 @@ struct Bpv7AbstractSecurityBlockValueBase {
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
 };
-struct Bpv7AbstractSecurityBlockValueUnitTest : public Bpv7AbstractSecurityBlockValueBase {
+struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
     virtual uint64_t SerializeBpv7(uint8_t * serialization);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
 
-    uint64_t m_unitTestValue;
+    uint64_t m_uintValue;
+};
+struct Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
+    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
+
+    std::vector<uint8_t> m_byteString;
 };
 
 struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
@@ -256,11 +420,14 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     bool IsSecurityContextParametersPresent() const;
     void SetSecurityContextParametersPresent();
     void ClearSecurityContextParametersPresent();
+    void SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS id);
 
     static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec);
     static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
-    static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec, const uint64_t maxElements);
-    static bool DeserializeIdValuePairBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pair_t & idValuePair);
+    static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec,
+        const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters, const uint64_t maxElements);
+    static bool DeserializeIdValuePairBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pair_t & idValuePair,
+        const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters);
     static bool IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2);
 
     security_targets_t m_securityTargets;
@@ -270,8 +437,9 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     security_context_parameters_t m_securityContextParametersOptional;
     security_results_t m_securityResults;
 
-
-    
+protected:
+    std::vector<uint8_t> * Protected_AppendAndGetSecurityResultByteStringPtr(uint64_t resultType);
+    std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
 };
 
 struct Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
@@ -284,6 +452,14 @@ struct Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
     bool operator==(const Bpv7BlockIntegrityBlock & o) const; //operator ==
     bool operator!=(const Bpv7BlockIntegrityBlock & o) const; //operator !=
     virtual void SetZero();
+    
+    bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
+    COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
+    bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
+    bool IsSecurityParameterIntegrityScopePresentAndSet(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) const;
+    std::vector<uint8_t> * AddAndGetWrappedKeyPtr();
+    std::vector<uint8_t> * AppendAndGetExpectedHmacPtr();
+    std::vector<std::vector<uint8_t>*> GetAllExpectedHmacPtrs();
 };
 
 struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
@@ -296,6 +472,17 @@ struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
     bool operator==(const Bpv7BlockConfidentialityBlock & o) const; //operator ==
     bool operator!=(const Bpv7BlockConfidentialityBlock & o) const; //operator !=
     virtual void SetZero();
+
+    bool AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg);
+    COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
+    bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
+    bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
+    std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
+    std::vector<uint8_t> * AddAndGetInitializationVectorPtr();
+    std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
+    std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
+private:
+    std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
 
 

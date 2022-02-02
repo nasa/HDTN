@@ -58,10 +58,12 @@ public:
         void SetManuallyModified();
     };
     struct Bpv7CanonicalBlockView {
+        Bpv7CanonicalBlockView();
         std::unique_ptr<Bpv7CanonicalBlock> headerPtr;
         boost::asio::const_buffer actualSerializedBlockPtr;
         bool dirty;
         bool markedForDeletion;
+        bool isEncrypted;
 
         void SetManuallyModified();
     };
@@ -71,6 +73,8 @@ public:
 
     void AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
     void PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
+    bool InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
+    bool InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
     bool GetSerializationSize(uint64_t & serializationSize) const;
     std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
@@ -92,6 +96,7 @@ public:
     Bpv7PrimaryBlockView m_primaryBlockView;
     const uint8_t * m_applicationDataUnitStartPtr;
     std::list<Bpv7CanonicalBlockView> m_listCanonicalBlockView; //list will maintain block relative order
+    std::map<uint64_t, Bpv7BlockConfidentialityBlock*> m_mapEncryptedBlockNumberToBcbPtr;
 
     boost::asio::const_buffer m_renderedBundle;
     std::vector<uint8_t> m_frontBuffer;

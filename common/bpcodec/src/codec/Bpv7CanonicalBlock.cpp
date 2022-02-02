@@ -54,14 +54,26 @@ Bpv7CanonicalBlock& Bpv7CanonicalBlock::operator=(Bpv7CanonicalBlock && o) { //a
     return *this;
 }
 bool Bpv7CanonicalBlock::operator==(const Bpv7CanonicalBlock & o) const {
-    return (m_blockNumber == o.m_blockNumber)
+    const bool initialValue = (m_blockNumber == o.m_blockNumber)
         && (m_blockProcessingControlFlags == o.m_blockProcessingControlFlags)
-        && (m_dataPtr == o.m_dataPtr)
+        //&& (m_dataPtr == o.m_dataPtr)
         && (m_dataLength == o.m_dataLength)        
         && (m_computedCrc32 == o.m_computedCrc32)
         && (m_computedCrc16 == o.m_computedCrc16)
         && (m_blockTypeCode == o.m_blockTypeCode)
         && (m_crcType == o.m_crcType);
+    if (!initialValue) {
+        return false;
+    }
+    if ((m_dataPtr == NULL) && (o.m_dataPtr == NULL)) {
+        return true;
+    }
+    else if ((m_dataPtr != NULL) && (o.m_dataPtr != NULL)) {
+        return (memcmp(m_dataPtr, o.m_dataPtr, m_dataLength) == 0);
+    }
+    else {
+        return false;
+    }
 }
 bool Bpv7CanonicalBlock::operator!=(const Bpv7CanonicalBlock & o) const {
     return !(*this == o);
@@ -374,10 +386,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     canonicalPtr->m_dataPtr = serialization;
     serialization += canonicalPtr->m_dataLength;
 
-    if (!canonicalPtr->Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (done above)
-        return false;
-    }
-
+    
     if (hasCrc) {
         //If and only if the value of the CRC type field of this block is
         //non-zero, a CRC. If present, the length and nature of the CRC
