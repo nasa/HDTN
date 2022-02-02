@@ -19,6 +19,7 @@ add_executable(unit-tests
 	../../common/util/test/TestRateManagerAsync.cpp
 	../../common/util/test/TestTimestampUtil.cpp
 	../../common/util/test/TestUri.cpp
+	../../common/util/test/TestEnumAsFlagsMacro.cpp
 	../../common/util/test/TestPaddedVectorUint8.cpp
 	../../common/bpcodec/test/TestBpv6AdministrativeRecords.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp

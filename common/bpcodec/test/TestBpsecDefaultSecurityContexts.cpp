@@ -1823,11 +1823,9 @@ A.4.3.2.  Abstract Security Block
         bib.m_securitySource.Set(2, 1);
         BOOST_REQUIRE(bib.AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS::HMAC_384_384));
         BOOST_REQUIRE(bib.AddSecurityParameterIntegrityScope(
-            static_cast<BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS>(
-                static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) |
-                static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) |
-                static_cast<uint64_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER)
-            )
+            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK |
+            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_SECURITY_HEADER |
+            BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS::INCLUDE_TARGET_HEADER
         ));
 
         
@@ -2015,11 +2013,9 @@ A.4.4.2.  Abstract Security Block
         BOOST_REQUIRE(bcb.AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS::A256GCM));
 
         BOOST_REQUIRE(bcb.AddSecurityParameterScope(
-            static_cast<BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS>(
-                static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK) |
-                static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_SECURITY_HEADER) |
-                static_cast<uint64_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_TARGET_HEADER)
-                )
+            BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_PRIMARY_BLOCK |
+            BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_SECURITY_HEADER |
+            BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS::INCLUDE_TARGET_HEADER
         ));
 
         std::vector<uint8_t> * result1Ptr = bcb.AppendAndGetPayloadAuthenticationTagPtr();

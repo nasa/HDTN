@@ -6,6 +6,7 @@
 #include "TimestampUtil.h"
 #include "codec/PrimaryBlock.h"
 #include "codec/Cose.h"
+#include "EnumAsFlagsMacro.h"
 
 #define BPV7_CRC_TYPE_NONE        0
 #define BPV7_CRC_TYPE_CRC16_X25   1
@@ -52,7 +53,7 @@ enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS {
     INCLUDE_TARGET_HEADER_FLAG = 1, //   [RFC-ietf-dtn-bpsec-default-sc-11]
     INCLUDE_SECURITY_HEADER_FLAG = 2 //  [RFC-ietf-dtn-bpsec-default-sc-11]
 };
-enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS {
+enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
     //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/ 3.3.3.  Integrity Scope Flags
     //Bit 0 (the low-order bit, 0x0001): Primary Block Flag.
     //Bit 1 (0x0002): Target Header Flag.
@@ -62,6 +63,7 @@ enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS {
     INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
 };
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 3.3.4.  Enumerations
@@ -125,7 +127,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS { //BPSec BCB-AES-GCM AAD Scope Fla
     INCLUDE_TARGET_HEADER_FLAG = 1, //   [RFC-ietf-dtn-bpsec-default-sc-11]
     INCLUDE_SECURITY_HEADER_FLAG = 2 //  [RFC-ietf-dtn-bpsec-default-sc-11]
 };
-enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS {
+enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS : uint64_t {
     //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/ 4.3.4.  AAD Scope Flags
     //Bit 0 (the low-order bit, 0x0001): Primary Block Flag.
     //Bit 1 (0x0002): Target Header Flag.
@@ -135,6 +137,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS {
     INCLUDE_TARGET_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_TARGET_HEADER_FLAG)),
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
 };
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 4.3.5.  Enumerations
