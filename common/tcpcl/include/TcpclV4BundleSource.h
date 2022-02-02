@@ -3,7 +3,6 @@
 
 #include "TcpclV4BidirectionalLink.h"
 
-typedef boost::function<void(std::vector<uint8_t> & movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
 
 //tcpcl
 class TcpclV4BundleSource : public TcpclV4BidirectionalLink {
@@ -44,7 +43,7 @@ private:
 
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec);
+    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
 
     
     

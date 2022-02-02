@@ -6,6 +6,7 @@
 #include <boost/integer.hpp>
 #include <boost/function.hpp>
 #include <vector>
+#include "PaddedVectorUint8.h"
 
 #define TCPCL_VERSION 3
 
@@ -81,7 +82,7 @@ class Tcpcl {
 
 
 public:
-    typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
+    typedef boost::function<void(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag)> DataSegmentContentsReadCallback_t;
     typedef boost::function<void(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid)> ContactHeaderReadCallback_t;
     typedef boost::function<void(uint64_t totalBytesAcknowledged)> AckSegmentReadCallback_t;
     typedef boost::function<void(BUNDLE_REFUSAL_CODES refusalCode)> BundleRefusalCallback_t;
@@ -136,7 +137,7 @@ public:
     bool m_dataSegmentStartFlag;
     bool m_dataSegmentEndFlag;
     uint64_t m_dataSegmentLength;
-    std::vector<uint8_t> m_dataSegmentDataVec;
+    padded_vector_uint8_t m_dataSegmentDataVec;
 
     //ack segment
     uint64_t m_ackSegmentLength;

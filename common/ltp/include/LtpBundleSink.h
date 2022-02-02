@@ -6,12 +6,13 @@
 #include <boost/thread.hpp>
 #include <boost/function.hpp>
 #include "LtpUdpEngineManager.h"
+#include "PaddedVectorUint8.h"
 
 class LtpBundleSink {
 private:
     LtpBundleSink();
 public:
-    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> LtpWholeBundleReadyCallback_t;
+    typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> LtpWholeBundleReadyCallback_t;
 
     LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
         const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, uint64_t mtuReportSegment,
@@ -26,7 +27,7 @@ private:
     void RemoveCallback();
 
     //tcpcl received data callback functions
-    void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec,
+    void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
         uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock);
     void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 

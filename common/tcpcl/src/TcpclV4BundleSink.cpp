@@ -269,7 +269,7 @@ void TcpclV4BundleSink::Virtual_OnSuccessfulWholeBundleAcknowledged() {
     }
 }
 
-void TcpclV4BundleSink::Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) {
+void TcpclV4BundleSink::Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) {
     m_wholeBundleReadyCallback(wholeBundleVec);
 }
 

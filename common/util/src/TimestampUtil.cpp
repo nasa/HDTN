@@ -1,6 +1,7 @@
 #include <sstream>
 #include "TimestampUtil.h"
 #include "Sdnv.h"
+#include "CborUint.h"
 
 static const boost::posix_time::ptime EPOCH_START_TIME_UNIX(boost::gregorian::date(1970, 1, 1));
 
@@ -206,4 +207,83 @@ std::string TimestampUtil::GetUtcTimestampStringFromDtnTimeLossy(const Timestamp
 
 TimestampUtil::dtn_time_t TimestampUtil::GenerateDtnTimeNow() {
     return PtimeToDtnTime(boost::posix_time::microsec_clock::universal_time());
+}
+
+
+//Bpv7
+TimestampUtil::bpv7_creation_timestamp_t::bpv7_creation_timestamp_t() : millisecondsSinceStartOfYear2000(0), sequenceNumber(0) { } //a default constructor: X()
+TimestampUtil::bpv7_creation_timestamp_t::bpv7_creation_timestamp_t(uint64_t paramMillisecondsSinceStartOfYear2000, uint32_t paramSequenceNumber) :
+    millisecondsSinceStartOfYear2000(paramMillisecondsSinceStartOfYear2000), sequenceNumber(paramSequenceNumber) { }
+TimestampUtil::bpv7_creation_timestamp_t::~bpv7_creation_timestamp_t() { } //a destructor: ~X()
+TimestampUtil::bpv7_creation_timestamp_t::bpv7_creation_timestamp_t(const bpv7_creation_timestamp_t& o) : millisecondsSinceStartOfYear2000(o.millisecondsSinceStartOfYear2000), sequenceNumber(o.sequenceNumber) { } //a copy constructor: X(const X&)
+TimestampUtil::bpv7_creation_timestamp_t::bpv7_creation_timestamp_t(bpv7_creation_timestamp_t&& o) : millisecondsSinceStartOfYear2000(o.millisecondsSinceStartOfYear2000), sequenceNumber(o.sequenceNumber) { } //a move constructor: X(X&&)
+TimestampUtil::bpv7_creation_timestamp_t& TimestampUtil::bpv7_creation_timestamp_t::operator=(const bpv7_creation_timestamp_t& o) { //a copy assignment: operator=(const X&)
+    millisecondsSinceStartOfYear2000 = o.millisecondsSinceStartOfYear2000;
+    sequenceNumber = o.sequenceNumber;
+    return *this;
+}
+TimestampUtil::bpv7_creation_timestamp_t& TimestampUtil::bpv7_creation_timestamp_t::operator=(bpv7_creation_timestamp_t && o) { //a move assignment: operator=(X&&)
+    millisecondsSinceStartOfYear2000 = o.millisecondsSinceStartOfYear2000;
+    sequenceNumber = o.sequenceNumber;
+    return *this;
+}
+bool TimestampUtil::bpv7_creation_timestamp_t::operator==(const bpv7_creation_timestamp_t & o) const {
+    return (millisecondsSinceStartOfYear2000 == o.millisecondsSinceStartOfYear2000) && (sequenceNumber == o.sequenceNumber);
+}
+bool TimestampUtil::bpv7_creation_timestamp_t::operator!=(const bpv7_creation_timestamp_t & o) const {
+    return (millisecondsSinceStartOfYear2000 != o.millisecondsSinceStartOfYear2000) || (sequenceNumber != o.sequenceNumber);
+}
+bool TimestampUtil::bpv7_creation_timestamp_t::operator<(const bpv7_creation_timestamp_t & o) const {
+    if (millisecondsSinceStartOfYear2000 == o.millisecondsSinceStartOfYear2000) {
+        return (sequenceNumber < o.sequenceNumber);
+    }
+    return (millisecondsSinceStartOfYear2000 < o.millisecondsSinceStartOfYear2000);
+}
+std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv7_creation_timestamp_t & o) {
+    os << "millisecondsSinceStartOfYear2000: " << o.millisecondsSinceStartOfYear2000 << ", sequenceNumber: " << o.sequenceNumber;
+    return os;
+}
+//4.2.7. Creation Timestamp
+//Each bundle's creation timestamp SHALL be represented as a CBOR
+//array comprising two items.
+//The first item of the array, termed "bundle creation time", SHALL be
+//the DTN time at which the transmission request was received that
+//resulted in the creation of the bundle, represented as a CBOR
+//unsigned integer.
+//The second item of the array, termed the creation timestamp's
+//"sequence number", SHALL be the latest value (as of the time at
+//which the transmission request was received) of a monotonically
+//increasing positive integer counter managed by the source node's
+//bundle protocol agent, represented as a CBOR unsigned integer.  The
+//sequence counter MAY be reset to zero whenever the current time
+//advances by one millisecond.
+uint64_t TimestampUtil::bpv7_creation_timestamp_t::SerializeBpv7(uint8_t * serialization) const {
+    return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber);
+}
+uint64_t TimestampUtil::bpv7_creation_timestamp_t::GetSerializationSize() const {
+    return CborTwoUint64ArraySerializationSize(millisecondsSinceStartOfYear2000, sequenceNumber);
+}
+bool TimestampUtil::bpv7_creation_timestamp_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
+    return CborTwoUint64ArrayDeserialize(serialization, numBytesTakenToDecode, bufferSize, millisecondsSinceStartOfYear2000, sequenceNumber);
+}
+void TimestampUtil::bpv7_creation_timestamp_t::SetZero() {
+    millisecondsSinceStartOfYear2000 = 0;
+    sequenceNumber = 0;
+}
+
+boost::posix_time::ptime TimestampUtil::bpv7_creation_timestamp_t::GetPtime() const {
+    return TimestampUtil::GetRfc5050Epoch() + boost::posix_time::milliseconds(millisecondsSinceStartOfYear2000);
+}
+
+void TimestampUtil::bpv7_creation_timestamp_t::SetFromPtime(const boost::posix_time::ptime & posixTimeValue) {
+    const boost::posix_time::time_duration diff = posixTimeValue - TimestampUtil::GetRfc5050Epoch();
+    millisecondsSinceStartOfYear2000 = static_cast<uint64_t>(diff.total_milliseconds());
+}
+
+std::string TimestampUtil::bpv7_creation_timestamp_t::GetUtcTimestampString(bool forFileName) const {
+    return TimestampUtil::GetUtcTimestampStringFromPtime(GetPtime(), forFileName);
+}
+
+void TimestampUtil::bpv7_creation_timestamp_t::SetTimeFromNow() {
+    SetFromPtime(boost::posix_time::microsec_clock::universal_time());
 }

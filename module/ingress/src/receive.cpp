@@ -17,6 +17,7 @@
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 #include "codec/BundleViewV6.h"
+#include "codec/BundleViewV7.h"
 
 namespace hdtn {
 
@@ -292,6 +293,8 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
+    uint8_t messageFlags;
+    const zmq::mutable_buffer messageFlagsBuffer(&messageFlags, sizeof(messageFlags));
     std::size_t totalOpportunisticBundlesFromEgress = 0;
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     while (m_running) { //keep thread alive if running
@@ -304,14 +307,36 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             continue;
         }
         if ((rc > 0) && (items[0].revents & ZMQ_POLLIN)) {
-            zmq::message_t zmqMessage;
+            const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->recv(messageFlagsBuffer, zmq::recv_flags::none);
+            if (!res) {
+                std::cerr << "error in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: messageFlags not received" << std::endl;
+                continue;
+            }
+            else if ((res->truncated()) || (res->size != sizeof(messageFlags))) {
+                std::cerr << "error in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: messageFlags message mismatch: untruncated = " << res->untruncated_size
+                    << " truncated = " << res->size << " expected = " << sizeof(messageFlags) << std::endl;
+                continue;
+            }
+            
+            
+            static padded_vector_uint8_t unusedPaddedVec;
+            std::unique_ptr<zmq::message_t> zmqPotentiallyPaddedMessage = boost::make_unique<zmq::message_t>();
             //no header, just a bundle as a zmq message
-            if (!m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->recv(zmqMessage, zmq::recv_flags::none)) {
+            if (!m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->recv(*zmqPotentiallyPaddedMessage, zmq::recv_flags::none)) {
                 std::cerr << "error in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: cannot receive zmq\n";
             }
             else {
-                Process(std::move(zmqMessage));
-                ++totalOpportunisticBundlesFromEgress;
+                if (messageFlags) { //1 => from egress and needs processing (is padded from the convergence layer)
+                    uint8_t * paddedDataBegin = (uint8_t *)zmqPotentiallyPaddedMessage->data();
+                    uint8_t * bundleDataBegin = paddedDataBegin + PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE;
+
+                    std::size_t bundleCurrentSize = zmqPotentiallyPaddedMessage->size() - PaddedMallocator<uint8_t>::TOTAL_PADDING_ELEMENTS;
+                    ProcessPaddedData(bundleDataBegin, bundleCurrentSize, zmqPotentiallyPaddedMessage, unusedPaddedVec, true, true);
+                    ++totalOpportunisticBundlesFromEgress;
+                }
+                else { //0 => from storage and needs no processing (is not padded)
+                    ProcessPaddedData((uint8_t *)zmqPotentiallyPaddedMessage->data(), zmqPotentiallyPaddedMessage->size(), zmqPotentiallyPaddedMessage, unusedPaddedVec, true, false);
+                }
             }
         }
     }
@@ -366,6 +391,12 @@ void Ingress::SchedulerEventHandler() {
     }
 }
 
+static void CustomCleanupZmqMessage(void *data, void *hint) {
+    delete static_cast<zmq::message_t*>(hint);
+}
+static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
+    delete static_cast<padded_vector_uint8_t*>(hint);
+}
 
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
     //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
@@ -380,62 +411,165 @@ static void CustomCleanupToStorageHdr(void *data, void *hint) {
     delete static_cast<hdtn::ToStorageHdr*>(hint);
 }
 
-bool Ingress::Process(std::vector<uint8_t> && rxBuf) {
-    //this is an optimization because we only have one chunk to send
-    //The zmq_msg_init_data() function shall initialise the message object referenced by msg
-    //to represent the content referenced by the buffer located at address data, size bytes long.
-    //No copy of data shall be performed and 0MQ shall take ownership of the supplied buffer.
-    //If provided, the deallocation function ffn shall be called once the data buffer is no longer
-    //required by 0MQ, with the data and hint arguments supplied to zmq_msg_init_data().
-    std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(rxBuf));
-    zmq::message_t messageWithDataStolen(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer);
-    return Process(std::move(messageWithDataStolen));
-}
-bool Ingress::Process(zmq::message_t && rxMsg) {
-    std::size_t messageSize = rxMsg.size();
-    if (messageSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
-        std::cerr << "error in Ingress::Process: received bundle size (" 
-            << messageSize << " bytes) exceeds max bundle size limit of "
+
+bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
+    std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing)
+{
+    std::unique_ptr<zmq::message_t> zmqMessageToSendUniquePtr; //create on heap as zmq default constructor costly
+    if (bundleCurrentSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
+        std::cerr << "error in Ingress::Process: received bundle size ("
+            << bundleCurrentSize << " bytes) exceeds max bundle size limit of "
             << m_hdtnConfig.m_maxBundleSizeBytes << " bytes\n";
         return false;
     }
-    bpv6_primary_block primary;
-    if (!cbhe_bpv6_primary_block_decode(&primary, (const char*)rxMsg.data(), 0, messageSize)) {
-        std::cerr << "error in Ingress::Process: malformed bundle received\n";
+    cbhe_eid_t finalDestEid;
+    bool requestsCustody = false;
+    bool isAdminRecordForHdtnStorage = false;
+    const uint8_t firstByte = bundleDataBegin[0];
+    const bool isBpVersion6 = (firstByte == 6);
+    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+    if (isBpVersion6) {
+        BundleViewV6 bv;
+        if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
+            std::cerr << "malformed bundle\n";
+            return false;
+        }
+        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        finalDestEid = primary.m_destinationEid;
+        if (needsProcessing) {
+            static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
+            requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
+            //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
+            static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
+            isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+            static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+            //BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
+            const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
+            if (isEcho) {
+                primary.m_destinationEid = primary.m_sourceNodeId;
+                finalDestEid = primary.m_destinationEid;
+                std::cerr << "Sending Ping for destination " << primary.m_destinationEid << "\n";
+                primary.m_sourceNodeId = M_HDTN_EID_ECHO;
+                bv.m_primaryBlockView.SetManuallyModified();
+                bv.Render(bundleCurrentSize + 10);
+                std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
+                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer)));
+                bundleCurrentSize = zmqMessageToSendUniquePtr->size();
+            }
+        }
+        if (!zmqMessageToSendUniquePtr) { //no modifications
+            if (usingZmqData) {
+                zmq::message_t * rxBufRawPointer = new zmq::message_t(std::move(*zmqPaddedMessageUnderlyingDataUniquePtr));
+                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(bundleDataBegin, bundleCurrentSize, CustomCleanupZmqMessage, rxBufRawPointer);
+            }
+            else {
+                padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(paddedVecMessageUnderlyingData));
+                zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>(bundleDataBegin, bundleCurrentSize, CustomCleanupPaddedVecUint8, rxBufRawPointer);
+            }
+        }
+    }
+    else if (isBpVersion7) {
+        BundleViewV7 bv;
+        const bool skipCrcVerifyInCanonicalBlocks = !needsProcessing;
+        if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize, skipCrcVerifyInCanonicalBlocks)) { //todo true => skip canonical block crc checks to increase speed
+            std::cout << "error in Ingress::Process: malformed version 7 bundle received\n";
+            return false;
+        }
+        Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        finalDestEid = primary.m_destinationEid;
+        requestsCustody = false; //custody unsupported at this time
+        if (needsProcessing) {
+            //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
+            static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG::ADMINRECORD;
+            isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
+            static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
+            const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
+            if (!isAdminRecordForHdtnStorage) {
+                //get previous node
+                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PREVIOUS_NODE, blocks);
+                if (blocks.size() > 1) {
+                    std::cout << "error in Ingress::Process: version 7 bundle received has multiple previous node blocks\n";
+                    return false;
+                }
+                else if (blocks.size() == 1) { //update existing
+                    if (Bpv7PreviousNodeCanonicalBlock* previousNodeBlockPtr = dynamic_cast<Bpv7PreviousNodeCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                        previousNodeBlockPtr->m_previousNode.Set(m_hdtnConfig.m_myNodeId, 0);
+                        blocks[0]->SetManuallyModified();
+                    }
+                    else {
+                        std::cout << "error in Ingress::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed\n";
+                        return false;
+                    }
+                }
+                else { //prepend new previous node block
+                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                    Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
+
+                    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
+                    block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+                    block.m_crcType = BPV7_CRC_TYPE_CRC32C;
+                    block.m_previousNode.Set(m_hdtnConfig.m_myNodeId, 0);
+                    bv.PrependMoveCanonicalBlock(blockPtr);
+                }
+
+                //get hop count if exists and update it
+                bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks);
+                if (blocks.size() > 1) {
+                    std::cout << "error in Ingress::Process: version 7 bundle received has multiple hop count blocks\n";
+                    return false;
+                }
+                else if (blocks.size() == 1) { //update existing
+                    if (Bpv7HopCountCanonicalBlock* hopCountBlockPtr = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                        //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
+                        const uint64_t newHopCount = hopCountBlockPtr->m_hopCount + 1;
+                        //When a bundle's hop count exceeds its
+                        //hop limit, the bundle SHOULD be deleted for the reason "hop limit
+                        //exceeded", following the bundle deletion procedure defined in
+                        //Section 5.10.
+                        //Hop limit MUST be in the range 1 through 255.
+                        if ((newHopCount > hopCountBlockPtr->m_hopLimit) || (newHopCount > 255)) {
+                            std::cout << "notice: Ingress::Process dropping version 7 bundle with hop count " << newHopCount << "\n";
+                            return false;
+                        }
+                        hopCountBlockPtr->m_hopCount = newHopCount;
+                        blocks[0]->SetManuallyModified();
+                    }
+                    else {
+                        std::cout << "error in Ingress::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
+                        return false;
+                    }
+                }
+                if (isEcho) {
+                    primary.m_destinationEid = primary.m_sourceNodeId;
+                    finalDestEid = primary.m_sourceNodeId;
+                    std::cerr << "Sending Ping for destination " << finalDestEid << std::endl;
+                    primary.m_sourceNodeId = M_HDTN_EID_ECHO;
+                    bv.m_primaryBlockView.SetManuallyModified();
+                }
+
+                if (!bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE)) {
+                    std::cout << "error in Ingress::Process: bpv7 RenderInPlace failed\n";
+                    return false;
+                }
+                bundleCurrentSize = bv.m_renderedBundle.size();
+            }
+        }
+        if (usingZmqData) {
+            zmq::message_t * rxBufRawPointer = new zmq::message_t(std::move(*zmqPaddedMessageUnderlyingDataUniquePtr));
+            zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>((void*)bv.m_renderedBundle.data(), bundleCurrentSize, CustomCleanupZmqMessage, rxBufRawPointer);
+        }
+        else {
+            padded_vector_uint8_t * rxBufRawPointer = new padded_vector_uint8_t(std::move(paddedVecMessageUnderlyingData));
+            zmqMessageToSendUniquePtr = boost::make_unique<zmq::message_t>((void*)bv.m_renderedBundle.data(), bundleCurrentSize, CustomCleanupPaddedVecUint8, rxBufRawPointer);
+        }
+    }
+    else {
+        std::cout << "error in Ingress::Process: unsupported bundle version received\n";
         return false;
     }
 
 
-    cbhe_eid_t finalDestEid(primary.dst_node, primary.dst_svc);
-    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
-    const bool requestsCustody = ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
-    //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
-    static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    const bool isAdminRecordForHdtnStorage = (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
-    static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
-    //BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT;
-    const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
-    if (isEcho) {
-        BundleViewV6 bv;
-        if (!bv.LoadBundle((uint8_t *)rxMsg.data(), rxMsg.size())) {
-            std::cerr << "malformed bundle\n";
-            return false;
-        }
-        bpv6_primary_block & bvPrimary = bv.m_primaryBlockView.header;
-        bvPrimary.dst_node = bvPrimary.src_node;
-        bvPrimary.dst_svc = bvPrimary.src_svc;
-        finalDestEid.Set(bvPrimary.dst_node, bvPrimary.dst_svc);
-        std::cerr << "Sending Ping for destination node" << bvPrimary.dst_node << 
-	       "destination service" << bvPrimary.dst_svc << std::endl;
-	bvPrimary.src_node = M_HDTN_EID_ECHO.nodeId;
-        bvPrimary.src_svc = M_HDTN_EID_ECHO.serviceId;
-        primary = bvPrimary;
-        bv.m_primaryBlockView.SetManuallyModified();
-        bv.Render(messageSize + 10);
-        std::vector<uint8_t> * rxBufRawPointer = new std::vector<uint8_t>(std::move(bv.m_frontBuffer));
-        rxMsg = std::move(zmq::message_t(rxBufRawPointer->data(), rxBufRawPointer->size(), CustomCleanupStdVecUint8, rxBufRawPointer));
-        messageSize = rxMsg.size();
-    }
     //if (isAdminRecordForHdtnStorage) {
     //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
     //}
@@ -449,7 +583,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
     bool shouldTryToUseCustThrough = (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
     bool useStorage = !shouldTryToUseCustThrough;
     if (isOpportunisticLinkUp) {
-        if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, rxMsg, 3)) { //thread safe forward with 3 second timeout
+        if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
             shouldTryToUseCustThrough = false;
             useStorage = false;
         }
@@ -496,7 +630,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
                     useStorage = true;
                     break;
                 }
-                
+
             }
             egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
@@ -508,10 +642,10 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
         //force natural/64-bit alignment
         hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
         zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
-            
+
         //memset 0 not needed because all values set below
         toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
-        toEgressHdr->base.flags = static_cast<uint16_t>(primary.flags);
+        toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
         toEgressHdr->finalDestEid = finalDestEid;
         toEgressHdr->hasCustody = requestsCustody;
         toEgressHdr->isCutThroughFromIngress = 1;
@@ -526,8 +660,8 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
             else {
                 egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
 
-                
-                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(rxMsg), zmq::send_flags::dontwait)) {
+
+                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
                     std::cerr << "ingress can't send bundle to egress" << std::endl;
                     hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
 
@@ -566,7 +700,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
 
         //memset 0 not needed because all values set below
         toStorageHdr->base.type = HDTN_MSGTYPE_STORE;
-        toStorageHdr->base.flags = static_cast<uint16_t>(primary.flags);
+        toStorageHdr->base.flags = 0; //flags not used by storage // static_cast<uint16_t>(primary.flags);
         toStorageHdr->ingressUniqueId = ingressToStorageUniqueId;
 
         //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
@@ -579,7 +713,7 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
         else {
             m_storageAckQueue.push(ingressToStorageUniqueId);
 
-            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(rxMsg), zmq::send_flags::dontwait)) {
+            if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
                 std::cerr << "ingress can't send bundle to storage" << std::endl;
                 hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");
             }
@@ -592,17 +726,17 @@ bool Ingress::Process(zmq::message_t && rxMsg) {
 
 
 
-    m_bundleData.fetch_add(messageSize, boost::memory_order_relaxed);
+    m_bundleData.fetch_add(bundleCurrentSize, boost::memory_order_relaxed);
 
     return true;
 }
 
 
-
-void Ingress::WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec) {
+void Ingress::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {
     //if more than 1 BpSinkAsync context, must protect shared resources with mutex.  Each BpSinkAsync context has
     //its own processing thread that calls this callback
-    Process(std::move(wholeBundleVec));
+    static std::unique_ptr<zmq::message_t> unusedZmqPtr;
+    ProcessPaddedData(wholeBundleVec.data(), wholeBundleVec.size(), unusedZmqPtr, wholeBundleVec, false, true);
 }
 
 void Ingress::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable) {

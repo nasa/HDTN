@@ -7,12 +7,13 @@
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "PaddedVectorUint8.h"
 
 class StcpBundleSink {
 private:
     StcpBundleSink();
 public:
-    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
+    typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallback_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
     StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
@@ -41,7 +42,7 @@ private:
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const uint64_t M_MAX_BUNDLE_SIZE_BYTES;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
-    std::vector<std::vector<boost::uint8_t> > m_tcpReceiveBuffersCbVec;
+    std::vector<padded_vector_uint8_t > m_tcpReceiveBuffersCbVec;
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;

@@ -38,8 +38,17 @@ bool BundleViewV6::Bpv6CanonicalBlockView::HasBlockProcessingControlFlagSet(cons
 BundleViewV6::BundleViewV6() {}
 BundleViewV6::~BundleViewV6() {}
 
-bool BundleViewV6::Load() {
-    std::size_t offset = cbhe_bpv6_primary_block_decode(&m_primaryBlockView.header, (const char*)m_renderedBundle.data(), 0, m_renderedBundle.size());
+bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
+    const uint8_t * const serializationBase = (uint8_t*)m_renderedBundle.data();
+    uint8_t * serialization = (uint8_t*)m_renderedBundle.data();
+    uint64_t bufferSize = m_renderedBundle.size() + 16; //TODO ASSUME PADDED
+    uint64_t decodedBlockSize;
+
+    if (!m_primaryBlockView.header.DeserializeBpv6(serialization, decodedBlockSize, bufferSize)) {
+        return false;
+    }
+
+    std::size_t offset = decodedBlockSize;
     if (offset == 0) {
         return false;//Malformed bundle received
     }
@@ -56,13 +65,17 @@ bool BundleViewV6::Load() {
         return true;
     }
 
+    if (loadPrimaryBlockOnly) {
+        return true;
+    }
+
     while (true) {
         m_listCanonicalBlockView.emplace_back();
         Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
         cbv.dirty = false;
         cbv.markedForDeletion = false;
         bpv6_canonical_block & canonical = cbv.header;
-        const uint32_t canonicalBlockHeaderSize = bpv6_canonical_block_decode(&canonical, (const char*)m_renderedBundle.data(), offset, m_renderedBundle.size());
+        const uint32_t canonicalBlockHeaderSize = canonical.bpv6_canonical_block_decode((const char*)m_renderedBundle.data(), offset, m_renderedBundle.size());
         if (canonicalBlockHeaderSize == 0) {
             return false;
         }
@@ -87,7 +100,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
     uint8_t * const bufferBegin = buffer;
     if (m_primaryBlockView.dirty) {
         //std::cout << "pd\n";
-        const uint64_t retVal = cbhe_bpv6_primary_block_encode(&m_primaryBlockView.header, (char *)buffer, 0, maxBundleSizeBytes);
+        const uint64_t retVal = m_primaryBlockView.header.SerializeBpv6(buffer);
         if (retVal == 0) {
             return false;
         }
@@ -120,7 +133,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
         }
         if (it->dirty) {
             //always reencode canonical block if dirty
-            const uint64_t sizeHeader = bpv6_canonical_block_encode(&it->header, (char *)buffer, 0, 0);
+            const uint64_t sizeHeader = it->header.bpv6_canonical_block_encode((char *)buffer, 0, 0);
             if (sizeHeader <= 2) {
                 return false;
             }
@@ -205,22 +218,22 @@ std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const uint8_t canonical
     }
     return count;
 }
-bool BundleViewV6::LoadBundle(uint8_t * bundleData, const std::size_t size) {
+bool BundleViewV6::LoadBundle(uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly) {
     Reset();
     m_renderedBundle = boost::asio::buffer(bundleData, size);
-    return Load();
+    return Load(loadPrimaryBlockOnly);
 }
-bool BundleViewV6::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData) {
+bool BundleViewV6::SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.swap(bundleData);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
-    return Load();
+    return Load(loadPrimaryBlockOnly);
 }
-bool BundleViewV6::CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size) {
+bool BundleViewV6::CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly) {
     Reset();
     m_frontBuffer.assign(bundleData, bundleData + size);
     m_renderedBundle = boost::asio::buffer(m_frontBuffer);
-    return Load();
+    return Load(loadPrimaryBlockOnly);
 }
 bool BundleViewV6::IsValid() const {
     if (GetCanonicalBlockCountByType(BPV6_BLOCKTYPE_PAYLOAD) > 1) {
@@ -231,7 +244,7 @@ bool BundleViewV6::IsValid() const {
 
 
 void BundleViewV6::Reset() {
-    memset(&m_primaryBlockView.header, 0, sizeof(bpv6_primary_block));
+    m_primaryBlockView.header.SetZero();
     m_listCanonicalBlockView.clear();
     m_applicationDataUnitStartPtr = NULL;
 

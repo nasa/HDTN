@@ -180,7 +180,7 @@ void TcpclBundleSink::Virtual_OnSuccessfulWholeBundleAcknowledged() {
     }
 }
 
-void TcpclBundleSink::Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) {
+void TcpclBundleSink::Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) {
     m_wholeBundleReadyCallback(wholeBundleVec);
 }
 

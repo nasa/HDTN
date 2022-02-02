@@ -17,7 +17,7 @@ public:
     void Stop();
     void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
         const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
-        const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false);
+        const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
 
     uint64_t m_bundleCount;
     uint64_t m_numRfc5050CustodyTransfers;
@@ -36,7 +36,7 @@ protected:
     virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
 private:
     void BpSourcePatternThreadFunc(uint32_t bundleRate);
-    void WholeRxBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
+    void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
     void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 
@@ -48,6 +48,7 @@ private:
     bool m_useCustodyTransfer;
     bool m_custodyTransferUseAcs;
     bool m_useInductForSendingBundles;
+    bool m_useBpVersion7;
     cbhe_eid_t m_finalDestinationEid;
     cbhe_eid_t m_myEid;
     uint64_t m_myCustodianServiceId;

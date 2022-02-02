@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			BOOST_REQUIRE_EQUAL(m_localEidStr, localEid);
 		}
 
-		void DataSegmentCallbackNoFragment(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
+		void DataSegmentCallbackNoFragment(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 			++m_numDataSegmentCallbackCountNoFragment;
 			BOOST_REQUIRE(isStartFlag);
 			BOOST_REQUIRE(isEndFlag);
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(TcpclFullTestCase)
 			BOOST_REQUIRE_EQUAL(m_bundleDataToSendNoFragment, rxBundleData);
 		}
 
-		void DataSegmentCallbackWithFragments(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
+		void DataSegmentCallbackWithFragments(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 			
 			if (m_numDataSegmentCallbackCountWithFragments == 0) {
 				BOOST_REQUIRE(isStartFlag);

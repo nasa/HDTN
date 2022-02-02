@@ -76,13 +76,13 @@ protected:
     void BaseClass_DoTcpclShutdown(bool doCleanShutdown, TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() = 0;
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() = 0;
-    virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) = 0;
+    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) = 0;
     virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
     virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
     virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 
 private:
-    void BaseClass_DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+    void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
         uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions);
     void BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_t & ack);
     void BaseClass_KeepAliveCallback();
@@ -149,7 +149,7 @@ protected:
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendContactHeaderCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;
-    std::vector<uint8_t> m_base_fragmentedBundleRxConcat;
+    padded_vector_uint8_t m_base_fragmentedBundleRxConcat;
 
     const unsigned int M_BASE_MY_MAX_TX_UNACKED_BUNDLES;
     std::unique_ptr<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_base_segmentsToAckCbPtr; //CircularIndexBufferSingleProducerSingleConsumerConfigurable m_base_bytesToAckCb;

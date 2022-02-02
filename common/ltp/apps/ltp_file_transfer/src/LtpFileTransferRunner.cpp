@@ -8,13 +8,13 @@
 #include <boost/endian/conversion.hpp>
 #include "LtpUdpEngineManager.h"
 
-static void GetSha1(const std::vector<uint8_t> & data, std::string & sha1Str) {
+static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
 
     sha1Str.resize(40);
     char * strPtr = &sha1Str[0];
 
     boost::uuids::detail::sha1 s;
-    s.process_bytes(data.data(), data.size());
+    s.process_bytes(data, size);
     boost::uint32_t digest[5];
     s.get_digest(digest);
     for (int i = 0; i < 5; ++i) {
@@ -174,7 +174,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
                 std::cout << "computing sha1..\n";
                 std::string sha1Str;
-                GetSha1(fileContentsInMemory, sha1Str);
+                GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str);
                 std::cout << "SHA1: " << sha1Str << std::endl;
             }
             else {
@@ -251,7 +251,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         else { //receive file
             struct ReceiverHelper {
                 ReceiverHelper() : finished(false), cancelled(false) {}
-                void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
+                void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
                     finishedTime = boost::posix_time::microsec_clock::universal_time();
                     receivedFileContents = std::move(movableClientServiceDataVec);
                     finished = true;
@@ -266,7 +266,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 boost::condition_variable cv;
                 bool finished;
                 bool cancelled;
-                std::vector<uint8_t> receivedFileContents;
+                padded_vector_uint8_t receivedFileContents;
 
             };
             ReceiverHelper receiverHelper;
@@ -303,7 +303,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 std::cout << "received file of size " << receiverHelper.receivedFileContents.size() << std::endl;
                 std::cout << "computing sha1..\n";
                 std::string sha1Str;
-                GetSha1(receiverHelper.receivedFileContents, sha1Str);
+                GetSha1(receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size(), sha1Str);
                 std::cout << "SHA1: " << sha1Str << std::endl;
                 if (!dontSaveFile) {
                     std::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);

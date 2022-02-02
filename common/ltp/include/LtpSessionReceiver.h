@@ -48,7 +48,7 @@ private:
     std::list<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendList; //pair<reportSerialNumber, retryCount>
     LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
     uint64_t m_nextReportSegmentReportSerialNumber;
-    std::vector<uint8_t> m_dataReceivedRed;
+    padded_vector_uint8_t m_dataReceivedRed;
     const uint64_t M_MAX_RECEPTION_CLAIMS;
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE;
     const uint64_t M_MAX_RED_RX_BYTES;

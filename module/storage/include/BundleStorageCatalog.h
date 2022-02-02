@@ -9,7 +9,7 @@
 #include <utility>
 #include <string>
 #include "MemoryManagerTreeArray.h"
-#include "codec/bpv6.h"
+#include "codec/PrimaryBlock.h"
 #include "HashMap16BitFixedSize.h"
 #include <boost/bimap.hpp>
 #include <boost/date_time.hpp>
@@ -37,7 +37,7 @@ public:
     BundleStorageCatalog();
     ~BundleStorageCatalog();
 
-    bool CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const bpv6_primary_block & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
+    bool CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const PrimaryBlock & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order);
 
     catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<cbhe_eid_t> & availableDestEids);
     catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId, const std::vector<uint64_t> & availableDestNodeIds);

@@ -7,7 +7,7 @@ class TcpclBundleSink : public TcpclV3BidirectionalLink {
 private:
     TcpclBundleSink();
 public:
-    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallback_t;
+    typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallback_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
     typedef boost::function<bool(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & bundleDataPair)> TryGetOpportunisticDataFunction_t;
     typedef boost::function<void()> NotifyOpportunisticDataAckedCallback_t;
@@ -44,7 +44,7 @@ private:
     
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec);
+    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
     virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
     virtual void Virtual_OnContactHeaderCompletedSuccessfully();
 

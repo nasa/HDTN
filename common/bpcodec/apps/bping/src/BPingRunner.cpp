@@ -43,6 +43,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         OutductsConfig_ptr outductsConfigPtr;
         InductsConfig_ptr inductsConfigPtr;
         bool custodyTransferUseAcs;
+        bool useBpVersion7;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -56,6 +57,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                     ("outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File.")
                     ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
+                    ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
                     ;
 
                 boost::program_options::variables_map vm;
@@ -66,6 +68,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                         std::cout << desc << "\n";
                         return false;
                 }
+                useBpVersion7 = (vm.count("use-bp-version-7") != 0);
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
@@ -133,7 +136,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         std::cout << "starting BPing.." << std::endl;
 
         BPing bping;
-        bping.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, true, true);
+        bping.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, true, true, useBpVersion7);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);
