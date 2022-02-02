@@ -439,7 +439,8 @@ A.1.3.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(std::vector<uint8_t>(expectedSerializedBundle))); //swap in a copy
+            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bib and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
@@ -859,7 +860,8 @@ A.2.3.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(std::vector<uint8_t>(expectedSerializedBundle))); //swap in a copy
+            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bib and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
@@ -1514,7 +1516,8 @@ A.3.4.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(std::vector<uint8_t>(expectedSerializedBundle))); //swap in a copy
+            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bcb and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
@@ -2174,7 +2177,8 @@ A.4.4.2.  Abstract Security Block
         //load bundle to test deserialize
         {
             BundleViewV7 bv2;
-            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(std::vector<uint8_t>(expectedSerializedBundle))); //swap in a copy
+            std::vector<uint8_t> toSwapIn(expectedSerializedBundle);
+            BOOST_REQUIRE(bv2.SwapInAndLoadBundle(toSwapIn)); //swap in a copy
             //get bcb and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
