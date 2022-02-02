@@ -82,7 +82,7 @@ bool Bpv7CbhePrimaryBlock::operator!=(const Bpv7CbhePrimaryBlock & o) const {
 }
 void Bpv7CbhePrimaryBlock::SetZero() {
     //memset(this, 0, sizeof(*this)); //does not work for virtual classes
-    m_bundleProcessingControlFlags = 0;
+    m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
     m_destinationEid.SetZero();
     m_sourceNodeId.SetZero();
     m_reportToEid.SetZero();
@@ -107,7 +107,7 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
     //has no CRC), or 11 (if the bundle is a fragment and the block has a
     //CRC).
     const bool hasCrc = (m_crcType != 0);
-    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG_ISFRAGMENT) != 0);
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
     const uint8_t cborArraySize = 8 + hasCrc + ((static_cast<uint8_t>(isFragment)) << 1);
     *serialization++ = (4U << 5) | cborArraySize; //major type 4, additional information [8..11]
 
@@ -130,7 +130,7 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
     //beginning with the low-order bit instead of the high-order bit, in
     //recognition of the potential definition of additional control flag
     //values in the future):
-    serialization += CborEncodeU64BufSize9(serialization, m_bundleProcessingControlFlags);
+    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_bundleProcessingControlFlags));
 
     //CRC Type: CRC Type codes are discussed in Section 4.2.1. above.  The
     //CRC Type code for the primary block MAY be zero if the bundle
@@ -239,10 +239,10 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
 }
 
 uint64_t Bpv7CbhePrimaryBlock::GetSerializationSize() const {
-    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG_ISFRAGMENT) != 0);
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
 
     uint64_t serializationSize = 3; //cbor byte (major type 4, additional information [8..11]) + version7 + crcType
-    serializationSize += CborGetEncodingSizeU64(m_bundleProcessingControlFlags);
+    serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_bundleProcessingControlFlags));
     serializationSize += m_destinationEid.GetSerializationSizeBpv7();
     serializationSize += m_sourceNodeId.GetSerializationSizeBpv7();
     serializationSize += m_reportToEid.GetSerializationSizeBpv7();
@@ -302,7 +302,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
     //beginning with the low-order bit instead of the high-order bit, in
     //recognition of the potential definition of additional control flag
     //values in the future):
-    m_bundleProcessingControlFlags = CborDecodeU64BufSize9(serialization, &cborSizeDecoded);
+    m_bundleProcessingControlFlags = static_cast<BPV7_BUNDLEFLAG>(CborDecodeU64BufSize9(serialization, &cborSizeDecoded));
     if (cborSizeDecoded == 0) {
         return false; //failure
     }
@@ -329,7 +329,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
 
     //verify cbor array size
     const bool hasCrc = (m_crcType != 0);
-    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG_ISFRAGMENT) != 0);
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
     const uint8_t expectedCborArraySize = 8 + hasCrc + ((static_cast<uint8_t>(isFragment)) << 1);
     if (expectedCborArraySize != cborArraySize) {
         return false; //failure
@@ -488,7 +488,8 @@ bool Bpv7CbhePrimaryBlock::HasCustodyFlagSet() const {
     return false; //unsupported at this time (flags & BPV6_BUNDLEFLAG_CUSTODY);
 }
 bool Bpv7CbhePrimaryBlock::HasFragmentationFlagSet() const {
-    return (m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG_ISFRAGMENT);
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    return isFragment;
 }
 
 cbhe_bundle_uuid_t Bpv7CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {

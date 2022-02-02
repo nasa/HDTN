@@ -215,7 +215,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
 
 
-        static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+        static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
         const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
         if (isEcho && (!m_hasSendCapability)) {
             std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";

@@ -23,7 +23,7 @@ static void AppendCanonicalBlockAndRender(BundleViewV7 & bv, uint8_t newType, st
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;
     block.m_blockTypeCode = newType;
-    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
     block.m_dataLength = newBlockBody.size();
     block.m_dataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
     block.m_crcType = crcTypeToUse;
@@ -41,7 +41,7 @@ static void PrependCanonicalBlockAndRender(BundleViewV7 & bv, uint8_t newType, s
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;
     block.m_blockTypeCode = newType;
-    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
     block.m_dataLength = newBlockBody.size();
     block.m_dataPtr = (uint8_t*)newBlockBody.data(); //blockBodyAsVecUint8 must remain in scope until after render
     block.m_crcType = crcTypeToUse;
@@ -60,7 +60,7 @@ static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV7 & bv, uint8
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;
     block.m_blockTypeCode = newType;
-    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
     block.m_dataLength = dataLengthToAllocate;
     block.m_dataPtr = NULL;
     block.m_crcType = crcTypeToUse;
@@ -104,7 +104,7 @@ static void GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const
     primary.SetZero();
 
 
-    primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG_NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+    primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
     primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
     primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_reportToEid.Set(0, 0);
@@ -120,7 +120,7 @@ static void GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const
         //block.SetZero();
 
         block.m_blockTypeCode = canonicalTypesVec[i];
-        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockNumber = blockNumbersToUse[i];
         block.m_crcType = crcTypeToUse;
         const std::string & blockBody = canonicalBodyStringsVec[i];
@@ -344,7 +344,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
         primary.SetZero();
 
 
-        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG_NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
         primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
         primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
         primary.m_reportToEid.Set(0, 0);
@@ -360,7 +360,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
             //block.SetZero();
 
-            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
             block.m_blockNumber = 2;
             block.m_crcType = crcTypeToUse;
             block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);
@@ -374,7 +374,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7BundleAgeCanonicalBlock & block = *(reinterpret_cast<Bpv7BundleAgeCanonicalBlock*>(blockPtr.get()));
             //block.SetZero();
 
-            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
             block.m_blockNumber = 3;
             block.m_crcType = crcTypeToUse;
             block.m_bundleAgeMilliseconds = BUNDLE_AGE_MS;
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             Bpv7HopCountCanonicalBlock & block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
             //block.SetZero();
 
-            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
             block.m_blockNumber = 4;
             block.m_crcType = crcTypeToUse;
             block.m_hopLimit = HOP_LIMIT;
@@ -403,7 +403,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             //block.SetZero();
 
             block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
             block.m_blockNumber = 1; //must be 1
             block.m_crcType = crcTypeToUse;
             block.m_dataLength = payloadString.size();
@@ -566,7 +566,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
         primary.SetZero();
 
 
-        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG_NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
         primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
         primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
         primary.m_reportToEid.Set(0, 0);
@@ -585,7 +585,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             //block.SetZero();
 
             block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
             block.m_blockNumber = 1; //must be 1
             block.m_crcType = crcTypeToUse;
             block.m_dataLength = payloadString.size();
@@ -638,7 +638,7 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
             Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
             //block.SetZero();
 
-            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
             block.m_blockNumber = 2;
             block.m_crcType = crcTypeToUse;
             block.m_previousNode.Set(PREVIOUS_NODE, PREVIOUS_SVC);

@@ -43,14 +43,16 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
     }
     serialization += decodedBlockSize;
     bufferSize -= decodedBlockSize;
-    if (m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG_ISFRAGMENT)) { //not currently supported
+    const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isFragment) { //not currently supported
         return false;
     }
     m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serializationPrimaryBlockBeginPtr, decodedBlockSize);
     m_primaryBlockView.dirty = false;
     m_applicationDataUnitStartPtr = serializationPrimaryBlockBeginPtr + decodedBlockSize;
     //todo application data unit length?
-    if (m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG_ADMINRECORD)) {
+    const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ADMINRECORD) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isAdminRecord) {
         return true;
     }
 
@@ -210,7 +212,8 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
         serialization += size;
     }
-    if (m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG_ISFRAGMENT | BPV7_BUNDLEFLAG_ADMINRECORD)) {
+    const bool isAdminRecordAndOrFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ADMINRECORD | BPV7_BUNDLEFLAG::ISFRAGMENT)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isAdminRecordAndOrFragment) {
         return false;
     }
     

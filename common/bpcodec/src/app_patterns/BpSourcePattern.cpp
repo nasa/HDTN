@@ -225,11 +225,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             BundleViewV7 bv;
             Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             //primary.SetZero();
-            primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG_NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+            primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
             primary.m_sourceNodeId = m_myEid;
             primary.m_destinationEid = m_finalDestinationEid;
             if (m_useCustodyTransfer) { //not supported yet
-                primary.m_bundleProcessingControlFlags |= BPV7_BUNDLEFLAG_RECEPTION_STATUS_REPORTS_REQUESTED; //??
+                primary.m_bundleProcessingControlFlags |= BPV7_BUNDLEFLAG::RECEPTION_STATUS_REPORTS_REQUESTED; //??
                 primary.m_reportToEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
             }
             else {
@@ -253,7 +253,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
                 Bpv7HopCountCanonicalBlock & block = *(reinterpret_cast<Bpv7HopCountCanonicalBlock*>(blockPtr.get()));
 
-                block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+                block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
                 block.m_blockNumber = 2;
                 block.m_crcType = BPV7_CRC_TYPE_CRC32C;
                 block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
@@ -268,7 +268,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 //payloadBlock.SetZero();
 
                 payloadBlock.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-                payloadBlock.m_blockProcessingControlFlags = 0;
+                payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
                 payloadBlock.m_blockNumber = 1; //must be 1
                 payloadBlock.m_crcType = BPV7_CRC_TYPE_CRC32C;
                 payloadBlock.m_dataLength = payloadSizeBytes;

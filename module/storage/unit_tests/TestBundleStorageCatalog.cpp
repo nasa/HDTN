@@ -29,7 +29,7 @@ static void CreatePrimaryV6(bpv6_primary_block & p, const cbhe_eid_t & srcEid, c
 
 static void CreatePrimaryV7(Bpv7CbhePrimaryBlock & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
 
-    p.m_bundleProcessingControlFlags = 0;
+    p.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
 
     p.m_totalApplicationDataUnitLength = 1000;
     p.m_creationTimestamp.millisecondsSinceStartOfYear2000 = creation * 1000;

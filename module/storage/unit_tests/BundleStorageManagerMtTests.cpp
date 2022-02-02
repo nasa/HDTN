@@ -70,7 +70,7 @@ static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimar
         Bpv7CanonicalBlock & block = *blockPtr;
 
         block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockNumber = 1; //must be 1
         block.m_crcType = BPV7_CRC_TYPE_CRC32C;
         block.m_dataLength = payloadData.size();
@@ -346,7 +346,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     else {
                         Bpv7CbhePrimaryBlock primary;
                         primary.SetZero();
-                        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG_NOFRAGMENT;
+                        primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;
                         primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
                         primary.m_destinationEid = DEST_LINKS[linkId];
                         primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 = 0;

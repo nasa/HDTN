@@ -81,7 +81,7 @@ bool Bpv7CanonicalBlock::operator!=(const Bpv7CanonicalBlock & o) const {
 void Bpv7CanonicalBlock::SetZero() {
     //memset(this, 0, sizeof(*this)); //bad, clears vtable ptr
     m_blockNumber = 0;
-    m_blockProcessingControlFlags = 0;
+    m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
     m_dataPtr = 0;
     m_dataLength = 0;
     m_computedCrc32 = 0;
@@ -127,7 +127,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //beginning with the low-order bit instead of the high-order bit, for
     //agreement with the bit numbering of the bundle processing control
     //flags):
-    serialization += CborEncodeU64BufSize9(serialization, m_blockProcessingControlFlags);
+    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_blockProcessingControlFlags));
 
     //CRC type as discussed in Section 4.2.1 above.
     //CRC type is an unsigned integer type code for which the following
@@ -217,7 +217,7 @@ uint64_t Bpv7CanonicalBlock::GetSerializationSize(const uint64_t dataLength) con
     uint64_t serializationSize = 2; //cbor byte (major type 4, additional information [5..6]) plus crcType
     serializationSize += CborGetEncodingSizeU64(m_blockTypeCode);
     serializationSize += CborGetEncodingSizeU64(m_blockNumber);
-    serializationSize += CborGetEncodingSizeU64(m_blockProcessingControlFlags);
+    serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
     serializationSize += CborGetEncodingSizeU64(dataLength);
     serializationSize += dataLength; //todo safety check on data length
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };
@@ -323,7 +323,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //beginning with the low-order bit instead of the high-order bit, for
     //agreement with the bit numbering of the bundle processing control
     //flags):
-    canonicalPtr->m_blockProcessingControlFlags = CborDecodeU64(serialization, &cborSizeDecoded, bufferSize);
+    canonicalPtr->m_blockProcessingControlFlags = static_cast<BPV7_BLOCKFLAG>(CborDecodeU64(serialization, &cborSizeDecoded, bufferSize));
     if (cborSizeDecoded == 0) {
         return false; //failure
     }

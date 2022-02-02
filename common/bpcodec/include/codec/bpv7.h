@@ -12,24 +12,28 @@
 #define BPV7_CRC_TYPE_CRC16_X25   1
 #define BPV7_CRC_TYPE_CRC32C      2
 
+enum class BPV7_BUNDLEFLAG : uint64_t {
+    NO_FLAGS_SET =                        0,
+    ISFRAGMENT =                          1 << 0, //(0x0001)
+    ADMINRECORD =                         1 << 1, //(0x0002)
+    NOFRAGMENT =                          1 << 2, //(0x0004)
+    USER_APP_ACK_REQUESTED =              1 << 5, //(0x0020)
+    STATUSTIME_REQUESTED =                1 << 6, //(0x0040)
+    RECEPTION_STATUS_REPORTS_REQUESTED =  1 << 14,//(0x4000)
+    FORWARDING_STATUS_REPORTS_REQUESTED = 1 << 16,//(0x10000)
+    DELIVERY_STATUS_REPORTS_REQUESTED =   1 << 17,//(0x20000)
+    DELETION_STATUS_REPORTS_REQUESTED =   1 << 18 //(0x40000)
+};
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV7_BUNDLEFLAG);
 
-#define BPV7_BUNDLEFLAG_ISFRAGMENT      (0x0001)
-#define BPV7_BUNDLEFLAG_ADMINRECORD     (0x0002)
-#define BPV7_BUNDLEFLAG_NOFRAGMENT      (0x0004)
-#define BPV7_BUNDLEFLAG_USER_APP_ACK_REQUESTED      (0x0020)
-#define BPV7_BUNDLEFLAG_STATUSTIME_REQUESTED      (0x0040)
-#define BPV7_BUNDLEFLAG_RECEPTION_STATUS_REPORTS_REQUESTED    (0x4000)
-#define BPV7_BUNDLEFLAG_FORWARDING_STATUS_REPORTS_REQUESTED    (0x10000)
-#define BPV7_BUNDLEFLAG_DELIVERY_STATUS_REPORTS_REQUESTED    (0x20000)
-#define BPV7_BUNDLEFLAG_DELETION_STATUS_REPORTS_REQUESTED    (0x40000)
-
-
-#define BPV7_BLOCKFLAG_MUST_BE_REPLICATED   (0x01)
-#define BPV7_BLOCKFLAG_STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED   (0x02)
-#define BPV7_BLOCKFLAG_DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED   (0x04)
-#define BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED   (0x10)
-
-
+enum class BPV7_BLOCKFLAG : uint64_t {
+    NO_FLAGS_SET =                                       0,
+    MUST_BE_REPLICATED =                                 1 << 0, //(0x01)
+    STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED = 1 << 1, //(0x02)
+    DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED =           1 << 2, //(0x04)
+    REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED =               1 << 4  //(0x10)
+};
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV7_BLOCKFLAG);
 
 // https://www.iana.org/assignments/bundle/bundle.xhtml#block-types
 #define BPV7_BLOCKTYPE_PAYLOAD                     1U
@@ -208,7 +212,7 @@ struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
         3 + //creation timestamp
         1; //lifetime;
 
-    uint64_t m_bundleProcessingControlFlags;
+    BPV7_BUNDLEFLAG m_bundleProcessingControlFlags;
     cbhe_eid_t m_destinationEid;
     cbhe_eid_t m_sourceNodeId; //A "node ID" is an EID that identifies the administrative endpoint of a node (uses eid data type).
     cbhe_eid_t m_reportToEid;
@@ -268,7 +272,7 @@ struct Bpv7CanonicalBlock {
         5; //crc32
 
     uint64_t m_blockNumber;
-    uint64_t m_blockProcessingControlFlags;
+    BPV7_BLOCKFLAG m_blockProcessingControlFlags;
     uint8_t * m_dataPtr; //if NULL, data won't be copied (just allocated) and crc won't be computed
     uint64_t m_dataLength;
     uint32_t m_computedCrc32; //computed after serialization or deserialization

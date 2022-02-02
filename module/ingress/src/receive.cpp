@@ -480,9 +480,9 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
         requestsCustody = false; //custody unsupported at this time
         if (needsProcessing) {
             //admin records pertaining to this hdtn node must go to storage.. they signal a deletion from disk
-            static constexpr uint64_t requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG_ADMINRECORD;
+            static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV7_BUNDLEFLAG::ADMINRECORD;
             isAdminRecordForHdtnStorage = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEid == M_HDTN_EID_CUSTODY));
-            static constexpr uint64_t requiredPrimaryFlagsForEcho = 0;
+            static constexpr BPV7_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV7_BUNDLEFLAG::NO_FLAGS_SET;
             const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == M_HDTN_EID_ECHO));
             if (!isAdminRecordForHdtnStorage) {
                 //get previous node
@@ -506,7 +506,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
                     Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
 
-                    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
+                    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
                     block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
                     block.m_crcType = BPV7_CRC_TYPE_CRC32C;
                     block.m_previousNode.Set(m_hdtnConfig.m_myNodeId, 0);

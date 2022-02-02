@@ -169,7 +169,7 @@ A.1.1.1.  Primary Block
         //block.SetZero();
 
         block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-        block.m_blockProcessingControlFlags = 0; //something for checking against
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
         block.m_crcType = BPV7_CRC_TYPE_NONE;
 
@@ -319,7 +319,7 @@ A.1.3.2.  Abstract Security Block
         Bpv7BlockIntegrityBlock & bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));
         //bib.SetZero();
 
-        bib.m_blockProcessingControlFlags = 0;
+        bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         bib.m_blockNumber = 2;
         bib.m_crcType = BPV7_CRC_TYPE_NONE;
         bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
@@ -546,7 +546,7 @@ A.2.1.1.  Primary Block
         //block.SetZero();
 
         block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-        block.m_blockProcessingControlFlags = 0; //something for checking against
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
         block.m_crcType = BPV7_CRC_TYPE_NONE;
 
@@ -715,7 +715,7 @@ A.2.3.2.  Abstract Security Block
         std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
         Bpv7BlockConfidentialityBlock & bcb = *(reinterpret_cast<Bpv7BlockConfidentialityBlock*>(blockPtr.get()));
 
-        bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_MUST_BE_REPLICATED;
+        bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::MUST_BE_REPLICATED;
         bcb.m_blockNumber = 2;
         bcb.m_crcType = BPV7_CRC_TYPE_NONE;
         bcb.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
@@ -986,7 +986,7 @@ A.3.1.1.  Primary Block
         Bpv7BundleAgeCanonicalBlock & block = *(reinterpret_cast<Bpv7BundleAgeCanonicalBlock*>(blockPtr.get()));
         //block.SetZero();
 
-        block.m_blockProcessingControlFlags = 0;
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         block.m_blockNumber = 2;
         block.m_crcType = BPV7_CRC_TYPE_NONE;
         block.m_bundleAgeMilliseconds = 300;
@@ -1012,7 +1012,7 @@ A.3.1.1.  Primary Block
         //block.SetZero();
 
         block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-        block.m_blockProcessingControlFlags = 0; //something for checking against
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
         block.m_crcType = BPV7_CRC_TYPE_NONE;
 
@@ -1211,7 +1211,7 @@ A.3.3.2.  Abstract Security Block
         Bpv7BlockIntegrityBlock & bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));
         //bib.SetZero();
 
-        bib.m_blockProcessingControlFlags = 0;
+        bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         bib.m_blockNumber = 3;
         bib.m_crcType = BPV7_CRC_TYPE_NONE;
         bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 0, 2 });
@@ -1377,7 +1377,7 @@ A.3.4.2.  Abstract Security Block
         std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
         Bpv7BlockConfidentialityBlock & bcb = *(reinterpret_cast<Bpv7BlockConfidentialityBlock*>(blockPtr.get()));
 
-        bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_MUST_BE_REPLICATED;
+        bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::MUST_BE_REPLICATED;
         bcb.m_blockNumber = 4;
         bcb.m_crcType = BPV7_CRC_TYPE_NONE;
         bcb.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
@@ -1646,7 +1646,7 @@ A.4.1.1.  Primary Block
         //block.SetZero();
 
         block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
-        block.m_blockProcessingControlFlags = 0; //something for checking against
+        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
         block.m_crcType = BPV7_CRC_TYPE_NONE;
 
@@ -1813,7 +1813,7 @@ A.4.3.2.  Abstract Security Block
         Bpv7BlockIntegrityBlock & bib = *(reinterpret_cast<Bpv7BlockIntegrityBlock*>(blockPtr.get()));
         //bib.SetZero();
 
-        bib.m_blockProcessingControlFlags = 0;
+        bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         bib.m_blockNumber = 3;
         bib.m_crcType = BPV7_CRC_TYPE_NONE;
         bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
@@ -1997,7 +1997,7 @@ A.4.4.2.  Abstract Security Block
         std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
         Bpv7BlockConfidentialityBlock & bcb = *(reinterpret_cast<Bpv7BlockConfidentialityBlock*>(blockPtr.get()));
 
-        bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG_MUST_BE_REPLICATED;
+        bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::MUST_BE_REPLICATED;
         bcb.m_blockNumber = 2;
         bcb.m_crcType = BPV7_CRC_TYPE_NONE;
         bcb.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 3, 1 });
