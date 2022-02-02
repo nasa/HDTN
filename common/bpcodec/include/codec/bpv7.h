@@ -192,9 +192,6 @@ enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS {
     AUTHENTICATION_TAG = 1
 };
 
-//abstract security block values
-#define BPV7_ASB_VALUE_UINT 1
-#define BPV7_ASB_VALUE_BYTE_STRING 2
 
 struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
