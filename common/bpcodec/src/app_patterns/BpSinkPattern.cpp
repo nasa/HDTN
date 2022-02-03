@@ -239,7 +239,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
         //get previous node
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PREVIOUS_NODE, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
         if (blocks.size() > 1) {
             std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple previous node blocks\n";
             return false;
@@ -258,7 +258,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         //get hop count if exists
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT, blocks);
         if (blocks.size() > 1) {
             std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple hop count blocks\n";
             return false;
@@ -285,7 +285,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         //get payload block
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
 
         if (blocks.size() != 1) {
             std::cerr << "error payload block not found\n";

@@ -487,7 +487,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             if (!isAdminRecordForHdtnStorage) {
                 //get previous node
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-                bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PREVIOUS_NODE, blocks);
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
                 if (blocks.size() > 1) {
                     std::cout << "error in Ingress::Process: version 7 bundle received has multiple previous node blocks\n";
                     return false;
@@ -514,7 +514,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 }
 
                 //get hop count if exists and update it
-                bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks);
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT, blocks);
                 if (blocks.size() > 1) {
                     std::cout << "error in Ingress::Process: version 7 bundle received has multiple hop count blocks\n";
                     return false;

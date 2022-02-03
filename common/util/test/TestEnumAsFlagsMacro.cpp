@@ -16,6 +16,7 @@ enum class TestFlags : uint64_t {
     flag10 = 1 << 10
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(TestFlags);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(TestFlags);
 
 BOOST_AUTO_TEST_CASE(EnumAsFlagsMacroTestCase)
 {

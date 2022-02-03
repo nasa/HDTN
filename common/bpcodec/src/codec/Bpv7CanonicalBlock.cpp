@@ -86,7 +86,7 @@ void Bpv7CanonicalBlock::SetZero() {
     m_dataLength = 0;
     m_computedCrc32 = 0;
     m_computedCrc16 = 0;
-    m_blockTypeCode = 0;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO;
     m_crcType = 0;
 }
 
@@ -112,7 +112,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //this specification.  Block type codes 192 through 255 are not
     //reserved and are available for private and/or experimental use.
     //All other block type code values are reserved for future use.
-    serialization += CborEncodeU64BufSize9(serialization, m_blockTypeCode);
+    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_blockTypeCode));
 
     //Block number, an unsigned integer as discussed in 4.1 above.
     //Block number SHALL be represented as a CBOR unsigned integer.
@@ -215,7 +215,7 @@ uint64_t Bpv7CanonicalBlock::GetSerializationSize() const {
 }
 uint64_t Bpv7CanonicalBlock::GetSerializationSize(const uint64_t dataLength) const {
     uint64_t serializationSize = 2; //cbor byte (major type 4, additional information [5..6]) plus crcType
-    serializationSize += CborGetEncodingSizeU64(m_blockTypeCode);
+    serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockTypeCode));
     serializationSize += CborGetEncodingSizeU64(m_blockNumber);
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
     serializationSize += CborGetEncodingSizeU64(dataLength);
@@ -275,7 +275,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //this specification.  Block type codes 192 through 255 are not
     //reserved and are available for private and/or experimental use.
     //All other block type code values are reserved for future use.
-    const uint8_t blockTypeCode = static_cast<uint8_t>(CborDecodeU64(serialization, &cborSizeDecoded, bufferSize));
+    const BPV7_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV7_BLOCK_TYPE_CODE>(CborDecodeU64(serialization, &cborSizeDecoded, bufferSize));
     if ((cborSizeDecoded == 0) || (cborSizeDecoded > 2)) { //uint8_t should be size 1 or 2 encoded bytes
         return false; //failure
     }
@@ -283,22 +283,22 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     bufferSize -= cborSizeDecoded;
 
     switch (blockTypeCode) {
-        case BPV7_BLOCKTYPE_PREVIOUS_NODE:
+        case BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE:
             canonicalPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
             break;
-        case BPV7_BLOCKTYPE_BUNDLE_AGE:
+        case BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE:
             canonicalPtr = boost::make_unique<Bpv7BundleAgeCanonicalBlock>();
             break;
-        case BPV7_BLOCKTYPE_HOP_COUNT:
+        case BPV7_BLOCK_TYPE_CODE::HOP_COUNT:
             canonicalPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
             break;
-        case BPV7_BLOCKTYPE_BLOCK_INTEGRITY:
+        case BPV7_BLOCK_TYPE_CODE::INTEGRITY:
             canonicalPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
             break;
-        case BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY:
+        case BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY:
             canonicalPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
             break;
-        //case BPV7_BLOCKTYPE_PAYLOAD:
+        //case BPV7_BLOCK_TYPE_CODE::PAYLOAD:
         default:
             canonicalPtr = boost::make_unique<Bpv7CanonicalBlock>();
             break;

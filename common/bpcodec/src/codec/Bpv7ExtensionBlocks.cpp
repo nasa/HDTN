@@ -16,7 +16,7 @@
 ////////////////////////////////////
 
 Bpv7PreviousNodeCanonicalBlock::Bpv7PreviousNodeCanonicalBlock() : Bpv7CanonicalBlock() { //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
-    m_blockTypeCode = BPV7_BLOCKTYPE_PREVIOUS_NODE;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE;
 } 
 Bpv7PreviousNodeCanonicalBlock::~Bpv7PreviousNodeCanonicalBlock() { } //a destructor: ~X()
 Bpv7PreviousNodeCanonicalBlock::Bpv7PreviousNodeCanonicalBlock(const Bpv7PreviousNodeCanonicalBlock& o) :
@@ -43,7 +43,7 @@ bool Bpv7PreviousNodeCanonicalBlock::operator!=(const Bpv7PreviousNodeCanonicalB
 void Bpv7PreviousNodeCanonicalBlock::SetZero() {
     Bpv7CanonicalBlock::SetZero();
     m_previousNode.SetZero();
-    m_blockTypeCode = BPV7_BLOCKTYPE_PREVIOUS_NODE;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE;
 }
 
 uint64_t Bpv7PreviousNodeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
@@ -56,7 +56,7 @@ uint64_t Bpv7PreviousNodeCanonicalBlock::SerializeBpv7(uint8_t * serialization) 
     //any Previous Node block.  Otherwise the bundle SHOULD contain one
     //(1) occurrence of this type of block and MUST NOT contain more than
     //one.
-    m_blockTypeCode = BPV7_BLOCKTYPE_PREVIOUS_NODE;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE;
     uint8_t tempData[largestSerializedDataOnlySize];
     m_dataPtr = tempData;
     m_dataLength = m_previousNode.SerializeBpv7(tempData);
@@ -76,7 +76,7 @@ bool Bpv7PreviousNodeCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7()
 ////////////////////////////////////
 
 Bpv7BundleAgeCanonicalBlock::Bpv7BundleAgeCanonicalBlock() : Bpv7CanonicalBlock() { //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
-    m_blockTypeCode = BPV7_BLOCKTYPE_BUNDLE_AGE;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE;
 }
 Bpv7BundleAgeCanonicalBlock::~Bpv7BundleAgeCanonicalBlock() { } //a destructor: ~X()
 Bpv7BundleAgeCanonicalBlock::Bpv7BundleAgeCanonicalBlock(const Bpv7BundleAgeCanonicalBlock& o) :
@@ -103,7 +103,7 @@ bool Bpv7BundleAgeCanonicalBlock::operator!=(const Bpv7BundleAgeCanonicalBlock &
 void Bpv7BundleAgeCanonicalBlock::SetZero() {
     Bpv7CanonicalBlock::SetZero();
     m_bundleAgeMilliseconds = 0;
-    m_blockTypeCode = BPV7_BLOCKTYPE_BUNDLE_AGE;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE;
 }
 
 uint64_t Bpv7BundleAgeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
@@ -125,7 +125,7 @@ uint64_t Bpv7BundleAgeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //contain at most one (1) occurrence of this type of block.  A bundle
     //MUST NOT contain multiple occurrences of the bundle age block, as
     //this could result in processing anomalies.
-    m_blockTypeCode = BPV7_BLOCKTYPE_BUNDLE_AGE;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE;
     uint8_t tempData[largestSerializedDataOnlySize];
     m_dataPtr = tempData;
     m_dataLength = CborEncodeU64BufSize9(tempData, m_bundleAgeMilliseconds);
@@ -149,7 +149,7 @@ bool Bpv7BundleAgeCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
 ////////////////////////////////////
 
 Bpv7HopCountCanonicalBlock::Bpv7HopCountCanonicalBlock() : Bpv7CanonicalBlock() { //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
-    m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::HOP_COUNT;
 }
 Bpv7HopCountCanonicalBlock::~Bpv7HopCountCanonicalBlock() { } //a destructor: ~X()
 Bpv7HopCountCanonicalBlock::Bpv7HopCountCanonicalBlock(const Bpv7HopCountCanonicalBlock& o) :
@@ -182,7 +182,7 @@ void Bpv7HopCountCanonicalBlock::SetZero() {
     Bpv7CanonicalBlock::SetZero();
     m_hopLimit = 0;
     m_hopCount = 0;
-    m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::HOP_COUNT;
 }
 
 uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
@@ -214,7 +214,7 @@ uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //bundle's hop count, represented as a CBOR unsigned integer. A bundle
     //MAY contain one occurrence of this type of block but MUST NOT
     //contain more than one.
-    m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::HOP_COUNT;
     uint8_t tempData[largestSerializedDataOnlySize];
     m_dataPtr = tempData;
     m_dataLength = CborTwoUint64ArraySerialize(tempData, m_hopLimit, m_hopCount);
@@ -228,7 +228,7 @@ bool Bpv7HopCountCanonicalBlock::TryReserializeExtensionBlockDataWithoutResizeBp
     //If hop count doesn't transition from 23 to 24, and hop limit doesn't change, then
     //this block can be updated in place without data resize modifications.
     //If successful, call blocks[0]->headerPtr->RecomputeCrcAfterDataModification((uint8_t*)blocks[0]->actualSerializedBlockPtr.data(), blocks[0]->actualSerializedBlockPtr.size());
-    m_blockTypeCode = BPV7_BLOCKTYPE_HOP_COUNT;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::HOP_COUNT;
     uint8_t tempData[largestSerializedDataOnlySize];
     if (m_dataLength == CborTwoUint64ArraySerialize(tempData, m_hopLimit, m_hopCount)) {
         memcpy(m_dataPtr, tempData, m_dataLength);
@@ -297,7 +297,7 @@ void Bpv7AbstractSecurityBlock::SetZero() {
     m_securitySource.SetZero();
     m_securityContextParametersOptional.clear();
     m_securityResults.clear();
-    m_blockTypeCode = 0; //??
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO; //??
 }
 
 
@@ -332,7 +332,7 @@ void Bpv7AbstractSecurityBlock::ClearSecurityContextParametersPresent() {
 }
 
 uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
-    //m_blockTypeCode = ???BPV7_BLOCKTYPE_PREVIOUS_NODE;
+    //m_blockTypeCode = ???
     std::vector<uint8_t> tempData(1000); //todo size
     uint8_t * serializationTempData = tempData.data();
 
@@ -785,7 +785,7 @@ std::vector<std::vector<uint8_t>*> Bpv7AbstractSecurityBlock::Protected_GetAllSe
 /////////////////////////////////////////
 
 Bpv7BlockIntegrityBlock::Bpv7BlockIntegrityBlock() : Bpv7AbstractSecurityBlock() { //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
-    m_blockTypeCode = BPV7_BLOCKTYPE_BLOCK_INTEGRITY;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::INTEGRITY;
     SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BIB_HMAC_SHA2);
 }
 Bpv7BlockIntegrityBlock::~Bpv7BlockIntegrityBlock() { } //a destructor: ~X()
@@ -802,7 +802,7 @@ bool Bpv7BlockIntegrityBlock::operator!=(const Bpv7BlockIntegrityBlock & o) cons
 }
 void Bpv7BlockIntegrityBlock::SetZero() {
     Bpv7AbstractSecurityBlock::SetZero();
-    m_blockTypeCode = BPV7_BLOCKTYPE_BLOCK_INTEGRITY;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::INTEGRITY;
 }
 bool Bpv7BlockIntegrityBlock::AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg) {
     for (std::size_t i = 0; i < m_securityContextParametersOptional.size(); ++i) {
@@ -909,7 +909,7 @@ std::vector<std::vector<uint8_t>*> Bpv7BlockIntegrityBlock::GetAllExpectedHmacPt
 /////////////////////////////////////////
 
 Bpv7BlockConfidentialityBlock::Bpv7BlockConfidentialityBlock() : Bpv7AbstractSecurityBlock() { //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
-    m_blockTypeCode = BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY;
     SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BCB_AES_GCM);
 }
 Bpv7BlockConfidentialityBlock::~Bpv7BlockConfidentialityBlock() { } //a destructor: ~X()
@@ -926,7 +926,7 @@ bool Bpv7BlockConfidentialityBlock::operator!=(const Bpv7BlockConfidentialityBlo
 }
 void Bpv7BlockConfidentialityBlock::SetZero() {
     Bpv7AbstractSecurityBlock::SetZero();
-    m_blockTypeCode = BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY;
 }
 
 bool Bpv7BlockConfidentialityBlock::AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg) {

@@ -76,11 +76,11 @@ public:
     bool InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
     bool InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
     bool GetSerializationSize(uint64_t & serializationSize) const;
-    std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
+    std::size_t GetCanonicalBlockCountByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
-    void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
+    void GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
     uint64_t GetNextFreeCanonicalBlockNumber() const;
-    std::size_t DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode);
+    std::size_t DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode);
     bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
     bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
     bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);

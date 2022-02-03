@@ -69,7 +69,7 @@ static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimar
         std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
         Bpv7CanonicalBlock & block = *blockPtr;
 
-        block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+        block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockNumber = 1; //must be 1
         block.m_crcType = BPV7_CRC_TYPE_CRC32C;

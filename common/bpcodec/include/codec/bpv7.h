@@ -25,6 +25,7 @@ enum class BPV7_BUNDLEFLAG : uint64_t {
     DELETION_STATUS_REPORTS_REQUESTED =   1 << 18 //(0x40000)
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV7_BUNDLEFLAG);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_BUNDLEFLAG);
 
 enum class BPV7_BLOCKFLAG : uint64_t {
     NO_FLAGS_SET =                                       0,
@@ -34,14 +35,23 @@ enum class BPV7_BLOCKFLAG : uint64_t {
     REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED =               1 << 4  //(0x10)
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV7_BLOCKFLAG);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_BLOCKFLAG);
 
 // https://www.iana.org/assignments/bundle/bundle.xhtml#block-types
-#define BPV7_BLOCKTYPE_PAYLOAD                     1U
-#define BPV7_BLOCKTYPE_PREVIOUS_NODE               6U
-#define BPV7_BLOCKTYPE_BUNDLE_AGE                  7U
-#define BPV7_BLOCKTYPE_HOP_COUNT                   10U
-#define BPV7_BLOCKTYPE_BLOCK_INTEGRITY             11U
-#define BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY       12U
+enum class BPV7_BLOCK_TYPE_CODE : uint8_t {
+    PRIMARY_IMPLICIT_ZERO       = 0,
+    PAYLOAD                     = 1,
+    UNUSED_2                    = 2,
+    UNUSED_3                    = 3,
+    UNUSED_4                    = 4,
+    UNUSED_5                    = 5,
+    PREVIOUS_NODE               = 6,
+    BUNDLE_AGE                  = 7,
+    HOP_COUNT                   = 10,
+    INTEGRITY                   = 11,
+    CONFIDENTIALITY             = 12
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_BLOCK_TYPE_CODE);
 
 //https://www.iana.org/assignments/bundle/bundle.xhtml
 enum class BPSEC_SECURITY_CONTEXT_IDENTIFIERS {
@@ -68,6 +78,7 @@ enum class BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS : uint64_t {
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS);
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 3.3.4.  Enumerations
@@ -142,6 +153,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS : uint64_t {
     INCLUDE_SECURITY_HEADER = 1 << (static_cast<uint8_t>(BPSEC_BCB_AES_GCM_AAD_SCOPE_FLAGS::INCLUDE_SECURITY_HEADER_FLAG)),
 };
 MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS);
 /*
 //https://datatracker.ietf.org/doc/draft-ietf-dtn-bpsec-default-sc/
 4.3.5.  Enumerations
@@ -277,10 +289,10 @@ struct Bpv7CanonicalBlock {
     uint64_t m_dataLength;
     uint32_t m_computedCrc32; //computed after serialization or deserialization
     uint16_t m_computedCrc16; //computed after serialization or deserialization
-    uint8_t m_blockTypeCode; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
+    BPV7_BLOCK_TYPE_CODE m_blockTypeCode; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
     uint8_t m_crcType; //placed uint8 at the end of struct for more efficient memory usage
     
-    
+
     Bpv7CanonicalBlock(); //a default constructor: X()
     virtual ~Bpv7CanonicalBlock(); //a destructor: ~X()
     Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o); //a copy constructor: X(const X&)

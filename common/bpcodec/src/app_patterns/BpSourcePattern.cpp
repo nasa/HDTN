@@ -267,7 +267,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 Bpv7CanonicalBlock & payloadBlock = *payloadBlockPtr;
                 //payloadBlock.SetZero();
 
-                payloadBlock.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+                payloadBlock.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
                 payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
                 payloadBlock.m_blockNumber = 1; //must be 1
                 payloadBlock.m_crcType = BPV7_CRC_TYPE_CRC32C;
