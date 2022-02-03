@@ -72,7 +72,7 @@ static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimar
         block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockNumber = 1; //must be 1
-        block.m_crcType = BPV7_CRC_TYPE_CRC32C;
+        block.m_crcType = BPV7_CRC_TYPE::CRC32C;
         block.m_dataLength = payloadData.size();
         block.m_dataPtr = (uint8_t*)payloadData.data(); //payloadString must remain in scope until after render
         bv.AppendMoveCanonicalBlock(blockPtr);

@@ -508,7 +508,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
 
                     block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
                     block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
-                    block.m_crcType = BPV7_CRC_TYPE_CRC32C;
+                    block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                     block.m_previousNode.Set(m_hdtnConfig.m_myNodeId, 0);
                     bv.PrependMoveCanonicalBlock(blockPtr);
                 }

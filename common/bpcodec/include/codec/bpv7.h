@@ -8,9 +8,12 @@
 #include "codec/Cose.h"
 #include "EnumAsFlagsMacro.h"
 
-#define BPV7_CRC_TYPE_NONE        0
-#define BPV7_CRC_TYPE_CRC16_X25   1
-#define BPV7_CRC_TYPE_CRC32C      2
+enum class BPV7_CRC_TYPE : uint8_t {
+    NONE       = 0,
+    CRC16_X25  = 1,
+    CRC32C     = 2
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_CRC_TYPE);
 
 enum class BPV7_BUNDLEFLAG : uint64_t {
     NO_FLAGS_SET =                        0,
@@ -234,7 +237,7 @@ struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     uint64_t m_totalApplicationDataUnitLength;
     uint32_t m_computedCrc32; //computed after serialization or deserialization
     uint16_t m_computedCrc16; //computed after serialization or deserialization
-    uint8_t m_crcType; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
+    BPV7_CRC_TYPE m_crcType; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
 
     Bpv7CbhePrimaryBlock(); //a default constructor: X()
     ~Bpv7CbhePrimaryBlock(); //a destructor: ~X()
@@ -290,7 +293,7 @@ struct Bpv7CanonicalBlock {
     uint32_t m_computedCrc32; //computed after serialization or deserialization
     uint16_t m_computedCrc16; //computed after serialization or deserialization
     BPV7_BLOCK_TYPE_CODE m_blockTypeCode; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
-    uint8_t m_crcType; //placed uint8 at the end of struct for more efficient memory usage
+    BPV7_CRC_TYPE m_crcType; //placed uint8 at the end of struct for more efficient memory usage
     
 
     Bpv7CanonicalBlock(); //a default constructor: X()

@@ -18,7 +18,7 @@ static const uint64_t PRIMARY_TIME = 10000;
 static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
 
-static void AppendCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, std::string & newBlockBody, uint64_t blockNumber, const uint8_t crcTypeToUse) {
+static void AppendCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, std::string & newBlockBody, uint64_t blockNumber, const BPV7_CRC_TYPE crcTypeToUse) {
     //std::cout << "append " << (int)newType << "\n";
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;
@@ -37,7 +37,7 @@ static void AppendCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_COD
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
 }
-static void PrependCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, std::string & newBlockBody, uint64_t blockNumber, const uint8_t crcTypeToUse) {
+static void PrependCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, std::string & newBlockBody, uint64_t blockNumber, const BPV7_CRC_TYPE crcTypeToUse) {
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;
     block.m_blockTypeCode = newType;
@@ -55,7 +55,7 @@ static void PrependCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CO
     BOOST_REQUIRE(bv.GetSerializationSize(expectedRenderSize));
     BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
 }
-static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, uint64_t dataLengthToAllocate, uint64_t blockNumber, const uint8_t crcTypeToUse) {
+static void PrependCanonicalBlockAndRender_AllocateOnly(BundleViewV7 & bv, BPV7_BLOCK_TYPE_CODE newType, uint64_t dataLengthToAllocate, uint64_t blockNumber, const BPV7_CRC_TYPE crcTypeToUse) {
     //std::cout << "append " << (int)newType << "\n";
     std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
     Bpv7CanonicalBlock & block = *blockPtr;
@@ -97,7 +97,7 @@ static void ChangeCanonicalBlockAndRender(BundleViewV7 & bv, BPV7_BLOCK_TYPE_COD
 }
 
 static void GenerateBundle(const std::vector<BPV7_BLOCK_TYPE_CODE> & canonicalTypesVec, const std::vector<uint8_t> & blockNumbersToUse,
-    const std::vector<std::string> & canonicalBodyStringsVec, BundleViewV7 & bv, const uint8_t crcTypeToUse)
+    const std::vector<std::string> & canonicalBodyStringsVec, BundleViewV7 & bv, const BPV7_CRC_TYPE crcTypeToUse)
 {
 
     Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -144,9 +144,9 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
     }; 
     const std::vector<uint8_t> blockNumbersToUse = { 2,3,4,1 }; //The block number of the payload block is always 1.
     const std::vector<std::string> canonicalBodyStringsVec = { "The ", "quick ", " brown", " fox" };
-    const std::vector<uint8_t> crcTypesVec = { BPV7_CRC_TYPE_NONE, BPV7_CRC_TYPE_CRC16_X25, BPV7_CRC_TYPE_CRC32C }; //last block must be payload block
+    const std::vector<BPV7_CRC_TYPE> crcTypesVec = { BPV7_CRC_TYPE::NONE, BPV7_CRC_TYPE::CRC16_X25, BPV7_CRC_TYPE::CRC32C };
     for (std::size_t crcI = 0; crcI < crcTypesVec.size(); ++crcI) {
-        const uint8_t crcTypeToUse = crcTypesVec[crcI];
+        const BPV7_CRC_TYPE crcTypeToUse = crcTypesVec[crcI];
 
         BundleViewV7 bv;
         GenerateBundle(canonicalTypesVec, blockNumbersToUse, canonicalBodyStringsVec, bv, crcTypeToUse);
@@ -192,14 +192,14 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), expectedRenderSize);
         BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedCopy);
 
-        //change 2nd block from quick to slow and type from 3 to 6 and render
-        const uint32_t quickCrc = (crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 0 : 
-            (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
+        //change 2nd block from quick to slow and type from 3 to 4 and render
+        const uint32_t quickCrc = (crcTypeToUse == BPV7_CRC_TYPE::NONE) ? 0 : 
+            (crcTypeToUse == BPV7_CRC_TYPE::CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
             boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc32;
         std::string slowString("slow ");
         ChangeCanonicalBlockAndRender(bv, BPV7_BLOCK_TYPE_CODE::UNUSED_3, BPV7_BLOCK_TYPE_CODE::UNUSED_4, slowString);
-        const uint32_t slowCrc = (crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 1 :
-            (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
+        const uint32_t slowCrc = (crcTypeToUse == BPV7_CRC_TYPE::NONE) ? 1 :
+            (crcTypeToUse == BPV7_CRC_TYPE::CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
             boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc32;
         BOOST_REQUIRE_NE(quickCrc, slowCrc);
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bv.m_backBuffer.size() - 1); //"quick" to "slow"
@@ -215,8 +215,8 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
         //revert 2nd block
         std::string quickString("quick ");
         ChangeCanonicalBlockAndRender(bv, BPV7_BLOCK_TYPE_CODE::UNUSED_4, BPV7_BLOCK_TYPE_CODE::UNUSED_3, quickString);
-        const uint32_t quickCrc2 = (crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 0 :
-            (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
+        const uint32_t quickCrc2 = (crcTypeToUse == BPV7_CRC_TYPE::NONE) ? 0 :
+            (crcTypeToUse == BPV7_CRC_TYPE::CRC16_X25) ? boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc16 :
             boost::next(bv.m_listCanonicalBlockView.begin())->headerPtr->m_computedCrc32;
         //std::cout << "crc=" << quickCrc << "\n";
         BOOST_REQUIRE_EQUAL(quickCrc, quickCrc2);
@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
                 1 + //crc type code byte
                 1 + //byte string header
                 canonicalBodyStringsVec.front().length() + //data = len("The ")
-                ((crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 0 : (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? 3 : 5); //crc byte array
+                ((crcTypeToUse == BPV7_CRC_TYPE::NONE) ? 0 : (crcTypeToUse == BPV7_CRC_TYPE::CRC16_X25) ? 3 : 5); //crc byte array
             //std::cout << "canonicalSize=" << canonicalSize << "\n";
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size() - canonicalSize);
 
@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
                 1 + //crc type code byte
                 1 + //byte string header
                 canonicalBodyStringsVec.front().length() + //data = len("The ")
-                ((crcTypeToUse == BPV7_CRC_TYPE_NONE) ? 0 : (crcTypeToUse == BPV7_CRC_TYPE_CRC16_X25) ? 3 : 5); //crc byte array
+                ((crcTypeToUse == BPV7_CRC_TYPE::NONE) ? 0 : (crcTypeToUse == BPV7_CRC_TYPE::CRC16_X25) ? 3 : 5); //crc byte array
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size() - canonicalSize);
 
             bv.m_backBuffer.assign(bv.m_backBuffer.size(), 0); //make sure zeroed out
@@ -306,7 +306,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV7TestCase)
             BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_dataLength, canonicalBodyStringsVec.front().length()); //make sure preallocated
             BOOST_REQUIRE_EQUAL((unsigned int)blocks[0]->headerPtr->m_dataPtr[0], 0); //make sure was zeroed out from above
             memcpy(blocks[0]->headerPtr->m_dataPtr, canonicalBodyStringsVec.front().data(), canonicalBodyStringsVec.front().length()); //copy data
-            if (crcTypeToUse != BPV7_CRC_TYPE_NONE) {
+            if (crcTypeToUse != BPV7_CRC_TYPE::NONE) {
                 BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedOriginal); //still not equal, need to recompute crc
                 blocks[0]->headerPtr->RecomputeCrcAfterDataModification((uint8_t*)blocks[0]->actualSerializedBlockPtr.data(), blocks[0]->actualSerializedBlockPtr.size()); //recompute crc
             }
@@ -340,9 +340,9 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
     const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
     
     
-    const std::vector<uint8_t> crcTypesVec = { BPV7_CRC_TYPE_NONE, BPV7_CRC_TYPE_CRC16_X25, BPV7_CRC_TYPE_CRC32C }; //last block must be payload block
+    const std::vector<BPV7_CRC_TYPE> crcTypesVec = { BPV7_CRC_TYPE::NONE, BPV7_CRC_TYPE::CRC16_X25, BPV7_CRC_TYPE::CRC32C };
     for (std::size_t crcI = 0; crcI < crcTypesVec.size(); ++crcI) {
-        const uint8_t crcTypeToUse = crcTypesVec[crcI];
+        const BPV7_CRC_TYPE crcTypeToUse = crcTypesVec[crcI];
 
         BundleViewV7 bv;
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -561,9 +561,9 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
     static const uint8_t HOP_COUNT = 200;
     const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
 
-    const std::vector<uint8_t> crcTypesVec = { BPV7_CRC_TYPE_NONE, BPV7_CRC_TYPE_CRC16_X25, BPV7_CRC_TYPE_CRC32C }; //last block must be payload block
+    const std::vector<BPV7_CRC_TYPE> crcTypesVec = { BPV7_CRC_TYPE::NONE, BPV7_CRC_TYPE::CRC16_X25, BPV7_CRC_TYPE::CRC32C };
     for (std::size_t crcI = 0; crcI < crcTypesVec.size(); ++crcI) {
-        const uint8_t crcTypeToUse = crcTypesVec[crcI];
+        const BPV7_CRC_TYPE crcTypeToUse = crcTypesVec[crcI];
 
         BundleViewV7 bv;
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;

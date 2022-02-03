@@ -87,7 +87,7 @@ void Bpv7CanonicalBlock::SetZero() {
     m_computedCrc32 = 0;
     m_computedCrc16 = 0;
     m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO;
-    m_crcType = 0;
+    m_crcType = BPV7_CRC_TYPE::NONE;
 }
 
 
@@ -99,7 +99,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //"canonical" blocks) SHALL be represented as a CBOR array; the number
     //of elements in the array SHALL be 5 (if CRC type is zero) or 6
     //(otherwise).
-    const bool hasCrc = (m_crcType != 0);
+    const bool hasCrc = (m_crcType != BPV7_CRC_TYPE::NONE);
     const uint8_t cborArraySize = 5 + hasCrc;
     *serialization++ = (4U << 5) | cborArraySize; //major type 4, additional information [5..6]
     
@@ -140,7 +140,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //
     //CRC type SHALL be represented as a CBOR unsigned integer.
     //(cbor uint's < 24 are the value itself)
-    *serialization++ = m_crcType;
+    *serialization++ = static_cast<uint8_t>(m_crcType);
     
     //Block-type-specific data represented as a single definite-
     //length CBOR byte string, i.e., a CBOR byte string that is not
@@ -178,7 +178,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
         //itself, which for this purpose SHALL be temporarily populated
         //with all bytes set to zero.
         uint8_t * const crcStartPtr = serialization;
-        if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        if (m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
             serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             if (doCrcComputation) {
@@ -188,7 +188,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
             }
             return blockSerializedLength;
         }
-        else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        else if (m_crcType == BPV7_CRC_TYPE::CRC32C) {
             serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             if (doCrcComputation) {
@@ -221,20 +221,20 @@ uint64_t Bpv7CanonicalBlock::GetSerializationSize(const uint64_t dataLength) con
     serializationSize += CborGetEncodingSizeU64(dataLength);
     serializationSize += dataLength; //todo safety check on data length
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };
-    serializationSize += CRC_TYPE_TO_SIZE[m_crcType & 3];
+    serializationSize += CRC_TYPE_TO_SIZE[(static_cast<uint8_t>(m_crcType)) & 3];
     return serializationSize;
 }
 
 void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized) {
 
-    if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+    if (m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
         uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 3U);
         Bpv7Crc::SerializeZeroedCrc16ForBpv7(crcStartPtr);
         m_computedCrc32 = 0;
         m_computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, sizeSerialized);
         Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16);
     }
-    else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+    else if (m_crcType == BPV7_CRC_TYPE::CRC32C) {
         uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 5U);
         Bpv7Crc::SerializeZeroedCrc32ForBpv7(crcStartPtr);
         m_computedCrc16 = 0;
@@ -344,11 +344,11 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     if (bufferSize < 2) { //for crcType and byteStringHeader
         return false;
     }
-    canonicalPtr->m_crcType = *serialization++;
+    canonicalPtr->m_crcType = static_cast<BPV7_CRC_TYPE>(*serialization++);
     --bufferSize;
 
     //verify cbor array size
-    const bool hasCrc = (canonicalPtr->m_crcType != 0);
+    const bool hasCrc = (canonicalPtr->m_crcType != BPV7_CRC_TYPE::NONE);
     const uint8_t expectedCborArraySize = 5 + hasCrc;
     if (expectedCborArraySize != cborArraySize) {
         return false; //failure
@@ -397,7 +397,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
         //with all bytes set to zero.
         bufferSize -= canonicalPtr->m_dataLength; //only need to do this if hasCrc
         uint8_t * const crcStartPtr = serialization;
-        if (canonicalPtr->m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        if (canonicalPtr->m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
             canonicalPtr->m_computedCrc32 = 0;
             if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, canonicalPtr->m_computedCrc16))) {
                 return false;
@@ -423,7 +423,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
                 return false;
             }
         }
-        else if (canonicalPtr->m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        else if (canonicalPtr->m_crcType == BPV7_CRC_TYPE::CRC32C) {
             canonicalPtr->m_computedCrc16 = 0;
             if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, canonicalPtr->m_computedCrc32))) {
                 return false;
