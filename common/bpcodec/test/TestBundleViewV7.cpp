@@ -702,3 +702,179 @@ BOOST_AUTO_TEST_CASE(Bpv7PrependExtensionBlockToPaddedBundleTestCase)
     }
 }
 
+BOOST_AUTO_TEST_CASE(Bpv7BundleStatusReportTestCase)
+{
+
+    const std::vector<BPV7_CRC_TYPE> crcTypesVec = { BPV7_CRC_TYPE::NONE, BPV7_CRC_TYPE::CRC16_X25, BPV7_CRC_TYPE::CRC32C };
+    for (std::size_t crcI = 0; crcI < crcTypesVec.size(); ++crcI) {
+        const BPV7_CRC_TYPE crcTypeToUse = crcTypesVec[crcI];
+        for (unsigned int useFragI = 0; useFragI < 2; ++useFragI) {
+            const bool useFrag = (useFragI != 0);
+            for (unsigned int timeFlagSetI = 0; timeFlagSetI < 2; ++timeFlagSetI) {
+                const bool useReportStatusTime = (timeFlagSetI != 0);
+                for (unsigned int assertionsMask = 1; assertionsMask < 16; ++assertionsMask) { //start at 1 because you must assert at least one of the four items
+                    const bool assert0 = ((assertionsMask & 1) != 0);
+                    const bool assert1 = ((assertionsMask & 2) != 0);
+                    const bool assert2 = ((assertionsMask & 4) != 0);
+                    const bool assert3 = ((assertionsMask & 8) != 0);
+                    //std::cout << assert3 << assert2 << assert1 << assert0 << "\n";
+                    BundleViewV7 bv;
+                    Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+                    primary.SetZero();
+
+
+                    primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT | BPV7_BUNDLEFLAG::ADMINRECORD;
+                    primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+                    primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
+                    primary.m_reportToEid.Set(0, 0);
+                    primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 = PRIMARY_TIME;
+                    primary.m_lifetimeMilliseconds = PRIMARY_LIFETIME;
+                    primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
+                    primary.m_crcType = crcTypeToUse;
+                    bv.m_primaryBlockView.SetManuallyModified();
+
+                    uint64_t bsrSerializationSize = 0;
+                    //add bundle status report payload block
+                    {
+                        std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+                        Bpv7AdministrativeRecord & block = *(reinterpret_cast<Bpv7AdministrativeRecord*>(blockPtr.get()));
+
+                        //block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD; //not needed because handled by Bpv7AdministrativeRecord constructor
+                        block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+                        //block.m_blockNumber = 1; //must be 1 //not needed because handled by Bpv7AdministrativeRecord constructor
+                        block.m_crcType = crcTypeToUse;
+
+                        block.m_adminRecordTypeCode = BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT;
+                        block.m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBundleStatusReport>();
+                        Bpv7AdministrativeRecordContentBundleStatusReport & bsr = *(reinterpret_cast<Bpv7AdministrativeRecordContentBundleStatusReport*>(block.m_adminRecordContentPtr.get()));
+
+                        bsr.m_reportStatusTimeFlagWasSet = useReportStatusTime;
+                        //reporting-node-received-bundle
+                        bsr.m_bundleStatusInfo[0].first = assert0;
+                        bsr.m_bundleStatusInfo[0].second = (bsr.m_reportStatusTimeFlagWasSet) ? 10000 : 0; //time asserted, 0 if don't care
+
+                        //reporting-node-forwarded-bundle
+                        bsr.m_bundleStatusInfo[1].first = assert1;
+                        bsr.m_bundleStatusInfo[1].second = (bsr.m_reportStatusTimeFlagWasSet) ? 10001 : 0; //time asserted, all don't cares
+
+                        //reporting-node-delivered-bundle
+                        bsr.m_bundleStatusInfo[2].first = assert2;
+                        bsr.m_bundleStatusInfo[2].second = (bsr.m_reportStatusTimeFlagWasSet) ? 10002 : 0; //time asserted, 0 if don't care
+
+                        //reporting-node-deleted-bundle
+                        bsr.m_bundleStatusInfo[3].first = assert3;
+                        bsr.m_bundleStatusInfo[3].second = (bsr.m_reportStatusTimeFlagWasSet) ? 10003 : 0; //time asserted, all don't cares
+
+                        bsr.m_statusReportReasonCode = BPV7_STATUS_REPORT_REASON_CODE::DEPLETED_STORAGE;
+
+                        bsr.m_sourceNodeEid.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+
+                        bsr.m_creationTimestamp.millisecondsSinceStartOfYear2000 = 5000;
+                        bsr.m_creationTimestamp.sequenceNumber = 10;
+
+                        bsr.m_subjectBundleIsFragment = useFrag;
+                        bsr.m_optionalSubjectPayloadFragmentOffset = 200;
+                        bsr.m_optionalSubjectPayloadFragmentLength = 100;
+
+                        bsrSerializationSize = bsr.GetSerializationSize();
+
+                        bv.AppendMoveCanonicalBlock(blockPtr);
+                    }
+
+
+                    BOOST_REQUIRE(bv.Render(5000));
+
+                    std::vector<uint8_t> bundleSerializedOriginal(bv.m_frontBuffer);
+                    //std::cout << "renderedsize: " << bv.m_frontBuffer.size() << "\n";
+
+                    BOOST_REQUIRE_GT(bundleSerializedOriginal.size(), 0);
+                    std::vector<uint8_t> bundleSerializedCopy(bundleSerializedOriginal); //the copy can get modified by bundle view on first load
+                    BOOST_REQUIRE(bundleSerializedOriginal == bundleSerializedCopy);
+                    bv.Reset();
+                    //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
+                    BOOST_REQUIRE(bv.LoadBundle(&bundleSerializedCopy[0], bundleSerializedCopy.size()));
+                    BOOST_REQUIRE(bv.m_backBuffer != bundleSerializedCopy);
+                    BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
+
+                    BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+                    BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
+                    BOOST_REQUIRE_EQUAL(primary.m_creationTimestamp, TimestampUtil::bpv7_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+                    BOOST_REQUIRE_EQUAL(primary.m_lifetimeMilliseconds, PRIMARY_LIFETIME);
+                    BOOST_REQUIRE_EQUAL(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primary.GetSerializationSize());
+                    BOOST_REQUIRE_EQUAL(primary.m_bundleProcessingControlFlags, BPV7_BUNDLEFLAG::NOFRAGMENT | BPV7_BUNDLEFLAG::ADMINRECORD);
+
+                    BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 1);
+                    BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 0);
+                    BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 0);
+                    BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 0);
+                    BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD), 1);
+
+
+
+                    //get bundle status report payload block
+                    {
+                        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+                        BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+                        Bpv7AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv7AdministrativeRecord*>(blocks[0]->headerPtr.get());
+                        BOOST_REQUIRE(adminRecordBlockPtr);
+                        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
+                        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockNumber, 1);
+                        BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT);
+
+                        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+                        //std::cout << "adminRecordBlockPtr->GetSerializationSize() " << adminRecordBlockPtr->GetSerializationSize() << "\n";
+                        BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
+
+                        Bpv7AdministrativeRecordContentBundleStatusReport * bsrPtr = dynamic_cast<Bpv7AdministrativeRecordContentBundleStatusReport*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                        BOOST_REQUIRE(bsrPtr);
+
+                        Bpv7AdministrativeRecordContentBundleStatusReport & bsr = *(reinterpret_cast<Bpv7AdministrativeRecordContentBundleStatusReport*>(bsrPtr));
+
+                        BOOST_REQUIRE_EQUAL(bsr.GetSerializationSize(), bsrSerializationSize);
+
+                        BOOST_REQUIRE_EQUAL(bsr.m_reportStatusTimeFlagWasSet, useReportStatusTime);
+                        //reporting-node-received-bundle
+                        BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[0].first, assert0);
+                        if (bsr.m_bundleStatusInfo[0].first && bsr.m_reportStatusTimeFlagWasSet) {
+                            BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[0].second, 10000);
+                        }
+
+                        //reporting-node-forwarded-bundle
+                        BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[1].first, assert1);
+                        if (bsr.m_bundleStatusInfo[1].first && bsr.m_reportStatusTimeFlagWasSet) {
+                            BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[1].second, 10001);
+                        }
+
+                        //reporting-node-delivered-bundle
+                        BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[2].first, assert2);
+                        if (bsr.m_bundleStatusInfo[2].first && bsr.m_reportStatusTimeFlagWasSet) {
+                            BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[2].second, 10002);
+                        }
+
+                        //reporting-node-deleted-bundle
+                        BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[3].first, assert3);
+                        if (bsr.m_bundleStatusInfo[3].first && bsr.m_reportStatusTimeFlagWasSet) {
+                            BOOST_REQUIRE_EQUAL(bsr.m_bundleStatusInfo[3].second, 10003);
+                        }
+
+                        BOOST_REQUIRE_EQUAL(bsr.m_statusReportReasonCode, BPV7_STATUS_REPORT_REASON_CODE::DEPLETED_STORAGE);
+
+                        BOOST_REQUIRE_EQUAL(bsr.m_sourceNodeEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+
+                        BOOST_REQUIRE_EQUAL(bsr.m_creationTimestamp.millisecondsSinceStartOfYear2000, 5000);
+                        BOOST_REQUIRE_EQUAL(bsr.m_creationTimestamp.sequenceNumber, 10);
+
+                        BOOST_REQUIRE_EQUAL(bsr.m_subjectBundleIsFragment, useFrag);
+                        if (bsr.m_subjectBundleIsFragment) {
+                            BOOST_REQUIRE_EQUAL(bsr.m_optionalSubjectPayloadFragmentOffset, 200);
+                            BOOST_REQUIRE_EQUAL(bsr.m_optionalSubjectPayloadFragmentLength, 100);
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+}
+

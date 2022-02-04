@@ -244,10 +244,11 @@ void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializati
 }
 
 //serialization must be temporarily modifyable to zero crc and restore it
-bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify) {
+bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode,
+    uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord)
+{
     uint8_t cborSizeDecoded;
     const uint8_t * const serializationBase = serialization;
-
     if (bufferSize < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
         return false;
     }
@@ -281,27 +282,34 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     }
     serialization += cborSizeDecoded;
     bufferSize -= cborSizeDecoded;
-
-    switch (blockTypeCode) {
-        case BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE:
-            canonicalPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
-            break;
-        case BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE:
-            canonicalPtr = boost::make_unique<Bpv7BundleAgeCanonicalBlock>();
-            break;
-        case BPV7_BLOCK_TYPE_CODE::HOP_COUNT:
-            canonicalPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
-            break;
-        case BPV7_BLOCK_TYPE_CODE::INTEGRITY:
-            canonicalPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
-            break;
-        case BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY:
-            canonicalPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
-            break;
-        //case BPV7_BLOCK_TYPE_CODE::PAYLOAD:
-        default:
-            canonicalPtr = boost::make_unique<Bpv7CanonicalBlock>();
-            break;
+    if (isAdminRecord) {
+        if (blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //admin records always go into a payload block
+            return false;
+        }
+        canonicalPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+    }
+    else {
+        switch (blockTypeCode) {
+            case BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE:
+                canonicalPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE:
+                canonicalPtr = boost::make_unique<Bpv7BundleAgeCanonicalBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::HOP_COUNT:
+                canonicalPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::INTEGRITY:
+                canonicalPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY:
+                canonicalPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::PAYLOAD:
+            default:
+                canonicalPtr = boost::make_unique<Bpv7CanonicalBlock>();
+                break;
+        }
     }
     canonicalPtr->m_blockTypeCode = blockTypeCode;
 
@@ -341,7 +349,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //
     //CRC type SHALL be represented as a CBOR unsigned integer.
     //(cbor uint's < 24 are the value itself)
-    if (bufferSize < 2) { //for crcType and byteStringHeader
+    if (bufferSize < 2) { //for crcType and [potentialTag24 or byteStringHeader]
         return false;
     }
     canonicalPtr->m_crcType = static_cast<BPV7_CRC_TYPE>(*serialization++);
@@ -366,6 +374,28 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //termed the "payload", SHALL be an application data unit, or
     //some contiguous extent thereof, represented as a definite-
     //length CBOR byte string.
+    //block-type-specific-data = bstr / #6.24(bstr)
+    //; Actual CBOR data embedded in a bytestring, with optional tag to
+    //indicate so.
+    //; Additional plain bstr allows ciphertext data.
+    //3.4.5.1.  Encoded CBOR Data Item
+    //Sometimes it is beneficial to carry an embedded CBOR data item that
+    //is not meant to be decoded immediately at the time the enclosing data
+    //item is being decoded.  Tag number 24 (CBOR data item) can be used to
+    //tag the embedded byte string as a single data item encoded in CBOR
+    //format.  Contained items that aren't byte strings are invalid.  A
+    //contained byte string is valid if it encodes a well-formed CBOR data
+    //item; validity checking of the decoded CBOR item is not required for
+    //tag validity (but could be offered by a generic decoder as a special
+    //option).
+    const uint8_t potentialTag24 = *serialization;
+    if (potentialTag24 == ((6U << 5) | 24U)) { //major type 6, additional information 24 (Tag number 24 (CBOR data item))
+        ++serialization;
+        --bufferSize;
+        if (bufferSize < 1) { //forbyteStringHeader
+            return false;
+        }
+    }
     uint8_t * const byteStringHeaderStartPtr = serialization; //buffer size verified above
     const uint8_t cborMajorTypeByteString = (*byteStringHeaderStartPtr) >> 5;
     if (cborMajorTypeByteString != 2) {

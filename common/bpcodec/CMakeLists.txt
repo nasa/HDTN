@@ -9,6 +9,7 @@ add_library(bpcodec STATIC
         src/codec/Bpv7CbhePrimaryBlock.cpp
 		src/codec/Bpv7CanonicalBlock.cpp
 		src/codec/Bpv7ExtensionBlocks.cpp
+		src/codec/Bpv7AdministrativeRecords.cpp
         src/codec/bpv6.cpp
 		src/codec/Cbhe.cpp
         src/codec/bpv6-ext-block.cpp

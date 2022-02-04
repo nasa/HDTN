@@ -7,6 +7,7 @@
 #include "codec/PrimaryBlock.h"
 #include "codec/Cose.h"
 #include "EnumAsFlagsMacro.h"
+#include <array>
 
 enum class BPV7_CRC_TYPE : uint8_t {
     NONE       = 0,
@@ -55,6 +56,44 @@ enum class BPV7_BLOCK_TYPE_CODE : uint8_t {
     CONFIDENTIALITY             = 12
 };
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_BLOCK_TYPE_CODE);
+
+enum class BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE : uint64_t {
+    UNUSED_ZERO                 = 0,
+    BUNDLE_STATUS_REPORT        = 1,
+    BIBE_PDU                    = 3, //bundle-in-bundle encapsulation (BIBE) Protocol Data Unit (BPDU)
+    CUSTODY_SIGNAL              = 4
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE);
+
+enum class BPV7_STATUS_REPORT_REASON_CODE : uint64_t {
+    NO_FURTHER_INFORMATION                    = 0,
+    LIFETIME_EXPIRED                          = 1,
+    FORWARDED_OVER_UNIDIRECTIONAL_LINK        = 2,
+    TRANSMISSION_CANCELLED                    = 3, // reception by a node that already has a copy of this bundle
+    DEPLETED_STORAGE                          = 4,
+    DESTINATION_EID_UNINTELLIGIBLE            = 5,
+    NO_KNOWN_ROUTE_DESTINATION_FROM_HERE      = 6,
+    NO_TIMELY_CONTACT_WITH_NEXT_NODE_ON_ROUTE = 7,
+    BLOCK_UNINTELLIGIBLE                      = 8,
+    HOP_LIMIT_EXCEEDED                        = 9,
+    TRAFFIC_PARED                             = 10, // e.g., status reports
+    BLOCK_UNSUPPORTED                         = 11
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_STATUS_REPORT_REASON_CODE);
+
+enum class BPV7_CUSTODY_SIGNAL_DISPOSITION_CODE : uint64_t {
+    CUSTODY_ACCEPTED                          = 0,
+    NO_FURTHER_INFORMATION                    = 1,
+    RESERVED_2                                = 2,
+    REDUNDANT                                 = 3, // reception by a node that already has a copy of this bundle
+    DEPLETED_STORAGE                          = 4,
+    DESTINATION_EID_UNINTELLIGIBLE            = 5,
+    NO_KNOWN_ROUTE_DESTINATION_FROM_HERE      = 6,
+    NO_TIMELY_CONTACT_WITH_NEXT_NODE_ON_ROUTE = 7,
+    BLOCK_UNINTELLIGIBLE                      = 8
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_CUSTODY_SIGNAL_DISPOSITION_CODE);
+
 
 //https://www.iana.org/assignments/bundle/bundle.xhtml
 enum class BPSEC_SECURITY_CONTEXT_IDENTIFIERS {
@@ -309,7 +348,8 @@ struct Bpv7CanonicalBlock {
     virtual uint64_t GetSerializationSize() const;
     uint64_t GetSerializationSize(const uint64_t dataLength) const;
     void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
-    static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify);
+    static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
+        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord);
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
@@ -380,12 +420,14 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
 };
 
 struct Bpv7AbstractSecurityBlockValueBase {
+    virtual ~Bpv7AbstractSecurityBlockValueBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv7(uint8_t * serialization) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
 };
 struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
+    virtual ~Bpv7AbstractSecurityBlockValueUint();
     virtual uint64_t SerializeBpv7(uint8_t * serialization);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
@@ -394,6 +436,7 @@ struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValu
     uint64_t m_uintValue;
 };
 struct Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
+    virtual ~Bpv7AbstractSecurityBlockValueByteString();
     virtual uint64_t SerializeBpv7(uint8_t * serialization);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
@@ -503,6 +546,63 @@ struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
 private:
     std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
+
+struct Bpv7AdministrativeRecordContentBase {
+    virtual ~Bpv7AdministrativeRecordContentBase() = 0; // Pure virtual destructor
+    virtual uint64_t SerializeBpv7(uint8_t * serialization) = 0;
+    virtual uint64_t GetSerializationSize() const = 0;
+    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
+    virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const = 0;
+};
+struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7AdministrativeRecordContentBase {
+    typedef std::pair<bool, uint64_t> status_info_content_t; //[status-indicator: bool, optional_timestamp: dtn_time]
+    typedef std::array<status_info_content_t, 4> bundle_status_information_t;
+
+    virtual ~Bpv7AdministrativeRecordContentBundleStatusReport();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
+
+    
+    // status-record-content = [
+    //  bundle-status-information,
+    //  status-report-reason-code: uint,
+    //  source-node-eid: eid,
+    //  subject-creation-timestamp: creation-timestamp,
+    //  ? (
+    //    subject-payload-offset: uint,
+    //    subject-payload-length: uint
+    //  )
+    // ]
+    bundle_status_information_t m_bundleStatusInfo;
+    BPV7_STATUS_REPORT_REASON_CODE m_statusReportReasonCode;
+    cbhe_eid_t m_sourceNodeEid;
+    TimestampUtil::bpv7_creation_timestamp_t m_creationTimestamp;
+    uint64_t m_optionalSubjectPayloadFragmentOffset;
+    uint64_t m_optionalSubjectPayloadFragmentLength;
+    bool m_subjectBundleIsFragment;
+    bool m_reportStatusTimeFlagWasSet;
+};
+struct Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
+
+    BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE m_adminRecordTypeCode;
+    std::unique_ptr<Bpv7AdministrativeRecordContentBase> m_adminRecordContentPtr;
+    
+    Bpv7AdministrativeRecord(); //a default constructor: X()
+    virtual ~Bpv7AdministrativeRecord(); //a destructor: ~X()
+    Bpv7AdministrativeRecord(const Bpv7AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
+    Bpv7AdministrativeRecord(Bpv7AdministrativeRecord&& o); //a move constructor: X(X&&)
+    Bpv7AdministrativeRecord& operator=(const Bpv7AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
+    Bpv7AdministrativeRecord& operator=(Bpv7AdministrativeRecord&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv7AdministrativeRecord & o) const; //operator ==
+    bool operator!=(const Bpv7AdministrativeRecord & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+};
+
 
 
 #endif //BPV7_H

@@ -52,10 +52,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
     m_applicationDataUnitStartPtr = serializationPrimaryBlockBeginPtr + decodedBlockSize;
     //todo application data unit length?
     const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ADMINRECORD) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
-    if (isAdminRecord) {
-        return true;
-    }
-
+    
     if (loadPrimaryBlockOnly) {
         return true;
     }
@@ -72,7 +69,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
         cbv.dirty = false;
         cbv.markedForDeletion = false;
         cbv.isEncrypted = false;
-        if(!Bpv7CanonicalBlock::DeserializeBpv7(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, skipCrcVerifyInCanonicalBlocks)) {
+        if(!Bpv7CanonicalBlock::DeserializeBpv7(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, skipCrcVerifyInCanonicalBlocks, isAdminRecord)) {
             return false;
         }
         serialization += decodedBlockSize;
@@ -212,12 +209,16 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
         serialization += size;
     }
-    const bool isAdminRecordAndOrFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ADMINRECORD | BPV7_BUNDLEFLAG::ISFRAGMENT)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
-    if (isAdminRecordAndOrFragment) {
+    const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ADMINRECORD)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ISFRAGMENT)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isFragment) {
         return false;
     }
     
     m_listCanonicalBlockView.remove_if([](const Bpv7CanonicalBlockView & v) { return v.markedForDeletion; }); //makes easier last block detection
+    if (isAdminRecord && (m_listCanonicalBlockView.size() != 1)) {
+        return false;
+    }
 
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());

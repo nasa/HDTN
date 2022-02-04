@@ -1039,6 +1039,9 @@ std::vector<std::vector<uint8_t>*> Bpv7BlockConfidentialityBlock::GetAllPayloadA
 /////////////////////////////////////////
 // VALUES FOR ABSTRACT SECURITY BLOCK
 /////////////////////////////////////////
+Bpv7AbstractSecurityBlockValueBase::~Bpv7AbstractSecurityBlockValueBase() {}
+
+Bpv7AbstractSecurityBlockValueUint::~Bpv7AbstractSecurityBlockValueUint() {}
 uint64_t Bpv7AbstractSecurityBlockValueUint::SerializeBpv7(uint8_t * serialization) {
     return CborEncodeU64BufSize9(serialization, m_uintValue);
 }
@@ -1060,7 +1063,7 @@ bool Bpv7AbstractSecurityBlockValueUint::IsEqual(const Bpv7AbstractSecurityBlock
     }
 }
 
-
+Bpv7AbstractSecurityBlockValueByteString::~Bpv7AbstractSecurityBlockValueByteString() {}
 uint64_t Bpv7AbstractSecurityBlockValueByteString::SerializeBpv7(uint8_t * serialization) {
     uint8_t * const byteStringHeaderStartPtr = serialization; //uint8_t * const serializationBase = serialization;
     serialization += CborEncodeU64BufSize9(serialization, m_byteString.size());
