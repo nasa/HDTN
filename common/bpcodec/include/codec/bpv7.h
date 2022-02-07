@@ -371,6 +371,7 @@ struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
     cbhe_eid_t m_previousNode;
@@ -390,6 +391,7 @@ struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
     uint64_t m_bundleAgeMilliseconds;
@@ -412,6 +414,7 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     bool TryReserializeExtensionBlockDataWithoutResizeBpv7();
 
