@@ -333,8 +333,12 @@ void Bpv7AbstractSecurityBlock::ClearSecurityContextParametersPresent() {
 
 uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //m_blockTypeCode = ???
-    std::vector<uint8_t> tempData(1000); //todo size
-    uint8_t * serializationTempData = tempData.data();
+    m_dataPtr = NULL;
+    m_dataLength = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    const uint64_t serializationSizeCanonical = Bpv7CanonicalBlock::SerializeBpv7(serialization);
+    uint64_t bufferSize = m_dataLength;
+    uint8_t * blockSpecificDataSerialization = m_dataPtr;
+    uint64_t thisSerializationSize;
 
     //The fields of the ASB SHALL be as follows, listed in the order in
     //which they must appear.  The encoding of these fields MUST be in
@@ -354,7 +358,10 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //meaning outside of the context of this block.  Within the
     //block, the ordering of targets must match the ordering of
     //results associated with these targets.
-    serializationTempData += CborArbitrarySizeUint64ArraySerialize(serializationTempData, m_securityTargets);
+    thisSerializationSize = CborArbitrarySizeUint64ArraySerialize(blockSpecificDataSerialization, m_securityTargets, bufferSize);
+    blockSpecificDataSerialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
 
     //Security Context Id:
     //This field identifies the security context used to implement
@@ -362,7 +369,9 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //each security target.  This field SHALL be represented by a
     //CBOR unsigned integer.  The values for this Id should come from
     //the registry defined in Section 11.3
-    serializationTempData += CborEncodeU64BufSize9(serializationTempData, m_securityContextId);
+    thisSerializationSize = CborEncodeU64(blockSpecificDataSerialization, m_securityContextId, bufferSize);
+    blockSpecificDataSerialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //Security Context Flags:
     //This field identifies which optional fields are present in the
@@ -384,14 +393,18 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //the associated security block field MUST be included in the
     //security block.  A value of 0 indicates that the associated
     //security block field MUST NOT be in the security block.
-    serializationTempData += CborEncodeU64BufSize9(serializationTempData, m_securityContextFlags);
+    thisSerializationSize = CborEncodeU64(blockSpecificDataSerialization, m_securityContextFlags, bufferSize);
+    blockSpecificDataSerialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //Security Source:
     //This field identifies the Endpoint that inserted the security
     //block in the bundle.  This field SHALL be represented by a CBOR
     //array in accordance with [I-D.ietf-dtn-bpbis] rules for
     //representing Endpoint Identifiers (EIDs).
-    serializationTempData += m_securitySource.SerializeBpv7(serializationTempData);
+    thisSerializationSize = m_securitySource.SerializeBpv7(blockSpecificDataSerialization, bufferSize);
+    blockSpecificDataSerialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //Security Context Parameters (Optional):
     //This field captures one or more security context parameters
@@ -412,7 +425,9 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //   applicable CBOR representation of the parameter, in
     //   accordance with Section 3.10.
     if (IsSecurityContextParametersPresent()) {
-        serializationTempData += SerializeIdValuePairsVecBpv7(serializationTempData, m_securityContextParametersOptional);
+        thisSerializationSize = SerializeIdValuePairsVecBpv7(blockSpecificDataSerialization, m_securityContextParametersOptional, bufferSize);
+        blockSpecificDataSerialization += thisSerializationSize;
+        bufferSize -= thisSerializationSize;
     }
 
     //Security Results:
@@ -445,13 +460,16 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     //   the result.  This field SHALL be represented by the
     //   applicable CBOR representation of the result value, in
     //   accordance with Section 3.10.
-    serializationTempData += SerializeIdValuePairsVecBpv7(serializationTempData, m_securityResults);
+    thisSerializationSize = SerializeIdValuePairsVecBpv7(blockSpecificDataSerialization, m_securityResults, bufferSize);
+    blockSpecificDataSerialization += thisSerializationSize;
     
-    m_dataPtr = tempData.data();
-    m_dataLength = serializationTempData - tempData.data();
-    return Bpv7CanonicalBlock::SerializeBpv7(serialization);
+    RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
+    return serializationSizeCanonical;
 }
 uint64_t Bpv7AbstractSecurityBlock::GetSerializationSize() const {
+    return Bpv7CanonicalBlock::GetSerializationSize(GetCanonicalBlockTypeSpecificDataSerializationSize());
+}
+uint64_t Bpv7AbstractSecurityBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     uint64_t serializationSize = CborArbitrarySizeUint64ArraySerializationSize(m_securityTargets);
     serializationSize += CborGetEncodingSizeU64(m_securityContextId);
     serializationSize += CborGetEncodingSizeU64(m_securityContextFlags);
@@ -460,7 +478,7 @@ uint64_t Bpv7AbstractSecurityBlock::GetSerializationSize() const {
         serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityContextParametersOptional);
     }
     serializationSize += IdValuePairsVecBpv7SerializationSize(m_securityResults);
-    return Bpv7CanonicalBlock::GetSerializationSize(serializationSize);
+    return serializationSize;
 }
 
 bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
@@ -530,18 +548,30 @@ bool Bpv7AbstractSecurityBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
 //comprising a 2-tuple of the id and value, as follows.
 //    Id. This field SHALL be represented as a CBOR unsigned integer.
 //    Value. This field SHALL be represented by the applicable CBOR representation (treate as already raw cbor serialization here)
-uint64_t Bpv7AbstractSecurityBlock::SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec) {
+uint64_t Bpv7AbstractSecurityBlock::SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize) {
     uint8_t * const serializationBase = serialization;
-
+    uint64_t thisSerializationSize;
     uint8_t * const arrayHeaderStartPtr = serialization;
-    serialization += CborEncodeU64BufSize9(serialization, idValuePairsVec.size());
+    thisSerializationSize = CborEncodeU64(serialization, idValuePairsVec.size(), bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
     *arrayHeaderStartPtr |= (4U << 5); //change from major type 0 (unsigned integer) to major type 4 (array)
 
     for (std::size_t i = 0; i < idValuePairsVec.size(); ++i) {
         const id_value_pair_t & idValuePair = idValuePairsVec[i];
+        if (bufferSize == 0) {
+            return 0;
+        }
         *serialization++ = (4U << 5) | 2; //major type 4, additional information 2 (add cbor array of size 2)
-        serialization += CborEncodeU64BufSize9(serialization, idValuePair.first); //id
-        serialization += idValuePair.second->SerializeBpv7(serialization); //value
+        --bufferSize;
+
+        thisSerializationSize = CborEncodeU64(serialization, idValuePair.first, bufferSize); //id
+        serialization += thisSerializationSize;
+        bufferSize -= thisSerializationSize;
+
+        thisSerializationSize = idValuePair.second->SerializeBpv7(serialization, bufferSize); //value
+        serialization += thisSerializationSize;
+        bufferSize -= thisSerializationSize;
     }
     return serialization - serializationBase;
 }
@@ -1042,8 +1072,8 @@ std::vector<std::vector<uint8_t>*> Bpv7BlockConfidentialityBlock::GetAllPayloadA
 Bpv7AbstractSecurityBlockValueBase::~Bpv7AbstractSecurityBlockValueBase() {}
 
 Bpv7AbstractSecurityBlockValueUint::~Bpv7AbstractSecurityBlockValueUint() {}
-uint64_t Bpv7AbstractSecurityBlockValueUint::SerializeBpv7(uint8_t * serialization) {
-    return CborEncodeU64BufSize9(serialization, m_uintValue);
+uint64_t Bpv7AbstractSecurityBlockValueUint::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) {
+    return CborEncodeU64(serialization, m_uintValue, bufferSize);
 }
 uint64_t Bpv7AbstractSecurityBlockValueUint::GetSerializationSize() const {
     return CborGetEncodingSizeU64(m_uintValue);
@@ -1064,10 +1094,17 @@ bool Bpv7AbstractSecurityBlockValueUint::IsEqual(const Bpv7AbstractSecurityBlock
 }
 
 Bpv7AbstractSecurityBlockValueByteString::~Bpv7AbstractSecurityBlockValueByteString() {}
-uint64_t Bpv7AbstractSecurityBlockValueByteString::SerializeBpv7(uint8_t * serialization) {
+uint64_t Bpv7AbstractSecurityBlockValueByteString::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) {
     uint8_t * const byteStringHeaderStartPtr = serialization; //uint8_t * const serializationBase = serialization;
-    serialization += CborEncodeU64BufSize9(serialization, m_byteString.size());
+    uint64_t thisSerializationSize;
+    thisSerializationSize = CborEncodeU64(serialization, m_byteString.size(), bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
     *byteStringHeaderStartPtr |= (2U << 5); //change from major type 0 (unsigned integer) to major type 2 (byte string)
+
+    if (bufferSize < m_byteString.size()) {
+        return 0;
+    }
     memcpy(serialization, m_byteString.data(), m_byteString.size());
     serialization += m_byteString.size(); //todo safety check on data length
     return serialization - byteStringHeaderStartPtr;// - serializationBase;

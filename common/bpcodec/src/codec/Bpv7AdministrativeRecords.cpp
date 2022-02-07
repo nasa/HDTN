@@ -76,6 +76,9 @@ uint64_t Bpv7AdministrativeRecord::SerializeBpv7(uint8_t * serialization) {
     //
     //Each BP administrative record SHALL be represented as a CBOR array
     //comprising two items.
+    if (bufferSize == 0) {
+        return 0;
+    }
     *blockSpecificDataSerialization++ = (4U << 5) | 2; //major type 4, additional information 2 (CBOR array size 2)
     --bufferSize;
     

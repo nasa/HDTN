@@ -421,14 +421,14 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
 
 struct Bpv7AbstractSecurityBlockValueBase {
     virtual ~Bpv7AbstractSecurityBlockValueBase() = 0; // Pure virtual destructor
-    virtual uint64_t SerializeBpv7(uint8_t * serialization) = 0;
+    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
 };
 struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
     virtual ~Bpv7AbstractSecurityBlockValueUint();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
@@ -437,7 +437,7 @@ struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValu
 };
 struct Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
     virtual ~Bpv7AbstractSecurityBlockValueByteString();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
@@ -478,13 +478,14 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     bool IsSecurityContextParametersPresent() const;
     void SetSecurityContextParametersPresent();
     void ClearSecurityContextParametersPresent();
     void SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS id);
 
-    static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec);
+    static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize);
     static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
     static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec,
         const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters, const uint64_t maxElements);
