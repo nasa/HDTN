@@ -74,9 +74,6 @@ uint64_t Bpv7PreviousNodeCanonicalBlock::SerializeBpv7(uint8_t * serialization) 
     RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
     return serializationSizeCanonical;
 }
-uint64_t Bpv7PreviousNodeCanonicalBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(GetCanonicalBlockTypeSpecificDataSerializationSize());
-}
 uint64_t Bpv7PreviousNodeCanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     return m_previousNode.GetSerializationSizeBpv7();
 }
@@ -156,9 +153,6 @@ uint64_t Bpv7BundleAgeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
 
     RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
     return serializationSizeCanonical;
-}
-uint64_t Bpv7BundleAgeCanonicalBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(GetCanonicalBlockTypeSpecificDataSerializationSize());
 }
 uint64_t Bpv7BundleAgeCanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     return CborGetEncodingSizeU64(m_bundleAgeMilliseconds);
@@ -259,9 +253,6 @@ uint64_t Bpv7HopCountCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
 
     RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
     return serializationSizeCanonical;
-}
-uint64_t Bpv7HopCountCanonicalBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(GetCanonicalBlockTypeSpecificDataSerializationSize());
 }
 uint64_t Bpv7HopCountCanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     return CborTwoUint64ArraySerializationSize(m_hopLimit, m_hopCount);
@@ -508,9 +499,6 @@ uint64_t Bpv7AbstractSecurityBlock::SerializeBpv7(uint8_t * serialization) {
     
     RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
     return serializationSizeCanonical;
-}
-uint64_t Bpv7AbstractSecurityBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(GetCanonicalBlockTypeSpecificDataSerializationSize());
 }
 uint64_t Bpv7AbstractSecurityBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     uint64_t serializationSize = CborArbitrarySizeUint64ArraySerializationSize(m_securityTargets);

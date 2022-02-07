@@ -211,18 +211,19 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
 }
 
 uint64_t Bpv7CanonicalBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(m_dataLength);
-}
-uint64_t Bpv7CanonicalBlock::GetSerializationSize(const uint64_t dataLength) const {
     uint64_t serializationSize = 2; //cbor byte (major type 4, additional information [5..6]) plus crcType
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockTypeCode));
     serializationSize += CborGetEncodingSizeU64(m_blockNumber);
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
-    serializationSize += CborGetEncodingSizeU64(dataLength);
-    serializationSize += dataLength; //todo safety check on data length
+    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    serializationSize += CborGetEncodingSizeU64(canonicalBlockTypeSpecificDataSerializationSize);
+    serializationSize += canonicalBlockTypeSpecificDataSerializationSize; //todo safety check on data length
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };
     serializationSize += CRC_TYPE_TO_SIZE[(static_cast<uint8_t>(m_crcType)) & 3];
     return serializationSize;
+}
+uint64_t Bpv7CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
+    return m_dataLength;
 }
 
 void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized) {

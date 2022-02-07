@@ -105,11 +105,6 @@ uint64_t Bpv7AdministrativeRecord::SerializeBpv7(uint8_t * serialization) {
     return serializationSizeCanonical;
 }
 
-uint64_t Bpv7AdministrativeRecord::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(
-        GetCanonicalBlockTypeSpecificDataSerializationSize()
-    ); 
-}
 uint64_t Bpv7AdministrativeRecord::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
     return 1 + //1 => cbor byte (major type 4, additional information 2)
         CborGetEncodingSizeU64(static_cast<uint64_t>(m_adminRecordTypeCode)) +

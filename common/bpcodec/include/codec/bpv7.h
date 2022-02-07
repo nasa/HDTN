@@ -345,8 +345,8 @@ struct Bpv7CanonicalBlock {
     bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetSerializationSize() const;
-    uint64_t GetSerializationSize(const uint64_t dataLength) const;
+    uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
     static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
         uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord);
@@ -370,7 +370,6 @@ struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
     bool operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator !=
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetSerializationSize() const;
     virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
@@ -390,7 +389,6 @@ struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
     bool operator!=(const Bpv7BundleAgeCanonicalBlock & o) const; //operator !=
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetSerializationSize() const;
     virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
@@ -413,7 +411,6 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     bool operator!=(const Bpv7HopCountCanonicalBlock & o) const; //operator !=
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetSerializationSize() const;
     virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     bool TryReserializeExtensionBlockDataWithoutResizeBpv7();
@@ -480,7 +477,6 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     bool operator!=(const Bpv7AbstractSecurityBlock & o) const; //operator !=
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetSerializationSize() const;
     virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     bool IsSecurityContextParametersPresent() const;
@@ -617,7 +613,6 @@ struct Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
     bool operator!=(const Bpv7AdministrativeRecord & o) const; //operator !=
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetSerializationSize() const;
     virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
