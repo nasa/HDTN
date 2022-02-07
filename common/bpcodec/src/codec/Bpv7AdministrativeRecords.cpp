@@ -139,12 +139,12 @@ bool Bpv7AdministrativeRecord::Virtual_DeserializeExtensionBlockDataBpv7() {
         case BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BUNDLE_STATUS_REPORT:
             m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBundleStatusReport>();
             break;
-/*        case BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BIBE_PDU:
-            m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBibe>();
+        case BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BIBE_PDU:
+            m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBibePduMessage>();
             break;
-        case BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL:
-            m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBibeCustodySignal>();
-            break;*/
+        //case BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL:
+        //     m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBibeCustodySignal>();
+        //     break;
         default:
             return false;
     }
@@ -608,3 +608,209 @@ bool Bpv7AdministrativeRecordContentBundleStatusReport::IsEqual(const Bpv7Admini
     return true;
 }
 
+
+
+
+Bpv7AdministrativeRecordContentBibePduMessage::~Bpv7AdministrativeRecordContentBibePduMessage() {}
+uint64_t Bpv7AdministrativeRecordContentBibePduMessage::SerializeBpv7(uint8_t * serialization) {
+    uint8_t * const serializationBase = serialization;
+    //A BIBE protocol data unit is a Bundle Protocol administrative record
+    //whose record type code is 3 (i.e., bit pattern 0011) and whose
+    //representation conforms to the Bundle Protocol specification for
+    //administrative record representation.  The content of the record
+    //SHALL be a BPDU message represented as follows.
+    //
+    // admin-record-choice /= BIBE-PDU
+    // BIBE-PDU = [3, [transmission-ID: uint,
+    //                     retransmission-time: uint,
+    //                     encapsulated-bundle: bytes,
+    //                     admin-common]]
+    //
+
+    //Each BPDU message SHALL be represented as a CBOR array. The number
+    //of elements in the array SHALL be 3.
+    *serialization++ = (4U << 5) | 3; //major type 4, additional information 3
+
+
+    //The first item of the BPDU array SHALL be the "transmission ID" for
+    //the BPDU, represented as a CBOR unsigned integer.  The transmission
+    //ID for a BPDU for which custody transfer is NOT requested SHALL be
+    //zero.  The transmission ID for a BPDU for which custody transfer IS
+    //requested SHALL be the current value of the local node's custodial
+    //transmission count, plus 1.
+    serialization += CborEncodeU64BufSize9(serialization, m_transmissionId);
+
+    //The second item of the BPDU array SHALL be the BPDU's retransmission
+    //time (i.e., the time by which custody disposition for this BPDU is
+    //expected), represented as a CBOR unsigned integer.  Retransmission
+    //time for a BPDU for which custody transfer is NOT requested SHALL be
+    //zero.  Retransmission time for a BPDU for which custody transfer IS
+    //requested SHALL take the form of a "DTN Time" as defined in the
+    //Bundle Protocol specification; determination of the value of
+    //retransmission time is an implementation matter that is beyond the
+    //scope of this specification and may be dynamically responsive to
+    //changes in connectivity.
+    serialization += CborEncodeU64BufSize9(serialization, m_custodyRetransmissionTime);
+
+    //The third item of the BPDU array SHALL be a single BP bundle, termed
+    //the "encapsulated bundle", represented as a CBOR byte string of
+    //definite length.
+    uint8_t * const byteStringHeaderStartPtr = serialization;
+    serialization += CborEncodeU64BufSize9(serialization, m_encapsulatedBundleLength);
+    *byteStringHeaderStartPtr |= (2U << 5); //change from major type 0 (unsigned integer) to major type 2 (byte string)
+    uint8_t * const byteStringAllocatedDataStartPtr = serialization;
+    serialization += m_encapsulatedBundleLength;
+
+    //bool doCrcComputation = false;
+    if (m_encapsulatedBundlePtr) { //if not NULL, copy data and compute crc
+        memcpy(byteStringAllocatedDataStartPtr, m_encapsulatedBundlePtr, m_encapsulatedBundleLength);
+        //doCrcComputation = true;
+    }
+    if (!m_temporaryEncapsulatedBundleStorage.empty()) { //delete this now that everything has been copied to the main bundle
+        m_temporaryEncapsulatedBundleStorage.resize(0);
+        m_temporaryEncapsulatedBundleStorage.shrink_to_fit();
+    }
+
+    return serialization - serializationBase;
+}
+uint64_t Bpv7AdministrativeRecordContentBibePduMessage::GetSerializationSize() const {
+    uint64_t size = 1; //cbor array size 3 header byte
+    size += CborGetEncodingSizeU64(m_transmissionId);
+    size += CborGetEncodingSizeU64(m_custodyRetransmissionTime);
+    size += CborGetEncodingSizeU64(m_encapsulatedBundleLength);
+    size += m_encapsulatedBundleLength;
+    return size;
+}
+bool Bpv7AdministrativeRecordContentBibePduMessage::DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
+    const uint8_t * const serializationBase = serialization;
+    //A BIBE protocol data unit is a Bundle Protocol administrative record
+    //whose record type code is 3 (i.e., bit pattern 0011) and whose
+    //representation conforms to the Bundle Protocol specification for
+    //administrative record representation.  The content of the record
+    //SHALL be a BPDU message represented as follows.
+    //
+    // admin-record-choice /= BIBE-PDU
+    // BIBE-PDU = [3, [transmission-ID: uint,
+    //                     retransmission-time: uint,
+    //                     encapsulated-bundle: bytes,
+    //                     admin-common]]
+    //
+
+    //Each BPDU message SHALL be represented as a CBOR array. The number
+    //of elements in the array SHALL be 3.
+
+    if (bufferSize < 1) { //for 1 initial array header
+        return false;
+    }
+    --bufferSize;
+    uint8_t cborUintSizeDecoded;
+    const uint8_t initialCborByte = *serialization++;
+    if ((initialCborByte != ((4U << 5) | 3U)) && //major type 4, additional information 3 (array of length 3)
+        (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
+        return false;
+    }
+
+    //The first item of the BPDU array SHALL be the "transmission ID" for
+    //the BPDU, represented as a CBOR unsigned integer.  The transmission
+    //ID for a BPDU for which custody transfer is NOT requested SHALL be
+    //zero.  The transmission ID for a BPDU for which custody transfer IS
+    //requested SHALL be the current value of the local node's custodial
+    //transmission count, plus 1.
+    m_transmissionId = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
+    if ((cborUintSizeDecoded == 0)) {
+        return false; //failure
+    }
+    serialization += cborUintSizeDecoded;
+    bufferSize -= cborUintSizeDecoded;
+
+    //The second item of the BPDU array SHALL be the BPDU's retransmission
+    //time (i.e., the time by which custody disposition for this BPDU is
+    //expected), represented as a CBOR unsigned integer.  Retransmission
+    //time for a BPDU for which custody transfer is NOT requested SHALL be
+    //zero.  Retransmission time for a BPDU for which custody transfer IS
+    //requested SHALL take the form of a "DTN Time" as defined in the
+    //Bundle Protocol specification; determination of the value of
+    //retransmission time is an implementation matter that is beyond the
+    //scope of this specification and may be dynamically responsive to
+    //changes in connectivity.
+    m_custodyRetransmissionTime = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
+    if ((cborUintSizeDecoded == 0)) {
+        return false; //failure
+    }
+    serialization += cborUintSizeDecoded;
+    bufferSize -= cborUintSizeDecoded;
+
+    //The third item of the BPDU array SHALL be a single BP bundle, termed
+    //the "encapsulated bundle", represented as a CBOR byte string of
+    //definite length.
+    if (bufferSize < 1) { //for 1 initial byte string header or tag24
+        return false;
+    }
+    const uint8_t potentialTag24 = *serialization;
+    if (potentialTag24 == ((6U << 5) | 24U)) { //major type 6, additional information 24 (Tag number 24 (CBOR data item))
+        ++serialization;
+        --bufferSize;
+        if (bufferSize < 1) { //forbyteStringHeader
+            return false;
+        }
+    }
+    uint8_t * const byteStringHeaderStartPtr = serialization; //buffer size verified above
+    const uint8_t cborMajorTypeByteString = (*byteStringHeaderStartPtr) >> 5;
+    if (cborMajorTypeByteString != 2) {
+        return false; //failure
+    }
+    *byteStringHeaderStartPtr &= 0x1f; //temporarily zero out major type to 0 to make it unsigned integer
+    m_encapsulatedBundleLength = CborDecodeU64(byteStringHeaderStartPtr, &cborUintSizeDecoded, bufferSize);
+    *byteStringHeaderStartPtr |= (2U << 5); // restore to major type to 2 (change from major type 0 (unsigned integer) to major type 2 (byte string))
+    if (cborUintSizeDecoded == 0) {
+        return false; //failure
+    }
+    serialization += cborUintSizeDecoded;
+    bufferSize -= cborUintSizeDecoded;
+    if (m_encapsulatedBundleLength > bufferSize) {
+        return false;
+    }
+    m_encapsulatedBundlePtr = serialization;
+    serialization += m_encapsulatedBundleLength;
+
+
+    //An implementation of the Bundle Protocol MAY accept a sequence of
+    //bytes that does not conform to the Bundle Protocol specification
+    //(e.g., one that represents data elements in fixed-length arrays
+    //rather than indefinite-length arrays) and transform it into
+    //conformant BP structure before processing it.
+    if (initialCborByte == ((4U << 5) | 31U)) { //additional information 31 (Indefinite-Length Array)
+        bufferSize -= m_encapsulatedBundleLength;
+        if (bufferSize == 0) {
+            return false;
+        }
+        const uint8_t breakStopCode = *serialization++;
+        if (breakStopCode != 0xff) {
+            return false;
+        }
+    }
+    numBytesTakenToDecode = (serialization - serializationBase);
+    return true;
+}
+bool Bpv7AdministrativeRecordContentBibePduMessage::IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const {
+    if (const Bpv7AdministrativeRecordContentBibePduMessage * asBibePduMessagePtr = dynamic_cast<const Bpv7AdministrativeRecordContentBibePduMessage*>(otherPtr)) {
+        const bool initialCompare = (asBibePduMessagePtr->m_transmissionId == m_transmissionId)
+            && (asBibePduMessagePtr->m_custodyRetransmissionTime == m_custodyRetransmissionTime)
+            && (asBibePduMessagePtr->m_encapsulatedBundleLength == m_encapsulatedBundleLength);
+        if (!initialCompare) {
+            return false;
+        }
+        if ((m_encapsulatedBundlePtr == NULL) && (asBibePduMessagePtr->m_encapsulatedBundlePtr == NULL)) {
+            return true;
+        }
+        else if ((m_encapsulatedBundlePtr != NULL) && (asBibePduMessagePtr->m_encapsulatedBundlePtr != NULL)) {
+            return (memcmp(m_encapsulatedBundlePtr, asBibePduMessagePtr->m_encapsulatedBundlePtr, m_encapsulatedBundleLength) == 0);
+        }
+        else {
+            return false;
+        }
+    }
+    else {
+        return false;
+    }
+}

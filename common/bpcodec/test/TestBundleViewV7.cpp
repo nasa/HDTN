@@ -878,3 +878,186 @@ BOOST_AUTO_TEST_CASE(Bpv7BundleStatusReportTestCase)
     }
 }
 
+BOOST_AUTO_TEST_CASE(Bpv7BibeTestCase)
+{
+    const std::string payloadString = { "This is the data inside the encapsulated bpv7 bundle!!!" };
+
+    const std::vector<BPV7_CRC_TYPE> crcTypesVec = { BPV7_CRC_TYPE::NONE, BPV7_CRC_TYPE::CRC16_X25, BPV7_CRC_TYPE::CRC32C };
+    for (std::size_t crcI = 0; crcI < crcTypesVec.size(); ++crcI) {
+        const BPV7_CRC_TYPE crcTypeToUse = crcTypesVec[crcI];
+
+        //create the encapsulated (inner) bundle
+        std::vector<uint8_t> encapsulatedBundleVersion7;
+        {
+            BundleViewV7 bv;
+            Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+            primary.SetZero();
+
+
+            primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT;  //All BP endpoints identified by ipn-scheme endpoint IDs are singleton endpoints.
+            primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE + 10, PRIMARY_SRC_SVC + 10);
+            primary.m_destinationEid.Set(PRIMARY_DEST_NODE + 10, PRIMARY_DEST_SVC + 10);
+            primary.m_reportToEid.Set(0, 0);
+            primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 = PRIMARY_TIME;
+            primary.m_lifetimeMilliseconds = PRIMARY_LIFETIME;
+            primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
+            primary.m_crcType = crcTypeToUse;
+            bv.m_primaryBlockView.SetManuallyModified();
+
+
+            //add only a payload block
+            {
+
+                std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
+                Bpv7CanonicalBlock & block = *blockPtr;
+                //block.SetZero();
+
+                block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
+                block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+                block.m_blockNumber = 1; //must be 1
+                block.m_crcType = crcTypeToUse;
+                block.m_dataLength = payloadString.size();
+                block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
+                bv.AppendMoveCanonicalBlock(blockPtr);
+
+            }
+
+            BOOST_REQUIRE(bv.Render(5000));
+
+            encapsulatedBundleVersion7.assign(bv.m_frontBuffer.begin(), bv.m_frontBuffer.end());
+        }
+
+        //create the encapsulating (outer) bundle (admin record)
+        std::vector<uint8_t> encapsulatingBundleVersion7;
+        uint64_t bibePduMessageSerializationSize = 0;
+        {
+            BundleViewV7 bv;
+            Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+            primary.SetZero();
+
+
+            primary.m_bundleProcessingControlFlags = BPV7_BUNDLEFLAG::NOFRAGMENT | BPV7_BUNDLEFLAG::ADMINRECORD;
+            primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+            primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
+            primary.m_reportToEid.Set(0, 0);
+            primary.m_creationTimestamp.millisecondsSinceStartOfYear2000 = PRIMARY_TIME;
+            primary.m_lifetimeMilliseconds = PRIMARY_LIFETIME;
+            primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
+            primary.m_crcType = crcTypeToUse;
+            bv.m_primaryBlockView.SetManuallyModified();
+
+            
+            //add bundle status report payload block
+            {
+                std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+                Bpv7AdministrativeRecord & block = *(reinterpret_cast<Bpv7AdministrativeRecord*>(blockPtr.get()));
+
+                //block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD; //not needed because handled by Bpv7AdministrativeRecord constructor
+                block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+                //block.m_blockNumber = 1; //must be 1 //not needed because handled by Bpv7AdministrativeRecord constructor
+                block.m_crcType = crcTypeToUse;
+
+                block.m_adminRecordTypeCode = BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BIBE_PDU;
+                block.m_adminRecordContentPtr = boost::make_unique<Bpv7AdministrativeRecordContentBibePduMessage>();
+                Bpv7AdministrativeRecordContentBibePduMessage & bibe = *(reinterpret_cast<Bpv7AdministrativeRecordContentBibePduMessage*>(block.m_adminRecordContentPtr.get()));
+
+                bibe.m_transmissionId = 49;
+                bibe.m_custodyRetransmissionTime = 0;
+                bibe.m_encapsulatedBundlePtr = encapsulatedBundleVersion7.data();
+                bibe.m_encapsulatedBundleLength = encapsulatedBundleVersion7.size();
+
+                
+
+                bibePduMessageSerializationSize = bibe.GetSerializationSize();
+
+                bv.AppendMoveCanonicalBlock(blockPtr);
+            }
+
+
+            BOOST_REQUIRE(bv.Render(5000));
+            encapsulatingBundleVersion7.assign(bv.m_frontBuffer.begin(), bv.m_frontBuffer.end());
+        }
+
+        //load the encapsulating (outer) bundle (admin record)
+        std::vector<uint8_t> encapsulatingBundleVersion7ForLoad(encapsulatingBundleVersion7);
+        {
+            BundleViewV7 bv;
+            BOOST_REQUIRE(bv.SwapInAndLoadBundle(encapsulatingBundleVersion7ForLoad));
+            const Bpv7CbhePrimaryBlock & primaryOuter = bv.m_primaryBlockView.header;
+            
+            BOOST_REQUIRE_EQUAL(primaryOuter.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+            BOOST_REQUIRE_EQUAL(primaryOuter.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
+            BOOST_REQUIRE_EQUAL(primaryOuter.m_creationTimestamp, TimestampUtil::bpv7_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+            BOOST_REQUIRE_EQUAL(primaryOuter.m_lifetimeMilliseconds, PRIMARY_LIFETIME);
+            BOOST_REQUIRE_EQUAL(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primaryOuter.GetSerializationSize());
+            BOOST_REQUIRE_EQUAL(primaryOuter.m_bundleProcessingControlFlags, BPV7_BUNDLEFLAG::NOFRAGMENT | BPV7_BUNDLEFLAG::ADMINRECORD);
+            BOOST_REQUIRE_EQUAL(primaryOuter.m_crcType, crcTypeToUse);
+
+            BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 1);
+            BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 0);
+            BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 0);
+            BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 0);
+            BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD), 1);
+
+            //get BIBE payload block (inner bundle)
+            {
+                std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+                bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+                BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+                Bpv7AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv7AdministrativeRecord*>(blocks[0]->headerPtr.get());
+                BOOST_REQUIRE(adminRecordBlockPtr);
+                BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
+                BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_blockNumber, 1);
+                BOOST_REQUIRE_EQUAL(adminRecordBlockPtr->m_adminRecordTypeCode, BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE::BIBE_PDU);
+
+                BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), adminRecordBlockPtr->GetSerializationSize());
+                //std::cout << "adminRecordBlockPtr->GetSerializationSize() " << adminRecordBlockPtr->GetSerializationSize() << "\n";
+                BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
+
+                Bpv7AdministrativeRecordContentBibePduMessage * bibePduMessagePtr = dynamic_cast<Bpv7AdministrativeRecordContentBibePduMessage*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                BOOST_REQUIRE(bibePduMessagePtr);
+
+                Bpv7AdministrativeRecordContentBibePduMessage & bibe = *(reinterpret_cast<Bpv7AdministrativeRecordContentBibePduMessage*>(bibePduMessagePtr));
+
+                BOOST_REQUIRE_EQUAL(bibe.GetSerializationSize(), bibePduMessageSerializationSize);
+
+                BOOST_REQUIRE_EQUAL(bibe.m_transmissionId, 49);
+                BOOST_REQUIRE_EQUAL(bibe.m_custodyRetransmissionTime, 0);
+                BOOST_REQUIRE_EQUAL(bibe.m_encapsulatedBundleLength, encapsulatedBundleVersion7.size());
+                BOOST_REQUIRE_EQUAL(memcmp(bibe.m_encapsulatedBundlePtr, encapsulatedBundleVersion7.data(), bibe.m_encapsulatedBundleLength), 0);
+
+                BundleViewV7 bvInner;
+                BOOST_REQUIRE(bvInner.LoadBundle(bibe.m_encapsulatedBundlePtr, bibe.m_encapsulatedBundleLength));
+                const Bpv7CbhePrimaryBlock & primaryInner = bvInner.m_primaryBlockView.header;
+
+                BOOST_REQUIRE_EQUAL(primaryInner.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE + 10, PRIMARY_SRC_SVC + 10));
+                BOOST_REQUIRE_EQUAL(primaryInner.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE + 10, PRIMARY_DEST_SVC + 10));
+                BOOST_REQUIRE_EQUAL(primaryInner.m_creationTimestamp, TimestampUtil::bpv7_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+                BOOST_REQUIRE_EQUAL(primaryInner.m_lifetimeMilliseconds, PRIMARY_LIFETIME);
+                BOOST_REQUIRE_EQUAL(bvInner.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primaryInner.GetSerializationSize());
+                BOOST_REQUIRE_EQUAL(primaryInner.m_bundleProcessingControlFlags, BPV7_BUNDLEFLAG::NOFRAGMENT);
+                BOOST_REQUIRE_EQUAL(primaryInner.m_crcType, crcTypeToUse);
+
+                BOOST_REQUIRE_EQUAL(bvInner.GetNumCanonicalBlocks(), 1);
+                BOOST_REQUIRE_EQUAL(bvInner.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 0);
+                BOOST_REQUIRE_EQUAL(bvInner.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 0);
+                BOOST_REQUIRE_EQUAL(bvInner.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 0);
+                BOOST_REQUIRE_EQUAL(bvInner.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD), 1);
+
+                //get inner bundle payload block
+                {
+                    std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocksInner;
+                    bvInner.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocksInner);
+                    BOOST_REQUIRE_EQUAL(blocksInner.size(), 1);
+                    const char * strPtr = (const char *)blocksInner[0]->headerPtr->m_dataPtr;
+                    std::string s(strPtr, strPtr + blocksInner[0]->headerPtr->m_dataLength);
+                    //std::cout << "s: " << s << "\n";
+                    BOOST_REQUIRE_EQUAL(s, payloadString);
+                    BOOST_REQUIRE_EQUAL(blocksInner[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
+                    BOOST_REQUIRE_EQUAL(blocksInner[0]->headerPtr->m_blockNumber, 1);
+                    BOOST_REQUIRE(!blocksInner[0]->isEncrypted); //not encrypted
+                }
+            }
+        }
+    }
+}

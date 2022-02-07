@@ -584,6 +584,20 @@ struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7Administra
     bool m_subjectBundleIsFragment;
     bool m_reportStatusTimeFlagWasSet;
 };
+struct Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
+    
+    virtual ~Bpv7AdministrativeRecordContentBibePduMessage();
+    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
+
+    uint64_t m_transmissionId;
+    uint64_t m_custodyRetransmissionTime;
+    uint8_t * m_encapsulatedBundlePtr;
+    uint64_t m_encapsulatedBundleLength;
+    std::vector<uint8_t> m_temporaryEncapsulatedBundleStorage;
+};
 struct Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
 
     BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE m_adminRecordTypeCode;
