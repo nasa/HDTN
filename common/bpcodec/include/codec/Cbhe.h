@@ -29,6 +29,7 @@ struct cbhe_eid_t {
     void Set(uint64_t paramNodeId, uint64_t paramServiceId);
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
+    uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
     uint64_t GetSerializationSizeBpv7() const;
     bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 

@@ -549,7 +549,7 @@ private:
 
 struct Bpv7AdministrativeRecordContentBase {
     virtual ~Bpv7AdministrativeRecordContentBase() = 0; // Pure virtual destructor
-    virtual uint64_t SerializeBpv7(uint8_t * serialization) = 0;
+    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const = 0;
@@ -559,7 +559,7 @@ struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7Administra
     typedef std::array<status_info_content_t, 4> bundle_status_information_t;
 
     virtual ~Bpv7AdministrativeRecordContentBundleStatusReport();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
@@ -587,7 +587,7 @@ struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7Administra
 struct Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
     
     virtual ~Bpv7AdministrativeRecordContentBibePduMessage();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
     virtual uint64_t GetSerializationSize() const;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
@@ -614,6 +614,7 @@ struct Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
     virtual void SetZero();
     virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
     virtual uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
     virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 

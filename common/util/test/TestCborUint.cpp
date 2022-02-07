@@ -6,6 +6,9 @@
 #include "CborUint.h"
 #include <boost/timer/timer.hpp>
 #include <algorithm>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/detail/bitscan.hpp>
+#include <boost/endian/conversion.hpp>
 #ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
 #endif
@@ -208,6 +211,30 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
     }
 
 }
+
+#ifdef USE_X86_HARDWARE_ACCELERATION
+BOOST_AUTO_TEST_CASE(CborUint64BitNoOverwriteTestCase)
+{
+    uint64_t s2;
+    memcpy(&s2, "bbbbbbbb", 8);
+    uint32_t s3;
+    memcpy(&s3, "cccc", 4);
+    for (unsigned int offset = 0; offset <= 9; ++offset) {
+        //sanity check to make sure _mm_stream_si64 won't overwrite data past 8 bytes regardless of alignment
+        std::vector<uint64_t> alignedData(4);
+        memcpy(alignedData.data(), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 32);
+
+        char *s = (char*)alignedData.data();
+        char *sOffset = &s[offset];
+        _mm_stream_si64((long long int *)sOffset, s2);
+        
+        BOOST_REQUIRE_EQUAL(std::string(sOffset, sOffset + 16), std::string("bbbbbbbbaaaaaaaa"));
+
+        _mm_stream_si32((int32_t *)sOffset, s3);
+        BOOST_REQUIRE_EQUAL(std::string(sOffset, sOffset + 16), std::string("ccccbbbbaaaaaaaa"));
+    }
+}
+#endif
 
 BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
 {

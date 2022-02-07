@@ -99,6 +99,17 @@ uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
     serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
     return serialization - serializationBase;
 }
+uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const {
+    uint8_t * const serializationBase = serialization;
+    if (bufferSize < 2) {
+        return 0;
+    }
+    bufferSize -= 2;
+    *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
+    *serialization++ = 2; //uri-code: 2
+    serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId, bufferSize);
+    return serialization - serializationBase;
+}
 uint64_t cbhe_eid_t::GetSerializationSizeBpv7() const {
     return 2 + CborTwoUint64ArraySerializationSize(nodeId, serviceId); //2 => outer array byte + uri-code byte
 }

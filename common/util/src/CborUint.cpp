@@ -18,7 +18,12 @@
 //return output size
 unsigned int CborEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return CborEncodeU64Fast(outputEncoded, valToEncodeU64, bufferSize);
+    if (bufferSize >= 9) {
+        return CborEncodeU64FastBufSize9(outputEncoded, valToEncodeU64);
+    }
+    else {
+        return CborEncodeU64Fast(outputEncoded, valToEncodeU64, bufferSize);
+    }
 #else
     return CborEncodeU64Classic(outputEncoded, valToEncodeU64, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
@@ -626,6 +631,25 @@ uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t ele
     serialization += CborEncodeU64BufSize9(serialization, element2);
     return serialization - serializationBase;
 }
+uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t element1, const uint64_t element2, uint64_t bufferSize) {
+    uint8_t * const serializationBase = serialization;
+    uint64_t thisSerializationSize;
+    if (bufferSize == 0) {
+        return 0;
+    }
+    --bufferSize;
+    *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
+
+    thisSerializationSize = CborEncodeU64(serialization, element1, bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    thisSerializationSize = CborEncodeU64(serialization, element2, bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    return serialization - serializationBase;
+}
 uint64_t CborTwoUint64ArraySerializationSize(const uint64_t element1, const uint64_t element2) {
     uint64_t serializationSize = 1; //cbor first byte major type 4, additional information 2
     serializationSize += CborGetEncodingSizeU64(element1);
@@ -689,6 +713,22 @@ uint64_t CborArbitrarySizeUint64ArraySerialize(uint8_t * serialization, const st
 
     for (std::size_t i = 0; i < elements.size(); ++i) {
         serialization += CborEncodeU64BufSize9(serialization, elements[i]);
+    }
+    return serialization - serializationBase;
+}
+uint64_t CborArbitrarySizeUint64ArraySerialize(uint8_t * serialization, const std::vector<uint64_t> & elements, uint64_t bufferSize) {
+    uint8_t * const serializationBase = serialization;
+    uint64_t thisSerializationSize;
+    uint8_t * const arrayHeaderStartPtr = serialization;
+    thisSerializationSize = CborEncodeU64(serialization, elements.size(), bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+    *arrayHeaderStartPtr |= (4U << 5); //change from major type 0 (unsigned integer) to major type 4 (array)
+
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+        thisSerializationSize = CborEncodeU64(serialization, elements[i], bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+        serialization += thisSerializationSize;
+        bufferSize -= thisSerializationSize;
     }
     return serialization - serializationBase;
 }

@@ -50,8 +50,12 @@ void Bpv7AdministrativeRecord::SetZero() {
     m_blockNumber = 1;
 }
 uint64_t Bpv7AdministrativeRecord::SerializeBpv7(uint8_t * serialization) {
-    std::vector<uint8_t> tempData(1000); //todo size
-    uint8_t * serializationTempData = tempData.data();
+    m_dataPtr = NULL;
+    m_dataLength = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    const uint64_t serializationSizeCanonical = Bpv7CanonicalBlock::SerializeBpv7(serialization);
+    uint64_t bufferSize = m_dataLength;
+    uint8_t * blockSpecificDataSerialization = m_dataPtr;
+    uint64_t thisSerializationSize;
 
     // admin-record-structure = [
     //  record-type-code: uint,
@@ -72,11 +76,14 @@ uint64_t Bpv7AdministrativeRecord::SerializeBpv7(uint8_t * serialization) {
     //
     //Each BP administrative record SHALL be represented as a CBOR array
     //comprising two items.
-    *serializationTempData++ = (4U << 5) | 2; //major type 4, additional information 2 (CBOR array size 2)
+    *blockSpecificDataSerialization++ = (4U << 5) | 2; //major type 4, additional information 2 (CBOR array size 2)
+    --bufferSize;
     
     //The first item of the array SHALL be a record type code, which SHALL
     //be represented as a CBOR unsigned integer.
-    serializationTempData += CborEncodeU64BufSize9(serializationTempData, static_cast<uint64_t>(m_adminRecordTypeCode));
+    thisSerializationSize = CborEncodeU64(blockSpecificDataSerialization, static_cast<uint64_t>(m_adminRecordTypeCode), bufferSize);
+    blockSpecificDataSerialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //The second element of this array SHALL be the applicable CBOR
     //representation of the content of the record.  Details of the CBOR
@@ -85,21 +92,25 @@ uint64_t Bpv7AdministrativeRecord::SerializeBpv7(uint8_t * serialization) {
     //record type are included in the specifications defining those
     //records.
     if (m_adminRecordContentPtr) {
-        serializationTempData += m_adminRecordContentPtr->SerializeBpv7(serializationTempData);
+        thisSerializationSize = m_adminRecordContentPtr->SerializeBpv7(blockSpecificDataSerialization, bufferSize);
+        blockSpecificDataSerialization += thisSerializationSize;
+        bufferSize -= thisSerializationSize;
     }
     
 
-    m_dataPtr = tempData.data();
-    m_dataLength = serializationTempData - tempData.data();
-    return Bpv7CanonicalBlock::SerializeBpv7(serialization);
+    RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
+    return serializationSizeCanonical;
 }
 
 uint64_t Bpv7AdministrativeRecord::GetSerializationSize() const {
     return Bpv7CanonicalBlock::GetSerializationSize(
-        1 + //1 => cbor byte (major type 4, additional information 2)
-        CborGetEncodingSizeU64(static_cast<uint64_t>(m_adminRecordTypeCode)) +
-        ((m_adminRecordContentPtr) ? m_adminRecordContentPtr->GetSerializationSize() : 0)
+        GetCanonicalBlockTypeSpecificDataSerializationSize()
     ); 
+}
+uint64_t Bpv7AdministrativeRecord::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
+    return 1 + //1 => cbor byte (major type 4, additional information 2)
+        CborGetEncodingSizeU64(static_cast<uint64_t>(m_adminRecordTypeCode)) +
+        ((m_adminRecordContentPtr) ? m_adminRecordContentPtr->GetSerializationSize() : 0);
 }
 
 
@@ -189,9 +200,10 @@ Bpv7AdministrativeRecordContentBase::~Bpv7AdministrativeRecordContentBase() {}
 
 
 Bpv7AdministrativeRecordContentBundleStatusReport::~Bpv7AdministrativeRecordContentBundleStatusReport() {}
-uint64_t Bpv7AdministrativeRecordContentBundleStatusReport::SerializeBpv7(uint8_t * serialization) {
+uint64_t Bpv7AdministrativeRecordContentBundleStatusReport::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) {
     uint8_t * const serializationBase = serialization;
     
+    uint64_t thisSerializationSize;
     //6.1.1. Bundle Status Reports
     //The transmission of "bundle status reports" under specified
     //conditions is an option that can be invoked when transmission of a
@@ -214,6 +226,10 @@ uint64_t Bpv7AdministrativeRecordContentBundleStatusReport::SerializeBpv7(uint8_
     //    subject-payload-length: uint
     //  )
     // ]
+    if (bufferSize < 2) {
+        return 0;
+    }
+    bufferSize -= 2;
     const uint8_t cborArraySizeBsr = 4 + ((static_cast<uint8_t>(m_subjectBundleIsFragment)) << 1);
     *serialization++ = (4U << 5) | cborArraySizeBsr; //major type 4, additional information [4, 6]
     
@@ -247,6 +263,10 @@ uint64_t Bpv7AdministrativeRecordContentBundleStatusReport::SerializeBpv7(uint8_
         //   status-indicator: bool,
         //   ? timestamp: dtn-time
         // ]
+        if (bufferSize < 2) {
+            return 0;
+        }
+        bufferSize -= 2;
         const bool doEncodeTimeStamp = (m_reportStatusTimeFlagWasSet && statusInfoContent.first);
         const uint8_t cborArraySizeStatusInfoContent = 1 + doEncodeTimeStamp;
         *serialization++ = (4U << 5) | cborArraySizeStatusInfoContent; //major type 4, additional information [1, 2]
@@ -265,37 +285,48 @@ uint64_t Bpv7AdministrativeRecordContentBundleStatusReport::SerializeBpv7(uint8_
         //which the indicated status was asserted for this bundle, represented
         //as a DTN time as described in Section 4.2.6. above.
         if (doEncodeTimeStamp) {
-            serialization += CborEncodeU64BufSize9(serialization, statusInfoContent.second);
+            thisSerializationSize = CborEncodeU64(serialization, statusInfoContent.second, bufferSize);
+            serialization += thisSerializationSize;
+            bufferSize -= thisSerializationSize;
         }
     }
 
     //The second item of the bundle status report array SHALL be the
     //bundle status report reason code explaining the value of the status
     //indicator, represented as a CBOR unsigned integer.
-    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_statusReportReasonCode));
+    thisSerializationSize = CborEncodeU64(serialization, static_cast<uint64_t>(m_statusReportReasonCode), bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //The third item of the bundle status report array SHALL be the source
     //node ID identifying the source of the bundle whose status is being
     //reported, represented as described in Section 4.2.5.1.1. above.
-    serialization += m_sourceNodeEid.SerializeBpv7(serialization);
+    thisSerializationSize = m_sourceNodeEid.SerializeBpv7(serialization, bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //The fourth item of the bundle status report array SHALL be the
     //creation timestamp of the bundle whose status is being reported,
     //represented as described in Section 4.2.7. above.
-    serialization += m_creationTimestamp.SerializeBpv7(serialization);
+    thisSerializationSize = m_creationTimestamp.SerializeBpv7(serialization, bufferSize);
+    serialization += thisSerializationSize;
 
     if (m_subjectBundleIsFragment) {
+        bufferSize -= thisSerializationSize;
         //The fifth item of the bundle status report array SHALL be present if
         //and only if the bundle whose status is being reported contained a
         //fragment offset.  If present, it SHALL be the subject bundle's
         //fragment offset represented as a CBOR unsigned integer item.
-        serialization += CborEncodeU64BufSize9(serialization, m_optionalSubjectPayloadFragmentOffset);
+        thisSerializationSize = CborEncodeU64(serialization, m_optionalSubjectPayloadFragmentOffset, bufferSize);
+        serialization += thisSerializationSize;
+        bufferSize -= thisSerializationSize;
 
         //The sixth item of the bundle status report array SHALL be present if
         //and only if the bundle whose status is being reported contained a
         //fragment offset.  If present, it SHALL be the length of the subject
         //bundle's payload represented as a CBOR unsigned integer item.
-        serialization += CborEncodeU64BufSize9(serialization, m_optionalSubjectPayloadFragmentLength);
+        thisSerializationSize = CborEncodeU64(serialization, m_optionalSubjectPayloadFragmentLength, bufferSize);
+        serialization += thisSerializationSize;
     }
 
     return serialization - serializationBase;
@@ -612,8 +643,10 @@ bool Bpv7AdministrativeRecordContentBundleStatusReport::IsEqual(const Bpv7Admini
 
 
 Bpv7AdministrativeRecordContentBibePduMessage::~Bpv7AdministrativeRecordContentBibePduMessage() {}
-uint64_t Bpv7AdministrativeRecordContentBibePduMessage::SerializeBpv7(uint8_t * serialization) {
+uint64_t Bpv7AdministrativeRecordContentBibePduMessage::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) {
     uint8_t * const serializationBase = serialization;
+
+    uint64_t thisSerializationSize;
     //A BIBE protocol data unit is a Bundle Protocol administrative record
     //whose record type code is 3 (i.e., bit pattern 0011) and whose
     //representation conforms to the Bundle Protocol specification for
@@ -629,6 +662,10 @@ uint64_t Bpv7AdministrativeRecordContentBibePduMessage::SerializeBpv7(uint8_t * 
 
     //Each BPDU message SHALL be represented as a CBOR array. The number
     //of elements in the array SHALL be 3.
+    if (bufferSize == 0) {
+        return 0;
+    }
+    --bufferSize;
     *serialization++ = (4U << 5) | 3; //major type 4, additional information 3
 
 
@@ -638,7 +675,9 @@ uint64_t Bpv7AdministrativeRecordContentBibePduMessage::SerializeBpv7(uint8_t * 
     //zero.  The transmission ID for a BPDU for which custody transfer IS
     //requested SHALL be the current value of the local node's custodial
     //transmission count, plus 1.
-    serialization += CborEncodeU64BufSize9(serialization, m_transmissionId);
+    thisSerializationSize = CborEncodeU64(serialization, m_transmissionId, bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //The second item of the BPDU array SHALL be the BPDU's retransmission
     //time (i.e., the time by which custody disposition for this BPDU is
@@ -650,13 +689,17 @@ uint64_t Bpv7AdministrativeRecordContentBibePduMessage::SerializeBpv7(uint8_t * 
     //retransmission time is an implementation matter that is beyond the
     //scope of this specification and may be dynamically responsive to
     //changes in connectivity.
-    serialization += CborEncodeU64BufSize9(serialization, m_custodyRetransmissionTime);
+    thisSerializationSize = CborEncodeU64(serialization, m_custodyRetransmissionTime, bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
 
     //The third item of the BPDU array SHALL be a single BP bundle, termed
     //the "encapsulated bundle", represented as a CBOR byte string of
     //definite length.
     uint8_t * const byteStringHeaderStartPtr = serialization;
-    serialization += CborEncodeU64BufSize9(serialization, m_encapsulatedBundleLength);
+    thisSerializationSize = CborEncodeU64(serialization, m_encapsulatedBundleLength, bufferSize);
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
     *byteStringHeaderStartPtr |= (2U << 5); //change from major type 0 (unsigned integer) to major type 2 (byte string)
     uint8_t * const byteStringAllocatedDataStartPtr = serialization;
     serialization += m_encapsulatedBundleLength;
