@@ -31,7 +31,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
 {
     uint8_t * const serializationBase = buffer;
 
-    bpv6_primary_block primary;
+    Bpv6CbhePrimaryBlock primary;
     primary.SetZero();
     bpv6_canonical_block block;
     block.SetZero();
@@ -83,7 +83,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
 {
     uint8_t * const serializationBase = buffer;
 
-    bpv6_primary_block primary;
+    Bpv6CbhePrimaryBlock primary;
     primary.SetZero();
     bpv6_canonical_block block;
     block.SetZero();
@@ -161,10 +161,10 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         std::vector<uint8_t> bundleData(validCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
-        bpv6_primary_block originalPrimaryFromOriginator;
+        Bpv6CbhePrimaryBlock originalPrimaryFromOriginator;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
         { //check primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             originalPrimaryFromOriginator = primary;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
@@ -186,20 +186,20 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, true, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 1);
         BOOST_REQUIRE_EQUAL(custodySignalRfc5050SerializedBundle.size(), 0);
         //pretend it was time to send acs
-        std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
+        std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > primaryPlusSerializedBundle;
         std::vector<uint8_t> & serializedAcsBundleFromHdtn = primaryPlusSerializedBundle.second;
         //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(primaryPlusSerializedBundle,
             originalPrimaryFromOriginator.m_custodianEid,
             BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION));
         //test with generate all
-        std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+        std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetLargestNumberOfFills(), 1);
         BOOST_REQUIRE(ctmHdtn.GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetLargestNumberOfFills(), 0);
@@ -212,7 +212,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         bundleData.swap(bv.m_frontBuffer); //bundleData is now hdtn's modified bundle for next hop
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData)); //bv is now hdtn's
         { //check new primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
             BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
@@ -235,7 +235,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(serializedAcsBundleFromHdtn));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
@@ -264,10 +264,10 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         std::vector<uint8_t> bundleData(invalidCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
-        bpv6_primary_block originalPrimaryFromOriginator;
+        Bpv6CbhePrimaryBlock originalPrimaryFromOriginator;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
         { //check primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             originalPrimaryFromOriginator = primary;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, true, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0); //acs not used due to invalid cteb
@@ -300,7 +300,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         bundleData.swap(bv.m_frontBuffer); //bundleData is now hdtn's modified bundle for next hop
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData)); //bv is now hdtn's
         { //check new primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
             BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
@@ -323,7 +323,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(custodySignalRfc5050SerializedBundle));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
@@ -350,10 +350,10 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         std::vector<uint8_t> bundleData(missingCtebBundle);
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
-        bpv6_primary_block originalPrimaryFromOriginator;
+        Bpv6CbhePrimaryBlock originalPrimaryFromOriginator;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
         { //check primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             originalPrimaryFromOriginator = primary;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
@@ -368,7 +368,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, true, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0); //acs not used due to invalid cteb
@@ -379,7 +379,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         bundleData.swap(bv.m_frontBuffer); //bundleData is now hdtn's modified bundle for next hop
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData)); //bv is now hdtn's
         { //check new primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
             BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
@@ -402,7 +402,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(custodySignalRfc5050SerializedBundle));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
@@ -430,27 +430,27 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         BundleViewV6 bv;
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
-        const bpv6_primary_block originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
         
         //hdtn node refuses custody with acs
         const bool isAcsAware = true;
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, false, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE).m_custodyIdFills.size(), 1);
         BOOST_REQUIRE_EQUAL(custodySignalRfc5050SerializedBundle.size(), 0);
         //pretend it was time to send acs
-        std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
+        std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > primaryPlusSerializedBundle;
         std::vector<uint8_t> & serializedAcsBundleFromHdtn = primaryPlusSerializedBundle.second;
         //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(primaryPlusSerializedBundle,
             originalPrimaryFromOriginator.m_custodianEid,
             BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE));
         //test with generate all
-        std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+        std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetLargestNumberOfFills(), 1);
         BOOST_REQUIRE(ctmHdtn.GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetLargestNumberOfFills(), 0);
@@ -466,7 +466,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(serializedAcsBundleFromHdtn));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0,0));
@@ -497,14 +497,14 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
-        const bpv6_primary_block originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
         
         //hdtn node accept custody with acs
         const bool isAcsAware = true;
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, false, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE).m_custodyIdFills.size(), 0); //acs not used due to invalid cteb
@@ -518,7 +518,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(custodySignalRfc5050SerializedBundle));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0,0));
@@ -547,7 +547,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
         
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
-        const bpv6_primary_block originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
             
 
         //hdtn node accept custody without acs
@@ -555,7 +555,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, true, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION).m_custodyIdFills.size(), 0); //acs not used (disabled)
@@ -566,7 +566,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         bundleData.swap(bv.m_frontBuffer); //bundleData is now hdtn's modified bundle for next hop
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData)); //bv is now hdtn's
         { //check new primary
-            bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
             BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
@@ -588,7 +588,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(custodySignalRfc5050SerializedBundle));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
@@ -617,7 +617,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
 
         BOOST_REQUIRE(bv.SwapInAndLoadBundle(bundleData));
-        const bpv6_primary_block originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock originalPrimaryFromOriginator = bv.m_primaryBlockView.header;
 
 
         //hdtn node refuse custody without acs
@@ -625,7 +625,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         CustodyTransferManager ctmHdtn(isAcsAware, PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC);
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE).m_custodyIdFills.size(), 0);
         std::vector<uint8_t> custodySignalRfc5050SerializedBundle;
-        bpv6_primary_block custodySignalRfc5050Primary;
+        Bpv6CbhePrimaryBlock custodySignalRfc5050Primary;
         BOOST_REQUIRE(ctmHdtn.ProcessCustodyOfBundle(bv, false, newHdtnCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE,
             custodySignalRfc5050SerializedBundle, custodySignalRfc5050Primary));
         BOOST_REQUIRE_EQUAL(ctmHdtn.GetAcsConstRef(custodianOriginator, BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE).m_custodyIdFills.size(), 0); //acs not used (disabled)
@@ -639,7 +639,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             //std::cout << "sz " << bundleSerializedCopy.size() << std::endl;
             BOOST_REQUIRE(bvSrc.SwapInAndLoadBundle(custodySignalRfc5050SerializedBundle));
             { //check primary
-                bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
+                Bpv6CbhePrimaryBlock & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
                 BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));

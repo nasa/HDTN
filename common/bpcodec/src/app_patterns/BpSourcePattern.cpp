@@ -324,7 +324,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             }
             lastTimeRfc5050 = currentTimeRfc5050;
 
-            bpv6_primary_block primary;
+            Bpv6CbhePrimaryBlock primary;
             primary.SetZero();
             primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
             if (m_useCustodyTransfer) {
@@ -498,7 +498,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         return;
     }
     //check primary
-    const bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+    const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     const cbhe_eid_t & receivedFinalDestinationEid = primary.m_destinationEid;
     static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
     if ((primary.flags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)

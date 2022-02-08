@@ -8,7 +8,7 @@
 #include "codec/bpv7.h"
 
 
-static void CreatePrimaryV6(bpv6_primary_block & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
+static void CreatePrimaryV6(Bpv6CbhePrimaryBlock & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
     
     p.flags = 0;
     if (reqCustody) {
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
     //standard usage, same expiry, different sequence numbers
     for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
         BundleStorageCatalog bsc;
-        std::vector<bpv6_primary_block> primariesV6;
+        std::vector<Bpv6CbhePrimaryBlock> primariesV6;
         std::vector<Bpv7CbhePrimaryBlock> primariesV7;
         std::vector<PrimaryBlock*> primaries;
         std::vector<catalog_entry_t> catalogEntryCopiesForVerification;

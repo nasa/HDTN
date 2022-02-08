@@ -179,9 +179,9 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
 }
 
 static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & custodyIdAllocator,
-    std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle)
+    std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > & primaryPlusSerializedBundle)
 {
-    const bpv6_primary_block & primary = primaryPlusSerializedBundle.first;
+    const Bpv6CbhePrimaryBlock & primary = primaryPlusSerializedBundle.first;
     const std::vector<uint8_t> & acsBundleSerialized = primaryPlusSerializedBundle.second;
     const cbhe_eid_t & hdtnSrcEid = primary.m_sourceNodeId;
     const uint64_t newCustodyIdForAcsCustodySignal = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
@@ -225,7 +225,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             std::cerr << "malformed bundle\n";
             return false;
         }
-        const bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEidReturned = primary.m_destinationEid;
         
 
@@ -345,7 +345,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
         static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
         if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
-            bpv6_primary_block primaryForCustodySignalRfc5050;
+            Bpv6CbhePrimaryBlock primaryForCustodySignalRfc5050;
             if (!ctm.ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
                 bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050)) {
                 std::cerr << "error unable to process custody\n";
@@ -822,9 +822,9 @@ void ZmqStorageInterface::ThreadFunc() {
         if ((acsSendNowExpiry <= nowPtime) || (ctm.GetLargestNumberOfFills() > ACS_MAX_FILLS_PER_ACS_PACKET)) {
             //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
             //test with generate all
-            std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+            std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
             if (ctm.GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList)) {
-                for(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
+                for(std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
                     it != serializedPrimariesAndBundlesList.end(); ++it)
                 {
                     WriteAcsBundle(bsm, custodyIdAllocator, *it);

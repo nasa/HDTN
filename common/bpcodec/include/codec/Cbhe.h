@@ -64,7 +64,7 @@ struct cbhe_bundle_uuid_t {
     cbhe_bundle_uuid_t(); //a default constructor: X()
     cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
         uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength);
-    //cbhe_bundle_uuid_t(const bpv6_primary_block & primary);
+    //cbhe_bundle_uuid_t(const Bpv6CbhePrimaryBlock & primary);
     ~cbhe_bundle_uuid_t(); //a destructor: ~X()
     cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
     cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
@@ -83,7 +83,7 @@ struct cbhe_bundle_uuid_nofragment_t {
 
     cbhe_bundle_uuid_nofragment_t(); //a default constructor: X()
     cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId);
-    //cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary);
+    //cbhe_bundle_uuid_nofragment_t(const Bpv6CbhePrimaryBlock & primary);
     cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment);
     ~cbhe_bundle_uuid_nofragment_t(); //a destructor: ~X()
     cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o); //a copy constructor: X(const X&)

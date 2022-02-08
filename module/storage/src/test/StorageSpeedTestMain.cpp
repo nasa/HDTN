@@ -142,7 +142,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 const uint64_t absExpiration = distAbsExpiration(gen);
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
-                bpv6_primary_block primary;
+                Bpv6CbhePrimaryBlock primary;
                 primary.SetZero();
                 primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                     bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);

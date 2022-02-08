@@ -130,7 +130,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             std::cerr << "malformed bundle\n";
             return false;
         }
-        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         const cbhe_eid_t finalDestEid(primary.m_destinationEid);
         const cbhe_eid_t srcEid(primary.m_sourceNodeId);
 
@@ -162,7 +162,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
             else if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
                 const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
-                bpv6_primary_block primaryForCustodySignalRfc5050;
+                Bpv6CbhePrimaryBlock primaryForCustodySignalRfc5050;
                 m_mutexCtm.lock();
                 const bool successfullyProcessedCustody = m_custodyTransferManagerPtr->ProcessCustodyOfBundle(bv, true,
                     newCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
@@ -358,12 +358,12 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
 
 void BpSinkPattern::SendAcsFromTimerThread() {
     //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
-    std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+    std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
     m_mutexCtm.lock();
     const bool generatedSuccessfully = m_custodyTransferManagerPtr->GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList);
     m_mutexCtm.unlock();
     if (generatedSuccessfully) {
-        for (std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
+        for (std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
             it != serializedPrimariesAndBundlesList.end(); ++it)
         {
             //send an acs custody signal due to acs send timer

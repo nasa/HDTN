@@ -92,7 +92,7 @@ enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
 /**
  * Structure that contains information necessary for an RFC5050-compatible primary block
  */
-struct bpv6_primary_block : public PrimaryBlock {
+struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
     uint64_t flags;
     uint64_t block_length;
     uint64_t creation;

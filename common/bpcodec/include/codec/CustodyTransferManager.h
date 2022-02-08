@@ -37,12 +37,12 @@ public:
 
     bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
         const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex,
-        std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary);
+        std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, Bpv6CbhePrimaryBlock & custodySignalRfc5050Primary);
     void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
-    bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, bpv6_primary_block & newPrimary, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
-    bool GenerateAllAcsBundlesAndClear(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList);
-    bool GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs);
-    bool GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, Bpv6CbhePrimaryBlock & newPrimary, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    bool GenerateAllAcsBundlesAndClear(std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList);
+    bool GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs);
+    bool GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     const AggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     uint64_t GetLargestNumberOfFills() const;
 private:

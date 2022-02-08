@@ -30,7 +30,7 @@ void CustodyTransferManager::SetCreationAndSequence(uint64_t & creation, uint64_
     sequence = m_sequence++;
 }
 
-bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, bpv6_primary_block & newPrimary, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, Bpv6CbhePrimaryBlock & newPrimary, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     serializedBundle.resize(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + CustodySignal::CBHE_MAX_SERIALIZATION_SIZE);
     uint8_t * const serializationBase = &serializedBundle[0];
     uint8_t * buffer = serializationBase;
@@ -68,7 +68,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     serializedBundle.resize(buffer - serializationBase);
     return true;
 }
-bool CustodyTransferManager::GenerateAllAcsBundlesAndClear(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList) {
+bool CustodyTransferManager::GenerateAllAcsBundlesAndClear(std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList) {
     serializedPrimariesAndBundlesList.clear();
     m_largestNumberOfFills = 0;
     for (std::map<cbhe_eid_t, acs_array_t>::iterator it = m_mapCustodianToAcsArray.begin(); it != m_mapCustodianToAcsArray.end(); ++it) {
@@ -77,7 +77,7 @@ bool CustodyTransferManager::GenerateAllAcsBundlesAndClear(std::list<std::pair<b
         for (unsigned int statusReasonIndex = 0; statusReasonIndex < NUM_ACS_STATUS_INDICES; ++statusReasonIndex) {
             AggregateCustodySignal & currentAcs = acsArray[statusReasonIndex];
             if (!currentAcs.m_custodyIdFills.empty()) {
-                std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
+                std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > primaryPlusSerializedBundle;
                 if (GenerateAcsBundle(primaryPlusSerializedBundle, custodianEid, currentAcs)) {
                     serializedPrimariesAndBundlesList.push_back(std::move(primaryPlusSerializedBundle)); //todo size
                     currentAcs.Reset();
@@ -90,12 +90,12 @@ bool CustodyTransferManager::GenerateAllAcsBundlesAndClear(std::list<std::pair<b
 uint64_t CustodyTransferManager::GetLargestNumberOfFills() const {
     return m_largestNumberOfFills;
 }
-bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs) {
+bool CustodyTransferManager::GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs) {
     
     if (acs.m_custodyIdFills.size() == 0) {
         return false;
     }
-    bpv6_primary_block & newPrimary = primaryPlusSerializedBundle.first;
+    Bpv6CbhePrimaryBlock & newPrimary = primaryPlusSerializedBundle.first;
     std::vector<uint8_t> & serializedBundle = primaryPlusSerializedBundle.second;
     serializedBundle.resize(CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE + 2000); //todo size
     uint8_t * const serializationBase = &serializedBundle[0];
@@ -125,7 +125,7 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std
     serializedBundle.resize(buffer - serializationBase);
     return true;
 }
-bool CustodyTransferManager::GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
+bool CustodyTransferManager::GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex) {
     //const cbhe_eid_t custodianEidFromPrimary(primaryFromSender.custodian_node, primaryFromSender.custodian_svc);
     std::map<cbhe_eid_t, acs_array_t>::const_iterator it = m_mapCustodianToAcsArray.find(custodianEid);
     if (it == m_mapCustodianToAcsArray.cend()) {
@@ -170,11 +170,11 @@ CustodyTransferManager::~CustodyTransferManager() {}
 
 bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
     const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex,
-    std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary)
+    std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, Bpv6CbhePrimaryBlock & custodySignalRfc5050Primary)
 {
     custodySignalRfc5050SerializedBundle.resize(0);
-    bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-    //bpv6_primary_block originalPrimaryFromSender = primary; //make a copy
+    Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+    //Bpv6CbhePrimaryBlock originalPrimaryFromSender = primary; //make a copy
     const cbhe_eid_t custodianEidFromPrimary(primary.m_custodianEid);
 
     if (m_isAcsAware) {

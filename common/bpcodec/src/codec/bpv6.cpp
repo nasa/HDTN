@@ -16,7 +16,7 @@
 #include <utility>
 #include <iostream>
 
-void bpv6_primary_block::SetZero() {
+void Bpv6CbhePrimaryBlock::SetZero() {
     flags = 0;
     block_length = 0;
     creation = 0;
@@ -32,7 +32,7 @@ void bpv6_primary_block::SetZero() {
     m_custodianEid.SetZero();
 }
 
-bool bpv6_primary_block::DeserializeBpv6(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
+bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
@@ -179,7 +179,7 @@ bool bpv6_primary_block::DeserializeBpv6(uint8_t * serialization, uint64_t & num
     return true;
 }
 
-uint64_t bpv6_primary_block::SerializeBpv6(uint8_t * serialization) const {
+uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;
 
     *serialization++ = BPV6_CCSDS_VERSION;
@@ -207,7 +207,7 @@ uint64_t bpv6_primary_block::SerializeBpv6(uint8_t * serialization) const {
 
     const uint64_t blockLength = serialization - (blockLengthPtrForLater + 1);
     if (blockLength > 127) { // our encoding failed because our block length was too long ...
-        printf("error in cbhe_bpv6_primary_block_encode: blockLength > 127\n");
+        printf("error in Bpv6CbhePrimaryBlock::SerializeBpv6 blockLength > 127\n");
         return 0;
     }
     *blockLengthPtrForLater = static_cast<uint8_t>(blockLength); // 1-byte sdnv's are the value itself
@@ -267,7 +267,7 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const s
     return static_cast<uint32_t>(index - offset);
 }
 
-void bpv6_primary_block::bpv6_primary_block_print() const {
+void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
     printf("BPv6 / Primary block (%d bytes)\n", (int)block_length);
     printf("Flags: 0x%" PRIx64 "\n", flags);
     uint32_t flags = bpv6_bundle_get_gflags(flags);
@@ -375,14 +375,14 @@ void bpv6_canonical_block::bpv6_block_flags_print() const {
 
 }
 
-bool bpv6_primary_block::HasCustodyFlagSet() const {
+bool Bpv6CbhePrimaryBlock::HasCustodyFlagSet() const {
     return (flags & BPV6_BUNDLEFLAG_CUSTODY);
 }
-bool bpv6_primary_block::HasFragmentationFlagSet() const {
+bool Bpv6CbhePrimaryBlock::HasFragmentationFlagSet() const {
     return (flags & BPV6_BUNDLEFLAG_FRAGMENT);
 }
 
-cbhe_bundle_uuid_t bpv6_primary_block::GetCbheBundleUuidFromPrimary() const {
+cbhe_bundle_uuid_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {
     cbhe_bundle_uuid_t uuid;
     uuid.creationSeconds = creation;
     uuid.sequence = sequence;
@@ -391,7 +391,7 @@ cbhe_bundle_uuid_t bpv6_primary_block::GetCbheBundleUuidFromPrimary() const {
     uuid.dataLength = data_length;
     return uuid;
 }
-cbhe_bundle_uuid_nofragment_t bpv6_primary_block::GetCbheBundleUuidNoFragmentFromPrimary() const {
+cbhe_bundle_uuid_nofragment_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidNoFragmentFromPrimary() const {
     cbhe_bundle_uuid_nofragment_t uuid;
     uuid.creationSeconds = creation;
     uuid.sequence = sequence;
@@ -399,21 +399,21 @@ cbhe_bundle_uuid_nofragment_t bpv6_primary_block::GetCbheBundleUuidNoFragmentFro
     return uuid;
 }
 
-cbhe_eid_t bpv6_primary_block::GetFinalDestinationEid() const {
+cbhe_eid_t Bpv6CbhePrimaryBlock::GetFinalDestinationEid() const {
     return m_destinationEid;
 }
-uint8_t bpv6_primary_block::GetPriority() const {
+uint8_t Bpv6CbhePrimaryBlock::GetPriority() const {
     return static_cast<uint8_t>(bpv6_bundle_get_priority(flags));
 }
-uint64_t bpv6_primary_block::GetExpirationSeconds() const {
+uint64_t Bpv6CbhePrimaryBlock::GetExpirationSeconds() const {
     return creation + lifetime;
 }
-uint64_t bpv6_primary_block::GetSequenceForSecondsScale() const {
+uint64_t Bpv6CbhePrimaryBlock::GetSequenceForSecondsScale() const {
     return sequence;
 }
-uint64_t bpv6_primary_block::GetExpirationMilliseconds() const {
+uint64_t Bpv6CbhePrimaryBlock::GetExpirationMilliseconds() const {
     return (creation + lifetime) * 1000;
 }
-uint64_t bpv6_primary_block::GetSequenceForMillisecondsScale() const {
+uint64_t Bpv6CbhePrimaryBlock::GetSequenceForMillisecondsScale() const {
     return sequence;
 }

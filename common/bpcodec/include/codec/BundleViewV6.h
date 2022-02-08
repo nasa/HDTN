@@ -47,7 +47,7 @@ class BundleViewV6 {
 
 public:
     struct Bpv6PrimaryBlockView {
-        bpv6_primary_block header;
+        Bpv6CbhePrimaryBlock header;
         boost::asio::const_buffer actualSerializedPrimaryBlockPtr;
         bool dirty;
 

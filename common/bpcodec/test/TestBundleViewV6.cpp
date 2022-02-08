@@ -50,7 +50,7 @@ static void ChangeCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t oldType, ui
 static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const std::vector<std::string> & canonicalBodyStringsVec, uint8_t * buffer) {
     uint8_t * const serializationBase = buffer;
 
-    bpv6_primary_block primary;
+    Bpv6CbhePrimaryBlock primary;
     primary.SetZero();
     bpv6_canonical_block block;
     block.SetZero();
@@ -109,7 +109,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         BOOST_REQUIRE(bv.m_backBuffer != bundleSerializedCopy);
         BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
 
-        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
         BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
         BOOST_REQUIRE_EQUAL(primary.creation, PRIMARY_TIME);

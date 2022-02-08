@@ -499,7 +499,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                         std::cerr << "malformed bundle\n";
                         return false;
                     }
-                    bpv6_primary_block & primary = bv6.m_primaryBlockView.header;
+                    Bpv6CbhePrimaryBlock & primary = bv6.m_primaryBlockView.header;
                     primaryBasePtr = &primary;
                 }
                 else if (isBpVersion7) {

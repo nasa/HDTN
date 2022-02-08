@@ -21,7 +21,7 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 //static const uint64_t PRIMARY_TIME = 1000;
 //static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
-static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_block & primary, const uint64_t targetBundleSize, uint8_t startChar) {
+static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
     bundle.resize(targetBundleSize + 1000);
     uint8_t * buffer = &bundle[0];
     uint64_t payloadSize = targetBundleSize;
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             const uint64_t absExpiration = distAbsExpiration(gen);
 
             BundleStorageManagerSession_WriteToDisk sessionWrite;
-            bpv6_primary_block primary;
+            Bpv6CbhePrimaryBlock primary;
             primary.SetZero();
             primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                 bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
@@ -329,7 +329,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     std::vector<uint8_t> bundle;
                     std::unique_ptr<PrimaryBlock> primaryBlockPtr;
                     if (whichBundleVersion == 6) {
-                        bpv6_primary_block primary;
+                        Bpv6CbhePrimaryBlock primary;
                         primary.SetZero();
                         primary.flags = bpv6_bundle_set_priority(priorityIndex) |
                             bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                         primary.creation = 0;
                         primary.lifetime = absExpiration;
                         primary.sequence = PRIMARY_SEQ;
-                        primaryBlockPtr = boost::make_unique<bpv6_primary_block>(primary);
+                        primaryBlockPtr = boost::make_unique<Bpv6CbhePrimaryBlock>(primary);
                         
                         BOOST_REQUIRE(GenerateBundle(bundle, primary, targetBundleSize, static_cast<uint8_t>(sizeI)));
                     }

@@ -434,7 +434,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             std::cerr << "malformed bundle\n";
             return false;
         }
-        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEid = primary.m_destinationEid;
         if (needsProcessing) {
             static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
