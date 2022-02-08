@@ -7,12 +7,13 @@
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "PaddedVectorUint8.h"
 
 class UdpBundleSink {
 private:
     UdpBundleSink();
 public:
-    typedef boost::function<void(std::vector<uint8_t> & wholeBundleVec)> WholeBundleReadyCallbackUdp_t;
+    typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallbackUdp_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
     UdpBundleSink(boost::asio::io_service & ioService,
@@ -42,10 +43,10 @@ private:
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const unsigned int M_MAX_UDP_PACKET_SIZE_BYTES;
-    std::vector<boost::uint8_t> m_udpReceiveBuffer;
+    padded_vector_uint8_t m_udpReceiveBuffer;
     boost::asio::ip::udp::endpoint m_remoteEndpoint;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_circularIndexBuffer;
-    std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
+    std::vector<padded_vector_uint8_t > m_udpReceiveBuffersCbVec;
     std::vector<boost::asio::ip::udp::endpoint> m_remoteEndpointsCbVec;
     std::vector<std::size_t> m_udpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;

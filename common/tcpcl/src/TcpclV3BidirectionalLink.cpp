@@ -173,7 +173,7 @@ void TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::syst
 
 void TcpclV3BidirectionalLink::Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread() {}
 
-void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
+void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag) {
 
     uint64_t bytesToAck = 0;
     if (isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data

@@ -4,6 +4,7 @@
 #include "Ltp.h"
 #include <vector>
 #include <boost/function.hpp>
+#include "PaddedVectorUint8.h"
 
 //7.1.  Session Start
 //The Session Start notice returns the session ID identifying a newly
@@ -54,7 +55,7 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId,
 //
 //Source LTP engine ID.
 typedef boost::function<void(const Ltp::session_id_t & sessionId,
-    std::vector<uint8_t> & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)> RedPartReceptionCallback_t;
+    padded_vector_uint8_t & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)> RedPartReceptionCallback_t;
 
 //7.4.Transmission - Session Completion
 //The sole parameter provided by the LTP engine when a transmission -

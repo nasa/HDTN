@@ -4,6 +4,7 @@
 #include <string>
 #include <ctime>
 #include <boost/date_time.hpp>
+#include <ostream>
 
 class TimestampUtil {
 private:
@@ -12,6 +13,7 @@ private:
 
 public:
 
+    //Bpv6:
     //All time values in administrative records are UTC times expressed in
     //"DTN time" representation.  A DTN time consists of an SDNV indicating
     //the number of seconds since the start of the year 2000, followed by
@@ -37,6 +39,58 @@ public:
         uint64_t Serialize(uint8_t * serialization) const;
         bool Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode);
         void SetZero();
+    };
+
+    //Bpv7:
+    //4.2.6. DTN Time
+    //A DTN time is an unsigned integer indicating the number of
+    //milliseconds that have elapsed since the DTN Epoch, 2000-01-01
+    //00:00:00 +0000 (UTC).  DTN time is not affected by leap seconds.
+    //Each DTN time SHALL be represented as a CBOR unsigned integer item.
+    //Implementers need to be aware that DTN time values conveyed in CBOR
+    //representation in bundles will nearly always exceed (2**32 - 1); the
+    //manner in which a DTN time value is represented in memory is an
+    //implementation matter.  The DTN time value zero indicates that the
+    //time is unknown.
+    //4.2.7. Creation Timestamp
+    //Each bundle's creation timestamp SHALL be represented as a CBOR
+    //array comprising two items.
+    //The first item of the array, termed "bundle creation time", SHALL be
+    //the DTN time at which the transmission request was received that
+    //resulted in the creation of the bundle, represented as a CBOR
+    //unsigned integer.
+    //The second item of the array, termed the creation timestamp's
+    //"sequence number", SHALL be the latest value (as of the time at
+    //which the transmission request was received) of a monotonically
+    //increasing positive integer counter managed by the source node's
+    //bundle protocol agent, represented as a CBOR unsigned integer.  The
+    //sequence counter MAY be reset to zero whenever the current time
+    //advances by one millisecond.
+    struct bpv7_creation_timestamp_t {
+        uint64_t millisecondsSinceStartOfYear2000;
+        uint64_t sequenceNumber;
+
+        static constexpr unsigned int MAX_BUFFER_SIZE = 18; //MAX(sizeof(__m128i), 10 + sizeof(__m64i)) 
+
+        bpv7_creation_timestamp_t(); //a default constructor: X()
+        bpv7_creation_timestamp_t(uint64_t paramMillisecondsSinceStartOfYear2000, uint32_t paramSequenceNumber);
+        ~bpv7_creation_timestamp_t(); //a destructor: ~X()
+        bpv7_creation_timestamp_t(const bpv7_creation_timestamp_t& o); //a copy constructor: X(const X&)
+        bpv7_creation_timestamp_t(bpv7_creation_timestamp_t&& o); //a move constructor: X(X&&)
+        bpv7_creation_timestamp_t& operator=(const bpv7_creation_timestamp_t& o); //a copy assignment: operator=(const X&)
+        bpv7_creation_timestamp_t& operator=(bpv7_creation_timestamp_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const bpv7_creation_timestamp_t & o) const; //operator ==
+        bool operator!=(const bpv7_creation_timestamp_t & o) const; //operator !=
+        bool operator<(const bpv7_creation_timestamp_t & o) const; //operator < so it can be used as a map key
+        friend std::ostream& operator<<(std::ostream& os, const bpv7_creation_timestamp_t& o);
+        uint64_t SerializeBpv7(uint8_t * serialization) const;
+        uint64_t GetSerializationSize() const;
+        bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+        void SetZero();
+        boost::posix_time::ptime GetPtime() const;
+        void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
+        std::string GetUtcTimestampString(bool forFileName) const;
+        void SetTimeFromNow();
     };
 
     static const boost::posix_time::ptime & GetRfc5050Epoch();

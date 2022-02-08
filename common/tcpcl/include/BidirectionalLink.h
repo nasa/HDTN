@@ -9,6 +9,9 @@
 #include "Tcpcl.h"
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "PaddedVectorUint8.h"
+
+typedef boost::function<void(padded_vector_uint8_t & movableBundle)> OutductOpportunisticProcessReceivedBundleCallback_t;
 
 class BidirectionalLink {
 public:

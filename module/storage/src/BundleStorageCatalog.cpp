@@ -113,18 +113,17 @@ bool BundleStorageCatalog::Remove(custids_flist_plus_lastiterator_t & custodyIdF
     }
 }
 
-bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const bpv6_primary_block & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order) {
-    const uint32_t flags = bpv6_bundle_get_gflags(primary.flags);
-    if (flags & BPV6_BUNDLEFLAG_CUSTODY) {
-        if (flags & BPV6_BUNDLEFLAG_FRAGMENT) {
-            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(cbhe_bundle_uuid_t(primary), custodyId);
+bool BundleStorageCatalog::CatalogIncomingBundleForStore(catalog_entry_t & catalogEntryToTake, const PrimaryBlock & primary, const uint64_t custodyId, const DUPLICATE_EXPIRY_ORDER order) {
+    if (primary.HasCustodyFlagSet()) {
+        if (primary.HasFragmentationFlagSet()) {
+            const uuid_to_custid_hashmap_t::key_value_pair_t * p = m_uuidToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidFromPrimary(), custodyId);
             if (p == NULL) {
                 return false;
             }
             catalogEntryToTake.ptrUuidKeyInMap = &p->first;
         }
         else {
-            const uuidnofrag_to_custid_hashmap_t::key_value_pair_t * p = m_uuidNoFragToCustodyIdHashMap.Insert(cbhe_bundle_uuid_nofragment_t(primary), custodyId);
+            const uuidnofrag_to_custid_hashmap_t::key_value_pair_t * p = m_uuidNoFragToCustodyIdHashMap.Insert(primary.GetCbheBundleUuidNoFragmentFromPrimary(), custodyId);
             if (p == NULL) {
                 return false;
             }

@@ -32,24 +32,20 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     uint8_t * const serializationBase = buffer;
 
     bpv6_primary_block primary;
-    memset(&primary, 0, sizeof(bpv6_primary_block));
-    primary.version = 6;
+    primary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY);
-    primary.src_node = PRIMARY_SRC_NODE;
-    primary.src_svc = PRIMARY_SRC_SVC;
-    primary.dst_node = PRIMARY_DEST_NODE;
-    primary.dst_svc = PRIMARY_DEST_SVC;
-    primary.custodian_node = primaryCustodianNode;
-    primary.custodian_svc = primaryCustodianService;
+    primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+    primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
+    primary.m_custodianEid.Set(primaryCustodianNode, primaryCustodianService);
     primary.creation = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
     primary.lifetime = PRIMARY_LIFETIME;
     primary.sequence = PRIMARY_SEQ;
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = primary.SerializeBpv6(buffer);
     if (retVal == 0) {
         return 0;
     }
@@ -59,7 +55,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     block.flags = 0;// BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
-    retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -88,24 +84,20 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     uint8_t * const serializationBase = buffer;
 
     bpv6_primary_block primary;
-    memset(&primary, 0, sizeof(bpv6_primary_block));
-    primary.version = 6;
+    primary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY);
-    primary.src_node = PRIMARY_SRC_NODE;
-    primary.src_svc = PRIMARY_SRC_SVC;
-    primary.dst_node = PRIMARY_DEST_NODE;
-    primary.dst_svc = PRIMARY_DEST_SVC;
-    primary.custodian_node = primaryCustodianNode;
-    primary.custodian_svc = primaryCustodianService;
+    primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+    primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
+    primary.m_custodianEid.Set(primaryCustodianNode, primaryCustodianService);
     primary.creation = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
     primary.lifetime = PRIMARY_LIFETIME;
     primary.sequence = PRIMARY_SEQ;
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = primary.SerializeBpv6(buffer);
     if (retVal == 0) {
         return 0;
     }
@@ -115,7 +107,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
-    retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
         return 0;
     }
@@ -176,8 +168,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             originalPrimaryFromOriginator = primary;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_SRC_NODE);
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_SRC_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
         }
         { //check cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
@@ -203,9 +194,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //pretend it was time to send acs
         std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
         std::vector<uint8_t> & serializedAcsBundleFromHdtn = primaryPlusSerializedBundle.second;
-        //bpv6_primary_block_print(&originalPrimaryFromOriginator);
+        //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(primaryPlusSerializedBundle,
-            cbhe_eid_t(originalPrimaryFromOriginator.custodian_node, originalPrimaryFromOriginator.custodian_svc),
+            originalPrimaryFromOriginator.m_custodianEid,
             BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION));
         //test with generate all
         std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
@@ -224,8 +215,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             bpv6_primary_block & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_HDTN_NODE); //hdtn is new custodian
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_HDTN_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
         }
         { //check new cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
@@ -248,12 +238,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check acs
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical
@@ -284,8 +271,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             originalPrimaryFromOriginator = primary;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_SRC_NODE);
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_SRC_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
         }
         { //check cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
@@ -317,8 +303,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             bpv6_primary_block & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_HDTN_NODE); //hdtn is new custodian
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_HDTN_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
         }
         { //check new cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
@@ -341,12 +326,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check admin record
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical
@@ -375,8 +357,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             originalPrimaryFromOriginator = primary;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_SRC_NODE);
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_SRC_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
         }
         { //check cteb missing
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 1); //payload only
@@ -401,8 +382,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             bpv6_primary_block & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_HDTN_NODE); //hdtn is new custodian
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_HDTN_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
         }
         { //check new cteb WAS CREATED/APPENDED
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
@@ -425,12 +405,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check admin record
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical
@@ -468,9 +445,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         //pretend it was time to send acs
         std::pair<bpv6_primary_block, std::vector<uint8_t> > primaryPlusSerializedBundle;
         std::vector<uint8_t> & serializedAcsBundleFromHdtn = primaryPlusSerializedBundle.second;
-        //bpv6_primary_block_print(&originalPrimaryFromOriginator);
+        //originalPrimaryFromOriginator.bpv6_primary_block_print();
         BOOST_REQUIRE(ctmHdtn.GenerateAcsBundle(primaryPlusSerializedBundle,
-            cbhe_eid_t(originalPrimaryFromOriginator.custodian_node, originalPrimaryFromOriginator.custodian_svc),
+            originalPrimaryFromOriginator.m_custodianEid,
             BPV6_ACS_STATUS_REASON_INDICES::FAIL__DEPLETED_STORAGE));
         //test with generate all
         std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
@@ -492,12 +469,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0,0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check acs
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical
@@ -547,12 +521,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0,0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check admin record
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical
@@ -598,8 +569,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
             bpv6_primary_block & primary = bv.m_primaryBlockView.header;
             const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY;
             BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-            BOOST_REQUIRE_EQUAL(primary.custodian_node, PRIMARY_HDTN_NODE); //hdtn is new custodian
-            BOOST_REQUIRE_EQUAL(primary.custodian_svc, PRIMARY_HDTN_SVC);
+            BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC)); //hdtn is new custodian
         }
         { //check cteb unchanged
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
@@ -621,12 +591,9 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check admin record
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical
@@ -675,17 +642,12 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 bpv6_primary_block & primary = bvSrc.m_primaryBlockView.header;
                 const uint64_t requiredPrimaryFlags = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
                 BOOST_REQUIRE((primary.flags & requiredPrimaryFlags) == requiredPrimaryFlags);
-                BOOST_REQUIRE_EQUAL(primary.custodian_node, 0);
-                BOOST_REQUIRE_EQUAL(primary.custodian_svc, 0);
-                BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(primary.m_custodianEid, cbhe_eid_t(0, 0));
+                BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
 
-                BOOST_REQUIRE_EQUAL(custodySignalRfc5050Primary.src_node, PRIMARY_HDTN_NODE);
-                BOOST_REQUIRE_EQUAL(custodySignalRfc5050Primary.src_svc, PRIMARY_HDTN_SVC);
-                BOOST_REQUIRE_EQUAL(custodySignalRfc5050Primary.dst_node, PRIMARY_SRC_NODE);
-                BOOST_REQUIRE_EQUAL(custodySignalRfc5050Primary.dst_svc, PRIMARY_SRC_SVC);
+                BOOST_REQUIRE_EQUAL(custodySignalRfc5050Primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_HDTN_NODE, PRIMARY_HDTN_SVC));
+                BOOST_REQUIRE_EQUAL(custodySignalRfc5050Primary.m_destinationEid, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
             }
             { //check admin record
                 BOOST_REQUIRE_EQUAL(bvSrc.GetNumCanonicalBlocks(), 0); //admin record is not canonical

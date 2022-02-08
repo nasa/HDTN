@@ -33,6 +33,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         InductsConfig_ptr inductsConfigPtr;
         bool custodyTransferUseAcs;
         bool forceDisableCustody;
+        bool useBpVersion7;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -47,6 +48,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                     ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
+                    ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
                     ;
 
                 boost::program_options::variables_map vm;
@@ -58,6 +60,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                         return false;
                 }
                 forceDisableCustody = (vm.count("force-disable-custody") != 0);
+                useBpVersion7 = (vm.count("use-bp-version-7") != 0);
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
@@ -127,7 +130,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         if (bpSendFile.GetNumberOfFilesToSend() == 0) {
             return false;
         }
-        bpSendFile.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId, false, forceDisableCustody);
+        bpSendFile.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId, false, forceDisableCustody, useBpVersion7);
 
         std::cout << "running BpSendFile\n";
         

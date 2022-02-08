@@ -6,7 +6,7 @@
 #include <boost/integer.hpp>
 #include <boost/function.hpp>
 #include <vector>
-
+#include "PaddedVectorUint8.h"
 
 enum class TCPCLV4_MAIN_RX_STATE
 {
@@ -188,7 +188,7 @@ public:
     };
 
 public:
-    typedef boost::function<void(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+    typedef boost::function<void(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
         uint64_t transferId, const tcpclv4_extensions_t & transferExtensions)> DataSegmentContentsReadCallback_t;
     typedef boost::function<void(bool remoteHasEnabledTlsSecurity)> ContactHeaderReadCallback_t;
     typedef boost::function<void(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
@@ -291,7 +291,7 @@ public:
     tcpclv4_extensions_t m_transferExtensions;
     uint16_t m_currentTransferExtensionLength;
     uint64_t m_dataSegmentLength;
-    std::vector<uint8_t> m_dataSegmentDataVec;
+    padded_vector_uint8_t m_dataSegmentDataVec;
 
     //ack segment
     uint8_t m_ackFlags;

@@ -57,12 +57,12 @@ public:
 
     //write
     uint64_t Push(BundleStorageManagerSession_WriteToDisk & session,
-        const bpv6_primary_block & bundlePrimaryBlock, const uint64_t bundleSizeBytes); //return totalSegmentsRequired
+        const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes); //return totalSegmentsRequired
     int PushSegment(BundleStorageManagerSession_WriteToDisk & session,
-        const bpv6_primary_block & bundlePrimaryBlock, const uint64_t custodyId,
+        const PrimaryBlock & bundlePrimaryBlock, const uint64_t custodyId,
         const uint8_t * buf, std::size_t size);
     uint64_t PushAllSegments(BundleStorageManagerSession_WriteToDisk & session,
-        const bpv6_primary_block & bundlePrimaryBlock,
+        const PrimaryBlock & bundlePrimaryBlock,
         const uint64_t custodyId, const uint8_t * allData, const std::size_t allDataSize); //return total bytes pushed
 
     //Read

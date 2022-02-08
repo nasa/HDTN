@@ -54,7 +54,7 @@ LtpBundleSink::~LtpBundleSink() {
 
 
 
-void LtpBundleSink::RedPartReceptionCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec,
+void LtpBundleSink::RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
     uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock)
 {
     m_ltpWholeBundleReadyCallback(movableClientServiceDataVec);

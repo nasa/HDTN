@@ -84,12 +84,12 @@ bool catalog_entry_t::HasCustodyAndNonFragmentation() const {
 bool catalog_entry_t::HasCustody() const {
     return ((encodedAbsExpirationAndCustodyAndPriority & ((1U << 2) | (1U << 3)) ) != 0);
 }
-void catalog_entry_t::Init(const bpv6_primary_block & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap) {
+void catalog_entry_t::Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap) {
     bundleSizeBytes = paramBundleSizeBytes;
-    destEid = cbhe_eid_t(primary.dst_node, primary.dst_svc);
-    encodedAbsExpirationAndCustodyAndPriority = bpv6_bundle_get_priority(primary.flags) | ((primary.creation + primary.lifetime) << 4);
-    if (primary.flags & BPV6_BUNDLEFLAG_CUSTODY) {
-        if (primary.flags & BPV6_BUNDLEFLAG_FRAGMENT) {
+    destEid = primary.GetFinalDestinationEid();
+    encodedAbsExpirationAndCustodyAndPriority = primary.GetPriority() | (primary.GetExpirationSeconds() << 4);
+    if (primary.HasCustodyFlagSet()) {
+        if (primary.HasFragmentationFlagSet()) {
             encodedAbsExpirationAndCustodyAndPriority |= (1U << 2); //HasCustodyAndFragmentation
         }
         else {
@@ -97,7 +97,7 @@ void catalog_entry_t::Init(const bpv6_primary_block & primary, const uint64_t pa
         }
     }
     ptrUuidKeyInMap = paramPtrUuidKeyInMap;
-    sequence = primary.sequence;
+    sequence = primary.GetSequenceForSecondsScale();
     segmentIdChainVec.resize(paramNumSegmentsRequired);
 }
 

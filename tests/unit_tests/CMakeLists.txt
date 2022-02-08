@@ -19,12 +19,17 @@ add_executable(unit-tests
 	../../common/util/test/TestRateManagerAsync.cpp
 	../../common/util/test/TestTimestampUtil.cpp
 	../../common/util/test/TestUri.cpp
+	../../common/util/test/TestEnumAsFlagsMacro.cpp
+	../../common/util/test/TestPaddedVectorUint8.cpp
 	../../common/bpcodec/test/TestBpv6AdministrativeRecords.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransferEnhancementBlock.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp
 	../../common/bpcodec/test/TestBundleViewV6.cpp
+	../../common/bpcodec/test/TestBundleViewV7.cpp
+	../../common/bpcodec/test/TestBpsecDefaultSecurityContexts.cpp
+	../../common/bpcodec/test/TestBpv7Crc.cpp
 	../../common/config/test/TestInductsConfig.cpp
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp

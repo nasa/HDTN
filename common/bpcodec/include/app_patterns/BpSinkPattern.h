@@ -21,8 +21,8 @@ public:
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:
-    void WholeBundleReadyCallback(std::vector<uint8_t> & wholeBundleVec);
-    bool Process(std::vector<uint8_t> & rxBuf, const std::size_t messageSize);
+    void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    bool Process(padded_vector_uint8_t & rxBuf, const std::size_t messageSize);
     void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
     void TransferRate_TimerExpired(const boost::system::error_code& e);
     void SendAcsFromTimerThread();
@@ -33,14 +33,15 @@ public:
 
     uint64_t m_totalPayloadBytesRx;
     uint64_t m_totalBundleBytesRx;
-    uint64_t m_totalBundlesRx;
+    uint64_t m_totalBundlesVersion6Rx;
+    uint64_t m_totalBundlesVersion7Rx;
 
     uint64_t m_lastPayloadBytesRx;
     uint64_t m_lastBundleBytesRx;
     uint64_t m_lastBundlesRx;
     boost::posix_time::ptime m_lastPtime;
-
-    
+    cbhe_eid_t m_lastPreviousNode;
+    std::vector<uint64_t> m_hopCounts;
 
 private:
     uint32_t M_EXTRA_PROCESSING_TIME_MS;

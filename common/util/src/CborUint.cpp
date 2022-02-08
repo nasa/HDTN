@@ -33,10 +33,24 @@ unsigned int CborEncodeU64BufSize9(uint8_t * const outputEncoded, const uint64_t
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
+//return output size
+unsigned int CborGetEncodingSizeU64(const uint64_t valToEncodeU64) {
+#ifdef USE_X86_HARDWARE_ACCELERATION
+    return CborGetEncodingSizeU64Fast(valToEncodeU64);
+#else
+    return CborGetEncodingSizeU64Classic(valToEncodeU64);
+#endif // USE_X86_HARDWARE_ACCELERATION
+}
+
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return CborDecodeU64Fast(inputEncoded, numBytes, bufferSize);
+    if (bufferSize >= 9) {
+        return CborDecodeU64FastBufSize9(inputEncoded, numBytes);
+    }
+    else {
+        return CborDecodeU64Fast(inputEncoded, numBytes, bufferSize);
+    }
 #else
     return CborDecodeU64Classic(inputEncoded, numBytes, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
@@ -166,6 +180,28 @@ unsigned int CborEncodeU64ClassicBufSize9(uint8_t * const outputEncoded, const u
         return 9;
     }
     return 0;
+}
+
+//return output size
+unsigned int CborGetEncodingSizeU64Classic(const uint64_t valToEncodeU64) {
+    if (valToEncodeU64 < CBOR_UINT8_TYPE) {
+        return 1;
+    }
+    else if (valToEncodeU64 <= UINT8_MAX) {
+        return 2;
+    }
+    else if (valToEncodeU64 <= UINT16_MAX) {
+        return 3;
+    }
+    else if (valToEncodeU64 <= UINT32_MAX) {
+        return 5;
+    }
+    else if (valToEncodeU64 <= UINT64_MAX) {
+        return 9;
+    }
+    else {
+        return 0;
+    }
 }
 
 //return decoded value (return invalid number that must be ignored on failure)
@@ -454,6 +490,18 @@ unsigned int CborEncodeU64FastBufSize9(uint8_t * const outputEncoded, const uint
     return encodingSize;
 }
 
+//return output size
+unsigned int CborGetEncodingSizeU64Fast(const uint64_t valToEncodeU64) {
+    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
+    //bitscan seems to have undefined behavior on a value of zero
+    //msb will be 0 if value to encode < 24
+    const unsigned int msb = (static_cast<bool>(valToEncodeU64 >= CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+    const uint32_t requiredEncodingSizePlusTypePlusShifts = msbToRequiredEncodingSizePlusTypePlusShifts[msb];
+    const uint8_t encodingSize = (uint8_t)requiredEncodingSizePlusTypePlusShifts;
+
+    return encodingSize;
+}
+
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
@@ -513,50 +561,48 @@ uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, uint8_t * numByte
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t * numBytes) {
-    *numBytes = 0; //initialize to invalid
-    uint64_t result = 0;
-    const uint8_t type = inputEncoded[0];
-    
-    if (type < CBOR_UINT8_TYPE) {
-        result = type;
-        *numBytes = 1;
-    }
-    else if (type == CBOR_UINT8_TYPE) {
-        result = inputEncoded[1];
-        *numBytes = 2;
-    }
-    else if (type == CBOR_UINT16_TYPE) {
 #if 1
-        result = ((static_cast<uint16_t>(inputEncoded[1])) << 8) | inputEncoded[2];
-#else
-        result = static_cast<uint16_t>(_loadbe_i16(&inputEncoded[1]));
-#endif
-        *numBytes = 3;
-    }
-    else if (type == CBOR_UINT32_TYPE) {//_mm_load_ss
-        //const __m128i enc = _mm_loadu_si32((__m128i const*)(&inputEncoded[1])); //SSE2 Load unaligned 32-bit integer from memory into the first element of dst.
-#if 1
-        const __m128i enc = _mm_castps_si128(_mm_load_ss((float const*)(&inputEncoded[1]))); //Load a single-precision (32-bit) floating-point element from memory into the lower of dst, and zero the upper 3 elements. mem_addr does not need to be aligned on any particular boundary.
-        const uint32_t result32Be = _mm_cvtsi128_si32(enc); //SSE2 Copy the lower 32-bit integer in a to dst.
-        result = boost::endian::big_to_native(result32Be);
-#else
-        result = static_cast<uint32_t>(_loadbe_i32(&inputEncoded[1]));
-#endif
-        *numBytes = 5;
-    }
-    else if (type == CBOR_UINT64_TYPE) {
-        //const __m128i enc = _mm_loadl_epi64((__m128i const*)(&inputEncoded[1])); //_mm_loadu_si64(data); //SSE Load unaligned 64-bit integer from memory into the first element of dst.
-#if 1
-        const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[1]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
-        const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
-        result = boost::endian::big_to_native(result64Be);
-#else
-        result = static_cast<uint64_t>(_loadbe_i64(&inputEncoded[1]));
-#endif
-        *numBytes = 9;
-    }
+    static const uint8_t RIGHT_SHIFTS[CBOR_UINT64_TYPE + 1] = {
+        56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, //type = 0..23
+        56, 48, 32, 0 //type = 24..27
+    };
+    static const uint8_t NUM_BYTES[CBOR_UINT64_TYPE + 1] = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, //type = 0..23
+        2, 3, 5, 9 //type = 24..27
+    };
 
-    return result;
+    const uint8_t type = inputEncoded[0];
+    if (type > CBOR_UINT64_TYPE) { //branch prediction should never enter here
+        *numBytes = 0;
+        return 0;
+    }
+    *numBytes = NUM_BYTES[type];
+    const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[static_cast<uint8_t>(type >= CBOR_UINT8_TYPE)]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
+    const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
+    //const uint64_t result64Be = *(reinterpret_cast<const uint64_t*>(&inputEncoded[static_cast<uint8_t>(type >= CBOR_UINT8_TYPE)]));
+    return (static_cast<uint64_t>(boost::endian::big_to_native(result64Be))) >> RIGHT_SHIFTS[type];
+#else
+    static constexpr uint16_t A = (1 << 8) | 56; //type = 0..23
+    static constexpr uint16_t B = (2 << 8) | 56; //type = 24
+    static constexpr uint16_t C = (3 << 8) | 48; //type = 25
+    static constexpr uint16_t D = (5 << 8) | 32; //type = 26
+    static constexpr uint16_t E = (9 << 8) | 0; //type = 27
+    static const uint16_t NUM_BYTES_PLUS_RIGHT_SHIFTS[CBOR_UINT64_TYPE + 1] = {
+        A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A, //type = 0..23
+        B, C, D, E //type = 24..27
+    };
+
+    const uint8_t type = inputEncoded[0];
+    if (type > CBOR_UINT64_TYPE) { //branch prediction should never enter here
+        *numBytes = 0;
+        return 0;
+    }
+    const uint16_t rightShiftsPlusNumBytes = NUM_BYTES_PLUS_RIGHT_SHIFTS[type];
+    *numBytes = rightShiftsPlusNumBytes >> 8;
+    const __m128i enc = _mm_castpd_si128(_mm_load_sd((double const*)(&inputEncoded[static_cast<uint8_t>(type >= CBOR_UINT8_TYPE)]))); //Load a double-precision (64-bit) floating-point element from memory into the lower of dst, and zero the upper element. mem_addr does not need to be aligned on any particular boundary.
+    const uint64_t result64Be = _mm_cvtsi128_si64(enc); //SSE2 Copy the lower 64-bit integer in a to dst.
+    return (static_cast<uint64_t>(boost::endian::big_to_native(result64Be))) >> (static_cast<uint8_t>(rightShiftsPlusNumBytes));
+#endif
 }
 
 
@@ -571,4 +617,151 @@ unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 < CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
 
     return msbToRequiredEncodingSize[msb];
+}
+
+uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t element1, const uint64_t element2) {
+    uint8_t * const serializationBase = serialization;
+    *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
+    serialization += CborEncodeU64BufSize9(serialization, element1);
+    serialization += CborEncodeU64BufSize9(serialization, element2);
+    return serialization - serializationBase;
+}
+uint64_t CborTwoUint64ArraySerializationSize(const uint64_t element1, const uint64_t element2) {
+    uint64_t serializationSize = 1; //cbor first byte major type 4, additional information 2
+    serializationSize += CborGetEncodingSizeU64(element1);
+    serializationSize += CborGetEncodingSizeU64(element2);
+    return serializationSize;
+}
+bool CborTwoUint64ArrayDeserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize, uint64_t & element1, uint64_t & element2) {
+    uint8_t cborUintSize;
+    const uint8_t * const serializationBase = serialization;
+
+    if (bufferSize == 0) {
+        return false;
+    }
+    --bufferSize;
+    const uint8_t initialCborByte = *serialization++;
+    if ((initialCborByte != ((4U << 5) | 2U)) && //major type 4, additional information 2 (array of length 2)
+        (initialCborByte != ((4U << 5) | 31U))) { //major type 4, additional information 31 (Indefinite-Length Array)
+        return false;
+    }
+
+    element1 = CborDecodeU64(serialization, &cborUintSize, bufferSize);
+    if (cborUintSize == 0) {
+        return false; //failure
+    }
+    serialization += cborUintSize;
+    bufferSize -= cborUintSize;
+
+    element2 = CborDecodeU64(serialization, &cborUintSize, bufferSize);
+    if (cborUintSize == 0) {
+        return false; //failure
+    }
+    serialization += cborUintSize;
+
+    //An implementation of the Bundle Protocol MAY accept a sequence of
+    //bytes that does not conform to the Bundle Protocol specification
+    //(e.g., one that represents data elements in fixed-length arrays
+    //rather than indefinite-length arrays) and transform it into
+    //conformant BP structure before processing it.
+    if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
+        bufferSize -= cborUintSize; //from element 2 above
+        if (bufferSize == 0) {
+            return false;
+        }
+        const uint8_t breakStopCode = *serialization++;
+        if (breakStopCode != 0xff) {
+            return false;
+        }
+    }
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
+}
+
+
+uint64_t CborArbitrarySizeUint64ArraySerialize(uint8_t * serialization, const std::vector<uint64_t> & elements) {
+    uint8_t * const serializationBase = serialization;
+
+    uint8_t * const arrayHeaderStartPtr = serialization;
+    serialization += CborEncodeU64BufSize9(serialization, elements.size());
+    *arrayHeaderStartPtr |= (4U << 5); //change from major type 0 (unsigned integer) to major type 4 (array)
+
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+        serialization += CborEncodeU64BufSize9(serialization, elements[i]);
+    }
+    return serialization - serializationBase;
+}
+uint64_t CborArbitrarySizeUint64ArraySerializationSize(const std::vector<uint64_t> & elements) {
+    uint64_t serializationSize = CborGetEncodingSizeU64(elements.size());
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+        serializationSize += CborGetEncodingSizeU64(elements[i]);
+    }
+    return serializationSize;
+}
+bool CborArbitrarySizeUint64ArrayDeserialize(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, std::vector<uint64_t> & elements, const uint64_t maxElements) {
+    uint8_t cborUintSizeDecoded;
+    const uint8_t * const serializationBase = serialization;
+
+    if (bufferSize == 0) {
+        return false;
+    }
+    const uint8_t initialCborByte = *serialization; //buffer size verified above
+    if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
+        //An implementation of the Bundle Protocol MAY accept a sequence of
+        //bytes that does not conform to the Bundle Protocol specification
+        //(e.g., one that represents data elements in fixed-length arrays
+        //rather than indefinite-length arrays) and transform it into
+        //conformant BP structure before processing it.
+        ++serialization;
+        --bufferSize;
+        elements.resize(0);
+        elements.reserve(maxElements);
+        for (std::size_t i = 0; i < maxElements; ++i) {
+            elements.push_back(CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize));
+            if (cborUintSizeDecoded == 0) {
+                return false; //failure
+            }
+            serialization += cborUintSizeDecoded;
+            bufferSize -= cborUintSizeDecoded;
+        }
+        if (bufferSize == 0) {
+            return false;
+        }
+        const uint8_t breakStopCode = *serialization++;
+        if (breakStopCode != 0xff) {
+            return false;
+        }
+    }
+    else {
+        uint8_t * const arrayHeaderStartPtr = serialization; //buffer size verified above
+        const uint8_t cborMajorTypeArray = (*arrayHeaderStartPtr) >> 5;
+        if (cborMajorTypeArray != 4) {
+            return false; //failure
+        }
+        *arrayHeaderStartPtr &= 0x1f; //temporarily zero out major type to 0 to make it unsigned integer
+        const uint64_t numElements = CborDecodeU64(arrayHeaderStartPtr, &cborUintSizeDecoded, bufferSize);
+        *arrayHeaderStartPtr |= (4U << 5); // restore to major type to 4 (change from major type 0 (unsigned integer) to major type 4 (array))
+        if (cborUintSizeDecoded == 0) {
+            return false; //failure
+        }
+        if (numElements > maxElements) {
+            return false; //failure
+        }
+        serialization += cborUintSizeDecoded;
+        bufferSize -= cborUintSizeDecoded;
+
+        elements.resize(numElements);
+        for (std::size_t i = 0; i < numElements; ++i) {
+            elements[i] = CborDecodeU64(serialization, &cborUintSizeDecoded, bufferSize);
+            if (cborUintSizeDecoded == 0) {
+                return false; //failure
+            }
+            serialization += cborUintSizeDecoded;
+            bufferSize -= cborUintSizeDecoded;
+        }
+    }
+
+    numBytesTakenToDecode = (serialization - serializationBase);
+    return true;
 }

@@ -51,24 +51,20 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
     uint8_t * const serializationBase = buffer;
 
     bpv6_primary_block primary;
-    memset(&primary, 0, sizeof(bpv6_primary_block));
-    primary.version = 6;
+    primary.SetZero();
     bpv6_canonical_block block;
-    memset(&block, 0, sizeof(bpv6_canonical_block));
+    block.SetZero();
 
     primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) |
         bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY);
-    primary.src_node = PRIMARY_SRC_NODE;
-    primary.src_svc = PRIMARY_SRC_SVC;
-    primary.dst_node = PRIMARY_DEST_NODE;
-    primary.dst_svc = PRIMARY_DEST_SVC;
-    primary.custodian_node = 0;
-    primary.custodian_svc = 0;
+    primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+    primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
+    primary.m_custodianEid.SetZero();
     primary.creation = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
     primary.lifetime = PRIMARY_LIFETIME;
     primary.sequence = PRIMARY_SEQ;
     uint64_t retVal;
-    retVal = cbhe_bpv6_primary_block_encode(&primary, (char *)buffer, 0, BP_MSG_BUFSZ);
+    retVal = primary.SerializeBpv6(buffer);
     if (retVal == 0) {
         return 0;
     }
@@ -81,7 +77,7 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
         block.length = blockBody.length();
 
 
-        retVal = bpv6_canonical_block_encode(&block, (char *)buffer, 0, BP_MSG_BUFSZ);
+        retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
         if (retVal == 0) {
             return 0;
         }
@@ -114,10 +110,8 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedCopy);
 
         bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-        BOOST_REQUIRE_EQUAL(primary.src_node, PRIMARY_SRC_NODE);
-        BOOST_REQUIRE_EQUAL(primary.src_svc, PRIMARY_SRC_SVC);
-        BOOST_REQUIRE_EQUAL(primary.dst_node, PRIMARY_DEST_NODE);
-        BOOST_REQUIRE_EQUAL(primary.dst_svc, PRIMARY_DEST_SVC);
+        BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+        BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
         BOOST_REQUIRE_EQUAL(primary.creation, PRIMARY_TIME);
         BOOST_REQUIRE_EQUAL(primary.lifetime, PRIMARY_LIFETIME);
         BOOST_REQUIRE_EQUAL(primary.sequence, PRIMARY_SEQ);

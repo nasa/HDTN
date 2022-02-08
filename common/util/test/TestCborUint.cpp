@@ -5,6 +5,7 @@
 #include <vector>
 #include "CborUint.h"
 #include <boost/timer/timer.hpp>
+#include <algorithm>
 #ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
 #endif
@@ -150,6 +151,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         encodedClassic.assign(encodedClassic.size(), 0);
         unsigned int encodedSizeClassic = CborEncodeU64Classic(&encodedClassic[0], valueToEncode, 9);
         BOOST_REQUIRE_EQUAL(encodedSizeClassic, expectedEncoding.size());
+        BOOST_REQUIRE_EQUAL(encodedSizeClassic, CborGetEncodingSizeU64Classic(valueToEncode));
         encodedClassic.resize(encodedSizeClassic);
         BOOST_REQUIRE(encodedClassic == expectedEncoding);
 
@@ -179,6 +181,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         encodedFast.assign(encodedFast.size(), 0);
         unsigned int encodedSizeFast = CborEncodeU64Fast(&encodedFast[0], valueToEncode, 9);
         BOOST_REQUIRE_EQUAL(encodedSizeFast, expectedEncoding.size());
+        BOOST_REQUIRE_EQUAL(encodedSizeFast, CborGetEncodingSizeU64Fast(valueToEncode));
         encodedFast.resize(encodedSizeFast);
         BOOST_REQUIRE(encodedFast == expectedEncoding);
 
@@ -288,6 +291,8 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
     const std::vector<pairVS> testValuesPlusEncodedSizes2(testValuesPlusEncodedSizes.cbegin() + 21, testValuesPlusEncodedSizes.cend()); //create an even mix of various encoding sizes
 #endif
     
+    // shuffle to prevent branch prediction
+    std::random_shuffle(testValuesPlusEncodedSizes2.begin(), testValuesPlusEncodedSizes2.end());
 
     unsigned int totalExpectedEncodingSize = 0;
     std::vector<uint64_t> allExpectedDecodedValues;

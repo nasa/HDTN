@@ -72,7 +72,7 @@ protected:
     std::unique_ptr<TcpAsyncSender> m_base_tcpAsyncSenderPtr;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;
-    std::vector<uint8_t> m_base_fragmentedBundleRxConcat;
+    padded_vector_uint8_t m_base_fragmentedBundleRxConcat;
 
     const unsigned int M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE;
     const unsigned int M_BASE_UNACKED_BUNDLE_CB_SIZE;
@@ -90,13 +90,13 @@ protected:
     void BaseClass_DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() = 0;
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() = 0;
-    virtual void Virtual_WholeBundleReady(std::vector<uint8_t> & wholeBundleVec) = 0;
+    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) = 0;
     virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
     virtual void Virtual_OnContactHeaderCompletedSuccessfully();
 
 private:
     void BaseClass_ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    void BaseClass_DataSegmentCallback(std::vector<uint8_t> & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
+    void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
     void BaseClass_AckCallback(uint64_t totalBytesAcknowledged);
     void BaseClass_KeepAliveCallback();
     void BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,

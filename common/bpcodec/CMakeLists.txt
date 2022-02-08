@@ -6,8 +6,11 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 add_library(bpcodec STATIC
-        src/codec/bpv7.cpp
+        src/codec/Bpv7CbhePrimaryBlock.cpp
+		src/codec/Bpv7CanonicalBlock.cpp
+		src/codec/Bpv7ExtensionBlocks.cpp
         src/codec/bpv6.cpp
+		src/codec/Cbhe.cpp
         src/codec/bpv6-ext-block.cpp
 		src/codec/Bpv6AdministrativeRecords.cpp
 		src/codec/AggregateCustodySignal.cpp
@@ -15,16 +18,9 @@ add_library(bpcodec STATIC
 		src/codec/CustodyIdAllocator.cpp
 		src/codec/CustodyTransferManager.cpp
 		src/codec/BundleViewV6.cpp
-        src/codec/cbor/cgoto/codec.cpp
-        src/codec/cbor/standard/codec.cpp
-        src/codec/cbor/memo/codec.cpp
-        src/codec/crc.cpp
+		src/codec/BundleViewV7.cpp
+		src/codec/Bpv7Crc.cpp
 )
-
-
-#add_compile_definitions(BPV7_CBOR_CGOTO)
-add_compile_definitions(BPV7_CBOR_STD)
-#add_compile_definitions(BPV7_CBOR_MEMOIZE)
 
 target_link_libraries(bpcodec hdtn_util)
 target_include_directories(bpcodec PUBLIC include)
