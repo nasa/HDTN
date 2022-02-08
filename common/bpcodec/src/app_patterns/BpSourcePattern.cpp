@@ -326,9 +326,9 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
             Bpv6CbhePrimaryBlock primary;
             primary.SetZero();
-            primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+            primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT;
             if (m_useCustodyTransfer) {
-                primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
+                primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
                 primary.m_custodianEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
             }
             primary.m_sourceNodeId = m_myEid;
@@ -500,8 +500,8 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
     //check primary
     const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
     const cbhe_eid_t & receivedFinalDestinationEid = primary.m_destinationEid;
-    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    if ((primary.flags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)
+    static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD;
+    if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)
 
         
         if (receivedFinalDestinationEid != m_myEid) {

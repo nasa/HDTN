@@ -174,13 +174,15 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             }
             const unsigned int linkId = distLinkId(gen);
             const unsigned int priorityIndex = distPriorityIndex(gen);
+            static const BPV6_BUNDLEFLAG priorityBundleFlags[4] = {
+                BPV6_BUNDLEFLAG::PRIORITY_BULK, BPV6_BUNDLEFLAG::PRIORITY_NORMAL, BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED, BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK
+            };
             const uint64_t absExpiration = distAbsExpiration(gen);
 
             BundleStorageManagerSession_WriteToDisk sessionWrite;
             Bpv6CbhePrimaryBlock primary;
             primary.SetZero();
-            primary.flags = bpv6_bundle_set_priority(priorityIndex) |
-                bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+            primary.m_bundleProcessingControlFlags = priorityBundleFlags[priorityIndex] | (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT);
             primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
             primary.m_destinationEid = DEST_LINKS[linkId];
             primary.m_custodianEid.SetZero();
@@ -323,6 +325,9 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     const unsigned int linkId = (sizeI == 12) ? 1 : 0;
 
                     const unsigned int priorityIndex = distPriorityIndex(gen);
+                    static const BPV6_BUNDLEFLAG priorityBundleFlags[4] = {
+                        BPV6_BUNDLEFLAG::PRIORITY_BULK, BPV6_BUNDLEFLAG::PRIORITY_NORMAL, BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED, BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK
+                    };
                     const uint64_t absExpiration = sizeI;
 
                     BundleStorageManagerSession_WriteToDisk sessionWrite;
@@ -331,8 +336,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     if (whichBundleVersion == 6) {
                         Bpv6CbhePrimaryBlock primary;
                         primary.SetZero();
-                        primary.flags = bpv6_bundle_set_priority(priorityIndex) |
-                            bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+                        primary.m_bundleProcessingControlFlags = priorityBundleFlags[priorityIndex] | (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT);
                         primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
                         primary.m_destinationEid = DEST_LINKS[linkId];
                         primary.m_custodianEid.SetZero();

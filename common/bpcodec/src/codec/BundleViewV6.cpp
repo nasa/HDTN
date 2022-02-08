@@ -55,13 +55,13 @@ bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
     if (offset >= m_renderedBundle.size()) {
         return false;
     }
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_FRAGMENT)) {
+    if ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         return false;
     }
     m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(m_renderedBundle.data(), offset);
     m_primaryBlockView.dirty = false;
     m_applicationDataUnitStartPtr = (static_cast<const uint8_t*>(m_renderedBundle.data())) + offset;
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
+    if ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ADMINRECORD) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         return true;
     }
 
@@ -115,7 +115,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(buffer, size);
         buffer += size;
     }
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_FRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
+    if ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ISFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         return false;
     }
     

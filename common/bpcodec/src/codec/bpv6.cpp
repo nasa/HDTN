@@ -17,7 +17,7 @@
 #include <iostream>
 
 void Bpv6CbhePrimaryBlock::SetZero() {
-    flags = 0;
+    m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
     block_length = 0;
     creation = 0;
     sequence = 0;
@@ -44,13 +44,13 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & n
     if(version != BPV6_CCSDS_VERSION) {
         return false;
     }
-    flags = SdnvDecodeU64(serialization, &sdnvSize);
+    m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(SdnvDecodeU64(serialization, &sdnvSize));
     if (sdnvSize == 0) {
         return false;
     }
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
-    const bool isFragment = ((flags & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 
     if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
         return false;
@@ -183,8 +183,8 @@ uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;
 
     *serialization++ = BPV6_CCSDS_VERSION;
-    serialization += SdnvEncodeU64(serialization, flags);
-    const bool isFragment = ((bpv6_bundle_get_gflags(flags) & BPV6_BUNDLEFLAG_FRAGMENT) != 0);
+    serialization += SdnvEncodeU64(serialization, static_cast<uint64_t>(m_bundleProcessingControlFlags));
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 
     uint8_t * const blockLengthPtrForLater = serialization++; // we skip one byte so we can come back and write it later
     
@@ -269,41 +269,39 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const s
 
 void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
     printf("BPv6 / Primary block (%d bytes)\n", (int)block_length);
-    printf("Flags: 0x%" PRIx64 "\n", flags);
-    uint32_t flags = bpv6_bundle_get_gflags(flags);
-    if(flags & BPV6_BUNDLEFLAG_NOFRAGMENT) {
+    printf("Flags: 0x%" PRIx64 "\n", static_cast<uint64_t>(m_bundleProcessingControlFlags));
+    if((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::NOFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* No fragmentation allowed\n");
     }
-    if(flags & BPV6_BUNDLEFLAG_FRAGMENT) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Bundle is a fragment\n");
     }
-    if(flags & BPV6_BUNDLEFLAG_ADMIN_RECORD) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ADMINRECORD) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Bundle is administrative (control) traffic\n");
     }
-    if(flags & BPV6_BUNDLEFLAG_CUSTODY) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::CUSTODY_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Custody transfer requested\n");
     }
-    if(flags & BPV6_BUNDLEFLAG_APPL_ACK) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::USER_APP_ACK_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Application acknowledgment requested.\n");
     }
-    flags = bpv6_bundle_get_reporting(flags);
-    if(flags & BPV6_REPORTFLAG_CUSTODY) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::CUSTODY_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Custody reporting requested.\n");
     }
-    if(flags & BPV6_REPORTFLAG_DELIVERY) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::DELIVERY_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Delivery reporting requested.\n");
     }
-    if(flags & BPV6_REPORTFLAG_DELETION) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::DELETION_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Deletion reporting requested.\n");
     }
-    if(flags & BPV6_REPORTFLAG_FORWARD) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::FORWARDING_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Forward reporting requested.\n");
     }
-    if(flags & BPV6_REPORTFLAG_RECEPTION) {
+    if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::RECEPTION_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* Reception reporting requested.\n");
     }
-    flags = bpv6_bundle_get_priority(flags);
-    printf("Priority: %u\n", flags);
+    const BPV6_PRIORITY priority = GetPriorityFromFlags(m_bundleProcessingControlFlags);
+    std::cout << "Priority: " << priority << "\n";
 
     std::cout << "Destination: " << m_destinationEid << "\n";
     std::cout << "Source: " << m_sourceNodeId << "\n";
@@ -376,10 +374,10 @@ void bpv6_canonical_block::bpv6_block_flags_print() const {
 }
 
 bool Bpv6CbhePrimaryBlock::HasCustodyFlagSet() const {
-    return (flags & BPV6_BUNDLEFLAG_CUSTODY);
+    return ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::CUSTODY_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 }
 bool Bpv6CbhePrimaryBlock::HasFragmentationFlagSet() const {
-    return (flags & BPV6_BUNDLEFLAG_FRAGMENT);
+    return ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 }
 
 cbhe_bundle_uuid_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {
@@ -403,7 +401,7 @@ cbhe_eid_t Bpv6CbhePrimaryBlock::GetFinalDestinationEid() const {
     return m_destinationEid;
 }
 uint8_t Bpv6CbhePrimaryBlock::GetPriority() const {
-    return static_cast<uint8_t>(bpv6_bundle_get_priority(flags));
+    return static_cast<uint8_t>(GetPriorityFromFlags(m_bundleProcessingControlFlags));
 }
 uint64_t Bpv6CbhePrimaryBlock::GetExpirationSeconds() const {
     return creation + lifetime;

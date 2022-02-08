@@ -10,9 +10,9 @@
 
 static void CreatePrimaryV6(Bpv6CbhePrimaryBlock & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
     
-    p.flags = 0;
+    p.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
     if (reqCustody) {
-        p.flags |= BPV6_BUNDLEFLAG_CUSTODY;
+        p.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
     }
     p.block_length = 1000;
     p.creation = creation;

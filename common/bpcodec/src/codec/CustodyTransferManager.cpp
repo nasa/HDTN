@@ -40,8 +40,8 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     bpv6_canonical_block block;
     block.SetZero();
 
-    newPrimary.flags = bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
-        bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
+    newPrimary.m_bundleProcessingControlFlags = (primaryFromSender.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK) |
+        (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD);
     newPrimary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
     newPrimary.m_destinationEid = primaryFromSender.m_custodianEid;
     SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
@@ -106,8 +106,8 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, s
     bpv6_canonical_block block;
     block.SetZero();
 
-    newPrimary.flags = //bpv6_bundle_set_priority(bpv6_bundle_get_priority(primaryFromSender.flags)) |
-        bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD);
+    newPrimary.m_bundleProcessingControlFlags = //(primaryFromSender.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK) |
+        (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD);
     newPrimary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
     newPrimary.m_destinationEid = custodianEid;
     SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);

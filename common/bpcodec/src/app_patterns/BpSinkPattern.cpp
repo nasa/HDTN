@@ -136,8 +136,8 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
 
 
-        static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON;
-        const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
+        static constexpr BPV6_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG::SINGLETON;
+        const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
         if (isEcho && (!m_hasSendCapability)) {
             std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
             return false;
@@ -150,7 +150,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
         //accept custody
         if (m_hasSendCapability) { //has bidirectionality
-            static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
+            static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
 
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
@@ -160,7 +160,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
                 return true;
             }
-            else if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+            else if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
                 const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
                 Bpv6CbhePrimaryBlock primaryForCustodySignalRfc5050;
                 m_mutexCtm.lock();

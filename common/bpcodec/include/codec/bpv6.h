@@ -1,17 +1,13 @@
-/**
- * Simple encoder / decoder for RFC 5050 bundles.
- *
- * @author Gilbert Clark (GRC-LCN0)
- * NOTICE: This code should be considered experimental, and should thus not be used in critical applications / contexts.
- */
-
 #ifndef BPV6_H
 #define BPV6_H
 
-#include <stdlib.h>
-#include <stdint.h>
-#include "codec/Cbhe.h"
+#include <cstdint>
+#include <cstddef>
+#include "Cbhe.h"
+#include "TimestampUtil.h"
 #include "codec/PrimaryBlock.h"
+#include "EnumAsFlagsMacro.h"
+#include <array>
 
 enum class CANONICAL_BLOCK_TYPE_CODES : uint8_t {
     BUNDLE_PAYLOAD_BLOCK = 1,
@@ -41,59 +37,49 @@ enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
 #define BPV6_CCSDS_VERSION        (6)
 #define BPV6_5050_TIME_OFFSET     (946684800)
 
-#define bpv6_bundle_get_gflags(flags)    ((uint32_t)(flags  & 0x00007F))
-#define bpv6_bundle_get_priority(flags)  ((uint32_t)((flags & 0x000180) >> 7))
-#define bpv6_bundle_get_reporting(flags) ((uint32_t)((flags & 0x3FC000) >> 13))
-
-#define bpv6_bundle_set_gflags(flags)    ((uint32_t)(flags  & 0x00007F))
-#define bpv6_bundle_set_priority(flags)  ((uint32_t)((flags & 0x000003) << 7))
-#define bpv6_bundle_set_reporting(flags) ((uint32_t)((flags & 0x0000ff) << 13))
-
 #define bpv6_unix_to_5050(time)          (time - BPV6_5050_TIME_OFFSET)
 #define bpv6_5050_to_unix(time)          (time + BPV6_5050_TIME_OFFSET)
 
-#define BPV6_BUNDLEFLAG_FRAGMENT      (0x01)
-#define BPV6_BUNDLEFLAG_ADMIN_RECORD  (0x02)
-#define BPV6_BUNDLEFLAG_NOFRAGMENT    (0x04)
-#define BPV6_BUNDLEFLAG_CUSTODY       (0x08)
-#define BPV6_BUNDLEFLAG_SINGLETON     (0x10)
-#define BPV6_BUNDLEFLAG_APPL_ACK      (0x20)
-#define BPV6_BUNDLEFLAG_RESERVED      (0x40)
-#define BPV6_BUNDLEFLAG_TEMPLATE      (0x40)
+enum class BPV6_PRIORITY : uint64_t {
+    BULK = 0,
+    NORMAL = 1,
+    EXPEDITED = 2
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_PRIORITY);
 
-#define BPV6_PRIORITY_BULK            (0x00)
-#define BPV6_PRIORITY_NORMAL          (0x01)
-#define BPV6_PRIORITY_EXPEDITED       (0x02)
-#define BPV6_PRIORITY_RESERVED        (0x03)
+enum class BPV6_BUNDLEFLAG : uint64_t {
+    NO_FLAGS_SET                          = 0,
+    ISFRAGMENT                            = 1 << 0,
+    ADMINRECORD                           = 1 << 1,
+    NOFRAGMENT                            = 1 << 2,
+    CUSTODY_REQUESTED                     = 1 << 3,
+    SINGLETON                             = 1 << 4,
+    USER_APP_ACK_REQUESTED                = 1 << 5,
+    PRIORITY_BULK                         = (static_cast<uint64_t>(BPV6_PRIORITY::BULK)) << 7,
+    PRIORITY_NORMAL                       = (static_cast<uint64_t>(BPV6_PRIORITY::NORMAL)) << 7,
+    PRIORITY_EXPEDITED                    = (static_cast<uint64_t>(BPV6_PRIORITY::EXPEDITED)) << 7,
+    PRIORITY_BIT_MASK                     = 3 << 7,
+    RECEPTION_STATUS_REPORTS_REQUESTED    = 1 << 14,
+    CUSTODY_STATUS_REPORTS_REQUESTED      = 1 << 15,
+    FORWARDING_STATUS_REPORTS_REQUESTED   = 1 << 16,
+    DELIVERY_STATUS_REPORTS_REQUESTED     = 1 << 17,
+    DELETION_STATUS_REPORTS_REQUESTED     = 1 << 18
+};
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV6_BUNDLEFLAG);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BUNDLEFLAG);
 
-#define BPV6_REPORTFLAG_RECEPTION     (0x01)
-#define BPV6_REPORTFLAG_CUSTODY       (0x02)
-#define BPV6_REPORTFLAG_FORWARD       (0x04)
-#define BPV6_REPORTFLAG_DELIVERY      (0x08)
-#define BPV6_REPORTFLAG_DELETION      (0x10)
+//#define bpv6_bundle_set_priority(flags)  ((uint32_t)((flags & 0x000003) << 7))
+//#define bpv6_bundle_get_priority(flags)  ((BPV6_PRIORITY)((flags & 0x000180) >> 7))
+BOOST_FORCEINLINE BPV6_PRIORITY GetPriorityFromFlags(BPV6_BUNDLEFLAG flags) {
+    return static_cast<BPV6_PRIORITY>(((static_cast<std::underlying_type<BPV6_BUNDLEFLAG>::type>(flags)) >> 7) & 3);
+}
 
-#define BPV6_CLFLAG_STCP   (0x01)
-#define BPV6_CLFLAG_LTP    (0x02)
-#define BPV6_CLFLAG_UDP    (0x04)
-#define BPV6_CLFLAG_AOS    (0x08)
-#define BPV6_CLFLAG_TCP    (0x10)
-#define BPV6_CLFLAG_SCTP   (0x20)
-#define BPV6_CLFLAG_DCCP   (0x40)
-#define BPV6_CLFLAG_HTTP   (0x80)
-#define BPV6_CLFLAG_COAP   (0x100)
-#define BPV6_CLFLAG_ETHER  (0x200)
-#define BPV6_CLFLAG_IP4    (0x400)
-#define BPV6_CLFLAG_IP6    (0x800)
-
-#define BPV6_CLPORT_UDP      (4556)
-#define BPV6_CLPORT_TCP      (4556)
-#define BPV6_CLPORT_LTP      (1113)   // LTP over UDP is implied
 
 /**
  * Structure that contains information necessary for an RFC5050-compatible primary block
  */
 struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
-    uint64_t flags;
+    BPV6_BUNDLEFLAG m_bundleProcessingControlFlags;
     uint64_t block_length;
     uint64_t creation;
     uint64_t sequence;

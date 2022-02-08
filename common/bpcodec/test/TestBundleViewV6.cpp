@@ -55,8 +55,7 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
     bpv6_canonical_block block;
     block.SetZero();
 
-    primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) |
-        bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_CUSTODY);
+    primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
     primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
     primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_custodianEid.SetZero();
