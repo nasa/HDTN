@@ -17,11 +17,11 @@ static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
 #define BP_MSG_BUFSZ 2000 //don't care, not used
 
-static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t newType, const std::string & newBlockBody) {
+static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE newType, const std::string & newBlockBody) {
 
     //std::cout << "append " << (int)newType << "\n";
     bpv6_canonical_block block;
-    block.type = newType;
+    block.m_blockTypeCode = newType;
     block.flags = 0; //don't worry about block.flags as last block because Render will take care of that automatically
     block.length = newBlockBody.length();
     std::vector<uint8_t> blockBodyAsVecUint8(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
@@ -30,14 +30,14 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t newType, co
     
 }
 
-static void ChangeCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t oldType, uint8_t newType, const std::string & newBlockBody) {
+static void ChangeCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE oldType, BPV6_BLOCK_TYPE_CODE newType, const std::string & newBlockBody) {
     
     //std::cout << "change " << (int)oldType << " to " << (int)newType << "\n";
     std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
     bv.GetCanonicalBlocksByType(oldType, blocks);
     BOOST_REQUIRE_EQUAL(blocks.size(), 1);
     bpv6_canonical_block & block = blocks[0]->header;
-    block.type = newType;
+    block.m_blockTypeCode = newType;
     //don't worry about block.flags as last block because Render will take care of that automatically
     block.length = newBlockBody.length();
     blocks[0]->replacementBlockBodyData = std::vector<uint8_t>(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
@@ -47,7 +47,7 @@ static void ChangeCanonicalBlockAndRender(BundleViewV6 & bv, uint8_t oldType, ui
     
 }
 
-static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, const std::vector<std::string> & canonicalBodyStringsVec, uint8_t * buffer) {
+static uint64_t GenerateBundle(const std::vector<BPV6_BLOCK_TYPE_CODE> & canonicalTypesVec, const std::vector<std::string> & canonicalBodyStringsVec, uint8_t * buffer) {
     uint8_t * const serializationBase = buffer;
 
     Bpv6CbhePrimaryBlock primary;
@@ -70,7 +70,7 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
     buffer += retVal;
 
     for (std::size_t i = 0; i < canonicalTypesVec.size(); ++i) {
-        block.type = canonicalTypesVec[i];
+        block.m_blockTypeCode = canonicalTypesVec[i];
         block.flags = (i == (canonicalTypesVec.size() - 1)) ? BPV6_BLOCKFLAG_LAST_BLOCK : 0;
         const std::string & blockBody = canonicalBodyStringsVec[i];
         block.length = blockBody.length();
@@ -93,7 +93,12 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
 {
     
     {
-        const std::vector<uint8_t> canonicalTypesVec = { 1,3,2,5 };
+        const std::vector<BPV6_BLOCK_TYPE_CODE> canonicalTypesVec = { 
+            BPV6_BLOCK_TYPE_CODE::PAYLOAD,
+            BPV6_BLOCK_TYPE_CODE::UNUSED_7,
+            BPV6_BLOCK_TYPE_CODE::UNUSED_6,
+            BPV6_BLOCK_TYPE_CODE::UNUSED_11
+        };
         const std::vector<std::string> canonicalBodyStringsVec = { "The ", "quick ", " brown", " fox" };
         std::vector<uint8_t> bundleSerializedOriginal(2000);
         uint64_t len = GenerateBundle(canonicalTypesVec, canonicalBodyStringsVec, &bundleSerializedOriginal[0]);
@@ -133,7 +138,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         }
 
         BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), canonicalTypesVec.size());
-        BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(10), 0);
+        BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::UNUSED_12), 0);
         for (std::size_t i = 0; i < canonicalTypesVec.size(); ++i) {
             BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(canonicalTypesVec[i]), 1);
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
@@ -143,7 +148,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
             std::string s(strPtr, strPtr + blocks[0]->actualSerializedBodyPtr.size());
             BOOST_REQUIRE_EQUAL(s, canonicalBodyStringsVec[i]);
             const uint8_t * typePtr = (const uint8_t *)blocks[0]->actualSerializedHeaderAndBodyPtr.data();
-            BOOST_REQUIRE_EQUAL(*typePtr, canonicalTypesVec[i]);
+            BOOST_REQUIRE_EQUAL(static_cast<BPV6_BLOCK_TYPE_CODE>(*typePtr), canonicalTypesVec[i]);
         }
 
         BOOST_REQUIRE(bv.Render(5000));
@@ -151,8 +156,8 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedCopy.size());
         BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedCopy);
 
-        //change 2nd block from quick to slow and type from 3 to 6 and render
-        ChangeCanonicalBlockAndRender(bv, 3, 6, "slow ");
+        //change 2nd block from quick to slow and type from 7 to 12 and render
+        ChangeCanonicalBlockAndRender(bv, BPV6_BLOCK_TYPE_CODE::UNUSED_7, BPV6_BLOCK_TYPE_CODE::UNUSED_12, "slow ");
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bv.m_backBuffer.size() - 1); //"quick" to "slow"
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bv.m_renderedBundle.size());
         BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), canonicalTypesVec.size());
@@ -163,15 +168,15 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         BOOST_REQUIRE(bv.m_frontBuffer == bv.m_backBuffer);
         
         //revert 2nd block
-        ChangeCanonicalBlockAndRender(bv, 6, 3, "quick ");
+        ChangeCanonicalBlockAndRender(bv, BPV6_BLOCK_TYPE_CODE::UNUSED_12, BPV6_BLOCK_TYPE_CODE::UNUSED_7, "quick ");
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size());
         BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bv.m_renderedBundle.size());
         BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal);
 
-        //change type 2 flags
+        //change type 6 flags
         {
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(2, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::UNUSED_6, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             BOOST_REQUIRE(!blocks[0]->dirty);
             BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE));
@@ -202,7 +207,7 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
             std::string s(strPtr, strPtr + blocks[0]->actualSerializedBodyPtr.size());
             BOOST_REQUIRE_EQUAL(s, canonicalBodyStringsVec[2]);
             const uint8_t * typePtr = (const uint8_t *)blocks[0]->actualSerializedHeaderAndBodyPtr.data();
-            BOOST_REQUIRE_EQUAL(*typePtr, canonicalTypesVec[2]);
+            BOOST_REQUIRE_EQUAL(static_cast<BPV6_BLOCK_TYPE_CODE>(*typePtr), canonicalTypesVec[2]);
             BOOST_REQUIRE(!blocks[0]->dirty);
             BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(bigFlag));
 

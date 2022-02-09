@@ -190,28 +190,28 @@ void BundleViewV6::AppendCanonicalBlock(const bpv6_canonical_block & header, std
     cbv.replacementBlockBodyData = std::move(blockBody);
     cbv.actualSerializedBodyPtr = boost::asio::buffer(cbv.replacementBlockBodyData); //needed for Render
 }
-std::size_t BundleViewV6::GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const {
+std::size_t BundleViewV6::GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const {
     std::size_t count = 0;
     for (std::list<Bpv6CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
-        count += (it->header.type == canonicalBlockTypeCode);
+        count += (it->header.m_blockTypeCode == canonicalBlockTypeCode);
     }
     return count;
 }
 std::size_t BundleViewV6::GetNumCanonicalBlocks() const {
     return m_listCanonicalBlockView.size();
 }
-void BundleViewV6::GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks) {
+void BundleViewV6::GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks) {
     blocks.clear();
     for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
-        if (it->header.type == canonicalBlockTypeCode) {
+        if (it->header.m_blockTypeCode == canonicalBlockTypeCode) {
             blocks.push_back(&(*it));
         }
     }
 }
-std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode) {
+std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) {
     std::size_t count = 0;
     for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end();) {
-        if (it->header.type == canonicalBlockTypeCode) {
+        if (it->header.m_blockTypeCode == canonicalBlockTypeCode) {
             it = m_listCanonicalBlockView.erase(it);
             ++count;
         }
@@ -236,7 +236,7 @@ bool BundleViewV6::CopyAndLoadBundle(const uint8_t * bundleData, const std::size
     return Load(loadPrimaryBlockOnly);
 }
 bool BundleViewV6::IsValid() const {
-    if (GetCanonicalBlockCountByType(BPV6_BLOCKTYPE_PAYLOAD) > 1) {
+    if (GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD) > 1) {
         return false;
     }
     return true;

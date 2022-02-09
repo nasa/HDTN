@@ -186,7 +186,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         if (blocks.size() != 1) {
             std::cerr << "error payload block not found\n";
             return false;

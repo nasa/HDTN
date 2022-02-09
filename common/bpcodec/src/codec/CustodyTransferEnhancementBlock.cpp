@@ -61,10 +61,10 @@ uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint
 {
     uint8_t * const serializationBase = buffer;
 
-    returnedCanonicalBlock.type = static_cast<uint8_t>(CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK);
+    returnedCanonicalBlock.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT;
     returnedCanonicalBlock.flags = blockProcessingControlFlags;
 
-    *buffer++ = static_cast<uint8_t>(CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK);
+    *buffer++ = static_cast<uint8_t>(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT);
 
     if (blockProcessingControlFlags <= 127) {
         *buffer++ = static_cast<uint8_t>(blockProcessingControlFlags);
@@ -96,7 +96,7 @@ uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(
 {
     uint8_t * const serializationBase = buffer;
 
-    returnedCanonicalBlock.type = static_cast<uint8_t>(CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK);
+    returnedCanonicalBlock.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT;
     returnedCanonicalBlock.flags = 0;
 
     
@@ -115,8 +115,8 @@ uint32_t CustodyTransferEnhancementBlock::DeserializeCtebCanonicalBlock(const ui
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    const CANONICAL_BLOCK_TYPE_CODES blockTypeCode = static_cast<CANONICAL_BLOCK_TYPE_CODES>(*serialization++);
-    if (blockTypeCode != CANONICAL_BLOCK_TYPE_CODES::CUSTODY_TRANSFER_ENHANCEMENT_BLOCK) {
+    const BPV6_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(*serialization++);
+    if (blockTypeCode != BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT) {
         return 0; //failure
     }
 

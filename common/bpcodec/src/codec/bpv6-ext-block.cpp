@@ -33,8 +33,8 @@ uint8_t bpv6_prev_hop_ext_block::bpv6_prev_hop_decode(const char* buffer, const 
 }
 
 void bpv6_prev_hop_ext_block::bpv6_prev_hop_print() const {
-    if (type == BPV6_BLOCKTYPE_PREV_HOP_INSERTION) {
-        printf("\nPrevious Hop Extension Block [type %u]\n", type);
+    if (m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION) {
+        printf("\nPrevious Hop Extension Block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
         bpv6_block_flags_print();
         printf("Block length: %" PRIu64 " bytes\n", length);
         printf("Scheme: %s\n", scheme);
@@ -67,8 +67,8 @@ uint8_t bpv6_cust_transfer_ext_block::bpv6_cteb_decode(const char* buffer, const
 }
 
 void bpv6_cust_transfer_ext_block::bpv6_cteb_print() const {
-    if (type == BPV6_BLOCKTYPE_CUST_TRANSFER_EXT) {
-        printf("\nCustody Transfer Extension Block [type %u]\n", type);
+    if (m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT) {
+        printf("\nCustody Transfer Extension Block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
         bpv6_block_flags_print();
         printf("Block length: %" PRIu64 " bytes\n", length);
         printf("Custody Id: %" PRIu64 "\n", cust_id);
@@ -147,8 +147,8 @@ uint8_t bpv6_bplib_bib_block::bpv6_bib_decode(const char* buffer, const size_t o
 }
 
 void bpv6_bplib_bib_block::bpv6_bib_print() const {
-    if (type == BPV6_BLOCKTYPE_BPLIB_BIB) {
-        printf("\nBplib Bundle Integrity Block [type %u]\n", type);
+    if (m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::BPLIB_BIB) {
+        printf("\nBplib Bundle Integrity Block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
         bpv6_block_flags_print();
         printf("Block length: %" PRIu64 " bytes\n", length);
         printf("Number of security targets: %" PRIu64 "\n", num_targets);
@@ -182,8 +182,8 @@ uint8_t bpv6_bundle_age_ext_block::bpv6_bundle_age_decode(const char* buffer, co
 }
 
 void bpv6_bundle_age_ext_block::bpv6_bundle_age_print() const {
-    if (type == BPV6_BLOCKTYPE_BUNDLE_AGE) {
-        printf("\n Bundle Age Block [type %u]\n", type);
+    if (m_blockTypeCode == BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE) {
+        printf("\n Bundle Age Block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
         bpv6_block_flags_print();
         printf("Block length: %" PRIu64 " bytes\n", length);
         printf("Bundle Age: %" PRIu64 "\n\n", bundle_age);

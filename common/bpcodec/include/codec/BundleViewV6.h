@@ -75,10 +75,10 @@ public:
 
     void AppendCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & blockBody);
     //canonical_block_view_range_t GetCanonicalBlockRangeByType(const uint8_t canonicalBlockTypeCode);
-    std::size_t GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const;
+    std::size_t GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
-    void GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks);
-    std::size_t DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode);
+    void GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks);
+    std::size_t DeleteAllCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode);
     bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
     bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool loadPrimaryBlockOnly = false);
     bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);

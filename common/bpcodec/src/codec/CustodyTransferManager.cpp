@@ -181,7 +181,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
         bool validCtebPresent = false;
         uint64_t receivedCtebCustodyId;
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
         if (blocks.size() > 1) { //D3.3.3 There shall be only one CTEB per bundle. 
             return false; //treat as malformed
         }

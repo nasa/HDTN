@@ -379,7 +379,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             }
             bpv6_canonical_block block;
             //memset 0 not needed because all fields set below
-            block.type = BPV6_BLOCKTYPE_PAYLOAD;
+            block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
             block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
             block.length = payloadSizeBytes;
 
@@ -511,7 +511,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         }
 
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         if (blocks.size() != 1) {
             std::cerr << "error BpSourcePattern received a non-admin-record bundle with no payload block\n";
             return;

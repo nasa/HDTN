@@ -20,13 +20,13 @@
 void bpv6_canonical_block::SetZero() {
     flags = 0;
     length = 0;
-    type = 0;
+    m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO;
 }
 
 uint32_t bpv6_canonical_block::bpv6_canonical_block_decode(const char* buffer, const size_t offset, const size_t bufsz) {
     uint64_t index = offset;
     uint8_t sdnvSize;
-    type = buffer[index++];
+    m_blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(buffer[index++]);
 
     const uint8_t flag8bit = buffer[index];
     if (flag8bit <= 127) {
@@ -53,7 +53,7 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_decode(const char* buffer, c
 uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const size_t offset, const size_t bufsz) const {
     uint64_t index = offset;
     uint64_t sdnvSize;
-    buffer[index++] = type;
+    buffer[index++] = static_cast<char>(m_blockTypeCode);
 
     if (flags <= 127) {
         buffer[index++] = static_cast<uint8_t>(flags);
@@ -71,36 +71,36 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const s
 
 
 void bpv6_canonical_block::bpv6_canonical_block_print() const {
-    printf("Canonical block [type %u]\n", type);
-    switch(type) {
-        case BPV6_BLOCKTYPE_AUTHENTICATION:
+    printf("Canonical block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
+    switch(m_blockTypeCode) {
+        case BPV6_BLOCK_TYPE_CODE::BUNDLE_AUTHENTICATION:
             printf("> Authentication block\n");
             break;
-        case BPV6_BLOCKTYPE_EXTENSION_SECURITY:
+        case BPV6_BLOCK_TYPE_CODE::EXTENSION_SECURITY:
             printf("> Extension security block\n");
             break;
-        case BPV6_BLOCKTYPE_INTEGRITY:
+        case BPV6_BLOCK_TYPE_CODE::PAYLOAD_INTEGRITY:
             printf("> Integrity block\n");
             break;
-        case BPV6_BLOCKTYPE_METADATA_EXTENSION:
+        case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
             printf("> Metadata block\n");
             break;
-        case BPV6_BLOCKTYPE_PAYLOAD:
+        case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
             printf("> Payload block\n");
             break;
-        case BPV6_BLOCKTYPE_PAYLOAD_CONF:
+        case BPV6_BLOCK_TYPE_CODE::PAYLOAD_CONFIDENTIALITY:
             printf("> Payload confidentiality block\n");
             break;
-        case BPV6_BLOCKTYPE_PREV_HOP_INSERTION:
+        case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
             printf("> Previous hop insertion block\n");
             break;
-        case BPV6_BLOCKTYPE_CUST_TRANSFER_EXT:
-       	    printf("> ACS custody transfer extension block (CTEB)\n");
+        case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
+            printf("> ACS custody transfer enhancement block (CTEB)\n");
             break;
-        case BPV6_BLOCKTYPE_BPLIB_BIB:
-   	    printf("> Bplib bundle integrity block (BIB)\n");
+        case BPV6_BLOCK_TYPE_CODE::BPLIB_BIB:
+            printf("> Bplib bundle integrity block (BIB)\n");
             break;
-        case BPV6_BLOCKTYPE_BUNDLE_AGE:
+        case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
             printf("> Bundle age extension (BAE)\n");
             break;
         default:

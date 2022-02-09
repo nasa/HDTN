@@ -50,7 +50,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     }
     buffer += retVal;
 
-    block.type = BPV6_BLOCKTYPE_PAYLOAD;
+    block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
     block.flags = 0;// BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
@@ -101,7 +101,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     }
     buffer += retVal;
 
-    block.type = BPV6_BLOCKTYPE_PAYLOAD;
+    block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
     block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
@@ -171,7 +171,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         { //check cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             CustodyTransferEnhancementBlock cteb;
             BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         { //check new cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             CustodyTransferEnhancementBlock cteb;
             BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
@@ -274,7 +274,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         { //check cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             CustodyTransferEnhancementBlock cteb;
             BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
@@ -306,7 +306,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         { //check new cteb
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             CustodyTransferEnhancementBlock cteb;
             BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
@@ -385,7 +385,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         { //check new cteb WAS CREATED/APPENDED
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             CustodyTransferEnhancementBlock cteb;
             BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),
@@ -572,7 +572,7 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
         { //check cteb unchanged
             BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2); //payload + cteb
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-            bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_CUST_TRANSFER_EXT, blocks);
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             CustodyTransferEnhancementBlock cteb;
             BOOST_REQUIRE_EQUAL(cteb.DeserializeCtebCanonicalBlock((const uint8_t*)blocks[0]->actualSerializedHeaderAndBodyPtr.data()),

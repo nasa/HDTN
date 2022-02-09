@@ -38,7 +38,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryB
     buffer += retVal;
     payloadSize -= retVal;
 
-    block.type = BPV6_BLOCKTYPE_PAYLOAD;
+    block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
     block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
     payloadSize -= 2;
     payloadSize -= SdnvGetNumBytesRequiredToEncode(payloadSize - 1); //as close as possible

@@ -9,11 +9,6 @@
 #include "EnumAsFlagsMacro.h"
 #include <array>
 
-enum class CANONICAL_BLOCK_TYPE_CODES : uint8_t {
-    BUNDLE_PAYLOAD_BLOCK = 1,
-    CUSTODY_TRANSFER_ENHANCEMENT_BLOCK = 10
-};
-
 enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
     BLOCK_MUST_BE_REPLICATED_IN_EVERY_FRAGMENT = 1 << 0,
     TRANSMIT_STATUS_REPORT_IF_BLOCK_CANT_BE_PROCESSED = 1 << 1,
@@ -128,16 +123,25 @@ struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
     virtual uint64_t GetSequenceForMillisecondsScale() const;
 };
 
-#define BPV6_BLOCKTYPE_PAYLOAD              (1)
-#define BPV6_BLOCKTYPE_AUTHENTICATION       (2)
-#define BPV6_BLOCKTYPE_INTEGRITY            (3)
-#define BPV6_BLOCKTYPE_PAYLOAD_CONF         (4)
-#define BPV6_BLOCKTYPE_PREV_HOP_INSERTION   (5)
-#define BPV6_BLOCKTYPE_METADATA_EXTENSION   (8)
-#define BPV6_BLOCKTYPE_EXTENSION_SECURITY   (9)
-#define BPV6_BLOCKTYPE_CUST_TRANSFER_EXT    (10)
-#define BPV6_BLOCKTYPE_BPLIB_BIB            (13)
-#define BPV6_BLOCKTYPE_BUNDLE_AGE           (20)
+// https://www.iana.org/assignments/bundle/bundle.xhtml#block-types
+enum class BPV6_BLOCK_TYPE_CODE : uint8_t {
+    PRIMARY_IMPLICIT_ZERO             = 0,
+    PAYLOAD                           = 1,
+    BUNDLE_AUTHENTICATION             = 2,
+    PAYLOAD_INTEGRITY                 = 3,
+    PAYLOAD_CONFIDENTIALITY           = 4,
+    PREVIOUS_HOP_INSERTION            = 5,
+    UNUSED_6                          = 6,
+    UNUSED_7                          = 7,
+    METADATA_EXTENSION                = 8,
+    EXTENSION_SECURITY                = 9,
+    CUSTODY_TRANSFER_ENHANCEMENT      = 10,
+    UNUSED_11                         = 11,
+    UNUSED_12                         = 12,
+    BPLIB_BIB                         = 13,
+    BUNDLE_AGE                        = 20,
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCK_TYPE_CODE);
 
 #define BPV6_BLOCKFlAG_REPLICATE               (0x01)
 #define BPV6_BLOCKFLAG_REPORT_PROCESS_FAILURE  (0x02)
@@ -153,7 +157,7 @@ struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
 struct bpv6_canonical_block {
     uint64_t flags;
     uint64_t length;
-    uint8_t type; //should be at beginning but here do to better packing
+    BPV6_BLOCK_TYPE_CODE m_blockTypeCode; //should be at beginning but here do to better packing
 
     void SetZero();
 
