@@ -333,9 +333,9 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             }
             primary.m_sourceNodeId = m_myEid;
             primary.m_destinationEid = m_finalDestinationEid;
-            primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
-            primary.lifetime = 1000;
-            primary.sequence = seq;
+            primary.m_creationTimestamp.secondsSinceStartOfYear2000 = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
+            primary.m_lifetimeSeconds = 1000;
+            primary.m_creationTimestamp.sequenceNumber = seq;
             uint64_t retVal;
             retVal = primary.SerializeBpv6(buffer);
             if (retVal == 0) {

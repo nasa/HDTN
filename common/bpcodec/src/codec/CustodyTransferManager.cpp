@@ -44,8 +44,8 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
         (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD);
     newPrimary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
     newPrimary.m_destinationEid = primaryFromSender.m_custodianEid;
-    SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
-    newPrimary.lifetime = 1000; //todo
+    SetCreationAndSequence(newPrimary.m_creationTimestamp.secondsSinceStartOfYear2000, newPrimary.m_creationTimestamp.sequenceNumber);
+    newPrimary.m_lifetimeSeconds = 1000; //todo
     uint64_t retVal;
     retVal = newPrimary.SerializeBpv6(buffer);
     if (retVal == 0) {
@@ -54,8 +54,8 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     buffer += retVal;
 
     CustodySignal sig;
-    sig.m_copyOfBundleCreationTimestampTimeSeconds = primaryFromSender.creation;
-    sig.m_copyOfBundleCreationTimestampSequenceNumber = primaryFromSender.sequence;
+    sig.m_copyOfBundleCreationTimestampTimeSeconds = primaryFromSender.m_creationTimestamp.secondsSinceStartOfYear2000;
+    sig.m_copyOfBundleCreationTimestampSequenceNumber = primaryFromSender.m_creationTimestamp.sequenceNumber;
     sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.m_sourceNodeId.nodeId, primaryFromSender.m_sourceNodeId.serviceId);
     //REQ D4.2.2.7 An ACS-aware bundle protocol agent shall utilize the ACS bundle timestamp
     //time as the ‘Time of Signal’ when executing RFC 5050 section 6.3
@@ -110,8 +110,8 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, s
         (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::ADMINRECORD);
     newPrimary.m_sourceNodeId.Set(m_myCustodianNodeId, m_myCustodianServiceId);
     newPrimary.m_destinationEid = custodianEid;
-    SetCreationAndSequence(newPrimary.creation, newPrimary.sequence);
-    newPrimary.lifetime = 1000; //todo
+    SetCreationAndSequence(newPrimary.m_creationTimestamp.secondsSinceStartOfYear2000, newPrimary.m_creationTimestamp.sequenceNumber);
+    newPrimary.m_lifetimeSeconds = 1000; //todo
     uint64_t retVal;
     retVal = newPrimary.SerializeBpv6(buffer);
     if (retVal == 0) {

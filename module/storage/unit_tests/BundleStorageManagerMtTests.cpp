@@ -186,9 +186,9 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
             primary.m_destinationEid = DEST_LINKS[linkId];
             primary.m_custodianEid.SetZero();
-            primary.creation = 0;
-            primary.lifetime = absExpiration;
-            primary.sequence = PRIMARY_SEQ;
+            primary.m_creationTimestamp.secondsSinceStartOfYear2000 = 0;
+            primary.m_lifetimeSeconds = absExpiration;
+            primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
             //std::cout << "writing\n";
             uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
@@ -340,9 +340,9 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                         primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
                         primary.m_destinationEid = DEST_LINKS[linkId];
                         primary.m_custodianEid.SetZero();
-                        primary.creation = 0;
-                        primary.lifetime = absExpiration;
-                        primary.sequence = PRIMARY_SEQ;
+                        primary.m_creationTimestamp.secondsSinceStartOfYear2000 = 0;
+                        primary.m_lifetimeSeconds = absExpiration;
+                        primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
                         primaryBlockPtr = boost::make_unique<Bpv6CbhePrimaryBlock>(primary);
                         
                         BOOST_REQUIRE(GenerateBundle(bundle, primary, targetBundleSize, static_cast<uint8_t>(sizeI)));

@@ -209,6 +209,95 @@ TimestampUtil::dtn_time_t TimestampUtil::GenerateDtnTimeNow() {
     return PtimeToDtnTime(boost::posix_time::microsec_clock::universal_time());
 }
 
+//Bpv6
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t() : secondsSinceStartOfYear2000(0), sequenceNumber(0) { } //a default constructor: X()
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber) :
+    secondsSinceStartOfYear2000(paramSecondsSinceStartOfYear2000), sequenceNumber(paramSequenceNumber) { }
+TimestampUtil::bpv6_creation_timestamp_t::~bpv6_creation_timestamp_t() { } //a destructor: ~X()
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t(const bpv6_creation_timestamp_t& o) : secondsSinceStartOfYear2000(o.secondsSinceStartOfYear2000), sequenceNumber(o.sequenceNumber) { } //a copy constructor: X(const X&)
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t(bpv6_creation_timestamp_t&& o) : secondsSinceStartOfYear2000(o.secondsSinceStartOfYear2000), sequenceNumber(o.sequenceNumber) { } //a move constructor: X(X&&)
+TimestampUtil::bpv6_creation_timestamp_t& TimestampUtil::bpv6_creation_timestamp_t::operator=(const bpv6_creation_timestamp_t& o) { //a copy assignment: operator=(const X&)
+    secondsSinceStartOfYear2000 = o.secondsSinceStartOfYear2000;
+    sequenceNumber = o.sequenceNumber;
+    return *this;
+}
+TimestampUtil::bpv6_creation_timestamp_t& TimestampUtil::bpv6_creation_timestamp_t::operator=(bpv6_creation_timestamp_t && o) { //a move assignment: operator=(X&&)
+    secondsSinceStartOfYear2000 = o.secondsSinceStartOfYear2000;
+    sequenceNumber = o.sequenceNumber;
+    return *this;
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::operator==(const bpv6_creation_timestamp_t & o) const {
+    return (secondsSinceStartOfYear2000 == o.secondsSinceStartOfYear2000) && (sequenceNumber == o.sequenceNumber);
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::operator!=(const bpv6_creation_timestamp_t & o) const {
+    return (secondsSinceStartOfYear2000 != o.secondsSinceStartOfYear2000) || (sequenceNumber != o.sequenceNumber);
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::operator<(const bpv6_creation_timestamp_t & o) const {
+    if (secondsSinceStartOfYear2000 == o.secondsSinceStartOfYear2000) {
+        return (sequenceNumber < o.sequenceNumber);
+    }
+    return (secondsSinceStartOfYear2000 < o.secondsSinceStartOfYear2000);
+}
+std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv6_creation_timestamp_t & o) {
+    os << "secondsSinceStartOfYear2000: " << o.secondsSinceStartOfYear2000 << ", sequenceNumber: " << o.sequenceNumber;
+    return os;
+}
+uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization) const {
+    uint8_t * const serializationBase = serialization;
+    serialization += SdnvEncodeU64(serialization, secondsSinceStartOfYear2000);
+    serialization += SdnvEncodeU64(serialization, sequenceNumber);
+    return serialization - serializationBase;
+}
+//uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
+//    return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber, bufferSize);
+//}
+uint64_t TimestampUtil::bpv6_creation_timestamp_t::GetSerializationSizeBpv6() const {
+    return SdnvGetNumBytesRequiredToEncode(secondsSinceStartOfYear2000) + SdnvGetNumBytesRequiredToEncode(sequenceNumber);
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
+    uint8_t sdnvSize;
+    const uint8_t * const serializationBase = serialization;
+
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
+        return false;
+    }
+    sequenceNumber = SdnvDecodeU64(serialization, &sdnvSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
+}
+void TimestampUtil::bpv6_creation_timestamp_t::SetZero() {
+    secondsSinceStartOfYear2000 = 0;
+    sequenceNumber = 0;
+}
+boost::posix_time::ptime TimestampUtil::bpv6_creation_timestamp_t::GetPtime() const {
+    return TimestampUtil::GetRfc5050Epoch() + boost::posix_time::seconds(secondsSinceStartOfYear2000);
+}
+void TimestampUtil::bpv6_creation_timestamp_t::SetFromPtime(const boost::posix_time::ptime & posixTimeValue) {
+    const boost::posix_time::time_duration diff = posixTimeValue - TimestampUtil::GetRfc5050Epoch();
+    secondsSinceStartOfYear2000 = static_cast<uint64_t>(diff.total_seconds());
+}
+std::string TimestampUtil::bpv6_creation_timestamp_t::GetUtcTimestampString(bool forFileName) const {
+    return TimestampUtil::GetUtcTimestampStringFromPtime(GetPtime(), forFileName);
+}
+void TimestampUtil::bpv6_creation_timestamp_t::SetTimeFromNow() {
+    SetFromPtime(boost::posix_time::microsec_clock::universal_time());
+}
+
 
 //Bpv7
 TimestampUtil::bpv7_creation_timestamp_t::bpv7_creation_timestamp_t() : millisecondsSinceStartOfYear2000(0), sequenceNumber(0) { } //a default constructor: X()

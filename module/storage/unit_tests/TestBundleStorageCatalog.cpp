@@ -14,12 +14,12 @@ static void CreatePrimaryV6(Bpv6CbhePrimaryBlock & p, const cbhe_eid_t & srcEid,
     if (reqCustody) {
         p.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
     }
-    p.block_length = 1000;
-    p.creation = creation;
-    p.sequence = sequence;
-    p.lifetime = 1000;
-    p.fragment_offset = 0;
-    p.data_length = 0;
+    p.m_blockLength = 1000;
+    p.m_creationTimestamp.secondsSinceStartOfYear2000 = creation;
+    p.m_creationTimestamp.sequenceNumber = sequence;
+    p.m_lifetimeSeconds = 1000;
+    p.m_fragmentOffset = 0;
+    p.m_totalApplicationDataUnitLength = 0;
 
     p.m_destinationEid = destEid;
     p.m_sourceNodeId = srcEid;

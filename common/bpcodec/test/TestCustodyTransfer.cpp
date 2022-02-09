@@ -40,9 +40,9 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
     primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_custodianEid.Set(primaryCustodianNode, primaryCustodianService);
-    primary.creation = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
-    primary.lifetime = PRIMARY_LIFETIME;
-    primary.sequence = PRIMARY_SEQ;
+    primary.m_creationTimestamp.secondsSinceStartOfYear2000 = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
+    primary.m_lifetimeSeconds = PRIMARY_LIFETIME;
+    primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
     uint64_t retVal;
     retVal = primary.SerializeBpv6(buffer);
     if (retVal == 0) {
@@ -91,9 +91,9 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
     primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_custodianEid.Set(primaryCustodianNode, primaryCustodianService);
-    primary.creation = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
-    primary.lifetime = PRIMARY_LIFETIME;
-    primary.sequence = PRIMARY_SEQ;
+    primary.m_creationTimestamp.secondsSinceStartOfYear2000 = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
+    primary.m_lifetimeSeconds = PRIMARY_LIFETIME;
+    primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
     uint64_t retVal;
     retVal = primary.SerializeBpv6(buffer);
     if (retVal == 0) {

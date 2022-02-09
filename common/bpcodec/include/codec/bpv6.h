@@ -80,21 +80,31 @@ BOOST_FORCEINLINE BPV6_PRIORITY GetPriorityFromFlags(BPV6_BUNDLEFLAG flags) {
  */
 struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPV6_BUNDLEFLAG m_bundleProcessingControlFlags;
-    uint64_t block_length;
-    uint64_t creation;
-    uint64_t sequence;
-    uint64_t lifetime;
-    uint64_t fragment_offset;
-    uint64_t data_length;      // 64 bytes
-
-    // for the IPN scheme, we use NODE.SVC
+    uint64_t m_blockLength;
     cbhe_eid_t m_destinationEid;
     cbhe_eid_t m_sourceNodeId;
     cbhe_eid_t m_reportToEid;
     cbhe_eid_t m_custodianEid;
+    TimestampUtil::bpv6_creation_timestamp_t m_creationTimestamp;
+    uint64_t m_lifetimeSeconds;
+    uint64_t m_fragmentOffset;
+    uint64_t m_totalApplicationDataUnitLength;
 
+    
+
+    Bpv6CbhePrimaryBlock(); //a default constructor: X()
+    ~Bpv6CbhePrimaryBlock(); //a destructor: ~X()
+    Bpv6CbhePrimaryBlock(const Bpv6CbhePrimaryBlock& o); //a copy constructor: X(const X&)
+    Bpv6CbhePrimaryBlock(Bpv6CbhePrimaryBlock&& o); //a move constructor: X(X&&)
+    Bpv6CbhePrimaryBlock& operator=(const Bpv6CbhePrimaryBlock& o); //a copy assignment: operator=(const X&)
+    Bpv6CbhePrimaryBlock& operator=(Bpv6CbhePrimaryBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6CbhePrimaryBlock & o) const; //operator ==
+    bool operator!=(const Bpv6CbhePrimaryBlock & o) const; //operator !=
     void SetZero();
-
+    uint64_t SerializeBpv6(uint8_t * serialization) const;
+    uint64_t GetSerializationSize() const;
+    bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    
     /**
      * Dumps a primary block to stdout in a human-readable way
      *
@@ -102,8 +112,8 @@ struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
      */
     void bpv6_primary_block_print() const;
 
-    bool DeserializeBpv6(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    uint64_t SerializeBpv6(uint8_t * serialization) const;
+    
+    
 
 
     virtual bool HasCustodyFlagSet() const;

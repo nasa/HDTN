@@ -16,23 +16,85 @@
 #include <utility>
 #include <iostream>
 
+Bpv6CbhePrimaryBlock::Bpv6CbhePrimaryBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
+Bpv6CbhePrimaryBlock::~Bpv6CbhePrimaryBlock() { } //a destructor: ~X()
+Bpv6CbhePrimaryBlock::Bpv6CbhePrimaryBlock(const Bpv6CbhePrimaryBlock& o) :
+    m_bundleProcessingControlFlags(o.m_bundleProcessingControlFlags),
+    m_blockLength(o.m_blockLength),
+    m_destinationEid(o.m_destinationEid),
+    m_sourceNodeId(o.m_sourceNodeId),
+    m_reportToEid(o.m_reportToEid),
+    m_custodianEid(o.m_custodianEid),
+    m_creationTimestamp(o.m_creationTimestamp),
+    m_lifetimeSeconds(o.m_lifetimeSeconds),
+    m_fragmentOffset(o.m_fragmentOffset),
+    m_totalApplicationDataUnitLength(o.m_totalApplicationDataUnitLength) { } //a copy constructor: X(const X&)
+Bpv6CbhePrimaryBlock::Bpv6CbhePrimaryBlock(Bpv6CbhePrimaryBlock&& o) :
+    m_bundleProcessingControlFlags(o.m_bundleProcessingControlFlags),
+    m_blockLength(o.m_blockLength),
+    m_destinationEid(std::move(o.m_destinationEid)),
+    m_sourceNodeId(std::move(o.m_sourceNodeId)),
+    m_reportToEid(std::move(o.m_reportToEid)),
+    m_custodianEid(std::move(o.m_custodianEid)),
+    m_creationTimestamp(std::move(o.m_creationTimestamp)),
+    m_lifetimeSeconds(o.m_lifetimeSeconds),
+    m_fragmentOffset(o.m_fragmentOffset),
+    m_totalApplicationDataUnitLength(o.m_totalApplicationDataUnitLength) { } //a move constructor: X(X&&)
+Bpv6CbhePrimaryBlock& Bpv6CbhePrimaryBlock::operator=(const Bpv6CbhePrimaryBlock& o) { //a copy assignment: operator=(const X&)
+    m_bundleProcessingControlFlags = o.m_bundleProcessingControlFlags;
+    m_blockLength = o.m_blockLength;
+    m_destinationEid = o.m_destinationEid;
+    m_sourceNodeId = o.m_sourceNodeId;
+    m_reportToEid = o.m_reportToEid;
+    m_custodianEid = o.m_custodianEid;
+    m_creationTimestamp = o.m_creationTimestamp;
+    m_lifetimeSeconds = o.m_lifetimeSeconds;
+    m_fragmentOffset = o.m_fragmentOffset;
+    m_totalApplicationDataUnitLength = o.m_totalApplicationDataUnitLength;
+    return *this;
+}
+Bpv6CbhePrimaryBlock& Bpv6CbhePrimaryBlock::operator=(Bpv6CbhePrimaryBlock && o) { //a move assignment: operator=(X&&)
+    m_bundleProcessingControlFlags = o.m_bundleProcessingControlFlags;
+    m_blockLength = o.m_blockLength;
+    m_destinationEid = std::move(o.m_destinationEid);
+    m_sourceNodeId = std::move(o.m_sourceNodeId);
+    m_reportToEid = std::move(o.m_reportToEid);
+    m_custodianEid = std::move(o.m_custodianEid);
+    m_creationTimestamp = std::move(o.m_creationTimestamp);
+    m_lifetimeSeconds = o.m_lifetimeSeconds;
+    m_fragmentOffset = o.m_fragmentOffset;
+    m_totalApplicationDataUnitLength = o.m_totalApplicationDataUnitLength;
+    return *this;
+}
+bool Bpv6CbhePrimaryBlock::operator==(const Bpv6CbhePrimaryBlock & o) const {
+    return (m_bundleProcessingControlFlags == o.m_bundleProcessingControlFlags)
+        && (m_blockLength == o.m_blockLength)
+        && (m_destinationEid == o.m_destinationEid)
+        && (m_sourceNodeId == o.m_sourceNodeId)
+        && (m_reportToEid == o.m_reportToEid)
+        && (m_custodianEid == o.m_custodianEid)
+        && (m_creationTimestamp == o.m_creationTimestamp)
+        && (m_lifetimeSeconds == o.m_lifetimeSeconds)
+        && (m_fragmentOffset == o.m_fragmentOffset)
+        && (m_totalApplicationDataUnitLength == o.m_totalApplicationDataUnitLength);
+}
+bool Bpv6CbhePrimaryBlock::operator!=(const Bpv6CbhePrimaryBlock & o) const {
+    return !(*this == o);
+}
 void Bpv6CbhePrimaryBlock::SetZero() {
     m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
-    block_length = 0;
-    creation = 0;
-    sequence = 0;
-    lifetime = 0;
-    fragment_offset = 0;
-    data_length = 0;      // 64 bytes
-
-    // for the IPN scheme, we use NODE.SVC
+    m_blockLength = 0;
     m_destinationEid.SetZero();
     m_sourceNodeId.SetZero();
     m_reportToEid.SetZero();
     m_custodianEid.SetZero();
+    m_creationTimestamp.SetZero();
+    m_lifetimeSeconds = 0;
+    m_fragmentOffset = 0;
+    m_totalApplicationDataUnitLength = 0;
 }
 
-bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
+bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
@@ -55,7 +117,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & n
     if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
         return false;
     }
-    block_length = SdnvDecodeU64(serialization, &sdnvSize);
+    m_blockLength = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
         return false;
     }
@@ -87,30 +149,16 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & n
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    creation = SdnvDecodeU64(serialization, &sdnvSize);
-    if (sdnvSize == 0) {
-        return false;
+    if (!m_creationTimestamp.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
+        return false; //failure
     }
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
-
+    
     if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
         return false;
     }
-    sequence = SdnvDecodeU64(serialization, &sdnvSize);
-    if (sdnvSize == 0) {
-        return false;
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    lifetime = SdnvDecodeU64(serialization, &sdnvSize);
+    m_lifetimeSeconds = SdnvDecodeU64(serialization, &sdnvSize);
     if (sdnvSize == 0) {
         return false;
     }
@@ -153,7 +201,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & n
         if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
             return false;
         }
-        fragment_offset = SdnvDecodeU64(serialization, &sdnvSize);
+        m_fragmentOffset = SdnvDecodeU64(serialization, &sdnvSize);
         if (sdnvSize == 0) {
             return false;
         }
@@ -163,7 +211,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & n
         if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
             return false;
         }
-        data_length = SdnvDecodeU64(serialization, &sdnvSize);
+        m_totalApplicationDataUnitLength = SdnvDecodeU64(serialization, &sdnvSize);
         if (sdnvSize == 0) {
             return false;
         }
@@ -171,8 +219,8 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(uint8_t * serialization, uint64_t & n
         bufferSize -= sdnvSize;
     }
     else {
-        fragment_offset = 0;
-        data_length = 0;
+        m_fragmentOffset = 0;
+        m_totalApplicationDataUnitLength = 0;
     }
 
     numBytesTakenToDecode = serialization - serializationBase;
@@ -193,16 +241,16 @@ uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
     serialization += m_reportToEid.SerializeBpv6(serialization);
     serialization += m_custodianEid.SerializeBpv6(serialization);
     
-    serialization += SdnvEncodeU64(serialization, creation);
-    serialization += SdnvEncodeU64(serialization, sequence);
-    serialization += SdnvEncodeU64(serialization, lifetime);
+    serialization += m_creationTimestamp.SerializeBpv6(serialization);
+
+    serialization += SdnvEncodeU64(serialization, m_lifetimeSeconds);
     
     // encode a zero-length dictionary
     *serialization++ = 0; // 1-byte sdnv's are the value itself
 
     if (isFragment) {
-        serialization += SdnvEncodeU64(serialization, fragment_offset);
-        serialization += SdnvEncodeU64(serialization, data_length);
+        serialization += SdnvEncodeU64(serialization, m_fragmentOffset);
+        serialization += SdnvEncodeU64(serialization, m_totalApplicationDataUnitLength);
     }
 
     const uint64_t blockLength = serialization - (blockLengthPtrForLater + 1);
@@ -268,7 +316,7 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const s
 }
 
 void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
-    printf("BPv6 / Primary block (%d bytes)\n", (int)block_length);
+    printf("BPv6 / Primary block (%" PRIu64 " bytes)\n", m_blockLength);
     printf("Flags: 0x%" PRIx64 "\n", static_cast<uint64_t>(m_bundleProcessingControlFlags));
     if((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::NOFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
         printf("* No fragmentation allowed\n");
@@ -308,8 +356,8 @@ void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
     std::cout << "Custodian: " << m_custodianEid << "\n";
     std::cout << "Report-to: " << m_reportToEid << "\n";
 
-    printf("Creation: %" PRIu64 " / %" PRIu64 "\n", creation, sequence);
-    printf("Lifetime: %" PRIu64 "\n", lifetime);
+    std::cout << "Creation: " << m_creationTimestamp << "\n";
+    printf("Lifetime: %" PRIu64 "\n", m_lifetimeSeconds);
 }
 
 void bpv6_canonical_block::bpv6_canonical_block_print() const {
@@ -382,17 +430,17 @@ bool Bpv6CbhePrimaryBlock::HasFragmentationFlagSet() const {
 
 cbhe_bundle_uuid_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidFromPrimary() const {
     cbhe_bundle_uuid_t uuid;
-    uuid.creationSeconds = creation;
-    uuid.sequence = sequence;
+    uuid.creationSeconds = m_creationTimestamp.secondsSinceStartOfYear2000;
+    uuid.sequence = m_creationTimestamp.sequenceNumber;
     uuid.srcEid = m_sourceNodeId;
-    uuid.fragmentOffset = fragment_offset;
-    uuid.dataLength = data_length;
+    uuid.fragmentOffset = m_fragmentOffset;
+    uuid.dataLength = m_totalApplicationDataUnitLength;
     return uuid;
 }
 cbhe_bundle_uuid_nofragment_t Bpv6CbhePrimaryBlock::GetCbheBundleUuidNoFragmentFromPrimary() const {
     cbhe_bundle_uuid_nofragment_t uuid;
-    uuid.creationSeconds = creation;
-    uuid.sequence = sequence;
+    uuid.creationSeconds = m_creationTimestamp.secondsSinceStartOfYear2000;
+    uuid.sequence = m_creationTimestamp.sequenceNumber;
     uuid.srcEid = m_sourceNodeId;
     return uuid;
 }
@@ -404,14 +452,14 @@ uint8_t Bpv6CbhePrimaryBlock::GetPriority() const {
     return static_cast<uint8_t>(GetPriorityFromFlags(m_bundleProcessingControlFlags));
 }
 uint64_t Bpv6CbhePrimaryBlock::GetExpirationSeconds() const {
-    return creation + lifetime;
+    return m_creationTimestamp.secondsSinceStartOfYear2000 + m_lifetimeSeconds;
 }
 uint64_t Bpv6CbhePrimaryBlock::GetSequenceForSecondsScale() const {
-    return sequence;
+    return m_creationTimestamp.sequenceNumber;
 }
 uint64_t Bpv6CbhePrimaryBlock::GetExpirationMilliseconds() const {
-    return (creation + lifetime) * 1000;
+    return (m_creationTimestamp.secondsSinceStartOfYear2000 + m_lifetimeSeconds) * 1000;
 }
 uint64_t Bpv6CbhePrimaryBlock::GetSequenceForMillisecondsScale() const {
-    return sequence;
+    return m_creationTimestamp.sequenceNumber;
 }

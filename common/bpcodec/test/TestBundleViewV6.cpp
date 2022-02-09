@@ -59,9 +59,9 @@ static uint64_t GenerateBundle(const std::vector<uint8_t> & canonicalTypesVec, c
     primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
     primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
     primary.m_custodianEid.SetZero();
-    primary.creation = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
-    primary.lifetime = PRIMARY_LIFETIME;
-    primary.sequence = PRIMARY_SEQ;
+    primary.m_creationTimestamp.secondsSinceStartOfYear2000 = PRIMARY_TIME; //(uint64_t)bpv6_unix_to_5050(curr_time);
+    primary.m_lifetimeSeconds = PRIMARY_LIFETIME;
+    primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
     uint64_t retVal;
     retVal = primary.SerializeBpv6(buffer);
     if (retVal == 0) {
@@ -111,9 +111,26 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         BOOST_REQUIRE_EQUAL(primary.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
         BOOST_REQUIRE_EQUAL(primary.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
-        BOOST_REQUIRE_EQUAL(primary.creation, PRIMARY_TIME);
-        BOOST_REQUIRE_EQUAL(primary.lifetime, PRIMARY_LIFETIME);
-        BOOST_REQUIRE_EQUAL(primary.sequence, PRIMARY_SEQ);
+        BOOST_REQUIRE_EQUAL(primary.m_creationTimestamp.secondsSinceStartOfYear2000, PRIMARY_TIME);
+        BOOST_REQUIRE_EQUAL(primary.m_lifetimeSeconds, PRIMARY_LIFETIME);
+        BOOST_REQUIRE_EQUAL(primary.m_creationTimestamp.sequenceNumber, PRIMARY_SEQ);
+
+        {
+            //constructor, equality, assignment tests
+            Bpv6CbhePrimaryBlock p2;
+            p2.SetZero();
+            BOOST_REQUIRE(primary != p2);
+            p2 = primary;
+            BOOST_REQUIRE(primary == p2);
+            Bpv6CbhePrimaryBlock p3(p2);
+            BOOST_REQUIRE(p3 == p2);
+            Bpv6CbhePrimaryBlock p4(std::move(p3));
+            BOOST_REQUIRE(p4 == p3); //no heap variables contained so move constructor acts like copy constructor
+            Bpv6CbhePrimaryBlock p5; p5 = std::move(p4);
+            BOOST_REQUIRE(p5 == p4); //no heap variables contained so move assignment acts like copy assignment
+            Bpv6CbhePrimaryBlock p6; p6 = p5;
+            BOOST_REQUIRE(p6 == p5);
+        }
 
         BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), canonicalTypesVec.size());
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(10), 0);
@@ -203,18 +220,18 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
         
         {
             //change PRIMARY_SEQ from 1 to 65539 (adding 2 bytes)
-            bv.m_primaryBlockView.header.sequence = 65539;
+            bv.m_primaryBlockView.header.m_creationTimestamp.sequenceNumber = 65539;
             bv.m_primaryBlockView.SetManuallyModified();
             BOOST_REQUIRE(bv.m_primaryBlockView.dirty);
             //std::cout << "render increase primary seq\n";
             BOOST_REQUIRE(bv.Render(5000));
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bundleSerializedOriginal.size() + 2);
             BOOST_REQUIRE(!bv.m_primaryBlockView.dirty); //render removed dirty
-            BOOST_REQUIRE_EQUAL(primary.lifetime, PRIMARY_LIFETIME);
-            BOOST_REQUIRE_EQUAL(primary.sequence, 65539);
+            BOOST_REQUIRE_EQUAL(primary.m_lifetimeSeconds, PRIMARY_LIFETIME);
+            BOOST_REQUIRE_EQUAL(primary.m_creationTimestamp.sequenceNumber, 65539);
 
             //restore PRIMARY_SEQ
-            bv.m_primaryBlockView.header.sequence = PRIMARY_SEQ;
+            bv.m_primaryBlockView.header.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
             bv.m_primaryBlockView.SetManuallyModified();
             //std::cout << "render restore primary seq\n";
             BOOST_REQUIRE(bv.Render(5000));
