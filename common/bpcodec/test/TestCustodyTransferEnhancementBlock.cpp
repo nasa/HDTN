@@ -17,11 +17,11 @@ BOOST_AUTO_TEST_CASE(CustodyTransferEnhancementBlockTestCase)
         CustodyTransferEnhancementBlock cteb;
         cteb.m_custodyId =  150; //size 2 sdnv
         cteb.m_ctebCreatorCustodianEidString = eidStr;
-        BOOST_REQUIRE(!cteb.HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED));
-        BOOST_REQUIRE(!cteb.HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS::BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED));
-        cteb.AddCanonicalBlockProcessingControlFlag(BLOCK_PROCESSING_CONTROL_FLAGS::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED);
-        BOOST_REQUIRE(cteb.HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED));
-        BOOST_REQUIRE(!cteb.HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS::BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED));
+        BOOST_REQUIRE(!cteb.HasCanonicalBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED));
+        BOOST_REQUIRE(!cteb.HasCanonicalBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED));
+        cteb.AddCanonicalBlockProcessingControlFlag(BPV6_BLOCKFLAG::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED);
+        BOOST_REQUIRE(cteb.HasCanonicalBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED));
+        BOOST_REQUIRE(!cteb.HasCanonicalBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED));
         
         uint64_t sizeSerialized = cteb.SerializeCtebCanonicalBlock(&serialization[0]);
         uint16_t expectedSerializationSize =

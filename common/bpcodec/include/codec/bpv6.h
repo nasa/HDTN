@@ -9,17 +9,6 @@
 #include "EnumAsFlagsMacro.h"
 #include <array>
 
-enum class BLOCK_PROCESSING_CONTROL_FLAGS : uint64_t {
-    BLOCK_MUST_BE_REPLICATED_IN_EVERY_FRAGMENT = 1 << 0,
-    TRANSMIT_STATUS_REPORT_IF_BLOCK_CANT_BE_PROCESSED = 1 << 1,
-    DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED = 1 << 2,
-    LAST_BLOCK = 1 << 3,
-    DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED = 1 << 4,
-    BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED = 1 << 5,
-    BLOCK_CONTAINS_AN_EID_REFERENCE_FIELD = 1 << 6
-};
-
-
 // (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
 
@@ -143,19 +132,24 @@ enum class BPV6_BLOCK_TYPE_CODE : uint8_t {
 };
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCK_TYPE_CODE);
 
-#define BPV6_BLOCKFlAG_REPLICATE               (0x01)
-#define BPV6_BLOCKFLAG_REPORT_PROCESS_FAILURE  (0x02)
-#define BPV6_BLOCKFLAG_DISCARD_BUNDLE_FAILURE  (0x04)
-#define BPV6_BLOCKFLAG_LAST_BLOCK              (0x08)
-#define BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE   (0x10)
-#define BPV6_BLOCKFLAG_FORWARD_NOPROCESS       (0x20)
-#define BPV6_BLOCKFLAG_EID_REFERENCE           (0x40)
+enum class BPV6_BLOCKFLAG : uint64_t {
+    NO_FLAGS_SET                                        = 0,
+    MUST_BE_REPLICATED_IN_EVERY_FRAGMENT                = 1 << 0,
+    STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED  = 1 << 1,
+    DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED            = 1 << 2,
+    IS_LAST_BLOCK                                       = 1 << 3,
+    DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED               = 1 << 4,
+    BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED         = 1 << 5,
+    BLOCK_CONTAINS_AN_EID_REFERENCE_FIELD               = 1 << 6,
+};
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV6_BLOCKFLAG);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCKFLAG);
 
 /**
  * Structure that contains information necessary for a 5050-compatible canonical block
  */
 struct bpv6_canonical_block {
-    uint64_t flags;
+    BPV6_BLOCKFLAG m_blockProcessingControlFlags;
     uint64_t length;
     BPV6_BLOCK_TYPE_CODE m_blockTypeCode; //should be at beginning but here do to better packing
 

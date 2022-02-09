@@ -62,9 +62,9 @@ public:
         bool markedForDeletion;
 
         void SetManuallyModified();
-        void SetBlockProcessingControlFlagAndDirtyIfNecessary(const uint64_t flag);
-        void ClearBlockProcessingControlFlagAndDirtyIfNecessary(const uint64_t flag);
-        bool HasBlockProcessingControlFlagSet(const uint64_t flag) const;
+        void SetBlockProcessingControlFlagAndDirtyIfNecessary(const BPV6_BLOCKFLAG flag);
+        void ClearBlockProcessingControlFlagAndDirtyIfNecessary(const BPV6_BLOCKFLAG flag);
+        bool HasBlockProcessingControlFlagSet(const BPV6_BLOCKFLAG flag) const;
         
     };
     //typedef std::multimap<uint8_t, Bpv6CanonicalBlockView>::iterator canonical_block_view_iterator_t;

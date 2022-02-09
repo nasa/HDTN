@@ -12,7 +12,7 @@
 
 
 CustodyTransferEnhancementBlock::CustodyTransferEnhancementBlock() :
-    m_blockProcessingControlFlags(0),
+    m_blockProcessingControlFlags(BPV6_BLOCKFLAG::NO_FLAGS_SET),
     m_custodyId(0){ } //a default constructor: X()
 CustodyTransferEnhancementBlock::~CustodyTransferEnhancementBlock() { } //a destructor: ~X()
 CustodyTransferEnhancementBlock::CustodyTransferEnhancementBlock(const CustodyTransferEnhancementBlock& o) :
@@ -45,7 +45,7 @@ bool CustodyTransferEnhancementBlock::operator!=(const CustodyTransferEnhancemen
     return !(*this == o);
 }
 void CustodyTransferEnhancementBlock::Reset() { //a copy assignment: operator=(const X&)
-    m_blockProcessingControlFlags = 0;
+    m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
     m_custodyId = 0;
     m_ctebCreatorCustodianEidString.clear();
 }
@@ -56,21 +56,21 @@ uint64_t CustodyTransferEnhancementBlock::SerializeCtebCanonicalBlock(uint8_t * 
 }
 
 //static function
-uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const uint64_t blockProcessingControlFlags,
+uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const BPV6_BLOCKFLAG blockProcessingControlFlags,
     const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock)
 {
     uint8_t * const serializationBase = buffer;
 
     returnedCanonicalBlock.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT;
-    returnedCanonicalBlock.flags = blockProcessingControlFlags;
+    returnedCanonicalBlock.m_blockProcessingControlFlags = blockProcessingControlFlags;
 
     *buffer++ = static_cast<uint8_t>(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT);
 
-    if (blockProcessingControlFlags <= 127) {
+    if ((static_cast<uint64_t>(blockProcessingControlFlags)) <= 127) {
         *buffer++ = static_cast<uint8_t>(blockProcessingControlFlags);
     }
     else {
-        buffer += SdnvEncodeU64(buffer, blockProcessingControlFlags);
+        buffer += SdnvEncodeU64(buffer, static_cast<uint64_t>(blockProcessingControlFlags));
     }
 
     uint8_t* const blockLengthPtr = buffer++; //write in later
@@ -97,7 +97,7 @@ uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(
     uint8_t * const serializationBase = buffer;
 
     returnedCanonicalBlock.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT;
-    returnedCanonicalBlock.flags = 0;
+    returnedCanonicalBlock.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
 
     
     buffer += SdnvEncodeU64(buffer, custodyId);
@@ -122,11 +122,11 @@ uint32_t CustodyTransferEnhancementBlock::DeserializeCtebCanonicalBlock(const ui
 
     const uint8_t flag8bit = *serialization;
     if (flag8bit <= 127) {
-        m_blockProcessingControlFlags = flag8bit;
+        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(flag8bit);
         ++serialization;
     }
     else {
-        m_blockProcessingControlFlags = SdnvDecodeU64(serialization, &sdnvSize);
+        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(SdnvDecodeU64(serialization, &sdnvSize));
         if (sdnvSize == 0) {
             return 0; //return 0 on failure
         }
@@ -160,9 +160,9 @@ uint32_t CustodyTransferEnhancementBlock::DeserializeCtebCanonicalBlock(const ui
     return static_cast<uint32_t>(serialization - serializationBase);
 }
 
-void CustodyTransferEnhancementBlock::AddCanonicalBlockProcessingControlFlag(BLOCK_PROCESSING_CONTROL_FLAGS flag) {
-    m_blockProcessingControlFlags |= static_cast<uint64_t>(flag);
+void CustodyTransferEnhancementBlock::AddCanonicalBlockProcessingControlFlag(BPV6_BLOCKFLAG flag) {
+    m_blockProcessingControlFlags |= flag;
 }
-bool CustodyTransferEnhancementBlock::HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS flag) const {
-    return ((m_blockProcessingControlFlags & static_cast<uint64_t>(flag)) != 0);
+bool CustodyTransferEnhancementBlock::HasCanonicalBlockProcessingControlFlagSet(BPV6_BLOCKFLAG flag) const {
+    return ((m_blockProcessingControlFlags & flag) != BPV6_BLOCKFLAG::NO_FLAGS_SET);
 }

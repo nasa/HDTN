@@ -51,7 +51,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     buffer += retVal;
 
     block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
-    block.flags = 0;// BPV6_BLOCKFLAG_LAST_BLOCK;
+    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;// BPV6_BLOCKFLAG_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
     retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
@@ -66,7 +66,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
     CustodyTransferEnhancementBlock cteb;
     cteb.m_custodyId = ctebCustodyId;
     cteb.m_ctebCreatorCustodianEidString = Uri::GetIpnUriString(ctebCustodianNode, ctebCustodianService);
-    cteb.AddCanonicalBlockProcessingControlFlag(BLOCK_PROCESSING_CONTROL_FLAGS::LAST_BLOCK);
+    cteb.AddCanonicalBlockProcessingControlFlag(BPV6_BLOCKFLAG::IS_LAST_BLOCK);
 
     retVal = cteb.SerializeCtebCanonicalBlock(buffer);
     if (retVal == 0) {
@@ -102,7 +102,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
     buffer += retVal;
 
     block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
-    block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
+    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
     block.length = bundleDataStr.length();
 
     retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);

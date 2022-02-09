@@ -22,7 +22,7 @@ static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_COD
     //std::cout << "append " << (int)newType << "\n";
     bpv6_canonical_block block;
     block.m_blockTypeCode = newType;
-    block.flags = 0; //don't worry about block.flags as last block because Render will take care of that automatically
+    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
     block.length = newBlockBody.length();
     std::vector<uint8_t> blockBodyAsVecUint8(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
     bv.AppendCanonicalBlock(block, blockBodyAsVecUint8);
@@ -71,7 +71,7 @@ static uint64_t GenerateBundle(const std::vector<BPV6_BLOCK_TYPE_CODE> & canonic
 
     for (std::size_t i = 0; i < canonicalTypesVec.size(); ++i) {
         block.m_blockTypeCode = canonicalTypesVec[i];
-        block.flags = (i == (canonicalTypesVec.size() - 1)) ? BPV6_BLOCKFLAG_LAST_BLOCK : 0;
+        block.m_blockProcessingControlFlags = (i == (canonicalTypesVec.size() - 1)) ? BPV6_BLOCKFLAG::IS_LAST_BLOCK : BPV6_BLOCKFLAG::NO_FLAGS_SET;
         const std::string & blockBody = canonicalBodyStringsVec[i];
         block.length = blockBody.length();
 
@@ -179,22 +179,22 @@ BOOST_AUTO_TEST_CASE(BundleViewV6TestCase)
             bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::UNUSED_6, blocks);
             BOOST_REQUIRE_EQUAL(blocks.size(), 1);
             BOOST_REQUIRE(!blocks[0]->dirty);
-            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE));
-            blocks[0]->SetBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE);
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+            blocks[0]->SetBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED);
             BOOST_REQUIRE(!blocks[0]->dirty); //no render required
-            BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE));
+            BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bv.m_renderedBundle.size()); //currently rendering to front buffer
             BOOST_REQUIRE(bv.m_frontBuffer != bundleSerializedOriginal); //differ by flag only
 
-            blocks[0]->ClearBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE);
+            blocks[0]->ClearBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED);
             BOOST_REQUIRE(!blocks[0]->dirty); //no render required
-            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE));
+            BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
             BOOST_REQUIRE_EQUAL(bv.m_frontBuffer.size(), bv.m_renderedBundle.size()); //currently rendering to front buffer
             BOOST_REQUIRE(bv.m_frontBuffer == bundleSerializedOriginal); //back to equal
 
 
             //add big flag > 127 requiring rerender
-            static const uint64_t bigFlag = 1 << 26;
+            static const BPV6_BLOCKFLAG bigFlag = static_cast<BPV6_BLOCKFLAG>(1 << 26);
             BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(bigFlag));
             blocks[0]->SetBlockProcessingControlFlagAndDirtyIfNecessary(bigFlag);
             BOOST_REQUIRE(blocks[0]->dirty); //render required

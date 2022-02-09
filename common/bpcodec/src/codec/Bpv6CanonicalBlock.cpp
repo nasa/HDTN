@@ -18,7 +18,7 @@
 
 
 void bpv6_canonical_block::SetZero() {
-    flags = 0;
+    m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
     length = 0;
     m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO;
 }
@@ -30,11 +30,11 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_decode(const char* buffer, c
 
     const uint8_t flag8bit = buffer[index];
     if (flag8bit <= 127) {
-        flags = flag8bit;
+        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(flag8bit);
         ++index;
     }
     else {
-        flags = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
+        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize));
         if (sdnvSize == 0) {
             return 0; //return 0 on failure
         }
@@ -55,11 +55,11 @@ uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const s
     uint64_t sdnvSize;
     buffer[index++] = static_cast<char>(m_blockTypeCode);
 
-    if (flags <= 127) {
-        buffer[index++] = static_cast<uint8_t>(flags);
+    if ((static_cast<uint64_t>(m_blockProcessingControlFlags)) <= 127) {
+        buffer[index++] = static_cast<uint8_t>(m_blockProcessingControlFlags);
     }
     else {
-        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], flags);
+        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], static_cast<uint64_t>(m_blockProcessingControlFlags));
         index += sdnvSize;
     }
 
@@ -112,21 +112,26 @@ void bpv6_canonical_block::bpv6_canonical_block_print() const {
 }
 
 void bpv6_canonical_block::bpv6_block_flags_print() const {
-    printf("Flags: 0x%" PRIx64 "\n", flags);
-    if (flags & BPV6_BLOCKFLAG_LAST_BLOCK) {
+    printf("Flags: 0x%" PRIx64 "\n", static_cast<uint64_t>(m_blockProcessingControlFlags));
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+        printf("* Block must be replicated in every fragment.\n");
+    }
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+        printf("* Transmit status report if block can't be processed.\n");
+    }
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+        printf("* Delete bundle if block can't be processed.\n");
+    }
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::IS_LAST_BLOCK) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
         printf("* Last block in this bundle.\n");
     }
-    if (flags & BPV6_BLOCKFLAG_DISCARD_BLOCK_FAILURE) {
-        printf("* Block should be discarded upon failure to process.\n");
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+        printf("* Discard block if it can't be processed.\n");
     }
-    if (flags & BPV6_BLOCKFLAG_DISCARD_BUNDLE_FAILURE) {
-        printf("* Bundle should be discarded upon failure to process.\n");
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+        printf("* Block was forwarded without being processed.\n");
     }
-    if (flags & BPV6_BLOCKFLAG_EID_REFERENCE) {
-        printf("* This block references elements from the dictionary.\n");
+    if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::BLOCK_CONTAINS_AN_EID_REFERENCE_FIELD) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+        printf("* Block contains an EID-reference field.\n");
     }
-    if (flags & BPV6_BLOCKFLAG_FORWARD_NOPROCESS) {
-        printf("* This block was forwarded without being processed.\n");
-    }
-
 }

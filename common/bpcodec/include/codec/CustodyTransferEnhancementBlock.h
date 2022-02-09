@@ -28,7 +28,7 @@ public:
         10 + //custody id sdnv +
         45; //length of "ipn:18446744073709551615.18446744073709551615" (note 45 > 32 so sdnv hardware acceleration overwrite is satisfied)
 
-    uint64_t m_blockProcessingControlFlags;
+    BPV6_BLOCKFLAG m_blockProcessingControlFlags;
     uint64_t m_custodyId;
     std::string m_ctebCreatorCustodianEidString;
 
@@ -42,15 +42,15 @@ public:
     bool operator==(const CustodyTransferEnhancementBlock & o) const;
     bool operator!=(const CustodyTransferEnhancementBlock & o) const;
     uint64_t SerializeCtebCanonicalBlock(uint8_t * buffer) const; //use MAX_SERIALIZATION_SIZE sized buffer
-    static uint64_t StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const uint64_t blockProcessingControlFlags,
+    static uint64_t StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const BPV6_BLOCKFLAG blockProcessingControlFlags,
         const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock);
     static uint64_t StaticSerializeCtebCanonicalBlockBody(uint8_t * buffer,
         const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock);
     uint32_t DeserializeCtebCanonicalBlock(const uint8_t * serialization);
     void Reset();
 
-    void AddCanonicalBlockProcessingControlFlag(BLOCK_PROCESSING_CONTROL_FLAGS flag);
-    bool HasCanonicalBlockProcessingControlFlagSet(BLOCK_PROCESSING_CONTROL_FLAGS flag) const;
+    void AddCanonicalBlockProcessingControlFlag(BPV6_BLOCKFLAG flag);
+    bool HasCanonicalBlockProcessingControlFlagSet(BPV6_BLOCKFLAG flag) const;
     
 };
 

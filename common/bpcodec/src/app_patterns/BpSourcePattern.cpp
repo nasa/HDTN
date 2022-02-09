@@ -349,7 +349,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 if (m_custodyTransferUseAcs) {
                     const uint64_t ctebCustodyId = nextCtebCustodyId++;
                     bpv6_canonical_block returnedCanonicalBlock;
-                    retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, 0, //0=> not last block
+                    retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, BPV6_BLOCKFLAG::NO_FLAGS_SET, //0=> not last block
                         ctebCustodyId, m_myCustodianEidUriString, returnedCanonicalBlock);
 
                     if (retVal == 0) {
@@ -380,7 +380,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             bpv6_canonical_block block;
             //memset 0 not needed because all fields set below
             block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
-            block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
+            block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
             block.length = payloadSizeBytes;
 
             retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
