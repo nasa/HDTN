@@ -74,15 +74,15 @@ bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
         Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
         cbv.dirty = false;
         cbv.markedForDeletion = false;
-        bpv6_canonical_block & canonical = cbv.header;
+        Bpv6CanonicalBlock & canonical = cbv.header;
         const uint32_t canonicalBlockHeaderSize = canonical.bpv6_canonical_block_decode((const char*)m_renderedBundle.data(), offset, m_renderedBundle.size());
         if (canonicalBlockHeaderSize == 0) {
             return false;
         }
         //m_mapCanonicalBlockTypeToPreexistingCanonicalBlockViews.insert(std::pair<uint8_t, Bpv6CanonicalBlockView*>(canonical.type, &cbv));
-        const std::size_t totalCanonicalBlockSize = canonicalBlockHeaderSize + canonical.length;
+        const std::size_t totalCanonicalBlockSize = canonicalBlockHeaderSize + canonical.m_blockTypeSpecificDataLength;
         cbv.actualSerializedHeaderAndBodyPtr = boost::asio::buffer(((const uint8_t*)m_renderedBundle.data()) + offset, totalCanonicalBlockSize);
-        cbv.actualSerializedBodyPtr = boost::asio::buffer(((const uint8_t*)m_renderedBundle.data()) + offset + canonicalBlockHeaderSize, canonical.length);
+        cbv.actualSerializedBodyPtr = boost::asio::buffer(((const uint8_t*)m_renderedBundle.data()) + offset + canonicalBlockHeaderSize, canonical.m_blockTypeSpecificDataLength);
         offset += totalCanonicalBlockSize;
         if ((canonical.m_blockProcessingControlFlags & BPV6_BLOCKFLAG::IS_LAST_BLOCK) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
             return (offset == m_renderedBundle.size());
@@ -137,7 +137,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
             if (sizeHeader <= 2) {
                 return false;
             }
-            const std::size_t sizeBody = it->header.length;
+            const std::size_t sizeBody = it->header.m_blockTypeSpecificDataLength;
             const std::size_t sizeHeaderAndBody = sizeHeader + sizeBody;
             it->actualSerializedHeaderAndBodyPtr = boost::asio::buffer(buffer, sizeHeaderAndBody);
             buffer += sizeHeader;
@@ -164,8 +164,8 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
             const std::size_t sizeHeaderAndBody = it->actualSerializedHeaderAndBodyPtr.size();
             const std::size_t sizeBody = it->actualSerializedBodyPtr.size();
             const std::size_t sizeHeader = sizeHeaderAndBody - sizeBody;
-            if (sizeBody != it->header.length) {
-                std::cout << sizeBody << " " << it->header.length << std::endl;
+            if (sizeBody != it->header.m_blockTypeSpecificDataLength) {
+                std::cout << sizeBody << " " << it->header.m_blockTypeSpecificDataLength << std::endl;
                 return false;
             }
             memcpy(buffer, it->actualSerializedHeaderAndBodyPtr.data(), sizeHeaderAndBody);
@@ -181,7 +181,7 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
     return true;
 }
 
-void BundleViewV6::AppendCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & blockBody) {
+void BundleViewV6::AppendCanonicalBlock(const Bpv6CanonicalBlock & header, std::vector<uint8_t> & blockBody) {
     m_listCanonicalBlockView.emplace_back();
     Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
     cbv.dirty = true;

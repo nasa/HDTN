@@ -37,7 +37,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
 
     
     newPrimary.SetZero();
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.SetZero();
 
     newPrimary.m_bundleProcessingControlFlags = (primaryFromSender.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK) |
@@ -54,8 +54,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(std::vector<uint8_t> & 
     buffer += retVal;
 
     CustodySignal sig;
-    sig.m_copyOfBundleCreationTimestampTimeSeconds = primaryFromSender.m_creationTimestamp.secondsSinceStartOfYear2000;
-    sig.m_copyOfBundleCreationTimestampSequenceNumber = primaryFromSender.m_creationTimestamp.sequenceNumber;
+    sig.m_copyOfBundleCreationTimestamp = primaryFromSender.m_creationTimestamp;
     sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.m_sourceNodeId.nodeId, primaryFromSender.m_sourceNodeId.serviceId);
     //REQ D4.2.2.7 An ACS-aware bundle protocol agent shall utilize the ACS bundle timestamp
     //time as the ‘Time of Signal’ when executing RFC 5050 section 6.3
@@ -103,7 +102,7 @@ bool CustodyTransferManager::GenerateAcsBundle(std::pair<Bpv6CbhePrimaryBlock, s
 
     
     newPrimary.SetZero();
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.SetZero();
 
     newPrimary.m_bundleProcessingControlFlags = //(primaryFromSender.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK) |
@@ -268,7 +267,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
             else { //non-existing cteb present.. append a new one to the bundle
                 //https://cwe.ccsds.org/sis/docs/SIS-DTN/Meeting%20Materials/2011/Fall%20(Colorado)/jenkins-sisdtn-aggregate-custody-signals.pdf
                 //slide 20 - ACS-enabled nodes add CTEBs when they become custodian.
-                bpv6_canonical_block returnedCanonicalBlock;
+                Bpv6CanonicalBlock returnedCanonicalBlock;
                 std::vector<uint8_t> newCtebBody(100);
                 const uint64_t sizeSerialized = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(&newCtebBody[0],
                     custodyId, m_myCtebCreatorCustodianEidString, returnedCanonicalBlock);

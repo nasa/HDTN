@@ -5,6 +5,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
+#include <algorithm>
 #ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
 #endif
@@ -49,20 +50,30 @@ unsigned int SdnvEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU6
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
-uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return SdnvDecodeU32Fast(inputEncoded, numBytes);
+    if (bufferSize >= 8) {
+        return SdnvDecodeU32FastBufSize8(inputEncoded, numBytes);
+    }
+    else {
+        return SdnvDecodeU32Classic(inputEncoded, numBytes, bufferSize);
+    }
 #else
-    return SdnvDecodeU32Classic(inputEncoded, numBytes);
+    return SdnvDecodeU32Classic(inputEncoded, numBytes, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
-uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return SdnvDecodeU64Fast(inputEncoded, numBytes);
+    if (bufferSize >= 16) {
+        return SdnvDecodeU64FastBufSize16(inputEncoded, numBytes);
+    }
+    else {
+        return SdnvDecodeU64Classic(inputEncoded, numBytes, bufferSize);
+    }
 #else
-    return SdnvDecodeU64Classic(inputEncoded, numBytes);
+    return SdnvDecodeU64Classic(inputEncoded, numBytes, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
@@ -192,7 +203,7 @@ unsigned int SdnvEncodeU64Classic(uint8_t * outputEncoded, const uint64_t valToE
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -200,15 +211,15 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     //   bit under the pointer is a 1, advance the index by one byte within
     //   the encoded SDNV and repeat the Recursion Step, otherwise return
     //   the current value of the result.
-
-    const uint8_t firstByte = *inputEncoded;
+    const uint8_t * const firstBytePtr = inputEncoded;
     uint32_t result = 0;
-    for (uint8_t byteCount = 1; byteCount <= 5; ++byteCount) {
+    const uint64_t byteCountMax = std::min(static_cast<uint64_t>(5), bufferSize);
+    for (uint8_t byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = ((byteCount == 5) && (firstByte > 0x8f)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT32_MAX
+            *numBytes = ((byteCount == 5) && ((*firstBytePtr) > 0x8f)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT32_MAX
             return result;
         }
     }
@@ -218,7 +229,7 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -226,14 +237,15 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     //   bit under the pointer is a 1, advance the index by one byte within
     //   the encoded SDNV and repeat the Recursion Step, otherwise return
     //   the current value of the result.
-    const uint8_t firstByte = *inputEncoded;
+    const uint8_t * const firstBytePtr = inputEncoded;
     uint64_t result = 0;
-    for (uint8_t byteCount = 1; byteCount <= 10; ++byteCount) {
+    const uint64_t byteCountMax = std::min(static_cast<uint64_t>(10), bufferSize);
+    for (uint8_t byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = ((byteCount == 10) && (firstByte > 0x81)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT64_MAX
+            *numBytes = ((byteCount == 10) && ((*firstBytePtr) > 0x81)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT64_MAX
             return result;
         }
     }
@@ -506,7 +518,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
+uint32_t SdnvDecodeU32FastBufSize8(const uint8_t * data, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -544,7 +556,7 @@ uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
+uint64_t SdnvDecodeU64FastBufSize16(const uint8_t * data, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -833,10 +845,13 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
 
 //return output size
 unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
-
+#if 0
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+#else
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 + (valToEncodeU64 == 0));
+#endif
 
     return mask0x80Indices[msb] + 1; //(msb / 7);
 }

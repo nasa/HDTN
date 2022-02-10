@@ -14,7 +14,7 @@
 /**
 * Structure that contains information necessary for a Previous Hop extension block
 */
-struct bpv6_prev_hop_ext_block : bpv6_canonical_block {
+struct bpv6_prev_hop_ext_block : Bpv6CanonicalBlock {
     char scheme[4];//we would assume "ipn"or "dtn"
     char scheme_specific_eid[41];//using ipn scheme the max number of ascii characters in an eid would be 4+20+1+20 = "ipn:"+2^64+"." + 2^64
 
@@ -39,7 +39,7 @@ struct bpv6_prev_hop_ext_block : bpv6_canonical_block {
 /**
  * Structure that contains information necessary for a Custody Transfer Extension Block (CTEB)
  */
-struct bpv6_cust_transfer_ext_block : bpv6_canonical_block {
+struct bpv6_cust_transfer_ext_block : Bpv6CanonicalBlock {
     uint64_t cust_id;//cteb custody id
     uint64_t cteb_creator_node;//cteb creator EID node number (ipn scheme)
     uint64_t cteb_creator_service;//cteb creator EID service number (ipn scheme)
@@ -67,7 +67,7 @@ struct bpv6_cust_transfer_ext_block : bpv6_canonical_block {
 /**
  * Structure that contains information necessary for a Bundle Integrity Block (BIB)
  */
-struct bpv6_bplib_bib_block : bpv6_canonical_block {
+struct bpv6_bplib_bib_block : Bpv6CanonicalBlock {
     uint64_t num_targets;//number of security targets for this block, always 1 for bplib
     uint64_t target_type;//type of security target for this block, always 1 for bplib
     uint64_t target_sequence;//target sequence used by bplib
@@ -101,7 +101,7 @@ struct bpv6_bplib_bib_block : bpv6_canonical_block {
 /**
  * Structure that contains information necessary for a Bundle Age extension block
  */
-struct bpv6_bundle_age_ext_block : bpv6_canonical_block {
+struct bpv6_bundle_age_ext_block : Bpv6CanonicalBlock {
     uint64_t bundle_age;//bundle age from sdnv
 
     /**

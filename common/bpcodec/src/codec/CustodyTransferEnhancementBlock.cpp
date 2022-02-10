@@ -51,13 +51,13 @@ void CustodyTransferEnhancementBlock::Reset() { //a copy assignment: operator=(c
 }
 
 uint64_t CustodyTransferEnhancementBlock::SerializeCtebCanonicalBlock(uint8_t * buffer) const { //use MAX_SERIALIZATION_SIZE sized buffer
-    bpv6_canonical_block returnedCanonicalBlock;
+    Bpv6CanonicalBlock returnedCanonicalBlock;
     return StaticSerializeCtebCanonicalBlock(buffer, m_blockProcessingControlFlags, m_custodyId, m_ctebCreatorCustodianEidString, returnedCanonicalBlock);
 }
 
 //static function
 uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const BPV6_BLOCKFLAG blockProcessingControlFlags,
-    const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock)
+    const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, Bpv6CanonicalBlock & returnedCanonicalBlock)
 {
     uint8_t * const serializationBase = buffer;
 
@@ -86,13 +86,13 @@ uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock(uint
         return 0; //failure
     }
     *blockLengthPtr = static_cast<uint8_t>(blockLength);
-    returnedCanonicalBlock.length = blockLength;
+    returnedCanonicalBlock.m_blockTypeSpecificDataLength = blockLength;
     return buffer - serializationBase;
 }
 
 //static function
 uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(uint8_t * buffer,
-    const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock)
+    const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, Bpv6CanonicalBlock & returnedCanonicalBlock)
 {
     uint8_t * const serializationBase = buffer;
 
@@ -107,7 +107,7 @@ uint64_t CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlockBody(
     buffer += lengthEidStr;
 
     const uint64_t bodyLength = buffer - serializationBase;
-    returnedCanonicalBlock.length = bodyLength;
+    returnedCanonicalBlock.m_blockTypeSpecificDataLength = bodyLength;
     return bodyLength;
 }
 
@@ -126,7 +126,7 @@ uint32_t CustodyTransferEnhancementBlock::DeserializeCtebCanonicalBlock(const ui
         ++serialization;
     }
     else {
-        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(SdnvDecodeU64(serialization, &sdnvSize));
+        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(SdnvDecodeU64(serialization, &sdnvSize, 16)); //TODO_SDNV_BUFFER
         if (sdnvSize == 0) {
             return 0; //return 0 on failure
         }
@@ -138,14 +138,14 @@ uint32_t CustodyTransferEnhancementBlock::DeserializeCtebCanonicalBlock(const ui
         ++serialization;
     }
     else {
-        blockLength = SdnvDecodeU64(serialization, &sdnvSize);
+        blockLength = SdnvDecodeU64(serialization, &sdnvSize, 16); //TODO_SDNV_BUFFER
         if (sdnvSize == 0) {
             return 0; //return 0 on failure
         }
         serialization += sdnvSize;
     }
 
-    m_custodyId = SdnvDecodeU64(serialization, &sdnvSize);
+    m_custodyId = SdnvDecodeU64(serialization, &sdnvSize, 16); //TODO_SDNV_BUFFER
     if (sdnvSize == 0) {
         return 0; //return 0 on failure
     }

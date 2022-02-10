@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(TimestampUtilTestCase)
         BOOST_REQUIRE_EQUAL(size, 5);
         TimestampUtil::dtn_time_t t2;
         uint8_t numBytesTakenToDecode;
-        BOOST_REQUIRE(t2.Deserialize(serialization.data(), &numBytesTakenToDecode));
+        BOOST_REQUIRE(t2.DeserializeBpv6(serialization.data(), &numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 5);
         BOOST_REQUIRE_EQUAL(t1, t2);
     }

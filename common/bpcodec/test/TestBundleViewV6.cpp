@@ -20,10 +20,10 @@ static const uint64_t PRIMARY_SEQ = 1;
 static void AppendCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_CODE newType, const std::string & newBlockBody) {
 
     //std::cout << "append " << (int)newType << "\n";
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.m_blockTypeCode = newType;
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //don't worry about block.flags as last block because Render will take care of that automatically
-    block.length = newBlockBody.length();
+    block.m_blockTypeSpecificDataLength = newBlockBody.length();
     std::vector<uint8_t> blockBodyAsVecUint8(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
     bv.AppendCanonicalBlock(block, blockBodyAsVecUint8);
     BOOST_REQUIRE(bv.Render(5000));
@@ -36,10 +36,10 @@ static void ChangeCanonicalBlockAndRender(BundleViewV6 & bv, BPV6_BLOCK_TYPE_COD
     std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
     bv.GetCanonicalBlocksByType(oldType, blocks);
     BOOST_REQUIRE_EQUAL(blocks.size(), 1);
-    bpv6_canonical_block & block = blocks[0]->header;
+    Bpv6CanonicalBlock & block = blocks[0]->header;
     block.m_blockTypeCode = newType;
     //don't worry about block.flags as last block because Render will take care of that automatically
-    block.length = newBlockBody.length();
+    block.m_blockTypeSpecificDataLength = newBlockBody.length();
     blocks[0]->replacementBlockBodyData = std::vector<uint8_t>(newBlockBody.data(), newBlockBody.data() + newBlockBody.size());
     blocks[0]->SetManuallyModified();
 
@@ -52,7 +52,7 @@ static uint64_t GenerateBundle(const std::vector<BPV6_BLOCK_TYPE_CODE> & canonic
 
     Bpv6CbhePrimaryBlock primary;
     primary.SetZero();
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.SetZero();
 
     primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
@@ -73,7 +73,7 @@ static uint64_t GenerateBundle(const std::vector<BPV6_BLOCK_TYPE_CODE> & canonic
         block.m_blockTypeCode = canonicalTypesVec[i];
         block.m_blockProcessingControlFlags = (i == (canonicalTypesVec.size() - 1)) ? BPV6_BLOCKFLAG::IS_LAST_BLOCK : BPV6_BLOCKFLAG::NO_FLAGS_SET;
         const std::string & blockBody = canonicalBodyStringsVec[i];
-        block.length = blockBody.length();
+        block.m_blockTypeSpecificDataLength = blockBody.length();
 
 
         retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);

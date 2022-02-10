@@ -28,7 +28,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryB
     uint8_t * const serializationBase = buffer;
     
     
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.SetZero();
 
     
@@ -42,7 +42,7 @@ static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryB
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
     payloadSize -= 2;
     payloadSize -= SdnvGetNumBytesRequiredToEncode(payloadSize - 1); //as close as possible
-    block.length = payloadSize;
+    block.m_blockTypeSpecificDataLength = payloadSize;
 
     retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, 0);
     BOOST_REQUIRE_GT(retVal, 0);

@@ -33,7 +33,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
 
     Bpv6CbhePrimaryBlock primary;
     primary.SetZero();
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.SetZero();
 
     primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
@@ -52,7 +52,7 @@ static uint64_t GenerateBundleWithCteb(uint64_t primaryCustodianNode, uint64_t p
 
     block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;// BPV6_BLOCKFLAG_LAST_BLOCK;
-    block.length = bundleDataStr.length();
+    block.m_blockTypeSpecificDataLength = bundleDataStr.length();
 
     retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
@@ -84,7 +84,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
 
     Bpv6CbhePrimaryBlock primary;
     primary.SetZero();
-    bpv6_canonical_block block;
+    Bpv6CanonicalBlock block;
     block.SetZero();
 
     primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
@@ -103,7 +103,7 @@ static uint64_t GenerateBundleWithoutCteb(uint64_t primaryCustodianNode, uint64_
 
     block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
     block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
-    block.length = bundleDataStr.length();
+    block.m_blockTypeSpecificDataLength = bundleDataStr.length();
 
     retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
     if (retVal == 0) {
@@ -334,7 +334,8 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 const uint8_t adminRecordType = (*bvSrc.m_applicationDataUnitStartPtr >> 4);
                 BOOST_REQUIRE(adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL));
                 CustodySignal cs;
-                BOOST_REQUIRE(cs.Deserialize(bvSrc.m_applicationDataUnitStartPtr));
+                uint64_t numBytesTakenToDecode;
+                BOOST_REQUIRE(cs.DeserializeBpv6(bvSrc.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)); //TODO_BUFFERSIZE
                 BOOST_REQUIRE(cs.DidCustodyTransferSucceed());
                 BOOST_REQUIRE(cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::NO_ADDITIONAL_INFORMATION);
                 BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, PRIMARY_SRC_URI);
@@ -413,7 +414,8 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 const uint8_t adminRecordType = (*bvSrc.m_applicationDataUnitStartPtr >> 4);
                 BOOST_REQUIRE(adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL));
                 CustodySignal cs;
-                BOOST_REQUIRE(cs.Deserialize(bvSrc.m_applicationDataUnitStartPtr));
+                uint64_t numBytesTakenToDecode;
+                BOOST_REQUIRE(cs.DeserializeBpv6(bvSrc.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)); //TODO_BUFFERSIZE
                 BOOST_REQUIRE(cs.DidCustodyTransferSucceed());
                 BOOST_REQUIRE(cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::NO_ADDITIONAL_INFORMATION);
                 BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, PRIMARY_SRC_URI);
@@ -529,7 +531,8 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 const uint8_t adminRecordType = (*bvSrc.m_applicationDataUnitStartPtr >> 4);
                 BOOST_REQUIRE(adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL));
                 CustodySignal cs;
-                BOOST_REQUIRE(cs.Deserialize(bvSrc.m_applicationDataUnitStartPtr));
+                uint64_t numBytesTakenToDecode;
+                BOOST_REQUIRE(cs.DeserializeBpv6(bvSrc.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)); //TODO_BUFFERSIZE
                 BOOST_REQUIRE(!cs.DidCustodyTransferSucceed());
                 BOOST_REQUIRE(cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE);
                 BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, PRIMARY_SRC_URI);
@@ -599,7 +602,8 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 const uint8_t adminRecordType = (*bvSrc.m_applicationDataUnitStartPtr >> 4);
                 BOOST_REQUIRE(adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL));
                 CustodySignal cs;
-                BOOST_REQUIRE(cs.Deserialize(bvSrc.m_applicationDataUnitStartPtr));
+                uint64_t numBytesTakenToDecode;
+                BOOST_REQUIRE(cs.DeserializeBpv6(bvSrc.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)); //TODO_BUFFERSIZE
                 BOOST_REQUIRE(cs.DidCustodyTransferSucceed());
                 BOOST_REQUIRE(cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::NO_ADDITIONAL_INFORMATION);
                 BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, PRIMARY_SRC_URI);
@@ -653,7 +657,8 @@ BOOST_AUTO_TEST_CASE(CustodyTransferTestCase)
                 const uint8_t adminRecordType = (*bvSrc.m_applicationDataUnitStartPtr >> 4);
                 BOOST_REQUIRE(adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL));
                 CustodySignal cs;
-                BOOST_REQUIRE(cs.Deserialize(bvSrc.m_applicationDataUnitStartPtr));
+                uint64_t numBytesTakenToDecode;
+                BOOST_REQUIRE(cs.DeserializeBpv6(bvSrc.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)); //TODO_BUFFERSIZE
                 BOOST_REQUIRE(!cs.DidCustodyTransferSucceed());
                 BOOST_REQUIRE(cs.GetReasonCode() == BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT::DEPLETED_STORAGE);
                 BOOST_REQUIRE_EQUAL(cs.m_bundleSourceEid, PRIMARY_SRC_URI);

@@ -191,8 +191,8 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             std::cerr << "error payload block not found\n";
             return false;
         }
-        bpv6_canonical_block & payloadBlock = blocks[0]->header;
-        m_totalPayloadBytesRx += payloadBlock.length;
+        Bpv6CanonicalBlock & payloadBlock = blocks[0]->header;
+        m_totalPayloadBytesRx += payloadBlock.m_blockTypeSpecificDataLength;
         m_totalBundleBytesRx += messageSize;
         ++m_totalBundlesVersion6Rx;
 

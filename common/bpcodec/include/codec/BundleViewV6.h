@@ -54,7 +54,7 @@ public:
         void SetManuallyModified();
     };
     struct Bpv6CanonicalBlockView {
-        bpv6_canonical_block header;
+        Bpv6CanonicalBlock header;
         boost::asio::const_buffer actualSerializedHeaderAndBodyPtr;
         boost::asio::const_buffer actualSerializedBodyPtr;
         std::vector<uint8_t> replacementBlockBodyData;
@@ -73,7 +73,7 @@ public:
     BundleViewV6();
     ~BundleViewV6();
 
-    void AppendCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & blockBody);
+    void AppendCanonicalBlock(const Bpv6CanonicalBlock & header, std::vector<uint8_t> & blockBody);
     //canonical_block_view_range_t GetCanonicalBlockRangeByType(const uint8_t canonicalBlockTypeCode);
     std::size_t GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;

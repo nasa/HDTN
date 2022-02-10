@@ -348,7 +348,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             if (m_useCustodyTransfer) {
                 if (m_custodyTransferUseAcs) {
                     const uint64_t ctebCustodyId = nextCtebCustodyId++;
-                    bpv6_canonical_block returnedCanonicalBlock;
+                    Bpv6CanonicalBlock returnedCanonicalBlock;
                     retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, BPV6_BLOCKFLAG::NO_FLAGS_SET, //0=> not last block
                         ctebCustodyId, m_myCustodianEidUriString, returnedCanonicalBlock);
 
@@ -377,11 +377,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
 
             }
-            bpv6_canonical_block block;
+            Bpv6CanonicalBlock block;
             //memset 0 not needed because all fields set below
             block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
             block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
-            block.length = payloadSizeBytes;
+            block.m_blockTypeSpecificDataLength = payloadSizeBytes;
 
             retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
             if (retVal == 0) {
@@ -516,8 +516,8 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
             std::cerr << "error BpSourcePattern received a non-admin-record bundle with no payload block\n";
             return;
         }
-        bpv6_canonical_block & payloadBlock = blocks[0]->header;
-        m_totalNonAdminRecordPayloadBytesRx += payloadBlock.length;
+        Bpv6CanonicalBlock & payloadBlock = blocks[0]->header;
+        m_totalNonAdminRecordPayloadBytesRx += payloadBlock.m_blockTypeSpecificDataLength;
         m_totalNonAdminRecordBundleBytesRx += bv.m_renderedBundle.size();
         ++m_totalNonAdminRecordBundlesRx;
 
@@ -571,8 +571,8 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         }
         else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
             CustodySignal cs;
-            uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
-            if (numBytesTakenToDecode == 0) {
+            uint64_t numBytesTakenToDecode;
+            if (!cs.DeserializeBpv6(bv.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)) { //TODO_BUFFERSIZE
                 std::cerr << "malformed CustodySignal\n";
                 return;
             }
@@ -589,8 +589,8 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 std::cerr << "error custody signal with bad ipn string\n";
                 return;
             }
-            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-            uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+            uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
             m_mutexBundleUuidSet.lock();
             const bool success = (m_cbheBundleUuidSet.erase(uuid) != 0);
             m_mutexBundleUuidSet.unlock();

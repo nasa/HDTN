@@ -167,20 +167,14 @@ bool cbhe_eid_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numByt
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    nodeId = SdnvDecodeU64(serialization, &sdnvSize);
+    nodeId = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    serviceId = SdnvDecodeU64(serialization, &sdnvSize);
+    serviceId = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }

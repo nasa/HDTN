@@ -98,7 +98,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    if (bufferSize < (SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE + 1)) { //version plus flags
+    if (bufferSize < 1) { //version
         return false;
     }
     const uint8_t version = *serialization++;
@@ -106,7 +106,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     if(version != BPV6_CCSDS_VERSION) {
         return false;
     }
-    m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(SdnvDecodeU64(serialization, &sdnvSize));
+    m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(SdnvDecodeU64(serialization, &sdnvSize, bufferSize));
     if (sdnvSize == 0) {
         return false;
     }
@@ -114,10 +114,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     bufferSize -= sdnvSize;
     const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    m_blockLength = SdnvDecodeU64(serialization, &sdnvSize);
+    m_blockLength = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
@@ -154,11 +151,8 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     }
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
-    
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    m_lifetimeSeconds = SdnvDecodeU64(serialization, &sdnvSize);
+
+    m_lifetimeSeconds = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
@@ -198,20 +192,14 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     // Skip the entirety of the dictionary - we assume an IPN scheme
 
     if(isFragment) {
-        if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-            return false;
-        }
-        m_fragmentOffset = SdnvDecodeU64(serialization, &sdnvSize);
+        m_fragmentOffset = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
         if (sdnvSize == 0) {
             return false;
         }
         serialization += sdnvSize;
         bufferSize -= sdnvSize;
 
-        if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-            return false;
-        }
-        m_totalApplicationDataUnitLength = SdnvDecodeU64(serialization, &sdnvSize);
+        m_totalApplicationDataUnitLength = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
         if (sdnvSize == 0) {
             return false;
         }

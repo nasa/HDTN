@@ -107,31 +107,31 @@ uint64_t AggregateCustodySignal::SerializeFills(uint8_t * buffer) const {
 }
 bool AggregateCustodySignal::DeserializeFills(const uint8_t * serialization, const uint64_t serializationSizeBytes) {
     uint8_t sdnvSize;
-    uint64_t byteCounter = 0;
+    int64_t bufferSize = static_cast<int64_t>(serializationSizeBytes);
     m_custodyIdFills.clear();
     uint64_t rightEdgePrevious = 0;
     while (true) {
-        const uint64_t startDelta = SdnvDecodeU64(serialization, &sdnvSize);
+        const uint64_t startDelta = SdnvDecodeU64(serialization, &sdnvSize, static_cast<uint64_t>(bufferSize));
         if (sdnvSize == 0) {
             return false; //failure
         }
         serialization += sdnvSize;
-        byteCounter += sdnvSize;
-        if (byteCounter >= serializationSizeBytes) {
+        bufferSize -= sdnvSize;
+        if (bufferSize <= 0) {
             return false; //failure
         }
         const uint64_t leftEdge = startDelta + rightEdgePrevious;
 
-        const uint64_t fillLength = SdnvDecodeU64(serialization, &sdnvSize);
+        const uint64_t fillLength = SdnvDecodeU64(serialization, &sdnvSize, static_cast<uint64_t>(bufferSize));
         if (sdnvSize == 0) {
             return false; //failure
         }
         rightEdgePrevious = (leftEdge + fillLength) - 1; //using rightEdgePrevious as current rightEdge
         AddContiguousCustodyIdsToFill(leftEdge, rightEdgePrevious);
         serialization += sdnvSize;
-        byteCounter += sdnvSize;
-        if (byteCounter >= serializationSizeBytes) {
-            return (byteCounter == serializationSizeBytes); //done and success
+        bufferSize -= sdnvSize;
+        if (bufferSize <= 0) {
+            return (bufferSize == 0); //done and success
         }
     }
 }

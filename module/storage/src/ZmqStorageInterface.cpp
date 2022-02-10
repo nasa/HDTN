@@ -280,8 +280,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             }
             else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
                 CustodySignal cs;
-                uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
-                if (numBytesTakenToDecode == 0) {
+                uint64_t numBytesTakenToDecode;
+                if (!cs.DeserializeBpv6(bv.m_applicationDataUnitStartPtr, numBytesTakenToDecode, 1000)) { //TODO_BUFFERSIZE
                     std::cerr << "malformed CustodySignal\n";
                     return false;
                 }
@@ -296,8 +296,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         std::cerr << "error custody signal with bad ipn string\n";
                         return false;
                     }
-                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-                    uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+                    uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
                     uuid.fragmentOffset = cs.m_fragmentOffsetIfPresent;
                     uuid.dataLength = cs.m_fragmentLengthIfPresent;
                     custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
@@ -308,8 +308,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         std::cerr << "error custody signal with bad ipn string\n";
                         return false;
                     }
-                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-                    uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+                    uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
                     //std::cout << "uuid: " << "cs " << uuid.creationSeconds << "  seq " << uuid.sequence << "  " << uuid.srcEid.nodeId << "," << uuid.srcEid.serviceId << std::endl;
                     custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
                 }

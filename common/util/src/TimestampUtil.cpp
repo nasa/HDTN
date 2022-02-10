@@ -158,21 +158,23 @@ uint64_t TimestampUtil::dtn_time_t::Serialize(uint8_t * serialization) const {
     serialization += SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond);
     return serialization - serializationBase;
 }
-bool TimestampUtil::dtn_time_t::Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
+bool TimestampUtil::dtn_time_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false; //failure
     }
     serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize);
+    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false; //failure
     }
     serialization += sdnvSize;
+    //bufferSize -= sdnvSize; //not needed
 
     *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
     return true;
@@ -258,24 +260,19 @@ bool TimestampUtil::bpv6_creation_timestamp_t::DeserializeBpv6(const uint8_t * s
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    sequenceNumber = SdnvDecodeU64(serialization, &sdnvSize);
+    sequenceNumber = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
     serialization += sdnvSize;
+    //bufferSize -= sdnvSize; //not needed
 
     *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
     return true;

@@ -148,13 +148,28 @@ MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCKFLAG);
 /**
  * Structure that contains information necessary for a 5050-compatible canonical block
  */
-struct bpv6_canonical_block {
+struct Bpv6CanonicalBlock {
     BPV6_BLOCKFLAG m_blockProcessingControlFlags;
-    uint64_t length;
+    uint64_t m_blockTypeSpecificDataLength;
+    uint8_t * m_blockTypeSpecificDataPtr; //if NULL, data won't be copied (just allocated)
     BPV6_BLOCK_TYPE_CODE m_blockTypeCode; //should be at beginning but here do to better packing
 
+    Bpv6CanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv6CanonicalBlock(); //a destructor: ~X()
+    Bpv6CanonicalBlock(const Bpv6CanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv6CanonicalBlock(Bpv6CanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv6CanonicalBlock& operator=(const Bpv6CanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv6CanonicalBlock& operator=(Bpv6CanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6CanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv6CanonicalBlock & o) const; //operator !=
     void SetZero();
-
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_blockTypeSpecificDataPtr to serialized location
+    uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    static bool DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization,
+        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool isAdminRecord);
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    //virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     /**
      * Dumps a canonical block to stdout in a human-readable fashion
      *
@@ -190,6 +205,7 @@ struct bpv6_canonical_block {
      * @return the number of bytes the canonical block was encoded into, or 0 on failure to encode
      */
     uint32_t bpv6_canonical_block_encode(char* buffer, const size_t offset, const size_t bufsz) const;
+
 };
 
 

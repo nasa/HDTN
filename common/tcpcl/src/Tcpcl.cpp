@@ -131,7 +131,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_localEidLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_localEidLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize == 0) {
                         std::cout << "error in TCPCL_CONTACT_HEADER_RX_STATE::READ_LOCAL_EID_LENGTH_SDNV, sdnvSize is 0\n";
                         m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -172,7 +172,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 m_mainRxState = TCPCL_MAIN_RX_STATE::READ_DATA_SEGMENT;
                 if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
                     uint8_t sdnvSize;
-                    m_dataSegmentLength = SdnvDecodeU64(rxVals, &sdnvSize);
+                    m_dataSegmentLength = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
                     if (sdnvSize == 0) {
                         std::cout << "error in TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE (shortcut READ_CONTENT_LENGTH_SDNV), sdnvSize is 0\n";
                         m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -247,7 +247,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize == 0) {
                         std::cout << "error in TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENT_LENGTH_SDNV, sdnvSize is 0\n";
                         m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -301,7 +301,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_ackSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_ackSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize == 0) {
                     std::cout << "error in TCPCL_MAIN_RX_STATE::READ_ACK_SEGMENT, sdnvSize is 0\n";
                     m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -333,7 +333,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_nextBundleLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_nextBundleLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize == 0) {
                     std::cout << "error in TCPCL_MAIN_RX_STATE::READ_LENGTH_SEGMENT, sdnvSize is 0\n";
                     m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -378,7 +378,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_shutdownReconnectionDelay = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_shutdownReconnectionDelay = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize == 0) {
                     std::cout << "error in TCPCL_MAIN_RX_STATE::READ_SHUTDOWN_SEGMENT_RECONNECTION_DELAY_SDNV, sdnvSize is 0\n";
                     m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;

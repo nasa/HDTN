@@ -364,7 +364,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     //shortcut READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV (and then maybe READ_SESSION_NUMBER_SDNV)
                     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
                         uint8_t sdnvSize;
-                        m_sessionId.sessionOriginatorEngineId = SdnvDecodeU64(rxVals, &sdnvSize);
+                        m_sessionId.sessionOriginatorEngineId = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
                         if (sdnvSize == 0) {
                             errorMessage = "error in shortcut LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, sdnvSize is 0";
                             return false;
@@ -378,7 +378,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                             //std::cout << "success ltp read session originator engine id sdnv shortcut" << std::endl;
                             //shortcut READ_SESSION_NUMBER_SDNV
                             if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-                                m_sessionId.sessionNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+                                m_sessionId.sessionNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
                                 if (sdnvSize == 0) {
                                     errorMessage = "error in shortcut LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV, sdnvSize is 0";
                                     return false;
@@ -411,7 +411,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_sessionId.sessionOriginatorEngineId = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_sessionId.sessionOriginatorEngineId = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -433,7 +433,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_sessionId.sessionNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_sessionId.sessionNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_HEADER_RX_STATE::READ_SESSION_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -481,7 +481,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_currentHeaderExtensionLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_currentHeaderExtensionLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_HEADER_RX_STATE::READ_ONE_HEADER_EXTENSION_LENGTH_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -533,7 +533,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegmentMetadata.clientServiceId = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegmentMetadata.clientServiceId = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -552,7 +552,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegmentMetadata.offset = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegmentMetadata.offset = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -571,7 +571,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegmentMetadata.length = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegmentMetadata.length = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -603,7 +603,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -622,7 +622,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegment_reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegment_reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -672,7 +672,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment.reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -691,7 +691,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment.checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -710,7 +710,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment.upperBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.upperBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -729,7 +729,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment.lowerBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment.lowerBound = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -748,7 +748,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_reportSegment_receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -773,7 +773,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    const uint64_t claimOffset = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    const uint64_t claimOffset = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -794,7 +794,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    const uint64_t claimLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    const uint64_t claimLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -832,7 +832,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_reportAcknowledgementSegment_reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_reportAcknowledgementSegment_reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize != m_sdnvTempVec.size()) {
                     errorMessage = "error in LTP_MAIN_RX_STATE::READ_REPORT_ACKNOWLEDGEMENT_SEGMENT_CONTENT, sdnvSize != m_sdnvTempVec.size()";
                     return false;
@@ -886,7 +886,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_currentTrailerExtensionLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_currentTrailerExtensionLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_LENGTH_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -1019,7 +1019,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_CLIENT_SERVICE_ID_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_dataSegmentMetadata.clientServiceId = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_dataSegmentMetadata.clientServiceId = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_ID_SDNV, sdnvSize is 0";
             return NULL;
@@ -1037,7 +1037,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_OFFSET_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
-        m_dataSegmentMetadata.offset = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_dataSegmentMetadata.offset = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_OFFSET_SDNV, sdnvSize is 0";
             return NULL;
@@ -1055,7 +1055,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_LENGTH_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
-        m_dataSegmentMetadata.length = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_dataSegmentMetadata.length = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_LENGTH_SDNV, sdnvSize is 0";
             return NULL;
@@ -1091,7 +1091,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_CHECKPOINT_SERIAL_NUMBER_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
-        m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
             return NULL;
@@ -1108,7 +1108,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_REPORT_SERIAL_NUMBER_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
-        m_dataSegment_reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_dataSegment_reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
             return NULL;
@@ -1138,7 +1138,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
     //shortcut READ_REPORT_SERIAL_NUMBER_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_reportSegment.reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_reportSegment.reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
             return NULL;
@@ -1156,7 +1156,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
     //shortcut READ_CHECKPOINT_SERIAL_NUMBER_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_reportSegment.checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_reportSegment.checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
             return NULL;
@@ -1174,7 +1174,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
     //shortcut READ_UPPER_BOUND_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_reportSegment.upperBound = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_reportSegment.upperBound = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_UPPER_BOUND_SDNV, sdnvSize is 0";
             return NULL;
@@ -1192,7 +1192,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
     //shortcut READ_LOWER_BOUND_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_reportSegment.lowerBound = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_reportSegment.lowerBound = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_LOWER_BOUND_SDNV, sdnvSize is 0";
             return NULL;
@@ -1210,7 +1210,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
     //shortcut READ_RECEPTION_CLAIM_COUNT_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_reportSegment_receptionClaimCount = SdnvDecodeU64(rxVals, &sdnvSize);
+        m_reportSegment_receptionClaimCount = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize is 0";
             return NULL;
@@ -1237,7 +1237,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
     while (true) {
         //shortcut READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV
         if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-            const uint64_t claimOffset = SdnvDecodeU64(rxVals, &sdnvSize);
+            const uint64_t claimOffset = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
             if (sdnvSize == 0) {
                 errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV, sdnvSize is 0";
                 return NULL;
@@ -1257,7 +1257,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
         //shortcut READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV
         if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-            const uint64_t claimLength = SdnvDecodeU64(rxVals, &sdnvSize);
+            const uint64_t claimLength = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
             if (sdnvSize == 0) {
                 errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, sdnvSize is 0";
                 return NULL;

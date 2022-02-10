@@ -15,8 +15,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         const std::string eidStr = "ipn:2.3";
         std::vector<uint8_t> serialization(BundleStatusReport::CBHE_MAX_SERIALIZATION_SIZE);
         BundleStatusReport rpt;
-        rpt.m_copyOfBundleCreationTimestampTimeSeconds = 150; //size 2 sdnv
-        rpt.m_copyOfBundleCreationTimestampSequenceNumber = 65538; //size 3 sdnv
+        rpt.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000 = 150; //size 2 sdnv
+        rpt.m_copyOfBundleCreationTimestamp.sequenceNumber = 65538; //size 3 sdnv
         rpt.m_bundleSourceEid = eidStr;
         rpt.SetTimeOfCustodyAcceptanceOfBundleAndStatusFlag(t1);//add custody
         rpt.m_reasonCode = BPV6_BUNDLE_STATUS_REPORT_REASON_CODES::DEPLETED_STORAGE;
@@ -24,7 +24,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         uint16_t expectedSerializationSize = 4 + 5 + 5 + static_cast<uint16_t>(eidStr.length()); // 4=>admin flags + status flags + reason code + eidLenSdnv
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
         BundleStatusReport rpt2;
-        uint16_t numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        uint64_t numBytesTakenToDecode;
+        BOOST_REQUIRE(rpt2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
@@ -37,7 +38,7 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE(rpt2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
@@ -48,7 +49,7 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE(rpt2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
@@ -59,7 +60,7 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE(rpt2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
@@ -70,7 +71,7 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE(rpt2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
@@ -81,7 +82,7 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = rpt.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        numBytesTakenToDecode = rpt2.Deserialize(serialization.data());
+        BOOST_REQUIRE(rpt2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(rpt == rpt2);
@@ -108,8 +109,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         const std::string eidStr = "ipn:2.3";
         std::vector<uint8_t> serialization(CustodySignal::CBHE_MAX_SERIALIZATION_SIZE);
         CustodySignal sig;
-        sig.m_copyOfBundleCreationTimestampTimeSeconds = 150; //size 2 sdnv
-        sig.m_copyOfBundleCreationTimestampSequenceNumber = 65538; //size 3 sdnv
+        sig.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000 = 150; //size 2 sdnv
+        sig.m_copyOfBundleCreationTimestamp.sequenceNumber = 65538; //size 3 sdnv
         sig.m_bundleSourceEid = eidStr;
         sig.SetTimeOfSignalGeneration(t1);//add custody
         BOOST_REQUIRE(!sig.DidCustodyTransferSucceed());
@@ -121,7 +122,8 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         uint16_t expectedSerializationSize = 3 + 5 + 5 + static_cast<uint16_t>(eidStr.length()); // 3=>admin flags + (status | reason) + eidLenSdnv
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
         CustodySignal sig2;
-        uint16_t numBytesTakenToDecode = sig2.Deserialize(serialization.data());
+        uint64_t numBytesTakenToDecode;
+        BOOST_REQUIRE(sig2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(sig == sig2);
@@ -134,7 +136,7 @@ BOOST_AUTO_TEST_CASE(Bpv6AdministrativeRecordsTestCase)
         //re-serialize/deserialize
         sizeSerialized = sig.Serialize(&serialization[0]);
         BOOST_REQUIRE_EQUAL(sizeSerialized, expectedSerializationSize);
-        numBytesTakenToDecode = sig2.Deserialize(serialization.data());
+        BOOST_REQUIRE(sig2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()));
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, expectedSerializationSize);
         BOOST_REQUIRE(sig == sig2);

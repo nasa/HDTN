@@ -158,9 +158,8 @@ public:
     TimestampUtil::dtn_time_t m_timeOfDeletionOfBundle;
 
     //from primary block of subject bundle
-    uint64_t m_copyOfBundleCreationTimestampTimeSeconds;
-    uint64_t m_copyOfBundleCreationTimestampSequenceNumber;
-
+    TimestampUtil::bpv6_creation_timestamp_t m_copyOfBundleCreationTimestamp;
+    
     std::string m_bundleSourceEid;
 
 public:
@@ -173,7 +172,7 @@ public:
     bool operator==(const BundleStatusReport & o) const;
     bool operator!=(const BundleStatusReport & o) const;
     uint64_t Serialize(uint8_t * buffer) const; //use MAX_SERIALIZATION_SIZE sized buffer
-    uint16_t Deserialize(const uint8_t * serialization);
+    bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     void Reset();
 
     void SetTimeOfReceiptOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
@@ -261,8 +260,7 @@ public:
     TimestampUtil::dtn_time_t m_timeOfSignalGeneration;
 
     //from primary block of subject bundle
-    uint64_t m_copyOfBundleCreationTimestampTimeSeconds;
-    uint64_t m_copyOfBundleCreationTimestampSequenceNumber;
+    TimestampUtil::bpv6_creation_timestamp_t m_copyOfBundleCreationTimestamp;
 
     std::string m_bundleSourceEid;
 
@@ -276,7 +274,7 @@ public:
     bool operator==(const CustodySignal & o) const;
     bool operator!=(const CustodySignal & o) const;
     uint64_t Serialize(uint8_t * buffer) const; //use MAX_SERIALIZATION_SIZE sized buffer
-    uint16_t Deserialize(const uint8_t * serialization);
+    bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     void Reset();
 
     void SetTimeOfSignalGeneration(const TimestampUtil::dtn_time_t & dtnTime);

@@ -43,9 +43,9 @@ public:
     bool operator!=(const CustodyTransferEnhancementBlock & o) const;
     uint64_t SerializeCtebCanonicalBlock(uint8_t * buffer) const; //use MAX_SERIALIZATION_SIZE sized buffer
     static uint64_t StaticSerializeCtebCanonicalBlock(uint8_t * buffer, const BPV6_BLOCKFLAG blockProcessingControlFlags,
-        const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock);
+        const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, Bpv6CanonicalBlock & returnedCanonicalBlock);
     static uint64_t StaticSerializeCtebCanonicalBlockBody(uint8_t * buffer,
-        const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, bpv6_canonical_block & returnedCanonicalBlock);
+        const uint64_t custodyId, const std::string & ctebCreatorCustodianEidString, Bpv6CanonicalBlock & returnedCanonicalBlock);
     uint32_t DeserializeCtebCanonicalBlock(const uint8_t * serialization);
     void Reset();
 

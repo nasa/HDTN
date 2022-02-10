@@ -13,6 +13,9 @@ void LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t max
     if (maxUdpRxPacketSizeBytesForAllLtp == 0) {
         std::cerr << "Error in LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp: LTP Max RX UDP packet size cannot be zero\n";
     }
+    else if (maxUdpRxPacketSizeBytesForAllLtp < 100) {
+        std::cerr << "Error in LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp: LTP Max RX UDP packet size must be at least 100 bytes\n";
+    }
     else if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES == 0) {
         M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES = maxUdpRxPacketSizeBytesForAllLtp;
         std::cout << "All LTP UDP engines can receive a maximum of " << M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES << " bytes per packet\n";
@@ -185,7 +188,7 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         }
         
         uint8_t sdnvSize;
-        const uint64_t sessionOriginatorEngineId = SdnvDecodeU64(&m_udpReceiveBuffer[1], &sdnvSize); //no worries about hardware accelerated sdnv read out of bounds due to vector size UINT16_MAX
+        const uint64_t sessionOriginatorEngineId = SdnvDecodeU64(&m_udpReceiveBuffer[1], &sdnvSize, (100 - 1)); //no worries about hardware accelerated sdnv read out of bounds due to minimum 100 byte size
         if (sdnvSize == 0) {
             std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive(): cannot read sessionOriginatorEngineId.. ignoring packet" << std::endl;
             StartUdpReceive();
