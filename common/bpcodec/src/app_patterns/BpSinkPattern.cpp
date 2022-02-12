@@ -162,21 +162,20 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
             else if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
                 const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
-                Bpv6CbhePrimaryBlock primaryForCustodySignalRfc5050;
                 m_mutexCtm.lock();
                 const bool successfullyProcessedCustody = m_custodyTransferManagerPtr->ProcessCustodyOfBundle(bv, true,
                     newCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-                    m_bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050);
+                    m_custodySignalRfc5050RenderedBundleView);
                 m_mutexCtm.unlock();
                 if (!successfullyProcessedCustody) {
                     std::cerr << "error unable to process custody\n";
                     return false;
                 }
                 else {
-                    if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
+                    if (m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
                         //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
-                        const cbhe_eid_t & custodySignalDestEid = primaryForCustodySignalRfc5050.m_destinationEid;
-                        Forward_ThreadSafe(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle);
+                        const cbhe_eid_t & custodySignalDestEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_destinationEid;
+                        Forward_ThreadSafe(custodySignalDestEid, m_custodySignalRfc5050RenderedBundleView.m_frontBuffer);
                     }
                     else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
                         boost::asio::post(m_ioService, boost::bind(&BpSinkPattern::SendAcsFromTimerThread, this));
@@ -191,13 +190,12 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             std::cerr << "error payload block not found\n";
             return false;
         }
-        Bpv6CanonicalBlock & payloadBlock = blocks[0]->header;
+        Bpv6CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
         m_totalPayloadBytesRx += payloadBlock.m_blockTypeSpecificDataLength;
         m_totalBundleBytesRx += messageSize;
         ++m_totalBundlesVersion6Rx;
 
-        boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
-        if (!ProcessPayload((const uint8_t *)blockBodyBuffer.data(), blockBodyBuffer.size())) {
+        if (!ProcessPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
             std::cerr << "error ProcessPayload\n";
             return false;
         }
@@ -358,17 +356,15 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
 
 void BpSinkPattern::SendAcsFromTimerThread() {
     //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
-    std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+    std::list<BundleViewV6> newAcsRenderedBundleViewList;
     m_mutexCtm.lock();
-    const bool generatedSuccessfully = m_custodyTransferManagerPtr->GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList);
+    const bool generatedSuccessfully = m_custodyTransferManagerPtr->GenerateAllAcsBundlesAndClear(newAcsRenderedBundleViewList);
     m_mutexCtm.unlock();
     if (generatedSuccessfully) {
-        for (std::list<std::pair<Bpv6CbhePrimaryBlock, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
-            it != serializedPrimariesAndBundlesList.end(); ++it)
-        {
+        for (std::list<BundleViewV6>::iterator it = newAcsRenderedBundleViewList.begin(); it != newAcsRenderedBundleViewList.end(); ++it) {
             //send an acs custody signal due to acs send timer
-            const cbhe_eid_t & custodySignalDestEid = it->first.m_destinationEid;
-            Forward_ThreadSafe(custodySignalDestEid, it->second);
+            const cbhe_eid_t & custodySignalDestEid = it->m_primaryBlockView.header.m_destinationEid;
+            Forward_ThreadSafe(custodySignalDestEid, it->m_frontBuffer);
         }
     }
 }

@@ -1,13 +1,6 @@
 #ifndef _BP_SINK_ASYNC_H
 #define _BP_SINK_ASYNC_H
 
-#include <stdint.h>
-#include "InductManager.h"
-#include "OutductManager.h"
-#include "codec/bpv6.h"
-#include "codec/CustodyTransferEnhancementBlock.h"
-#include "codec/CustodyTransferManager.h"
-#include <boost/asio.hpp>
 #include "app_patterns/BpSinkPattern.h"
 
 struct FinalStatsBpSink {

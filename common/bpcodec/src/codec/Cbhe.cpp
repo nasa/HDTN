@@ -156,8 +156,22 @@ bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numByt
 
 uint64_t cbhe_eid_t::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, nodeId);
-    serialization += SdnvEncodeU64(serialization, serviceId);
+    serialization += SdnvEncodeU64BufSize10(serialization, nodeId);
+    serialization += SdnvEncodeU64BufSize10(serialization, serviceId);
+    return serialization - serializationBase;
+}
+uint64_t cbhe_eid_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
+    uint8_t * serializationBase = serialization;
+    uint64_t thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, nodeId, bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, serviceId, bufferSize);
+    serialization += thisSerializationSize;
+    //bufferSize -= thisSerializationSize; //not needed
+
     return serialization - serializationBase;
 }
 uint64_t cbhe_eid_t::GetSerializationSizeBpv6() const {

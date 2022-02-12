@@ -34,6 +34,7 @@ struct cbhe_eid_t {
     bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 
     uint64_t SerializeBpv6(uint8_t * serialization) const;
+    uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
     uint64_t GetSerializationSizeBpv6() const;
     bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 

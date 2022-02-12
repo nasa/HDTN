@@ -59,8 +59,8 @@ std::ostream& operator<<(std::ostream& os, const Ltp::session_id_t & o) {
 }
 uint64_t Ltp::session_id_t::Serialize(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, sessionOriginatorEngineId);
-    serialization += SdnvEncodeU64(serialization, sessionNumber);
+    serialization += SdnvEncodeU64BufSize10(serialization, sessionOriginatorEngineId);
+    serialization += SdnvEncodeU64BufSize10(serialization, sessionNumber);
     return serialization - serializationBase;
 }
 
@@ -92,8 +92,8 @@ std::ostream& operator<<(std::ostream& os, const Ltp::reception_claim_t & o) {
 }
 uint64_t Ltp::reception_claim_t::Serialize(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, offset);
-    serialization += SdnvEncodeU64(serialization, length);
+    serialization += SdnvEncodeU64BufSize10(serialization, offset);
+    serialization += SdnvEncodeU64BufSize10(serialization, length);
     return serialization - serializationBase;
 }
 
@@ -154,11 +154,11 @@ std::ostream& operator<<(std::ostream& os, const Ltp::report_segment_t & o) {
 }
 uint64_t Ltp::report_segment_t::Serialize(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, reportSerialNumber);
-    serialization += SdnvEncodeU64(serialization, checkpointSerialNumber);
-    serialization += SdnvEncodeU64(serialization, upperBound);
-    serialization += SdnvEncodeU64(serialization, lowerBound);
-    serialization += SdnvEncodeU64(serialization, receptionClaims.size());
+    serialization += SdnvEncodeU64BufSize10(serialization, reportSerialNumber);
+    serialization += SdnvEncodeU64BufSize10(serialization, checkpointSerialNumber);
+    serialization += SdnvEncodeU64BufSize10(serialization, upperBound);
+    serialization += SdnvEncodeU64BufSize10(serialization, lowerBound);
+    serialization += SdnvEncodeU64BufSize10(serialization, receptionClaims.size());
     
     for (std::vector<reception_claim_t>::const_iterator it = receptionClaims.cbegin(); it != receptionClaims.cend(); ++it) {
         serialization += it->Serialize(serialization);
@@ -194,8 +194,8 @@ void Ltp::ltp_extension_t::AppendSerialize(std::vector<uint8_t> & serialization)
 
     //sdnv encode length (valueVec.size())
     const uint64_t originalSize = serialization.size();
-    serialization.resize(originalSize + 20);
-    const unsigned int outputSizeBytesLengthSdnv = SdnvEncodeU64(&serialization[originalSize], valueVec.size());
+    serialization.resize(originalSize + 10); //10 is largest sdnv buffer required for encode
+    const unsigned int outputSizeBytesLengthSdnv = SdnvEncodeU64BufSize10(&serialization[originalSize], valueVec.size());
     serialization.resize(originalSize + outputSizeBytesLengthSdnv);
 
     //data copy valueVec
@@ -205,7 +205,7 @@ uint64_t Ltp::ltp_extension_t::Serialize(uint8_t * serialization) const {
     *serialization++ = tag;
 
     //sdnv encode length (valueVec.size())
-    const uint64_t sdnvSizeBytes = SdnvEncodeU64(serialization, valueVec.size());
+    const uint64_t sdnvSizeBytes = SdnvEncodeU64BufSize10(serialization, valueVec.size());
     serialization += sdnvSizeBytes;
 
     //data copy valueVec
@@ -282,12 +282,12 @@ bool Ltp::data_segment_metadata_t::operator!=(const data_segment_metadata_t & o)
 }
 uint64_t Ltp::data_segment_metadata_t::Serialize(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, clientServiceId);
-    serialization += SdnvEncodeU64(serialization, offset);
-    serialization += SdnvEncodeU64(serialization, length); 
+    serialization += SdnvEncodeU64BufSize10(serialization, clientServiceId);
+    serialization += SdnvEncodeU64BufSize10(serialization, offset);
+    serialization += SdnvEncodeU64BufSize10(serialization, length);
     if (checkpointSerialNumber && reportSerialNumber) {
-        serialization += SdnvEncodeU64(serialization, *checkpointSerialNumber);
-        serialization += SdnvEncodeU64(serialization, *reportSerialNumber);
+        serialization += SdnvEncodeU64BufSize10(serialization, *checkpointSerialNumber);
+        serialization += SdnvEncodeU64BufSize10(serialization, *reportSerialNumber);
     }
     return serialization - serializationBase;
 }
@@ -1316,8 +1316,8 @@ void Ltp::GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHea
     ltpHeaderPlusDataSegmentMetadata.resize(1 + 1 + (2 * 10) + dataSegmentMetadata.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions); //flags + extensionCounts + 2 10-byte session sdnvs + metadata sdnvs + header extensions
     uint8_t * encodedPtr = ltpHeaderPlusDataSegmentMetadata.data();
     *encodedPtr++ = static_cast<uint8_t>(dataSegmentTypeFlags); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -1344,8 +1344,8 @@ void Ltp::GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegment
     ltpReportSegmentPacket.resize(1 + 1 + (2 * 10) + reportSegmentStruct.GetMaximumDataRequiredForSerialization() + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + rest of data
     uint8_t * encodedPtr = ltpReportSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_SEGMENT); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -1375,13 +1375,13 @@ void Ltp::GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
     ltpReportAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + (1 * 10) + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 report serial number 10-byte sdnv + rest of data
     uint8_t * encodedPtr = ltpReportAcknowledgementSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
     }
-    encodedPtr += SdnvEncodeU64(encodedPtr, reportSerialNumberBeingAcknowledged);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, reportSerialNumberBeingAcknowledged);
     if (trailerExtensions) {
         encodedPtr += trailerExtensions->Serialize(encodedPtr);
     }
@@ -1406,8 +1406,8 @@ void Ltp::GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegment
     ltpCancelSegmentPacket.resize(1 + 1 + (2 * 10) + 1 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + 1 one-byte reason code + rest of data
     uint8_t * encodedPtr = ltpCancelSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(isFromSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);
@@ -1437,8 +1437,8 @@ void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
     ltpCancelAcknowledgementSegmentPacket.resize(1 + 1 + (2 * 10) + 0 + maxBytesRequiredForHeaderExtensions + maxBytesRequiredForTrailerExtensions); //flags + extensionCounts + 2 session 10-byte sdnvs + no payload data + rest of data
     uint8_t * encodedPtr = ltpCancelAcknowledgementSegmentPacket.data();
     *encodedPtr++ = static_cast<uint8_t>(isToSender ? LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER : LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER); //assumes version 0 in most significant 4 bits
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionOriginatorEngineId);
-    encodedPtr += SdnvEncodeU64(encodedPtr, sessionId.sessionNumber);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionOriginatorEngineId);
+    encodedPtr += SdnvEncodeU64BufSize10(encodedPtr, sessionId.sessionNumber);
     *encodedPtr++ = (numHeaderExtensions << 4) | numTrailerExtensions;
     if (headerExtensions) {
         encodedPtr += headerExtensions->Serialize(encodedPtr);

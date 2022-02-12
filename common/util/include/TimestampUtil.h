@@ -36,7 +36,9 @@ public:
         bool operator!=(const dtn_time_t & o) const; //operator !=
         bool operator<(const dtn_time_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const dtn_time_t& o);
-        uint64_t Serialize(uint8_t * serialization) const;
+        uint64_t SerializeBpv6(uint8_t * serialization) const;
+        uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+        uint64_t GetSerializationSizeBpv6() const;
         bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
         void SetZero();
     };

@@ -1,14 +1,6 @@
 #ifndef _BPING_H
 #define _BPING_H 1
 
-#include <string>
-#include <boost/thread.hpp>
-#include <boost/asio.hpp>
-#include "OutductManager.h"
-#include "InductManager.h"
-#include "codec/bpv6.h"
-#include "codec/CustodyTransferEnhancementBlock.h"
-#include "codec/CustodyTransferManager.h"
 #include "app_patterns/BpSourcePattern.h"
 
 class BPing : public BpSourcePattern {

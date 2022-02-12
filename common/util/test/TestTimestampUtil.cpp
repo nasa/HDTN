@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(TimestampUtilTestCase)
     {
         TimestampUtil::dtn_time_t t1(1000, 65537);
         std::vector<uint8_t> serialization(TimestampUtil::dtn_time_t::MAX_BUFFER_SIZE);
-        const uint64_t size = t1.Serialize(&serialization[0]);
+        const uint64_t size = t1.SerializeBpv6(&serialization[0]);
         BOOST_REQUIRE_EQUAL(size, 5);
         TimestampUtil::dtn_time_t t2;
         uint8_t numBytesTakenToDecode;

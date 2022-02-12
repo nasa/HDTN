@@ -40,6 +40,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
     }
 
     std::vector<uint8_t> encoded(10);
+    std::vector<uint8_t> encoded2(10);
     std::vector<uint8_t> encodedFast(10);
     encoded.assign(encoded.size(), 0);
     encodedFast.assign(encodedFast.size(), 0);
@@ -105,12 +106,34 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
         encoded.assign(encoded.size(), 0);
         encodedFast.assign(encodedFast.size(), 0);
         //encode val
-        const unsigned int outputSizeBytes = SdnvEncodeU32Classic(encoded.data(), val);
+        const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(encoded.data(), val);
 #ifdef USE_X86_HARDWARE_ACCELERATION
-        const unsigned int outputSizeBytesFast = SdnvEncodeU32Fast(encodedFast.data(), val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU32FastBufSize8(encodedFast.data(), val);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, outputSizeBytesFast);
         BOOST_REQUIRE(encoded == encodedFast);
 #endif
+        {
+            //if buffersize is at least outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU32(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU32Classic(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+        }
+        {
+            //if buffersize is less than outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU32(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU32Classic(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+        }
 
         //decode val classic
         uint8_t numBytesDecoded = 0;
@@ -177,12 +200,12 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
     for (std::size_t i = 0; i < testVals.size(); ++i) {
         const uint32_t val = testVals[i];
         //encode
-        const unsigned int outputSizeBytes = SdnvEncodeU32Classic(allEncodedDataPtr, val);
+        const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(allEncodedDataPtr, val);
         allEncodedDataPtr += outputSizeBytes;
         totalBytesEncoded += outputSizeBytes;
 #ifdef USE_X86_HARDWARE_ACCELERATION
         //encode fast
-        const unsigned int outputSizeBytesFast = SdnvEncodeU32Fast(allEncodedDataFastPtr, val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU32FastBufSize8(allEncodedDataFastPtr, val);
         allEncodedDataFastPtr += outputSizeBytesFast;
         totalBytesEncodedFast += outputSizeBytesFast;
 #endif
@@ -371,7 +394,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitErrorDecodeTestCase)
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
 #endif
     encoded.assign(encoded.size(), 0);
-    const unsigned int outputSizeBytes = SdnvEncodeU32Classic(encoded.data(), UINT32_MAX);
+    const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(encoded.data(), UINT32_MAX);
     BOOST_REQUIRE_EQUAL(outputSizeBytes, 5);
     BOOST_REQUIRE_EQUAL(encoded[0], 0x8f); //f -> bits 29,30,31,32
     BOOST_REQUIRE_EQUAL(encoded[3], 0xff);
@@ -410,7 +433,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
 #endif
     encoded.assign(encoded.size(), 0);
-    const unsigned int outputSizeBytes = SdnvEncodeU64Classic(encoded.data(), UINT64_MAX);
+    const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(encoded.data(), UINT64_MAX);
     BOOST_REQUIRE_EQUAL(outputSizeBytes, 10);
     BOOST_REQUIRE_EQUAL(encoded[0], 0x81); //1 -> 64th bit
     BOOST_REQUIRE_EQUAL(encoded[8], 0xff);
@@ -438,6 +461,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 {
     std::vector<uint8_t> encoded(16);
     encoded.assign(encoded.size(), 0);
+    std::vector<uint8_t> encoded2(16);
     uint16_t coverageMask = 0;
 #ifdef USE_X86_HARDWARE_ACCELERATION
     std::vector<uint8_t> encodedFast(16);
@@ -451,13 +475,35 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
         encoded.assign(encoded.size(), 0);
 
         //encode val
-        const unsigned int outputSizeBytes = SdnvEncodeU64Classic(encoded.data(), val);
+        const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(encoded.data(), val);
 #ifdef USE_X86_HARDWARE_ACCELERATION
-        const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(encodedFast.data(), val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU64FastBufSize10(encodedFast.data(), val);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, outputSizeBytesFast);
         BOOST_REQUIRE(encoded == encodedFast);
         encodedFast.assign(encodedFast.size(), 0);
 #endif
+        {
+            //if buffersize is at least outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU64(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU64Classic(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+        }
+        {
+            //if buffersize is less than outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU64(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU64Classic(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+        }
 
         //decode val
         uint8_t numBytesDecoded = 0;
@@ -543,12 +589,12 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
     for (std::size_t i = 0; i < testVals.size(); ++i) {
         const uint64_t val = testVals[i];
         //encode
-        const unsigned int outputSizeBytes = SdnvEncodeU64Classic(allEncodedDataPtr, val);
+        const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(allEncodedDataPtr, val);
         allEncodedDataPtr += outputSizeBytes;
         totalBytesEncoded += outputSizeBytes;
 #ifdef USE_X86_HARDWARE_ACCELERATION
         //encode fast
-        const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(allEncodedDataFastPtr, val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU64FastBufSize10(allEncodedDataFastPtr, val);
         allEncodedDataFastPtr += outputSizeBytesFast;
         totalBytesEncodedFast += outputSizeBytesFast;
 #endif
@@ -680,7 +726,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
             for (std::size_t i = 0; i < testVals2.size(); ++i) {
                 const uint64_t val = testVals2[i];
                 //encode
-                const unsigned int outputSizeBytes = SdnvEncodeU64Classic(allEncodedDataPtr, val);
+                const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(allEncodedDataPtr, val);
                 allEncodedDataPtr += outputSizeBytes;
                 totalBytesEncoded += outputSizeBytes;
             }
@@ -700,7 +746,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
             for (std::size_t i = 0; i < testVals2.size(); ++i) {
                 const uint64_t val = testVals2[i];
                 //encode fast
-                const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(allEncodedDataFastPtr, val);
+                const unsigned int outputSizeBytesFast = SdnvEncodeU64FastBufSize10(allEncodedDataFastPtr, val);
                 allEncodedDataFastPtr += outputSizeBytesFast;
                 totalBytesEncodedFast += outputSizeBytesFast;
             }

@@ -16,8 +16,7 @@ add_library(bpcodec STATIC
 		src/codec/Cbhe.cpp
         src/codec/bpv6-ext-block.cpp
 		src/codec/Bpv6AdministrativeRecords.cpp
-		src/codec/AggregateCustodySignal.cpp
-		src/codec/CustodyTransferEnhancementBlock.cpp
+		src/codec/Bpv6ExtensionBlocks.cpp
 		src/codec/CustodyIdAllocator.cpp
 		src/codec/CustodyTransferManager.cpp
 		src/codec/BundleViewV6.cpp

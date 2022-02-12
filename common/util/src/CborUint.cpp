@@ -646,7 +646,7 @@ uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t ele
 
     thisSerializationSize = CborEncodeU64(serialization, element2, bufferSize);
     serialization += thisSerializationSize;
-    bufferSize -= thisSerializationSize;
+    //bufferSize -= thisSerializationSize; //not needed
 
     return serialization - serializationBase;
 }

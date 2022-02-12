@@ -18,7 +18,7 @@ BOOST_FORCEINLINE ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) { return static_c
 BOOST_FORCEINLINE ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((std::underlying_type<ENUMTYPE>::type &)(a)) ^= (static_cast<std::underlying_type<ENUMTYPE>::type>(b))); }
 
 #define MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(ENUMTYPE) \
-BOOST_FORCEINLINE std::ostream& operator<<(std::ostream& os, const ENUMTYPE & a) { os << std::hex << "0x" << ((std::underlying_type<ENUMTYPE>::type &)(a)) << std::dec; return os; }
+BOOST_FORCEINLINE std::ostream& operator<<(std::ostream& os, const ENUMTYPE & a) { os << std::hex << "0x" << (static_cast<uint64_t>((std::underlying_type<ENUMTYPE>::type &)(a))) << std::dec; return os; }
 
 
 #endif      // _ENUM_AS_FLAGS_MACRO_H 

@@ -7,7 +7,6 @@
 #include "OutductManager.h"
 #include "InductManager.h"
 #include "codec/bpv6.h"
-#include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/CustodyTransferManager.h"
 
 class BpSourcePattern {
