@@ -152,27 +152,46 @@ std::ostream& operator<<(std::ostream& os, const TimestampUtil::dtn_time_t & o) 
     os << "secondsSinceStartOfYear2000: " << o.secondsSinceStartOfYear2000 << ", nanosecondsSinceStartOfIndicatedSecond: " << o.nanosecondsSinceStartOfIndicatedSecond;
     return os;
 }
-uint64_t TimestampUtil::dtn_time_t::Serialize(uint8_t * serialization) const {
+uint64_t TimestampUtil::dtn_time_t::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, secondsSinceStartOfYear2000);
-    serialization += SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond);
+    serialization += SdnvEncodeU64BufSize10(serialization, secondsSinceStartOfYear2000);
+    serialization += SdnvEncodeU32BufSize8(serialization, nanosecondsSinceStartOfIndicatedSecond);
     return serialization - serializationBase;
 }
-bool TimestampUtil::dtn_time_t::Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
+uint64_t TimestampUtil::dtn_time_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
+    uint8_t * serializationBase = serialization;
+    uint64_t thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, secondsSinceStartOfYear2000, bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond, bufferSize);
+    serialization += thisSerializationSize;
+    //bufferSize -= thisSerializationSize; //not needed
+
+    return serialization - serializationBase;
+}
+uint64_t TimestampUtil::dtn_time_t::GetSerializationSizeBpv6() const {
+    return SdnvGetNumBytesRequiredToEncode(secondsSinceStartOfYear2000) + SdnvGetNumBytesRequiredToEncode(nanosecondsSinceStartOfIndicatedSecond);
+}
+bool TimestampUtil::dtn_time_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false; //failure
     }
     serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize);
+    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false; //failure
     }
     serialization += sdnvSize;
+    //bufferSize -= sdnvSize; //not needed
 
     *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
     return true;
@@ -244,13 +263,24 @@ std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv6_creation_ti
 }
 uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, secondsSinceStartOfYear2000);
-    serialization += SdnvEncodeU64(serialization, sequenceNumber);
+    serialization += SdnvEncodeU64BufSize10(serialization, secondsSinceStartOfYear2000);
+    serialization += SdnvEncodeU64BufSize10(serialization, sequenceNumber);
     return serialization - serializationBase;
 }
-//uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
-//    return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber, bufferSize);
-//}
+uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
+    uint8_t * serializationBase = serialization;
+    uint64_t thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, secondsSinceStartOfYear2000, bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, sequenceNumber, bufferSize);
+    serialization += thisSerializationSize;
+    //bufferSize -= thisSerializationSize; //not needed
+
+    return serialization - serializationBase;
+}
 uint64_t TimestampUtil::bpv6_creation_timestamp_t::GetSerializationSizeBpv6() const {
     return SdnvGetNumBytesRequiredToEncode(secondsSinceStartOfYear2000) + SdnvGetNumBytesRequiredToEncode(sequenceNumber);
 }
@@ -258,24 +288,19 @@ bool TimestampUtil::bpv6_creation_timestamp_t::DeserializeBpv6(const uint8_t * s
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
     serialization += sdnvSize;
     bufferSize -= sdnvSize;
 
-    if (bufferSize < SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE) {
-        return false;
-    }
-    sequenceNumber = SdnvDecodeU64(serialization, &sdnvSize);
+    sequenceNumber = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false;
     }
     serialization += sdnvSize;
+    //bufferSize -= sdnvSize; //not needed
 
     *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
     return true;

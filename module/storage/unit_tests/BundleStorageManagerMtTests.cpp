@@ -13,6 +13,7 @@
 #include "Environment.h"
 #include "Sdnv.h"
 #include "codec/BundleViewV7.h"
+#include "codec/BundleViewV6.h"
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
@@ -22,39 +23,34 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 //static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
 static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
-    bundle.resize(targetBundleSize + 1000);
-    uint8_t * buffer = &bundle[0];
-    uint64_t payloadSize = targetBundleSize;
-    uint8_t * const serializationBase = buffer;
-    
-    
-    bpv6_canonical_block block;
-    block.SetZero();
+    BundleViewV6 bv;
+    bv.m_primaryBlockView.header = primary;
+    bv.m_primaryBlockView.SetManuallyModified();
+    const uint64_t primarySize = primary.GetSerializationSize();
+    uint64_t targetBlockTypeSpecificDataLength = targetBundleSize - (primarySize + 2);
+    targetBlockTypeSpecificDataLength -= SdnvGetNumBytesRequiredToEncode(targetBlockTypeSpecificDataLength);
+    std::vector<uint8_t> payloadData(targetBlockTypeSpecificDataLength);
+    for (uint64_t i = 0; i < payloadData.size(); ++i) {
+        payloadData[i] = startChar++;
+    }
+    //add payload block
+    {
+        std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CanonicalBlock>();
+        Bpv6CanonicalBlock & block = *blockPtr;
 
-    
-    uint64_t retVal;
-    retVal = primary.SerializeBpv6(buffer);
-    BOOST_REQUIRE_GT(retVal, 0);
-    buffer += retVal;
-    payloadSize -= retVal;
+        block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
+        block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+        block.m_blockTypeSpecificDataLength = targetBlockTypeSpecificDataLength;
+        block.m_blockTypeSpecificDataPtr = payloadData.data(); //payloadString must remain in scope until after render
+        uint64_t canonicalSize = block.GetSerializationSize();
+        bv.AppendMoveCanonicalBlock(blockPtr);
 
-    block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
-    block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::IS_LAST_BLOCK;
-    payloadSize -= 2;
-    payloadSize -= SdnvGetNumBytesRequiredToEncode(payloadSize - 1); //as close as possible
-    block.length = payloadSize;
-
-    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, 0);
-    BOOST_REQUIRE_GT(retVal, 0);
-    buffer += retVal;
-    for (uint64_t i = 0; i < payloadSize; ++i) {
-        *buffer++ = startChar++;
     }
 
-    const uint64_t bundleSize = buffer - serializationBase;
-    BOOST_REQUIRE_GT(bundle.size(), bundleSize);
-    bundle.resize(bundleSize);
-    return (targetBundleSize == bundleSize);
+    BOOST_REQUIRE(bv.Render(targetBundleSize + 1000));
+    //std::cout << "targetBundleSize " << targetBundleSize << " actual " << bv.m_frontBuffer.size() << "\n";
+    bundle = std::move(bv.m_frontBuffer);
+    return (targetBundleSize == bundle.size());
 }
 
 static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {

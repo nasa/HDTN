@@ -54,10 +54,8 @@ public:
         void SetManuallyModified();
     };
     struct Bpv6CanonicalBlockView {
-        bpv6_canonical_block header;
-        boost::asio::const_buffer actualSerializedHeaderAndBodyPtr;
-        boost::asio::const_buffer actualSerializedBodyPtr;
-        std::vector<uint8_t> replacementBlockBodyData;
+        std::unique_ptr<Bpv6CanonicalBlock> headerPtr;
+        boost::asio::const_buffer actualSerializedBlockPtr;
         bool dirty;
         bool markedForDeletion;
 
@@ -73,8 +71,9 @@ public:
     BundleViewV6();
     ~BundleViewV6();
 
-    void AppendCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & blockBody);
-    //canonical_block_view_range_t GetCanonicalBlockRangeByType(const uint8_t canonicalBlockTypeCode);
+    void AppendMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock> & headerPtr);
+    void PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock> & headerPtr);
+    bool GetSerializationSize(uint64_t & serializationSize) const;
     std::size_t GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
     std::size_t GetNumCanonicalBlocks() const;
     void GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks);
@@ -84,9 +83,11 @@ public:
     bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool loadPrimaryBlockOnly = false);
     bool IsValid() const;
     bool Render(const std::size_t maxBundleSizeBytes);
+    //bool RenderInPlace(const std::size_t paddingLeft);
+    void Reset(); //should be private
 private:
     bool Load(const bool loadPrimaryBlockOnly);
-    void Reset();
+    bool Render(uint8_t * serialization, uint64_t & sizeSerialized);
     
 public:
     Bpv6PrimaryBlockView m_primaryBlockView;

@@ -133,6 +133,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
     return true;
 }
 bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
+    //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     m_backBuffer.resize(maxBundleSizeBytes);
     uint64_t sizeSerialized;
     if (!Render(&m_backBuffer[0], sizeSerialized, false)) {
@@ -189,7 +190,6 @@ bool BundleViewV7::RenderInPlace(const std::size_t paddingLeft) {
     return true;
 }
 bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bool terminateBeforeLastBlock) {
-    //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     uint8_t * const serializationBase = serialization;
     *serialization++ = (4U << 5) | 31U; //major type 4, additional information 31 (Indefinite-Length Array)
     if (m_primaryBlockView.dirty) {
@@ -216,9 +216,6 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
     }
     
     m_listCanonicalBlockView.remove_if([](const Bpv7CanonicalBlockView & v) { return v.markedForDeletion; }); //makes easier last block detection
-    if (isAdminRecord && (m_listCanonicalBlockView.size() != 1)) {
-        return false;
-    }
 
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
@@ -240,26 +237,26 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
                 return true;
             }
         }
-        uint64_t sizeSerialized;
+        uint64_t currentBlockSizeSerialized;
         if (it->dirty) { //always reencode canonical block if dirty
             if (it->isEncrypted) {
-                sizeSerialized = it->headerPtr->Bpv7CanonicalBlock::SerializeBpv7(serialization);
+                currentBlockSizeSerialized = it->headerPtr->Bpv7CanonicalBlock::SerializeBpv7(serialization);
             }
             else {
-                sizeSerialized = it->headerPtr->SerializeBpv7(serialization);
+                currentBlockSizeSerialized = it->headerPtr->SerializeBpv7(serialization);
             }
-            if (sizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
+            if (currentBlockSizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
                 return false;
             }
             it->dirty = false;
         }
         else {
             //std::cout << "cnd\n";
-            sizeSerialized = it->actualSerializedBlockPtr.size();
-            memcpy(serialization, it->actualSerializedBlockPtr.data(), sizeSerialized);
+            currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
+            memcpy(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
         }
-        it->actualSerializedBlockPtr = boost::asio::buffer(serialization, sizeSerialized);
-        serialization += sizeSerialized;
+        it->actualSerializedBlockPtr = boost::asio::buffer(serialization, currentBlockSizeSerialized);
+        serialization += currentBlockSizeSerialized;
     }
     *serialization++ = 0xff; //0xff is break character
     sizeSerialized = (serialization - serializationBase);
@@ -284,21 +281,21 @@ bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
             std::cerr << "error in BundleViewV7::GetSerializationSize: last block is not payload block\n";
             return false;
         }
-        uint64_t sizeSerialized;
+        uint64_t currentBlockSizeSerialized;
         if (it->markedForDeletion) {
-            sizeSerialized = 0;
+            currentBlockSizeSerialized = 0;
         }
         else if (it->dirty) { //always reencode canonical block if dirty
-            sizeSerialized = it->headerPtr->GetSerializationSize();
-            if (sizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
+            currentBlockSizeSerialized = it->headerPtr->GetSerializationSize();
+            if (currentBlockSizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
                 return false;
             }
         }
         else {
             //std::cout << "cnd\n";
-            sizeSerialized = it->actualSerializedBlockPtr.size();
+            currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
         }
-        serializationSize += sizeSerialized;
+        serializationSize += currentBlockSizeSerialized;
     }
     return true;
 }

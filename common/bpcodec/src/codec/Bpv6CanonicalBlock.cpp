@@ -15,62 +15,218 @@
 #include "Sdnv.h"
 #include <utility>
 #include <iostream>
+#include <boost/make_unique.hpp>
 
-
-void bpv6_canonical_block::SetZero() {
+Bpv6CanonicalBlock::Bpv6CanonicalBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
+Bpv6CanonicalBlock::~Bpv6CanonicalBlock() { } //a destructor: ~X()
+Bpv6CanonicalBlock::Bpv6CanonicalBlock(const Bpv6CanonicalBlock& o) :
+    m_blockProcessingControlFlags(o.m_blockProcessingControlFlags),
+    m_blockTypeSpecificDataLength(o.m_blockTypeSpecificDataLength),
+    m_blockTypeSpecificDataPtr(o.m_blockTypeSpecificDataPtr),
+    m_blockTypeCode(o.m_blockTypeCode) { } //a copy constructor: X(const X&)
+Bpv6CanonicalBlock::Bpv6CanonicalBlock(Bpv6CanonicalBlock&& o) :
+    m_blockProcessingControlFlags(o.m_blockProcessingControlFlags),
+    m_blockTypeSpecificDataLength(o.m_blockTypeSpecificDataLength),
+    m_blockTypeSpecificDataPtr(o.m_blockTypeSpecificDataPtr),
+    m_blockTypeCode(o.m_blockTypeCode) { } //a move constructor: X(X&&)
+Bpv6CanonicalBlock& Bpv6CanonicalBlock::operator=(const Bpv6CanonicalBlock& o) { //a copy assignment: operator=(const X&)
+    m_blockProcessingControlFlags = o.m_blockProcessingControlFlags;
+    m_blockTypeSpecificDataLength = o.m_blockTypeSpecificDataLength;
+    m_blockTypeSpecificDataPtr = o.m_blockTypeSpecificDataPtr;
+    m_blockTypeCode = o.m_blockTypeCode;
+    return *this;
+}
+Bpv6CanonicalBlock& Bpv6CanonicalBlock::operator=(Bpv6CanonicalBlock && o) { //a move assignment: operator=(X&&)
+    m_blockProcessingControlFlags = o.m_blockProcessingControlFlags;
+    m_blockTypeSpecificDataLength = o.m_blockTypeSpecificDataLength;
+    m_blockTypeSpecificDataPtr = o.m_blockTypeSpecificDataPtr;
+    m_blockTypeCode = o.m_blockTypeCode;
+    return *this;
+}
+bool Bpv6CanonicalBlock::operator==(const Bpv6CanonicalBlock & o) const {
+    const bool initialValue = (m_blockProcessingControlFlags == o.m_blockProcessingControlFlags)
+        //&& (m_dataPtr == o.m_dataPtr)
+        && (m_blockTypeSpecificDataLength == o.m_blockTypeSpecificDataLength)
+        && (m_blockTypeCode == o.m_blockTypeCode);
+    if (!initialValue) {
+        return false;
+    }
+    if ((m_blockTypeSpecificDataPtr == NULL) && (o.m_blockTypeSpecificDataPtr == NULL)) {
+        return true;
+    }
+    else if ((m_blockTypeSpecificDataPtr != NULL) && (o.m_blockTypeSpecificDataPtr != NULL)) {
+        return (memcmp(m_blockTypeSpecificDataPtr, o.m_blockTypeSpecificDataPtr, m_blockTypeSpecificDataLength) == 0);
+    }
+    else {
+        return false;
+    }
+}
+bool Bpv6CanonicalBlock::operator!=(const Bpv6CanonicalBlock & o) const {
+    return !(*this == o);
+}
+void Bpv6CanonicalBlock::SetZero() {
     m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
-    length = 0;
+    m_blockTypeSpecificDataLength = 0;
+    m_blockTypeSpecificDataPtr = NULL;
     m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO;
 }
 
-uint32_t bpv6_canonical_block::bpv6_canonical_block_decode(const char* buffer, const size_t offset, const size_t bufsz) {
-    uint64_t index = offset;
+
+uint64_t Bpv6CanonicalBlock::SerializeBpv6(uint8_t * serialization) {
+    uint8_t * const serializationBase = serialization;
+
+    
+    //Every bundle block of every type other than the primary bundle block
+    //comprises the following fields, in this order:
+
+    //Block type code, expressed as an 8-bit unsigned binary integer.
+    //Bundle block type code 1 indicates that the block is a bundle
+    //payload block.  Block type codes 192 through 255 are not defined
+    //in this specification and are available for private and/or
+    //experimental use.  All other values of the block type code are
+    //reserved for future use.
+    *serialization++ = static_cast<uint8_t>(m_blockTypeCode);
+
+    //Block processing control flags, an unsigned integer expressed as
+    //an SDNV.  The individual bits of this integer are used to invoke
+    //selected block processing control features.
+    if ((static_cast<uint64_t>(m_blockProcessingControlFlags)) <= 127) { //will almost always be the predicted branch
+        *serialization++ = static_cast<uint8_t>(m_blockProcessingControlFlags);
+    }
+    else {
+        serialization += SdnvEncodeU64BufSize10(serialization, static_cast<uint64_t>(m_blockProcessingControlFlags));
+    }
+
+    //Block EID reference count and EID references (optional). (NOT CURRENTLY SUPPORTED)
+
+    
+    //Block data length, an unsigned integer expressed as an SDNV.  The
+    //Block data length field contains the aggregate length of all
+    //remaining fields of the block, i.e., the block-type-specific data
+    //fields.
+    serialization += SdnvEncodeU64BufSize10(serialization, m_blockTypeSpecificDataLength);
+
+    //Block-type-specific data fields, whose format and order are type-
+    //specific and whose aggregate length in octets is the value of the
+    //block data length field.  All multi-byte block-type-specific data
+    //fields are represented in network byte order.
+    if (m_blockTypeSpecificDataPtr) { //if not NULL, copy data
+        memcpy(serialization, m_blockTypeSpecificDataPtr, m_blockTypeSpecificDataLength);
+    }
+    //else { }//if NULL, data won't be copied (just allocated)
+    m_blockTypeSpecificDataPtr = serialization;  //m_dataPtr now points to new allocated or copied data within the block
+
+    serialization += m_blockTypeSpecificDataLength; //todo safety check on data length
+
+
+    return serialization - serializationBase;
+}
+
+uint64_t Bpv6CanonicalBlock::GetSerializationSize() const {
+    uint64_t serializationSize = 1; //block type code
+    serializationSize += SdnvGetNumBytesRequiredToEncode(static_cast<uint64_t>(m_blockProcessingControlFlags));
+    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    serializationSize += SdnvGetNumBytesRequiredToEncode(canonicalBlockTypeSpecificDataSerializationSize);
+    serializationSize += canonicalBlockTypeSpecificDataSerializationSize; //todo safety check on data length
+    return serializationSize;
+}
+
+uint64_t Bpv6CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
+    return m_blockTypeSpecificDataLength;
+}
+
+bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization, uint64_t & numBytesTakenToDecode,
+    uint64_t bufferSize, const bool isAdminRecord)
+{
+
     uint8_t sdnvSize;
-    m_blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(buffer[index++]);
+    const uint8_t * const serializationBase = serialization;
 
-    const uint8_t flag8bit = buffer[index];
-    if (flag8bit <= 127) {
-        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(flag8bit);
-        ++index;
+    //Every bundle block of every type other than the primary bundle block
+    //comprises the following fields, in this order:
+
+    //Block type code, expressed as an 8-bit unsigned binary integer.
+    //Bundle block type code 1 indicates that the block is a bundle
+    //payload block.  Block type codes 192 through 255 are not defined
+    //in this specification and are available for private and/or
+    //experimental use.  All other values of the block type code are
+    //reserved for future use.
+    if (bufferSize < 2) { //blockTypeCode + 1 byte of m_blockProcessingControlFlags
+        return false;
     }
-    else {
-        m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize));
-        if (sdnvSize == 0) {
-            return 0; //return 0 on failure
+    const BPV6_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV6_BLOCK_TYPE_CODE>(*serialization++);
+    --bufferSize;
+    if (isAdminRecord) {
+        if (blockTypeCode != BPV6_BLOCK_TYPE_CODE::PAYLOAD) { //admin records always go into a payload block
+            return false;
         }
-        index += sdnvSize;
-    }
-
-    length = SdnvDecodeU64((const uint8_t *)&buffer[index], &sdnvSize);
-    if (sdnvSize == 0) {
-        return 0; //return 0 on failure
-    }
-    index += sdnvSize;
-
-    return static_cast<uint32_t>(index - offset);
-}
-
-uint32_t bpv6_canonical_block::bpv6_canonical_block_encode(char* buffer, const size_t offset, const size_t bufsz) const {
-    uint64_t index = offset;
-    uint64_t sdnvSize;
-    buffer[index++] = static_cast<char>(m_blockTypeCode);
-
-    if ((static_cast<uint64_t>(m_blockProcessingControlFlags)) <= 127) {
-        buffer[index++] = static_cast<uint8_t>(m_blockProcessingControlFlags);
+        canonicalPtr = boost::make_unique<Bpv6AdministrativeRecord>();
     }
     else {
-        sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], static_cast<uint64_t>(m_blockProcessingControlFlags));
-        index += sdnvSize;
+        switch (blockTypeCode) {
+            case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
+                canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
+            default:
+                canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();
+                break;
+        }
+    }
+    canonicalPtr->m_blockTypeCode = blockTypeCode;
+
+    //Block processing control flags, an unsigned integer expressed as
+    //an SDNV.  The individual bits of this integer are used to invoke
+    //selected block processing control features.
+    const uint8_t flag8bit = *serialization;
+    if (flag8bit <= 127) {
+        canonicalPtr->m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(flag8bit);
+        ++serialization;
+        --bufferSize;
+    }
+    else {
+        canonicalPtr->m_blockProcessingControlFlags = static_cast<BPV6_BLOCKFLAG>(SdnvDecodeU64(serialization, &sdnvSize, bufferSize));
+        if (sdnvSize == 0) {
+            return false; //failure
+        }
+        serialization += sdnvSize;
+        bufferSize -= sdnvSize;
     }
 
-    sdnvSize = SdnvEncodeU64((uint8_t *)&buffer[index], length);
-    index += sdnvSize;
+    //Block EID reference count and EID references (optional). (NOT CURRENTLY SUPPORTED)
 
-    return static_cast<uint32_t>(index - offset);
+
+    //Block data length, an unsigned integer expressed as an SDNV.  The
+    //Block data length field contains the aggregate length of all
+    //remaining fields of the block, i.e., the block-type-specific data
+    //fields.
+    canonicalPtr->m_blockTypeSpecificDataLength = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
+    if (sdnvSize == 0) {
+        return false; //failure
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    //Block-type-specific data fields, whose format and order are type-
+    //specific and whose aggregate length in octets is the value of the
+    //block data length field.  All multi-byte block-type-specific data
+    //fields are represented in network byte order.
+    if (canonicalPtr->m_blockTypeSpecificDataLength > bufferSize) {
+        return false;
+    }
+    canonicalPtr->m_blockTypeSpecificDataPtr = (uint8_t*)serialization;
+    serialization += canonicalPtr->m_blockTypeSpecificDataLength;
+
+    numBytesTakenToDecode = serialization - serializationBase;
+    return true;
+}
+
+bool Bpv6CanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv6() {
+    return true;
 }
 
 
-void bpv6_canonical_block::bpv6_canonical_block_print() const {
+void Bpv6CanonicalBlock::bpv6_canonical_block_print() const {
     printf("Canonical block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
     switch(m_blockTypeCode) {
         case BPV6_BLOCK_TYPE_CODE::BUNDLE_AUTHENTICATION:
@@ -108,10 +264,10 @@ void bpv6_canonical_block::bpv6_canonical_block_print() const {
             break;
     }
     bpv6_block_flags_print();
-    printf("Block length: %" PRIu64 " bytes\n", length);
+    printf("Block length: %" PRIu64 " bytes\n", m_blockTypeSpecificDataLength);
 }
 
-void bpv6_canonical_block::bpv6_block_flags_print() const {
+void Bpv6CanonicalBlock::bpv6_block_flags_print() const {
     printf("Flags: 0x%" PRIx64 "\n", static_cast<uint64_t>(m_blockProcessingControlFlags));
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
         printf("* Block must be replicated in every fragment.\n");

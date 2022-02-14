@@ -7,7 +7,6 @@
 #include "OutductManager.h"
 #include "InductManager.h"
 #include "codec/bpv6.h"
-#include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/CustodyTransferManager.h"
 
 class BpSourcePattern {
@@ -24,9 +23,13 @@ public:
     uint64_t m_numAcsCustodyTransfers;
     uint64_t m_numAcsPacketsReceived;
 
-    uint64_t m_totalNonAdminRecordPayloadBytesRx;
-    uint64_t m_totalNonAdminRecordBundleBytesRx;
-    uint64_t m_totalNonAdminRecordBundlesRx;
+    uint64_t m_totalNonAdminRecordBpv6PayloadBytesRx;
+    uint64_t m_totalNonAdminRecordBpv6BundleBytesRx;
+    uint64_t m_totalNonAdminRecordBpv6BundlesRx;
+
+    uint64_t m_totalNonAdminRecordBpv7PayloadBytesRx;
+    uint64_t m_totalNonAdminRecordBpv7BundleBytesRx;
+    uint64_t m_totalNonAdminRecordBpv7BundlesRx;
 
     OutductFinalStats m_outductFinalStats;
 
@@ -64,6 +67,9 @@ private:
     boost::condition_variable m_waitingForRxBundleBeforeNextTxConditionVariable;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;
+    //version 7 stuff
+    cbhe_eid_t m_lastPreviousNode;
+    std::vector<uint64_t> m_hopCounts;
 public:
     volatile bool m_allOutductsReady;
 };

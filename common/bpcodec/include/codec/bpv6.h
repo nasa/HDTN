@@ -8,6 +8,7 @@
 #include "codec/PrimaryBlock.h"
 #include "EnumAsFlagsMacro.h"
 #include <array>
+#include "FragmentSet.h"
 
 // (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
@@ -148,13 +149,28 @@ MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCKFLAG);
 /**
  * Structure that contains information necessary for a 5050-compatible canonical block
  */
-struct bpv6_canonical_block {
+struct Bpv6CanonicalBlock {
     BPV6_BLOCKFLAG m_blockProcessingControlFlags;
-    uint64_t length;
+    uint64_t m_blockTypeSpecificDataLength;
+    uint8_t * m_blockTypeSpecificDataPtr; //if NULL, data won't be copied (just allocated)
     BPV6_BLOCK_TYPE_CODE m_blockTypeCode; //should be at beginning but here do to better packing
 
-    void SetZero();
-
+    Bpv6CanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv6CanonicalBlock(); //a destructor: ~X()
+    Bpv6CanonicalBlock(const Bpv6CanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv6CanonicalBlock(Bpv6CanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv6CanonicalBlock& operator=(const Bpv6CanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv6CanonicalBlock& operator=(Bpv6CanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6CanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv6CanonicalBlock & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_blockTypeSpecificDataPtr to serialized location
+    uint64_t GetSerializationSize() const;
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    static bool DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization,
+        uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool isAdminRecord);
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    //virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     /**
      * Dumps a canonical block to stdout in a human-readable fashion
      *
@@ -169,27 +185,276 @@ struct bpv6_canonical_block {
      */
     void bpv6_block_flags_print() const;
 
-    /**
-     * Reads an RFC5050 canonical block from a buffer and decodes it into 'block'
-     *
-     * @param block structure into which values should be decoded
-     * @param buffer target from which values should be read
-     * @param offset offset into target from which values should be read
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the canonical block was encoded into, or 0 on failure to decode
-     */
-    uint32_t bpv6_canonical_block_decode(const char* buffer, const size_t offset, const size_t bufsz);
+};
 
-    /**
-     * Writes an RFC5050 canonical into a buffer as encoded by 'block'
-     *
-     * @param block structure from which values should be read and encoded
-     * @param buffer target into which values should be encoded
-     * @param offset offset into target into which values should be encoded
-     * @param bufsz maximum size of the buffer
-     * @return the number of bytes the canonical block was encoded into, or 0 on failure to encode
-     */
-    uint32_t bpv6_canonical_block_encode(char* buffer, const size_t offset, const size_t bufsz) const;
+
+struct Bpv6CustodyTransferEnhancementBlock : public Bpv6CanonicalBlock {
+    
+public:
+    static constexpr unsigned int CBHE_MAX_SERIALIZATION_SIZE =
+        1 + //block type
+        10 + //block flags sdnv +
+        1 + //block length (1-byte-min-sized-sdnv) +
+        10 + //custody id sdnv +
+        45; //length of "ipn:18446744073709551615.18446744073709551615" (note 45 > 32 so sdnv hardware acceleration overwrite is satisfied)
+
+    uint64_t m_custodyId;
+    std::string m_ctebCreatorCustodianEidString;
+
+public:
+    Bpv6CustodyTransferEnhancementBlock(); //a default constructor: X()
+    virtual ~Bpv6CustodyTransferEnhancementBlock(); //a destructor: ~X()
+    Bpv6CustodyTransferEnhancementBlock(const Bpv6CustodyTransferEnhancementBlock& o); //a copy constructor: X(const X&)
+    Bpv6CustodyTransferEnhancementBlock(Bpv6CustodyTransferEnhancementBlock&& o); //a move constructor: X(X&&)
+    Bpv6CustodyTransferEnhancementBlock& operator=(const Bpv6CustodyTransferEnhancementBlock& o); //a copy assignment: operator=(const X&)
+    Bpv6CustodyTransferEnhancementBlock& operator=(Bpv6CustodyTransferEnhancementBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6CustodyTransferEnhancementBlock & o) const; //operator ==
+    bool operator!=(const Bpv6CustodyTransferEnhancementBlock & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+};
+
+
+
+//Administrative record types
+enum class BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE : uint8_t {
+    UNUSED_ZERO              = 0,
+    BUNDLE_STATUS_REPORT     = 1,
+    CUSTODY_SIGNAL           = 2,
+    AGGREGATE_CUSTODY_SIGNAL = 4,
+    ENCAPSULATED_BUNDLE      = 7,
+    SAGA_MESSAGE             = 42
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE);
+
+//Administrative record flags
+enum class BPV6_ADMINISTRATIVE_RECORD_FLAGS : uint8_t {
+    BUNDLE_IS_A_FRAGMENT = 1 //00000001
+};
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV6_ADMINISTRATIVE_RECORD_FLAGS);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_ADMINISTRATIVE_RECORD_FLAGS);
+
+
+enum class BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS : uint8_t {
+    NO_FLAGS_SET                                 = 0,
+    REPORTING_NODE_RECEIVED_BUNDLE               = (1 << 0),
+    REPORTING_NODE_ACCEPTED_CUSTODY_OF_BUNDLE    = (1 << 1),
+    REPORTING_NODE_FORWARDED_BUNDLE              = (1 << 2),
+    REPORTING_NODE_DELIVERED_BUNDLE              = (1 << 3),
+    REPORTING_NODE_DELETED_BUNDLE                = (1 << 4),
+};
+MAKE_ENUM_SUPPORT_FLAG_OPERATORS(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS);
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS);
+
+enum class BPV6_BUNDLE_STATUS_REPORT_REASON_CODES : uint8_t {
+    NO_ADDITIONAL_INFORMATION                   = 0,
+    LIFETIME_EXPIRED                            = 1,
+    FORWARDED_OVER_UNIDIRECTIONAL_LINK          = 2,
+    TRANSMISSION_CANCELLED                      = 3,
+    DEPLETED_STORAGE                            = 4,
+    DESTINATION_ENDPOINT_ID_UNINTELLIGIBLE      = 5,
+    NO_KNOWN_ROUTE_TO_DESTINATION_FROM_HERE     = 6,
+    NO_TIMELY_CONTACT_WITH_NEXT_NODE_ON_ROUTE   = 7,
+    BLOCK_UNINTELLIGIBLE                        = 8
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BUNDLE_STATUS_REPORT_REASON_CODES);
+
+enum class BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT : uint8_t {
+    NO_ADDITIONAL_INFORMATION                   = 0,
+    REDUNDANT_RECEPTION                         = 3,
+    DEPLETED_STORAGE                            = 4,
+    DESTINATION_ENDPOINT_ID_UNINTELLIGIBLE      = 5,
+    NO_KNOWN_ROUTE_TO_DESTINATION_FROM_HERE     = 6,
+    NO_TIMELY_CONTACT_WITH_NEXT_NODE_ON_ROUTE   = 7,
+    BLOCK_UNINTELLIGIBLE                        = 8
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT);
+
+
+struct Bpv6AdministrativeRecordContentBase {
+    virtual ~Bpv6AdministrativeRecordContentBase() = 0; // Pure virtual destructor
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const = 0;
+    virtual uint64_t GetSerializationSize() const = 0;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
+    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const = 0;
+};
+
+class Bpv6AdministrativeRecordContentBundleStatusReport : public Bpv6AdministrativeRecordContentBase {
+
+
+public:
+    static constexpr unsigned int CBHE_MAX_SERIALIZATION_SIZE =
+        3 + //admin flags + status flags + reason code
+        10 + //fragmentOffsetSdnv.length +
+        10 + //fragmentLengthSdnv.length +
+        10 + //receiptTimeSecondsSdnv.length +
+        5 + //receiptTimeNanosecSdnv.length +
+        10 + //custodyTimeSecondsSdnv.length +
+        5 + //custodyTimeNanosecSdnv.length +
+        10 + //forwardTimeSecondsSdnv.length +
+        5 + //forwardTimeNanosecSdnv.length +
+        10 + //deliveryTimeSecondsSdnv.length +
+        5 + //deliveryTimeNanosecSdnv.length +
+        10 + //deletionTimeSecondsSdnv.length +
+        5 + //deletionTimeNanosecSdnv.length +
+        10 + //creationTimeSecondsSdnv.length +
+        10 + //creationTimeCountSdnv.length +
+        1 + //eidLengthSdnv.length +
+        45; //length of "ipn:18446744073709551615.18446744073709551615" (note 45 > 32 so sdnv hardware acceleration overwrite is satisfied)
+    BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS m_statusFlags;
+    BPV6_BUNDLE_STATUS_REPORT_REASON_CODES m_reasonCode;
+    bool m_isFragment;
+    uint64_t m_fragmentOffsetIfPresent;
+    uint64_t m_fragmentLengthIfPresent;
+
+    TimestampUtil::dtn_time_t m_timeOfReceiptOfBundle;
+    TimestampUtil::dtn_time_t m_timeOfCustodyAcceptanceOfBundle;
+    TimestampUtil::dtn_time_t m_timeOfForwardingOfBundle;
+    TimestampUtil::dtn_time_t m_timeOfDeliveryOfBundle;
+    TimestampUtil::dtn_time_t m_timeOfDeletionOfBundle;
+
+    //from primary block of subject bundle
+    TimestampUtil::bpv6_creation_timestamp_t m_copyOfBundleCreationTimestamp;
+
+    std::string m_bundleSourceEid;
+
+public:
+    Bpv6AdministrativeRecordContentBundleStatusReport(); //a default constructor: X()
+    virtual ~Bpv6AdministrativeRecordContentBundleStatusReport(); //a destructor: ~X()
+    Bpv6AdministrativeRecordContentBundleStatusReport(const Bpv6AdministrativeRecordContentBundleStatusReport& o); //a copy constructor: X(const X&)
+    Bpv6AdministrativeRecordContentBundleStatusReport(Bpv6AdministrativeRecordContentBundleStatusReport&& o); //a move constructor: X(X&&)
+    Bpv6AdministrativeRecordContentBundleStatusReport& operator=(const Bpv6AdministrativeRecordContentBundleStatusReport& o); //a copy assignment: operator=(const X&)
+    Bpv6AdministrativeRecordContentBundleStatusReport& operator=(Bpv6AdministrativeRecordContentBundleStatusReport&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6AdministrativeRecordContentBundleStatusReport & o) const;
+    bool operator!=(const Bpv6AdministrativeRecordContentBundleStatusReport & o) const;
+
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const ;
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
+
+    void Reset();
+
+    void SetTimeOfReceiptOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    void SetTimeOfCustodyAcceptanceOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    void SetTimeOfForwardingOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    void SetTimeOfDeliveryOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    void SetTimeOfDeletionOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    bool HasBundleStatusReportStatusFlagSet(const BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS & flag) const;
+};
+
+class Bpv6AdministrativeRecordContentCustodySignal : public Bpv6AdministrativeRecordContentBase {
+    
+
+public:
+    static constexpr unsigned int CBHE_MAX_SERIALIZATION_SIZE =
+        2 + //admin flags + (bit7 status flags |  bit 6..0 reason code)
+        10 + //fragmentOffsetSdnv.length +
+        10 + //fragmentLengthSdnv.length +
+        10 + //signalTimeSecondsSdnv.length +
+        5 + //signalTimeNanosecSdnv.length +
+        10 + //creationTimeSecondsSdnv.length +
+        10 + //creationTimeCountSdnv.length +
+        1 + //eidLengthSdnv.length +
+        45; //length of "ipn:18446744073709551615.18446744073709551615" (note 45 > 32 so sdnv hardware acceleration overwrite is satisfied)
+private:
+    uint8_t m_statusFlagsPlus7bitReasonCode;
+public:
+    
+    bool m_isFragment;
+    uint64_t m_fragmentOffsetIfPresent;
+    uint64_t m_fragmentLengthIfPresent;
+
+    TimestampUtil::dtn_time_t m_timeOfSignalGeneration;
+
+    //from primary block of subject bundle
+    TimestampUtil::bpv6_creation_timestamp_t m_copyOfBundleCreationTimestamp;
+
+    std::string m_bundleSourceEid;
+
+public:
+    Bpv6AdministrativeRecordContentCustodySignal(); //a default constructor: X()
+    virtual ~Bpv6AdministrativeRecordContentCustodySignal(); //a destructor: ~X()
+    Bpv6AdministrativeRecordContentCustodySignal(const Bpv6AdministrativeRecordContentCustodySignal& o); //a copy constructor: X(const X&)
+    Bpv6AdministrativeRecordContentCustodySignal(Bpv6AdministrativeRecordContentCustodySignal&& o); //a move constructor: X(X&&)
+    Bpv6AdministrativeRecordContentCustodySignal& operator=(const Bpv6AdministrativeRecordContentCustodySignal& o); //a copy assignment: operator=(const X&)
+    Bpv6AdministrativeRecordContentCustodySignal& operator=(Bpv6AdministrativeRecordContentCustodySignal&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6AdministrativeRecordContentCustodySignal & o) const;
+    bool operator!=(const Bpv6AdministrativeRecordContentCustodySignal & o) const;
+
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
+
+    void Reset();
+
+    void SetTimeOfSignalGeneration(const TimestampUtil::dtn_time_t & dtnTime);
+    void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
+    bool DidCustodyTransferSucceed() const;
+    BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
+};
+
+class Bpv6AdministrativeRecordContentAggregateCustodySignal : public Bpv6AdministrativeRecordContentBase {
+    
+private:
+    //The second field shall be a ‘Status’ byte encoded in the same way as the status byte
+    //for administrative records in RFC 5050, using the same reason codes
+    uint8_t m_statusFlagsPlus7bitReasonCode;
+public:
+    std::set<FragmentSet::data_fragment_t> m_custodyIdFills;
+
+public:
+    Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a default constructor: X()
+    virtual ~Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a destructor: ~X()
+    Bpv6AdministrativeRecordContentAggregateCustodySignal(const Bpv6AdministrativeRecordContentAggregateCustodySignal& o); //a copy constructor: X(const X&)
+    Bpv6AdministrativeRecordContentAggregateCustodySignal(Bpv6AdministrativeRecordContentAggregateCustodySignal&& o); //a move constructor: X(X&&)
+    Bpv6AdministrativeRecordContentAggregateCustodySignal& operator=(const Bpv6AdministrativeRecordContentAggregateCustodySignal& o); //a copy assignment: operator=(const X&)
+    Bpv6AdministrativeRecordContentAggregateCustodySignal& operator=(Bpv6AdministrativeRecordContentAggregateCustodySignal&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6AdministrativeRecordContentAggregateCustodySignal & o) const;
+    bool operator!=(const Bpv6AdministrativeRecordContentAggregateCustodySignal & o) const;
+
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
+
+    void Reset();
+
+    
+    void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
+    bool DidCustodyTransferSucceed() const;
+    BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
+    //return number of fills
+    uint64_t AddCustodyIdToFill(const uint64_t custodyId);
+    //return number of fills
+    uint64_t AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId);
+public: //only public for unit testing
+    uint64_t SerializeFills(uint8_t * serialization, uint64_t bufferSize) const;
+    uint64_t GetFillSerializedSize() const;
+    bool DeserializeFills(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+};
+
+struct Bpv6AdministrativeRecord : public Bpv6CanonicalBlock {
+
+    BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE m_adminRecordTypeCode;
+    std::unique_ptr<Bpv6AdministrativeRecordContentBase> m_adminRecordContentPtr;
+    bool m_isFragment;
+
+    Bpv6AdministrativeRecord(); //a default constructor: X()
+    virtual ~Bpv6AdministrativeRecord(); //a destructor: ~X()
+    Bpv6AdministrativeRecord(const Bpv6AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
+    Bpv6AdministrativeRecord(Bpv6AdministrativeRecord&& o); //a move constructor: X(X&&)
+    Bpv6AdministrativeRecord& operator=(const Bpv6AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
+    Bpv6AdministrativeRecord& operator=(Bpv6AdministrativeRecord&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6AdministrativeRecord & o) const; //operator ==
+    bool operator!=(const Bpv6AdministrativeRecord & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 };
 
 
