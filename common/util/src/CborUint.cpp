@@ -38,15 +38,6 @@ unsigned int CborEncodeU64BufSize9(uint8_t * const outputEncoded, const uint64_t
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
-//return output size
-unsigned int CborGetEncodingSizeU64(const uint64_t valToEncodeU64) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
-    return CborGetEncodingSizeU64Fast(valToEncodeU64);
-#else
-    return CborGetEncodingSizeU64Classic(valToEncodeU64);
-#endif // USE_X86_HARDWARE_ACCELERATION
-}
-
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
@@ -495,17 +486,6 @@ unsigned int CborEncodeU64FastBufSize9(uint8_t * const outputEncoded, const uint
     return encodingSize;
 }
 
-//return output size
-unsigned int CborGetEncodingSizeU64Fast(const uint64_t valToEncodeU64) {
-    //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
-    //bitscan seems to have undefined behavior on a value of zero
-    //msb will be 0 if value to encode < 24
-    const unsigned int msb = (static_cast<bool>(valToEncodeU64 >= CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
-    const uint32_t requiredEncodingSizePlusTypePlusShifts = msbToRequiredEncodingSizePlusTypePlusShifts[msb];
-    const uint8_t encodingSize = (uint8_t)requiredEncodingSizePlusTypePlusShifts;
-
-    return encodingSize;
-}
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
@@ -619,7 +599,7 @@ unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
     //msb will be 0 if value to encode < 24
-    const unsigned int msb = (static_cast<bool>(valToEncodeU64 < CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+    const unsigned int msb = (static_cast<bool>(valToEncodeU64 >= CBOR_UINT8_TYPE)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
 
     return msbToRequiredEncodingSize[msb];
 }
