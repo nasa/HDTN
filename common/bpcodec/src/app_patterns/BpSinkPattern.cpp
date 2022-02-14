@@ -225,16 +225,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             return false;
         }
 
-        if (m_hasSendCapability) { //has bidirectionality
-            if (isEcho) {
-                primary.m_destinationEid = primary.m_sourceNodeId;
-                primary.m_sourceNodeId = m_myEidEcho;
-                bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(messageSize + 10);
-                Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
-                return true;
-            }
-        }
+        
         //get previous node
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
         bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
@@ -248,11 +239,24 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                     m_lastPreviousNode = previousNodeBlockPtr->m_previousNode;
                     std::cout << "bp version 7 bundles coming in from previous node " << m_lastPreviousNode << "\n";
                 }
+                //update the previous node in case this is an echo
+                previousNodeBlockPtr->m_previousNode = m_myEidEcho;
+                blocks[0]->SetManuallyModified();
             }
             else {
                 std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed\n";
                 return false;
             }
+        }
+        else if (isEcho) { //prepend new previous node block
+            std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+            Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
+
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
+            block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+            block.m_crcType = BPV7_CRC_TYPE::CRC32C;
+            block.m_previousNode = m_myEidEcho;
+            bv.PrependMoveCanonicalBlock(blockPtr);
         }
 
         //get hop count if exists
@@ -275,10 +279,24 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                     return false;
                 }
                 ++m_hopCounts[newHopCount];
+                //update the hop count in case this is an echo
+                hopCountBlockPtr->m_hopCount = newHopCount;
+                blocks[0]->SetManuallyModified();
             }
             else {
                 std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
                 return false;
+            }
+        }
+
+        if (m_hasSendCapability) { //has bidirectionality
+            if (isEcho) {
+                primary.m_destinationEid = primary.m_sourceNodeId;
+                primary.m_sourceNodeId = m_myEidEcho;
+                bv.m_primaryBlockView.SetManuallyModified();
+                bv.Render(messageSize + 10);
+                Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
+                return true;
             }
         }
 
