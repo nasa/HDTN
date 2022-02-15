@@ -216,7 +216,30 @@ public:
     virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 };
 
+//https://datatracker.ietf.org/doc/html/rfc6259
+struct Bpv6PreviousHopInsertionCanonicalBlock : public Bpv6CanonicalBlock {
+    static constexpr uint64_t largestSerializedDataOnlySize =
+        4 + //ipn\0
+        20 + // 18446744073709551615
+        1 + // :
+        20 + // 18446744073709551615
+        1; // \0
 
+    Bpv6PreviousHopInsertionCanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv6PreviousHopInsertionCanonicalBlock(); //a destructor: ~X()
+    Bpv6PreviousHopInsertionCanonicalBlock(const Bpv6PreviousHopInsertionCanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv6PreviousHopInsertionCanonicalBlock(Bpv6PreviousHopInsertionCanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv6PreviousHopInsertionCanonicalBlock& operator=(const Bpv6PreviousHopInsertionCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv6PreviousHopInsertionCanonicalBlock& operator=(Bpv6PreviousHopInsertionCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6PreviousHopInsertionCanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv6PreviousHopInsertionCanonicalBlock & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+
+    cbhe_eid_t m_previousNode;
+};
 
 //Administrative record types
 enum class BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE : uint8_t {

@@ -382,6 +382,17 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         bv.AppendMoveCanonicalBlock(blockPtr);
     }
 
+    //add previous hop insertion
+    {
+        std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6PreviousHopInsertionCanonicalBlock>();
+        Bpv6PreviousHopInsertionCanonicalBlock & block = *(reinterpret_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blockPtr.get()));
+        //block.SetZero();
+
+        //block.m_blockProcessingControlFlags = DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED set by Bpv6PreviousHopInsertionCanonicalBlock constructor
+        block.m_previousNode.Set(550, 60000);
+        bv.AppendMoveCanonicalBlock(blockPtr);
+    }
+
     //add payload block
     {
 
@@ -417,8 +428,9 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
     BOOST_REQUIRE_EQUAL(primary.m_lifetimeSeconds, PRIMARY_LIFETIME);
     BOOST_REQUIRE_EQUAL(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primary.GetSerializationSize());
 
-    BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 2);
+    BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 3);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT), 1);
+    BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION), 1);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD), 1);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::UNUSED_11), 0);
 
@@ -452,6 +464,20 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
             BOOST_REQUIRE(cteb != cteb2Moved); //cteb2 moved
             BOOST_REQUIRE(cteb == cteb2Moved2);
         }
+    }
+
+    //get previous hop insertion
+    {
+        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION, blocks);
+        BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+        Bpv6PreviousHopInsertionCanonicalBlock* phibPtr = dynamic_cast<Bpv6PreviousHopInsertionCanonicalBlock*>(blocks[0]->headerPtr.get());
+        BOOST_REQUIRE(phibPtr);
+        BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
+        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+        BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+        BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(550, 60000));
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
     }
     
     //get payload

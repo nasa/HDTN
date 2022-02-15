@@ -11,58 +11,7 @@
 #include <stdint.h>
 #include "codec/bpv6.h"
 
-/**
-* Structure that contains information necessary for a Previous Hop extension block
-*/
-struct bpv6_prev_hop_ext_block : Bpv6CanonicalBlock {
-    char scheme[4];//we would assume "ipn"or "dtn"
-    char scheme_specific_eid[41];//using ipn scheme the max number of ascii characters in an eid would be 4+20+1+20 = "ipn:"+2^64+"." + 2^64
 
-    /**
-     * Decode a previous hop extension block. Tested with ION.
-     * @param block structure into which values should be decoded
-     * @param buffer target from which values should be read
-     * @param offset offset into target from which values should be read
-     * @param bufsz maximum size of the buffer
-     * @return currently just returns zero
-     */
-    uint8_t bpv6_prev_hop_decode(const char* buffer, const size_t block_start, const size_t offset, const size_t bufsz);
-
-    /**
-     * Dumps an ION previous hop block stdout in a human-readable fashion
-     *
-     * @param block previous hop block  which should be displayed
-     */
-    void bpv6_prev_hop_print() const;
-};
-
-/**
- * Structure that contains information necessary for a Custody Transfer Extension Block (CTEB)
- */
-struct bpv6_cust_transfer_ext_block : Bpv6CanonicalBlock {
-    uint64_t cust_id;//cteb custody id
-    uint64_t cteb_creator_node;//cteb creator EID node number (ipn scheme)
-    uint64_t cteb_creator_service;//cteb creator EID service number (ipn scheme)
-
-    /**
-    * Decode an Aggregate Custody Signal (ACS) Custody Transfer Extension Block (CTEB). Tested with bplib.
-    * There should be one CTEB per bundle using ACS. If a bundle agent does not support ACS,
-    * the CTEB can be ignored.
-    * @param block structure into which values should be decoded
-    * @param buffer target from which values should be read
-    * @param offset offset into target from which values should be read
-    * @param bufsz maximum size of the buffer
-    * @return currently just returns zero
-    */
-    uint8_t bpv6_cteb_decode(const char* buffer, const size_t block_start, const size_t offset, const size_t bufsz);
-
-    /**
-     * Dumps an ACS Custody Transfer Extension Block (CTEB) to stdout in a human-readable fashion
-     *
-     * @param block Custody Transfer Extension Block which should be displayed
-     */
-    void bpv6_cteb_print() const;
-};
 
 /**
  * Structure that contains information necessary for a Bundle Integrity Block (BIB)
