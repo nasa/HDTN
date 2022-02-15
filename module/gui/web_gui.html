@@ -204,8 +204,50 @@
 </table>
 </div>
 
+<label>IP:</label>
+<input type="text" id="id_ip" value="10.0.2.16">
+<label>Port:</label>
+<input type="text" id="id_port" value="8086">
+<button onclick="ConnectToServer()">Connect</button>
 
-<script>
+<script type="text/javascript">
+
+    function ConnectToServer(){
+        var toSend="CONNECT " + document.getElementById("id_ip").value + " " + document.getElementByID("id_port").value;
+        console.log(toSend);
+        connection.send(toSend);
+    }
+
+    window.addEventListener("load", function(event){
+        if(!("WebSocket" in window)){
+            alert("WebSocket is not supported by your Browser!");
+        }
+
+    var wsproto = (location.protocol === 'https:') ? 'wss:';
+    connection = new WebSocket(wsproto + '//' + windows.location.host + '/websocket');
+    connection.binaryType = "arraybuffer";
+
+    //When connection is established
+    connection.onopen = function(){
+        console.log("ws opened");
+    }
+
+    //When connection is closed
+    connection.onclose = function(){
+        console.log("ws closed");
+    }
+
+    //When cliente receives data from server
+    connection.onmessage = function(e){
+        console.log("rcvd");
+        //if binary data
+        if(e.data instanceof ArrayBuffer){
+            var dv = new DataView(e.data);
+        }
+        //else this is text data
+        else{
+            var obj = JSON.pars(e.data); //could error based on encodings
+        }
 
     var rate_data = [{
         x: [1, 2, 3, 4],

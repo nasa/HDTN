@@ -29,7 +29,7 @@ add_library(bp_app_patterns_lib STATIC
         src/app_patterns/BpSourcePattern.cpp
 		src/app_patterns/BpSinkPattern.cpp
 )
-target_link_libraries(bp_app_patterns_lib bpcodec hdtn_util outduct_manager_lib induct_manager_lib ${pthread_LIB} ${Boost_LIBRARIES})
+target_link_libraries(bp_app_patterns_lib bpcodec hdtn_util outduct_manager_lib induct_manager_lib hdtn_gui ${pthread_LIB} ${Boost_LIBRARIES})
 target_include_directories(bp_app_patterns_lib PUBLIC include ${Boost_INCLUDE_DIRS})
 
 add_subdirectory(apps)
