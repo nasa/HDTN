@@ -8,18 +8,18 @@
 #include "codec/bpv7.h"
 
 
-static void CreatePrimaryV6(bpv6_primary_block & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
+static void CreatePrimaryV6(Bpv6CbhePrimaryBlock & p, const cbhe_eid_t & srcEid, const cbhe_eid_t & destEid, bool reqCustody, uint64_t creation, uint64_t sequence) {
     
-    p.flags = 0;
+    p.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::NO_FLAGS_SET;
     if (reqCustody) {
-        p.flags |= BPV6_BUNDLEFLAG_CUSTODY;
+        p.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
     }
-    p.block_length = 1000;
-    p.creation = creation;
-    p.sequence = sequence;
-    p.lifetime = 1000;
-    p.fragment_offset = 0;
-    p.data_length = 0;
+    p.m_blockLength = 1000;
+    p.m_creationTimestamp.secondsSinceStartOfYear2000 = creation;
+    p.m_creationTimestamp.sequenceNumber = sequence;
+    p.m_lifetimeSeconds = 1000;
+    p.m_fragmentOffset = 0;
+    p.m_totalApplicationDataUnitLength = 0;
 
     p.m_destinationEid = destEid;
     p.m_sourceNodeId = srcEid;
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageCatalogTestCase)
     //standard usage, same expiry, different sequence numbers
     for(unsigned int whichBundleVersion = 6; whichBundleVersion <= 7; ++whichBundleVersion) {
         BundleStorageCatalog bsc;
-        std::vector<bpv6_primary_block> primariesV6;
+        std::vector<Bpv6CbhePrimaryBlock> primariesV6;
         std::vector<Bpv7CbhePrimaryBlock> primariesV7;
         std::vector<PrimaryBlock*> primaries;
         std::vector<catalog_entry_t> catalogEntryCopiesForVerification;

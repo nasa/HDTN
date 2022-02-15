@@ -130,14 +130,14 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             std::cerr << "malformed bundle\n";
             return false;
         }
-        bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         const cbhe_eid_t finalDestEid(primary.m_destinationEid);
         const cbhe_eid_t srcEid(primary.m_sourceNodeId);
 
 
 
-        static constexpr uint64_t requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG_SINGLETON;
-        const bool isEcho = (((primary.flags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
+        static constexpr BPV6_BUNDLEFLAG requiredPrimaryFlagsForEcho = BPV6_BUNDLEFLAG::SINGLETON;
+        const bool isEcho = (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForEcho) == requiredPrimaryFlagsForEcho) && (finalDestEid == m_myEidEcho));
         if (isEcho && (!m_hasSendCapability)) {
             std::cout << "a ping request was received but this bpsinkpattern does not have send capability.. ignoring bundle\n";
             return false;
@@ -150,7 +150,7 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
 
         //accept custody
         if (m_hasSendCapability) { //has bidirectionality
-            static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
+            static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
 
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
@@ -160,23 +160,22 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                 Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
                 return true;
             }
-            else if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+            else if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
                 const uint64_t newCtebCustodyId = m_nextCtebCustodyId++;
-                bpv6_primary_block primaryForCustodySignalRfc5050;
                 m_mutexCtm.lock();
                 const bool successfullyProcessedCustody = m_custodyTransferManagerPtr->ProcessCustodyOfBundle(bv, true,
                     newCtebCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-                    m_bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050);
+                    m_custodySignalRfc5050RenderedBundleView);
                 m_mutexCtm.unlock();
                 if (!successfullyProcessedCustody) {
                     std::cerr << "error unable to process custody\n";
                     return false;
                 }
                 else {
-                    if (!m_bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
+                    if (m_custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
                         //send a classic rfc5050 custody signal due to acs disabled or bundle received has an invalid cteb
-                        const cbhe_eid_t & custodySignalDestEid = primaryForCustodySignalRfc5050.m_destinationEid;
-                        Forward_ThreadSafe(custodySignalDestEid, m_bufferSpaceForCustodySignalRfc5050SerializedBundle);
+                        const cbhe_eid_t & custodySignalDestEid = m_custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_destinationEid;
+                        Forward_ThreadSafe(custodySignalDestEid, m_custodySignalRfc5050RenderedBundleView.m_frontBuffer);
                     }
                     else if (m_custodyTransferManagerPtr->GetLargestNumberOfFills() > 100) {
                         boost::asio::post(m_ioService, boost::bind(&BpSinkPattern::SendAcsFromTimerThread, this));
@@ -186,18 +185,17 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
         }
 
         std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         if (blocks.size() != 1) {
             std::cerr << "error payload block not found\n";
             return false;
         }
-        bpv6_canonical_block & payloadBlock = blocks[0]->header;
-        m_totalPayloadBytesRx += payloadBlock.length;
+        Bpv6CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
+        m_totalPayloadBytesRx += payloadBlock.m_blockTypeSpecificDataLength;
         m_totalBundleBytesRx += messageSize;
         ++m_totalBundlesVersion6Rx;
 
-        boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
-        if (!ProcessPayload((const uint8_t *)blockBodyBuffer.data(), blockBodyBuffer.size())) {
+        if (!ProcessPayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
             std::cerr << "error ProcessPayload\n";
             return false;
         }
@@ -227,19 +225,10 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             return false;
         }
 
-        if (m_hasSendCapability) { //has bidirectionality
-            if (isEcho) {
-                primary.m_destinationEid = primary.m_sourceNodeId;
-                primary.m_sourceNodeId = m_myEidEcho;
-                bv.m_primaryBlockView.SetManuallyModified();
-                bv.Render(messageSize + 10);
-                Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
-                return true;
-            }
-        }
+        
         //get previous node
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PREVIOUS_NODE, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
         if (blocks.size() > 1) {
             std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple previous node blocks\n";
             return false;
@@ -250,15 +239,28 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                     m_lastPreviousNode = previousNodeBlockPtr->m_previousNode;
                     std::cout << "bp version 7 bundles coming in from previous node " << m_lastPreviousNode << "\n";
                 }
+                //update the previous node in case this is an echo
+                previousNodeBlockPtr->m_previousNode = m_myEidEcho;
+                blocks[0]->SetManuallyModified();
             }
             else {
                 std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed\n";
                 return false;
             }
         }
+        else if (isEcho) { //prepend new previous node block
+            std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+            Bpv7PreviousNodeCanonicalBlock & block = *(reinterpret_cast<Bpv7PreviousNodeCanonicalBlock*>(blockPtr.get()));
+
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
+            block.m_blockNumber = bv.GetNextFreeCanonicalBlockNumber();
+            block.m_crcType = BPV7_CRC_TYPE::CRC32C;
+            block.m_previousNode = m_myEidEcho;
+            bv.PrependMoveCanonicalBlock(blockPtr);
+        }
 
         //get hop count if exists
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_HOP_COUNT, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT, blocks);
         if (blocks.size() > 1) {
             std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple hop count blocks\n";
             return false;
@@ -277,6 +279,9 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
                     return false;
                 }
                 ++m_hopCounts[newHopCount];
+                //update the hop count in case this is an echo
+                hopCountBlockPtr->m_hopCount = newHopCount;
+                blocks[0]->SetManuallyModified();
             }
             else {
                 std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
@@ -284,8 +289,19 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
         }
 
+        if (m_hasSendCapability) { //has bidirectionality
+            if (isEcho) {
+                primary.m_destinationEid = primary.m_sourceNodeId;
+                primary.m_sourceNodeId = m_myEidEcho;
+                bv.m_primaryBlockView.SetManuallyModified();
+                bv.Render(messageSize + 10);
+                Forward_ThreadSafe(srcEid, bv.m_frontBuffer); //srcEid is the new destination
+                return true;
+            }
+        }
+
         //get payload block
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
 
         if (blocks.size() != 1) {
             std::cerr << "error payload block not found\n";
@@ -358,17 +374,15 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
 
 void BpSinkPattern::SendAcsFromTimerThread() {
     //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
-    std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
+    std::list<BundleViewV6> newAcsRenderedBundleViewList;
     m_mutexCtm.lock();
-    const bool generatedSuccessfully = m_custodyTransferManagerPtr->GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList);
+    const bool generatedSuccessfully = m_custodyTransferManagerPtr->GenerateAllAcsBundlesAndClear(newAcsRenderedBundleViewList);
     m_mutexCtm.unlock();
     if (generatedSuccessfully) {
-        for (std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
-            it != serializedPrimariesAndBundlesList.end(); ++it)
-        {
+        for (std::list<BundleViewV6>::iterator it = newAcsRenderedBundleViewList.begin(); it != newAcsRenderedBundleViewList.end(); ++it) {
             //send an acs custody signal due to acs send timer
-            const cbhe_eid_t & custodySignalDestEid = it->first.m_destinationEid;
-            Forward_ThreadSafe(custodySignalDestEid, it->second);
+            const cbhe_eid_t & custodySignalDestEid = it->m_primaryBlockView.header.m_destinationEid;
+            Forward_ThreadSafe(custodySignalDestEid, it->m_frontBuffer);
         }
     }
 }

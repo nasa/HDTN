@@ -82,12 +82,12 @@ void Bpv7CanonicalBlock::SetZero() {
     //memset(this, 0, sizeof(*this)); //bad, clears vtable ptr
     m_blockNumber = 0;
     m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
-    m_dataPtr = 0;
+    m_dataPtr = NULL;
     m_dataLength = 0;
     m_computedCrc32 = 0;
     m_computedCrc16 = 0;
-    m_blockTypeCode = 0;
-    m_crcType = 0;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIMARY_IMPLICIT_ZERO;
+    m_crcType = BPV7_CRC_TYPE::NONE;
 }
 
 
@@ -99,7 +99,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //"canonical" blocks) SHALL be represented as a CBOR array; the number
     //of elements in the array SHALL be 5 (if CRC type is zero) or 6
     //(otherwise).
-    const bool hasCrc = (m_crcType != 0);
+    const bool hasCrc = (m_crcType != BPV7_CRC_TYPE::NONE);
     const uint8_t cborArraySize = 5 + hasCrc;
     *serialization++ = (4U << 5) | cborArraySize; //major type 4, additional information [5..6]
     
@@ -112,7 +112,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //this specification.  Block type codes 192 through 255 are not
     //reserved and are available for private and/or experimental use.
     //All other block type code values are reserved for future use.
-    serialization += CborEncodeU64BufSize9(serialization, m_blockTypeCode);
+    serialization += CborEncodeU64BufSize9(serialization, static_cast<uint64_t>(m_blockTypeCode));
 
     //Block number, an unsigned integer as discussed in 4.1 above.
     //Block number SHALL be represented as a CBOR unsigned integer.
@@ -140,7 +140,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     //
     //CRC type SHALL be represented as a CBOR unsigned integer.
     //(cbor uint's < 24 are the value itself)
-    *serialization++ = m_crcType;
+    *serialization++ = static_cast<uint8_t>(m_crcType);
     
     //Block-type-specific data represented as a single definite-
     //length CBOR byte string, i.e., a CBOR byte string that is not
@@ -178,7 +178,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
         //itself, which for this purpose SHALL be temporarily populated
         //with all bytes set to zero.
         uint8_t * const crcStartPtr = serialization;
-        if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        if (m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
             serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             if (doCrcComputation) {
@@ -188,7 +188,7 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
             }
             return blockSerializedLength;
         }
-        else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        else if (m_crcType == BPV7_CRC_TYPE::CRC32C) {
             serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
             const uint64_t blockSerializedLength = serialization - serializationBase;
             if (doCrcComputation) {
@@ -211,30 +211,31 @@ uint64_t Bpv7CanonicalBlock::SerializeBpv7(uint8_t * serialization) {
 }
 
 uint64_t Bpv7CanonicalBlock::GetSerializationSize() const {
-    return Bpv7CanonicalBlock::GetSerializationSize(m_dataLength);
-}
-uint64_t Bpv7CanonicalBlock::GetSerializationSize(const uint64_t dataLength) const {
     uint64_t serializationSize = 2; //cbor byte (major type 4, additional information [5..6]) plus crcType
-    serializationSize += CborGetEncodingSizeU64(m_blockTypeCode);
+    serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockTypeCode));
     serializationSize += CborGetEncodingSizeU64(m_blockNumber);
     serializationSize += CborGetEncodingSizeU64(static_cast<uint64_t>(m_blockProcessingControlFlags));
-    serializationSize += CborGetEncodingSizeU64(dataLength);
-    serializationSize += dataLength; //todo safety check on data length
+    const uint64_t canonicalBlockTypeSpecificDataSerializationSize = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    serializationSize += CborGetEncodingSizeU64(canonicalBlockTypeSpecificDataSerializationSize);
+    serializationSize += canonicalBlockTypeSpecificDataSerializationSize; //todo safety check on data length
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };
-    serializationSize += CRC_TYPE_TO_SIZE[m_crcType & 3];
+    serializationSize += CRC_TYPE_TO_SIZE[(static_cast<uint8_t>(m_crcType)) & 3];
     return serializationSize;
+}
+uint64_t Bpv7CanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
+    return m_dataLength;
 }
 
 void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized) {
 
-    if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+    if (m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
         uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 3U);
         Bpv7Crc::SerializeZeroedCrc16ForBpv7(crcStartPtr);
         m_computedCrc32 = 0;
         m_computedCrc16 = Bpv7Crc::Crc16_X25_Unaligned(serializationBase, sizeSerialized);
         Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16);
     }
-    else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+    else if (m_crcType == BPV7_CRC_TYPE::CRC32C) {
         uint8_t * const crcStartPtr = serializationBase + (sizeSerialized - 5U);
         Bpv7Crc::SerializeZeroedCrc32ForBpv7(crcStartPtr);
         m_computedCrc16 = 0;
@@ -244,10 +245,11 @@ void Bpv7CanonicalBlock::RecomputeCrcAfterDataModification(uint8_t * serializati
 }
 
 //serialization must be temporarily modifyable to zero crc and restore it
-bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify) {
+bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization, uint64_t & numBytesTakenToDecode,
+    uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord)
+{
     uint8_t cborSizeDecoded;
     const uint8_t * const serializationBase = serialization;
-
     if (bufferSize < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
         return false;
     }
@@ -275,33 +277,40 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //this specification.  Block type codes 192 through 255 are not
     //reserved and are available for private and/or experimental use.
     //All other block type code values are reserved for future use.
-    const uint8_t blockTypeCode = static_cast<uint8_t>(CborDecodeU64(serialization, &cborSizeDecoded, bufferSize));
+    const BPV7_BLOCK_TYPE_CODE blockTypeCode = static_cast<BPV7_BLOCK_TYPE_CODE>(CborDecodeU64(serialization, &cborSizeDecoded, bufferSize));
     if ((cborSizeDecoded == 0) || (cborSizeDecoded > 2)) { //uint8_t should be size 1 or 2 encoded bytes
         return false; //failure
     }
     serialization += cborSizeDecoded;
     bufferSize -= cborSizeDecoded;
-
-    switch (blockTypeCode) {
-        case BPV7_BLOCKTYPE_PREVIOUS_NODE:
-            canonicalPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
-            break;
-        case BPV7_BLOCKTYPE_BUNDLE_AGE:
-            canonicalPtr = boost::make_unique<Bpv7BundleAgeCanonicalBlock>();
-            break;
-        case BPV7_BLOCKTYPE_HOP_COUNT:
-            canonicalPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
-            break;
-        case BPV7_BLOCKTYPE_BLOCK_INTEGRITY:
-            canonicalPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
-            break;
-        case BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY:
-            canonicalPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
-            break;
-        //case BPV7_BLOCKTYPE_PAYLOAD:
-        default:
-            canonicalPtr = boost::make_unique<Bpv7CanonicalBlock>();
-            break;
+    if (isAdminRecord) {
+        if (blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //admin records always go into a payload block
+            return false;
+        }
+        canonicalPtr = boost::make_unique<Bpv7AdministrativeRecord>();
+    }
+    else {
+        switch (blockTypeCode) {
+            case BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE:
+                canonicalPtr = boost::make_unique<Bpv7PreviousNodeCanonicalBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE:
+                canonicalPtr = boost::make_unique<Bpv7BundleAgeCanonicalBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::HOP_COUNT:
+                canonicalPtr = boost::make_unique<Bpv7HopCountCanonicalBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::INTEGRITY:
+                canonicalPtr = boost::make_unique<Bpv7BlockIntegrityBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY:
+                canonicalPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
+                break;
+            case BPV7_BLOCK_TYPE_CODE::PAYLOAD:
+            default:
+                canonicalPtr = boost::make_unique<Bpv7CanonicalBlock>();
+                break;
+        }
     }
     canonicalPtr->m_blockTypeCode = blockTypeCode;
 
@@ -341,14 +350,14 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //
     //CRC type SHALL be represented as a CBOR unsigned integer.
     //(cbor uint's < 24 are the value itself)
-    if (bufferSize < 2) { //for crcType and byteStringHeader
+    if (bufferSize < 2) { //for crcType and [potentialTag24 or byteStringHeader]
         return false;
     }
-    canonicalPtr->m_crcType = *serialization++;
+    canonicalPtr->m_crcType = static_cast<BPV7_CRC_TYPE>(*serialization++);
     --bufferSize;
 
     //verify cbor array size
-    const bool hasCrc = (canonicalPtr->m_crcType != 0);
+    const bool hasCrc = (canonicalPtr->m_crcType != BPV7_CRC_TYPE::NONE);
     const uint8_t expectedCborArraySize = 5 + hasCrc;
     if (expectedCborArraySize != cborArraySize) {
         return false; //failure
@@ -366,6 +375,28 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
     //termed the "payload", SHALL be an application data unit, or
     //some contiguous extent thereof, represented as a definite-
     //length CBOR byte string.
+    //block-type-specific-data = bstr / #6.24(bstr)
+    //; Actual CBOR data embedded in a bytestring, with optional tag to
+    //indicate so.
+    //; Additional plain bstr allows ciphertext data.
+    //3.4.5.1.  Encoded CBOR Data Item
+    //Sometimes it is beneficial to carry an embedded CBOR data item that
+    //is not meant to be decoded immediately at the time the enclosing data
+    //item is being decoded.  Tag number 24 (CBOR data item) can be used to
+    //tag the embedded byte string as a single data item encoded in CBOR
+    //format.  Contained items that aren't byte strings are invalid.  A
+    //contained byte string is valid if it encodes a well-formed CBOR data
+    //item; validity checking of the decoded CBOR item is not required for
+    //tag validity (but could be offered by a generic decoder as a special
+    //option).
+    const uint8_t potentialTag24 = *serialization;
+    if (potentialTag24 == ((6U << 5) | 24U)) { //major type 6, additional information 24 (Tag number 24 (CBOR data item))
+        ++serialization;
+        --bufferSize;
+        if (bufferSize < 1) { //forbyteStringHeader
+            return false;
+        }
+    }
     uint8_t * const byteStringHeaderStartPtr = serialization; //buffer size verified above
     const uint8_t cborMajorTypeByteString = (*byteStringHeaderStartPtr) >> 5;
     if (cborMajorTypeByteString != 2) {
@@ -397,7 +428,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
         //with all bytes set to zero.
         bufferSize -= canonicalPtr->m_dataLength; //only need to do this if hasCrc
         uint8_t * const crcStartPtr = serialization;
-        if (canonicalPtr->m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        if (canonicalPtr->m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
             canonicalPtr->m_computedCrc32 = 0;
             if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, canonicalPtr->m_computedCrc16))) {
                 return false;
@@ -423,7 +454,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
                 return false;
             }
         }
-        else if (canonicalPtr->m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        else if (canonicalPtr->m_crcType == BPV7_CRC_TYPE::CRC32C) {
             canonicalPtr->m_computedCrc16 = 0;
             if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, canonicalPtr->m_computedCrc32))) {
                 return false;

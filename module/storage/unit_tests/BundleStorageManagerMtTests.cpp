@@ -13,6 +13,7 @@
 #include "Environment.h"
 #include "Sdnv.h"
 #include "codec/BundleViewV7.h"
+#include "codec/BundleViewV6.h"
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
@@ -21,40 +22,35 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 //static const uint64_t PRIMARY_TIME = 1000;
 //static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
-static bool GenerateBundle(std::vector<uint8_t> & bundle, const bpv6_primary_block & primary, const uint64_t targetBundleSize, uint8_t startChar) {
-    bundle.resize(targetBundleSize + 1000);
-    uint8_t * buffer = &bundle[0];
-    uint64_t payloadSize = targetBundleSize;
-    uint8_t * const serializationBase = buffer;
-    
-    
-    bpv6_canonical_block block;
-    block.SetZero();
+static bool GenerateBundle(std::vector<uint8_t> & bundle, const Bpv6CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
+    BundleViewV6 bv;
+    bv.m_primaryBlockView.header = primary;
+    bv.m_primaryBlockView.SetManuallyModified();
+    const uint64_t primarySize = primary.GetSerializationSize();
+    uint64_t targetBlockTypeSpecificDataLength = targetBundleSize - (primarySize + 2);
+    targetBlockTypeSpecificDataLength -= SdnvGetNumBytesRequiredToEncode(targetBlockTypeSpecificDataLength);
+    std::vector<uint8_t> payloadData(targetBlockTypeSpecificDataLength);
+    for (uint64_t i = 0; i < payloadData.size(); ++i) {
+        payloadData[i] = startChar++;
+    }
+    //add payload block
+    {
+        std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CanonicalBlock>();
+        Bpv6CanonicalBlock & block = *blockPtr;
 
-    
-    uint64_t retVal;
-    retVal = primary.SerializeBpv6(buffer);
-    BOOST_REQUIRE_GT(retVal, 0);
-    buffer += retVal;
-    payloadSize -= retVal;
+        block.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
+        block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+        block.m_blockTypeSpecificDataLength = targetBlockTypeSpecificDataLength;
+        block.m_blockTypeSpecificDataPtr = payloadData.data(); //payloadString must remain in scope until after render
+        uint64_t canonicalSize = block.GetSerializationSize();
+        bv.AppendMoveCanonicalBlock(blockPtr);
 
-    block.type = BPV6_BLOCKTYPE_PAYLOAD;
-    block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
-    payloadSize -= 2;
-    payloadSize -= SdnvGetNumBytesRequiredToEncode(payloadSize - 1); //as close as possible
-    block.length = payloadSize;
-
-    retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, 0);
-    BOOST_REQUIRE_GT(retVal, 0);
-    buffer += retVal;
-    for (uint64_t i = 0; i < payloadSize; ++i) {
-        *buffer++ = startChar++;
     }
 
-    const uint64_t bundleSize = buffer - serializationBase;
-    BOOST_REQUIRE_GT(bundle.size(), bundleSize);
-    bundle.resize(bundleSize);
-    return (targetBundleSize == bundleSize);
+    BOOST_REQUIRE(bv.Render(targetBundleSize + 1000));
+    //std::cout << "targetBundleSize " << targetBundleSize << " actual " << bv.m_frontBuffer.size() << "\n";
+    bundle = std::move(bv.m_frontBuffer);
+    return (targetBundleSize == bundle.size());
 }
 
 static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimaryBlock & primary, const uint64_t targetBundleSize, uint8_t startChar) {
@@ -69,10 +65,10 @@ static bool GenerateBundleV7(std::vector<uint8_t> & bundle, const Bpv7CbhePrimar
         std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7CanonicalBlock>();
         Bpv7CanonicalBlock & block = *blockPtr;
 
-        block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+        block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
         block.m_blockNumber = 1; //must be 1
-        block.m_crcType = BPV7_CRC_TYPE_CRC32C;
+        block.m_crcType = BPV7_CRC_TYPE::CRC32C;
         block.m_dataLength = payloadData.size();
         block.m_dataPtr = (uint8_t*)payloadData.data(); //payloadString must remain in scope until after render
         bv.AppendMoveCanonicalBlock(blockPtr);
@@ -174,19 +170,21 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
             }
             const unsigned int linkId = distLinkId(gen);
             const unsigned int priorityIndex = distPriorityIndex(gen);
+            static const BPV6_BUNDLEFLAG priorityBundleFlags[4] = {
+                BPV6_BUNDLEFLAG::PRIORITY_BULK, BPV6_BUNDLEFLAG::PRIORITY_NORMAL, BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED, BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK
+            };
             const uint64_t absExpiration = distAbsExpiration(gen);
 
             BundleStorageManagerSession_WriteToDisk sessionWrite;
-            bpv6_primary_block primary;
+            Bpv6CbhePrimaryBlock primary;
             primary.SetZero();
-            primary.flags = bpv6_bundle_set_priority(priorityIndex) |
-                bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+            primary.m_bundleProcessingControlFlags = priorityBundleFlags[priorityIndex] | (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT);
             primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
             primary.m_destinationEid = DEST_LINKS[linkId];
             primary.m_custodianEid.SetZero();
-            primary.creation = 0;
-            primary.lifetime = absExpiration;
-            primary.sequence = PRIMARY_SEQ;
+            primary.m_creationTimestamp.secondsSinceStartOfYear2000 = 0;
+            primary.m_lifetimeSeconds = absExpiration;
+            primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
             //std::cout << "writing\n";
             uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
@@ -323,23 +321,25 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
                     const unsigned int linkId = (sizeI == 12) ? 1 : 0;
 
                     const unsigned int priorityIndex = distPriorityIndex(gen);
+                    static const BPV6_BUNDLEFLAG priorityBundleFlags[4] = {
+                        BPV6_BUNDLEFLAG::PRIORITY_BULK, BPV6_BUNDLEFLAG::PRIORITY_NORMAL, BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED, BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK
+                    };
                     const uint64_t absExpiration = sizeI;
 
                     BundleStorageManagerSession_WriteToDisk sessionWrite;
                     std::vector<uint8_t> bundle;
                     std::unique_ptr<PrimaryBlock> primaryBlockPtr;
                     if (whichBundleVersion == 6) {
-                        bpv6_primary_block primary;
+                        Bpv6CbhePrimaryBlock primary;
                         primary.SetZero();
-                        primary.flags = bpv6_bundle_set_priority(priorityIndex) |
-                            bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+                        primary.m_bundleProcessingControlFlags = priorityBundleFlags[priorityIndex] | (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT);
                         primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
                         primary.m_destinationEid = DEST_LINKS[linkId];
                         primary.m_custodianEid.SetZero();
-                        primary.creation = 0;
-                        primary.lifetime = absExpiration;
-                        primary.sequence = PRIMARY_SEQ;
-                        primaryBlockPtr = boost::make_unique<bpv6_primary_block>(primary);
+                        primary.m_creationTimestamp.secondsSinceStartOfYear2000 = 0;
+                        primary.m_lifetimeSeconds = absExpiration;
+                        primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
+                        primaryBlockPtr = boost::make_unique<Bpv6CbhePrimaryBlock>(primary);
                         
                         BOOST_REQUIRE(GenerateBundle(bundle, primary, targetBundleSize, static_cast<uint8_t>(sizeI)));
                     }

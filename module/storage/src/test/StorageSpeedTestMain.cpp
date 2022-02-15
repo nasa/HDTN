@@ -138,20 +138,22 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 //std::cout << "testing size " << size << "\n";
 
                 const unsigned int linkId = distLinkId(gen);
-                const unsigned int priorityIndex = distPriorityIndex(gen);
+                const unsigned int priorityIndex = distPriorityIndex(gen) & 3;
+                static const BPV6_BUNDLEFLAG priorityBundleFlags[4] = {
+                    BPV6_BUNDLEFLAG::PRIORITY_BULK, BPV6_BUNDLEFLAG::PRIORITY_NORMAL, BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED, BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK
+                };
                 const uint64_t absExpiration = distAbsExpiration(gen);
 
                 BundleStorageManagerSession_WriteToDisk sessionWrite;
-                bpv6_primary_block primary;
+                Bpv6CbhePrimaryBlock primary;
                 primary.SetZero();
-                primary.flags = bpv6_bundle_set_priority(priorityIndex) |
-                    bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+                primary.m_bundleProcessingControlFlags = priorityBundleFlags[priorityIndex] | (BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT);
                 primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
                 primary.m_destinationEid = DEST_LINKS[linkId];
                 primary.m_custodianEid.SetZero();
-                primary.creation = 0;
-                primary.lifetime = absExpiration;
-                primary.sequence = PRIMARY_SEQ;
+                primary.m_creationTimestamp.secondsSinceStartOfYear2000 = 0;
+                primary.m_lifetimeSeconds = absExpiration;
+                primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
                 boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
                 //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";

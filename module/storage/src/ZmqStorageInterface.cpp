@@ -179,10 +179,8 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
 }
 
 static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & custodyIdAllocator,
-    std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle)
+    const Bpv6CbhePrimaryBlock & primary, const std::vector<uint8_t> & acsBundleSerialized)
 {
-    const bpv6_primary_block & primary = primaryPlusSerializedBundle.first;
-    const std::vector<uint8_t> & acsBundleSerialized = primaryPlusSerializedBundle.second;
     const cbhe_eid_t & hdtnSrcEid = primary.m_sourceNodeId;
     const uint64_t newCustodyIdForAcsCustodySignal = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
@@ -211,7 +209,7 @@ static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & 
 static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     CustodyIdAllocator & custodyIdAllocator, CustodyTransferManager & ctm,
     CustodyTimers & custodyTimers,
-    std::vector<uint8_t> & bufferSpaceForCustodySignalRfc5050SerializedBundle,
+    BundleViewV6 & custodySignalRfc5050RenderedBundleView,
     cbhe_eid_t & finalDestEidReturned, ZmqStorageInterface * forStats)
 {
     
@@ -221,37 +219,39 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
     if (isBpVersion6) {
         BundleViewV6 bv;
-        if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), true)) { //invalid bundle
+        if (!bv.LoadBundle((uint8_t *)message->data(), message->size())) { //invalid bundle
             std::cerr << "malformed bundle\n";
             return false;
         }
-        const bpv6_primary_block & primary = bv.m_primaryBlockView.header;
+        const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEidReturned = primary.m_destinationEid;
         
 
         //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
-        const uint64_t requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-        if (((primary.flags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == forStats->M_HDTN_EID_CUSTODY)) {
-            if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
-                std::cerr << "error admin record has canonical block\n";
+        static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
+        if (((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForAdminRecord) == requiredPrimaryFlagsForAdminRecord) && (finalDestEidReturned == forStats->M_HDTN_EID_CUSTODY)) {
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            if (blocks.size() != 1) {
+                std::cerr << "error admin record does not have a payload block\n";
                 return false;
             }
-            if (bv.m_applicationDataUnitStartPtr == NULL) { //admin record is not canonical
-                std::cerr << "error null application data unit\n";
+            Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+            if (adminRecordBlockPtr == NULL) {
+                std::cerr << "error null Bpv6AdministrativeRecord\n";
                 return false;
             }
-            const uint8_t adminRecordType = (*bv.m_applicationDataUnitStartPtr >> 4);
-            //std::cerr << "***bv.mapplicationDataUnit " << static_cast<int>(*bv.m_applicationDataUnitStartPtr)  << std::endl;
-            //std::cerr << " ***Admin Record type: " << static_cast<int>(adminRecordType) << std::endl;
-
-            if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::AGGREGATE_CUSTODY_SIGNAL)) {
+            const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+            
+            if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
                 ++forStats->m_numAcsPacketsReceived;
                 //check acs
-                AggregateCustodySignal acs;
-                if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_renderedBundle.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
-                    std::cerr << "malformed ACS\n";
+                Bpv6AdministrativeRecordContentAggregateCustodySignal * acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                if (acsPtr == NULL) {
+                    std::cerr << "error null AggregateCustodySignal\n";
                     return false;
                 }
+                Bpv6AdministrativeRecordContentAggregateCustodySignal & acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
                 if (!acs.DidCustodyTransferSucceed()) {
                     std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode()) << "\n";
                     return false;
@@ -278,15 +278,16 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                     }
                 }
             }
-            else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
-                CustodySignal cs;
-                uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
-                if (numBytesTakenToDecode == 0) {
-                    std::cerr << "malformed CustodySignal\n";
+            else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
+                //check acs
+                Bpv6AdministrativeRecordContentCustodySignal * csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                if (csPtr == NULL) {
+                    std::cerr << "error null CustodySignal\n";
                     return false;
                 }
+                Bpv6AdministrativeRecordContentCustodySignal & cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
                 if (!cs.DidCustodyTransferSucceed()) {
-                    std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(cs.GetReasonCode()) << "\n";
+                    std::cerr << "custody transfer failed with reason code " << cs.GetReasonCode() << "\n";
                     return false;
                 }
                 uint64_t * custodyIdPtr;
@@ -296,8 +297,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         std::cerr << "error custody signal with bad ipn string\n";
                         return false;
                     }
-                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-                    uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+                    uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
                     uuid.fragmentOffset = cs.m_fragmentOffsetIfPresent;
                     uuid.dataLength = cs.m_fragmentLengthIfPresent;
                     custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
@@ -308,8 +309,8 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         std::cerr << "error custody signal with bad ipn string\n";
                         return false;
                     }
-                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-                    uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
+                    uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+                    uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
                     //std::cout << "uuid: " << "cs " << uuid.creationSeconds << "  seq " << uuid.sequence << "  " << uuid.srcEid.nodeId << "," << uuid.srcEid.serviceId << std::endl;
                     custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
                 }
@@ -343,24 +344,25 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 
         //write non admin records to disk (unless newly generated below)
         const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
-        static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_CUSTODY;
-        if ((primary.flags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
-            bpv6_primary_block primaryForCustodySignalRfc5050;
+        static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
+        if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
             if (!ctm.ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
-                bufferSpaceForCustodySignalRfc5050SerializedBundle, primaryForCustodySignalRfc5050)) {
+                custodySignalRfc5050RenderedBundleView)) {
                 std::cerr << "error unable to process custody\n";
             }
             else if (!bv.Render(message->size() + 200)) { //hdtn modifies bundle for next hop
                 std::cerr << "error unable to render new bundle\n";
             }
             else {
-                if (!bufferSpaceForCustodySignalRfc5050SerializedBundle.empty()) {
-                    const cbhe_eid_t & hdtnSrcEid = primaryForCustodySignalRfc5050.m_sourceNodeId;
+                if (custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
+                    const cbhe_eid_t & hdtnSrcEid = custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header.m_sourceNodeId;
                     const uint64_t newCustodyIdFor5050CustodySignal = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(hdtnSrcEid);
 
                     //write custody signal to disk
                     BundleStorageManagerSession_WriteToDisk sessionWrite;
-                    const uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primaryForCustodySignalRfc5050, bufferSpaceForCustodySignalRfc5050SerializedBundle.size());
+                    const uint64_t totalSegmentsRequired = bsm.Push(sessionWrite,
+                        custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
+                        custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
                     //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
                     if (totalSegmentsRequired == 0) {
                         const std::string msg = "out of space for custody signal";
@@ -369,10 +371,11 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         return false;
                     }
 
-                    const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primaryForCustodySignalRfc5050,
-                        newCustodyIdFor5050CustodySignal, bufferSpaceForCustodySignalRfc5050SerializedBundle.data(), bufferSpaceForCustodySignalRfc5050SerializedBundle.size());
-                    if (totalBytesPushed != bufferSpaceForCustodySignalRfc5050SerializedBundle.size()) {
-                        const std::string msg = "totalBytesPushed != bufferSpaceForCustodySignalRfc5050SerializedBundle.size";
+                    const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
+                        newCustodyIdFor5050CustodySignal, (const uint8_t*)custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
+                        custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
+                    if (totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
+                        const std::string msg = "totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()";
                         std::cerr << msg << "\n";
                         hdtn::Logger::getInstance()->logError("storage", msg);
                         return false;
@@ -556,8 +559,9 @@ static void PrintReleasedLinks(const std::set<eid_plus_isanyserviceid_pair_t> & 
 
 void ZmqStorageInterface::ThreadFunc() {
     BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse this due to expensive heap allocation
-    std::vector<uint8_t> bufferSpaceForCustodySignalRfc5050SerializedBundle;
-    bufferSpaceForCustodySignalRfc5050SerializedBundle.reserve(2000);
+    BundleViewV6 custodySignalRfc5050RenderedBundleView;
+    custodySignalRfc5050RenderedBundleView.m_frontBuffer.reserve(2000);
+    custodySignalRfc5050RenderedBundleView.m_backBuffer.reserve(2000);
     CustodyIdAllocator custodyIdAllocator;
     CustodyTimers custodyTimers(boost::posix_time::milliseconds(m_hdtnConfig.m_retransmitBundleAfterNoCustodySignalMilliseconds));
     const bool IS_HDTN_ACS_AWARE = m_hdtnConfig.m_isAcsAware;
@@ -724,7 +728,7 @@ void ZmqStorageInterface::ThreadFunc() {
                 storageStats.inBytes += zmqBundleDataReceived.size();
                 
                 cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, bufferSpaceForCustodySignalRfc5050SerializedBundle, finalDestEidReturnedFromWrite, this);
+                Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this);
 
                 //send ack message to ingress
                 //force natural/64-bit alignment
@@ -822,12 +826,10 @@ void ZmqStorageInterface::ThreadFunc() {
         if ((acsSendNowExpiry <= nowPtime) || (ctm.GetLargestNumberOfFills() > ACS_MAX_FILLS_PER_ACS_PACKET)) {
             //std::cout << "send acs, fills = " << ctm.GetLargestNumberOfFills() << "\n";
             //test with generate all
-            std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > serializedPrimariesAndBundlesList;
-            if (ctm.GenerateAllAcsBundlesAndClear(serializedPrimariesAndBundlesList)) {
-                for(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > >::iterator it = serializedPrimariesAndBundlesList.begin();
-                    it != serializedPrimariesAndBundlesList.end(); ++it)
-                {
-                    WriteAcsBundle(bsm, custodyIdAllocator, *it);
+            std::list<BundleViewV6> newAcsRenderedBundleViewList;
+            if (ctm.GenerateAllAcsBundlesAndClear(newAcsRenderedBundleViewList)) {
+                for(std::list<BundleViewV6>::iterator it = newAcsRenderedBundleViewList.begin(); it != newAcsRenderedBundleViewList.end(); ++it) {
+                    WriteAcsBundle(bsm, custodyIdAllocator, it->m_primaryBlockView.header, it->m_frontBuffer);
                 }
             }
             acsSendNowExpiry = nowPtime + ACS_SEND_PERIOD;

@@ -5,6 +5,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
+#include <algorithm>
 #ifdef USE_X86_HARDWARE_ACCELERATION
 #include <immintrin.h>
 #endif
@@ -28,47 +29,133 @@
 #define SDNV64_MAX_9_BYTE  ((ONE_U64 << 63U) - 1U)
 
 
-
 //return output size
-unsigned int SdnvEncodeU32(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
+unsigned int SdnvEncodeU32(uint8_t * outputEncoded, const uint32_t valToEncodeU32, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return SdnvEncodeU32Fast(outputEncoded, valToEncodeU32);
+    if (bufferSize >= 8) {
+        return SdnvEncodeU32FastBufSize8(outputEncoded, valToEncodeU32);
+    }
+    else {
+        return SdnvEncodeU32Classic(outputEncoded, valToEncodeU32, bufferSize);
+    }
 #else
-    return SdnvEncodeU32Classic(outputEncoded, valToEncodeU32);
+    return SdnvEncodeU32Classic(outputEncoded, valToEncodeU32, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
 
 }
 
 //return output size
-unsigned int SdnvEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
+unsigned int SdnvEncodeU32BufSize8(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return SdnvEncodeU64Fast(outputEncoded, valToEncodeU64);
+    return SdnvEncodeU32FastBufSize8(outputEncoded, valToEncodeU32);
 #else
-    return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64);
+    return SdnvEncodeU32ClassicBufSize5(outputEncoded, valToEncodeU32);
+#endif // USE_X86_HARDWARE_ACCELERATION
+
+}
+
+//return output size
+unsigned int SdnvEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
+#ifdef USE_X86_HARDWARE_ACCELERATION
+    if (bufferSize >= 10) {
+        return SdnvEncodeU64FastBufSize10(outputEncoded, valToEncodeU64);
+    }
+    else {
+        return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64, bufferSize);
+    }
+#else
+    return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64, bufferSize);
+#endif // USE_X86_HARDWARE_ACCELERATION
+}
+
+//return output size
+unsigned int SdnvEncodeU64BufSize10(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
+#ifdef USE_X86_HARDWARE_ACCELERATION
+    return SdnvEncodeU64FastBufSize10(outputEncoded, valToEncodeU64);
+#else
+    return SdnvEncodeU64ClassicBufSize10(outputEncoded, valToEncodeU64);
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
-uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return SdnvDecodeU32Fast(inputEncoded, numBytes);
+    if (bufferSize >= 8) {
+        return SdnvDecodeU32FastBufSize8(inputEncoded, numBytes);
+    }
+    else {
+        return SdnvDecodeU32Classic(inputEncoded, numBytes, bufferSize);
+    }
 #else
-    return SdnvDecodeU32Classic(inputEncoded, numBytes);
+    return SdnvDecodeU32Classic(inputEncoded, numBytes, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
-uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    return SdnvDecodeU64Fast(inputEncoded, numBytes);
+    if (bufferSize >= 16) {
+        return SdnvDecodeU64FastBufSize16(inputEncoded, numBytes);
+    }
+    else {
+        return SdnvDecodeU64Classic(inputEncoded, numBytes, bufferSize);
+    }
 #else
-    return SdnvDecodeU64Classic(inputEncoded, numBytes);
+    return SdnvDecodeU64Classic(inputEncoded, numBytes, bufferSize);
 #endif // USE_X86_HARDWARE_ACCELERATION
 }
 
 
 //return output size
-unsigned int SdnvEncodeU32Classic(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
+unsigned int SdnvEncodeU32Classic(uint8_t * outputEncoded, const uint32_t valToEncodeU32, const uint64_t bufferSize) {
+    if (valToEncodeU32 <= SDNV32_MAX_1_BYTE) {
+        if (bufferSize < 1) {
+            return 0;
+        }
+        outputEncoded[0] = (uint8_t)(valToEncodeU32 & 0x7f);
+        return 1;
+    }
+    else if (valToEncodeU32 <= SDNV32_MAX_2_BYTE) {
+        if (bufferSize < 2) {
+            return 0;
+        }
+        outputEncoded[1] = (uint8_t)(valToEncodeU32 & 0x7f);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU32 >> 7) & 0x7f) | 0x80);
+        return 2;
+    }
+    else if (valToEncodeU32 <= SDNV32_MAX_3_BYTE) {
+        if (bufferSize < 3) {
+            return 0;
+        }
+        outputEncoded[2] = (uint8_t)(valToEncodeU32 & 0x7f);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU32 >> 7) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU32 >> 14) & 0x7f) | 0x80);
+        return 3;
+    }
+    else if (valToEncodeU32 <= SDNV32_MAX_4_BYTE) {
+        if (bufferSize < 4) {
+            return 0;
+        }
+        outputEncoded[3] = (uint8_t)(valToEncodeU32 & 0x7f);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU32 >> 7) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU32 >> 14) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU32 >> 21) & 0x7f) | 0x80);
+        return 4;
+    }
+    else { //if(valToEncodeU32 <= SDNV_MAX_5_BYTE)
+        if (bufferSize < 5) {
+            return 0;
+        }
+        outputEncoded[4] = (uint8_t)(valToEncodeU32 & 0x7f);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU32 >> 7) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU32 >> 14) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU32 >> 21) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU32 >> 28) & 0x7f) | 0x80);
+        return 5;
+    }
+}
+//return output size
+unsigned int SdnvEncodeU32ClassicBufSize5(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
     if (valToEncodeU32 <= SDNV32_MAX_1_BYTE) {
         outputEncoded[0] = (uint8_t)(valToEncodeU32 & 0x7f);
         return 1;
@@ -102,7 +189,126 @@ unsigned int SdnvEncodeU32Classic(uint8_t * outputEncoded, const uint32_t valToE
 }
 
 //return output size
-unsigned int SdnvEncodeU64Classic(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
+unsigned int SdnvEncodeU64Classic(uint8_t * outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
+    if (valToEncodeU64 <= SDNV64_MAX_1_BYTE) {
+        if (bufferSize < 1) {
+            return 0;
+        }
+        outputEncoded[0] = (uint8_t)(valToEncodeU64 & 0x7f);
+        return 1;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_2_BYTE) {
+        if (bufferSize < 2) {
+            return 0;
+        }
+        outputEncoded[1] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        return 2;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_3_BYTE) {
+        if (bufferSize < 3) {
+            return 0;
+        }
+        outputEncoded[2] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        return 3;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_4_BYTE) {
+        if (bufferSize < 4) {
+            return 0;
+        }
+        outputEncoded[3] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        return 4;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_5_BYTE) {
+        if (bufferSize < 5) {
+            return 0;
+        }
+        outputEncoded[4] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 28) & 0x7f) | 0x80);
+        return 5;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_6_BYTE) {
+        if (bufferSize < 6) {
+            return 0;
+        }
+        outputEncoded[5] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[4] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 28) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 35) & 0x7f) | 0x80);
+        return 6;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_7_BYTE) {
+        if (bufferSize < 7) {
+            return 0;
+        }
+        outputEncoded[6] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[5] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[4] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 28) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 35) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 42) & 0x7f) | 0x80);
+        return 7;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_8_BYTE) {
+        if (bufferSize < 8) {
+            return 0;
+        }
+        outputEncoded[7] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[6] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[5] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[4] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU64 >> 28) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 35) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 42) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 49) & 0x7f) | 0x80);
+        return 8;
+    }
+    else if (valToEncodeU64 <= SDNV64_MAX_9_BYTE) {
+        if (bufferSize < 9) {
+            return 0;
+        }
+        outputEncoded[8] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[7] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[6] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[5] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        outputEncoded[4] = (uint8_t)(((valToEncodeU64 >> 28) & 0x7f) | 0x80);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU64 >> 35) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 42) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 49) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 56) & 0x7f) | 0x80);
+        return 9;
+    }
+    else { //10 byte
+        if (bufferSize < 10) {
+            return 0;
+        }
+        outputEncoded[9] = (uint8_t)(valToEncodeU64 & 0x7f);
+        outputEncoded[8] = (uint8_t)(((valToEncodeU64 >> 7) & 0x7f) | 0x80);
+        outputEncoded[7] = (uint8_t)(((valToEncodeU64 >> 14) & 0x7f) | 0x80);
+        outputEncoded[6] = (uint8_t)(((valToEncodeU64 >> 21) & 0x7f) | 0x80);
+        outputEncoded[5] = (uint8_t)(((valToEncodeU64 >> 28) & 0x7f) | 0x80);
+        outputEncoded[4] = (uint8_t)(((valToEncodeU64 >> 35) & 0x7f) | 0x80);
+        outputEncoded[3] = (uint8_t)(((valToEncodeU64 >> 42) & 0x7f) | 0x80);
+        outputEncoded[2] = (uint8_t)(((valToEncodeU64 >> 49) & 0x7f) | 0x80);
+        outputEncoded[1] = (uint8_t)(((valToEncodeU64 >> 56) & 0x7f) | 0x80);
+        outputEncoded[0] = (uint8_t)(((valToEncodeU64 >> 63) & 0x7f) | 0x80);
+        return 10;
+    }
+}
+
+//return output size
+unsigned int SdnvEncodeU64ClassicBufSize10(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
     if (valToEncodeU64 <= SDNV64_MAX_1_BYTE) {
         outputEncoded[0] = (uint8_t)(valToEncodeU64 & 0x7f);
         return 1;
@@ -192,7 +398,7 @@ unsigned int SdnvEncodeU64Classic(uint8_t * outputEncoded, const uint64_t valToE
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -200,15 +406,15 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     //   bit under the pointer is a 1, advance the index by one byte within
     //   the encoded SDNV and repeat the Recursion Step, otherwise return
     //   the current value of the result.
-
-    const uint8_t firstByte = *inputEncoded;
+    const uint8_t * const firstBytePtr = inputEncoded;
     uint32_t result = 0;
-    for (uint8_t byteCount = 1; byteCount <= 5; ++byteCount) {
+    const uint64_t byteCountMax = std::min(static_cast<uint64_t>(5), bufferSize);
+    for (uint8_t byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = ((byteCount == 5) && (firstByte > 0x8f)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT32_MAX
+            *numBytes = ((byteCount == 5) && ((*firstBytePtr) > 0x8f)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT32_MAX
             return result;
         }
     }
@@ -218,7 +424,7 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) {
+uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -226,14 +432,15 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes) 
     //   bit under the pointer is a 1, advance the index by one byte within
     //   the encoded SDNV and repeat the Recursion Step, otherwise return
     //   the current value of the result.
-    const uint8_t firstByte = *inputEncoded;
+    const uint8_t * const firstBytePtr = inputEncoded;
     uint64_t result = 0;
-    for (uint8_t byteCount = 1; byteCount <= 10; ++byteCount) {
+    const uint64_t byteCountMax = std::min(static_cast<uint64_t>(10), bufferSize);
+    for (uint8_t byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = ((byteCount == 10) && (firstByte > 0x81)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT64_MAX
+            *numBytes = ((byteCount == 10) && ((*firstBytePtr) > 0x81)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT64_MAX
             return result;
         }
     }
@@ -434,7 +641,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 */
 
 //return output size
-unsigned int SdnvEncodeU32Fast(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
+unsigned int SdnvEncodeU32FastBufSize8(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
 #if 0
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
@@ -455,7 +662,7 @@ unsigned int SdnvEncodeU32Fast(uint8_t * outputEncoded, const uint32_t valToEnco
 }
 
 //return output size
-unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
+unsigned int SdnvEncodeU64FastBufSize10(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
 
 #if 0
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
@@ -506,7 +713,7 @@ unsigned int SdnvEncodeU64Fast(uint8_t * outputEncoded, const uint64_t valToEnco
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
+uint32_t SdnvDecodeU32FastBufSize8(const uint8_t * data, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -544,7 +751,7 @@ uint32_t SdnvDecodeU32Fast(const uint8_t * data, uint8_t * numBytes) {
 
 //return decoded value (return invalid number that must be ignored on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
-uint64_t SdnvDecodeU64Fast(const uint8_t * data, uint8_t * numBytes) {
+uint64_t SdnvDecodeU64FastBufSize16(const uint8_t * data, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
     //  byte of the encoded SDNV.
     //(Recursion Step) Shift the result left 7 bits.  Add the low-order
@@ -833,10 +1040,13 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
 
 //return output size
 unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
-
+#if 0
     //critical that the compiler optimizes this instruction using cmovne instead of imul (which is what the casts to uint8_t and bool are for)
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
+#else
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 + (valToEncodeU64 == 0));
+#endif
 
     return mask0x80Indices[msb] + 1; //(msb / 7);
 }

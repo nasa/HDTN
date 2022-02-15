@@ -52,10 +52,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
     m_applicationDataUnitStartPtr = serializationPrimaryBlockBeginPtr + decodedBlockSize;
     //todo application data unit length?
     const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ADMINRECORD) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
-    if (isAdminRecord) {
-        return true;
-    }
-
+    
     if (loadPrimaryBlockOnly) {
         return true;
     }
@@ -72,14 +69,14 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
         cbv.dirty = false;
         cbv.markedForDeletion = false;
         cbv.isEncrypted = false;
-        if(!Bpv7CanonicalBlock::DeserializeBpv7(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, skipCrcVerifyInCanonicalBlocks)) {
+        if(!Bpv7CanonicalBlock::DeserializeBpv7(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, skipCrcVerifyInCanonicalBlocks, isAdminRecord)) {
             return false;
         }
         serialization += decodedBlockSize;
         bufferSize -= decodedBlockSize;
         cbv.actualSerializedBlockPtr = boost::asio::buffer(serializationThisCanonicalBlockBeginPtr, decodedBlockSize);
 
-        if (cbv.headerPtr->m_blockTypeCode == BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY) {
+        if (cbv.headerPtr->m_blockTypeCode == BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY) {
             cbv.isEncrypted = false; //bcb block is never encrypted
             if (!cbv.headerPtr->Virtual_DeserializeExtensionBlockDataBpv7()) { //requires m_dataPtr and m_dataLength to be set (done in Bpv7CanonicalBlock::DeserializeBpv7)
                 return false;
@@ -101,7 +98,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
         //the bundle MUST have exactly one payload block.  The payload block
         //SHALL be followed by a CBOR "break" stop code, terminating the
         //array.
-        if (cbv.headerPtr->m_blockTypeCode == BPV7_BLOCKTYPE_PAYLOAD) { //last block
+        if (cbv.headerPtr->m_blockTypeCode == BPV7_BLOCK_TYPE_CODE::PAYLOAD) { //last block
             if (cbv.headerPtr->m_blockNumber != 1) { //The block number of the payload block is always 1.
                 return false;
             }
@@ -126,7 +123,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
 
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         Bpv7CanonicalBlockView & cbv = *it;
-        if (cbv.headerPtr->m_blockTypeCode != BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY) { //bcbs were already processed above
+        if (cbv.headerPtr->m_blockTypeCode != BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY) { //bcbs were already processed above
             cbv.isEncrypted = (m_mapEncryptedBlockNumberToBcbPtr.count(cbv.headerPtr->m_blockNumber) != 0); //bcb block is never encrypted
             if ((!cbv.isEncrypted) && (!cbv.headerPtr->Virtual_DeserializeExtensionBlockDataBpv7())) { //requires m_dataPtr and m_dataLength to be set (done in Bpv7CanonicalBlock::DeserializeBpv7)
                 return false;
@@ -136,6 +133,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
     return true;
 }
 bool BundleViewV7::Render(const std::size_t maxBundleSizeBytes) {
+    //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     m_backBuffer.resize(maxBundleSizeBytes);
     uint64_t sizeSerialized;
     if (!Render(&m_backBuffer[0], sizeSerialized, false)) {
@@ -192,7 +190,6 @@ bool BundleViewV7::RenderInPlace(const std::size_t paddingLeft) {
     return true;
 }
 bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bool terminateBeforeLastBlock) {
-    //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     uint8_t * const serializationBase = serialization;
     *serialization++ = (4U << 5) | 31U; //major type 4, additional information 31 (Indefinite-Length Array)
     if (m_primaryBlockView.dirty) {
@@ -212,8 +209,9 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
         serialization += size;
     }
-    const bool isAdminRecordAndOrFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ADMINRECORD | BPV7_BUNDLEFLAG::ISFRAGMENT)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
-    if (isAdminRecordAndOrFragment) {
+    const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ADMINRECORD)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV7_BUNDLEFLAG::ISFRAGMENT)) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isFragment) {
         return false;
     }
     
@@ -222,7 +220,7 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         if (isLastBlock) {
-            if (it->headerPtr->m_blockTypeCode != BPV7_BLOCKTYPE_PAYLOAD) {
+            if (it->headerPtr->m_blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD) {
                 std::cerr << "error in BundleViewV7::Render: last block is not payload block\n";
                 return false;
             }
@@ -239,26 +237,26 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
                 return true;
             }
         }
-        uint64_t sizeSerialized;
+        uint64_t currentBlockSizeSerialized;
         if (it->dirty) { //always reencode canonical block if dirty
             if (it->isEncrypted) {
-                sizeSerialized = it->headerPtr->Bpv7CanonicalBlock::SerializeBpv7(serialization);
+                currentBlockSizeSerialized = it->headerPtr->Bpv7CanonicalBlock::SerializeBpv7(serialization);
             }
             else {
-                sizeSerialized = it->headerPtr->SerializeBpv7(serialization);
+                currentBlockSizeSerialized = it->headerPtr->SerializeBpv7(serialization);
             }
-            if (sizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
+            if (currentBlockSizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
                 return false;
             }
             it->dirty = false;
         }
         else {
             //std::cout << "cnd\n";
-            sizeSerialized = it->actualSerializedBlockPtr.size();
-            memcpy(serialization, it->actualSerializedBlockPtr.data(), sizeSerialized);
+            currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
+            memcpy(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
         }
-        it->actualSerializedBlockPtr = boost::asio::buffer(serialization, sizeSerialized);
-        serialization += sizeSerialized;
+        it->actualSerializedBlockPtr = boost::asio::buffer(serialization, currentBlockSizeSerialized);
+        serialization += currentBlockSizeSerialized;
     }
     *serialization++ = 0xff; //0xff is break character
     sizeSerialized = (serialization - serializationBase);
@@ -279,25 +277,25 @@ bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
     
     for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
-        if (isLastBlock && (it->headerPtr->m_blockTypeCode != BPV7_BLOCKTYPE_PAYLOAD)) {
+        if (isLastBlock && (it->headerPtr->m_blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD)) {
             std::cerr << "error in BundleViewV7::GetSerializationSize: last block is not payload block\n";
             return false;
         }
-        uint64_t sizeSerialized;
+        uint64_t currentBlockSizeSerialized;
         if (it->markedForDeletion) {
-            sizeSerialized = 0;
+            currentBlockSizeSerialized = 0;
         }
         else if (it->dirty) { //always reencode canonical block if dirty
-            sizeSerialized = it->headerPtr->GetSerializationSize();
-            if (sizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
+            currentBlockSizeSerialized = it->headerPtr->GetSerializationSize();
+            if (currentBlockSizeSerialized < Bpv7CanonicalBlock::smallestSerializedCanonicalSize) {
                 return false;
             }
         }
         else {
             //std::cout << "cnd\n";
-            sizeSerialized = it->actualSerializedBlockPtr.size();
+            currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
         }
-        serializationSize += sizeSerialized;
+        serializationSize += currentBlockSizeSerialized;
     }
     return true;
 }
@@ -341,7 +339,7 @@ bool BundleViewV7::InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv
     return false;
 }
 
-std::size_t BundleViewV7::GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const {
+std::size_t BundleViewV7::GetCanonicalBlockCountByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) const {
     std::size_t count = 0;
     for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
         count += (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
@@ -351,7 +349,7 @@ std::size_t BundleViewV7::GetCanonicalBlockCountByType(const uint8_t canonicalBl
 std::size_t BundleViewV7::GetNumCanonicalBlocks() const {
     return m_listCanonicalBlockView.size();
 }
-void BundleViewV7::GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks) {
+void BundleViewV7::GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks) {
     blocks.clear();
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         if (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode) {
@@ -369,7 +367,7 @@ uint64_t BundleViewV7::GetNextFreeCanonicalBlockNumber() const {
     }
     return largestCanonicalBlockNumber + 1;
 }
-std::size_t BundleViewV7::DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode) {
+std::size_t BundleViewV7::DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) {
     std::size_t count = 0;
     for (std::list<Bpv7CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end();) {
         if (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode) {
@@ -397,7 +395,7 @@ bool BundleViewV7::CopyAndLoadBundle(const uint8_t * bundleData, const std::size
     return Load(skipCrcVerifyInCanonicalBlocks, loadPrimaryBlockOnly);
 }
 bool BundleViewV7::IsValid() const {
-    if (GetCanonicalBlockCountByType(BPV7_BLOCKTYPE_PAYLOAD) > 1) {
+    if (GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD) > 1) {
         return false;
     }
     return true;
