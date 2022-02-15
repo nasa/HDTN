@@ -241,6 +241,26 @@ struct Bpv6PreviousHopInsertionCanonicalBlock : public Bpv6CanonicalBlock {
     cbhe_eid_t m_previousNode;
 };
 
+//https://datatracker.ietf.org/doc/html/draft-irtf-dtnrg-bundle-age-block-01
+struct Bpv6BundleAgeCanonicalBlock : public Bpv6CanonicalBlock {
+    static constexpr uint64_t largestSerializedDataOnlySize = 10; //sdnv bundle age
+
+    Bpv6BundleAgeCanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv6BundleAgeCanonicalBlock(); //a destructor: ~X()
+    Bpv6BundleAgeCanonicalBlock(const Bpv6BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
+    Bpv6BundleAgeCanonicalBlock(Bpv6BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv6BundleAgeCanonicalBlock& operator=(const Bpv6BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    Bpv6BundleAgeCanonicalBlock& operator=(Bpv6BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6BundleAgeCanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv6BundleAgeCanonicalBlock & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+
+    uint64_t m_bundleAgeMicroseconds;
+};
+
 //Administrative record types
 enum class BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE : uint8_t {
     UNUSED_ZERO              = 0,

@@ -170,6 +170,9 @@ bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & c
             case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
                 canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
                 break;
+            case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
+                canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
+                break;
             case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
             default:
                 canonicalPtr = boost::make_unique<Bpv6CanonicalBlock>();

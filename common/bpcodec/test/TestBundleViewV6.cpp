@@ -393,6 +393,17 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         bv.AppendMoveCanonicalBlock(blockPtr);
     }
 
+    //add bundle age
+    {
+        std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
+        Bpv6BundleAgeCanonicalBlock & block = *(reinterpret_cast<Bpv6BundleAgeCanonicalBlock*>(blockPtr.get()));
+        //block.SetZero();
+
+        //block.m_blockProcessingControlFlags = MUST_BE_REPLICATED_IN_EVERY_FRAGMENT set by Bpv6BundleAgeCanonicalBlock constructor
+        block.m_bundleAgeMicroseconds = 1000000;
+        bv.AppendMoveCanonicalBlock(blockPtr);
+    }
+
     //add payload block
     {
 
@@ -428,9 +439,10 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
     BOOST_REQUIRE_EQUAL(primary.m_lifetimeSeconds, PRIMARY_LIFETIME);
     BOOST_REQUIRE_EQUAL(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primary.GetSerializationSize());
 
-    BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 3);
+    BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 4);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT), 1);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION), 1);
+    BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE), 1);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD), 1);
     BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::UNUSED_11), 0);
 
@@ -476,8 +488,24 @@ BOOST_AUTO_TEST_CASE(Bpv6ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(phibPtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION);
         BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
         BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
         BOOST_REQUIRE_EQUAL(phibPtr->m_previousNode, cbhe_eid_t(550, 60000));
         BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), phibPtr->GetSerializationSize());
+    }
+
+    //get bundle age
+    {
+        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE, blocks);
+        BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+        Bpv6BundleAgeCanonicalBlock* agePtr = dynamic_cast<Bpv6BundleAgeCanonicalBlock*>(blocks[0]->headerPtr.get());
+        BOOST_REQUIRE(agePtr);
+        BOOST_REQUIRE_EQUAL(agePtr->m_blockTypeCode, BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE);
+        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::IS_LAST_BLOCK));
+        BOOST_REQUIRE(!blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED));
+        BOOST_REQUIRE(blocks[0]->HasBlockProcessingControlFlagSet(BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT));
+        BOOST_REQUIRE_EQUAL(agePtr->m_bundleAgeMicroseconds, 1000000);
+        BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), agePtr->GetSerializationSize());
     }
     
     //get payload
