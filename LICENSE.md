@@ -17,7 +17,7 @@ THIS OPEN SOURCE AGREEMENT ("AGREEMENT") DEFINES THE RIGHTS OF USE, REPRODUCTION
 1. "Distribution" means conveyance or transfer of the Subject Software, regardless of means, to another.
 1. "Larger Work" means computer software that combines Subject Software, or portions thereof, with software separate from the Subject Software that is not governed by the terms of this Agreement.
 1. "Modification" means any alteration of, including addition to or deletion from, the substance or structure of either the Original Software or Subject Software, and includes derivative works, as that term is defined in the Copyright Statute, 17 USC 101. However, the act of including Subject Software as part of a Larger Work does not in and of itself constitute a Modification.
-1. "Original Software" means the computer software first released under this Agreement by Government Agency with Government Agency designation __ and entitled _________, including source code, object code and accompanying documentation, if any.
+1. "Original Software" means the computer software first released under this Agreement by Government Agency with Government Agency designation LEW19897-1 and entitled "A High-Speed Software Implementation of Delay-Tolerant Networking", including source code, object code and accompanying documentation, if any.
 1. "Recipient" means anyone who acquires the Subject Software under this Agreement, including all Contributors.
 1. "Redistribution" means Distribution of the Subject Software after a Modification has been made.
 1. "Reproduction" means the making of a counterpart, image or copy of the Subject Software.
