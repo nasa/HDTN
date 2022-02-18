@@ -7,7 +7,7 @@ THIS OPEN SOURCE AGREEMENT ("AGREEMENT") DEFINES THE RIGHTS OF USE, REPRODUCTION
 |**Government Agency**: NASA                                                                                      |          |
 |**Government Agency Original Software Designation**:LEW-19897-1                                                  |          |
 |**Government Agency Original Software Title**: A High-Speed Software Implementation of Delay-Tolerant Networking |          |
-|**User Registration Requested.** _Please Visit https://github.com/nasa/HDTN                                      |          |
+|**User Registration Requested.** Please Visit https://github.com/nasa/HDTN                                      |          |
 
 ## DEFINITIONS
 
@@ -47,8 +47,8 @@ THIS OPEN SOURCE AGREEMENT ("AGREEMENT") DEFINES THE RIGHTS OF USE, REPRODUCTION
 
 1. Distribution or Redistribution of the Subject Software must be made under this Agreement except for additions covered under paragraph 3H.
 
-_Whenever a Recipient distributes or redistributes the Subject Software, a copy of this Agreement must be included with each copy of the Subject Software; and
-If Recipient distributes or redistributes the Subject Software in any form other than source code, Recipient must also make the source code freely available, and must provide with each copy of the Subject Software information on how to obtain the source code in a reasonable manner on or through a medium customarily used for software exchange._
+Whenever a Recipient distributes or redistributes the Subject Software, a copy of this Agreement must be included with each copy of the Subject Software; and
+If Recipient distributes or redistributes the Subject Software in any form other than source code, Recipient must also make the source code freely available, and must provide with each copy of the Subject Software information on how to obtain the source code in a reasonable manner on or through a medium customarily used for software exchange.
 
 2. Each Recipient must ensure that the following copyright notice appears prominently in the Subject Software:
 
