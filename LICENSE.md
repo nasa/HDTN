@@ -7,7 +7,8 @@ THIS OPEN SOURCE AGREEMENT ("AGREEMENT") DEFINES THE RIGHTS OF USE, REPRODUCTION
 |**Government Agency**: NASA                                                                                      |          |
 |**Government Agency Original Software Designation**:LEW-19897-1                                                  |          |
 |**Government Agency Original Software Title**: A High-Speed Software Implementation of Delay-Tolerant Networking |          |
-|**User Registration Requested.** Please Visit https://github.com/nasa/HDTN                                      |          |
+|**User Registration Requested.** Please Visit https://github.com/nasa/HDTN                                       |          |
+|**Government Agency Point of Contact for Original Software**:                                                    |          |
 
 ## DEFINITIONS
 
