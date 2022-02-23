@@ -22,7 +22,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
-
+#include <boost/property_tree/json_parser.hpp>
 
 
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction() {
@@ -143,17 +143,56 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::cout << "starting websocket server\n";
         WebsocketServer server(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING);
 
-        while (running && !server.RequestsExit()) {
-            boost::this_thread::sleep(boost::posix_time::seconds(1));
-        }
+        double lastData = 0;
+        double rate = 0;
+        double averageRate = 0;
+        std::string json;
+        boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
+        boost::posix_time::ptime lastTime = startTime;
 
-        std::cout << "ingress, egress, and storage up and running" << std::endl;
-        while (running && m_runningFromSigHandler) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+        while (running && m_runningFromSigHandler && !server.RequestsExit()) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
-        }
+            boost::posix_time::ptime newTime = boost::posix_time::microsec_clock::universal_time();
+            boost::posix_time::time_duration elapsedTime = newTime - lastTime;
+            lastTime=newTime;
+            boost::posix_time::time_duration totalTime = newTime - startTime;            
+
+            std::cout << "elapsedTime: " << elapsedTime << std::endl;
+            std::cout << "m_bundleCountEgress: " << ingressPtr->m_bundleCountEgress << std::endl;
+            std::cout << "m_bundleCountStorage: " << ingressPtr->m_bundleCountStorage << std::endl;
+            std::cout << "m_bundleData: " << ingressPtr->m_bundleData << std::endl; 
+
+            //access ingress, egress, and storage objects to poll data and send JSON message
+            rate = (8 * (ingressPtr->m_bundleData - lastData)) / elapsedTime.total_milliseconds();
+            averageRate = (8 * ingressPtr->m_bundleData) / totalTime.total_milliseconds();
+
+            std::cout << "start time: " << startTime << std::endl;
+            std::cout << "new time: " << newTime << std::endl;
+            std::cout << "total Time: " << totalTime.total_milliseconds() << std::endl;
+            std::cout << "average rate: " << (8 * ingressPtr->m_bundleData) / totalTime.total_milliseconds() << std::endl;
+
+
+            lastData = ingressPtr->m_bundleData;
+            boost::property_tree::ptree pt;
+            pt.put("bundleDataRate", rate);
+            pt.put("averageRate", (8 * ingressPtr->m_bundleData) / totalTime.total_milliseconds());
+            pt.put("totalData", ingressPtr->m_bundleData/1000);
+            pt.put("bundleCountEgress", ingressPtr->m_bundleCountEgress);
+            pt.put("bundleCountStorage", ingressPtr->m_bundleCountStorage);
+            pt.put("totalBundlesErasedFromStorage", storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage());
+            pt.put("totalBundlesSentToEgressFromStorage", storagePtr->m_totalBundlesSentToEgressFromStorage);
+            pt.put("egressBundleCount", egressPtr->m_bundleCount);
+            pt.put("egressBundleData", egressPtr->m_bundleData/1000);
+            pt.put("egressMessageCount", egressPtr->m_messageCount);
+            std::stringstream ss;
+            boost::property_tree::json_parser::write_json(ss, pt);
+            json = ss.str();
+            std::cout << json << std::endl; 
+            server.SendNewTextData(json.c_str(), json.size());
+       }
 
         std::ofstream output;
 //        output.open("ingress-" + currentDate);
@@ -161,7 +200,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::ostringstream oss;
         oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
             "(MB)\n";
-        double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
+        rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
         oss << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
             << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024) << "\n";
 

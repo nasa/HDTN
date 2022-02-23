@@ -96,17 +96,19 @@
 
 <div id="storage_egress_chart" style="width:500px;height:450px;overflow:hidden;padding-left:50px;padding-top:16px"></div>
 
-<div id="rate_stats" style="width:600px;height:75px;padding-left:16px;padding-top:16px;">
+<div id="rate_stats" style="width:1000px;height:75px;padding-left:16px;padding-top:16px;">
 <table class="rate_table">
     <tr>
-        <th>Min</th>
-        <th>Max</th>
-        <th>Average</th>
+        <th>Max Rate</th>
+        <th>Average Rate</th>
+        <th>Total Data (Mb)</th>
+        <th>Total Bundles</th>
     </tr>
     <tr>
-        <td id="max_data">17</td>
-        <td id="min_data">10</td>
-        <td id="avg_data">13.75</td>
+        <td id="max_data">0</td>
+        <td id="avg_data">0</td>
+        <td id="total_data">0</td>
+        <td id="total_bundles">0</td>
     </tr>
 </table>
 </div>
@@ -123,82 +125,82 @@
         <th colspan="4" style="text-align:center">LTP Engine Information</th>
     </tr>
     <tr>
-        <td>m_countAsyncSendCalls</td>
-        <td id="m_countAsyncSendCalls_data">1980</td>
-        <td>m_countCircularBufferOverruns</td>
-        <td id="m_countCircularBufferOverruns_data">0</td>
+        <td>Count Async Send Calls</td>
+        <td id="countAsyncSendCalls">0</td>
+        <td>Count Circular Buffer Overruns</td>
+        <td id="countCircularBufferOverruns">0</td>
     </tr>
     <tr>
-        <td>m_numCheckpointTimerExpiredCallbacks</td>
-        <td id="m_numCheckpointTimerExpiredCallbacks_data">2</td>
-        <td>m_numDiscretionaryCheckpointsNotResent</td>
-        <td id="m_numDiscretionaryCheckpointsNotResent_data">0</td>
+        <td>Num Checkpoint Timer Expired Callbacks</td>
+        <td id="numCheckpointTimerExpiredCallbacks">0</td>
+        <td>Num Discretionary Checkpoints Not Resent</td>
+        <td id="numDiscretionaryCheckpointsNotResent">0</td>
     </tr>
     <tr>
-        <td>m_numReportSegmentTimerExpiredCallbacks</td>
-        <td id="m_numReportSegmentTimerExpiredCallbacks_data">0</td>
-        <td>m_numReportSegmentsUnableToBeIssued</td>
-        <td id="m_numReportSegmentsUnableToBeIssued_data">0</td>
+        <td>Num Report Segment Timer Expired Callbacks</td>
+        <td id="numReportSegmentTimerExpiredCallbacks">0</td>
+        <td>Num Report Segments Unable To Be Issued</td>
+        <td id="numReportSegmentsUnableToBeIssued">0</td>
     </tr>
     <tr>
-        <td>m_numReportSegmentsTooLargeAndNeedingSplit</td>
-        <td id="m_numReportSegmentsTooLargeAndNeedingSplit_data">0</td>
-        <td>m_numReportSegmentsCreatedViaSplit</td>
-        <td id="m_numReportSegmentsCreatedViaSplit_data">0</td>
+        <td>Num Report Segments Too Large And Needing Split</td>
+        <td id="numReportSegmentsTooLargeAndNeedingSplit">0</td>
+        <td>Num Report Segments Created Via Split</td>
+        <td id="numReportSegmentsCreatedViaSplit">0</td>
     </tr>
     <tr>
-        <td>expectedSessionOriginatorEngineId</td>
-        <td id="expectedSessionOriginatorEngineId_data">10</td>
-        <td>m_totalDataSegmentsSentSuccessfullyWithAck</td>
-        <td id="m_totalDataSegmentsSentSuccessfullyWithAck_data">988</td>
+        <td>Expected Session Originator Engine ID</td>
+        <td id="expectedSessionOriginatorEngineId">0</td>
+        <td>Total Data Segments Sent Successfully With Ack</td>
+        <td id="totalDataSegmentsSentSuccessfullyWithAck">0</td>
     </tr>
     <tr>
-        <td>m_totalDataSegmentsFailedToSend</td>
-        <td id="m_totalDataSegmentsFailedToSend_data">0</td>
-        <td>m_totalDataSegmentsSent</td>
-        <td id="m_totalDataSegmentsSent_data">988</td>
+        <td>Total Data Segments Failed To Send</td>
+        <td id="totalDataSegmentsFailedToSend">0</td>
+        <td>Total Data Segments Sent</td>
+        <td id="totalDataSegmentsSent">0</td>
     </tr>
     <tr>
-        <td>m_totalBundleBytesSent</td>
-        <td id="m_totalBundleBytesSent_data">49845</td>
-        <td>m_totalStcpBytesSent</td>
-        <td id="m_totalStcpBytesSent_data">40508</td>
+        <td>Total Bundle Bytes Sent</td>
+        <td id="totalBundleBytesSent">0</td>
+        <td>Total STCP Bytes Sent</td>
+        <td id="totalStcpBytesSent">0</td>
     </tr>
     <tr>
-        <td>m_totalDataSegmentsAckedByTcpSendCallback</td>
-        <td id="m_totalDataSegmentsAckedByTcpSendCallback_data">644</td>
-        <td>m_totalBytesAckedByTcpSendCallback</td>
-        <td id="m_totalBytesAckedByTcpSendCallback_data">40508</td>
+        <td>Total Data Segments Acked By TCP Send Callback</td>
+        <td id="totalDataSegmentsAckedByTcpSendCallback">0</td>
+        <td>Total Bytes Acked By TCP Send Callback</td>
+        <td id="totalBytesAckedByTcpSendCallback">0</td>
     </tr>
     <tr>
-        <td>m_ingressBundleCountStorage</td>
-        <td id="m_ingressBundleCountStorage_data">20</td>
-        <td>m_ingressBundleCountEgress</td>
-        <td id="m_ingressBundleCountEgress_data"></td>
+        <td>Ingress Bundle Count Storage</td>
+        <td id="ingressBundleCountStorage">0</td>
+        <td>Ingress Bundle Count Egress</td>
+        <td id="ingressBundleCountEgress">0</td>
     </tr>
     <tr>
-        <td>m_ingressBundleCount</td>
-        <td id="m_ingressBundleCount_data">1615</td>
-        <td>m_ingressBundleData</td>
-        <td id="m_ingressBundleData_data">86295</td>
+        <td>Ingress Bundle Count</td>
+        <td id="ingressBundleCount">0</td>
+        <td>Ingress Bundle Data</td>
+        <td id="ingressBundleData">0</td>
     </tr>
     <tr>
         <td>Egress Message Count</td>
-        <td id="egressMsgCount_data">1632</td>
+        <td id="egressMessageCount">0</td>
         <td>Egress Bundle Count</td>
-        <td id="egressBundleCount_data">1632</td>
+        <td id="egressBundleCount">0</td>
     </tr>
     <tr>
-        <td>Egress Bundle Data Bytes</td>
-        <td id="egressBundleDataBytes_data">87777</td>
+        <td>Egress Bundle Data</td>
+        <td id="egressBundleData">0</td>
         <td></td>
         <td></td>
     </tr>
     <tr>
-        <td>totalBundlesErasedFromStorage</td>
-        <td id="totalBundlesErasedFromStorage_data">0</td>
-        <td>totalBundlesSentToEgressFromStorage</td>
-        <td id="totalBundlesSentToEgressFromStorage_data">37</td>
+        <td>Total Bundles Erased From Storage</td>
+        <td id="totalBundlesErasedFromStorage">0</td>
+        <td>Total Bundles Sent To Egress From Storage</td>
+        <td id="totalBundlesSentToEgressFromStorage">0</td>
     </tr>
 
 </table>
@@ -211,52 +213,17 @@
 <button onclick="ConnectToServer()">Connect</button>
 
 <script type="text/javascript">
-
-    function ConnectToServer(){
-        var toSend="CONNECT " + document.getElementById("id_ip").value + " " + document.getElementByID("id_port").value;
-        console.log(toSend);
-        connection.send(toSend);
-    }
-
-    window.addEventListener("load", function(event){
-        if(!("WebSocket" in window)){
-            alert("WebSocket is not supported by your Browser!");
-        }
-
-    var wsproto = (location.protocol === 'https:') ? 'wss:';
-    connection = new WebSocket(wsproto + '//' + windows.location.host + '/websocket');
-    connection.binaryType = "arraybuffer";
-
-    //When connection is established
-    connection.onopen = function(){
-        console.log("ws opened");
-    }
-
-    //When connection is closed
-    connection.onclose = function(){
-        console.log("ws closed");
-    }
-
-    //When cliente receives data from server
-    connection.onmessage = function(e){
-        console.log("rcvd");
-        //if binary data
-        if(e.data instanceof ArrayBuffer){
-            var dv = new DataView(e.data);
-        }
-        //else this is text data
-        else{
-            var obj = JSON.pars(e.data); //could error based on encodings
-        }
-
+    
     var rate_data = [{
-        x: [1, 2, 3, 4],
-        y: [10, 15, 13, 17],
+        x: [],
+        y: [],
         type: 'scatter',
         line: {
             color: "aqua"
         }
     }];
+
+    var rateCount = 0;
 
     var layout = {
         title: 'HDTN Data Rates',
@@ -279,14 +246,6 @@
 
     Plotly.newPlot(GRAPH, rate_data, layout);
 
-/*    myPlot.on( , function(data){
-        yArray = ;
-        xArray = ;
-        var data_update = {x: [xArray], y: [yArray]};
-        Plotly.update('graph', data_update, layout, 1)
-    });*/
-
-
     var pie_data = [{
         values: [29,71],
         labels: ['Storage', 'Egress'], 
@@ -306,6 +265,101 @@
     };
 
     Plotly.newPlot('storage_egress_chart', pie_data, pie_layout);
+
+    function UpdateData(objJson){
+        if("bundleDataRate" in objJson){
+            rate_data[0]['x'].push(rateCount++);
+            rate_data[0]['y'].push(parseFloat(objJson.bundleDataRate));
+            console.log(rate_data[0]['y']);
+            Plotly.update(GRAPH, rate_data, layout);
+            document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data[0].y).toFixed(2);
+        }
+        if("averageRate" in objJson){
+            document.getElementById("avg_data").innerHTML = parseFloat(objJson.averageRate).toFixed(2);
+        }
+        if("totalData" in objJson){
+            document.getElementById("total_data").innerHTML = parseFloat(objJson.totalData).toFixed(2);
+            document.getElementById("ingressBundleData").innerHTML = parseFloat(objJson.totalData).toFixed(2);
+        }
+        if("bundleCountStorage" in objJson && "bundleCountEgress" in objJson){
+            pie_data[0]['values'] = [parseInt(objJson.bundleCountStorage), parseInt(objJson.bundleCountEgress)];
+            Plotly.update('storage_egress_chart', pie_data, pie_layout);
+
+            document.getElementById("total_bundles").innerHTML = parseInt(objJson.bundleCountStorage) + parseInt(objJson.bundleCountEgress);
+            document.getElementById("ingressBundleCountStorage").innerHTML = objJson.bundleCountStorage;
+            document.getElementById("ingressBundleCountEgress").innerHTML = objJson.bundleCountEgress;
+            document.getElementById("ingressBundleCount").innerHTML = parseInt(objJson.bundleCountStorage) + parseInt(objJson.bundleCountEgress);
+
+        }
+        if("egressBundleCount" in objJson){
+            document.getElementById("egressBundleCount").innerHTML = objJson.egressBundleCount;
+        }
+        if("egressBundleData" in objJson){
+            document.getElementById("egressBundleData").innerHTML = parseFloat(objJson.egressBundleData).toFixed(2);
+        }
+        if("egressMessageCount" in objJson){
+            document.getElementById("egressMessageCount").innerHTML = objJson.egressMessageCount;
+        }
+        if("totalBundlesErasedFromStorage" in objJson){
+            document.getElementById("totalBundlesErasedFromStorage").innerHTML = objJson.totalBundlesErasedFromStorage;
+        }
+        if("totalBundlesSentToEgressFromStorage" in objJson){
+            document.getElementById("totalBundlesSentToEgressFromStorage").innerHTML = objJson.totalBundlesSentToEgressFromStorage;
+        }
+
+    }
+
+    function ConnectToServer(){
+        var toSend="CONNECT " + document.getElementById("id_ip").value + " " + document.getElementByID("id_port").value;
+        console.log(toSend);
+        connection.send(toSend);
+    }
+
+    window.addEventListener("load", function(event){
+        if(!("WebSocket" in window)){
+            alert("WebSocket is not supported by your Browser!");
+        }
+
+    var wsproto = (location.protocol === 'http:') ? 'ws:' : 'ws:';
+    connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
+    connection.binaryType = "arraybuffer";
+
+    //When connection is established
+    connection.onopen = function(){
+        console.log("ws opened");
+    }
+
+    //When connection is closed
+    connection.onclose = function(){
+        console.log("ws closed");
+    }
+
+    //When client receives data from server
+    connection.onmessage = function(e){
+        console.log("rcvd");
+        //if binary data
+        if(e.data instanceof ArrayBuffer){
+            var dv = new DataView(e.data);
+        }
+        //else this is text data
+        else{
+            if(e.data === "Hello websocket"){
+                console.log(e.data);
+            }
+            else{
+            try{
+                console.log(e.data);
+                var obj = JSON.parse(e.data); //could error based on encodings
+                console.log("JSON data parsed");
+                UpdateData(obj);
+            }
+            catch(err){
+                console.log(err.message);
+            }}
+        }
+    }
+    });
+
 </script>
 
 

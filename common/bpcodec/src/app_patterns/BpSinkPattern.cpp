@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#include <sstream>
+#include <cstdlib>
 #include <cassert>
 #include <iostream>
 
@@ -341,13 +342,6 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
             double payloadRateMbps = (diffTotalPayloadBytesRx * 8.0) / (diff.total_microseconds());
             double bundleRateMbps = (diffBundleBytesRx * 8.0) / (diff.total_microseconds());
             double bundlesPerSecond = (diffBundlesRx * 1e6) / (diff.total_microseconds());
-            WebSocketHandler handler;
-            std::string rateJson = serialize(boost::json::object{
-                {"payloadRateMbps", std::to_string(payloadRateMbps)},
-                {"bundleRateMbps", std::to_string(bundleRateMbps)},
-                {"bundlesPerSecond", std::to_string(bundlesPerSecond)},
-            });
-            handler.SendDataToActiveWebsockets(rateJson.c_str(), rateJson.size());
 
             printf("Payload Only Rate: %0.4f Mbits/sec, Total Rate: %0.4f Mbits/sec, %0.4f Bundles/sec: \n", payloadRateMbps, bundleRateMbps, bundlesPerSecond);
         }
