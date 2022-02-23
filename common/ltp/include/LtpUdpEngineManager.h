@@ -58,7 +58,7 @@ private:
     boost::asio::ip::udp::endpoint m_remoteEndpointReceived;
     //std::map<std::pair<uint64_t, bool>, std::unique_ptr<LtpUdpEngine> > m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr;
     std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr; //inducts (differentiate by remote engine id using this map)
-    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr; //outducts (differentiate by unique session number singleton map, cannot use this map)
+    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr; //outducts (differentiate by engine index encoded into the session number, cannot use this map)
     std::vector<LtpUdpEngine*> m_vecEngineIndexToLtpUdpEngineTransmitterPtr;
     unsigned int m_nextEngineIndex;
 
