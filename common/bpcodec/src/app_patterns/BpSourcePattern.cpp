@@ -19,9 +19,18 @@ BpSourcePattern::BpSourcePattern() : m_running(false) {
 
 BpSourcePattern::~BpSourcePattern() {
     Stop();
-    std::cout << "totalNonAdminRecordPayloadBytesRx: " << m_totalNonAdminRecordPayloadBytesRx << "\n";
-    std::cout << "totalNonAdminRecordBundleBytesRx: " << m_totalNonAdminRecordBundleBytesRx << "\n";
-    std::cout << "totalNonAdminRecordBundlesRx: " << m_totalNonAdminRecordBundlesRx << "\n";
+    std::cout << "totalNonAdminRecordBpv6PayloadBytesRx: " << m_totalNonAdminRecordBpv6PayloadBytesRx << "\n";
+    std::cout << "totalNonAdminRecordBpv6BundleBytesRx: " << m_totalNonAdminRecordBpv6BundleBytesRx << "\n";
+    std::cout << "totalNonAdminRecordBpv6BundlesRx: " << m_totalNonAdminRecordBpv6BundlesRx << "\n";
+
+    std::cout << "totalNonAdminRecordBpv7PayloadBytesRx: " << m_totalNonAdminRecordBpv7PayloadBytesRx << "\n";
+    std::cout << "totalNonAdminRecordBpv7BundleBytesRx: " << m_totalNonAdminRecordBpv7BundleBytesRx << "\n";
+    std::cout << "totalNonAdminRecordBpv7BundlesRx: " << m_totalNonAdminRecordBpv7BundlesRx << "\n";
+    for (std::size_t i = 0; i < m_hopCounts.size(); ++i) {
+        if (m_hopCounts[i] != 0) {
+            std::cout << "received " << m_hopCounts[i] << " bundles with a hop count of " << i << ".\n";
+        }
+    }
 }
 
 void BpSourcePattern::Stop() {
@@ -54,10 +63,16 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     m_detectedNextCustodianSupportsCteb = false;
     m_requireRxBundleBeforeNextTx = requireRxBundleBeforeNextTx;
     m_useBpVersion7 = useBpVersion7;
+    m_hopCounts.assign(256, 0);
+    m_lastPreviousNode.Set(0, 0);
 
-    m_totalNonAdminRecordPayloadBytesRx = 0;
-    m_totalNonAdminRecordBundleBytesRx = 0;
-    m_totalNonAdminRecordBundlesRx = 0;
+    m_totalNonAdminRecordBpv6PayloadBytesRx = 0;
+    m_totalNonAdminRecordBpv6BundleBytesRx = 0;
+    m_totalNonAdminRecordBpv6BundlesRx = 0;
+
+    m_totalNonAdminRecordBpv7PayloadBytesRx = 0;
+    m_totalNonAdminRecordBpv7BundleBytesRx = 0;
+    m_totalNonAdminRecordBpv7BundlesRx = 0;
 
     m_tcpclInductPtr = NULL;
 
@@ -245,7 +260,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             lastMillisecondsSinceStartOfYear2000 = primary.m_creationTimestamp.millisecondsSinceStartOfYear2000;
             primary.m_creationTimestamp.sequenceNumber = seq;
             primary.m_lifetimeMilliseconds = 1000000;
-            primary.m_crcType = BPV7_CRC_TYPE_CRC32C;
+            primary.m_crcType = BPV7_CRC_TYPE::CRC32C;
             bv.m_primaryBlockView.SetManuallyModified();
 
             //add hop count block (before payload last block)
@@ -255,7 +270,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
                 block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
                 block.m_blockNumber = 2;
-                block.m_crcType = BPV7_CRC_TYPE_CRC32C;
+                block.m_crcType = BPV7_CRC_TYPE::CRC32C;
                 block.m_hopLimit = 100; //Hop limit MUST be in the range 1 through 255.
                 block.m_hopCount = 0; //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
                 bv.AppendMoveCanonicalBlock(blockPtr);
@@ -267,10 +282,10 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 Bpv7CanonicalBlock & payloadBlock = *payloadBlockPtr;
                 //payloadBlock.SetZero();
 
-                payloadBlock.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+                payloadBlock.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
                 payloadBlock.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
                 payloadBlock.m_blockNumber = 1; //must be 1
-                payloadBlock.m_crcType = BPV7_CRC_TYPE_CRC32C;
+                payloadBlock.m_crcType = BPV7_CRC_TYPE::CRC32C;
                 payloadBlock.m_dataLength = payloadSizeBytes;
                 payloadBlock.m_dataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
                 bv.AppendMoveCanonicalBlock(payloadBlockPtr);
@@ -297,68 +312,47 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             bundleLength = bundleToSend.size();
         }
         else { //bp version 6
-            bundleToSend.resize(payloadSizeBytes + 1000);
-
-
-
-
-            uint8_t * buffer = bundleToSend.data();
-            uint8_t * const serializationBase = buffer;
-            const uint64_t currentTimeRfc5050 = TimestampUtil::GetSecondsSinceEpochRfc5050(); //curr_time = time(0);
-
-            if (currentTimeRfc5050 == lastTimeRfc5050) {
-                ++seq;
-            }
-            else {
-                /*gettimeofday(&tv, NULL);
-                double elapsed = ((double)tv.tv_sec) + ((double)tv.tv_usec / 1000000.0);
-                elapsed -= start;
-                start = start + elapsed;
-                fprintf(log, "%0.6f, %lu, %lu, %lu, %lu\n", elapsed, bundle_count, raw_data, bundle_data, tsc_total);
-                fflush(log);
-                bundle_count = 0;
-                bundle_data = 0;
-                raw_data = 0;
-                tsc_total = 0;*/
-                seq = 0;
-            }
-            lastTimeRfc5050 = currentTimeRfc5050;
-
-            bpv6_primary_block primary;
-            primary.SetZero();
-            primary.flags = bpv6_bundle_set_priority(BPV6_PRIORITY_EXPEDITED) | bpv6_bundle_set_gflags(BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT);
+            BundleViewV6 bv;
+            Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+            //primary.SetZero();
+            primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT;
             if (m_useCustodyTransfer) {
-                primary.flags |= BPV6_BUNDLEFLAG_CUSTODY;
+                primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
                 primary.m_custodianEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
             }
             primary.m_sourceNodeId = m_myEid;
             primary.m_destinationEid = m_finalDestinationEid;
-            primary.creation = currentTimeRfc5050; //(uint64_t)bpv6_unix_to_5050(curr_time);
-            primary.lifetime = 1000;
-            primary.sequence = seq;
-            uint64_t retVal;
-            retVal = primary.SerializeBpv6(buffer);
-            if (retVal == 0) {
-                std::cout << "primary encode error\n";
-                m_running = false;
-                continue;
+            
+            primary.m_creationTimestamp.SetTimeFromNow();
+            if (primary.m_creationTimestamp.secondsSinceStartOfYear2000 == lastTimeRfc5050) {
+                ++seq;
             }
-            buffer += retVal;
+            else {
+                seq = 0;
+            }
+            lastTimeRfc5050 = primary.m_creationTimestamp.secondsSinceStartOfYear2000;
+            primary.m_creationTimestamp.sequenceNumber = seq;
+            primary.m_lifetimeSeconds = 1000;
+            bv.m_primaryBlockView.SetManuallyModified();
+
+
+
 
             if (m_useCustodyTransfer) {
                 if (m_custodyTransferUseAcs) {
                     const uint64_t ctebCustodyId = nextCtebCustodyId++;
-                    bpv6_canonical_block returnedCanonicalBlock;
-                    retVal = CustodyTransferEnhancementBlock::StaticSerializeCtebCanonicalBlock((uint8_t*)buffer, 0, //0=> not last block
-                        ctebCustodyId, m_myCustodianEidUriString, returnedCanonicalBlock);
+                    //add cteb
+                    {
+                        std::unique_ptr<Bpv6CanonicalBlock> blockPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+                        Bpv6CustodyTransferEnhancementBlock & block = *(reinterpret_cast<Bpv6CustodyTransferEnhancementBlock*>(blockPtr.get()));
+                        //block.SetZero();
 
-                    if (retVal == 0) {
-                        std::cout << "cteb encode error\n";
-                        m_running = false;
-                        continue;
+                        block.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
+                        block.m_custodyId = ctebCustodyId;
+                        block.m_ctebCreatorCustodianEidString = m_myCustodianEidUriString;
+                        bv.AppendMoveCanonicalBlock(blockPtr);
                     }
-                    buffer += retVal;
-
+                    
                     m_mutexCtebSet.lock();
                     FragmentSet::InsertFragment(m_outstandingCtebCustodyIdsFragmentSet, FragmentSet::data_fragment_t(ctebCustodyId, ctebCustodyId));
                     m_mutexCtebSet.unlock();
@@ -377,34 +371,39 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
 
             }
-            bpv6_canonical_block block;
-            //memset 0 not needed because all fields set below
-            block.type = BPV6_BLOCKTYPE_PAYLOAD;
-            block.flags = BPV6_BLOCKFLAG_LAST_BLOCK;
-            block.length = payloadSizeBytes;
 
-            retVal = block.bpv6_canonical_block_encode((char *)buffer, 0, BP_MSG_BUFSZ);
-            if (retVal == 0) {
-                std::cout << "payload canonical encode error\n";
-                m_running = false;
-                continue;
+            //append payload block (must be last block)
+            {
+                std::unique_ptr<Bpv6CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv6CanonicalBlock>();
+                Bpv6CanonicalBlock & payloadBlock = *payloadBlockPtr;
+                //payloadBlock.SetZero();
+
+                payloadBlock.m_blockTypeCode = BPV6_BLOCK_TYPE_CODE::PAYLOAD;
+                payloadBlock.m_blockProcessingControlFlags = BPV6_BLOCKFLAG::NO_FLAGS_SET;
+                payloadBlock.m_blockTypeSpecificDataLength = payloadSizeBytes;
+                payloadBlock.m_blockTypeSpecificDataPtr = NULL; //NULL will preallocate (won't copy or compute crc, user must do that manually below)
+                bv.AppendMoveCanonicalBlock(payloadBlockPtr);
             }
-            buffer += retVal;
 
+            //render bundle to the front buffer
+            if (!bv.Render(payloadSizeBytes + 1000)) {
+                std::cout << "error rendering bpv7 bundle\n";
+                return;
+            }
 
-            if (!CopyPayload_Step2(buffer)) {
+            BundleViewV6::Bpv6CanonicalBlockView & payloadBlockView = bv.m_listCanonicalBlockView.back(); //payload block is the last block in this case
+
+            //manually copy data to preallocated space and compute crc
+            if (!CopyPayload_Step2(payloadBlockView.headerPtr->m_blockTypeSpecificDataPtr)) { //m_dataPtr now points to new allocated or copied data within the serialized block (from after Render())
                 std::cout << "copy payload error\n";
                 m_running = false;
                 continue;
             }
+            
+            //move the bundle out of bundleView
+            bundleToSend = std::move(bv.m_frontBuffer);
+            bundleLength = bundleToSend.size();
 
-            buffer += payloadSizeBytes;
-
-            bundleLength = buffer - serializationBase;
-
-
-
-            bundleToSend.resize(bundleLength);
         }
 
         //send message
@@ -491,121 +490,206 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec) {
     //if more than 1 Induct, must protect shared resources with mutex.  Each Induct has
     //its own processing thread that calls this callback
+    const uint8_t firstByte = wholeBundleVec[0];
+    const bool isBpVersion6 = (firstByte == 6);
+    const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
+    if (isBpVersion6) {
+        BundleViewV6 bv;
+        if (!bv.LoadBundle(wholeBundleVec.data(), wholeBundleVec.size())) {
+            std::cerr << "malformed Bpv6 BpSourcePattern received\n";
+            return;
+        }
+        //check primary
+        const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        const cbhe_eid_t & receivedFinalDestinationEid = primary.m_destinationEid;
+        static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::ADMINRECORD; // | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT
+        if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)
 
-    BundleViewV6 bv;
-    if (!bv.LoadBundle(wholeBundleVec.data(), wholeBundleVec.size())) {
-        std::cerr << "malformed custody signal\n";
-        return;
+
+            if (receivedFinalDestinationEid != m_myEid) {
+                std::cerr << "BpSourcePattern received a bundle with final destination " << receivedFinalDestinationEid
+                    << " that does not match this destination " << m_myEid << "\n";
+                return;
+            }
+
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            if (blocks.size() != 1) {
+                std::cerr << "error BpSourcePattern received a non-admin-record bundle with no payload block\n";
+                return;
+            }
+            Bpv6CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
+            m_totalNonAdminRecordBpv6PayloadBytesRx += payloadBlock.m_blockTypeSpecificDataLength;
+            m_totalNonAdminRecordBpv6BundleBytesRx += bv.m_renderedBundle.size();
+            ++m_totalNonAdminRecordBpv6BundlesRx;
+
+            if (!ProcessNonAdminRecordBundlePayload(payloadBlock.m_blockTypeSpecificDataPtr, payloadBlock.m_blockTypeSpecificDataLength)) {
+                std::cerr << "error ProcessNonAdminRecordBundlePayload\n";
+                return;
+            }
+            m_isWaitingForRxBundleBeforeNextTx = false;
+            m_waitingForRxBundleBeforeNextTxConditionVariable.notify_one();
+        }
+        else { //admin record
+
+            if (receivedFinalDestinationEid != m_myCustodianEid) {
+                std::cerr << "BpSourcePattern received an admin record bundle with final destination "
+                    << Uri::GetIpnUriString(receivedFinalDestinationEid.nodeId, receivedFinalDestinationEid.serviceId)
+                    << " that does not match this custodial destination " << Uri::GetIpnUriString(m_myCustodianEid.nodeId, m_myCustodianEid.serviceId) << "\n";
+                return;
+            }
+
+            std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+            if (blocks.size() != 1) {
+                std::cerr << "error BpSourcePattern received an admin-record bundle with no payload block\n";
+                return;
+            }
+            Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
+            if (adminRecordBlockPtr == NULL) {
+                std::cerr << "error BpSourcePattern cannot cast payload block to admin record\n";
+                return;
+            }
+            const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
+            if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::AGGREGATE_CUSTODY_SIGNAL) {
+                m_detectedNextCustodianSupportsCteb = true;
+                ++m_numAcsPacketsReceived;
+                //check acs
+                Bpv6AdministrativeRecordContentAggregateCustodySignal * acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                if (acsPtr == NULL) {
+                    std::cerr << "error BpSourcePattern cannot cast admin record content to Bpv6AdministrativeRecordContentAggregateCustodySignal\n";
+                    return;
+                }
+                Bpv6AdministrativeRecordContentAggregateCustodySignal & acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
+                if (!acs.DidCustodyTransferSucceed()) {
+                    std::cerr << "error acs custody transfer failed with reason code " << acs.GetReasonCode() << "\n";
+                    return;
+                }
+
+                m_mutexCtebSet.lock();
+                for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
+                    m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
+                    FragmentSet::RemoveFragment(m_outstandingCtebCustodyIdsFragmentSet, *it);
+                }
+                m_mutexCtebSet.unlock();
+            }
+            else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
+                Bpv6AdministrativeRecordContentCustodySignal * csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
+                if (csPtr == NULL) {
+                    std::cerr << "error BpSourcePattern cannot cast admin record content to Bpv6AdministrativeRecordContentCustodySignal\n";
+                    return;
+                }
+                Bpv6AdministrativeRecordContentCustodySignal & cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
+                if (!cs.DidCustodyTransferSucceed()) {
+                    std::cerr << "rfc5050 custody transfer failed with reason code " << cs.GetReasonCode() << "\n";
+                    return;
+                }
+                if (cs.m_isFragment) {
+                    std::cerr << "error custody signal with fragmentation received\n";
+                    return;
+                }
+                cbhe_bundle_uuid_nofragment_t uuid;
+                if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
+                    std::cerr << "error custody signal with bad ipn string\n";
+                    return;
+                }
+                uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
+                uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
+                m_mutexBundleUuidSet.lock();
+                const bool success = (m_cbheBundleUuidSet.erase(uuid) != 0);
+                m_mutexBundleUuidSet.unlock();
+                if (!success) {
+                    std::cerr << "error rfc5050 custody signal received but bundle uuid not found\n";
+                    return;
+                }
+                ++m_numRfc5050CustodyTransfers;
+            }
+            else {
+                std::cerr << "error unknown admin record type\n";
+                return;
+            }
+        }
     }
-    //check primary
-    const bpv6_primary_block & primary = bv.m_primaryBlockView.header;
-    const cbhe_eid_t & receivedFinalDestinationEid = primary.m_destinationEid;
-    static constexpr uint64_t requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG_SINGLETON | BPV6_BUNDLEFLAG_NOFRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD;
-    if ((primary.flags & requiredPrimaryFlagsForCustody) != requiredPrimaryFlagsForCustody) { //assume non-admin-record bundle (perhaps a bpecho bundle)
-
-        
-        if (receivedFinalDestinationEid != m_myEid) {
-            std::cerr << "BpSourcePattern received a bundle with final destination " << receivedFinalDestinationEid
-                << " that does not match this destination " << m_myEid << "\n";
+    else if (isBpVersion7) {
+        BundleViewV7 bv;
+        if (!bv.LoadBundle(wholeBundleVec.data(), wholeBundleVec.size())) {
+            std::cerr << "malformed Bpv7 BpSourcePattern received\n";
             return;
         }
+        Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
+        const cbhe_eid_t finalDestEid = primary.m_destinationEid;
+        const cbhe_eid_t srcEid = primary.m_sourceNodeId;
 
-        std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV6_BLOCKTYPE_PAYLOAD, blocks);
+
+
+        //get previous node
+        std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
+        if (blocks.size() > 1) {
+            std::cout << "error in BpSourcePattern::Process: version 7 bundle received has multiple previous node blocks\n";
+            return;
+        }
+        else if (blocks.size() == 1) {
+            if (Bpv7PreviousNodeCanonicalBlock* previousNodeBlockPtr = dynamic_cast<Bpv7PreviousNodeCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                if (m_lastPreviousNode != previousNodeBlockPtr->m_previousNode) {
+                    m_lastPreviousNode = previousNodeBlockPtr->m_previousNode;
+                    std::cout << "bp version 7 bundles coming in from previous node " << m_lastPreviousNode << "\n";
+                }
+            }
+            else {
+                std::cout << "error in BpSourcePattern::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed\n";
+                return;
+            }
+        }
+
+        //get hop count if exists
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT, blocks);
+        if (blocks.size() > 1) {
+            std::cout << "error in BpSourcePattern::Process: version 7 bundle received has multiple hop count blocks\n";
+            return;
+        }
+        else if (blocks.size() == 1) {
+            if (Bpv7HopCountCanonicalBlock* hopCountBlockPtr = dynamic_cast<Bpv7HopCountCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                //the hop count value SHOULD initially be zero and SHOULD be increased by 1 on each hop.
+                const uint64_t newHopCount = hopCountBlockPtr->m_hopCount + 1;
+                //When a bundle's hop count exceeds its
+                //hop limit, the bundle SHOULD be deleted for the reason "hop limit
+                //exceeded", following the bundle deletion procedure defined in
+                //Section 5.10.
+                //Hop limit MUST be in the range 1 through 255.
+                if ((newHopCount > hopCountBlockPtr->m_hopLimit) || (newHopCount > 255)) {
+                    std::cout << "notice: BpSourcePattern::Process dropping version 7 bundle with hop count " << newHopCount << "\n";
+                    return;
+                }
+                ++m_hopCounts[newHopCount];
+            }
+            else {
+                std::cout << "error in BpSourcePattern::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
+                return;
+            }
+        }
+
+        //get payload block
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
+
         if (blocks.size() != 1) {
-            std::cerr << "error BpSourcePattern received a non-admin-record bundle with no payload block\n";
+            std::cerr << "error in BpSourcePattern::Process: Bpv7 payload block not found\n";
             return;
         }
-        bpv6_canonical_block & payloadBlock = blocks[0]->header;
-        m_totalNonAdminRecordPayloadBytesRx += payloadBlock.length;
-        m_totalNonAdminRecordBundleBytesRx += bv.m_renderedBundle.size();
-        ++m_totalNonAdminRecordBundlesRx;
+        Bpv7CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
+        const uint64_t payloadDataLength = payloadBlock.m_dataLength;
+        const uint8_t * payloadDataPtr = payloadBlock.m_dataPtr;
+        m_totalNonAdminRecordBpv7PayloadBytesRx += payloadDataLength;
+        m_totalNonAdminRecordBpv7BundleBytesRx += bv.m_renderedBundle.size();;
+        ++m_totalNonAdminRecordBpv7BundlesRx;
 
-        boost::asio::const_buffer & blockBodyBuffer = blocks[0]->actualSerializedBodyPtr;
-        if (!ProcessNonAdminRecordBundlePayload((const uint8_t *)blockBodyBuffer.data(), blockBodyBuffer.size())) {
+        if (!ProcessNonAdminRecordBundlePayload(payloadDataPtr, payloadDataLength)) {
             std::cerr << "error ProcessNonAdminRecordBundlePayload\n";
             return;
         }
         m_isWaitingForRxBundleBeforeNextTx = false;
         m_waitingForRxBundleBeforeNextTxConditionVariable.notify_one();
     }
-    else { //admin record
-
-        if (receivedFinalDestinationEid != m_myCustodianEid) {
-            std::cerr << "BpSourcePattern received an admin record bundle with final destination "
-                << Uri::GetIpnUriString(receivedFinalDestinationEid.nodeId, receivedFinalDestinationEid.serviceId)
-                << " that does not match this custodial destination " << Uri::GetIpnUriString(m_myCustodianEid.nodeId, m_myCustodianEid.serviceId) << "\n";
-            return;
-        }
-
-        if (bv.GetNumCanonicalBlocks() != 0) { //admin record is not canonical
-            std::cerr << "error admin record has canonical block\n";
-            return;
-        }
-        if (bv.m_applicationDataUnitStartPtr == NULL) { //admin record is not canonical
-            std::cerr << "error null application data unit\n";
-            return;
-        }
-        const uint8_t adminRecordType = (*bv.m_applicationDataUnitStartPtr >> 4);
-
-        if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::AGGREGATE_CUSTODY_SIGNAL)) {
-            m_detectedNextCustodianSupportsCteb = true;
-            ++m_numAcsPacketsReceived;
-            //check acs
-            AggregateCustodySignal acs;
-            if (!acs.Deserialize(bv.m_applicationDataUnitStartPtr, bv.m_renderedBundle.size() - bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size())) {
-                std::cerr << "malformed ACS\n";
-                return;
-            }
-            if (!acs.DidCustodyTransferSucceed()) {
-                std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode()) << "\n";
-                return;
-            }
-
-            m_mutexCtebSet.lock();
-            for (std::set<FragmentSet::data_fragment_t>::const_iterator it = acs.m_custodyIdFills.cbegin(); it != acs.m_custodyIdFills.cend(); ++it) {
-                m_numAcsCustodyTransfers += (it->endIndex + 1) - it->beginIndex;
-                FragmentSet::RemoveFragment(m_outstandingCtebCustodyIdsFragmentSet, *it);
-            }
-            m_mutexCtebSet.unlock();
-        }
-        else if (adminRecordType == static_cast<uint8_t>(BPV6_ADMINISTRATIVE_RECORD_TYPES::CUSTODY_SIGNAL)) { //rfc5050 style custody transfer
-            CustodySignal cs;
-            uint16_t numBytesTakenToDecode = cs.Deserialize(bv.m_applicationDataUnitStartPtr);
-            if (numBytesTakenToDecode == 0) {
-                std::cerr << "malformed CustodySignal\n";
-                return;
-            }
-            if (!cs.DidCustodyTransferSucceed()) {
-                std::cerr << "custody transfer failed with reason code " << static_cast<unsigned int>(cs.GetReasonCode()) << "\n";
-                return;
-            }
-            if (cs.m_isFragment) {
-                std::cerr << "error custody signal with fragmentation received\n";
-                return;
-            }
-            cbhe_bundle_uuid_nofragment_t uuid;
-            if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                std::cerr << "error custody signal with bad ipn string\n";
-                return;
-            }
-            uuid.creationSeconds = cs.m_copyOfBundleCreationTimestampTimeSeconds;
-            uuid.sequence = cs.m_copyOfBundleCreationTimestampSequenceNumber;
-            m_mutexBundleUuidSet.lock();
-            const bool success = (m_cbheBundleUuidSet.erase(uuid) != 0);
-            m_mutexBundleUuidSet.unlock();
-            if (!success) {
-                std::cerr << "error rfc5050 custody signal received but bundle uuid not found\n";
-                return;
-            }
-            ++m_numRfc5050CustodyTransfers;
-        }
-        else {
-            std::cerr << "error unknown admin record type\n";
-            return;
-        }
-    }
-    
 }
 
 bool BpSourcePattern::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size) {

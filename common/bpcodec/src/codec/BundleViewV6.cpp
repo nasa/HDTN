@@ -9,30 +9,30 @@ void BundleViewV6::Bpv6PrimaryBlockView::SetManuallyModified() {
 void BundleViewV6::Bpv6CanonicalBlockView::SetManuallyModified() {
     dirty = true;
 }
-void BundleViewV6::Bpv6CanonicalBlockView::SetBlockProcessingControlFlagAndDirtyIfNecessary(const uint64_t flag) {
-    if ((header.flags <= 127) && (flag <= 127) && (actualSerializedHeaderAndBodyPtr.size() >= 2)) {
-        header.flags |= flag;
-        uint8_t * const data = static_cast<uint8_t*>(const_cast<void*>(actualSerializedHeaderAndBodyPtr.data()));
-        data[1] = static_cast<uint8_t>(header.flags);
+void BundleViewV6::Bpv6CanonicalBlockView::SetBlockProcessingControlFlagAndDirtyIfNecessary(const BPV6_BLOCKFLAG flag) {
+    if (((static_cast<uint64_t>(headerPtr->m_blockProcessingControlFlags)) <= 127) && ((static_cast<uint64_t>(flag)) <= 127) && (actualSerializedBlockPtr.size() >= 2)) {
+        headerPtr->m_blockProcessingControlFlags |= flag;
+        uint8_t * const data = static_cast<uint8_t*>(const_cast<void*>(actualSerializedBlockPtr.data()));
+        data[1] = static_cast<uint8_t>(headerPtr->m_blockProcessingControlFlags);
     }
     else {
-        header.flags |= flag;
+        headerPtr->m_blockProcessingControlFlags |= flag;
         dirty = true;
     }
 }
-void BundleViewV6::Bpv6CanonicalBlockView::ClearBlockProcessingControlFlagAndDirtyIfNecessary(const uint64_t flag) {
-    if ((header.flags <= 127) && (flag <= 127) && (actualSerializedHeaderAndBodyPtr.size() >= 2)) {
-        header.flags &= (~flag);
-        uint8_t * const data = static_cast<uint8_t*>(const_cast<void*>(actualSerializedHeaderAndBodyPtr.data()));
-        data[1] = static_cast<uint8_t>(header.flags);
+void BundleViewV6::Bpv6CanonicalBlockView::ClearBlockProcessingControlFlagAndDirtyIfNecessary(const BPV6_BLOCKFLAG flag) {
+    if (((static_cast<uint64_t>(headerPtr->m_blockProcessingControlFlags)) <= 127) && ((static_cast<uint64_t>(flag)) <= 127) && (actualSerializedBlockPtr.size() >= 2)) {
+        headerPtr->m_blockProcessingControlFlags &= (~flag);
+        uint8_t * const data = static_cast<uint8_t*>(const_cast<void*>(actualSerializedBlockPtr.data()));
+        data[1] = static_cast<uint8_t>(headerPtr->m_blockProcessingControlFlags);
     }
     else {
-        header.flags &= (~flag);
+        headerPtr->m_blockProcessingControlFlags &= (~flag);
         dirty = true;
     }
 }
-bool BundleViewV6::Bpv6CanonicalBlockView::HasBlockProcessingControlFlagSet(const uint64_t flag) const {
-    return ((header.flags & flag) != 0);
+bool BundleViewV6::Bpv6CanonicalBlockView::HasBlockProcessingControlFlagSet(const BPV6_BLOCKFLAG flag) const {
+    return ((headerPtr->m_blockProcessingControlFlags & flag) != BPV6_BLOCKFLAG::NO_FLAGS_SET);
 }
 
 BundleViewV6::BundleViewV6() {}
@@ -41,81 +41,91 @@ BundleViewV6::~BundleViewV6() {}
 bool BundleViewV6::Load(const bool loadPrimaryBlockOnly) {
     const uint8_t * const serializationBase = (uint8_t*)m_renderedBundle.data();
     uint8_t * serialization = (uint8_t*)m_renderedBundle.data();
-    uint64_t bufferSize = m_renderedBundle.size() + 16; //TODO ASSUME PADDED
+    uint64_t bufferSize = m_renderedBundle.size();
     uint64_t decodedBlockSize;
 
     if (!m_primaryBlockView.header.DeserializeBpv6(serialization, decodedBlockSize, bufferSize)) {
         return false;
     }
+    serialization += decodedBlockSize;
+    bufferSize -= decodedBlockSize;
 
-    std::size_t offset = decodedBlockSize;
-    if (offset == 0) {
-        return false;//Malformed bundle received
-    }
-    if (offset >= m_renderedBundle.size()) {
+    const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isFragment) { //not currently supported
         return false;
     }
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_FRAGMENT)) {
-        return false;
-    }
-    m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(m_renderedBundle.data(), offset);
+    m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(m_renderedBundle.data(), decodedBlockSize);
     m_primaryBlockView.dirty = false;
-    m_applicationDataUnitStartPtr = (static_cast<const uint8_t*>(m_renderedBundle.data())) + offset;
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
-        return true;
-    }
+    m_applicationDataUnitStartPtr = (static_cast<const uint8_t*>(m_renderedBundle.data())) + decodedBlockSize;
+    const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ADMINRECORD) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
 
     if (loadPrimaryBlockOnly) {
         return true;
     }
 
     while (true) {
+        uint8_t * const serializationThisCanonicalBlockBeginPtr = serialization;
         m_listCanonicalBlockView.emplace_back();
         Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
         cbv.dirty = false;
         cbv.markedForDeletion = false;
-        bpv6_canonical_block & canonical = cbv.header;
-        const uint32_t canonicalBlockHeaderSize = canonical.bpv6_canonical_block_decode((const char*)m_renderedBundle.data(), offset, m_renderedBundle.size());
-        if (canonicalBlockHeaderSize == 0) {
+        if (!Bpv6CanonicalBlock::DeserializeBpv6(cbv.headerPtr, serialization, decodedBlockSize, bufferSize, isAdminRecord)) {
             return false;
         }
-        //m_mapCanonicalBlockTypeToPreexistingCanonicalBlockViews.insert(std::pair<uint8_t, Bpv6CanonicalBlockView*>(canonical.type, &cbv));
-        const std::size_t totalCanonicalBlockSize = canonicalBlockHeaderSize + canonical.length;
-        cbv.actualSerializedHeaderAndBodyPtr = boost::asio::buffer(((const uint8_t*)m_renderedBundle.data()) + offset, totalCanonicalBlockSize);
-        cbv.actualSerializedBodyPtr = boost::asio::buffer(((const uint8_t*)m_renderedBundle.data()) + offset + canonicalBlockHeaderSize, canonical.length);
-        offset += totalCanonicalBlockSize;
-        if (canonical.flags & BPV6_BLOCKFLAG_LAST_BLOCK) {
-            return (offset == m_renderedBundle.size());
+        serialization += decodedBlockSize;
+        bufferSize -= decodedBlockSize;
+        cbv.actualSerializedBlockPtr = boost::asio::buffer(serializationThisCanonicalBlockBeginPtr, decodedBlockSize);
+        if (!cbv.headerPtr->Virtual_DeserializeExtensionBlockDataBpv6()) { //requires m_blockTypeSpecificDataPtr and m_blockTypeSpecificDataLength to be set (done in Bpv6CanonicalBlock::DeserializeBpv6)
+            return false;
         }
-        else if (offset >= m_renderedBundle.size()) {
+        const uint64_t bundleSerializedLength = serialization - serializationBase;
+        if ((cbv.headerPtr->m_blockProcessingControlFlags & BPV6_BLOCKFLAG::IS_LAST_BLOCK) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
+            if (bundleSerializedLength != m_renderedBundle.size()) {
+            }
+            return (bundleSerializedLength == m_renderedBundle.size()); //todo aggregation support
+        }
+        else if (bundleSerializedLength >= m_renderedBundle.size()) {
             return false;
         }
     }
 
 }
+
 bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
     //first render to the back buffer, copying over non-dirty blocks from the m_renderedBundle which may be the front buffer or other memory from a load operation
     m_backBuffer.resize(maxBundleSizeBytes);
-    uint8_t * buffer = &m_backBuffer[0];
-    uint8_t * const bufferBegin = buffer;
+    uint64_t sizeSerialized;
+    if (!Render(&m_backBuffer[0], sizeSerialized)) {
+        return false;
+    }
+    m_backBuffer.resize(sizeSerialized);
+    m_frontBuffer.swap(m_backBuffer); //m_frontBuffer is now the rendered bundle
+    m_renderedBundle = boost::asio::buffer(m_frontBuffer);
+    return true;
+}
+
+bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
+    uint8_t * const serializationBase = serialization;
     if (m_primaryBlockView.dirty) {
         //std::cout << "pd\n";
-        const uint64_t retVal = m_primaryBlockView.header.SerializeBpv6(buffer);
-        if (retVal == 0) {
+        const uint64_t sizeSerialized = m_primaryBlockView.header.SerializeBpv6(serialization);
+        if (sizeSerialized == 0) {
             return false;
         }
-        m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(buffer, retVal);
-        buffer += retVal;
+        m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, sizeSerialized);
+        serialization += sizeSerialized;
         m_primaryBlockView.dirty = false;
     }
     else {
         //std::cout << "pnd\n";
         const std::size_t size = m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
-        memcpy(buffer, m_primaryBlockView.actualSerializedPrimaryBlockPtr.data(), size);
-        m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(buffer, size);
-        buffer += size;
+        memcpy(serialization, m_primaryBlockView.actualSerializedPrimaryBlockPtr.data(), size);
+        m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
+        serialization += size;
     }
-    if (m_primaryBlockView.header.flags & (BPV6_BUNDLEFLAG_FRAGMENT | BPV6_BUNDLEFLAG_ADMIN_RECORD)) {
+    const bool isAdminRecord = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ADMINRECORD)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
+    const bool isFragment = ((m_primaryBlockView.header.m_bundleProcessingControlFlags & (BPV6_BUNDLEFLAG::ISFRAGMENT)) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
+    if (isFragment) {
         return false;
     }
     
@@ -125,93 +135,103 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         if (isLastBlock) {
             //std::cout << "lb\n";
-            it->SetBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG_LAST_BLOCK);
+            it->SetBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::IS_LAST_BLOCK);
         }
         else {
             //std::cout << "nlb\n";
-            it->ClearBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG_LAST_BLOCK);
+            it->ClearBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::IS_LAST_BLOCK);
         }
+        uint64_t currentBlockSizeSerialized;
         if (it->dirty) {
             //always reencode canonical block if dirty
-            const uint64_t sizeHeader = it->header.bpv6_canonical_block_encode((char *)buffer, 0, 0);
-            if (sizeHeader <= 2) {
+            currentBlockSizeSerialized = it->headerPtr->SerializeBpv6(serialization);
+            if (currentBlockSizeSerialized <= 2) {
                 return false;
             }
-            const std::size_t sizeBody = it->header.length;
-            const std::size_t sizeHeaderAndBody = sizeHeader + sizeBody;
-            it->actualSerializedHeaderAndBodyPtr = boost::asio::buffer(buffer, sizeHeaderAndBody);
-            buffer += sizeHeader;
-            if (it->replacementBlockBodyData.size() == 0) { //only the canonical block header needed recreated.. copy over what already exists
-                //std::cout << "cd_partial\n";
-                memcpy(buffer, it->actualSerializedBodyPtr.data(), sizeBody);
-                
-            }
-            else if(it->replacementBlockBodyData.size() == sizeBody) { //implied &&(it->replacementBlockBodyData.size() > 0) //copy over the new block body
-                //std::cout << "cd_full\n";
-                memcpy(buffer, it->replacementBlockBodyData.data(), sizeBody);
-                it->replacementBlockBodyData = std::vector<uint8_t>();
-            }
-            else {
-                //std::cout << "cd_fail\n";
-                return false;
-            }
-            it->actualSerializedBodyPtr = boost::asio::buffer(buffer, sizeBody);
-            buffer += sizeBody;
             it->dirty = false;
         }
         else {
             //std::cout << "cnd\n";
-            const std::size_t sizeHeaderAndBody = it->actualSerializedHeaderAndBodyPtr.size();
-            const std::size_t sizeBody = it->actualSerializedBodyPtr.size();
-            const std::size_t sizeHeader = sizeHeaderAndBody - sizeBody;
-            if (sizeBody != it->header.length) {
-                std::cout << sizeBody << " " << it->header.length << std::endl;
+            currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
+            memcpy(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
+        }
+        it->actualSerializedBlockPtr = boost::asio::buffer(serialization, currentBlockSizeSerialized);
+        serialization += currentBlockSizeSerialized;
+    }
+    sizeSerialized = (serialization - serializationBase);
+    return true;
+}
+bool BundleViewV6::GetSerializationSize(uint64_t & serializationSize) const {
+    serializationSize = 0;
+    if (m_primaryBlockView.dirty) {
+        const uint64_t sizeSerialized = m_primaryBlockView.header.GetSerializationSize();
+        if (sizeSerialized == 0) {
+            return false;
+        }
+        serializationSize += sizeSerialized;
+    }
+    else {
+        serializationSize += m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
+    }
+
+    for (std::list<Bpv6CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
+        const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
+        //DON'T NEED TO CHECK IS_LAST_BLOCK FLAG AS IT RESIDES WITHIN THE 1-BYTE SDNV SIZE
+        uint64_t currentBlockSizeSerialized;
+        if (it->markedForDeletion) {
+            currentBlockSizeSerialized = 0;
+        }
+        else if (it->dirty) { //always reencode canonical block if dirty
+            currentBlockSizeSerialized = it->headerPtr->GetSerializationSize();
+            if (currentBlockSizeSerialized <= 2) {
                 return false;
             }
-            memcpy(buffer, it->actualSerializedHeaderAndBodyPtr.data(), sizeHeaderAndBody);
-                
-            it->actualSerializedHeaderAndBodyPtr = boost::asio::buffer(buffer, sizeHeaderAndBody);
-            it->actualSerializedBodyPtr = boost::asio::buffer(buffer + sizeHeader, sizeBody);
-            buffer += sizeHeaderAndBody;
         }
+        else {
+            //std::cout << "cnd\n";
+            currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
+        }
+        serializationSize += currentBlockSizeSerialized;
     }
-    m_backBuffer.resize(buffer - bufferBegin);
-    m_frontBuffer.swap(m_backBuffer); //m_frontBuffer is now the rendered bundle
-    m_renderedBundle = boost::asio::buffer(m_frontBuffer);
     return true;
 }
 
-void BundleViewV6::AppendCanonicalBlock(const bpv6_canonical_block & header, std::vector<uint8_t> & blockBody) {
+void BundleViewV6::AppendMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock> & headerPtr) {
     m_listCanonicalBlockView.emplace_back();
     Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.back();
-    cbv.dirty = true;
+    cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
     cbv.markedForDeletion = false;
-    cbv.header = header;
-    cbv.replacementBlockBodyData = std::move(blockBody);
-    cbv.actualSerializedBodyPtr = boost::asio::buffer(cbv.replacementBlockBodyData); //needed for Render
+    cbv.headerPtr = std::move(headerPtr);
 }
-std::size_t BundleViewV6::GetCanonicalBlockCountByType(const uint8_t canonicalBlockTypeCode) const {
+void BundleViewV6::PrependMoveCanonicalBlock(std::unique_ptr<Bpv6CanonicalBlock> & headerPtr) {
+    m_listCanonicalBlockView.emplace_front();
+    Bpv6CanonicalBlockView & cbv = m_listCanonicalBlockView.front();
+    cbv.dirty = true; //true will ignore and set actualSerializedBlockPtr after render
+    cbv.markedForDeletion = false;
+    cbv.headerPtr = std::move(headerPtr);
+}
+std::size_t BundleViewV6::GetCanonicalBlockCountByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) const {
     std::size_t count = 0;
     for (std::list<Bpv6CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
-        count += (it->header.type == canonicalBlockTypeCode);
+        count += (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode);
     }
     return count;
 }
 std::size_t BundleViewV6::GetNumCanonicalBlocks() const {
     return m_listCanonicalBlockView.size();
 }
-void BundleViewV6::GetCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks) {
+void BundleViewV6::GetCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv6CanonicalBlockView*> & blocks) {
     blocks.clear();
     for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
-        if (it->header.type == canonicalBlockTypeCode) {
+        if (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode) {
             blocks.push_back(&(*it));
         }
     }
 }
-std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const uint8_t canonicalBlockTypeCode) {
+std::size_t BundleViewV6::DeleteAllCanonicalBlocksByType(const BPV6_BLOCK_TYPE_CODE canonicalBlockTypeCode) {
     std::size_t count = 0;
     for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end();) {
-        if (it->header.type == canonicalBlockTypeCode) {
+        if (it->headerPtr->m_blockTypeCode == canonicalBlockTypeCode) {
             it = m_listCanonicalBlockView.erase(it);
             ++count;
         }
@@ -236,7 +256,7 @@ bool BundleViewV6::CopyAndLoadBundle(const uint8_t * bundleData, const std::size
     return Load(loadPrimaryBlockOnly);
 }
 bool BundleViewV6::IsValid() const {
-    if (GetCanonicalBlockCountByType(BPV6_BLOCKTYPE_PAYLOAD) > 1) {
+    if (GetCanonicalBlockCountByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD) > 1) {
         return false;
     }
     return true;

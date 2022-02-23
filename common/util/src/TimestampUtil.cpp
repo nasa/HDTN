@@ -152,27 +152,46 @@ std::ostream& operator<<(std::ostream& os, const TimestampUtil::dtn_time_t & o) 
     os << "secondsSinceStartOfYear2000: " << o.secondsSinceStartOfYear2000 << ", nanosecondsSinceStartOfIndicatedSecond: " << o.nanosecondsSinceStartOfIndicatedSecond;
     return os;
 }
-uint64_t TimestampUtil::dtn_time_t::Serialize(uint8_t * serialization) const {
+uint64_t TimestampUtil::dtn_time_t::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * serializationBase = serialization;
-    serialization += SdnvEncodeU64(serialization, secondsSinceStartOfYear2000);
-    serialization += SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond);
+    serialization += SdnvEncodeU64BufSize10(serialization, secondsSinceStartOfYear2000);
+    serialization += SdnvEncodeU32BufSize8(serialization, nanosecondsSinceStartOfIndicatedSecond);
     return serialization - serializationBase;
 }
-bool TimestampUtil::dtn_time_t::Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode) {
+uint64_t TimestampUtil::dtn_time_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
+    uint8_t * serializationBase = serialization;
+    uint64_t thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, secondsSinceStartOfYear2000, bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU32(serialization, nanosecondsSinceStartOfIndicatedSecond, bufferSize);
+    serialization += thisSerializationSize;
+    //bufferSize -= thisSerializationSize; //not needed
+
+    return serialization - serializationBase;
+}
+uint64_t TimestampUtil::dtn_time_t::GetSerializationSizeBpv6() const {
+    return SdnvGetNumBytesRequiredToEncode(secondsSinceStartOfYear2000) + SdnvGetNumBytesRequiredToEncode(nanosecondsSinceStartOfIndicatedSecond);
+}
+bool TimestampUtil::dtn_time_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
 
-    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize);
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false; //failure
     }
     serialization += sdnvSize;
+    bufferSize -= sdnvSize;
 
-    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize);
+    nanosecondsSinceStartOfIndicatedSecond = SdnvDecodeU32(serialization, &sdnvSize, bufferSize);
     if (sdnvSize == 0) {
         return false; //failure
     }
     serialization += sdnvSize;
+    //bufferSize -= sdnvSize; //not needed
 
     *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
     return true;
@@ -207,6 +226,101 @@ std::string TimestampUtil::GetUtcTimestampStringFromDtnTimeLossy(const Timestamp
 
 TimestampUtil::dtn_time_t TimestampUtil::GenerateDtnTimeNow() {
     return PtimeToDtnTime(boost::posix_time::microsec_clock::universal_time());
+}
+
+//Bpv6
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t() : secondsSinceStartOfYear2000(0), sequenceNumber(0) { } //a default constructor: X()
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber) :
+    secondsSinceStartOfYear2000(paramSecondsSinceStartOfYear2000), sequenceNumber(paramSequenceNumber) { }
+TimestampUtil::bpv6_creation_timestamp_t::~bpv6_creation_timestamp_t() { } //a destructor: ~X()
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t(const bpv6_creation_timestamp_t& o) : secondsSinceStartOfYear2000(o.secondsSinceStartOfYear2000), sequenceNumber(o.sequenceNumber) { } //a copy constructor: X(const X&)
+TimestampUtil::bpv6_creation_timestamp_t::bpv6_creation_timestamp_t(bpv6_creation_timestamp_t&& o) : secondsSinceStartOfYear2000(o.secondsSinceStartOfYear2000), sequenceNumber(o.sequenceNumber) { } //a move constructor: X(X&&)
+TimestampUtil::bpv6_creation_timestamp_t& TimestampUtil::bpv6_creation_timestamp_t::operator=(const bpv6_creation_timestamp_t& o) { //a copy assignment: operator=(const X&)
+    secondsSinceStartOfYear2000 = o.secondsSinceStartOfYear2000;
+    sequenceNumber = o.sequenceNumber;
+    return *this;
+}
+TimestampUtil::bpv6_creation_timestamp_t& TimestampUtil::bpv6_creation_timestamp_t::operator=(bpv6_creation_timestamp_t && o) { //a move assignment: operator=(X&&)
+    secondsSinceStartOfYear2000 = o.secondsSinceStartOfYear2000;
+    sequenceNumber = o.sequenceNumber;
+    return *this;
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::operator==(const bpv6_creation_timestamp_t & o) const {
+    return (secondsSinceStartOfYear2000 == o.secondsSinceStartOfYear2000) && (sequenceNumber == o.sequenceNumber);
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::operator!=(const bpv6_creation_timestamp_t & o) const {
+    return (secondsSinceStartOfYear2000 != o.secondsSinceStartOfYear2000) || (sequenceNumber != o.sequenceNumber);
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::operator<(const bpv6_creation_timestamp_t & o) const {
+    if (secondsSinceStartOfYear2000 == o.secondsSinceStartOfYear2000) {
+        return (sequenceNumber < o.sequenceNumber);
+    }
+    return (secondsSinceStartOfYear2000 < o.secondsSinceStartOfYear2000);
+}
+std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv6_creation_timestamp_t & o) {
+    os << "secondsSinceStartOfYear2000: " << o.secondsSinceStartOfYear2000 << ", sequenceNumber: " << o.sequenceNumber;
+    return os;
+}
+uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization) const {
+    uint8_t * const serializationBase = serialization;
+    serialization += SdnvEncodeU64BufSize10(serialization, secondsSinceStartOfYear2000);
+    serialization += SdnvEncodeU64BufSize10(serialization, sequenceNumber);
+    return serialization - serializationBase;
+}
+uint64_t TimestampUtil::bpv6_creation_timestamp_t::SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const {
+    uint8_t * serializationBase = serialization;
+    uint64_t thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, secondsSinceStartOfYear2000, bufferSize); //if zero returned on failure will only malform the bundle but not cause memory overflow
+    serialization += thisSerializationSize;
+    bufferSize -= thisSerializationSize;
+
+    thisSerializationSize = SdnvEncodeU64(serialization, sequenceNumber, bufferSize);
+    serialization += thisSerializationSize;
+    //bufferSize -= thisSerializationSize; //not needed
+
+    return serialization - serializationBase;
+}
+uint64_t TimestampUtil::bpv6_creation_timestamp_t::GetSerializationSizeBpv6() const {
+    return SdnvGetNumBytesRequiredToEncode(secondsSinceStartOfYear2000) + SdnvGetNumBytesRequiredToEncode(sequenceNumber);
+}
+bool TimestampUtil::bpv6_creation_timestamp_t::DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
+    uint8_t sdnvSize;
+    const uint8_t * const serializationBase = serialization;
+
+    secondsSinceStartOfYear2000 = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+    bufferSize -= sdnvSize;
+
+    sequenceNumber = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
+    if (sdnvSize == 0) {
+        return false;
+    }
+    serialization += sdnvSize;
+    //bufferSize -= sdnvSize; //not needed
+
+    *numBytesTakenToDecode = static_cast<uint8_t>(serialization - serializationBase);
+    return true;
+}
+void TimestampUtil::bpv6_creation_timestamp_t::SetZero() {
+    secondsSinceStartOfYear2000 = 0;
+    sequenceNumber = 0;
+}
+boost::posix_time::ptime TimestampUtil::bpv6_creation_timestamp_t::GetPtime() const {
+    return TimestampUtil::GetRfc5050Epoch() + boost::posix_time::seconds(secondsSinceStartOfYear2000);
+}
+void TimestampUtil::bpv6_creation_timestamp_t::SetFromPtime(const boost::posix_time::ptime & posixTimeValue) {
+    const boost::posix_time::time_duration diff = posixTimeValue - TimestampUtil::GetRfc5050Epoch();
+    secondsSinceStartOfYear2000 = static_cast<uint64_t>(diff.total_seconds());
+}
+std::string TimestampUtil::bpv6_creation_timestamp_t::GetUtcTimestampString(bool forFileName) const {
+    return TimestampUtil::GetUtcTimestampStringFromPtime(GetPtime(), forFileName);
+}
+void TimestampUtil::bpv6_creation_timestamp_t::SetTimeFromNow() {
+    SetFromPtime(boost::posix_time::microsec_clock::universal_time());
 }
 
 
@@ -259,6 +373,9 @@ std::ostream& operator<<(std::ostream& os, const TimestampUtil::bpv7_creation_ti
 //advances by one millisecond.
 uint64_t TimestampUtil::bpv7_creation_timestamp_t::SerializeBpv7(uint8_t * serialization) const {
     return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber);
+}
+uint64_t TimestampUtil::bpv7_creation_timestamp_t::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const {
+    return CborTwoUint64ArraySerialize(serialization, millisecondsSinceStartOfYear2000, sequenceNumber, bufferSize);
 }
 uint64_t TimestampUtil::bpv7_creation_timestamp_t::GetSerializationSize() const {
     return CborTwoUint64ArraySerializationSize(millisecondsSinceStartOfYear2000, sequenceNumber);

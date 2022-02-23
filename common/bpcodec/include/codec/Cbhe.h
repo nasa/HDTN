@@ -29,10 +29,12 @@ struct cbhe_eid_t {
     void Set(uint64_t paramNodeId, uint64_t paramServiceId);
     void SetZero();
     uint64_t SerializeBpv7(uint8_t * serialization) const;
+    uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
     uint64_t GetSerializationSizeBpv7() const;
     bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 
     uint64_t SerializeBpv6(uint8_t * serialization) const;
+    uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
     uint64_t GetSerializationSizeBpv6() const;
     bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 
@@ -63,7 +65,7 @@ struct cbhe_bundle_uuid_t {
     cbhe_bundle_uuid_t(); //a default constructor: X()
     cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
         uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength);
-    //cbhe_bundle_uuid_t(const bpv6_primary_block & primary);
+    //cbhe_bundle_uuid_t(const Bpv6CbhePrimaryBlock & primary);
     ~cbhe_bundle_uuid_t(); //a destructor: ~X()
     cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
     cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
@@ -82,7 +84,7 @@ struct cbhe_bundle_uuid_nofragment_t {
 
     cbhe_bundle_uuid_nofragment_t(); //a default constructor: X()
     cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId);
-    //cbhe_bundle_uuid_nofragment_t(const bpv6_primary_block & primary);
+    //cbhe_bundle_uuid_nofragment_t(const Bpv6CbhePrimaryBlock & primary);
     cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment);
     ~cbhe_bundle_uuid_nofragment_t(); //a destructor: ~X()
     cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o); //a copy constructor: X(const X&)

@@ -40,6 +40,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
     }
 
     std::vector<uint8_t> encoded(10);
+    std::vector<uint8_t> encoded2(10);
     std::vector<uint8_t> encodedFast(10);
     encoded.assign(encoded.size(), 0);
     encodedFast.assign(encodedFast.size(), 0);
@@ -105,25 +106,62 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
         encoded.assign(encoded.size(), 0);
         encodedFast.assign(encodedFast.size(), 0);
         //encode val
-        const unsigned int outputSizeBytes = SdnvEncodeU32Classic(encoded.data(), val);
+        const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(encoded.data(), val);
 #ifdef USE_X86_HARDWARE_ACCELERATION
-        const unsigned int outputSizeBytesFast = SdnvEncodeU32Fast(encodedFast.data(), val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU32FastBufSize8(encodedFast.data(), val);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, outputSizeBytesFast);
         BOOST_REQUIRE(encoded == encodedFast);
 #endif
+        {
+            //if buffersize is at least outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU32(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU32Classic(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+        }
+        {
+            //if buffersize is less than outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU32(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU32Classic(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+        }
 
         //decode val classic
         uint8_t numBytesDecoded = 0;
-        const uint32_t valDecoded = SdnvDecodeU32Classic(encoded.data(), &numBytesDecoded);
+        const uint32_t valDecoded = SdnvDecodeU32Classic(encoded.data(), &numBytesDecoded, encoded.size());
         BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecoded);
         BOOST_REQUIRE_EQUAL(val, valDecoded);
 #ifdef USE_X86_HARDWARE_ACCELERATION
         //decode val fast
         uint8_t numBytesDecodedFast = 0;
-        const uint32_t valDecodedFast = SdnvDecodeU32Fast(encoded.data(), &numBytesDecodedFast);
+        const uint32_t valDecodedFast = SdnvDecodeU32FastBufSize8(encoded.data(), &numBytesDecodedFast);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecodedFast);
         BOOST_REQUIRE_EQUAL(val, valDecodedFast);
 #endif
+        {
+            //if the buffer size was outputSizeBytes it will succeed
+            uint8_t numBytesDecodedWillSucceed = 0;
+            const uint32_t valDecodedWillSucceed = SdnvDecodeU32(encoded.data(), &numBytesDecodedWillSucceed, outputSizeBytes); //will call classic routine
+            BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecodedWillSucceed);
+            BOOST_REQUIRE_EQUAL(val, valDecodedWillSucceed);
+        }
+        {
+            //if the buffer size was 1 size too small it will fail
+            uint8_t numBytesDecodedWillFail = UINT8_MAX;
+            const uint32_t valDecodedWillFail = SdnvDecodeU32(encoded.data(), &numBytesDecodedWillFail, outputSizeBytes - 1); //will call classic routine
+            BOOST_REQUIRE_NE(outputSizeBytes, numBytesDecodedWillFail);
+            BOOST_REQUIRE_EQUAL(numBytesDecodedWillFail, 0);
+            BOOST_REQUIRE_EQUAL(valDecodedWillFail, 0);
+        }
         if (val <= 127) {
             BOOST_REQUIRE_EQUAL(outputSizeBytes, 1);
             BOOST_REQUIRE_EQUAL(val, encoded[0]); //should be equal to itself
@@ -162,12 +200,12 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
     for (std::size_t i = 0; i < testVals.size(); ++i) {
         const uint32_t val = testVals[i];
         //encode
-        const unsigned int outputSizeBytes = SdnvEncodeU32Classic(allEncodedDataPtr, val);
+        const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(allEncodedDataPtr, val);
         allEncodedDataPtr += outputSizeBytes;
         totalBytesEncoded += outputSizeBytes;
 #ifdef USE_X86_HARDWARE_ACCELERATION
         //encode fast
-        const unsigned int outputSizeBytesFast = SdnvEncodeU32Fast(allEncodedDataFastPtr, val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU32FastBufSize8(allEncodedDataFastPtr, val);
         allEncodedDataFastPtr += outputSizeBytesFast;
         totalBytesEncodedFast += outputSizeBytesFast;
 #endif
@@ -191,14 +229,14 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
     while (j < totalBytesEncoded) {
         //return decoded value (0 if failure), also set parameter numBytes taken to decode
         uint8_t numBytesTakenToDecode;
-        const uint32_t decodedVal = SdnvDecodeU32Classic(allEncodedDataPtr, &numBytesTakenToDecode);
+        const uint32_t decodedVal = SdnvDecodeU32Classic(allEncodedDataPtr, &numBytesTakenToDecode, 8); //will always be at least 8 byte buffer
         //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         allDecodedVals.push_back(decodedVal);
         allEncodedDataPtr += numBytesTakenToDecode;
 #ifdef USE_X86_HARDWARE_ACCELERATION
         uint8_t numBytesTakenToDecodeFast;
-        const uint32_t decodedValFast = SdnvDecodeU32Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
+        const uint32_t decodedValFast = SdnvDecodeU32FastBufSize8(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
         //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
         BOOST_REQUIRE_NE(numBytesTakenToDecodeFast, 0);
         allDecodedValsFast.push_back(decodedValFast);
@@ -348,15 +386,15 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitErrorDecodeTestCase)
     uint8_t numBytesTakenToDecode = UINT8_MAX;
     uint32_t decodedVal;
     encoded.assign(encoded.size(), 0xff); //never ending sdnv
-    decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode);
+    decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
 #ifdef USE_X86_HARDWARE_ACCELERATION
     numBytesTakenToDecode = UINT8_MAX;
-    decodedVal = SdnvDecodeU32Fast(encoded.data(), &numBytesTakenToDecode);
+    decodedVal = SdnvDecodeU32FastBufSize8(encoded.data(), &numBytesTakenToDecode);
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
 #endif
     encoded.assign(encoded.size(), 0);
-    const unsigned int outputSizeBytes = SdnvEncodeU32Classic(encoded.data(), UINT32_MAX);
+    const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(encoded.data(), UINT32_MAX);
     BOOST_REQUIRE_EQUAL(outputSizeBytes, 5);
     BOOST_REQUIRE_EQUAL(encoded[0], 0x8f); //f -> bits 29,30,31,32
     BOOST_REQUIRE_EQUAL(encoded[3], 0xff);
@@ -370,11 +408,11 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitErrorDecodeTestCase)
         //std::cout << std::endl;
 
         numBytesTakenToDecode = UINT8_MAX;
-        decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode);
+        decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT32_MAX)
 #ifdef USE_X86_HARDWARE_ACCELERATION
         numBytesTakenToDecode = UINT8_MAX;
-        decodedVal = SdnvDecodeU32Fast(encoded.data(), &numBytesTakenToDecode);
+        decodedVal = SdnvDecodeU32FastBufSize8(encoded.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT32_MAX)
 #endif
     }
@@ -387,15 +425,15 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
 
     uint8_t numBytesTakenToDecode = UINT8_MAX;
     uint64_t decodedVal;
-    decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode);
+    decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
 #ifdef USE_X86_HARDWARE_ACCELERATION
     numBytesTakenToDecode = UINT8_MAX;
-    decodedVal = SdnvDecodeU64Fast(encoded.data(), &numBytesTakenToDecode);
+    decodedVal = SdnvDecodeU64FastBufSize16(encoded.data(), &numBytesTakenToDecode);
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
 #endif
     encoded.assign(encoded.size(), 0);
-    const unsigned int outputSizeBytes = SdnvEncodeU64Classic(encoded.data(), UINT64_MAX);
+    const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(encoded.data(), UINT64_MAX);
     BOOST_REQUIRE_EQUAL(outputSizeBytes, 10);
     BOOST_REQUIRE_EQUAL(encoded[0], 0x81); //1 -> 64th bit
     BOOST_REQUIRE_EQUAL(encoded[8], 0xff);
@@ -409,11 +447,11 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
         //std::cout << std::endl;
 
         numBytesTakenToDecode = UINT8_MAX;
-        decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode);
+        decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT64_MAX)
 #ifdef USE_X86_HARDWARE_ACCELERATION
         numBytesTakenToDecode = UINT8_MAX;
-        decodedVal = SdnvDecodeU64Fast(encoded.data(), &numBytesTakenToDecode);
+        decodedVal = SdnvDecodeU64FastBufSize16(encoded.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT64_MAX)
 #endif
     }
@@ -421,11 +459,12 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
 
 BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 {
-    std::vector<uint8_t> encoded(10);
+    std::vector<uint8_t> encoded(16);
     encoded.assign(encoded.size(), 0);
+    std::vector<uint8_t> encoded2(16);
     uint16_t coverageMask = 0;
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    std::vector<uint8_t> encodedFast(10);
+    std::vector<uint8_t> encodedFast(16);
     encodedFast.assign(encodedFast.size(), 0);
 #endif
 
@@ -436,25 +475,62 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
         encoded.assign(encoded.size(), 0);
 
         //encode val
-        const unsigned int outputSizeBytes = SdnvEncodeU64Classic(encoded.data(), val);
+        const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(encoded.data(), val);
 #ifdef USE_X86_HARDWARE_ACCELERATION
-        const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(encodedFast.data(), val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU64FastBufSize10(encodedFast.data(), val);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, outputSizeBytesFast);
         BOOST_REQUIRE(encoded == encodedFast);
         encodedFast.assign(encodedFast.size(), 0);
 #endif
+        {
+            //if buffersize is at least outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU64(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU64Classic(encoded2.data(), val, outputSizeBytes);
+            BOOST_REQUIRE(encoded == encoded2);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, outputSizeBytes);
+        }
+        {
+            //if buffersize is less than outputSizeBytes it will succeed
+            encoded2.assign(encoded.size(), 0);
+            unsigned int outputSizeBytes2 = SdnvEncodeU64(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+            //repeat with explicit classic call
+            encoded2.assign(encoded.size(), 0);
+            outputSizeBytes2 = SdnvEncodeU64Classic(encoded2.data(), val, outputSizeBytes - 1);
+            BOOST_REQUIRE_EQUAL(outputSizeBytes2, 0);
+        }
 
         //decode val
         uint8_t numBytesDecoded = 0;
-        const uint64_t valDecoded = SdnvDecodeU64Classic(encoded.data(), &numBytesDecoded);
+        const uint64_t valDecoded = SdnvDecodeU64Classic(encoded.data(), &numBytesDecoded, encoded.size());
         BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecoded);
         BOOST_REQUIRE_EQUAL(val, valDecoded);
 #ifdef USE_X86_HARDWARE_ACCELERATION
         uint8_t numBytesDecodedFast = 0;
-        const uint64_t valDecodedFast = SdnvDecodeU64Fast(encoded.data(), &numBytesDecodedFast);
+        const uint64_t valDecodedFast = SdnvDecodeU64FastBufSize16(encoded.data(), &numBytesDecodedFast);
         BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecodedFast);
         BOOST_REQUIRE_EQUAL(val, valDecodedFast);
 #endif
+        {
+            //if the buffer size was outputSizeBytes it will succeed
+            uint8_t numBytesDecodedWillSucceed = 0;
+            const uint64_t valDecodedWillSucceed = SdnvDecodeU64(encoded.data(), &numBytesDecodedWillSucceed, outputSizeBytes); //will call classic routine
+            BOOST_REQUIRE_EQUAL(outputSizeBytes, numBytesDecodedWillSucceed);
+            BOOST_REQUIRE_EQUAL(val, valDecodedWillSucceed);
+        }
+        {
+            //if the buffer size was 1 size too small it will fail
+            uint8_t numBytesDecodedWillFail = UINT8_MAX;
+            const uint64_t valDecodedWillFail = SdnvDecodeU64(encoded.data(), &numBytesDecodedWillFail, outputSizeBytes - 1); //will call classic routine
+            BOOST_REQUIRE_NE(outputSizeBytes, numBytesDecodedWillFail);
+            BOOST_REQUIRE_EQUAL(numBytesDecodedWillFail, 0);
+            BOOST_REQUIRE_EQUAL(valDecodedWillFail, 0);
+        }
         if (val <= 127) {
             BOOST_REQUIRE_EQUAL(outputSizeBytes, 1);
             BOOST_REQUIRE_EQUAL(val, encoded[0]); //should be equal to itself
@@ -506,19 +582,19 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
     std::size_t totalBytesEncoded = 0;
     uint8_t * allEncodedDataPtr = allEncodedData.data();
 #ifdef USE_X86_HARDWARE_ACCELERATION
-    std::vector<uint8_t> allEncodedDataFast(testVals.size() * 10 + sizeof(uint64_t));
+    std::vector<uint8_t> allEncodedDataFast(testVals.size() * 10 + (2 * sizeof(uint64_t)));
     std::size_t totalBytesEncodedFast = 0;
     uint8_t * allEncodedDataFastPtr = allEncodedDataFast.data();
 #endif
     for (std::size_t i = 0; i < testVals.size(); ++i) {
         const uint64_t val = testVals[i];
         //encode
-        const unsigned int outputSizeBytes = SdnvEncodeU64Classic(allEncodedDataPtr, val);
+        const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(allEncodedDataPtr, val);
         allEncodedDataPtr += outputSizeBytes;
         totalBytesEncoded += outputSizeBytes;
 #ifdef USE_X86_HARDWARE_ACCELERATION
         //encode fast
-        const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(allEncodedDataFastPtr, val);
+        const unsigned int outputSizeBytesFast = SdnvEncodeU64FastBufSize10(allEncodedDataFastPtr, val);
         allEncodedDataFastPtr += outputSizeBytesFast;
         totalBytesEncodedFast += outputSizeBytesFast;
 #endif
@@ -543,7 +619,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
     while (j < totalBytesEncoded) {
         //return decoded value (0 if failure), also set parameter numBytes taken to decode
         uint8_t numBytesTakenToDecode;
-        const uint64_t decodedVal = SdnvDecodeU64Classic(allEncodedDataPtr, &numBytesTakenToDecode);
+        const uint64_t decodedVal = SdnvDecodeU64Classic(allEncodedDataPtr, &numBytesTakenToDecode, 10); //will always be at least 10 byte buffer remaining
         //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
         BOOST_REQUIRE_NE(numBytesTakenToDecode, 0);
         allDecodedVals.push_back(decodedVal);
@@ -551,7 +627,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
 
 #ifdef USE_X86_HARDWARE_ACCELERATION
         uint8_t numBytesTakenToDecodeFast;
-        const uint64_t decodedValFast = SdnvDecodeU64Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
+        const uint64_t decodedValFast = SdnvDecodeU64FastBufSize16(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
         //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
         BOOST_REQUIRE_NE(numBytesTakenToDecodeFast, 0);
         allDecodedValsFast.push_back(decodedValFast);
@@ -650,7 +726,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
             for (std::size_t i = 0; i < testVals2.size(); ++i) {
                 const uint64_t val = testVals2[i];
                 //encode
-                const unsigned int outputSizeBytes = SdnvEncodeU64Classic(allEncodedDataPtr, val);
+                const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(allEncodedDataPtr, val);
                 allEncodedDataPtr += outputSizeBytes;
                 totalBytesEncoded += outputSizeBytes;
             }
@@ -670,7 +746,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
             for (std::size_t i = 0; i < testVals2.size(); ++i) {
                 const uint64_t val = testVals2[i];
                 //encode fast
-                const unsigned int outputSizeBytesFast = SdnvEncodeU64Fast(allEncodedDataFastPtr, val);
+                const unsigned int outputSizeBytesFast = SdnvEncodeU64FastBufSize10(allEncodedDataFastPtr, val);
                 allEncodedDataFastPtr += outputSizeBytesFast;
                 totalBytesEncodedFast += outputSizeBytesFast;
             }
@@ -693,7 +769,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
             while (j < totalBytesEncoded) {
                 //return decoded value (0 if failure), also set parameter numBytes taken to decode
                 uint8_t numBytesTakenToDecode;
-                const uint64_t decodedVal = SdnvDecodeU64Classic(allEncodedDataPtr, &numBytesTakenToDecode);
+                const uint64_t decodedVal = SdnvDecodeU64Classic(allEncodedDataPtr, &numBytesTakenToDecode, 10); //will always be at least 10 byte buffer
                 *allDecodedDataPtr++ = decodedVal;
                 allEncodedDataPtr += numBytesTakenToDecode;
 
@@ -718,7 +794,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitSpeedTestCase, *boost::unit_test::disabled())
             while (j < totalBytesEncoded) {
 
                 uint8_t numBytesTakenToDecodeFast;
-                const uint64_t decodedValFast = SdnvDecodeU64Fast(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
+                const uint64_t decodedValFast = SdnvDecodeU64FastBufSize16(allEncodedDataFastPtr, &numBytesTakenToDecodeFast);
                 //std::cout << decodedVal << " " << (int)numBytesTakenToDecode << "\n";
                 *allDecodedDataFastPtr++ = decodedValFast;
                 allEncodedDataFastPtr += numBytesTakenToDecodeFast;

@@ -92,7 +92,7 @@ void Bpv7CbhePrimaryBlock::SetZero() {
     m_totalApplicationDataUnitLength = 0;
     m_computedCrc32 = 0;
     m_computedCrc16 = 0;
-    m_crcType = 0;
+    m_crcType = BPV7_CRC_TYPE::NONE;
 }
 
 
@@ -106,7 +106,7 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
     //is not a fragment), 10 (if the bundle is a fragment and the block
     //has no CRC), or 11 (if the bundle is a fragment and the block has a
     //CRC).
-    const bool hasCrc = (m_crcType != 0);
+    const bool hasCrc = (m_crcType != BPV7_CRC_TYPE::NONE);
     const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
     const uint8_t cborArraySize = 8 + hasCrc + ((static_cast<uint8_t>(isFragment)) << 1);
     *serialization++ = (4U << 5) | cborArraySize; //major type 4, additional information [8..11]
@@ -147,7 +147,7 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
     //
     //CRC type SHALL be represented as a CBOR unsigned integer.
     //(cbor uint's < 24 are the value itself)
-    *serialization++ = m_crcType;
+    *serialization++ = static_cast<uint8_t>(m_crcType);
     
     //Destination EID: The Destination EID field identifies the bundle
     //endpoint that is the bundle's destination, i.e., the endpoint that
@@ -210,7 +210,7 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
         //including the CRC field itself, which for this purpose SHALL be
         //temporarily populated with all bytes set to zero.
         uint8_t * const crcStartPtr = serialization;
-        if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        if (m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
             serialization += Bpv7Crc::SerializeZeroedCrc16ForBpv7(serialization);
             const uint64_t primaryBlockSerializedLength = serialization - serializationBase;
             m_computedCrc32 = 0;
@@ -218,7 +218,7 @@ uint64_t Bpv7CbhePrimaryBlock::SerializeBpv7(uint8_t * serialization) { //not co
             Bpv7Crc::SerializeCrc16ForBpv7(crcStartPtr, m_computedCrc16);
             return primaryBlockSerializedLength;
         }
-        else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        else if (m_crcType == BPV7_CRC_TYPE::CRC32C) {
             serialization += Bpv7Crc::SerializeZeroedCrc32ForBpv7(serialization);
             const uint64_t primaryBlockSerializedLength = serialization - serializationBase;
             m_computedCrc16 = 0;
@@ -251,7 +251,7 @@ uint64_t Bpv7CbhePrimaryBlock::GetSerializationSize() const {
     serializationSize += (static_cast<uint8_t>(CborGetEncodingSizeU64(m_fragmentOffset))) * isFragment; //branchless
     serializationSize += (static_cast<uint8_t>(CborGetEncodingSizeU64(m_totalApplicationDataUnitLength))) * isFragment; //branchless
     static const uint8_t CRC_TYPE_TO_SIZE[4] = { 0,3,5,0 };
-    serializationSize += CRC_TYPE_TO_SIZE[m_crcType & 3];
+    serializationSize += CRC_TYPE_TO_SIZE[(static_cast<uint8_t>(m_crcType)) & 3];
     return serializationSize;
 }
 
@@ -323,12 +323,12 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
     //
     //CRC type SHALL be represented as a CBOR unsigned integer.
     //(cbor uint's < 24 are the value itself)
-    m_crcType = *serialization++;
+    m_crcType = static_cast<BPV7_CRC_TYPE>(*serialization++);
 
     bufferSize -= (3 + cborSizeDecoded); //for initialCborByte and bpVersion and crcType and flags.. min size now at 17-3-9=5
 
     //verify cbor array size
-    const bool hasCrc = (m_crcType != 0);
+    const bool hasCrc = (m_crcType != BPV7_CRC_TYPE::NONE);
     const bool isFragment = ((m_bundleProcessingControlFlags & BPV7_BUNDLEFLAG::ISFRAGMENT) != BPV7_BUNDLEFLAG::NO_FLAGS_SET);
     const uint8_t expectedCborArraySize = 8 + hasCrc + ((static_cast<uint8_t>(isFragment)) << 1);
     if (expectedCborArraySize != cborArraySize) {
@@ -427,7 +427,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
         //including the CRC field itself, which for this purpose SHALL be
         //temporarily populated with all bytes set to zero.
         uint8_t * const crcStartPtr = serialization;
-        if (m_crcType == BPV7_CRC_TYPE_CRC16_X25) {
+        if (m_crcType == BPV7_CRC_TYPE::CRC16_X25) {
             m_computedCrc32 = 0;
             if ((bufferSize < 3) || (!Bpv7Crc::DeserializeCrc16ForBpv7(serialization, &cborSizeDecoded, m_computedCrc16))) {
                 return false;
@@ -449,7 +449,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
                 return false;
             }
         }
-        else if (m_crcType == BPV7_CRC_TYPE_CRC32C) {
+        else if (m_crcType == BPV7_CRC_TYPE::CRC32C) {
             m_computedCrc16 = 0;
             if ((bufferSize < 5) || (!Bpv7Crc::DeserializeCrc32ForBpv7(serialization, &cborSizeDecoded, m_computedCrc32))) {
                 return false;

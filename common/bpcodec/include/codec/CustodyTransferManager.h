@@ -3,9 +3,7 @@
 
 
 #include "codec/bpv6.h"
-#include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/BundleViewV6.h"
-#include "codec/AggregateCustodySignal.h"
 #include <string>
 #include <cstdint>
 #include <vector>
@@ -23,7 +21,7 @@ enum class BPV6_ACS_STATUS_REASON_INDICES : uint8_t {
 };
 static constexpr unsigned int NUM_ACS_STATUS_INDICES = static_cast<unsigned int>(BPV6_ACS_STATUS_REASON_INDICES::NUM_INDICES);
 
-struct acs_array_t : public std::array<AggregateCustodySignal, NUM_ACS_STATUS_INDICES> {
+struct acs_array_t : public std::array<Bpv6AdministrativeRecordContentAggregateCustodySignal, NUM_ACS_STATUS_INDICES> {
     acs_array_t();
 };
 
@@ -36,14 +34,13 @@ public:
     ~CustodyTransferManager();
 
     bool ProcessCustodyOfBundle(BundleViewV6 & bv, bool acceptCustody, const uint64_t custodyId,
-        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex,
-        std::vector<uint8_t> & custodySignalRfc5050SerializedBundle, bpv6_primary_block & custodySignalRfc5050Primary);
+        const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, BundleViewV6 & custodySignalRfc5050RenderedBundleView);
     void SetCreationAndSequence(uint64_t & creation, uint64_t & sequence);
-    bool GenerateCustodySignalBundle(std::vector<uint8_t> & serializedBundle, bpv6_primary_block & newPrimary, const bpv6_primary_block & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
-    bool GenerateAllAcsBundlesAndClear(std::list<std::pair<bpv6_primary_block, std::vector<uint8_t> > > & serializedPrimariesAndBundlesList);
-    bool GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const AggregateCustodySignal & acs);
-    bool GenerateAcsBundle(std::pair<bpv6_primary_block, std::vector<uint8_t> > & primaryPlusSerializedBundle, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
-    const AggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    bool GenerateCustodySignalBundle(BundleViewV6 & newRenderedBundleView, const Bpv6CbhePrimaryBlock & primaryFromSender, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
+    bool GenerateAllAcsBundlesAndClear(std::list<BundleViewV6> & newAcsRenderedBundleViewList);
+    bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, Bpv6AdministrativeRecordContentAggregateCustodySignal & acsToMove, const bool copyAcsOnly = false);
+    bool GenerateAcsBundle(BundleViewV6 & newAcsRenderedBundleView, const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex, const bool copyAcsOnly = false);
+    const Bpv6AdministrativeRecordContentAggregateCustodySignal & GetAcsConstRef(const cbhe_eid_t & custodianEid, const BPV6_ACS_STATUS_REASON_INDICES statusReasonIndex);
     uint64_t GetLargestNumberOfFills() const;
 private:
     const bool m_isAcsAware;

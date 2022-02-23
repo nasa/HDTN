@@ -168,10 +168,10 @@ A.1.1.1.  Primary Block
         Bpv7CanonicalBlock & block = *blockPtr;
         //block.SetZero();
 
-        block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+        block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
-        block.m_crcType = BPV7_CRC_TYPE_NONE;
+        block.m_crcType = BPV7_CRC_TYPE::NONE;
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
@@ -181,13 +181,13 @@ A.1.1.1.  Primary Block
     //get payload and verify
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         const char * strPtr = (const char *)blocks[0]->headerPtr->m_dataPtr;
         std::string s(strPtr, strPtr + blocks[0]->headerPtr->m_dataLength);
         //std::cout << "s: " << s << "\n";
         BOOST_REQUIRE_EQUAL(s, payloadString);
-        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
+        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
         BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
 
@@ -321,7 +321,7 @@ A.1.3.2.  Abstract Security Block
 
         bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         bib.m_blockNumber = 2;
-        bib.m_crcType = BPV7_CRC_TYPE_NONE;
+        bib.m_crcType = BPV7_CRC_TYPE::NONE;
         bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
         //bib.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BIB_HMAC_SHA2); //handled by constructor
         bib.m_securityContextFlags = 0;
@@ -344,7 +344,7 @@ A.1.3.2.  Abstract Security Block
     Bpv7BlockIntegrityBlock* bibPtrOriginal;
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         bibPtrOriginal = dynamic_cast<Bpv7BlockIntegrityBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(bibPtrOriginal);
@@ -444,12 +444,12 @@ A.1.3.2.  Abstract Security Block
             //get bib and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
-                bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks2);
+                bv2.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks2);
                 BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
                 Bpv7BlockIntegrityBlock* bibPtr2 = dynamic_cast<Bpv7BlockIntegrityBlock*>(blocks2[0]->headerPtr.get());
                 BOOST_REQUIRE(bibPtr2);
                 BOOST_REQUIRE(*bibPtrOriginal == *bibPtr2);
-                BOOST_REQUIRE_EQUAL(bibPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_BLOCK_INTEGRITY);
+                BOOST_REQUIRE_EQUAL(bibPtr2->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::INTEGRITY);
                 BOOST_REQUIRE_EQUAL(bibPtr2->m_blockNumber, 2);
                 std::vector<std::vector<uint8_t>*> hmacPtrs = bibPtr2->GetAllExpectedHmacPtrs();
                 BOOST_REQUIRE_EQUAL(hmacPtrs.size(), 1);
@@ -545,10 +545,10 @@ A.2.1.1.  Primary Block
         Bpv7CanonicalBlock & block = *blockPtr;
         //block.SetZero();
 
-        block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+        block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
-        block.m_crcType = BPV7_CRC_TYPE_NONE;
+        block.m_crcType = BPV7_CRC_TYPE::NONE;
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
@@ -558,13 +558,13 @@ A.2.1.1.  Primary Block
     //get payload and verify
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         const char * strPtr = (const char *)blocks[0]->headerPtr->m_dataPtr;
         std::string s(strPtr, strPtr + blocks[0]->headerPtr->m_dataLength);
         //std::cout << "s: " << s << "\n";
         BOOST_REQUIRE_EQUAL(s, payloadString);
-        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
+        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
         BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
 
@@ -717,7 +717,7 @@ A.2.3.2.  Abstract Security Block
 
         bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::MUST_BE_REPLICATED;
         bcb.m_blockNumber = 2;
-        bcb.m_crcType = BPV7_CRC_TYPE_NONE;
+        bcb.m_crcType = BPV7_CRC_TYPE::NONE;
         bcb.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
         //bcb.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BCB_AES_GCM); //handled by constructor
         bcb.m_securityContextFlags = 0;
@@ -749,7 +749,7 @@ A.2.3.2.  Abstract Security Block
     Bpv7BlockConfidentialityBlock* bcbPtrOriginal;
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         bcbPtrOriginal = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(bcbPtrOriginal);
@@ -830,7 +830,7 @@ A.2.3.2.  Abstract Security Block
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(payloadCipherTextString, payloadCipherText));
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         blocks[0]->headerPtr->m_dataPtr = payloadCipherText.data();
         blocks[0]->headerPtr->m_dataLength = payloadCipherText.size();
@@ -865,12 +865,12 @@ A.2.3.2.  Abstract Security Block
             //get bib and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
-                bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY, blocks2);
+                bv2.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks2);
                 BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
                 Bpv7BlockConfidentialityBlock* bcbPtr2 = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks2[0]->headerPtr.get());
                 BOOST_REQUIRE(bcbPtr2);
                 BOOST_REQUIRE(*bcbPtrOriginal == *bcbPtr2);
-                BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY);
+                BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY);
                 BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockNumber, 2);
                 std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr2->GetAllPayloadAuthenticationTagPtrs();
                 BOOST_REQUIRE_EQUAL(patPtrs.size(), 1);
@@ -988,7 +988,7 @@ A.3.1.1.  Primary Block
 
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         block.m_blockNumber = 2;
-        block.m_crcType = BPV7_CRC_TYPE_NONE;
+        block.m_crcType = BPV7_CRC_TYPE::NONE;
         block.m_bundleAgeMilliseconds = 300;
 
         bv.PrependMoveCanonicalBlock(blockPtr);
@@ -1011,10 +1011,10 @@ A.3.1.1.  Primary Block
         Bpv7CanonicalBlock & block = *blockPtr;
         //block.SetZero();
 
-        block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+        block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
-        block.m_crcType = BPV7_CRC_TYPE_NONE;
+        block.m_crcType = BPV7_CRC_TYPE::NONE;
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
@@ -1024,7 +1024,7 @@ A.3.1.1.  Primary Block
     //get bundle age and verify
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BUNDLE_AGE, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         
         //verify from example
@@ -1045,13 +1045,13 @@ A.3.1.1.  Primary Block
     //get payload and verify
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         const char * strPtr = (const char *)blocks[0]->headerPtr->m_dataPtr;
         std::string s(strPtr, strPtr + blocks[0]->headerPtr->m_dataLength);
         //std::cout << "s: " << s << "\n";
         BOOST_REQUIRE_EQUAL(s, payloadString);
-        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
+        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
         BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
 
@@ -1213,7 +1213,7 @@ A.3.3.2.  Abstract Security Block
 
         bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         bib.m_blockNumber = 3;
-        bib.m_crcType = BPV7_CRC_TYPE_NONE;
+        bib.m_crcType = BPV7_CRC_TYPE::NONE;
         bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 0, 2 });
         //bib.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BIB_HMAC_SHA2); //handled by constructor
         bib.m_securityContextFlags = 0;
@@ -1240,7 +1240,7 @@ A.3.3.2.  Abstract Security Block
     Bpv7BlockIntegrityBlock* bibPtrOriginal;
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         bibPtrOriginal = dynamic_cast<Bpv7BlockIntegrityBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(bibPtrOriginal);
@@ -1379,7 +1379,7 @@ A.3.4.2.  Abstract Security Block
 
         bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::MUST_BE_REPLICATED;
         bcb.m_blockNumber = 4;
-        bcb.m_crcType = BPV7_CRC_TYPE_NONE;
+        bcb.m_crcType = BPV7_CRC_TYPE::NONE;
         bcb.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
         //bcb.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BCB_AES_GCM); //handled by constructor
         bcb.m_securityContextFlags = 0;
@@ -1407,7 +1407,7 @@ A.3.4.2.  Abstract Security Block
     Bpv7BlockConfidentialityBlock* bcbPtrOriginal;
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         bcbPtrOriginal = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(bcbPtrOriginal);
@@ -1485,7 +1485,7 @@ A.3.4.2.  Abstract Security Block
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(payloadCipherTextString, payloadCipherText));
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         blocks[0]->headerPtr->m_dataPtr = payloadCipherText.data();
         blocks[0]->headerPtr->m_dataLength = payloadCipherText.size();
@@ -1521,12 +1521,12 @@ A.3.4.2.  Abstract Security Block
             //get bcb and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
-                bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY, blocks2);
+                bv2.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks2);
                 BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
                 Bpv7BlockConfidentialityBlock* bcbPtr2 = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks2[0]->headerPtr.get());
                 BOOST_REQUIRE(bcbPtr2);
                 BOOST_REQUIRE(*bcbPtrOriginal == *bcbPtr2);
-                BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY);
+                BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY);
                 BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockNumber, 4);
                 std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr2->GetAllPayloadAuthenticationTagPtrs();
                 BOOST_REQUIRE_EQUAL(patPtrs.size(), 1);
@@ -1542,12 +1542,12 @@ A.3.4.2.  Abstract Security Block
             //get bib and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
-                bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks2);
+                bv2.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks2);
                 BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
                 Bpv7BlockIntegrityBlock* bibPtr2 = dynamic_cast<Bpv7BlockIntegrityBlock*>(blocks2[0]->headerPtr.get());
                 BOOST_REQUIRE(bibPtr2);
                 BOOST_REQUIRE(*bibPtrOriginal == *bibPtr2);
-                BOOST_REQUIRE_EQUAL(bibPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_BLOCK_INTEGRITY);
+                BOOST_REQUIRE_EQUAL(bibPtr2->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::INTEGRITY);
                 BOOST_REQUIRE_EQUAL(bibPtr2->m_blockNumber, 3);
                 std::vector<std::vector<uint8_t>*> hmacPtrs = bibPtr2->GetAllExpectedHmacPtrs();
                 BOOST_REQUIRE_EQUAL(hmacPtrs.size(), 2);
@@ -1645,10 +1645,10 @@ A.4.1.1.  Primary Block
         Bpv7CanonicalBlock & block = *blockPtr;
         //block.SetZero();
 
-        block.m_blockTypeCode = BPV7_BLOCKTYPE_PAYLOAD;
+        block.m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PAYLOAD;
         block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET; //something for checking against
         block.m_blockNumber = 1; //must be 1
-        block.m_crcType = BPV7_CRC_TYPE_NONE;
+        block.m_crcType = BPV7_CRC_TYPE::NONE;
 
         block.m_dataLength = payloadString.size();
         block.m_dataPtr = (uint8_t*)payloadString.data(); //payloadString must remain in scope until after render
@@ -1658,13 +1658,13 @@ A.4.1.1.  Primary Block
     //get payload and verify
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         const char * strPtr = (const char *)blocks[0]->headerPtr->m_dataPtr;
         std::string s(strPtr, strPtr + blocks[0]->headerPtr->m_dataLength);
         //std::cout << "s: " << s << "\n";
         BOOST_REQUIRE_EQUAL(s, payloadString);
-        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCKTYPE_PAYLOAD);
+        BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PAYLOAD);
         BOOST_REQUIRE_EQUAL(blocks[0]->headerPtr->m_blockNumber, 1);
         BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), blocks[0]->headerPtr->GetSerializationSize());
 
@@ -1815,7 +1815,7 @@ A.4.3.2.  Abstract Security Block
 
         bib.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::NO_FLAGS_SET;
         bib.m_blockNumber = 3;
-        bib.m_crcType = BPV7_CRC_TYPE_NONE;
+        bib.m_crcType = BPV7_CRC_TYPE::NONE;
         bib.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 1 });
         //bib.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BIB_HMAC_SHA2); //handled by constructor
         bib.m_securityContextFlags = 0;
@@ -1842,7 +1842,7 @@ A.4.3.2.  Abstract Security Block
     Bpv7BlockIntegrityBlock* bibPtrOriginal;
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         bibPtrOriginal = dynamic_cast<Bpv7BlockIntegrityBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(bibPtrOriginal);
@@ -1999,7 +1999,7 @@ A.4.4.2.  Abstract Security Block
 
         bcb.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::MUST_BE_REPLICATED;
         bcb.m_blockNumber = 2;
-        bcb.m_crcType = BPV7_CRC_TYPE_NONE;
+        bcb.m_crcType = BPV7_CRC_TYPE::NONE;
         bcb.m_securityTargets = Bpv7AbstractSecurityBlock::security_targets_t({ 3, 1 });
         //bcb.m_securityContextId = static_cast<uint64_t>(BPSEC_SECURITY_CONTEXT_IDENTIFIERS::BCB_AES_GCM); //handled by constructor
         bcb.m_securityContextFlags = 0;
@@ -2035,7 +2035,7 @@ A.4.4.2.  Abstract Security Block
     Bpv7BlockConfidentialityBlock* bcbPtrOriginal;
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         bcbPtrOriginal = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks[0]->headerPtr.get());
         BOOST_REQUIRE(bcbPtrOriginal);
@@ -2125,7 +2125,7 @@ A.4.4.2.  Abstract Security Block
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(payloadCipherTextString, payloadCipherText));
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_PAYLOAD, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         blocks[0]->headerPtr->m_dataPtr = payloadCipherText.data();
         blocks[0]->headerPtr->m_dataLength = payloadCipherText.size();
@@ -2140,7 +2140,7 @@ A.4.4.2.  Abstract Security Block
     BOOST_REQUIRE(BinaryConversions::HexStringToBytes(bibCipherTextString, bibCipherText));
     {
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
-        bv.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks);
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks);
         BOOST_REQUIRE_EQUAL(blocks.size(), 1);
         blocks[0]->headerPtr->m_dataPtr = bibCipherText.data();
         blocks[0]->headerPtr->m_dataLength = bibCipherText.size();
@@ -2178,13 +2178,13 @@ A.4.4.2.  Abstract Security Block
             //get bcb and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
-                bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY, blocks2);
+                bv2.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY, blocks2);
                 BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
                 Bpv7BlockConfidentialityBlock* bcbPtr2 = dynamic_cast<Bpv7BlockConfidentialityBlock*>(blocks2[0]->headerPtr.get());
                 BOOST_REQUIRE(bcbPtr2);
                 BOOST_REQUIRE(!blocks2[0]->isEncrypted); //bcb not encrypted
                 BOOST_REQUIRE(*bcbPtrOriginal == *bcbPtr2);
-                BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_BLOCK_CONFIDENTIALITY);
+                BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY);
                 BOOST_REQUIRE_EQUAL(bcbPtr2->m_blockNumber, 2);
                 std::vector<std::vector<uint8_t>*> patPtrs = bcbPtr2->GetAllPayloadAuthenticationTagPtrs();
                 BOOST_REQUIRE_EQUAL(patPtrs.size(), 2);
@@ -2202,13 +2202,13 @@ A.4.4.2.  Abstract Security Block
             //get bib and verify
             {
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks2;
-                bv2.GetCanonicalBlocksByType(BPV7_BLOCKTYPE_BLOCK_INTEGRITY, blocks2);
+                bv2.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::INTEGRITY, blocks2);
                 BOOST_REQUIRE_EQUAL(blocks2.size(), 1);
                 Bpv7BlockIntegrityBlock* bibPtr2 = dynamic_cast<Bpv7BlockIntegrityBlock*>(blocks2[0]->headerPtr.get());
                 BOOST_REQUIRE(bibPtr2);
                 BOOST_REQUIRE(blocks2[0]->isEncrypted); //this bib is encrypted
                 //BOOST_REQUIRE(*bibPtrOriginal == *bibPtr2);
-                BOOST_REQUIRE_EQUAL(bibPtr2->m_blockTypeCode, BPV7_BLOCKTYPE_BLOCK_INTEGRITY);
+                BOOST_REQUIRE_EQUAL(bibPtr2->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::INTEGRITY);
                 BOOST_REQUIRE_EQUAL(bibPtr2->m_blockNumber, 3);
                 //std::vector<std::vector<uint8_t>*> hmacPtrs = bibPtr2->GetAllExpectedHmacPtrs();
                 //BOOST_REQUIRE_EQUAL(hmacPtrs.size(), 1);

@@ -5,7 +5,6 @@
 #include "InductManager.h"
 #include "OutductManager.h"
 #include "codec/bpv6.h"
-#include "codec/CustodyTransferEnhancementBlock.h"
 #include "codec/CustodyTransferManager.h"
 #include <boost/asio.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -56,7 +55,7 @@ private:
     std::string m_myEidUriString;
     std::unique_ptr<CustodyTransferManager> m_custodyTransferManagerPtr;
     uint64_t m_nextCtebCustodyId;
-    std::vector<uint8_t> m_bufferSpaceForCustodySignalRfc5050SerializedBundle;
+    BundleViewV6 m_custodySignalRfc5050RenderedBundleView;
     boost::asio::io_service m_ioService;
     boost::asio::deadline_timer m_timerAcs;
     boost::asio::deadline_timer m_timerTransferRateStats;

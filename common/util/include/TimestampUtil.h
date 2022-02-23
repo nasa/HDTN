@@ -36,9 +36,58 @@ public:
         bool operator!=(const dtn_time_t & o) const; //operator !=
         bool operator<(const dtn_time_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const dtn_time_t& o);
-        uint64_t Serialize(uint8_t * serialization) const;
-        bool Deserialize(const uint8_t * serialization, uint8_t * numBytesTakenToDecode);
+        uint64_t SerializeBpv6(uint8_t * serialization) const;
+        uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+        uint64_t GetSerializationSizeBpv6() const;
+        bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
         void SetZero();
+    };
+
+    //Bpv6:
+    //Creation Timestamp:   The creation timestamp is a pair of SDNVs that,
+    //together with the source endpoint ID and (if the bundle is a
+    //fragment) the fragment offset and payload length, serve to
+    //identify the bundle.  The first SDNV of the timestamp is the
+    //bundle's creation time, while the second is the bundle's creation
+    //timestamp sequence number.  Bundle creation time is the time --
+    //expressed in seconds since the start of the year 2000, on the
+    //Coordinated Universal Time (UTC) scale [UTC] -- at which the
+    //transmission request was received that resulted in the creation of
+    //the bundle.  Sequence count is the latest value (as of the time at
+    //which that transmission request was received) of a monotonically
+    //increasing positive integer counter managed by the source node's
+    //bundle protocol agent that may be reset to zero whenever the
+    //current time advances by one second.  A source Bundle Protocol
+    //Agent must never create two distinct bundles with the same source
+    //endpoint ID and bundle creation timestamp.  The combination of
+    //source endpoint ID and bundle creation timestamp therefore serves
+    //to identify a single transmission request, enabling it to be
+    //acknowledged by the receiving application (provided the source
+    //endpoint ID is not "dtn:none").
+    struct bpv6_creation_timestamp_t {
+        uint64_t secondsSinceStartOfYear2000;
+        uint64_t sequenceNumber;
+
+        bpv6_creation_timestamp_t(); //a default constructor: X()
+        bpv6_creation_timestamp_t(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber);
+        ~bpv6_creation_timestamp_t(); //a destructor: ~X()
+        bpv6_creation_timestamp_t(const bpv6_creation_timestamp_t& o); //a copy constructor: X(const X&)
+        bpv6_creation_timestamp_t(bpv6_creation_timestamp_t&& o); //a move constructor: X(X&&)
+        bpv6_creation_timestamp_t& operator=(const bpv6_creation_timestamp_t& o); //a copy assignment: operator=(const X&)
+        bpv6_creation_timestamp_t& operator=(bpv6_creation_timestamp_t&& o); //a move assignment: operator=(X&&)
+        bool operator==(const bpv6_creation_timestamp_t & o) const; //operator ==
+        bool operator!=(const bpv6_creation_timestamp_t & o) const; //operator !=
+        bool operator<(const bpv6_creation_timestamp_t & o) const; //operator < so it can be used as a map key
+        friend std::ostream& operator<<(std::ostream& os, const bpv6_creation_timestamp_t& o);
+        uint64_t SerializeBpv6(uint8_t * serialization) const;
+        uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+        uint64_t GetSerializationSizeBpv6() const;
+        bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+        void SetZero();
+        boost::posix_time::ptime GetPtime() const;
+        void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
+        std::string GetUtcTimestampString(bool forFileName) const;
+        void SetTimeFromNow();
     };
 
     //Bpv7:
@@ -84,6 +133,7 @@ public:
         bool operator<(const bpv7_creation_timestamp_t & o) const; //operator < so it can be used as a map key
         friend std::ostream& operator<<(std::ostream& os, const bpv7_creation_timestamp_t& o);
         uint64_t SerializeBpv7(uint8_t * serialization) const;
+        uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
         uint64_t GetSerializationSize() const;
         bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
         void SetZero();

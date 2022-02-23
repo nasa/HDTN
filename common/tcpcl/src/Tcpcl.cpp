@@ -131,7 +131,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_localEidLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_localEidLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize == 0) {
                         std::cout << "error in TCPCL_CONTACT_HEADER_RX_STATE::READ_LOCAL_EID_LENGTH_SDNV, sdnvSize is 0\n";
                         m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -172,7 +172,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 m_mainRxState = TCPCL_MAIN_RX_STATE::READ_DATA_SEGMENT;
                 if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
                     uint8_t sdnvSize;
-                    m_dataSegmentLength = SdnvDecodeU64(rxVals, &sdnvSize);
+                    m_dataSegmentLength = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
                     if (sdnvSize == 0) {
                         std::cout << "error in TCPCL_MAIN_RX_STATE::READ_MESSAGE_TYPE_BYTE (shortcut READ_CONTENT_LENGTH_SDNV), sdnvSize is 0\n";
                         m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -247,7 +247,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                    m_dataSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize == 0) {
                         std::cout << "error in TCPCL_DATA_SEGMENT_RX_STATE::READ_CONTENT_LENGTH_SDNV, sdnvSize is 0\n";
                         m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -301,7 +301,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_ackSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_ackSegmentLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize == 0) {
                     std::cout << "error in TCPCL_MAIN_RX_STATE::READ_ACK_SEGMENT, sdnvSize is 0\n";
                     m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -333,7 +333,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_nextBundleLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_nextBundleLength = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize == 0) {
                     std::cout << "error in TCPCL_MAIN_RX_STATE::READ_LENGTH_SEGMENT, sdnvSize is 0\n";
                     m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -378,7 +378,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
             }
             else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                 uint8_t sdnvSize;
-                m_shutdownReconnectionDelay = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize);
+                m_shutdownReconnectionDelay = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                 if (sdnvSize == 0) {
                     std::cout << "error in TCPCL_MAIN_RX_STATE::READ_SHUTDOWN_SEGMENT_RECONNECTION_DELAY_SDNV, sdnvSize is 0\n";
                     m_contactHeaderRxState = TCPCL_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
@@ -404,10 +404,7 @@ void Tcpcl::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) {
 }
 
 void Tcpcl::GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid) {
-    uint8_t localEidSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(localEidSdnv, localEid.size());
-
-    hdr.resize(8 + sdnvSize + localEid.size());
+    hdr.resize(8 + 10 + localEid.size()); //10 is largest sdnv buffer required for encode
 
     hdr[0] = 'd';
     hdr[1] = 't';
@@ -417,8 +414,9 @@ void Tcpcl::GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLA
     hdr[5] = static_cast<uint8_t>(flags);
     boost::endian::native_to_big_inplace(keepAliveIntervalSeconds);
     memcpy(&hdr[6], &keepAliveIntervalSeconds, sizeof(keepAliveIntervalSeconds));
-    memcpy(&hdr[8], localEidSdnv, sdnvSize);
+    const uint64_t sdnvSize = SdnvEncodeU64BufSize10(&hdr[8], localEid.size());
     memcpy(&hdr[8 + sdnvSize], localEid.data(), localEid.size());
+    hdr.resize(8 + sdnvSize + localEid.size()); //shrink it
 }
 
 void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents) {
@@ -430,15 +428,11 @@ void Tcpcl::GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStart
     if (isEndSegment) {
         dataSegmentHeader |= (1U << 0);
     }
-    uint8_t contentLengthSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(contentLengthSdnv, sizeContents);
-
-    dataSegment.resize(1 + sdnvSize + sizeContents);
-
+    dataSegment.resize(1 + 10 + sizeContents); //10 is largest sdnv buffer required for encode
     dataSegment[0] = dataSegmentHeader;
-
-    memcpy(&dataSegment[1], contentLengthSdnv, sdnvSize);
+    const uint64_t sdnvSize = SdnvEncodeU64BufSize10(&dataSegment[1], sizeContents);
     memcpy(&dataSegment[1 + sdnvSize], contents, sizeContents);
+    dataSegment.resize(1 + sdnvSize + sizeContents);//shrink it
 }
 
 void Tcpcl::GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint64_t sizeContents) {
@@ -450,23 +444,18 @@ void Tcpcl::GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHead
     if (isEndSegment) {
         dataSegmentHeader |= (1U << 0);
     }
-    uint8_t contentLengthSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(contentLengthSdnv, sizeContents);
-
-    dataSegmentHeaderDataVec.resize(1 + sdnvSize);
-
+    dataSegmentHeaderDataVec.resize(1 + 10); //10 is largest sdnv buffer required for encode
     dataSegmentHeaderDataVec[0] = dataSegmentHeader;
-
-    memcpy(&dataSegmentHeaderDataVec[1], contentLengthSdnv, sdnvSize);
+    const uint64_t sdnvSize = SdnvEncodeU64BufSize10(&dataSegmentHeaderDataVec[1], sizeContents);
+    dataSegmentHeaderDataVec.resize(1 + sdnvSize);//shrink it
 }
 
 void Tcpcl::GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint64_t totalBytesAcknowledged) {
     const uint8_t ackSegmentHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::ACK_SEGMENT)) << 4;
-    uint8_t totalBytesAcknowledgedSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(totalBytesAcknowledgedSdnv, totalBytesAcknowledged);
-    ackSegment.resize(1 + sdnvSize);
+    ackSegment.resize(1 + 10); //10 is largest sdnv buffer required for encode
     ackSegment[0] = ackSegmentHeader;
-    memcpy(&ackSegment[1], totalBytesAcknowledgedSdnv, sdnvSize);
+    const uint64_t sdnvSize = SdnvEncodeU64BufSize10(&ackSegment[1], totalBytesAcknowledged);
+    ackSegment.resize(1 + sdnvSize); //shrink it
 }
 
 void Tcpcl::GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode) {
@@ -478,11 +467,10 @@ void Tcpcl::GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_
 
 void Tcpcl::GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint64_t nextBundleLength) {
     const uint8_t bundleLengthHeader = (static_cast<uint8_t>(MESSAGE_TYPE_BYTE_CODES::LENGTH)) << 4;
-    uint8_t nextBundleLengthSdnv[10];
-    const uint64_t sdnvSize = SdnvEncodeU64(nextBundleLengthSdnv, nextBundleLength);
-    bundleLengthMessage.resize(1 + sdnvSize);
+    bundleLengthMessage.resize(1 + 10); //10 is largest sdnv buffer required for encode
     bundleLengthMessage[0] = bundleLengthHeader;
-    memcpy(&bundleLengthMessage[1], nextBundleLengthSdnv, sdnvSize);
+    const uint64_t sdnvSize = SdnvEncodeU64BufSize10(&bundleLengthMessage[1], nextBundleLength);
+    bundleLengthMessage.resize(1 + sdnvSize); //shrink it
 }
 
 void Tcpcl::GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage) {
@@ -505,7 +493,7 @@ void Tcpcl::GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
     }
     if (includeReconnectionDelay) {
         shutdownHeader |= (1U << 0);
-        sdnvSize = SdnvEncodeU64(reconnectionDelaySecondsSdnv, reconnectionDelaySeconds);
+        sdnvSize = SdnvEncodeU64BufSize10(reconnectionDelaySecondsSdnv, reconnectionDelaySeconds);
         totalMessageSizeBytes += sdnvSize;
     }
 
