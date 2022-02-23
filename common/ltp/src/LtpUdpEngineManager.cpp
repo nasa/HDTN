@@ -216,7 +216,6 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
             }
             const uint8_t engineIndex = LtpRandomNumberGenerator::GetEngineIndexFromRandomSessionNumber(sessionNumber);
             ltpUdpEnginePtr = m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex];
-            //ltpUdpEnginePtr = //static_cast<LtpUdpEngine*>(LtpEngine::GetLtpEnginePtrBySessionNumber(sessionNumber));
             if (ltpUdpEnginePtr == NULL) {
                 std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive: an outduct received packet of type " << (int)segmentTypeFlags << " with unknown session number "
                     << sessionNumber << ".. ignoring packet" << std::endl;
@@ -256,7 +255,6 @@ void LtpUdpEngineManager::DoUdpShutdown() {
     }
     m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr.clear();
     m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr.clear();
-    LtpEngine::ClearSessionNumberMapSingleton();
 }
 
 bool LtpUdpEngineManager::ReadyToForward() {

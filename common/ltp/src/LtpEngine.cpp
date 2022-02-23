@@ -4,42 +4,6 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 
-std::unordered_map<uint64_t, LtpEngine*> LtpEngine::m_staticMapTxSessionNumberToLtpEnginePtr(1000); //todo start with 1000 buckets to prevent rehash
-boost::mutex LtpEngine::m_staticMutexMapTxSessionNumberToLtpEnginePtr;
-
-//static functions
-void LtpEngine::ClearSessionNumberMapSingleton() {
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.lock();
-    m_staticMapTxSessionNumberToLtpEnginePtr.clear();
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.unlock();
-}
-bool LtpEngine::TryRegisterRandomSessionNumber(const uint64_t sessionNumber, LtpEngine * const myLtpEnginePtr) {
-    const std::pair<uint64_t, LtpEngine*> toInsert = std::pair<uint64_t, LtpEngine*>(sessionNumber, myLtpEnginePtr);
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.lock();
-    const bool successInsert = m_staticMapTxSessionNumberToLtpEnginePtr.insert(toInsert).second;
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.unlock();
-    if (successInsert) {
-        std::cout << "registered sn " << sessionNumber << "\n";
-    }
-    else {
-        std::cout << "failed registered sn " << sessionNumber << "\n";
-    }
-    return successInsert;
-}
-LtpEngine * LtpEngine::GetLtpEnginePtrBySessionNumber(const uint64_t sessionNumber) {
-    std::cout << "getting sn " << sessionNumber << "\n";
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.lock();
-    const std::unordered_map<uint64_t, LtpEngine*>::iterator it = m_staticMapTxSessionNumberToLtpEnginePtr.find(sessionNumber);
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.unlock();
-    return (it == m_staticMapTxSessionNumberToLtpEnginePtr.end()) ? NULL : it->second;
-}
-void LtpEngine::EraseRandomSessionNumberIfExists(const uint64_t sessionNumber) {
-    std::cout << "erasing sn " << sessionNumber << "\n";
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.lock();
-    m_staticMapTxSessionNumberToLtpEnginePtr.erase(sessionNumber);
-    m_staticMutexMapTxSessionNumberToLtpEnginePtr.unlock();
-}
-
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, 
     const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
@@ -193,7 +157,6 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
             else {
                 m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
                 m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
-                EraseRandomSessionNumberIfExists(txSessionIt->first);
                 if (txSessionIt == m_sendersIterator) {
                     m_sendersIterator = m_mapSessionNumberToSessionSender.erase(txSessionIt); //revalidate iterator
                 }
@@ -321,21 +284,11 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
     if(M_FORCE_32_BIT_RANDOM_NUMBERS) {
-        while (true) {
-            randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32(m_randomDevice);
-            if (TryRegisterRandomSessionNumber(randomSessionNumberGeneratedBySender, this)) {
-                break;
-            }
-        }
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession32(m_randomDevice);
         randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber32(m_randomDevice);
     }
     else {
-        while (true) {
-            randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64(m_randomDevice);
-            if (TryRegisterRandomSessionNumber(randomSessionNumberGeneratedBySender, this)) {
-                break;
-            }
-        }
+        randomSessionNumberGeneratedBySender = m_rng.GetRandomSession64(m_randomDevice);
         randomInitialSenderCheckpointSerialNumber = m_rng.GetRandomSerialNumber64(m_randomDevice);
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
@@ -411,7 +364,6 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
-            EraseRandomSessionNumberIfExists(txSessionIt->first);
             if (txSessionIt == m_sendersIterator) {
                 m_sendersIterator = m_mapSessionNumberToSessionSender.erase(txSessionIt); //revalidate iterator
             }
@@ -519,7 +471,6 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
-            EraseRandomSessionNumberIfExists(txSessionIt->first);
             if (txSessionIt == m_sendersIterator) {
                 m_sendersIterator = m_mapSessionNumberToSessionSender.erase(txSessionIt); //revalidate iterator
             }

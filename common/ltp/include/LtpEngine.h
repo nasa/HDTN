@@ -11,7 +11,6 @@
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
-#include <unordered_map>
 
 class LtpEngine {
 private:
@@ -132,15 +131,6 @@ private:
 
     //session re-creation prevention
     std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> > m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
-
-    //static singleton session number registrar for tx sessions
-    static std::unordered_map<uint64_t, LtpEngine*> m_staticMapTxSessionNumberToLtpEnginePtr;
-    static boost::mutex m_staticMutexMapTxSessionNumberToLtpEnginePtr;
-public:
-    static void ClearSessionNumberMapSingleton();
-    static bool TryRegisterRandomSessionNumber(const uint64_t sessionNumber, LtpEngine * const myLtpEnginePtr);
-    static LtpEngine * GetLtpEnginePtrBySessionNumber(const uint64_t sessionNumber);
-    static void EraseRandomSessionNumberIfExists(const uint64_t sessionNumber);
 
 public:
     //stats
