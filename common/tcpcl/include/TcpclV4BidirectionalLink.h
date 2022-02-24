@@ -13,8 +13,14 @@
 #ifdef OPENSSL_SUPPORT_ENABLED
 #include <boost/asio/ssl.hpp>
 
+//DO NOT USE THE FOLLOWING from earlier TCPCLv4:
 //generate an x509 version 3 key with an IPN URI subjectAltName:
 //C:\openssl-1.1.1e_msvc2017\bin\openssl.exe req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = URI:ipn:10.0" -config C:\Users\btomko\Downloads\openssl-1.1.1e\apps\openssl.cnf
+
+//INSTEAD, USE THE RFC 9174 certificate profile:
+//generate an x509 version 3 key with an otherName subjectAltName:
+//C:\openssl-1.1.1e_msvc2017\bin\openssl.exe req -x509 -newkey rsa:4096 -nodes -keyout privatekey.pem -out cert.pem -sha256 -days 365 -extensions v3_req -extensions v3_ca -subj "/C=US/ST=Ohio/L=Cleveland/O=NASA/OU=HDTN/CN=localhost" -addext "subjectAltName = otherName:1.3.6.1.5.5.7.8.11;IA5:ipn:10.0" -config C:\Users\btomko\Downloads\openssl-1.1.1e\apps\openssl.cnf
+
 
 //generate the dh file:
 //C:\openssl-1.1.1e_msvc2017\bin\openssl.exe dhparam -outform PEM -out dh4096.pem 4096
