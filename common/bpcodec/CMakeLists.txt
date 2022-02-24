@@ -14,7 +14,6 @@ add_library(bpcodec STATIC
         src/codec/Bpv6CbhePrimaryBlock.cpp
 		src/codec/Bpv6CanonicalBlock.cpp
 		src/codec/Cbhe.cpp
-        src/codec/bpv6-ext-block.cpp
 		src/codec/Bpv6AdministrativeRecords.cpp
 		src/codec/Bpv6ExtensionBlocks.cpp
 		src/codec/Bpv6MetadataExtensionBlock.cpp

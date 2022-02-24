@@ -7,7 +7,6 @@
 
 #include <iostream>
 
-#include "codec/bpv6-ext-block.h"
 #include "codec/bpv6.h"
 #include "ingress.h"
 #include "Logger.h"
