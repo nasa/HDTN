@@ -166,19 +166,19 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             std::cout << "m_bundleData: " << ingressPtr->m_bundleData << std::endl; 
 
             //access ingress, egress, and storage objects to poll data and send JSON message
-            rate = (8 * (ingressPtr->m_bundleData - lastData)) / elapsedTime.total_milliseconds();
-            averageRate = (8 * ingressPtr->m_bundleData) / totalTime.total_milliseconds();
+            rate = (8.0 * (ingressPtr->m_bundleData - lastData)) / elapsedTime.total_microseconds();
+            averageRate = (8.0 * ingressPtr->m_bundleData) / totalTime.total_microseconds();
 
             std::cout << "start time: " << startTime << std::endl;
             std::cout << "new time: " << newTime << std::endl;
             std::cout << "total Time: " << totalTime.total_milliseconds() << std::endl;
-            std::cout << "average rate: " << (8 * ingressPtr->m_bundleData) / totalTime.total_milliseconds() << std::endl;
+            std::cout << "average rate: " << averageRate << std::endl;
 
 
             lastData = ingressPtr->m_bundleData;
             boost::property_tree::ptree pt;
             pt.put("bundleDataRate", rate);
-            pt.put("averageRate", (8 * ingressPtr->m_bundleData) / totalTime.total_milliseconds());
+            pt.put("averageRate", averageRate);
             pt.put("totalData", ingressPtr->m_bundleData/1000);
             pt.put("bundleCountEgress", ingressPtr->m_bundleCountEgress);
             pt.put("bundleCountStorage", ingressPtr->m_bundleCountStorage);

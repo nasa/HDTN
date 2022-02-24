@@ -99,21 +99,19 @@
 <div id="rate_stats" style="width:1000px;height:75px;padding-left:16px;padding-top:16px;">
 <table class="rate_table">
     <tr>
-        <th>Max Rate</th>
+        <th>Data Rate (Mbps)</th>
         <th>Average Rate</th>
-        <th>Total Data (Mb)</th>
-        <th>Total Bundles</th>
+        <th>Max Rate</th>
     </tr>
     <tr>
-        <td id="max_data">0</td>
-        <td id="avg_data">0</td>
-        <td id="total_data">0</td>
-        <td id="total_bundles">0</td>
+        <td id="rate_data"></td>
+        <td id="avg_data"></td>
+        <td id="max_data"></td>
     </tr>
 </table>
 </div>
 
-<div id="engine_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<div id="ingress_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
 <table class="engine_table">
     <colgroup>
         <col span="1" style="width:40%;"></col>
@@ -122,89 +120,164 @@
         <col span="1" style="width:10%;"></col>
     </colgroup>
     <tr>
-        <th colspan="4" style="text-align:center">LTP Engine Information</th>
-    </tr>
-    <tr>
-        <td>Count Async Send Calls</td>
-        <td id="countAsyncSendCalls">0</td>
-        <td>Count Circular Buffer Overruns</td>
-        <td id="countCircularBufferOverruns">0</td>
-    </tr>
-    <tr>
-        <td>Num Checkpoint Timer Expired Callbacks</td>
-        <td id="numCheckpointTimerExpiredCallbacks">0</td>
-        <td>Num Discretionary Checkpoints Not Resent</td>
-        <td id="numDiscretionaryCheckpointsNotResent">0</td>
-    </tr>
-    <tr>
-        <td>Num Report Segment Timer Expired Callbacks</td>
-        <td id="numReportSegmentTimerExpiredCallbacks">0</td>
-        <td>Num Report Segments Unable To Be Issued</td>
-        <td id="numReportSegmentsUnableToBeIssued">0</td>
-    </tr>
-    <tr>
-        <td>Num Report Segments Too Large And Needing Split</td>
-        <td id="numReportSegmentsTooLargeAndNeedingSplit">0</td>
-        <td>Num Report Segments Created Via Split</td>
-        <td id="numReportSegmentsCreatedViaSplit">0</td>
-    </tr>
-    <tr>
-        <td>Expected Session Originator Engine ID</td>
-        <td id="expectedSessionOriginatorEngineId">0</td>
-        <td>Total Data Segments Sent Successfully With Ack</td>
-        <td id="totalDataSegmentsSentSuccessfullyWithAck">0</td>
-    </tr>
-    <tr>
-        <td>Total Data Segments Failed To Send</td>
-        <td id="totalDataSegmentsFailedToSend">0</td>
-        <td>Total Data Segments Sent</td>
-        <td id="totalDataSegmentsSent">0</td>
-    </tr>
-    <tr>
-        <td>Total Bundle Bytes Sent</td>
-        <td id="totalBundleBytesSent">0</td>
-        <td>Total STCP Bytes Sent</td>
-        <td id="totalStcpBytesSent">0</td>
-    </tr>
-    <tr>
-        <td>Total Data Segments Acked By TCP Send Callback</td>
-        <td id="totalDataSegmentsAckedByTcpSendCallback">0</td>
-        <td>Total Bytes Acked By TCP Send Callback</td>
-        <td id="totalBytesAckedByTcpSendCallback">0</td>
+        <th colspan="4" style="text-align:center">Ingress</th>
     </tr>
     <tr>
         <td>Ingress Bundle Count Storage</td>
-        <td id="ingressBundleCountStorage">0</td>
+        <td id="ingressBundleCountStorage"></td>
         <td>Ingress Bundle Count Egress</td>
-        <td id="ingressBundleCountEgress">0</td>
+        <td id="ingressBundleCountEgress"></td>
     </tr>
     <tr>
         <td>Ingress Bundle Count</td>
-        <td id="ingressBundleCount">0</td>
-        <td>Ingress Bundle Data</td>
-        <td id="ingressBundleData">0</td>
+        <td id="ingressBundleCount"></td>
+        <td>Ingress Bundle Data (Mb)</td>
+        <td id="ingressBundleData"></td>
+    </tr>
+</table>
+</div>
+
+<div id="egress_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">Egress</th>
     </tr>
     <tr>
         <td>Egress Message Count</td>
-        <td id="egressMessageCount">0</td>
+        <td id="egressMessageCount"></td>
         <td>Egress Bundle Count</td>
-        <td id="egressBundleCount">0</td>
+        <td id="egressBundleCount"></td>
     </tr>
     <tr>
-        <td>Egress Bundle Data</td>
-        <td id="egressBundleData">0</td>
+        <td>Egress Bundle Data (Mb)</td>
+        <td id="egressBundleData"></td>
         <td></td>
         <td></td>
+    </tr>
+</table>
+</div>
+
+<div id="storage_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">Storage</th>
     </tr>
     <tr>
         <td>Total Bundles Erased From Storage</td>
-        <td id="totalBundlesErasedFromStorage">0</td>
+        <td id="totalBundlesErasedFromStorage"></td>
         <td>Total Bundles Sent To Egress From Storage</td>
-        <td id="totalBundlesSentToEgressFromStorage">0</td>
+        <td id="totalBundlesSentToEgressFromStorage"></td>
+    </tr>
+</table>
+</div>
+
+
+
+<div id="ltp_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">LTP Engine</th>
+    </tr>
+    <tr>
+        <td>Count Async Send Calls</td>
+        <td id="countAsyncSendCalls"></td>
+        <td>Count Circular Buffer Overruns</td>
+        <td id="countCircularBufferOverruns"></td>
+    </tr>
+    <tr>
+        <td>Num Checkpoint Timer Expired Callbacks</td>
+        <td id="numCheckpointTimerExpiredCallbacks"></td>
+        <td>Num Discretionary Checkpoints Not Resent</td>
+        <td id="numDiscretionaryCheckpointsNotResent"></td>
+    </tr>
+    <tr>
+        <td>Num Report Segment Timer Expired Callbacks</td>
+        <td id="numReportSegmentTimerExpiredCallbacks"></td>
+        <td>Num Report Segments Unable To Be Issued</td>
+        <td id="numReportSegmentsUnableToBeIssued"></td>
+    </tr>
+    <tr>
+        <td>Num Report Segments Too Large And Needing Split</td>
+        <td id="numReportSegmentsTooLargeAndNeedingSplit"></td>
+        <td>Num Report Segments Created Via Split</td>
+        <td id="numReportSegmentsCreatedViaSplit"></td>
+    </tr>
+    <tr>
+        <td>Expected Session Originator Engine ID</td>
+        <td id="expectedSessionOriginatorEngineId"></td>
+        <td>Total Data Segments Sent Successfully With Ack</td>
+        <td id="totalDataSegmentsSentSuccessfullyWithAck"></td>
+    </tr>
+    <tr>
+        <td>Total Data Segments Failed To Send</td>
+        <td id="totalDataSegmentsFailedToSend"></td>
+        <td>Total Data Segments Sent</td>
+        <td id="totalDataSegmentsSent"></td>
+    </tr>
+</table>
+</div>
+
+<div id="stcp_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">STCP</th>
+    </tr>
+    <tr>
+        <td>Total STCP Bytes Sent</td>
+        <td id="totalStcpBytesSent"></td>
+        <td></td>
+        <td></td>
     </tr>
 
 </table>
 </div>
+
+<div id="engine_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="tcp_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">TCP</th>
+    </tr>
+  <tr>
+        <td>Total Data Segments Acked By TCP Send Callback</td>
+        <td id="totalDataSegmentsAckedByTcpSendCallback"></td>
+        <td>Total Bytes Acked By TCP Send Callback</td>
+        <td id="totalBytesAckedByTcpSendCallback"></td>
+    </tr>
+</table>
+</div>
+
+
+
 
 <label>IP:</label>
 <input type="text" id="id_ip" value="10.0.2.16">
@@ -272,20 +345,19 @@
             rate_data[0]['y'].push(parseFloat(objJson.bundleDataRate));
             console.log(rate_data[0]['y']);
             Plotly.update(GRAPH, rate_data, layout);
+            document.getElementById("rate_data").innerHTML = parseFloat(objJson.bundleDataRate).toFixed(2);
             document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data[0].y).toFixed(2);
         }
         if("averageRate" in objJson){
             document.getElementById("avg_data").innerHTML = parseFloat(objJson.averageRate).toFixed(2);
         }
         if("totalData" in objJson){
-            document.getElementById("total_data").innerHTML = parseFloat(objJson.totalData).toFixed(2);
             document.getElementById("ingressBundleData").innerHTML = parseFloat(objJson.totalData).toFixed(2);
         }
         if("bundleCountStorage" in objJson && "bundleCountEgress" in objJson){
             pie_data[0]['values'] = [parseInt(objJson.bundleCountStorage), parseInt(objJson.bundleCountEgress)];
             Plotly.update('storage_egress_chart', pie_data, pie_layout);
 
-            document.getElementById("total_bundles").innerHTML = parseInt(objJson.bundleCountStorage) + parseInt(objJson.bundleCountEgress);
             document.getElementById("ingressBundleCountStorage").innerHTML = objJson.bundleCountStorage;
             document.getElementById("ingressBundleCountEgress").innerHTML = objJson.bundleCountEgress;
             document.getElementById("ingressBundleCount").innerHTML = parseInt(objJson.bundleCountStorage) + parseInt(objJson.bundleCountEgress);
