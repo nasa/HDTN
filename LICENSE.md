@@ -8,7 +8,7 @@ THIS OPEN SOURCE AGREEMENT ("AGREEMENT") DEFINES THE RIGHTS OF USE, REPRODUCTION
 |**Government Agency Original Software Designation**:LEW-19897-1                                                  |          |
 |**Government Agency Original Software Title**: A High-Speed Software Implementation of Delay-Tolerant Networking |          |
 |**User Registration Requested.** Please Visit https://github.com/nasa/HDTN                                       |          |
-|**Government Agency Point of Contact for Original Software**:                                                    |          |
+|**Government Agency Point of Contact for Original Software**:  rachel.m.dudukovich@nasa.gov                      |          |                  
 
 ## DEFINITIONS
 
@@ -89,4 +89,4 @@ Copyright &copy; 2021 United States Government as represented by the National Ae
 
 5. Binding Authority: By accepting and using the Subject Software under this Agreement, a Recipient affirms its authority to bind the Recipient to all terms and conditions of this Agreement and that that Recipient hereby agrees to all terms and conditions herein.
 
-6. Point of Contact: Any Recipient contact with Government Agency is to be directed to the designated representative as follows: ___________.
+6. Point of Contact: Any Recipient contact with Government Agency is to be directed to the designated representative as follows: rachel.m.dudukovich@nasa.gov
