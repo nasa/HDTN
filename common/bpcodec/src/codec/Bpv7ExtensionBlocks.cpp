@@ -141,7 +141,7 @@ uint64_t Bpv7BundleAgeCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
     m_dataPtr = NULL;
     m_dataLength = GetCanonicalBlockTypeSpecificDataSerializationSize();
     const uint64_t serializationSizeCanonical = Bpv7CanonicalBlock::SerializeBpv7(serialization);
-    uint64_t bufferSize = m_dataLength;
+    const uint64_t bufferSize = m_dataLength;
     uint8_t * blockSpecificDataSerialization = m_dataPtr;
     //uint64_t thisSerializationSize;
 
