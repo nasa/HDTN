@@ -261,6 +261,84 @@ struct Bpv6BundleAgeCanonicalBlock : public Bpv6CanonicalBlock {
     uint64_t m_bundleAgeMicroseconds;
 };
 
+enum class BPV6_METADATA_TYPE_CODE : uint64_t {
+    UNDEFINED_ZERO = 0,
+    URI = 1
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_METADATA_TYPE_CODE);
+
+struct Bpv6MetadataContentBase {
+    virtual ~Bpv6MetadataContentBase() = 0; // Pure virtual destructor
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const = 0;
+    virtual uint64_t GetSerializationSize() const = 0;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
+    virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const = 0;
+};
+
+class Bpv6MetadataContentUriList : public Bpv6MetadataContentBase {
+public:
+    std::vector<cbhe_eid_t> m_uriArray;
+
+public:
+    Bpv6MetadataContentUriList(); //a default constructor: X()
+    virtual ~Bpv6MetadataContentUriList(); //a destructor: ~X()
+    Bpv6MetadataContentUriList(const Bpv6MetadataContentUriList& o); //a copy constructor: X(const X&)
+    Bpv6MetadataContentUriList(Bpv6MetadataContentUriList&& o); //a move constructor: X(X&&)
+    Bpv6MetadataContentUriList& operator=(const Bpv6MetadataContentUriList& o); //a copy assignment: operator=(const X&)
+    Bpv6MetadataContentUriList& operator=(Bpv6MetadataContentUriList&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6MetadataContentUriList & o) const;
+    bool operator!=(const Bpv6MetadataContentUriList & o) const;
+
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const ;
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const;
+
+    void Reset();
+};
+
+class Bpv6MetadataContentGeneric : public Bpv6MetadataContentBase {
+public:
+    std::vector<uint8_t> m_genericRawMetadata;
+
+public:
+    Bpv6MetadataContentGeneric(); //a default constructor: X()
+    virtual ~Bpv6MetadataContentGeneric(); //a destructor: ~X()
+    Bpv6MetadataContentGeneric(const Bpv6MetadataContentGeneric& o); //a copy constructor: X(const X&)
+    Bpv6MetadataContentGeneric(Bpv6MetadataContentGeneric&& o); //a move constructor: X(X&&)
+    Bpv6MetadataContentGeneric& operator=(const Bpv6MetadataContentGeneric& o); //a copy assignment: operator=(const X&)
+    Bpv6MetadataContentGeneric& operator=(Bpv6MetadataContentGeneric&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6MetadataContentGeneric & o) const;
+    bool operator!=(const Bpv6MetadataContentGeneric & o) const;
+
+    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    virtual uint64_t GetSerializationSize() const;
+    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const;
+
+    void Reset();
+};
+
+//https://datatracker.ietf.org/doc/html/rfc6258
+struct Bpv6MetadataCanonicalBlock : public Bpv6CanonicalBlock {
+
+    Bpv6MetadataCanonicalBlock(); //a default constructor: X()
+    virtual ~Bpv6MetadataCanonicalBlock(); //a destructor: ~X()
+    Bpv6MetadataCanonicalBlock(const Bpv6MetadataCanonicalBlock& o) = delete; //a copy constructor: X(const X&)
+    Bpv6MetadataCanonicalBlock(Bpv6MetadataCanonicalBlock&& o); //a move constructor: X(X&&)
+    Bpv6MetadataCanonicalBlock& operator=(const Bpv6MetadataCanonicalBlock& o) = delete; //a copy assignment: operator=(const X&)
+    Bpv6MetadataCanonicalBlock& operator=(Bpv6MetadataCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    bool operator==(const Bpv6MetadataCanonicalBlock & o) const; //operator ==
+    bool operator!=(const Bpv6MetadataCanonicalBlock & o) const; //operator !=
+    virtual void SetZero();
+    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+
+    BPV6_METADATA_TYPE_CODE m_metadataTypeCode;
+    std::unique_ptr<Bpv6MetadataContentBase> m_metadataContentPtr;
+};
+
 //Administrative record types
 enum class BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE : uint8_t {
     UNUSED_ZERO              = 0,

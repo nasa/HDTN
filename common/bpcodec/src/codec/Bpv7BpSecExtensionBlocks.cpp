@@ -906,8 +906,8 @@ bool Bpv7AbstractSecurityBlockValueByteString::DeserializeBpv7(uint8_t * seriali
     return true;
 }
 bool Bpv7AbstractSecurityBlockValueByteString::IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const {
-    if (const Bpv7AbstractSecurityBlockValueByteString * asUintPtr = dynamic_cast<const Bpv7AbstractSecurityBlockValueByteString*>(otherPtr)) {
-        return (asUintPtr->m_byteString == m_byteString);
+    if (const Bpv7AbstractSecurityBlockValueByteString * asByteStringPtr = dynamic_cast<const Bpv7AbstractSecurityBlockValueByteString*>(otherPtr)) {
+        return (asByteStringPtr->m_byteString == m_byteString);
     }
     else {
         return false;

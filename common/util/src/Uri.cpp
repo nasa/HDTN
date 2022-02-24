@@ -1,9 +1,11 @@
 #include "Uri.h"
+#include <inttypes.h>
 #include <boost/format.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
+
 
 std::string Uri::GetIpnUriString(const uint64_t eidNodeNumber, const uint64_t eidServiceNumber) {
     static const boost::format fmtTemplate("ipn:%d.%d");
@@ -18,12 +20,44 @@ std::string Uri::GetIpnUriStringAnyServiceNumber(const uint64_t eidNodeNumber) {
     return fmt.str();
 }
 
+//return 0 on failure, or bytesWritten including the null character
+std::size_t Uri::WriteIpnUriCstring(const uint64_t eidNodeNumber, const uint64_t eidServiceNumber, char * buffer, std::size_t maxBufferSize) {
+    //snprintf returns The number of characters that would have been written if n had been sufficiently large, not counting the terminating null character.
+    int returned = snprintf(buffer, maxBufferSize, "ipn:%" PRIu64 ".%" PRIu64, eidNodeNumber, eidServiceNumber);
+    //only when this returned value is non-negative and less than n, the string has been completely written.
+    const bool didError = (static_cast<bool>(returned < 0)) + (static_cast<bool>(returned >= maxBufferSize));
+    const bool noError = !didError;
+    return static_cast<std::size_t>((returned + 1) * noError); //+1 for the null character
+}
+uint64_t Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(const uint64_t eidNodeNumber, const uint64_t eidServiceNumber) {
+    return 6 + GetStringLengthOfUint(eidNodeNumber) + GetStringLengthOfUint(eidServiceNumber); //6 => ipn:.\0
+}
+
 bool Uri::ParseIpnUriString(const std::string & uri, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
     if ((uri.length() < 7) || (uri[0] != 'i') || (uri[1] != 'p') || (uri[2] != 'n') || (uri[3] != ':')) {
         return false;
     }
     //return ParseIpnSspString(uri.cbegin() + 4, uri.cend(), eidNodeNumber, eidServiceNumber);
     return ParseIpnSspString(uri.data() + 4, uri.length() - 4, eidNodeNumber, eidServiceNumber); //more efficient (no string copies)
+}
+bool Uri::ParseIpnUriCstring(const char * data, uint64_t bufferSize, uint64_t & bytesDecodedIncludingNullChar, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
+    uint64_t lengthNotIncludingNullChar = 0;
+    const char * data2 = data;
+    while (true) {
+        if (bufferSize == 0) {
+            return false;
+        }
+        --bufferSize;
+        if (*data2++ == '\0') {
+            break;
+        }
+        ++lengthNotIncludingNullChar;
+    }
+    if ((lengthNotIncludingNullChar < 7) || (data[0] != 'i') || (data[1] != 'p') || (data[2] != 'n') || (data[3] != ':')) {
+        return false;
+    }
+    bytesDecodedIncludingNullChar = lengthNotIncludingNullChar + 1;
+    return ParseIpnSspString(data + 4, lengthNotIncludingNullChar - 4, eidNodeNumber, eidServiceNumber); //more efficient (no string copies)
 }
 //parse just the scheme specific part
 bool Uri::ParseIpnSspString(std::string::const_iterator stringSspCbegin, std::string::const_iterator stringSspCend, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {

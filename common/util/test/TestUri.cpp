@@ -43,6 +43,40 @@ BOOST_AUTO_TEST_CASE(IpnUriTestCase)
         BOOST_REQUIRE_EQUAL(Uri::GetIpnUriString(0, 0), std::string("ipn:0.0"));
         BOOST_REQUIRE_EQUAL(Uri::GetIpnUriString(1, 0), std::string("ipn:1.0"));
         BOOST_REQUIRE_EQUAL(Uri::GetIpnUriString(UINT64_MAX, UINT64_MAX), std::string("ipn:18446744073709551615.18446744073709551615"));
+        BOOST_REQUIRE_EQUAL(Uri::GetIpnUriString(1, UINT64_MAX), std::string("ipn:1.18446744073709551615"));
+    }
+
+    //test WriteIpnUriCstring and GetIpnUriCstringLengthRequiredIncludingNullTerminator
+    {
+        char buffer[70];
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(1, 1, buffer, 8), 8); //8 includes null char
+        BOOST_REQUIRE_EQUAL(std::string(buffer), std::string("ipn:1.1"));
+
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(1, 1, buffer, 7), 0); //7 does not include null char
+
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(1, 1, buffer, 6), 0); //6 way too short
+
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(1, 1, buffer, 70), 8); //70 goes beyond string length
+        BOOST_REQUIRE_EQUAL(std::string(buffer), std::string("ipn:1.1"));
+        BOOST_REQUIRE_EQUAL(Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(1, 1), 8);
+
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(0, 0, buffer, 70), 8);
+        BOOST_REQUIRE_EQUAL(std::string(buffer), std::string("ipn:0.0"));
+        BOOST_REQUIRE_EQUAL(Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(0, 0), 8);
+
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(1, 0, buffer, 70), 8);
+        BOOST_REQUIRE_EQUAL(std::string(buffer), std::string("ipn:1.0"));
+        BOOST_REQUIRE_EQUAL(Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(1, 0), 8);
+
+        static const std::string largestIpn("ipn:18446744073709551615.18446744073709551615");
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(UINT64_MAX, UINT64_MAX, buffer, 70), largestIpn.length() + 1); //+1 to include the null char
+        BOOST_REQUIRE_EQUAL(std::string(buffer), largestIpn);
+        BOOST_REQUIRE_EQUAL(Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(UINT64_MAX, UINT64_MAX), largestIpn.length() + 1); //+1 to include the null char
+
+        static const std::string largestIpnSvc("ipn:1.18446744073709551615");
+        BOOST_REQUIRE_EQUAL(Uri::WriteIpnUriCstring(1, UINT64_MAX, buffer, 70), largestIpnSvc.length() + 1); //+1 to include the null char
+        BOOST_REQUIRE_EQUAL(std::string(buffer), largestIpnSvc);
+        BOOST_REQUIRE_EQUAL(Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(1, UINT64_MAX), largestIpnSvc.length() + 1); //+1 to include the null char
     }
 
     //test ParseIpnUriString()
@@ -67,6 +101,7 @@ BOOST_AUTO_TEST_CASE(IpnUriTestCase)
         BOOST_REQUIRE_EQUAL(eidServiceNumber, 1);
 
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("iipn:1.0"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string(""), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn::1.0"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:.1.0"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1..0"), eidNodeNumber, eidServiceNumber));
@@ -80,6 +115,66 @@ BOOST_AUTO_TEST_CASE(IpnUriTestCase)
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1844674407370955161555.1844674407370955161555"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.1844674407370955161555"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1844674407370955161555.1"), eidNodeNumber, eidServiceNumber));
+    }
+
+    //test bool Uri::ParseIpnUriCstring(const char * data, uint64_t bufferSize, uint64_t & bytesDecodedIncludingNullChar, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber)()
+    {
+        uint64_t eidNodeNumber = 0;
+        uint64_t eidServiceNumber = 0;
+        uint64_t bytesDecodedIncludingNullChar;
+        {
+            const std::string ipnStr("ipn:18446744073709551615.18446744073709551615");
+            BOOST_REQUIRE(Uri::ParseIpnUriCstring(ipnStr.c_str(), 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //70 sufficiently large buffer
+            BOOST_REQUIRE_EQUAL(eidNodeNumber, UINT64_MAX);
+            BOOST_REQUIRE_EQUAL(eidServiceNumber, UINT64_MAX);
+            BOOST_REQUIRE_EQUAL(bytesDecodedIncludingNullChar, ipnStr.length() + 1); //+1 to include the null char
+
+            BOOST_REQUIRE(!Uri::ParseIpnUriCstring(ipnStr.c_str(), 5, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //5 way too small of buffer
+            BOOST_REQUIRE(!Uri::ParseIpnUriCstring(ipnStr.c_str(), 0, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //0 way too small of buffer
+            BOOST_REQUIRE(!Uri::ParseIpnUriCstring(ipnStr.c_str(), ipnStr.length(), bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //buffer has no room for null char
+            BOOST_REQUIRE(Uri::ParseIpnUriCstring(ipnStr.c_str(), ipnStr.length() + 1, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //perfect length buffer
+        }
+
+        {
+            const std::string ipnStr("ipn:18446744073709551614.18446744073709551613");
+            BOOST_REQUIRE(Uri::ParseIpnUriCstring(ipnStr.c_str(), 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //70 sufficiently large buffer
+            BOOST_REQUIRE_EQUAL(eidNodeNumber, UINT64_MAX - 1);
+            BOOST_REQUIRE_EQUAL(eidServiceNumber, UINT64_MAX - 2);
+            BOOST_REQUIRE_EQUAL(bytesDecodedIncludingNullChar, ipnStr.length() + 1); //+1 to include the null char
+        }
+
+        {
+            const std::string ipnStr("ipn:1.0");
+            BOOST_REQUIRE(Uri::ParseIpnUriCstring(ipnStr.c_str(), 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //70 sufficiently large buffer
+            BOOST_REQUIRE_EQUAL(eidNodeNumber, 1);
+            BOOST_REQUIRE_EQUAL(eidServiceNumber, 0);
+            BOOST_REQUIRE_EQUAL(bytesDecodedIncludingNullChar, ipnStr.length() + 1); //+1 to include the null char
+        }
+
+        {
+            const std::string ipnStr("ipn:0.1");
+            BOOST_REQUIRE(Uri::ParseIpnUriCstring(ipnStr.c_str(), 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); //70 sufficiently large buffer
+            BOOST_REQUIRE_EQUAL(eidNodeNumber, 0);
+            BOOST_REQUIRE_EQUAL(eidServiceNumber, 1);
+            BOOST_REQUIRE_EQUAL(bytesDecodedIncludingNullChar, ipnStr.length() + 1); //+1 to include the null char
+        }
+
+        //all should fail by invalid ipns, 70 sufficiently large buffer
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("iipn:1.0", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber)); 
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn::1.0", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:.1.0", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1..0", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1:0", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:.0", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1.", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:.", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:10", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1844674407370955161555.1844674407370955161555", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1.1844674407370955161555", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriCstring("ipn:1844674407370955161555.1", 70, bytesDecodedIncludingNullChar, eidNodeNumber, eidServiceNumber));
     }
 
 }
