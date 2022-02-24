@@ -17,8 +17,8 @@ void GenerateBitscanLut() { //generate lookup table stuff for Uri::GetStringLeng
         const uint64_t bitScanIndexMaxValStrLen = boost::lexical_cast<std::string>(bitScanIndexMaxVal).length();
         
         if(true) { //for a base 2 edge case test of Uri::GetStringLengthOfUint
-            std::cout << bitScanIndexMinVal << "ui64, //1 << " << i << "\n";
-            std::cout << bitScanIndexMaxVal << "ui64, //_blsmsk_u64(1 << " << i << ")\n";
+            std::cout << bitScanIndexMinVal << "u, //1 << " << i << "\n";
+            std::cout << bitScanIndexMaxVal << "u, //_blsmsk_u64(1 << " << i << ")\n";
         }
         if (false) { //make sure the difference is 0 or 1
             std::cout << "bitScanIndexMaxValStrLen - bitScanIndexMinValStrLen = " << (bitScanIndexMaxValStrLen - bitScanIndexMinValStrLen) << "\n";
@@ -182,26 +182,26 @@ BOOST_AUTO_TEST_CASE(IpnUriTestCase)
 BOOST_AUTO_TEST_CASE(UintToStringLengthTestCase)
 {
     static const std::vector<uint64_t> testVals1 = {
-        1ui64,
-        10ui64,
-        100ui64,
-        1000ui64,
-        10000ui64,
-        100000ui64,
-        1000000ui64,
-        10000000ui64,
-        100000000ui64,
-        1000000000ui64,
-        10000000000ui64,
-        100000000000ui64,
-        1000000000000ui64,
-        10000000000000ui64,
-        100000000000000ui64,
-        1000000000000000ui64,
-        10000000000000000ui64,
-        100000000000000000ui64,
-        1000000000000000000ui64,
-        10000000000000000000ui64
+        1u,
+        10u,
+        100u,
+        1000u,
+        10000u,
+        100000u,
+        1000000u,
+        10000000u,
+        100000000u,
+        1000000000u,
+        10000000000u,
+        100000000000u,
+        1000000000000u,
+        10000000000000u,
+        100000000000000u,
+        1000000000000000u,
+        10000000000000000u,
+        100000000000000000u,
+        1000000000000000000u,
+        10000000000000000000u
     };
     for (std::size_t i = 0; i < testVals1.size(); ++i) { //test base 10 edge cases first
         for (int j = -1; j <= 1; ++j) {
@@ -223,8 +223,8 @@ BOOST_AUTO_TEST_CASE(UintToStringLengthTestCase)
         const uint64_t bitScanIndexMaxValStrLenComputed = Uri::GetStringLengthOfUint(bitScanIndexMaxVal);
         const uint64_t bitScanIndexMaxValStrLenActual = boost::lexical_cast<std::string>(bitScanIndexMaxVal).length();
         BOOST_REQUIRE_EQUAL(bitScanIndexMaxValStrLenComputed, bitScanIndexMaxValStrLenActual);
-        //std::cout << bitScanIndexMinVal << "ui64, //1 << " << i << "\n";
-        //std::cout << bitScanIndexMaxVal << "ui64, //_blsmsk_u64(1 << " << i << ")\n";
+        //std::cout << bitScanIndexMinVal << "u, //1 << " << i << "\n";
+        //std::cout << bitScanIndexMaxVal << "u, //_blsmsk_u64(1 << " << i << ")\n";
         if (i > 0) {
             BOOST_REQUIRE_GT(bitScanIndexMaxVal, bitScanIndexMinVal);
         }
@@ -234,7 +234,7 @@ BOOST_AUTO_TEST_CASE(UintToStringLengthTestCase)
     }
     /*
     //the following test passes overnight: 2305032892 assertions out of 2305032892 passed (2^32+2305032892=6600000188)
-    for (uint64_t i = 0; i < 6600000000ui64; ++i) {
+    for (uint64_t i = 0; i < 6600000000u; ++i) {
         const uint64_t valToTest = i;
         const uint64_t computedLength = Uri::GetStringLengthOfUint(valToTest);
         const uint64_t actualLength = boost::lexical_cast<std::string>(valToTest).length();
