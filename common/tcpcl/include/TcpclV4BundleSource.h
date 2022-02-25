@@ -29,8 +29,6 @@ private:
     void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     void OnConnect(const boost::system::error_code & ec);
     void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
-    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     void StartTcpReceiveUnsecure();
     void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred);
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -39,7 +37,6 @@ private:
     void HandleSslHandshake(const boost::system::error_code & error);
 #endif
     void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
-    void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
 
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();

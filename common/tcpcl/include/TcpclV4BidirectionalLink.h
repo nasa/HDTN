@@ -104,6 +104,8 @@ private:
     void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e, bool isAckOfAnEarlierSessionTerminationMessage);
     void BaseClass_OnWaitForSessionTerminationAckTimeout_TimerExpired(const boost::system::error_code& e);
     void BaseClass_RemainInEndingState_TimerExpired(const boost::system::error_code& e);
+    void BaseClass_RestartNoKeepaliveReceivedTimer();
+    void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
     void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
     void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
@@ -136,6 +138,8 @@ protected:
     volatile bool m_base_sinkIsSafeToDelete; //bundleSink
     volatile bool m_base_tcpclShutdownComplete; //bundleSource
     volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
+    volatile bool m_base_dataReceivedServedAsKeepaliveReceived;
+    volatile bool m_base_dataSentServedAsKeepaliveSent;
     bool m_base_doUpgradeSocketToSsl;
     bool m_base_didSuccessfulSslHandshake;
     boost::condition_variable m_base_localConditionVariableAckReceived;

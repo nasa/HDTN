@@ -40,6 +40,8 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_sinkIsSafeToDelete(false), //bundleSink
     m_base_tcpclShutdownComplete(true), //bundleSource
     m_base_useLocalConditionVariableAckReceived(false), //for bundleSource destructor only
+    m_base_dataReceivedServedAsKeepaliveReceived(false),
+    m_base_dataSentServedAsKeepaliveSent(false),
     m_base_reconnectionDelaySecondsIfNotZero(3), //bundle source only, default 3 unless remote says 0 in shutdown message
 
     M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE(maxUnacked), //bundle sink has MAX_UNACKED(maxUnacked + 5),
@@ -199,6 +201,7 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
             Tcpcl::GenerateAckSegment(el->m_underlyingData[0], bytesToAck);
             el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+            m_base_dataSentServedAsKeepaliveSent = true; //sending acks can also be used in lieu of keepalives
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
         }
     }
@@ -248,44 +251,67 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
     }
 }
 
-
-void TcpclV3BidirectionalLink::BaseClass_KeepAliveCallback() {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received keepalive packet\n";
-    // * 2 =>
+void TcpclV3BidirectionalLink::BaseClass_RestartNoKeepaliveReceivedTimer() {
+    // m_base_keepAliveIntervalSeconds * 2.5 seconds =>
     //If no message (KEEPALIVE or other) has been received for at least
     //twice the keepalive_interval, then either party MAY terminate the
     //session by transmitting a one-byte SHUTDOWN message (as described in
     //Table 2) and by closing the TCP connection.
-    m_base_noKeepAlivePacketReceivedTimer.expires_from_now(boost::posix_time::seconds(m_base_keepAliveIntervalSeconds * 2)); //cancels active timer with cancel flag in callback
+    m_base_noKeepAlivePacketReceivedTimer.expires_from_now(boost::posix_time::milliseconds(m_base_keepAliveIntervalSeconds * 2500)); //cancels active timer with cancel flag in callback
     m_base_noKeepAlivePacketReceivedTimer.async_wait(boost::bind(&TcpclV3BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpired, this, boost::asio::placeholders::error));
+    m_base_dataReceivedServedAsKeepaliveReceived = false;
 }
 
+void TcpclV3BidirectionalLink::BaseClass_KeepAliveCallback() {
+    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received keepalive packet\n";
+    BaseClass_RestartNoKeepaliveReceivedTimer(); //cancels and restarts timer
+}
 
 void TcpclV3BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        BaseClass_DoTcpclShutdown(true, true);
+        if (m_base_dataReceivedServedAsKeepaliveReceived) {
+            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": data received served as keepalive\n";
+            BaseClass_RestartNoKeepaliveReceivedTimer();
+        }
+        else {
+            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": shutting down tcpcl session due to inactivity or missing keepalive\n";
+            BaseClass_DoTcpclShutdown(true, true);
+        }
     }
     else {
         //std::cout << "timer cancelled\n";
     }
 }
 
+void TcpclV3BidirectionalLink::BaseClass_RestartNeedToSendKeepAliveMessageTimer() {
+    //Shift right 1 (divide by 2) if we are omitting sending a keepalive, so for example,
+    //if our keep alive interval is 10 seconds, but we are omitting sending a keepalive due to a Forward() function call,
+    //then evaluate if sending a keepalive is necessary 5 seconds from now.
+    //But if there is no data being sent from us, do not omit keepalives every 10 seconds. 
+    const unsigned int shift = static_cast<unsigned int>(m_base_dataSentServedAsKeepaliveSent);
+    const unsigned int millisecondMultiplier = 1000u >> shift;
+    const boost::posix_time::time_duration expiresFromNowDuration = boost::posix_time::milliseconds(m_base_keepAliveIntervalSeconds * millisecondMultiplier);
+    //std::cout << "try send keepalive in " << expiresFromNowDuration.total_milliseconds() << " millisec\n";
+    m_base_needToSendKeepAliveMessageTimer.expires_from_now(expiresFromNowDuration);
+    m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
+    m_base_dataSentServedAsKeepaliveSent = false;
+}
 
 void TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         //SEND KEEPALIVE PACKET
         if (m_base_tcpSocketPtr) {
-            TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
-            Tcpcl::GenerateKeepAliveMessage(el->m_underlyingData[0]);
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
-            el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
-            m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
-
-            m_base_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_base_keepAliveIntervalSeconds));
-            m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
+            if (!m_base_dataSentServedAsKeepaliveSent) {
+                TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+                el->m_underlyingData.resize(1);
+                Tcpcl::GenerateKeepAliveMessage(el->m_underlyingData[0]);
+                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+                el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
+                m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
+            }
+            BaseClass_RestartNeedToSendKeepAliveMessageTimer();
         }
     }
     else {
@@ -448,6 +474,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Error in BaseClass_Forward.. too many unacked packets" << std::endl;
         return false;
     }
+    m_base_dataSentServedAsKeepaliveSent = true;
     m_base_bytesToAckCbVec[writeIndex] = dataSize;
 
 
@@ -640,17 +667,8 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
     if (m_base_keepAliveIntervalSeconds) { //non-zero
         std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " using " << m_base_keepAliveIntervalSeconds << " seconds for keepalive\n";
 
-        // * 2 =>
-        //If no message (KEEPALIVE or other) has been received for at least
-        //twice the keepalive_interval, then either party MAY terminate the
-        //session by transmitting a one-byte SHUTDOWN message (as described in
-        //Table 2) and by closing the TCP connection.
-        m_base_noKeepAlivePacketReceivedTimer.expires_from_now(boost::posix_time::seconds(m_base_keepAliveIntervalSeconds * 2));
-        m_base_noKeepAlivePacketReceivedTimer.async_wait(boost::bind(&TcpclV3BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpired, this, boost::asio::placeholders::error));
-
-
-        m_base_needToSendKeepAliveMessageTimer.expires_from_now(boost::posix_time::seconds(m_base_keepAliveIntervalSeconds));
-        m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
+        BaseClass_RestartNoKeepaliveReceivedTimer();
+        BaseClass_RestartNeedToSendKeepAliveMessageTimer();
     }
 
     m_base_readyToForward = true;
