@@ -50,7 +50,6 @@ private:
 #endif
     void TryStartTcpReceiveUnsecure();
     void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void PopCbThreadFunc();
     
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
