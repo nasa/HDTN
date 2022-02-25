@@ -111,7 +111,32 @@ static bool VerifySubjectAltNameFromCertificate(X509 *cert, const std::string & 
             std::cout << "subjectAltNameString=" << subjectAltNameString << std::endl;
             OPENSSL_free(outBuf);
             if (subjectAltNameString == expectedIpnEidUri) {
+                std::cout << "warning, using an older draft version of tcpcl version 4 that uses URIs as the subject alternative name\n";
+                std::cout << " switch to id-on-bundleEID when generating certificates\n";
                 return true;
+            }
+        }
+        else if (currentSubjectAltName->type == GEN_OTHERNAME) {
+            unsigned char *outBuf = NULL;
+            //http://oid-info.com/get/1.3.6.1.5.5.7.8.11
+            static const int bundleEidNid = OBJ_create("1.3.6.1.5.5.7.8.11", "id-on-bundleEID", "BundleEID (See IETF RFC 9174)");
+            int nid = OBJ_obj2nid(currentSubjectAltName->d.otherName->type_id);
+            if (nid == bundleEidNid) {
+                if (currentSubjectAltName->d.otherName->value->type == V_ASN1_IA5STRING) {
+                    //ASN1_STRING_get0_data returns an internal pointer to the data of x. Since this is an internal pointer it should not be freed or modified in any way.
+                    const char * ia5StringData = (const char*)ASN1_STRING_get0_data(currentSubjectAltName->d.otherName->value->value.ia5string);
+                    const std::string uriString(ia5StringData);
+                    std::cout << "id-on-bundleEID=" << uriString << "\n";
+                    if (uriString == expectedIpnEidUri) {
+                        return true;
+                    }
+                }
+                else {
+                    std::cout << "unknown type in currentSubjectAltName->d.otherName->value->type, got " << currentSubjectAltName->d.otherName->value->type << "\n";
+                }
+            }
+            else {
+                std::cout << "unknown nid, got " << nid << "\n";
             }
         }
     }

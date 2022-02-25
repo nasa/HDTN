@@ -154,6 +154,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
+        m_base_dataReceivedServedAsKeepaliveReceived = true;
         m_base_tcpclV3RxStateMachine.HandleReceivedChars(m_tcpReadSomeBufferVec.data(), bytesTransferred);
         StartTcpReceive(); //restart operation only if there was no error
     }
