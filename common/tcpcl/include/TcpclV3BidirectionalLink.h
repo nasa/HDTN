@@ -61,6 +61,8 @@ protected:
     volatile bool m_base_sinkIsSafeToDelete; //bundleSink
     volatile bool m_base_tcpclShutdownComplete; //bundleSource
     volatile bool m_base_useLocalConditionVariableAckReceived; //bundleSource
+    volatile bool m_base_dataReceivedServedAsKeepaliveReceived;
+    volatile bool m_base_dataSentServedAsKeepaliveSent;
     boost::condition_variable m_base_localConditionVariableAckReceived;
     uint64_t m_base_reconnectionDelaySecondsIfNotZero;
 
@@ -98,6 +100,8 @@ private:
     void BaseClass_ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
     void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
     void BaseClass_AckCallback(uint64_t totalBytesAcknowledged);
+    void BaseClass_RestartNoKeepaliveReceivedTimer();
+    void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
     void BaseClass_KeepAliveCallback();
     void BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds);
