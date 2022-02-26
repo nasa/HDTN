@@ -26,6 +26,8 @@ $ sudo apt-get install libzmq3-dev
 $ sudo apt-get install python3-zmq
 $ sudo apt install libboost-dev
 $ sudo apt install libboost-all-dev
+$ sudo apt-get install openssl
+$ sudo apt-get install libssl-dev
 
 ## Known issue ##
 * Ubuntu distributions may install an older CMake version that is not compatible
