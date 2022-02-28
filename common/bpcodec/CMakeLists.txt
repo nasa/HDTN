@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 
-add_library(bpcodec STATIC
+add_library(bpcodec
         src/codec/Bpv7CbhePrimaryBlock.cpp
 		src/codec/Bpv7CanonicalBlock.cpp
 		src/codec/Bpv7ExtensionBlocks.cpp
@@ -23,16 +23,17 @@ add_library(bpcodec STATIC
 		src/codec/BundleViewV7.cpp
 		src/codec/Bpv7Crc.cpp
 )
-
+GENERATE_EXPORT_HEADER(bpcodec)
 target_link_libraries(bpcodec hdtn_util)
-target_include_directories(bpcodec PUBLIC include)
+target_include_directories(bpcodec PUBLIC include ${PROJECT_BINARY_DIR})
 
-add_library(bp_app_patterns_lib STATIC
+add_library(bp_app_patterns_lib
         src/app_patterns/BpSourcePattern.cpp
 		src/app_patterns/BpSinkPattern.cpp
 )
+GENERATE_EXPORT_HEADER(bp_app_patterns_lib)
 target_link_libraries(bp_app_patterns_lib bpcodec hdtn_util outduct_manager_lib induct_manager_lib ${pthread_LIB} ${Boost_LIBRARIES})
-target_include_directories(bp_app_patterns_lib PUBLIC include ${Boost_INCLUDE_DIRS})
+target_include_directories(bp_app_patterns_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
 
 add_subdirectory(apps)
 

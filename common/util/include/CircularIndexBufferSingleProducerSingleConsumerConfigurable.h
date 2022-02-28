@@ -3,11 +3,11 @@
 
 #include <boost/integer.hpp>
 #include <stdint.h>
+#include "hdtn_util_export.h"
 
 
 
-
-class CircularIndexBufferSingleProducerSingleConsumerConfigurable {
+class HDTN_UTIL_EXPORT CircularIndexBufferSingleProducerSingleConsumerConfigurable {
 private:
     CircularIndexBufferSingleProducerSingleConsumerConfigurable();
 public:

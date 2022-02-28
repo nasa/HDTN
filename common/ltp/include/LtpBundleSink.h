@@ -14,22 +14,22 @@ private:
 public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> LtpWholeBundleReadyCallback_t;
 
-    LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
+    LTP_LIB_EXPORT LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
         const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
         uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
         const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxBundleSizeBytes);
-    ~LtpBundleSink();
-    bool ReadyToBeDeleted();
+    LTP_LIB_EXPORT ~LtpBundleSink();
+    LTP_LIB_EXPORT bool ReadyToBeDeleted();
 private:
-    void RemoveCallback();
+    LTP_LIB_EXPORT void RemoveCallback();
 
     //tcpcl received data callback functions
-    void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
+    LTP_LIB_EXPORT void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
         uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock);
-    void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
+    LTP_LIB_EXPORT void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 
     const LtpWholeBundleReadyCallback_t m_ltpWholeBundleReadyCallback;
 

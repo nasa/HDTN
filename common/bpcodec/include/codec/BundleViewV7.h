@@ -55,7 +55,7 @@ public:
         boost::asio::const_buffer actualSerializedPrimaryBlockPtr;
         bool dirty;
 
-        void SetManuallyModified();
+        BPCODEC_EXPORT void SetManuallyModified();
     };
     struct Bpv7CanonicalBlockView {
         Bpv7CanonicalBlockView();
@@ -65,32 +65,32 @@ public:
         bool markedForDeletion;
         bool isEncrypted;
 
-        void SetManuallyModified();
+        BPCODEC_EXPORT void SetManuallyModified();
     };
     
-    BundleViewV7();
-    ~BundleViewV7();
+    BPCODEC_EXPORT BundleViewV7();
+    BPCODEC_EXPORT ~BundleViewV7();
 
-    void AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
-    void PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
-    bool InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
-    bool InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
-    bool GetSerializationSize(uint64_t & serializationSize) const;
-    std::size_t GetCanonicalBlockCountByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
-    std::size_t GetNumCanonicalBlocks() const;
-    void GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
-    uint64_t GetNextFreeCanonicalBlockNumber() const;
-    std::size_t DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode);
-    bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
-    bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
-    bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
-    bool IsValid() const;
-    bool Render(const std::size_t maxBundleSizeBytes);
-    bool RenderInPlace(const std::size_t paddingLeft);
-    void Reset(); //should be private
+    BPCODEC_EXPORT void AppendMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
+    BPCODEC_EXPORT void PrependMoveCanonicalBlock(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr);
+    BPCODEC_EXPORT bool InsertMoveCanonicalBlockAfterBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
+    BPCODEC_EXPORT bool InsertMoveCanonicalBlockBeforeBlockNumber(std::unique_ptr<Bpv7CanonicalBlock> & headerPtr, const uint64_t blockNumber);
+    BPCODEC_EXPORT bool GetSerializationSize(uint64_t & serializationSize) const;
+    BPCODEC_EXPORT std::size_t GetCanonicalBlockCountByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode) const;
+    BPCODEC_EXPORT std::size_t GetNumCanonicalBlocks() const;
+    BPCODEC_EXPORT void GetCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode, std::vector<Bpv7CanonicalBlockView*> & blocks);
+    BPCODEC_EXPORT uint64_t GetNextFreeCanonicalBlockNumber() const;
+    BPCODEC_EXPORT std::size_t DeleteAllCanonicalBlocksByType(const BPV7_BLOCK_TYPE_CODE canonicalBlockTypeCode);
+    BPCODEC_EXPORT bool LoadBundle(uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
+    BPCODEC_EXPORT bool SwapInAndLoadBundle(std::vector<uint8_t> & bundleData, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
+    BPCODEC_EXPORT bool CopyAndLoadBundle(const uint8_t * bundleData, const std::size_t size, const bool skipCrcVerifyInCanonicalBlocks = false, const bool loadPrimaryBlockOnly = false);
+    BPCODEC_EXPORT bool IsValid() const;
+    BPCODEC_EXPORT bool Render(const std::size_t maxBundleSizeBytes);
+    BPCODEC_EXPORT bool RenderInPlace(const std::size_t paddingLeft);
+    BPCODEC_EXPORT void Reset(); //should be private
 private:
-    bool Load(const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly);
-    bool Render(uint8_t * serialization, uint64_t & sizeSerialized, bool terminateBeforeLastBlock);
+    BPCODEC_EXPORT bool Load(const bool skipCrcVerifyInCanonicalBlocks, const bool loadPrimaryBlockOnly);
+    BPCODEC_EXPORT bool Render(uint8_t * serialization, uint64_t & sizeSerialized, bool terminateBeforeLastBlock);
     
 public:
     Bpv7PrimaryBlockView m_primaryBlockView;

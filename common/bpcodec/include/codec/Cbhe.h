@@ -11,34 +11,35 @@
 #include <cstdint>
 #include <cstddef>
 #include <ostream>
+#include "bpcodec_export.h"
 
 struct cbhe_eid_t {
     uint64_t nodeId;
     uint64_t serviceId;
     
-    cbhe_eid_t(); //a default constructor: X()
-    cbhe_eid_t(uint64_t paramNodeId, uint64_t paramServiceId);
-    ~cbhe_eid_t(); //a destructor: ~X()
-    cbhe_eid_t(const cbhe_eid_t& o); //a copy constructor: X(const X&)
-    cbhe_eid_t(cbhe_eid_t&& o); //a move constructor: X(X&&)
-    cbhe_eid_t& operator=(const cbhe_eid_t& o); //a copy assignment: operator=(const X&)
-    cbhe_eid_t& operator=(cbhe_eid_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const cbhe_eid_t & o) const; //operator ==
-    bool operator!=(const cbhe_eid_t & o) const; //operator !=
-    bool operator<(const cbhe_eid_t & o) const; //operator < so it can be used as a map key
-    void Set(uint64_t paramNodeId, uint64_t paramServiceId);
-    void SetZero();
-    uint64_t SerializeBpv7(uint8_t * serialization) const;
-    uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
-    uint64_t GetSerializationSizeBpv7() const;
-    bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT cbhe_eid_t(); //a default constructor: X()
+    BPCODEC_EXPORT cbhe_eid_t(uint64_t paramNodeId, uint64_t paramServiceId);
+    BPCODEC_EXPORT ~cbhe_eid_t(); //a destructor: ~X()
+    BPCODEC_EXPORT cbhe_eid_t(const cbhe_eid_t& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT cbhe_eid_t(cbhe_eid_t&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT cbhe_eid_t& operator=(const cbhe_eid_t& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT cbhe_eid_t& operator=(cbhe_eid_t&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const cbhe_eid_t & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const cbhe_eid_t & o) const; //operator !=
+    BPCODEC_EXPORT bool operator<(const cbhe_eid_t & o) const; //operator < so it can be used as a map key
+    BPCODEC_EXPORT void Set(uint64_t paramNodeId, uint64_t paramServiceId);
+    BPCODEC_EXPORT void SetZero();
+    BPCODEC_EXPORT uint64_t SerializeBpv7(uint8_t * serialization) const;
+    BPCODEC_EXPORT uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
+    BPCODEC_EXPORT uint64_t GetSerializationSizeBpv7() const;
+    BPCODEC_EXPORT bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 
-    uint64_t SerializeBpv6(uint8_t * serialization) const;
-    uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
-    uint64_t GetSerializationSizeBpv6() const;
-    bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization) const;
+    BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    BPCODEC_EXPORT uint64_t GetSerializationSizeBpv6() const;
+    BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
 
-    friend std::ostream& operator<<(std::ostream& os, const cbhe_eid_t& o);
+    BPCODEC_EXPORT friend std::ostream& operator<<(std::ostream& os, const cbhe_eid_t& o);
 };
 
 struct cbhe_bundle_uuid_t {
@@ -62,18 +63,18 @@ struct cbhe_bundle_uuid_t {
 
 
 
-    cbhe_bundle_uuid_t(); //a default constructor: X()
-    cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
+    BPCODEC_EXPORT cbhe_bundle_uuid_t(); //a default constructor: X()
+    BPCODEC_EXPORT cbhe_bundle_uuid_t(uint64_t paramCreationSeconds, uint64_t paramSequence,
         uint64_t paramSrcNodeId, uint64_t paramSrcServiceId, uint64_t paramFragmentOffset, uint64_t paramDataLength);
     //cbhe_bundle_uuid_t(const Bpv6CbhePrimaryBlock & primary);
-    ~cbhe_bundle_uuid_t(); //a destructor: ~X()
-    cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
-    cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
-    cbhe_bundle_uuid_t& operator=(const cbhe_bundle_uuid_t& o); //a copy assignment: operator=(const X&)
-    cbhe_bundle_uuid_t& operator=(cbhe_bundle_uuid_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const cbhe_bundle_uuid_t & o) const; //operator ==
-    bool operator!=(const cbhe_bundle_uuid_t & o) const; //operator !=
-    bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
+    BPCODEC_EXPORT ~cbhe_bundle_uuid_t(); //a destructor: ~X()
+    BPCODEC_EXPORT cbhe_bundle_uuid_t(const cbhe_bundle_uuid_t& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT cbhe_bundle_uuid_t(cbhe_bundle_uuid_t&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT cbhe_bundle_uuid_t& operator=(const cbhe_bundle_uuid_t& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT cbhe_bundle_uuid_t& operator=(cbhe_bundle_uuid_t&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const cbhe_bundle_uuid_t & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const cbhe_bundle_uuid_t & o) const; //operator !=
+    BPCODEC_EXPORT bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
 };
 
 struct cbhe_bundle_uuid_nofragment_t {
@@ -82,18 +83,18 @@ struct cbhe_bundle_uuid_nofragment_t {
     uint64_t sequence;
     cbhe_eid_t srcEid;
 
-    cbhe_bundle_uuid_nofragment_t(); //a default constructor: X()
-    cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId);
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t(); //a default constructor: X()
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t(uint64_t paramCreationSeconds, uint64_t paramSequence, uint64_t paramSrcNodeId, uint64_t paramSrcServiceId);
     //cbhe_bundle_uuid_nofragment_t(const Bpv6CbhePrimaryBlock & primary);
-    cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment);
-    ~cbhe_bundle_uuid_nofragment_t(); //a destructor: ~X()
-    cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o); //a copy constructor: X(const X&)
-    cbhe_bundle_uuid_nofragment_t(cbhe_bundle_uuid_nofragment_t&& o); //a move constructor: X(X&&)
-    cbhe_bundle_uuid_nofragment_t& operator=(const cbhe_bundle_uuid_nofragment_t& o); //a copy assignment: operator=(const X&)
-    cbhe_bundle_uuid_nofragment_t& operator=(cbhe_bundle_uuid_nofragment_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const cbhe_bundle_uuid_nofragment_t & o) const; //operator ==
-    bool operator!=(const cbhe_bundle_uuid_nofragment_t & o) const; //operator !=
-    bool operator<(const cbhe_bundle_uuid_nofragment_t & o) const; //operator < so it can be used as a map key
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_t & bundleUuidWithFragment);
+    BPCODEC_EXPORT ~cbhe_bundle_uuid_nofragment_t(); //a destructor: ~X()
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t(const cbhe_bundle_uuid_nofragment_t& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t(cbhe_bundle_uuid_nofragment_t&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t& operator=(const cbhe_bundle_uuid_nofragment_t& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT cbhe_bundle_uuid_nofragment_t& operator=(cbhe_bundle_uuid_nofragment_t&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const cbhe_bundle_uuid_nofragment_t & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const cbhe_bundle_uuid_nofragment_t & o) const; //operator !=
+    BPCODEC_EXPORT bool operator<(const cbhe_bundle_uuid_nofragment_t & o) const; //operator < so it can be used as a map key
 };
 
 

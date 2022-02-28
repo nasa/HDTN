@@ -8,13 +8,14 @@
 #include "InductManager.h"
 #include "codec/bpv6.h"
 #include "codec/CustodyTransferManager.h"
+#include "bp_app_patterns_lib_export.h"
 
 class BpSourcePattern {
 public:
-    BpSourcePattern();
-    virtual ~BpSourcePattern();
-    void Stop();
-    void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
+    BP_APP_PATTERNS_LIB_EXPORT BpSourcePattern();
+    BP_APP_PATTERNS_LIB_EXPORT virtual ~BpSourcePattern();
+    BP_APP_PATTERNS_LIB_EXPORT void Stop();
+    BP_APP_PATTERNS_LIB_EXPORT void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
         const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
         const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
 
@@ -36,12 +37,12 @@ public:
 protected:
     virtual uint64_t GetNextPayloadLength_Step1() = 0;
     virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) = 0;
-    virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
+    BP_APP_PATTERNS_LIB_EXPORT virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
 private:
-    void BpSourcePatternThreadFunc(uint32_t bundleRate);
-    void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
-    void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
-    void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    BP_APP_PATTERNS_LIB_EXPORT void BpSourcePatternThreadFunc(uint32_t bundleRate);
+    BP_APP_PATTERNS_LIB_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    BP_APP_PATTERNS_LIB_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
+    BP_APP_PATTERNS_LIB_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 
 
     OutductManager m_outductManager;

@@ -48,7 +48,7 @@ target_include_directories(hdtn-multiple-release-message-sender PUBLIC
     ${libzmq_INCLUDE}
 )
 
-add_library(storage_lib STATIC
+add_library(storage_lib
         src/MemoryManagerTreeArray.cpp
         src/BundleStorageManagerMT.cpp
 		src/BundleStorageManagerAsio.cpp
@@ -59,13 +59,14 @@ add_library(storage_lib STATIC
 		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
 )
-
+GENERATE_EXPORT_HEADER(storage_lib)
 target_link_libraries(storage_lib hdtn_util config_lib bpcodec log_lib ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
 target_include_directories(storage_lib PUBLIC
         include
         ../../common/include
         ${Boost_INCLUDE_DIRS}
         ${libzmq_INCLUDE}
+		${PROJECT_BINARY_DIR}
 )
 
 add_executable(storage-speedtest

@@ -9,6 +9,7 @@
 #include "EnumAsFlagsMacro.h"
 #include <array>
 #include "FragmentSet.h"
+#include "bpcodec_export.h"
 
 // (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
@@ -77,40 +78,40 @@ struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
 
     
 
-    Bpv6CbhePrimaryBlock(); //a default constructor: X()
-    ~Bpv6CbhePrimaryBlock(); //a destructor: ~X()
-    Bpv6CbhePrimaryBlock(const Bpv6CbhePrimaryBlock& o); //a copy constructor: X(const X&)
-    Bpv6CbhePrimaryBlock(Bpv6CbhePrimaryBlock&& o); //a move constructor: X(X&&)
-    Bpv6CbhePrimaryBlock& operator=(const Bpv6CbhePrimaryBlock& o); //a copy assignment: operator=(const X&)
-    Bpv6CbhePrimaryBlock& operator=(Bpv6CbhePrimaryBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6CbhePrimaryBlock & o) const; //operator ==
-    bool operator!=(const Bpv6CbhePrimaryBlock & o) const; //operator !=
-    void SetZero();
-    uint64_t SerializeBpv6(uint8_t * serialization) const;
-    uint64_t GetSerializationSize() const;
-    bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT Bpv6CbhePrimaryBlock(); //a default constructor: X()
+    BPCODEC_EXPORT ~Bpv6CbhePrimaryBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6CbhePrimaryBlock(const Bpv6CbhePrimaryBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6CbhePrimaryBlock(Bpv6CbhePrimaryBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6CbhePrimaryBlock& operator=(const Bpv6CbhePrimaryBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6CbhePrimaryBlock& operator=(Bpv6CbhePrimaryBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6CbhePrimaryBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6CbhePrimaryBlock & o) const; //operator !=
+    BPCODEC_EXPORT void SetZero();
+    BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization) const;
+    BPCODEC_EXPORT uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     
     /**
      * Dumps a primary block to stdout in a human-readable way
      *
      * @param primary Primary block to print
      */
-    void bpv6_primary_block_print() const;
+    BPCODEC_EXPORT void bpv6_primary_block_print() const;
 
     
     
 
 
-    virtual bool HasCustodyFlagSet() const;
-    virtual bool HasFragmentationFlagSet() const;
-    virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
-    virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
-    virtual cbhe_eid_t GetFinalDestinationEid() const;
-    virtual uint8_t GetPriority() const;
-    virtual uint64_t GetExpirationSeconds() const;
-    virtual uint64_t GetSequenceForSecondsScale() const;
-    virtual uint64_t GetExpirationMilliseconds() const;
-    virtual uint64_t GetSequenceForMillisecondsScale() const;
+    BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const;
+    BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
+    BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const;
+    BPCODEC_EXPORT virtual uint8_t GetPriority() const;
+    BPCODEC_EXPORT virtual uint64_t GetExpirationSeconds() const;
+    BPCODEC_EXPORT virtual uint64_t GetSequenceForSecondsScale() const;
+    BPCODEC_EXPORT virtual uint64_t GetExpirationMilliseconds() const;
+    BPCODEC_EXPORT virtual uint64_t GetSequenceForMillisecondsScale() const;
 };
 
 // https://www.iana.org/assignments/bundle/bundle.xhtml#block-types
@@ -155,35 +156,35 @@ struct Bpv6CanonicalBlock {
     uint8_t * m_blockTypeSpecificDataPtr; //if NULL, data won't be copied (just allocated)
     BPV6_BLOCK_TYPE_CODE m_blockTypeCode; //should be at beginning but here do to better packing
 
-    Bpv6CanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv6CanonicalBlock(); //a destructor: ~X()
-    Bpv6CanonicalBlock(const Bpv6CanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv6CanonicalBlock(Bpv6CanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv6CanonicalBlock& operator=(const Bpv6CanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv6CanonicalBlock& operator=(Bpv6CanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6CanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv6CanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_blockTypeSpecificDataPtr to serialized location
-    uint64_t GetSerializationSize() const;
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    static bool DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization,
+    BPCODEC_EXPORT Bpv6CanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6CanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6CanonicalBlock(const Bpv6CanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6CanonicalBlock(Bpv6CanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6CanonicalBlock& operator=(const Bpv6CanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6CanonicalBlock& operator=(Bpv6CanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6CanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6CanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_blockTypeSpecificDataPtr to serialized location
+    BPCODEC_EXPORT uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT static bool DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & canonicalPtr, const uint8_t * serialization,
         uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool isAdminRecord);
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
     //virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
     /**
      * Dumps a canonical block to stdout in a human-readable fashion
      *
      * @param block Canonical block which should be displayed
      */
-    void bpv6_canonical_block_print() const;
+    BPCODEC_EXPORT void bpv6_canonical_block_print() const;
 
     /**
      * Print just the block flags for a generic canonical block
      *
      * @param block The canonical block with flags to be displayed
      */
-    void bpv6_block_flags_print() const;
+    BPCODEC_EXPORT void bpv6_block_flags_print() const;
 
 };
 
@@ -202,18 +203,18 @@ public:
     std::string m_ctebCreatorCustodianEidString;
 
 public:
-    Bpv6CustodyTransferEnhancementBlock(); //a default constructor: X()
-    virtual ~Bpv6CustodyTransferEnhancementBlock(); //a destructor: ~X()
-    Bpv6CustodyTransferEnhancementBlock(const Bpv6CustodyTransferEnhancementBlock& o); //a copy constructor: X(const X&)
-    Bpv6CustodyTransferEnhancementBlock(Bpv6CustodyTransferEnhancementBlock&& o); //a move constructor: X(X&&)
-    Bpv6CustodyTransferEnhancementBlock& operator=(const Bpv6CustodyTransferEnhancementBlock& o); //a copy assignment: operator=(const X&)
-    Bpv6CustodyTransferEnhancementBlock& operator=(Bpv6CustodyTransferEnhancementBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6CustodyTransferEnhancementBlock & o) const; //operator ==
-    bool operator!=(const Bpv6CustodyTransferEnhancementBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    BPCODEC_EXPORT Bpv6CustodyTransferEnhancementBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6CustodyTransferEnhancementBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6CustodyTransferEnhancementBlock(const Bpv6CustodyTransferEnhancementBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6CustodyTransferEnhancementBlock(Bpv6CustodyTransferEnhancementBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6CustodyTransferEnhancementBlock& operator=(const Bpv6CustodyTransferEnhancementBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6CustodyTransferEnhancementBlock& operator=(Bpv6CustodyTransferEnhancementBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6CustodyTransferEnhancementBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6CustodyTransferEnhancementBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 };
 
 //https://datatracker.ietf.org/doc/html/rfc6259
@@ -225,18 +226,18 @@ struct Bpv6PreviousHopInsertionCanonicalBlock : public Bpv6CanonicalBlock {
         20 + // 18446744073709551615
         1; // \0
 
-    Bpv6PreviousHopInsertionCanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv6PreviousHopInsertionCanonicalBlock(); //a destructor: ~X()
-    Bpv6PreviousHopInsertionCanonicalBlock(const Bpv6PreviousHopInsertionCanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv6PreviousHopInsertionCanonicalBlock(Bpv6PreviousHopInsertionCanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv6PreviousHopInsertionCanonicalBlock& operator=(const Bpv6PreviousHopInsertionCanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv6PreviousHopInsertionCanonicalBlock& operator=(Bpv6PreviousHopInsertionCanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6PreviousHopInsertionCanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv6PreviousHopInsertionCanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    BPCODEC_EXPORT Bpv6PreviousHopInsertionCanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6PreviousHopInsertionCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6PreviousHopInsertionCanonicalBlock(const Bpv6PreviousHopInsertionCanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6PreviousHopInsertionCanonicalBlock(Bpv6PreviousHopInsertionCanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6PreviousHopInsertionCanonicalBlock& operator=(const Bpv6PreviousHopInsertionCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6PreviousHopInsertionCanonicalBlock& operator=(Bpv6PreviousHopInsertionCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6PreviousHopInsertionCanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6PreviousHopInsertionCanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 
     cbhe_eid_t m_previousNode;
 };
@@ -245,18 +246,18 @@ struct Bpv6PreviousHopInsertionCanonicalBlock : public Bpv6CanonicalBlock {
 struct Bpv6BundleAgeCanonicalBlock : public Bpv6CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize = 10; //sdnv bundle age
 
-    Bpv6BundleAgeCanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv6BundleAgeCanonicalBlock(); //a destructor: ~X()
-    Bpv6BundleAgeCanonicalBlock(const Bpv6BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv6BundleAgeCanonicalBlock(Bpv6BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv6BundleAgeCanonicalBlock& operator=(const Bpv6BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv6BundleAgeCanonicalBlock& operator=(Bpv6BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6BundleAgeCanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv6BundleAgeCanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    BPCODEC_EXPORT Bpv6BundleAgeCanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6BundleAgeCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6BundleAgeCanonicalBlock(const Bpv6BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6BundleAgeCanonicalBlock(Bpv6BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6BundleAgeCanonicalBlock& operator=(const Bpv6BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6BundleAgeCanonicalBlock& operator=(Bpv6BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6BundleAgeCanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6BundleAgeCanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 
     uint64_t m_bundleAgeMicroseconds;
 };
@@ -268,7 +269,7 @@ enum class BPV6_METADATA_TYPE_CODE : uint64_t {
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_METADATA_TYPE_CODE);
 
 struct Bpv6MetadataContentBase {
-    virtual ~Bpv6MetadataContentBase() = 0; // Pure virtual destructor
+    BPCODEC_EXPORT virtual ~Bpv6MetadataContentBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
@@ -280,21 +281,21 @@ public:
     std::vector<cbhe_eid_t> m_uriArray;
 
 public:
-    Bpv6MetadataContentUriList(); //a default constructor: X()
-    virtual ~Bpv6MetadataContentUriList(); //a destructor: ~X()
-    Bpv6MetadataContentUriList(const Bpv6MetadataContentUriList& o); //a copy constructor: X(const X&)
-    Bpv6MetadataContentUriList(Bpv6MetadataContentUriList&& o); //a move constructor: X(X&&)
-    Bpv6MetadataContentUriList& operator=(const Bpv6MetadataContentUriList& o); //a copy assignment: operator=(const X&)
-    Bpv6MetadataContentUriList& operator=(Bpv6MetadataContentUriList&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6MetadataContentUriList & o) const;
-    bool operator!=(const Bpv6MetadataContentUriList & o) const;
+    BPCODEC_EXPORT Bpv6MetadataContentUriList(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6MetadataContentUriList(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6MetadataContentUriList(const Bpv6MetadataContentUriList& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6MetadataContentUriList(Bpv6MetadataContentUriList&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6MetadataContentUriList& operator=(const Bpv6MetadataContentUriList& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6MetadataContentUriList& operator=(Bpv6MetadataContentUriList&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6MetadataContentUriList & o) const;
+    BPCODEC_EXPORT bool operator!=(const Bpv6MetadataContentUriList & o) const;
 
-    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const ;
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const ;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const;
 
-    void Reset();
+    BPCODEC_EXPORT void Reset();
 };
 
 class Bpv6MetadataContentGeneric : public Bpv6MetadataContentBase {
@@ -302,38 +303,38 @@ public:
     std::vector<uint8_t> m_genericRawMetadata;
 
 public:
-    Bpv6MetadataContentGeneric(); //a default constructor: X()
-    virtual ~Bpv6MetadataContentGeneric(); //a destructor: ~X()
-    Bpv6MetadataContentGeneric(const Bpv6MetadataContentGeneric& o); //a copy constructor: X(const X&)
-    Bpv6MetadataContentGeneric(Bpv6MetadataContentGeneric&& o); //a move constructor: X(X&&)
-    Bpv6MetadataContentGeneric& operator=(const Bpv6MetadataContentGeneric& o); //a copy assignment: operator=(const X&)
-    Bpv6MetadataContentGeneric& operator=(Bpv6MetadataContentGeneric&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6MetadataContentGeneric & o) const;
-    bool operator!=(const Bpv6MetadataContentGeneric & o) const;
+    BPCODEC_EXPORT Bpv6MetadataContentGeneric(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6MetadataContentGeneric(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6MetadataContentGeneric(const Bpv6MetadataContentGeneric& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6MetadataContentGeneric(Bpv6MetadataContentGeneric&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6MetadataContentGeneric& operator=(const Bpv6MetadataContentGeneric& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6MetadataContentGeneric& operator=(Bpv6MetadataContentGeneric&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6MetadataContentGeneric & o) const;
+    BPCODEC_EXPORT bool operator!=(const Bpv6MetadataContentGeneric & o) const;
 
-    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const;
 
-    void Reset();
+    BPCODEC_EXPORT void Reset();
 };
 
 //https://datatracker.ietf.org/doc/html/rfc6258
 struct Bpv6MetadataCanonicalBlock : public Bpv6CanonicalBlock {
 
-    Bpv6MetadataCanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv6MetadataCanonicalBlock(); //a destructor: ~X()
-    Bpv6MetadataCanonicalBlock(const Bpv6MetadataCanonicalBlock& o) = delete; //a copy constructor: X(const X&)
-    Bpv6MetadataCanonicalBlock(Bpv6MetadataCanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv6MetadataCanonicalBlock& operator=(const Bpv6MetadataCanonicalBlock& o) = delete; //a copy assignment: operator=(const X&)
-    Bpv6MetadataCanonicalBlock& operator=(Bpv6MetadataCanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6MetadataCanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv6MetadataCanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    BPCODEC_EXPORT Bpv6MetadataCanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6MetadataCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6MetadataCanonicalBlock(const Bpv6MetadataCanonicalBlock& o) = delete; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6MetadataCanonicalBlock(Bpv6MetadataCanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6MetadataCanonicalBlock& operator=(const Bpv6MetadataCanonicalBlock& o) = delete; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6MetadataCanonicalBlock& operator=(Bpv6MetadataCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6MetadataCanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6MetadataCanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 
     BPV6_METADATA_TYPE_CODE m_metadataTypeCode;
     std::unique_ptr<Bpv6MetadataContentBase> m_metadataContentPtr;
@@ -395,7 +396,7 @@ MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT);
 
 
 struct Bpv6AdministrativeRecordContentBase {
-    virtual ~Bpv6AdministrativeRecordContentBase() = 0; // Pure virtual destructor
+    BPCODEC_EXPORT virtual ~Bpv6AdministrativeRecordContentBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
@@ -442,28 +443,28 @@ public:
     std::string m_bundleSourceEid;
 
 public:
-    Bpv6AdministrativeRecordContentBundleStatusReport(); //a default constructor: X()
-    virtual ~Bpv6AdministrativeRecordContentBundleStatusReport(); //a destructor: ~X()
-    Bpv6AdministrativeRecordContentBundleStatusReport(const Bpv6AdministrativeRecordContentBundleStatusReport& o); //a copy constructor: X(const X&)
-    Bpv6AdministrativeRecordContentBundleStatusReport(Bpv6AdministrativeRecordContentBundleStatusReport&& o); //a move constructor: X(X&&)
-    Bpv6AdministrativeRecordContentBundleStatusReport& operator=(const Bpv6AdministrativeRecordContentBundleStatusReport& o); //a copy assignment: operator=(const X&)
-    Bpv6AdministrativeRecordContentBundleStatusReport& operator=(Bpv6AdministrativeRecordContentBundleStatusReport&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6AdministrativeRecordContentBundleStatusReport & o) const;
-    bool operator!=(const Bpv6AdministrativeRecordContentBundleStatusReport & o) const;
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentBundleStatusReport(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6AdministrativeRecordContentBundleStatusReport(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentBundleStatusReport(const Bpv6AdministrativeRecordContentBundleStatusReport& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentBundleStatusReport(Bpv6AdministrativeRecordContentBundleStatusReport&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentBundleStatusReport& operator=(const Bpv6AdministrativeRecordContentBundleStatusReport& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentBundleStatusReport& operator=(Bpv6AdministrativeRecordContentBundleStatusReport&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6AdministrativeRecordContentBundleStatusReport & o) const;
+    BPCODEC_EXPORT bool operator!=(const Bpv6AdministrativeRecordContentBundleStatusReport & o) const;
 
-    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const ;
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const ;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
 
-    void Reset();
+    BPCODEC_EXPORT void Reset();
 
-    void SetTimeOfReceiptOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
-    void SetTimeOfCustodyAcceptanceOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
-    void SetTimeOfForwardingOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
-    void SetTimeOfDeliveryOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
-    void SetTimeOfDeletionOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
-    bool HasBundleStatusReportStatusFlagSet(const BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS & flag) const;
+    BPCODEC_EXPORT void SetTimeOfReceiptOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    BPCODEC_EXPORT void SetTimeOfCustodyAcceptanceOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    BPCODEC_EXPORT void SetTimeOfForwardingOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    BPCODEC_EXPORT void SetTimeOfDeliveryOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    BPCODEC_EXPORT void SetTimeOfDeletionOfBundleAndStatusFlag(const TimestampUtil::dtn_time_t & dtnTime);
+    BPCODEC_EXPORT bool HasBundleStatusReportStatusFlagSet(const BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS & flag) const;
 };
 
 class Bpv6AdministrativeRecordContentCustodySignal : public Bpv6AdministrativeRecordContentBase {
@@ -496,26 +497,26 @@ public:
     std::string m_bundleSourceEid;
 
 public:
-    Bpv6AdministrativeRecordContentCustodySignal(); //a default constructor: X()
-    virtual ~Bpv6AdministrativeRecordContentCustodySignal(); //a destructor: ~X()
-    Bpv6AdministrativeRecordContentCustodySignal(const Bpv6AdministrativeRecordContentCustodySignal& o); //a copy constructor: X(const X&)
-    Bpv6AdministrativeRecordContentCustodySignal(Bpv6AdministrativeRecordContentCustodySignal&& o); //a move constructor: X(X&&)
-    Bpv6AdministrativeRecordContentCustodySignal& operator=(const Bpv6AdministrativeRecordContentCustodySignal& o); //a copy assignment: operator=(const X&)
-    Bpv6AdministrativeRecordContentCustodySignal& operator=(Bpv6AdministrativeRecordContentCustodySignal&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6AdministrativeRecordContentCustodySignal & o) const;
-    bool operator!=(const Bpv6AdministrativeRecordContentCustodySignal & o) const;
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentCustodySignal(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6AdministrativeRecordContentCustodySignal(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentCustodySignal(const Bpv6AdministrativeRecordContentCustodySignal& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentCustodySignal(Bpv6AdministrativeRecordContentCustodySignal&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentCustodySignal& operator=(const Bpv6AdministrativeRecordContentCustodySignal& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentCustodySignal& operator=(Bpv6AdministrativeRecordContentCustodySignal&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6AdministrativeRecordContentCustodySignal & o) const;
+    BPCODEC_EXPORT bool operator!=(const Bpv6AdministrativeRecordContentCustodySignal & o) const;
 
-    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
 
-    void Reset();
+    BPCODEC_EXPORT void Reset();
 
-    void SetTimeOfSignalGeneration(const TimestampUtil::dtn_time_t & dtnTime);
-    void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
-    bool DidCustodyTransferSucceed() const;
-    BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
+    BPCODEC_EXPORT void SetTimeOfSignalGeneration(const TimestampUtil::dtn_time_t & dtnTime);
+    BPCODEC_EXPORT void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
+    BPCODEC_EXPORT bool DidCustodyTransferSucceed() const;
+    BPCODEC_EXPORT BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
 };
 
 class Bpv6AdministrativeRecordContentAggregateCustodySignal : public Bpv6AdministrativeRecordContentBase {
@@ -528,34 +529,34 @@ public:
     std::set<FragmentSet::data_fragment_t> m_custodyIdFills;
 
 public:
-    Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a default constructor: X()
-    virtual ~Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a destructor: ~X()
-    Bpv6AdministrativeRecordContentAggregateCustodySignal(const Bpv6AdministrativeRecordContentAggregateCustodySignal& o); //a copy constructor: X(const X&)
-    Bpv6AdministrativeRecordContentAggregateCustodySignal(Bpv6AdministrativeRecordContentAggregateCustodySignal&& o); //a move constructor: X(X&&)
-    Bpv6AdministrativeRecordContentAggregateCustodySignal& operator=(const Bpv6AdministrativeRecordContentAggregateCustodySignal& o); //a copy assignment: operator=(const X&)
-    Bpv6AdministrativeRecordContentAggregateCustodySignal& operator=(Bpv6AdministrativeRecordContentAggregateCustodySignal&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6AdministrativeRecordContentAggregateCustodySignal & o) const;
-    bool operator!=(const Bpv6AdministrativeRecordContentAggregateCustodySignal & o) const;
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6AdministrativeRecordContentAggregateCustodySignal(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentAggregateCustodySignal(const Bpv6AdministrativeRecordContentAggregateCustodySignal& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentAggregateCustodySignal(Bpv6AdministrativeRecordContentAggregateCustodySignal&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentAggregateCustodySignal& operator=(const Bpv6AdministrativeRecordContentAggregateCustodySignal& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecordContentAggregateCustodySignal& operator=(Bpv6AdministrativeRecordContentAggregateCustodySignal&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6AdministrativeRecordContentAggregateCustodySignal & o) const;
+    BPCODEC_EXPORT bool operator!=(const Bpv6AdministrativeRecordContentAggregateCustodySignal & o) const;
 
-    virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const;
 
-    void Reset();
+    BPCODEC_EXPORT void Reset();
 
     
-    void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
-    bool DidCustodyTransferSucceed() const;
-    BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
+    BPCODEC_EXPORT void SetCustodyTransferStatusAndReason(bool custodyTransferSucceeded, BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT reasonCode7bit);
+    BPCODEC_EXPORT bool DidCustodyTransferSucceed() const;
+    BPCODEC_EXPORT BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
     //return number of fills
-    uint64_t AddCustodyIdToFill(const uint64_t custodyId);
+    BPCODEC_EXPORT uint64_t AddCustodyIdToFill(const uint64_t custodyId);
     //return number of fills
-    uint64_t AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId);
+    BPCODEC_EXPORT uint64_t AddContiguousCustodyIdsToFill(const uint64_t firstCustodyId, const uint64_t lastCustodyId);
 public: //only public for unit testing
-    uint64_t SerializeFills(uint8_t * serialization, uint64_t bufferSize) const;
-    uint64_t GetFillSerializedSize() const;
-    bool DeserializeFills(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT uint64_t SerializeFills(uint8_t * serialization, uint64_t bufferSize) const;
+    BPCODEC_EXPORT uint64_t GetFillSerializedSize() const;
+    BPCODEC_EXPORT bool DeserializeFills(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
 };
 
 struct Bpv6AdministrativeRecord : public Bpv6CanonicalBlock {
@@ -564,18 +565,18 @@ struct Bpv6AdministrativeRecord : public Bpv6CanonicalBlock {
     std::unique_ptr<Bpv6AdministrativeRecordContentBase> m_adminRecordContentPtr;
     bool m_isFragment;
 
-    Bpv6AdministrativeRecord(); //a default constructor: X()
-    virtual ~Bpv6AdministrativeRecord(); //a destructor: ~X()
-    Bpv6AdministrativeRecord(const Bpv6AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
-    Bpv6AdministrativeRecord(Bpv6AdministrativeRecord&& o); //a move constructor: X(X&&)
-    Bpv6AdministrativeRecord& operator=(const Bpv6AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
-    Bpv6AdministrativeRecord& operator=(Bpv6AdministrativeRecord&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv6AdministrativeRecord & o) const; //operator ==
-    bool operator!=(const Bpv6AdministrativeRecord & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
+    BPCODEC_EXPORT Bpv6AdministrativeRecord(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv6AdministrativeRecord(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv6AdministrativeRecord(const Bpv6AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecord(Bpv6AdministrativeRecord&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecord& operator=(const Bpv6AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv6AdministrativeRecord& operator=(Bpv6AdministrativeRecord&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv6AdministrativeRecord & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv6AdministrativeRecord & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv6(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv6();
 };
 
 

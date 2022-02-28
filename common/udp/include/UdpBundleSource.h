@@ -9,38 +9,39 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "RateManagerAsync.h"
 #include <zmq.hpp>
+#include "udp_lib_export.h"
 
 class UdpBundleSource {
 private:
     UdpBundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    UdpBundleSource(const uint64_t rateBps = 50, const unsigned int maxUnacked = 100);
+    UDP_LIB_EXPORT UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked); //const uint64_t rateBps = 50, const unsigned int maxUnacked = 100
 
-    ~UdpBundleSource();
-    void Stop();
-    bool Forward(const uint8_t* bundleData, const std::size_t size);
-    bool Forward(zmq::message_t & dataZmq);
-    bool Forward(std::vector<uint8_t> & dataVec);
-    std::size_t GetTotalUdpPacketsAcked();
-    std::size_t GetTotalUdpPacketsSent();
-    std::size_t GetTotalUdpPacketsUnacked();
-    std::size_t GetTotalBundleBytesAcked();
-    std::size_t GetTotalBundleBytesSent();
-    std::size_t GetTotalBundleBytesUnacked();
-    void UpdateRate(uint64_t rateBitsPerSec);
-    void Connect(const std::string & hostname, const std::string & port);
-    bool ReadyToForward();
-    void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+    UDP_LIB_EXPORT ~UdpBundleSource();
+    UDP_LIB_EXPORT void Stop();
+    UDP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size);
+    UDP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq);
+    UDP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec);
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked();
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent();
+    UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked();
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesAcked();
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
+    UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
+    UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
+    UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
+    UDP_LIB_EXPORT bool ReadyToForward();
+    UDP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
-    void OnConnect(const boost::system::error_code & ec);
-    void HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-    void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
+    UDP_LIB_EXPORT void OnConnect(const boost::system::error_code & ec);
+    UDP_LIB_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_EXPORT void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
 
-    void DoUdpShutdown();
-    void DoHandleSocketShutdown();
-    void PacketsSentCallback();
+    UDP_LIB_EXPORT void DoUdpShutdown();
+    UDP_LIB_EXPORT void DoHandleSocketShutdown();
+    UDP_LIB_EXPORT void PacketsSentCallback();
     
 
 

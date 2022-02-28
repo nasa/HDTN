@@ -1,4 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
+include (GenerateExportHeader)
+option(BUILD_SHARED_LIBS "Build shared libraries" On)
 
 project(HDTN VERSION 1.0)
 #set(CMAKE_BUILD_TYPE Debug)
@@ -12,7 +14,8 @@ endif()
 
 #logging link type
 if(NOT Boost_USE_STATIC_LIBS)
-	add_compile_definitions(BOOST_LOG_DYN_LINK)
+	#add_compile_definitions(BOOST_LOG_DYN_LINK)
+	add_compile_definitions(BOOST_ALL_DYN_LINK) 
 endif()
 
 OPTION(USE_X86_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)

@@ -5,8 +5,9 @@
 #include <boost/random.hpp>
 #include <boost/random/random_device.hpp>
 #include <set>
+#include "ltp_lib_export.h"
 
-class LtpRandomNumberGenerator {
+class LTP_LIB_EXPORT LtpRandomNumberGenerator {
 public:
     LtpRandomNumberGenerator();
     uint64_t GetRandomSession64(const uint64_t additionalRandomness = 0);

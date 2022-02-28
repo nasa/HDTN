@@ -6,6 +6,7 @@
 #include <boost/integer.hpp>
 #include <boost/function.hpp>
 #include <vector>
+#include "ltp_lib_export.h"
 
 enum class LTP_MAIN_RX_STATE
 {
@@ -107,36 +108,36 @@ public:
         uint64_t sessionOriginatorEngineId;
         uint64_t sessionNumber;
 
-        session_id_t(); //a default constructor: X()
-        session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber);
-        ~session_id_t(); //a destructor: ~X()
-        session_id_t(const session_id_t& o); //a copy constructor: X(const X&)
-        session_id_t(session_id_t&& o); //a move constructor: X(X&&)
-        session_id_t& operator=(const session_id_t& o); //a copy assignment: operator=(const X&)
-        session_id_t& operator=(session_id_t&& o); //a move assignment: operator=(X&&)
-        session_id_t& operator=(const uint64_t o); //assign to uint64 (for template code in LtpTimerManager)
-        bool operator==(const session_id_t & o) const; //operator ==
-        bool operator==(const uint64_t o) const; //operator == (for template code in LtpTimerManager)
-        bool operator!=(const session_id_t & o) const; //operator !=
-        bool operator<(const session_id_t & o) const; //operator < so it can be used as a map key
-        friend std::ostream& operator<<(std::ostream& os, const session_id_t& o);
-        uint64_t Serialize(uint8_t * serialization) const;
+        LTP_LIB_EXPORT session_id_t(); //a default constructor: X()
+        LTP_LIB_EXPORT session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber);
+        LTP_LIB_EXPORT ~session_id_t(); //a destructor: ~X()
+        LTP_LIB_EXPORT session_id_t(const session_id_t& o); //a copy constructor: X(const X&)
+        LTP_LIB_EXPORT session_id_t(session_id_t&& o); //a move constructor: X(X&&)
+        LTP_LIB_EXPORT session_id_t& operator=(const session_id_t& o); //a copy assignment: operator=(const X&)
+        LTP_LIB_EXPORT session_id_t& operator=(session_id_t&& o); //a move assignment: operator=(X&&)
+        LTP_LIB_EXPORT session_id_t& operator=(const uint64_t o); //assign to uint64 (for template code in LtpTimerManager)
+        LTP_LIB_EXPORT bool operator==(const session_id_t & o) const; //operator ==
+        LTP_LIB_EXPORT bool operator==(const uint64_t o) const; //operator == (for template code in LtpTimerManager)
+        LTP_LIB_EXPORT bool operator!=(const session_id_t & o) const; //operator !=
+        LTP_LIB_EXPORT bool operator<(const session_id_t & o) const; //operator < so it can be used as a map key
+        LTP_LIB_EXPORT friend std::ostream& operator<<(std::ostream& os, const session_id_t& o);
+        LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
     };
     struct reception_claim_t {
         uint64_t offset;
         uint64_t length;
 
-        reception_claim_t(); //a default constructor: X()
-        reception_claim_t(uint64_t paramOffset, uint64_t paramLength);
-        ~reception_claim_t(); //a destructor: ~X()
-        reception_claim_t(const reception_claim_t& o); //a copy constructor: X(const X&)
-        reception_claim_t(reception_claim_t&& o); //a move constructor: X(X&&)
-        reception_claim_t& operator=(const reception_claim_t& o); //a copy assignment: operator=(const X&)
-        reception_claim_t& operator=(reception_claim_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const reception_claim_t & o) const; //operator ==
-        bool operator!=(const reception_claim_t & o) const; //operator !=
-        friend std::ostream& operator<<(std::ostream& os, const reception_claim_t& o);
-        uint64_t Serialize(uint8_t * serialization) const;
+        LTP_LIB_EXPORT reception_claim_t(); //a default constructor: X()
+        LTP_LIB_EXPORT reception_claim_t(uint64_t paramOffset, uint64_t paramLength);
+        LTP_LIB_EXPORT ~reception_claim_t(); //a destructor: ~X()
+        LTP_LIB_EXPORT reception_claim_t(const reception_claim_t& o); //a copy constructor: X(const X&)
+        LTP_LIB_EXPORT reception_claim_t(reception_claim_t&& o); //a move constructor: X(X&&)
+        LTP_LIB_EXPORT reception_claim_t& operator=(const reception_claim_t& o); //a copy assignment: operator=(const X&)
+        LTP_LIB_EXPORT reception_claim_t& operator=(reception_claim_t&& o); //a move assignment: operator=(X&&)
+        LTP_LIB_EXPORT bool operator==(const reception_claim_t & o) const; //operator ==
+        LTP_LIB_EXPORT bool operator!=(const reception_claim_t & o) const; //operator !=
+        LTP_LIB_EXPORT friend std::ostream& operator<<(std::ostream& os, const reception_claim_t& o);
+        LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
     };
     struct report_segment_t {
         uint64_t reportSerialNumber;
@@ -145,62 +146,62 @@ public:
         uint64_t lowerBound;
         std::vector<reception_claim_t> receptionClaims;
 
-        report_segment_t(); //a default constructor: X()
-        report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, const std::vector<reception_claim_t> & paramReceptionClaims);
-        report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, std::vector<reception_claim_t> && paramReceptionClaims);
-        ~report_segment_t(); //a destructor: ~X()
-        report_segment_t(const report_segment_t& o); //a copy constructor: X(const X&)
-        report_segment_t(report_segment_t&& o); //a move constructor: X(X&&)
-        report_segment_t& operator=(const report_segment_t& o); //a copy assignment: operator=(const X&)
-        report_segment_t& operator=(report_segment_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const report_segment_t & o) const; //operator ==
-        bool operator!=(const report_segment_t & o) const; //operator !=
-        friend std::ostream& operator<<(std::ostream& os, const report_segment_t& dt);
-        uint64_t Serialize(uint8_t * serialization) const;
-        uint64_t GetMaximumDataRequiredForSerialization() const;
+        LTP_LIB_EXPORT report_segment_t(); //a default constructor: X()
+        LTP_LIB_EXPORT report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, const std::vector<reception_claim_t> & paramReceptionClaims);
+        LTP_LIB_EXPORT report_segment_t(uint64_t paramReportSerialNumber, uint64_t paramCheckpointSerialNumber, uint64_t paramUpperBound, uint64_t paramLowerBound, std::vector<reception_claim_t> && paramReceptionClaims);
+        LTP_LIB_EXPORT ~report_segment_t(); //a destructor: ~X()
+        LTP_LIB_EXPORT report_segment_t(const report_segment_t& o); //a copy constructor: X(const X&)
+        LTP_LIB_EXPORT report_segment_t(report_segment_t&& o); //a move constructor: X(X&&)
+        LTP_LIB_EXPORT report_segment_t& operator=(const report_segment_t& o); //a copy assignment: operator=(const X&)
+        LTP_LIB_EXPORT report_segment_t& operator=(report_segment_t&& o); //a move assignment: operator=(X&&)
+        LTP_LIB_EXPORT bool operator==(const report_segment_t & o) const; //operator ==
+        LTP_LIB_EXPORT bool operator!=(const report_segment_t & o) const; //operator !=
+        LTP_LIB_EXPORT friend std::ostream& operator<<(std::ostream& os, const report_segment_t& dt);
+        LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
+        LTP_LIB_EXPORT uint64_t GetMaximumDataRequiredForSerialization() const;
     };
     struct ltp_extension_t {
         uint8_t tag;
         //uint64_t length; //shall be stored in valueVec.size()
         std::vector<uint8_t> valueVec;
 
-        ltp_extension_t(); //a default constructor: X()
-        ~ltp_extension_t(); //a destructor: ~X()
-        ltp_extension_t(const ltp_extension_t& o); //a copy constructor: X(const X&)
-        ltp_extension_t(ltp_extension_t&& o); //a move constructor: X(X&&)
-        ltp_extension_t& operator=(const ltp_extension_t& o); //a copy assignment: operator=(const X&)
-        ltp_extension_t& operator=(ltp_extension_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const ltp_extension_t & o) const; //operator ==
-        bool operator!=(const ltp_extension_t & o) const; //operator !=
-        void AppendSerialize(std::vector<uint8_t> & serialization) const;
-        uint64_t Serialize(uint8_t * serialization) const;
+        LTP_LIB_EXPORT ltp_extension_t(); //a default constructor: X()
+        LTP_LIB_EXPORT ~ltp_extension_t(); //a destructor: ~X()
+        LTP_LIB_EXPORT ltp_extension_t(const ltp_extension_t& o); //a copy constructor: X(const X&)
+        LTP_LIB_EXPORT ltp_extension_t(ltp_extension_t&& o); //a move constructor: X(X&&)
+        LTP_LIB_EXPORT ltp_extension_t& operator=(const ltp_extension_t& o); //a copy assignment: operator=(const X&)
+        LTP_LIB_EXPORT ltp_extension_t& operator=(ltp_extension_t&& o); //a move assignment: operator=(X&&)
+        LTP_LIB_EXPORT bool operator==(const ltp_extension_t & o) const; //operator ==
+        LTP_LIB_EXPORT bool operator!=(const ltp_extension_t & o) const; //operator !=
+        LTP_LIB_EXPORT void AppendSerialize(std::vector<uint8_t> & serialization) const;
+        LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
     };
     struct ltp_extensions_t {
         std::vector<ltp_extension_t> extensionsVec;
 
-        ltp_extensions_t(); //a default constructor: X()
-        ~ltp_extensions_t(); //a destructor: ~X()
-        ltp_extensions_t(const ltp_extensions_t& o); //a copy constructor: X(const X&)
-        ltp_extensions_t(ltp_extensions_t&& o); //a move constructor: X(X&&)
-        ltp_extensions_t& operator=(const ltp_extensions_t& o); //a copy assignment: operator=(const X&)
-        ltp_extensions_t& operator=(ltp_extensions_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const ltp_extensions_t & o) const; //operator ==
-        bool operator!=(const ltp_extensions_t & o) const; //operator !=
-        void AppendSerialize(std::vector<uint8_t> & serialization) const;
-        uint64_t Serialize(uint8_t * serialization) const;
-        uint64_t GetMaximumDataRequiredForSerialization() const;
+        LTP_LIB_EXPORT ltp_extensions_t(); //a default constructor: X()
+        LTP_LIB_EXPORT ~ltp_extensions_t(); //a destructor: ~X()
+        LTP_LIB_EXPORT ltp_extensions_t(const ltp_extensions_t& o); //a copy constructor: X(const X&)
+        LTP_LIB_EXPORT ltp_extensions_t(ltp_extensions_t&& o); //a move constructor: X(X&&)
+        LTP_LIB_EXPORT ltp_extensions_t& operator=(const ltp_extensions_t& o); //a copy assignment: operator=(const X&)
+        LTP_LIB_EXPORT ltp_extensions_t& operator=(ltp_extensions_t&& o); //a move assignment: operator=(X&&)
+        LTP_LIB_EXPORT bool operator==(const ltp_extensions_t & o) const; //operator ==
+        LTP_LIB_EXPORT bool operator!=(const ltp_extensions_t & o) const; //operator !=
+        LTP_LIB_EXPORT void AppendSerialize(std::vector<uint8_t> & serialization) const;
+        LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
+        LTP_LIB_EXPORT uint64_t GetMaximumDataRequiredForSerialization() const;
     };
     //struct ltp_header_and_trailer_extensions_t {
     //    ltp_extensions_t headerExtensions;
     //    ltp_extensions_t trailerExtensions;
     //};
     struct data_segment_metadata_t {
-        data_segment_metadata_t();
-        data_segment_metadata_t(uint64_t paramClientServiceId, uint64_t paramOffset, uint64_t paramLength, uint64_t * paramCheckpointSerialNumber = NULL, uint64_t * paramReportSerialNumber = NULL);
-        bool operator==(const data_segment_metadata_t & o) const; //operator ==
-        bool operator!=(const data_segment_metadata_t & o) const; //operator !=
-        uint64_t Serialize(uint8_t * serialization) const;
-        uint64_t GetMaximumDataRequiredForSerialization() const;
+        LTP_LIB_EXPORT data_segment_metadata_t();
+        LTP_LIB_EXPORT data_segment_metadata_t(uint64_t paramClientServiceId, uint64_t paramOffset, uint64_t paramLength, uint64_t * paramCheckpointSerialNumber = NULL, uint64_t * paramReportSerialNumber = NULL);
+        LTP_LIB_EXPORT bool operator==(const data_segment_metadata_t & o) const; //operator ==
+        LTP_LIB_EXPORT bool operator!=(const data_segment_metadata_t & o) const; //operator !=
+        LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
+        LTP_LIB_EXPORT uint64_t GetMaximumDataRequiredForSerialization() const;
         
         uint64_t clientServiceId;
         uint64_t offset;
@@ -224,43 +225,43 @@ public:
 
     typedef boost::function<void(uint64_t sessionOriginatorEngineId)> SessionOriginatorEngineIdDecodedCallback_t;
 	
-    Ltp();
-	~Ltp();
+    LTP_LIB_EXPORT Ltp();
+    LTP_LIB_EXPORT ~Ltp();
     
-	void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
-    void SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback);
-    void SetReportAcknowledgementSegmentContentsReadCallback(const ReportAcknowledgementSegmentContentsReadCallback_t & callback);
-    void SetCancelSegmentContentsReadCallback(const CancelSegmentContentsReadCallback_t & callback);
-    void SetCancelAcknowledgementSegmentContentsReadCallback(const CancelAcknowledgementSegmentContentsReadCallback_t & callback);
+    LTP_LIB_EXPORT void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
+    LTP_LIB_EXPORT void SetReportSegmentContentsReadCallback(const ReportSegmentContentsReadCallback_t & callback);
+    LTP_LIB_EXPORT void SetReportAcknowledgementSegmentContentsReadCallback(const ReportAcknowledgementSegmentContentsReadCallback_t & callback);
+    LTP_LIB_EXPORT void SetCancelSegmentContentsReadCallback(const CancelSegmentContentsReadCallback_t & callback);
+    LTP_LIB_EXPORT void SetCancelAcknowledgementSegmentContentsReadCallback(const CancelAcknowledgementSegmentContentsReadCallback_t & callback);
 
 
-	void InitRx();
-	bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
-	void HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage);
-    bool IsAtBeginningState() const; //unit testing convenience function
+    LTP_LIB_EXPORT void InitRx();
+    LTP_LIB_EXPORT bool HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std::string & errorMessage, SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
+    LTP_LIB_EXPORT void HandleReceivedChar(const uint8_t rxVal, std::string & errorMessage);
+    LTP_LIB_EXPORT bool IsAtBeginningState() const; //unit testing convenience function
 
     
-    static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, const session_id_t & sessionId, uint64_t reportSerialNumber);
-    static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags, 
+    LTP_LIB_EXPORT static void GenerateReportAcknowledgementSegment(std::vector<uint8_t> & reportAckSegment, const session_id_t & sessionId, uint64_t reportSerialNumber);
+    LTP_LIB_EXPORT static void GenerateLtpHeaderPlusDataSegmentMetadata(std::vector<uint8_t> & ltpHeaderPlusDataSegmentMetadata, LTP_DATA_SEGMENT_TYPE_FLAGS dataSegmentTypeFlags,
         const session_id_t & sessionId, const data_segment_metadata_t & dataSegmentMetadata,
         ltp_extensions_t * headerExtensions = NULL, uint8_t numTrailerExtensions = 0);
-    static void GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, const session_id_t & sessionId, const report_segment_t & reportSegmentStruct,
+    LTP_LIB_EXPORT static void GenerateReportSegmentLtpPacket(std::vector<uint8_t> & ltpReportSegmentPacket, const session_id_t & sessionId, const report_segment_t & reportSegmentStruct,
         ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    static void GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, const session_id_t & sessionId,
+    LTP_LIB_EXPORT static void GenerateReportAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpReportAcknowledgementSegmentPacket, const session_id_t & sessionId,
         uint64_t reportSerialNumberBeingAcknowledged, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    static void GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, const session_id_t & sessionId,
+    LTP_LIB_EXPORT static void GenerateCancelSegmentLtpPacket(std::vector<uint8_t> & ltpCancelSegmentPacket, const session_id_t & sessionId,
         CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
-    static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, const session_id_t & sessionId,
+    LTP_LIB_EXPORT static void GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & ltpCancelAcknowledgementSegmentPacket, const session_id_t & sessionId,
         bool isToSender, ltp_extensions_t * headerExtensions = NULL, ltp_extensions_t * trailerExtensions = NULL);
 
-    static bool GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver);
+    LTP_LIB_EXPORT static bool GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver);
 
 private:
-    void SetBeginningState();
-    const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
-    bool NextStateAfterTrailerExtensions(std::string & errorMessage);
-    const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
-    const uint8_t * TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    LTP_LIB_EXPORT void SetBeginningState();
+    LTP_LIB_EXPORT const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    LTP_LIB_EXPORT bool NextStateAfterTrailerExtensions(std::string & errorMessage);
+    LTP_LIB_EXPORT const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    LTP_LIB_EXPORT const uint8_t * TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
 public:
 	std::vector<uint8_t> m_sdnvTempVec;
     LTP_MAIN_RX_STATE m_mainRxState;

@@ -13,7 +13,7 @@
 
 class TcpclV3BidirectionalLink : public BidirectionalLink {
 public:
-    TcpclV3BidirectionalLink(
+    TCPCL_LIB_EXPORT TcpclV3BidirectionalLink(
         const std::string & implementationStringForCout,
         const uint64_t shutdownMessageReconnectionDelaySecondsToSend,
         const bool deleteSocketAfterShutdown,
@@ -26,21 +26,21 @@ public:
         const uint64_t myNodeId,
         const std::string & expectedRemoteEidUriStringIfNotEmpty
     );
-    virtual ~TcpclV3BidirectionalLink();
+    TCPCL_LIB_EXPORT virtual ~TcpclV3BidirectionalLink();
 
-    bool BaseClass_Forward(const uint8_t* bundleData, const std::size_t size);
-    bool BaseClass_Forward(std::vector<uint8_t> & dataVec);
-    bool BaseClass_Forward(zmq::message_t & dataZmq);
-    bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(const uint8_t* bundleData, const std::size_t size);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::vector<uint8_t> & dataVec);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(zmq::message_t & dataZmq);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData);
     
-    virtual std::size_t Virtual_GetTotalBundlesAcked();
-    virtual std::size_t Virtual_GetTotalBundlesSent();
-    virtual std::size_t Virtual_GetTotalBundlesUnacked();
-    virtual std::size_t Virtual_GetTotalBundleBytesAcked();
-    virtual std::size_t Virtual_GetTotalBundleBytesSent();
-    virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesAcked();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesSent();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesUnacked();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesAcked();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesSent();
+    TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
 
-    virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
+    TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
 
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
@@ -88,32 +88,32 @@ protected:
 
 protected:
     
-    void BaseClass_TryToWaitForAllBundlesToFinishSending();
-    void BaseClass_DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
+    TCPCL_LIB_EXPORT void BaseClass_TryToWaitForAllBundlesToFinishSending();
+    TCPCL_LIB_EXPORT void BaseClass_DoTcpclShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread() = 0;
     virtual void Virtual_OnSuccessfulWholeBundleAcknowledged() = 0;
     virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec) = 0;
-    virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnContactHeaderCompletedSuccessfully();
+    TCPCL_LIB_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
+    TCPCL_LIB_EXPORT virtual void Virtual_OnContactHeaderCompletedSuccessfully();
 
 private:
-    void BaseClass_ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
-    void BaseClass_AckCallback(uint64_t totalBytesAcknowledged);
-    void BaseClass_RestartNoKeepaliveReceivedTimer();
-    void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
-    void BaseClass_KeepAliveCallback();
-    void BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
+    TCPCL_LIB_EXPORT void BaseClass_ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
+    TCPCL_LIB_EXPORT void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
+    TCPCL_LIB_EXPORT void BaseClass_AckCallback(uint64_t totalBytesAcknowledged);
+    TCPCL_LIB_EXPORT void BaseClass_RestartNoKeepaliveReceivedTimer();
+    TCPCL_LIB_EXPORT void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
+    TCPCL_LIB_EXPORT void BaseClass_KeepAliveCallback();
+    TCPCL_LIB_EXPORT void BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds);
-    void BaseClass_BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
-    void BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength);
+    TCPCL_LIB_EXPORT void BaseClass_BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
+    TCPCL_LIB_EXPORT void BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength);
 
-    void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
-    void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);    
-    void BaseClass_DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
-    void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_EXPORT void BaseClass_DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
+    TCPCL_LIB_EXPORT void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
 
 public:
     //tcpcl stats

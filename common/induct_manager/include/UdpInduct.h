@@ -7,13 +7,13 @@
 
 class UdpInduct : public Induct {
 public:
-    UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
-    virtual ~UdpInduct();
+    INDUCT_MANAGER_LIB_EXPORT UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
+    INDUCT_MANAGER_LIB_EXPORT virtual ~UdpInduct();
     
 private:
     UdpInduct();
-    void ConnectionReadyToBeDeletedNotificationReceived();
-    void RemoveInactiveConnection();
+    INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();
+    INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveConnection();
 
     boost::asio::io_service m_ioService;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;

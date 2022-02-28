@@ -9,23 +9,23 @@
 
 class TcpclInduct : public Induct {
 public:
-    TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
+    INDUCT_MANAGER_LIB_EXPORT TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
         const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
         const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
-    virtual ~TcpclInduct();
+    INDUCT_MANAGER_LIB_EXPORT virtual ~TcpclInduct();
     
 private:
     
 
     TcpclInduct();
-    void StartTcpAccept();
-    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error);
-    void ConnectionReadyToBeDeletedNotificationReceived();
-    void RemoveInactiveTcpConnections();
-    void DisableRemoveInactiveTcpConnections();
-    void OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr);
-    void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
-    virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    INDUCT_MANAGER_LIB_EXPORT void StartTcpAccept();
+    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error);
+    INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();
+    INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveTcpConnections();
+    INDUCT_MANAGER_LIB_EXPORT void DisableRemoveInactiveTcpConnections();
+    INDUCT_MANAGER_LIB_EXPORT void OnContactHeaderCallback_FromIoServiceThread(TcpclBundleSink * thisTcpclBundleSinkPtr);
+    INDUCT_MANAGER_LIB_EXPORT void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    INDUCT_MANAGER_LIB_EXPORT virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
 
     boost::asio::io_service m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;

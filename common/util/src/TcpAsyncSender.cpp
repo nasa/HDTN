@@ -6,6 +6,7 @@
 #include <boost/make_unique.hpp>
 
 TcpAsyncSenderElement::TcpAsyncSenderElement() : m_onSuccessfulSendCallbackByIoServiceThreadPtr(NULL) {}
+TcpAsyncSenderElement::~TcpAsyncSenderElement() {}
 
 void TcpAsyncSenderElement::DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if(m_onSuccessfulSendCallbackByIoServiceThreadPtr && (*m_onSuccessfulSendCallbackByIoServiceThreadPtr)) {

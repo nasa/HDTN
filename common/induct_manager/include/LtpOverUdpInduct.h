@@ -7,8 +7,8 @@
 
 class LtpOverUdpInduct : public Induct {
 public:
-    LtpOverUdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
-    virtual ~LtpOverUdpInduct();
+    INDUCT_MANAGER_LIB_EXPORT LtpOverUdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
+    INDUCT_MANAGER_LIB_EXPORT virtual ~LtpOverUdpInduct();
     
 private:
     LtpOverUdpInduct();

@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 
-add_library(ltp_lib STATIC
+add_library(ltp_lib
     src/Ltp.cpp
 	src/LtpFragmentSet.cpp
 	src/LtpSessionRecreationPreventer.cpp
@@ -19,9 +19,9 @@ add_library(ltp_lib STATIC
 	src/LtpBundleSource.cpp
 	src/LtpClientServiceDataToSend.cpp
 )
-
+GENERATE_EXPORT_HEADER(ltp_lib)
 target_link_libraries(ltp_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
-target_include_directories(ltp_lib PUBLIC include ${Boost_INCLUDE_DIRS})
+target_include_directories(ltp_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
 
 add_executable(ltp-file-transfer
     apps/ltp_file_transfer/src/LtpFileTransferMain.cpp

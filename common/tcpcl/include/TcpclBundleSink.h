@@ -13,7 +13,7 @@ public:
     typedef boost::function<void()> NotifyOpportunisticDataAckedCallback_t;
     typedef boost::function<void(TcpclBundleSink * thisTcpclBundleSinkPtr)> OnContactHeaderCallback_t;
 
-    TcpclBundleSink(
+    TCPCL_LIB_EXPORT TcpclBundleSink(
         const uint16_t desiredKeepAliveIntervalSeconds,
         boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
         boost::asio::io_service & tcpSocketIoServiceRef,
@@ -27,23 +27,23 @@ public:
         //const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction = TryGetOpportunisticDataFunction_t(),
         //const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback = NotifyOpportunisticDataAckedCallback_t(),
         const unsigned int maxUnacked = 10, const uint64_t maxFragmentSize = 100000000 ); //todo
-    ~TcpclBundleSink();
-    bool ReadyToBeDeleted();
-    uint64_t GetRemoteNodeId() const;
-    void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
-    void SetTryGetOpportunisticDataFunction(const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction);
-    void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
+    TCPCL_LIB_EXPORT ~TcpclBundleSink();
+    TCPCL_LIB_EXPORT bool ReadyToBeDeleted();
+    TCPCL_LIB_EXPORT uint64_t GetRemoteNodeId() const;
+    TCPCL_LIB_EXPORT void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
+    TCPCL_LIB_EXPORT void SetTryGetOpportunisticDataFunction(const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction);
+    TCPCL_LIB_EXPORT void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
 private:
 
-    void TryStartTcpReceive();
-    void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void PopCbThreadFunc();
+    TCPCL_LIB_EXPORT void TryStartTcpReceive();
+    TCPCL_LIB_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    TCPCL_LIB_EXPORT void PopCbThreadFunc();
     
-    virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
-    virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
-    virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnContactHeaderCompletedSuccessfully();
+    TCPCL_LIB_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
+    TCPCL_LIB_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
+    TCPCL_LIB_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
+    TCPCL_LIB_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
+    TCPCL_LIB_EXPORT virtual void Virtual_OnContactHeaderCompletedSuccessfully();
 
     
 

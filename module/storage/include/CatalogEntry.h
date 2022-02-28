@@ -4,6 +4,7 @@
 #include <cstdint>
 #include "MemoryManagerTreeArray.h"
 #include "codec/PrimaryBlock.h"
+#include "storage_lib_export.h"
 
 struct catalog_entry_t {
     uint64_t bundleSizeBytes;
@@ -13,22 +14,22 @@ struct catalog_entry_t {
     uint64_t sequence;
     const void * ptrUuidKeyInMap;
 
-    catalog_entry_t(); //a default constructor: X()
-    ~catalog_entry_t(); //a destructor: ~X()
-    catalog_entry_t(const catalog_entry_t& o); //a copy constructor: X(const X&)
-    catalog_entry_t(catalog_entry_t&& o); //a move constructor: X(X&&)
-    catalog_entry_t& operator=(const catalog_entry_t& o); //a copy assignment: operator=(const X&)
-    catalog_entry_t& operator=(catalog_entry_t&& o); //a move assignment: operator=(X&&)
-    bool operator==(const catalog_entry_t & o) const; //operator ==
-    bool operator!=(const catalog_entry_t & o) const; //operator !=
-    bool operator<(const catalog_entry_t & o) const; //operator < so it can be used as a map key
+    STORAGE_LIB_EXPORT catalog_entry_t(); //a default constructor: X()
+    STORAGE_LIB_EXPORT ~catalog_entry_t(); //a destructor: ~X()
+    STORAGE_LIB_EXPORT catalog_entry_t(const catalog_entry_t& o); //a copy constructor: X(const X&)
+    STORAGE_LIB_EXPORT catalog_entry_t(catalog_entry_t&& o); //a move constructor: X(X&&)
+    STORAGE_LIB_EXPORT catalog_entry_t& operator=(const catalog_entry_t& o); //a copy assignment: operator=(const X&)
+    STORAGE_LIB_EXPORT catalog_entry_t& operator=(catalog_entry_t&& o); //a move assignment: operator=(X&&)
+    STORAGE_LIB_EXPORT bool operator==(const catalog_entry_t & o) const; //operator ==
+    STORAGE_LIB_EXPORT bool operator!=(const catalog_entry_t & o) const; //operator !=
+    STORAGE_LIB_EXPORT bool operator<(const catalog_entry_t & o) const; //operator < so it can be used as a map key
 
-    uint8_t GetPriorityIndex() const ;
-    uint64_t GetAbsExpiration() const;
-    bool HasCustodyAndFragmentation() const;
-    bool HasCustodyAndNonFragmentation() const;
-    bool HasCustody() const;
-    void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap);
+    STORAGE_LIB_EXPORT uint8_t GetPriorityIndex() const ;
+    STORAGE_LIB_EXPORT uint64_t GetAbsExpiration() const;
+    STORAGE_LIB_EXPORT bool HasCustodyAndFragmentation() const;
+    STORAGE_LIB_EXPORT bool HasCustodyAndNonFragmentation() const;
+    STORAGE_LIB_EXPORT bool HasCustody() const;
+    STORAGE_LIB_EXPORT void Init(const PrimaryBlock & primary, const uint64_t paramBundleSizeBytes, const uint64_t paramNumSegmentsRequired, void * paramPtrUuidKeyInMap);
 };
 
 #endif //_CATALOG_ENTRY_H

@@ -7,6 +7,7 @@
 #include "OutductsConfig.h"
 #include <list>
 #include <zmq.hpp>
+#include "outduct_manager_lib_export.h"
 
 struct OutductFinalStats {
     std::string m_convergenceLayer;
@@ -24,8 +25,8 @@ private:
 public:
     typedef boost::function<void()> OnSuccessfulOutductAckCallback_t;
 
-    Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
-    virtual ~Outduct();
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual ~Outduct();
     virtual std::size_t GetTotalDataSegmentsUnacked() = 0;
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq) = 0;
@@ -36,9 +37,9 @@ public:
     virtual void Stop() = 0;
     virtual void GetOutductFinalStats(OutductFinalStats & finalStats) = 0;
 
-    uint64_t GetOutductUuid() const;
-    uint64_t GetOutductMaxBundlesInPipeline() const;
-    std::string GetConvergenceLayerName() const;
+    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductUuid() const;
+    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxBundlesInPipeline() const;
+    OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;
 
 protected:
     const outduct_element_config_t m_outductConfig;

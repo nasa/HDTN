@@ -7,6 +7,7 @@
 #include <boost/function.hpp>
 #include <vector>
 #include "PaddedVectorUint8.h"
+#include "tcpcl_lib_export.h"
 
 enum class TCPCLV4_MAIN_RX_STATE
 {
@@ -136,40 +137,40 @@ public:
         //uint16_t length; //shall be stored in valueVec.size()
         std::vector<uint8_t> valueVec;
 
-        tcpclv4_extension_t(); //a default constructor: X()
-        tcpclv4_extension_t(bool isCriticalFlag, uint16_t itemType, const std::vector<uint8_t> & valueAsVec);
-        tcpclv4_extension_t(bool isCriticalFlag, uint16_t itemType, std::vector<uint8_t> && valueAsVec);
-        ~tcpclv4_extension_t(); //a destructor: ~X()
-        tcpclv4_extension_t(const tcpclv4_extension_t& o); //a copy constructor: X(const X&)
-        tcpclv4_extension_t(tcpclv4_extension_t&& o); //a move constructor: X(X&&)
-        tcpclv4_extension_t& operator=(const tcpclv4_extension_t& o); //a copy assignment: operator=(const X&)
-        tcpclv4_extension_t& operator=(tcpclv4_extension_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const tcpclv4_extension_t & o) const; //operator ==
-        bool operator!=(const tcpclv4_extension_t & o) const; //operator !=
-        bool IsCritical() const;
-        void AppendSerialize(std::vector<uint8_t> & serialization) const;
-        uint64_t Serialize(uint8_t * serialization) const;
+        TCPCL_LIB_EXPORT tcpclv4_extension_t(); //a default constructor: X()
+        TCPCL_LIB_EXPORT tcpclv4_extension_t(bool isCriticalFlag, uint16_t itemType, const std::vector<uint8_t> & valueAsVec);
+        TCPCL_LIB_EXPORT tcpclv4_extension_t(bool isCriticalFlag, uint16_t itemType, std::vector<uint8_t> && valueAsVec);
+        TCPCL_LIB_EXPORT ~tcpclv4_extension_t(); //a destructor: ~X()
+        TCPCL_LIB_EXPORT tcpclv4_extension_t(const tcpclv4_extension_t& o); //a copy constructor: X(const X&)
+        TCPCL_LIB_EXPORT tcpclv4_extension_t(tcpclv4_extension_t&& o); //a move constructor: X(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_extension_t& operator=(const tcpclv4_extension_t& o); //a copy assignment: operator=(const X&)
+        TCPCL_LIB_EXPORT tcpclv4_extension_t& operator=(tcpclv4_extension_t&& o); //a move assignment: operator=(X&&)
+        TCPCL_LIB_EXPORT bool operator==(const tcpclv4_extension_t & o) const; //operator ==
+        TCPCL_LIB_EXPORT bool operator!=(const tcpclv4_extension_t & o) const; //operator !=
+        TCPCL_LIB_EXPORT bool IsCritical() const;
+        TCPCL_LIB_EXPORT void AppendSerialize(std::vector<uint8_t> & serialization) const;
+        TCPCL_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
 
         //helpers
-        static uint64_t SerializeTransferLengthExtension(uint8_t * serialization, const uint64_t totalLength);
+        TCPCL_LIB_EXPORT static uint64_t SerializeTransferLengthExtension(uint8_t * serialization, const uint64_t totalLength);
         static constexpr uint64_t SIZE_OF_SERIALIZED_TRANSFER_LENGTH_EXTENSION = 5 + sizeof(uint64_t); //5 bytes of flags, type, length
     };
     struct tcpclv4_extensions_t {
         std::vector<tcpclv4_extension_t> extensionsVec;
 
-        tcpclv4_extensions_t(); //a default constructor: X()
-        ~tcpclv4_extensions_t(); //a destructor: ~X()
-        tcpclv4_extensions_t(const tcpclv4_extensions_t& o); //a copy constructor: X(const X&)
-        tcpclv4_extensions_t(tcpclv4_extensions_t&& o); //a move constructor: X(X&&)
-        tcpclv4_extensions_t& operator=(const tcpclv4_extensions_t& o); //a copy assignment: operator=(const X&)
-        tcpclv4_extensions_t& operator=(tcpclv4_extensions_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const tcpclv4_extensions_t & o) const; //operator ==
-        bool operator!=(const tcpclv4_extensions_t & o) const; //operator !=
-        void AppendSerialize(std::vector<uint8_t> & serialization) const;
-        uint64_t Serialize(uint8_t * serialization) const;
-        uint64_t GetTotalDataRequiredForSerialization() const;
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t(); //a default constructor: X()
+        TCPCL_LIB_EXPORT ~tcpclv4_extensions_t(); //a destructor: ~X()
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t(const tcpclv4_extensions_t& o); //a copy constructor: X(const X&)
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t(tcpclv4_extensions_t&& o); //a move constructor: X(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t& operator=(const tcpclv4_extensions_t& o); //a copy assignment: operator=(const X&)
+        TCPCL_LIB_EXPORT tcpclv4_extensions_t& operator=(tcpclv4_extensions_t&& o); //a move assignment: operator=(X&&)
+        TCPCL_LIB_EXPORT bool operator==(const tcpclv4_extensions_t & o) const; //operator ==
+        TCPCL_LIB_EXPORT bool operator!=(const tcpclv4_extensions_t & o) const; //operator !=
+        TCPCL_LIB_EXPORT void AppendSerialize(std::vector<uint8_t> & serialization) const;
+        TCPCL_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
+        TCPCL_LIB_EXPORT uint64_t GetTotalDataRequiredForSerialization() const;
     };
-    struct tcpclv4_ack_t {
+    struct TCPCL_LIB_EXPORT tcpclv4_ack_t {
         bool isStartSegment;
         bool isEndSegment;
         uint64_t transferId;
@@ -199,55 +200,55 @@ public:
     typedef boost::function<void()> KeepAliveCallback_t;
     typedef boost::function<void(TCPCLV4_SESSION_TERMINATION_REASON_CODES terminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage)> SessionTerminationMessageCallback_t;
 
-    TcpclV4();
-    ~TcpclV4();
-    void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
-    void SetContactHeaderReadCallback(const ContactHeaderReadCallback_t & callback);
-    void SetSessionInitReadCallback(const SessionInitCallback_t & callback);
-    void SetAckSegmentReadCallback(const AckSegmentReadCallback_t & callback);
-    void SetBundleRefusalCallback(const BundleRefusalCallback_t & callback);
-    void SetMessageRejectCallback(const MessageRejectCallback_t & callback);
-    void SetKeepAliveCallback(const KeepAliveCallback_t & callback);
-    void SetSessionTerminationMessageCallback(const SessionTerminationMessageCallback_t & callback);
-    void SetMaxReceiveBundleSizeBytes(const uint64_t maxRxBundleSizeBytes);
+    TCPCL_LIB_EXPORT TcpclV4();
+    TCPCL_LIB_EXPORT ~TcpclV4();
+    TCPCL_LIB_EXPORT void SetDataSegmentContentsReadCallback(const DataSegmentContentsReadCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetContactHeaderReadCallback(const ContactHeaderReadCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetSessionInitReadCallback(const SessionInitCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetAckSegmentReadCallback(const AckSegmentReadCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetBundleRefusalCallback(const BundleRefusalCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetMessageRejectCallback(const MessageRejectCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetKeepAliveCallback(const KeepAliveCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetSessionTerminationMessageCallback(const SessionTerminationMessageCallback_t & callback);
+    TCPCL_LIB_EXPORT void SetMaxReceiveBundleSizeBytes(const uint64_t maxRxBundleSizeBytes);
 
-    void InitRx();
-    void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
-    void HandleReceivedChar(const uint8_t rxVal);
-    static void GenerateContactHeader(std::vector<uint8_t> & hdr, bool remoteHasEnabledTlsSecurity);
-    static bool GenerateSessionInitMessage(std::vector<uint8_t> & msg, uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
+    TCPCL_LIB_EXPORT void InitRx();
+    TCPCL_LIB_EXPORT void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
+    TCPCL_LIB_EXPORT void HandleReceivedChar(const uint8_t rxVal);
+    TCPCL_LIB_EXPORT static void GenerateContactHeader(std::vector<uint8_t> & hdr, bool remoteHasEnabledTlsSecurity);
+    TCPCL_LIB_EXPORT static bool GenerateSessionInitMessage(std::vector<uint8_t> & msg, uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
         const std::string & myNodeEidUri, const tcpclv4_extensions_t & sessionExtensions);
 
     //data segment with payload
-    static bool GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents);
-    static bool GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateNonFragmentedDataSegment(std::vector<uint8_t> & dataSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions);
-    static bool GenerateStartDataSegment(std::vector<uint8_t> & dataSegment, bool isEndSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateStartDataSegment(std::vector<uint8_t> & dataSegment, bool isEndSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions);
-    static bool GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<uint8_t> & dataSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateFragmentedStartDataSegmentWithLengthExtension(std::vector<uint8_t> & dataSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents, uint64_t totalBundleLengthToBeSent);
-    static bool GenerateNonStartDataSegment(std::vector<uint8_t> & dataSegment, bool isEndSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateNonStartDataSegment(std::vector<uint8_t> & dataSegment, bool isEndSegment, uint64_t transferId,
         const uint8_t * contents, uint64_t sizeContents);
 
     //data segment header only
-    static bool GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
         uint64_t sizeContents);
-    static bool GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateNonFragmentedDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
         uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions);
-    static bool GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
         uint64_t sizeContents, const tcpclv4_extensions_t & transferExtensions);
-    static bool GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, uint64_t transferId,
         uint64_t sizeContents, uint64_t totalBundleLengthToBeSent);
-    static bool GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
+    TCPCL_LIB_EXPORT static bool GenerateNonStartDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isEndSegment, uint64_t transferId,
         uint64_t sizeContents);
 
-    static bool GenerateAckSegment(std::vector<uint8_t> & ackSegment, const tcpclv4_ack_t & ack);
-    static bool GenerateAckSegment(std::vector<uint8_t> & ackSegment, bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged);
-    static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId);
-    static void GenerateMessageRejection(std::vector<uint8_t> & rejectionMessage, TCPCLV4_MESSAGE_REJECT_REASON_CODES rejectionCode, uint8_t rejectedMessageHeader);
-    static void GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage);
-    static void GenerateSessionTerminationMessage(std::vector<uint8_t> & sessionTerminationMessage,
+    TCPCL_LIB_EXPORT static bool GenerateAckSegment(std::vector<uint8_t> & ackSegment, const tcpclv4_ack_t & ack);
+    TCPCL_LIB_EXPORT static bool GenerateAckSegment(std::vector<uint8_t> & ackSegment, bool isStartSegment, bool isEndSegment, uint64_t transferId, uint64_t totalBytesAcknowledged);
+    TCPCL_LIB_EXPORT static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId);
+    TCPCL_LIB_EXPORT static void GenerateMessageRejection(std::vector<uint8_t> & rejectionMessage, TCPCLV4_MESSAGE_REJECT_REASON_CODES rejectionCode, uint8_t rejectedMessageHeader);
+    TCPCL_LIB_EXPORT static void GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage);
+    TCPCL_LIB_EXPORT static void GenerateSessionTerminationMessage(std::vector<uint8_t> & sessionTerminationMessage,
         TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
 public:
     uint64_t M_MAX_RX_BUNDLE_SIZE_BYTES;

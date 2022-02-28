@@ -8,6 +8,7 @@
 #include <boost/shared_ptr.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "PaddedVectorUint8.h"
+#include "stcp_lib_export.h"
 
 class StcpBundleSink {
 private:
@@ -16,22 +17,22 @@ public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallback_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
-    StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
+    STCP_LIB_EXPORT StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
         boost::asio::io_service & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
         const uint64_t maxBundleSizeBytes,
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
-    ~StcpBundleSink();
-    bool ReadyToBeDeleted();
+    STCP_LIB_EXPORT ~StcpBundleSink();
+    STCP_LIB_EXPORT bool ReadyToBeDeleted();
 private:
 
-    void TryStartTcpReceive();
-    void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
-    void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void PopCbThreadFunc();
-    void DoStcpShutdown();
-    void HandleSocketShutdown();
+    STCP_LIB_EXPORT void TryStartTcpReceive();
+    STCP_LIB_EXPORT void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
+    STCP_LIB_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    STCP_LIB_EXPORT void PopCbThreadFunc();
+    STCP_LIB_EXPORT void DoStcpShutdown();
+    STCP_LIB_EXPORT void HandleSocketShutdown();
     
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;

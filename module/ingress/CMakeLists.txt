@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 project(hdtn-ingress)
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(ingress_async_lib STATIC
+add_library(ingress_async_lib
 	src/receive.cpp
 	src/IngressAsyncRunner.cpp
 )
-
+GENERATE_EXPORT_HEADER(ingress_async_lib)
 target_link_libraries(ingress_async_lib 
 	hdtn_util 
     log_lib
@@ -15,13 +15,13 @@ target_link_libraries(ingress_async_lib
 	${pthread_LIB}
 	bpcodec 
 	${Boost_LIBRARIES}
-	)
+)
 target_include_directories(ingress_async_lib PUBLIC
 	include
-	../../common/pool/include
 	../../common/include
 	${Boost_INCLUDE_DIRS} 
 	${libzmq_INCLUDE}
+	${PROJECT_BINARY_DIR}
 )
 
 add_executable(hdtn-ingress 
@@ -37,8 +37,5 @@ target_link_libraries(hdtn-ingress
 	${pthread_LIB}
 	${Boost_LIBRARIES}
 )
-target_include_directories(hdtn-ingress PUBLIC
-	${Boost_INCLUDE_DIRS}
-	${libzmq_INCLUDE}
-)
+target_include_directories(hdtn-ingress PUBLIC include)
 

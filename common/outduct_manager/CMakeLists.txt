@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 
-add_library(outduct_manager_lib STATIC
+add_library(outduct_manager_lib
 	src/Outduct.cpp
 	src/TcpclOutduct.cpp
 	src/TcpclV4Outduct.cpp
@@ -13,7 +13,7 @@ add_library(outduct_manager_lib STATIC
 	src/LtpOverUdpOutduct.cpp
 	src/OutductManager.cpp
 )
-
+GENERATE_EXPORT_HEADER(outduct_manager_lib)
 target_link_libraries(outduct_manager_lib 
 	hdtn_util
 	config_lib
@@ -25,6 +25,6 @@ target_link_libraries(outduct_manager_lib
 	${Boost_LIBRARIES}
 	${pthread_LIB}
 )
-target_include_directories(outduct_manager_lib PUBLIC include ${Boost_INCLUDE_DIRS})
+target_include_directories(outduct_manager_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
 
 

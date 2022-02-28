@@ -8,19 +8,19 @@
 
 class TcpclV4Outduct : public Outduct {
 public:
-    TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
+    OUTDUCT_MANAGER_LIB_EXPORT TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
         const uint64_t maxOpportunisticRxBundleSizeBytes,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
-    virtual ~TcpclV4Outduct();
-    virtual std::size_t GetTotalDataSegmentsUnacked();
-    virtual bool Forward(const uint8_t* bundleData, const std::size_t size);
-    virtual bool Forward(zmq::message_t & movableDataZmq);
-    virtual bool Forward(std::vector<uint8_t> & movableDataVec);
-    virtual void SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback);
-    virtual void Connect();
-    virtual bool ReadyToForward();
-    virtual void Stop();
-    virtual void GetOutductFinalStats(OutductFinalStats & finalStats);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual ~TcpclV4Outduct();
+    OUTDUCT_MANAGER_LIB_EXPORT virtual std::size_t GetTotalDataSegmentsUnacked();
+    OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(const uint8_t* bundleData, const std::size_t size);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(zmq::message_t & movableDataZmq);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual bool Forward(std::vector<uint8_t> & movableDataVec);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual void Connect();
+    OUTDUCT_MANAGER_LIB_EXPORT virtual bool ReadyToForward();
+    OUTDUCT_MANAGER_LIB_EXPORT virtual void Stop();
+    OUTDUCT_MANAGER_LIB_EXPORT virtual void GetOutductFinalStats(OutductFinalStats & finalStats);
 
 private:
     TcpclV4Outduct();

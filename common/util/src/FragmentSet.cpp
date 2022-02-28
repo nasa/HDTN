@@ -4,8 +4,6 @@
 #include <algorithm>
 #include <boost/next_prior.hpp>
 
-FragmentSet::FragmentSet() { } //a default constructor: X()
-FragmentSet::~FragmentSet() { } //a destructor: ~X()
 FragmentSet::data_fragment_t::data_fragment_t(uint64_t paramBeginIndex, uint64_t paramEndIndex) : beginIndex(paramBeginIndex), endIndex(paramEndIndex) { }
 FragmentSet::data_fragment_t::data_fragment_t() : beginIndex(0), endIndex(0) { } //a default constructor: X()
 FragmentSet::data_fragment_t::~data_fragment_t() { } //a destructor: ~X()
