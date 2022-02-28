@@ -3,7 +3,6 @@
 <head>
     <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
     <title>HDTN GUI</title>
-    <script src="plotly-2.6.3.min.js"></script>
 </head>
 
 <body>
@@ -41,7 +40,7 @@
     
     .rate_table {
         table-layout: fixed;
-        background-color: #7f7f7f;
+        background-color: #404040;
         color: white;
         font-size: 20px;
         text-align: center;
@@ -76,7 +75,7 @@
         color: white;
     }
 
-    .engine_table tr:nth-child(odd) {
+    .engine_table tr:nth-child(even) {
         background-color: #404040;
     }
 
@@ -257,7 +256,7 @@
 </div>
 
 <div id="engine_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
-<table class="tcp_table">
+<table class="engine_table">
     <colgroup>
         <col span="1" style="width:40%;"></col>
         <col span="1" style="width:10%;"></col>
@@ -276,164 +275,8 @@
 </table>
 </div>
 
-
-
-
-<label>IP:</label>
-<input type="text" id="id_ip" value="10.0.2.16">
-<label>Port:</label>
-<input type="text" id="id_port" value="8086">
-<button onclick="ConnectToServer()">Connect</button>
-
-<script type="text/javascript">
-    
-    var rate_data = [{
-        x: [],
-        y: [],
-        type: 'scatter',
-        line: {
-            color: "aqua"
-        }
-    }];
-
-    var rateCount = 0;
-
-    var layout = {
-        title: 'HDTN Data Rates',
-        paper_bgcolor: "#404040",
-        plot_bgcolor: "#404040",
-        xaxis: {
-            title: "Timestamp (s)",
-        },
-        yaxis: {
-            title: "Data Rate (Mbps)",
-        },
-        font:{
-            family: "Arial",
-            size: 18,
-            color: "white"
-        }
-    };
-
-    GRAPH = document.getElementById("data_rate_graph");
-
-    Plotly.newPlot(GRAPH, rate_data, layout);
-
-    var pie_data = [{
-        values: [29,71],
-        labels: ['Storage', 'Egress'], 
-        type: 'pie'
-    }];
-
-    var pie_layout = {
-        title: 'Bundle Destinations',
-        height: 500,
-        width:500,
-        paper_bgcolor: "#404040",
-        font:{
-            family: "Arial",
-            size: 18,
-            color: "white"
-        }
-    };
-
-    Plotly.newPlot('storage_egress_chart', pie_data, pie_layout);
-
-    function UpdateData(objJson){
-        if("bundleDataRate" in objJson){
-            rate_data[0]['x'].push(rateCount++);
-            rate_data[0]['y'].push(parseFloat(objJson.bundleDataRate));
-            console.log(rate_data[0]['y']);
-            Plotly.update(GRAPH, rate_data, layout);
-            document.getElementById("rate_data").innerHTML = parseFloat(objJson.bundleDataRate).toFixed(2);
-            document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data[0].y).toFixed(2);
-        }
-        if("averageRate" in objJson){
-            document.getElementById("avg_data").innerHTML = parseFloat(objJson.averageRate).toFixed(2);
-        }
-        if("totalData" in objJson){
-            document.getElementById("ingressBundleData").innerHTML = parseFloat(objJson.totalData).toFixed(2);
-        }
-        if("bundleCountStorage" in objJson && "bundleCountEgress" in objJson){
-            pie_data[0]['values'] = [parseInt(objJson.bundleCountStorage), parseInt(objJson.bundleCountEgress)];
-            Plotly.update('storage_egress_chart', pie_data, pie_layout);
-
-            document.getElementById("ingressBundleCountStorage").innerHTML = objJson.bundleCountStorage;
-            document.getElementById("ingressBundleCountEgress").innerHTML = objJson.bundleCountEgress;
-            document.getElementById("ingressBundleCount").innerHTML = parseInt(objJson.bundleCountStorage) + parseInt(objJson.bundleCountEgress);
-
-        }
-        if("egressBundleCount" in objJson){
-            document.getElementById("egressBundleCount").innerHTML = objJson.egressBundleCount;
-        }
-        if("egressBundleData" in objJson){
-            document.getElementById("egressBundleData").innerHTML = parseFloat(objJson.egressBundleData).toFixed(2);
-        }
-        if("egressMessageCount" in objJson){
-            document.getElementById("egressMessageCount").innerHTML = objJson.egressMessageCount;
-        }
-        if("totalBundlesErasedFromStorage" in objJson){
-            document.getElementById("totalBundlesErasedFromStorage").innerHTML = objJson.totalBundlesErasedFromStorage;
-        }
-        if("totalBundlesSentToEgressFromStorage" in objJson){
-            document.getElementById("totalBundlesSentToEgressFromStorage").innerHTML = objJson.totalBundlesSentToEgressFromStorage;
-        }
-
-    }
-
-    function ConnectToServer(){
-        var toSend="CONNECT " + document.getElementById("id_ip").value + " " + document.getElementByID("id_port").value;
-        console.log(toSend);
-        connection.send(toSend);
-    }
-
-    window.addEventListener("load", function(event){
-        if(!("WebSocket" in window)){
-            alert("WebSocket is not supported by your Browser!");
-        }
-
-    var wsproto = (location.protocol === 'http:') ? 'ws:' : 'ws:';
-    connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
-    connection.binaryType = "arraybuffer";
-
-    //When connection is established
-    connection.onopen = function(){
-        console.log("ws opened");
-    }
-
-    //When connection is closed
-    connection.onclose = function(){
-        console.log("ws closed");
-    }
-
-    //When client receives data from server
-    connection.onmessage = function(e){
-        console.log("rcvd");
-        //if binary data
-        if(e.data instanceof ArrayBuffer){
-            var dv = new DataView(e.data);
-        }
-        //else this is text data
-        else{
-            if(e.data === "Hello websocket"){
-                console.log(e.data);
-            }
-            else{
-            try{
-                console.log(e.data);
-                var obj = JSON.parse(e.data); //could error based on encodings
-                console.log("JSON data parsed");
-                UpdateData(obj);
-            }
-            catch(err){
-                console.log(err.message);
-            }}
-        }
-    }
-    });
-
-</script>
-
+<script src="plotly-2.6.3.min.js"></script>
+<script src="web_gui.js"></script>
 
 </body>
 </html>

@@ -139,7 +139,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             return 1;
         }
 
-
+        //Launch Web GUI
         std::cout << "starting websocket server\n";
         WebsocketServer server(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING);
 
@@ -150,6 +150,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
         boost::posix_time::ptime lastTime = startTime;
 
+        //Loop to send data to webserver while HDTN is running
         while (running && m_runningFromSigHandler && !server.RequestsExit()) {
             boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
             if (useSignalHandler) {
@@ -160,22 +161,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             lastTime=newTime;
             boost::posix_time::time_duration totalTime = newTime - startTime;            
 
-            std::cout << "elapsedTime: " << elapsedTime << std::endl;
-            std::cout << "m_bundleCountEgress: " << ingressPtr->m_bundleCountEgress << std::endl;
-            std::cout << "m_bundleCountStorage: " << ingressPtr->m_bundleCountStorage << std::endl;
-            std::cout << "m_bundleData: " << ingressPtr->m_bundleData << std::endl; 
-
             //access ingress, egress, and storage objects to poll data and send JSON message
             rate = (8.0 * (ingressPtr->m_bundleData - lastData)) / elapsedTime.total_microseconds();
             averageRate = (8.0 * ingressPtr->m_bundleData) / totalTime.total_microseconds();
-
-            std::cout << "start time: " << startTime << std::endl;
-            std::cout << "new time: " << newTime << std::endl;
-            std::cout << "total Time: " << totalTime.total_milliseconds() << std::endl;
-            std::cout << "average rate: " << averageRate << std::endl;
-
-
             lastData = ingressPtr->m_bundleData;
+
+            //Create JSON
             boost::property_tree::ptree pt;
             pt.put("bundleDataRate", rate);
             pt.put("averageRate", averageRate);
@@ -190,7 +181,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             std::stringstream ss;
             boost::property_tree::json_parser::write_json(ss, pt);
             json = ss.str();
-            std::cout << json << std::endl; 
             server.SendNewTextData(json.c_str(), json.size());
        }
 
@@ -200,6 +190,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::ostringstream oss;
         oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
             "(MB)\n";
+        //Possibly out of Date
         rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
         oss << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
             << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024) << "\n";
