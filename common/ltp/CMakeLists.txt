@@ -20,6 +20,25 @@ add_library(ltp_lib
 	src/LtpClientServiceDataToSend.cpp
 )
 GENERATE_EXPORT_HEADER(ltp_lib)
+install(TARGETS ltp_lib DESTINATION lib)
+install(FILES
+	include/Ltp.h
+	include/LtpBundleSink.h
+	include/LtpBundleSource.h
+	include/LtpClientServiceDataToSend.h
+	include/LtpEngine.h
+	include/LtpFragmentSet.h
+	include/LtpNoticesToClientService.h
+	include/LtpRandomNumberGenerator.h
+	include/LtpSessionReceiver.h
+	include/LtpSessionRecreationPreventer.h
+	include/LtpSessionSender.h
+	include/LtpTimerManager.h
+	include/LtpUdpEngine.h
+	include/LtpUdpEngineManager.h
+	${PROJECT_BINARY_DIR}/ltp_lib_export.h
+	DESTINATION include
+)
 target_link_libraries(ltp_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(ltp_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
 
@@ -27,7 +46,7 @@ add_executable(ltp-file-transfer
     apps/ltp_file_transfer/src/LtpFileTransferMain.cpp
 	apps/ltp_file_transfer/src/LtpFileTransferRunner.cpp
 )
-
+install(TARGETS ltp-file-transfer DESTINATION bin)
 target_include_directories(ltp-file-transfer PUBLIC 
 	apps/ltp_file_transfer/include
 	${Boost_INCLUDE_DIRS}

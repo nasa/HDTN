@@ -9,6 +9,12 @@ add_library(log_lib
       	src/Logger.cpp
 )
 GENERATE_EXPORT_HEADER(log_lib)
+install(TARGETS log_lib DESTINATION lib)
+install(FILES
+	include/Logger.h
+	${PROJECT_BINARY_DIR}/log_lib_export.h
+	DESTINATION include
+)
 target_include_directories(log_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
 
 target_link_libraries(log_lib

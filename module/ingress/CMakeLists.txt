@@ -7,6 +7,13 @@ add_library(ingress_async_lib
 	src/IngressAsyncRunner.cpp
 )
 GENERATE_EXPORT_HEADER(ingress_async_lib)
+install(TARGETS ingress_async_lib DESTINATION lib)
+install(FILES
+	include/ingress.h
+	include/IngressAsyncRunner.h
+	${PROJECT_BINARY_DIR}/ingress_async_lib_export.h
+	DESTINATION include
+)
 target_link_libraries(ingress_async_lib 
 	hdtn_util 
     log_lib
@@ -27,7 +34,7 @@ target_include_directories(ingress_async_lib PUBLIC
 add_executable(hdtn-ingress 
     src/ingress.cpp
 )
-
+install(TARGETS hdtn-ingress DESTINATION bin)
 target_link_libraries(hdtn-ingress
 	bpcodec
 	hdtn_util

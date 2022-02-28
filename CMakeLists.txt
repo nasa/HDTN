@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 include (GenerateExportHeader)
 option(BUILD_SHARED_LIBS "Build shared libraries" On)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
 
 project(HDTN VERSION 1.0)
 #set(CMAKE_BUILD_TYPE Debug)

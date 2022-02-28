@@ -14,6 +14,18 @@ add_library(outduct_manager_lib
 	src/OutductManager.cpp
 )
 GENERATE_EXPORT_HEADER(outduct_manager_lib)
+install(TARGETS outduct_manager_lib DESTINATION lib)
+install(FILES
+	include/LtpOverUdpOutduct.h
+	include/Outduct.h
+	include/OutductManager.h
+	include/StcpOutduct.h
+	include/TcpclOutduct.h
+	include/TcpclV4Outduct.h
+	include/UdpOutduct.h
+	${PROJECT_BINARY_DIR}/outduct_manager_lib_export.h
+	DESTINATION include
+)
 target_link_libraries(outduct_manager_lib 
 	hdtn_util
 	config_lib
