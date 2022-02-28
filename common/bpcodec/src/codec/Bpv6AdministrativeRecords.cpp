@@ -131,8 +131,6 @@ bool Bpv6AdministrativeRecord::Virtual_DeserializeExtensionBlockDataBpv6() {
     }
     //serialization += tmpNumBytesTakenToDeserializeThisSpecificAdminRecordType;
     bufferSize -= tmpNumBytesTakenToDeserializeThisSpecificAdminRecordType; //from value above
-    if (bufferSize != 0) {
-    }
     return (bufferSize == 0);
 }
 

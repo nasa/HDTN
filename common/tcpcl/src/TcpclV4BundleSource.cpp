@@ -180,6 +180,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure(const boost::system::erro
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
+        m_base_dataReceivedServedAsKeepaliveReceived = true;
         m_base_tcpclV4RxStateMachine.HandleReceivedChars(m_tcpReadSomeBufferVec.data(), bytesTransferred);
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
@@ -217,6 +218,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeSecure(const boost::system::error_
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
+        m_base_dataReceivedServedAsKeepaliveReceived = true;
         m_base_tcpclV4RxStateMachine.HandleReceivedChars(m_tcpReadSomeBufferVec.data(), bytesTransferred);
         StartTcpReceiveSecure(); //restart operation only if there was no error
     }

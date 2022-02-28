@@ -147,7 +147,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
-
+        m_base_dataReceivedServedAsKeepaliveReceived = true;
         m_base_tcpclV3RxStateMachine.HandleReceivedChars(m_tcpReceiveBuffersCbVec[consumeIndex].data(), m_tcpReceiveBytesTransferredCbVec[consumeIndex]);
 
         m_circularIndexBuffer.CommitRead();

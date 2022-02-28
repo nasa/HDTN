@@ -9,7 +9,6 @@
 #include <cassert>
 #include <iostream>
 
-#include "codec/bpv6-ext-block.h"
 #include "codec/bpv6.h"
 #include "app_patterns/BpSinkPattern.h"
 #include <boost/thread.hpp>

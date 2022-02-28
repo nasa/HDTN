@@ -1,7 +1,7 @@
 {
     "hdtnConfigName": "my hdtn config",
     "mySchemeName": "unused_scheme_name",
-    "myNodeId": 32969,
+    "myNodeId": 69,
     "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
@@ -36,7 +36,7 @@
             {
                 "name": "stcp ingress",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:32969.1",
+                "myEndpointId": "ipn:69.1",
                 "boundPort": 4557,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -44,11 +44,11 @@
 	    {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
-                "myEndpointId": "ipn:32969.2",
+                "myEndpointId": "ipn:69.2",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 100,
-                "thisLtpEngineId": 32969,
-                "remoteLtpEngineId": 32768,
+                "thisLtpEngineId": 69,
+                "remoteLtpEngineId": 68,
                 "ltpReportSegmentMtu": 1000,
                 "oneWayLightTimeMs": 1000,
                 "oneWayMarginTimeMs": 200,
@@ -68,15 +68,15 @@
             {
                 "name": "stcp egress1",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:32935.1",
+                "nextHopEndpointId": "ipn:35.1",
                 "remoteHostname": "ION_Space_Node",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 500,
                 "finalDestinationEidUris": [
-                    "ipn:32935.1",
-                     "ipn:32935.64",
-                     "ipn:32935.65",
-		     "ipn:32935.2047"
+                    "ipn:35.1",
+                     "ipn:35.64",
+                     "ipn:35.65",
+		     "ipn:35.2047"
                 ],
 		"keepAliveIntervalSeconds": 17
             },
@@ -84,22 +84,22 @@
 	    {
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
-                "nextHopEndpointId": "ipn:32768.1",
+                "nextHopEndpointId": "ipn:68.1",
                 "remoteHostname": "DTNME_Ground_Node",
                 "remotePort": 1113,
                 "bundlePipelineLimit": 500,
                 "finalDestinationEidUris": [
-                    "ipn:32768.1",
-                    "ipn:32852.1",
-		    "ipn:32768.64",
-                    "ipn:32852.64",
-                    "ipn:32768.65",
-                    "ipn:32852.65",
-		    "ipn:32768.2047",
-		    "ipn:32852.2047"
+                    "ipn:68.1",
+                    "ipn:52.1",
+		    "ipn:68.64",
+                    "ipn:52.64",
+                    "ipn:68.65",
+                    "ipn:52.65",
+		    "ipn:68.2047",
+		    "ipn:52.2047"
                 ],
-                "thisLtpEngineId": 32969,
-                "remoteLtpEngineId": 32768,
+                "thisLtpEngineId": 69,
+                "remoteLtpEngineId": 68,
                 "ltpDataSegmentMtu": 1000,
                 "oneWayLightTimeMs": 1000,
                 "oneWayMarginTimeMs": 200,

@@ -37,9 +37,6 @@ private:
 
     void TryStartTcpReceive();
     void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
     void PopCbThreadFunc();
     
     virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();

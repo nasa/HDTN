@@ -164,8 +164,17 @@ bool Bpv6CanonicalBlock::DeserializeBpv6(std::unique_ptr<Bpv6CanonicalBlock> & c
     }
     else {
         switch (blockTypeCode) {
+            case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
+                canonicalPtr = boost::make_unique<Bpv6PreviousHopInsertionCanonicalBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
+                canonicalPtr = boost::make_unique<Bpv6MetadataCanonicalBlock>();
+                break;
             case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
                 canonicalPtr = boost::make_unique<Bpv6CustodyTransferEnhancementBlock>();
+                break;
+            case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
+                canonicalPtr = boost::make_unique<Bpv6BundleAgeCanonicalBlock>();
                 break;
             case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
             default:
