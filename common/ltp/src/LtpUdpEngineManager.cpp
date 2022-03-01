@@ -3,7 +3,9 @@
 #include <boost/lexical_cast.hpp>
 #include "Sdnv.h"
 
-std::map<uint16_t, std::unique_ptr<LtpUdpEngineManager> > LtpUdpEngineManager::m_staticMapBoundPortToLtpUdpEngineManagerPtr;
+//c++ shared singleton using weak pointer
+//https://codereview.stackexchange.com/questions/14343/c-shared-singleton
+std::map<uint16_t, std::weak_ptr<LtpUdpEngineManager> > LtpUdpEngineManager::m_staticMapBoundPortToLtpUdpEngineManagerPtr;
 boost::mutex LtpUdpEngineManager::m_staticMutex;
 uint64_t LtpUdpEngineManager::M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES = 0;
 
@@ -27,19 +29,23 @@ void LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t max
 }
 
 //static function
-LtpUdpEngineManager * LtpUdpEngineManager::GetOrCreateInstance(const uint16_t myBoundUdpPort) {
+std::shared_ptr<LtpUdpEngineManager> LtpUdpEngineManager::GetOrCreateInstance(const uint16_t myBoundUdpPort) {
     boost::mutex::scoped_lock theLock(m_staticMutex);
     if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES == 0) {
         std::cerr << "Error in LtpUdpEngineManager::GetOrCreateInstance: LTP Max RX UDP packet size not set.. call SetMaxUdpRxPacketSizeBytesForAllLtp() first\n";
         return NULL;
     }
-    std::map<uint16_t, std::unique_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
-    if (it == m_staticMapBoundPortToLtpUdpEngineManagerPtr.end()) {
-        LtpUdpEngineManager * const engineManagerPtr = new LtpUdpEngineManager(myBoundUdpPort);
-        m_staticMapBoundPortToLtpUdpEngineManagerPtr[myBoundUdpPort] = std::unique_ptr<LtpUdpEngineManager>(engineManagerPtr);
-        return engineManagerPtr;
+    std::shared_ptr<LtpUdpEngineManager> sp;
+    std::map<uint16_t, std::weak_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
+    if ((it == m_staticMapBoundPortToLtpUdpEngineManagerPtr.end()) || (it->second.expired())) { //create new instance
+        sp.reset(new LtpUdpEngineManager(myBoundUdpPort));
+        m_staticMapBoundPortToLtpUdpEngineManagerPtr[myBoundUdpPort] = sp;
+        return sp;
     }
-    return it->second.get();
+    else {
+        sp = it->second.lock();
+    }
+    return sp;
 }
 
 //private constructor

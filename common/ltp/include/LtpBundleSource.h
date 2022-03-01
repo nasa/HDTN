@@ -54,7 +54,7 @@ private:
     boost::condition_variable m_localConditionVariableAckReceived;
 
     //ltp vars
-    LtpUdpEngineManager * const m_ltpUdpEngineManagerPtr;
+    std::shared_ptr<LtpUdpEngineManager> m_ltpUdpEngineManagerPtr;
     LtpUdpEngine * m_ltpUdpEnginePtr;
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_THIS_ENGINE_ID;

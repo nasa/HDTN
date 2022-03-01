@@ -13,8 +13,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         const uint64_t CLIENT_SERVICE_ID_DEST;
         const uint16_t BOUND_UDP_PORT_SRC;
         const uint16_t BOUND_UDP_PORT_DEST;
-        LtpUdpEngineManager * const ltpUdpEngineManagerSrcPtr;
-        LtpUdpEngineManager * const ltpUdpEngineManagerDestPtr;
+        std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr;
+        std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr;
         LtpUdpEngine * ltpUdpEngineSrcPtr;
         LtpUdpEngine * ltpUdpEngineDestPtr;
         const std::string DESIRED_RED_DATA_TO_SEND;
