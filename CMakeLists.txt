@@ -3,8 +3,8 @@ include (GenerateExportHeader)
 option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
 project(HDTN VERSION 1.0)
-#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_BUILD_TYPE Release)
 find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)

@@ -11,12 +11,12 @@ Build Environment
 ## Dependencies ## 
 HDTN build environment requires:
 * CMake version 3.16.3
-* Boost library version 1.71
+* Boost library version 1.67.0 (minimum)
 * ZeroMQ 
 * Python module for ZeroMQ
 * gcc version 9.3.0 (Debian 8.3.0-6) 
 * Target: x86_64-linux-gnu 
-* Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows and Mac 
+* Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio 2017) and Mac 
 
 ## Packages installation ## 
 * Ubuntu
@@ -44,7 +44,10 @@ Build HDTN
 * mkdir build
 * cd build
 * cmake -DCMAKE_BUILD_TYPE=Release ..
+* Edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=[ON|OFF], set Boost_USE_STATIC_LIBS:UNINITIALIZED=[ON|OFF], set CMAKE_INSTALL_PREFIX
+* cmake -DCMAKE_BUILD_TYPE=Release ..
 * make -j8
+* make install
 
 Run HDTN
 =========
