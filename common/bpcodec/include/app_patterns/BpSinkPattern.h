@@ -14,7 +14,6 @@
 #include "codec/bpv6.h"
 #include "codec/CustodyTransferManager.h"
 #include <boost/asio.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include "TcpclInduct.h"
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSinkPattern {
