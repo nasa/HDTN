@@ -8,8 +8,11 @@ add_library(egress_async_lib
 	src/EgressAsyncRunner.cpp
 )
 GENERATE_EXPORT_HEADER(egress_async_lib)
-set_property(TARGET egress_async_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
-set_property(TARGET egress_async_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+get_target_property(target_type egress_async_lib TYPE)
+if (target_type STREQUAL SHARED_LIBRARY)
+	set_property(TARGET egress_async_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+	set_property(TARGET egress_async_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+endif()
 install(TARGETS egress_async_lib DESTINATION lib)
 install(FILES
 	include/EgressAsync.h

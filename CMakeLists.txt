@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 include (GenerateExportHeader)
-option(BUILD_SHARED_LIBS "Build shared libraries" On)
+option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
 project(HDTN VERSION 1.0)
 #set(CMAKE_BUILD_TYPE Debug)

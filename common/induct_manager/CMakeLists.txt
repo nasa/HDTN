@@ -14,8 +14,11 @@ add_library(induct_manager_lib
 	src/InductManager.cpp
 )
 GENERATE_EXPORT_HEADER(induct_manager_lib)
-set_property(TARGET induct_manager_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
-set_property(TARGET induct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+get_target_property(target_type induct_manager_lib TYPE)
+if (target_type STREQUAL SHARED_LIBRARY)
+	set_property(TARGET induct_manager_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+	set_property(TARGET induct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+endif()
 install(TARGETS induct_manager_lib DESTINATION lib)
 install(FILES
 	include/Induct.h

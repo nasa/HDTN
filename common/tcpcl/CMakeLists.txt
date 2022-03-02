@@ -15,8 +15,11 @@ add_library(tcpcl_lib
 	src/TcpclV4BidirectionalLink.cpp
 )
 GENERATE_EXPORT_HEADER(tcpcl_lib)
-set_property(TARGET tcpcl_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
-set_property(TARGET tcpcl_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+get_target_property(target_type tcpcl_lib TYPE)
+if (target_type STREQUAL SHARED_LIBRARY)
+	set_property(TARGET tcpcl_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+	set_property(TARGET tcpcl_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+endif()
 install(TARGETS tcpcl_lib DESTINATION lib)
 install(FILES
 	include/BidirectionalLink.h
