@@ -73,4 +73,3 @@ install(FILES
 	DESTINATION include/app_patterns
 )
 add_subdirectory(apps)
-

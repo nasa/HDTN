@@ -628,3 +628,4 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecord : public Bpv7CanonicalB
 
 
 #endif //BPV7_H
+
