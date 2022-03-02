@@ -6,6 +6,11 @@
 #include <boost/function.hpp>
 #include "PaddedVectorUint8.h"
 
+//add a way to associate data with the specific outgoing LTP session
+struct LtpTransmissionRequestUserData {
+    virtual ~LtpTransmissionRequestUserData() {}
+};
+
 //7.1.  Session Start
 //The Session Start notice returns the session ID identifying a newly
 //created session.
@@ -65,7 +70,7 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId,
 //A transmission-session completion notice informs the client service
 //that all bytes of the indicated data block have been transmitted and
 //that the receiver has received the red - part of the block.
-typedef boost::function<void(const Ltp::session_id_t & sessionId)> TransmissionSessionCompletedCallback_t;
+typedef boost::function<void(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr)> TransmissionSessionCompletedCallback_t;
 
 //7.5.  Transmission-Session Cancellation
 //
@@ -82,7 +87,7 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId)> TransmissionS
 //else due to an error or a resource quench condition in the local LTP
 //engine.There is no assurance that the destination client service
 //instance received any portion of the data block.
-typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode)> TransmissionSessionCancelledCallback_t;
+typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr)> TransmissionSessionCancelledCallback_t;
 
 //7.6.  Reception-Session Cancellation
 //The parameters provided by the LTP engine when a reception
@@ -106,7 +111,7 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT
 //(both red - part and green - part) have been transmitted.This notice
 //only indicates that original transmission is complete; retransmission
 //of any lost red - part data segments may still be necessary.
-typedef boost::function<void(const Ltp::session_id_t & sessionId)> InitialTransmissionCompletedCallback_t;
+typedef boost::function<void(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr)> InitialTransmissionCompletedCallback_t;
 
 #endif // LTP_NOTICES_TO_CLIENT_SERVICE_H
 
