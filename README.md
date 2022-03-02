@@ -11,7 +11,7 @@ Build Environment
 ## Dependencies ## 
 HDTN build environment requires:
 * CMake version 3.16.3
-* Boost library version 1.67.0 (minimum)
+* Boost library version 1.67.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
 * ZeroMQ 
 * Python module for ZeroMQ
 * gcc version 9.3.0 (Debian 8.3.0-6) 
