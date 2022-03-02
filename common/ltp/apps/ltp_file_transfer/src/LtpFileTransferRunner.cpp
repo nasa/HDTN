@@ -206,11 +206,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             };
             SenderHelper senderHelper;
             LtpUdpEngineManager * const ltpUdpEngineManagerSrcPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort);
-            LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(thisLtpEngineId, false);
+            LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
-                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, thisLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
                     remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers);
-                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(thisLtpEngineId, false);
+                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             }
 
             ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&SenderHelper::TransmissionSessionCompletedCallback, &senderHelper, boost::placeholders::_1));
@@ -273,11 +273,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
             LtpUdpEngineManager * const ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort);
-            LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(thisLtpEngineId, true);
+            LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
                     remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers);
-                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
+                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
             }
             
             ltpUdpEngineDestPtr->SetRedPartReceptionCallback(boost::bind(&ReceiverHelper::RedPartReceptionCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,

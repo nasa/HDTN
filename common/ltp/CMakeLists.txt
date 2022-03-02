@@ -31,6 +31,5 @@ add_executable(ltp-file-transfer
 target_include_directories(ltp-file-transfer PUBLIC 
 	apps/ltp_file_transfer/include
 	${Boost_INCLUDE_DIRS}
-	${libzmq_INCLUDE}
 )
-target_link_libraries(ltp-file-transfer PUBLIC ltp_lib bpcodec hdtn_util ${pthread_LIB} ${Boost_LIBRARIES} ${libzmq_LIB})
+target_link_libraries(ltp-file-transfer PUBLIC ltp_lib hdtn_util ${pthread_LIB} ${Boost_LIBRARIES})
