@@ -5,6 +5,8 @@
 #include <inttypes.h>
 #include <set>
 
+extern template class HashMap16BitFixedSize<cbhe_bundle_uuid_t, uint64_t>;
+extern template class HashMap16BitFixedSize<cbhe_bundle_uuid_nofragment_t, uint64_t>;
 template <class uuidType>
 static void DoTest() {
     typedef typename HashMap16BitFixedSize<uuidType, uint64_t>::key_value_pair_t uuid_u64_t;

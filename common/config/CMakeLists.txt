@@ -11,6 +11,8 @@ add_library(config_lib
 	src/HdtnConfig.cpp
 )
 GENERATE_EXPORT_HEADER(config_lib)
+set_property(TARGET config_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET config_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS config_lib DESTINATION lib)
 install(FILES
 	include/HdtnConfig.h

@@ -27,7 +27,7 @@
 
 #endif
 
-class TcpclV4BidirectionalLink : public BidirectionalLink {
+class CLASS_VISIBILITY_TCPCL_LIB TcpclV4BidirectionalLink : public BidirectionalLink {
 public:
     /*
     //sink
@@ -88,31 +88,31 @@ protected:
     TCPCL_LIB_EXPORT virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 
 private:
-    TCPCL_LIB_EXPORT void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
+    TCPCL_LIB_NO_EXPORT void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag,
         uint64_t transferId, const TcpclV4::tcpclv4_extensions_t & transferExtensions);
-    TCPCL_LIB_EXPORT void BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_t & ack);
-    TCPCL_LIB_EXPORT void BaseClass_KeepAliveCallback();
-    TCPCL_LIB_EXPORT void BaseClass_ContactHeaderCallback(bool remoteHasEnabledTlsSecurity);
-    TCPCL_LIB_EXPORT void BaseClass_SessionInitCallback(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
+    TCPCL_LIB_NO_EXPORT void BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_t & ack);
+    TCPCL_LIB_NO_EXPORT void BaseClass_KeepAliveCallback();
+    TCPCL_LIB_NO_EXPORT void BaseClass_ContactHeaderCallback(bool remoteHasEnabledTlsSecurity);
+    TCPCL_LIB_NO_EXPORT void BaseClass_SessionInitCallback(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
         const std::string & remoteNodeEidUri, const TcpclV4::tcpclv4_extensions_t & sessionExtensions);
-    TCPCL_LIB_EXPORT void BaseClass_SessionTerminationMessageCallback(TCPCLV4_SESSION_TERMINATION_REASON_CODES terminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
-    TCPCL_LIB_EXPORT void BaseClass_MessageRejectCallback(TCPCLV4_MESSAGE_REJECT_REASON_CODES refusalCode, uint8_t rejectedMessageHeader);
-    TCPCL_LIB_EXPORT void BaseClass_BundleRefusalCallback(TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId);
+    TCPCL_LIB_NO_EXPORT void BaseClass_SessionTerminationMessageCallback(TCPCLV4_SESSION_TERMINATION_REASON_CODES terminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
+    TCPCL_LIB_NO_EXPORT void BaseClass_MessageRejectCallback(TCPCLV4_MESSAGE_REJECT_REASON_CODES refusalCode, uint8_t rejectedMessageHeader);
+    TCPCL_LIB_NO_EXPORT void BaseClass_BundleRefusalCallback(TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId);
 
     
-    TCPCL_LIB_EXPORT void BaseClass_DoHandleSocketShutdown(bool doCleanShutdown, TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
-    TCPCL_LIB_EXPORT void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e, bool isAckOfAnEarlierSessionTerminationMessage);
-    TCPCL_LIB_EXPORT void BaseClass_OnWaitForSessionTerminationAckTimeout_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_EXPORT void BaseClass_RemainInEndingState_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_EXPORT void BaseClass_RestartNoKeepaliveReceivedTimer();
-    TCPCL_LIB_EXPORT void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
-    TCPCL_LIB_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred);
-    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_NO_EXPORT void BaseClass_DoHandleSocketShutdown(bool doCleanShutdown, TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage);
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e, bool isAckOfAnEarlierSessionTerminationMessage);
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnWaitForSessionTerminationAckTimeout_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_RemainInEndingState_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_RestartNoKeepaliveReceivedTimer();
+    TCPCL_LIB_NO_EXPORT void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
     
-    TCPCL_LIB_EXPORT void BaseClass_CloseAndDeleteSockets();
+    TCPCL_LIB_NO_EXPORT void BaseClass_CloseAndDeleteSockets();
 
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;

@@ -10,6 +10,14 @@
 #include <array>
 #include "FragmentSet.h"
 #include "bpcodec_export.h"
+#ifndef CLASS_VISIBILITY_BPCODEC
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_BPCODEC
+#  else
+#    define CLASS_VISIBILITY_BPCODEC BPCODEC_EXPORT
+#  endif
+#endif
+
 
 // (1-byte version) + (1-byte sdnv block length) + (1-byte sdnv zero dictionary length) + (up to 14 10-byte sdnvs) + (32 bytes hardware accelerated SDNV overflow instructions) 
 #define CBHE_BPV6_MINIMUM_SAFE_PRIMARY_HEADER_ENCODE_SIZE (1 + 1 + 1 + (14*10) + 32)
@@ -64,7 +72,7 @@ BOOST_FORCEINLINE BPV6_PRIORITY GetPriorityFromFlags(BPV6_BUNDLEFLAG flags) {
 /**
  * Structure that contains information necessary for an RFC5050-compatible primary block
  */
-struct Bpv6CbhePrimaryBlock : public PrimaryBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPV6_BUNDLEFLAG m_bundleProcessingControlFlags;
     uint64_t m_blockLength;
     cbhe_eid_t m_destinationEid;
@@ -150,7 +158,7 @@ MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_BLOCKFLAG);
 /**
  * Structure that contains information necessary for a 5050-compatible canonical block
  */
-struct Bpv6CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6CanonicalBlock {
     BPV6_BLOCKFLAG m_blockProcessingControlFlags;
     uint64_t m_blockTypeSpecificDataLength;
     uint8_t * m_blockTypeSpecificDataPtr; //if NULL, data won't be copied (just allocated)
@@ -189,7 +197,7 @@ struct Bpv6CanonicalBlock {
 };
 
 
-struct Bpv6CustodyTransferEnhancementBlock : public Bpv6CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6CustodyTransferEnhancementBlock : public Bpv6CanonicalBlock {
     
 public:
     static constexpr unsigned int CBHE_MAX_SERIALIZATION_SIZE =
@@ -218,7 +226,7 @@ public:
 };
 
 //https://datatracker.ietf.org/doc/html/rfc6259
-struct Bpv6PreviousHopInsertionCanonicalBlock : public Bpv6CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6PreviousHopInsertionCanonicalBlock : public Bpv6CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize =
         4 + //ipn\0
         20 + // 18446744073709551615
@@ -268,7 +276,7 @@ enum class BPV6_METADATA_TYPE_CODE : uint64_t {
 };
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_METADATA_TYPE_CODE);
 
-struct Bpv6MetadataContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv6MetadataContentBase {
     BPCODEC_EXPORT virtual ~Bpv6MetadataContentBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const = 0;
     virtual uint64_t GetSerializationSize() const = 0;
@@ -276,7 +284,7 @@ struct Bpv6MetadataContentBase {
     virtual bool IsEqual(const Bpv6MetadataContentBase * otherPtr) const = 0;
 };
 
-class Bpv6MetadataContentUriList : public Bpv6MetadataContentBase {
+class CLASS_VISIBILITY_BPCODEC Bpv6MetadataContentUriList : public Bpv6MetadataContentBase {
 public:
     std::vector<cbhe_eid_t> m_uriArray;
 
@@ -298,7 +306,7 @@ public:
     BPCODEC_EXPORT void Reset();
 };
 
-class Bpv6MetadataContentGeneric : public Bpv6MetadataContentBase {
+class CLASS_VISIBILITY_BPCODEC Bpv6MetadataContentGeneric : public Bpv6MetadataContentBase {
 public:
     std::vector<uint8_t> m_genericRawMetadata;
 
@@ -321,7 +329,7 @@ public:
 };
 
 //https://datatracker.ietf.org/doc/html/rfc6258
-struct Bpv6MetadataCanonicalBlock : public Bpv6CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6MetadataCanonicalBlock : public Bpv6CanonicalBlock {
 
     BPCODEC_EXPORT Bpv6MetadataCanonicalBlock(); //a default constructor: X()
     BPCODEC_EXPORT virtual ~Bpv6MetadataCanonicalBlock(); //a destructor: ~X()
@@ -395,7 +403,7 @@ enum class BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT : uint8_t {
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT);
 
 
-struct Bpv6AdministrativeRecordContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv6AdministrativeRecordContentBase {
     BPCODEC_EXPORT virtual ~Bpv6AdministrativeRecordContentBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const = 0;
     virtual uint64_t GetSerializationSize() const = 0;
@@ -403,7 +411,7 @@ struct Bpv6AdministrativeRecordContentBase {
     virtual bool IsEqual(const Bpv6AdministrativeRecordContentBase * otherPtr) const = 0;
 };
 
-class Bpv6AdministrativeRecordContentBundleStatusReport : public Bpv6AdministrativeRecordContentBase {
+class CLASS_VISIBILITY_BPCODEC Bpv6AdministrativeRecordContentBundleStatusReport : public Bpv6AdministrativeRecordContentBase {
 
 
 public:
@@ -467,7 +475,7 @@ public:
     BPCODEC_EXPORT bool HasBundleStatusReportStatusFlagSet(const BPV6_BUNDLE_STATUS_REPORT_STATUS_FLAGS & flag) const;
 };
 
-class Bpv6AdministrativeRecordContentCustodySignal : public Bpv6AdministrativeRecordContentBase {
+class CLASS_VISIBILITY_BPCODEC Bpv6AdministrativeRecordContentCustodySignal : public Bpv6AdministrativeRecordContentBase {
     
 
 public:
@@ -519,7 +527,7 @@ public:
     BPCODEC_EXPORT BPV6_CUSTODY_SIGNAL_REASON_CODES_7BIT GetReasonCode() const;
 };
 
-class Bpv6AdministrativeRecordContentAggregateCustodySignal : public Bpv6AdministrativeRecordContentBase {
+class CLASS_VISIBILITY_BPCODEC Bpv6AdministrativeRecordContentAggregateCustodySignal : public Bpv6AdministrativeRecordContentBase {
     
 private:
     //The second field shall be a ‘Status’ byte encoded in the same way as the status byte
@@ -559,7 +567,7 @@ public: //only public for unit testing
     BPCODEC_EXPORT bool DeserializeFills(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
 };
 
-struct Bpv6AdministrativeRecord : public Bpv6CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6AdministrativeRecord : public Bpv6CanonicalBlock {
 
     BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE m_adminRecordTypeCode;
     std::unique_ptr<Bpv6AdministrativeRecordContentBase> m_adminRecordContentPtr;

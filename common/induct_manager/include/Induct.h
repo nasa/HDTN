@@ -1,5 +1,13 @@
 #ifndef INDUCT_H
 #define INDUCT_H 1
+#include "induct_manager_lib_export.h"
+#ifndef CLASS_VISIBILITY_INDUCT_MANAGER_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_INDUCT_MANAGER_LIB
+#  else
+#    define CLASS_VISIBILITY_INDUCT_MANAGER_LIB INDUCT_MANAGER_LIB_EXPORT
+#  endif
+#endif
 
 #include <string>
 #include <boost/integer.hpp>
@@ -11,14 +19,14 @@
 #include <zmq.hpp>
 #include "BidirectionalLink.h"
 #include "PaddedVectorUint8.h"
-#include "induct_manager_lib_export.h"
+
 
 class Induct;
 typedef boost::function<void(padded_vector_uint8_t & movableBundle)> InductProcessBundleCallback_t;
 typedef boost::function<void(const uint64_t remoteNodeId, Induct* thisInductPtr)> OnNewOpportunisticLinkCallback_t;
 typedef boost::function<void(const uint64_t remoteNodeId)> OnDeletedOpportunisticLinkCallback_t;
 
-class Induct {
+class CLASS_VISIBILITY_INDUCT_MANAGER_LIB Induct {
 private:
     Induct();
 public:

@@ -6,7 +6,7 @@
 #include "StcpBundleSource.h"
 #include <list>
 
-class StcpOutduct : public Outduct {
+class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB StcpOutduct : public Outduct {
 public:
     OUTDUCT_MANAGER_LIB_EXPORT StcpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~StcpOutduct();

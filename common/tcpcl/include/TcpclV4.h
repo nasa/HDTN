@@ -170,22 +170,22 @@ public:
         TCPCL_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
         TCPCL_LIB_EXPORT uint64_t GetTotalDataRequiredForSerialization() const;
     };
-    struct TCPCL_LIB_EXPORT tcpclv4_ack_t {
+    struct tcpclv4_ack_t {
         bool isStartSegment;
         bool isEndSegment;
         uint64_t transferId;
         uint64_t totalBytesAcknowledged;
 
-        tcpclv4_ack_t(); //a default constructor: X()
-        tcpclv4_ack_t(bool paramIsStartSegment, bool paramIsEndSegment, uint64_t paramTransferId, uint64_t paramTotalBytesAcknowledged);
-        ~tcpclv4_ack_t(); //a destructor: ~X()
-        tcpclv4_ack_t(const tcpclv4_ack_t& o); //a copy constructor: X(const X&)
-        tcpclv4_ack_t(tcpclv4_ack_t&& o); //a move constructor: X(X&&)
-        tcpclv4_ack_t& operator=(const tcpclv4_ack_t& o); //a copy assignment: operator=(const X&)
-        tcpclv4_ack_t& operator=(tcpclv4_ack_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const tcpclv4_ack_t & o) const; //operator ==
-        bool operator!=(const tcpclv4_ack_t & o) const; //operator !=
-        friend std::ostream& operator<<(std::ostream& os, const tcpclv4_ack_t& o);
+        TCPCL_LIB_EXPORT tcpclv4_ack_t(); //a default constructor: X()
+        TCPCL_LIB_EXPORT tcpclv4_ack_t(bool paramIsStartSegment, bool paramIsEndSegment, uint64_t paramTransferId, uint64_t paramTotalBytesAcknowledged);
+        TCPCL_LIB_EXPORT ~tcpclv4_ack_t(); //a destructor: ~X()
+        TCPCL_LIB_EXPORT tcpclv4_ack_t(const tcpclv4_ack_t& o); //a copy constructor: X(const X&)
+        TCPCL_LIB_EXPORT tcpclv4_ack_t(tcpclv4_ack_t&& o); //a move constructor: X(X&&)
+        TCPCL_LIB_EXPORT tcpclv4_ack_t& operator=(const tcpclv4_ack_t& o); //a copy assignment: operator=(const X&)
+        TCPCL_LIB_EXPORT tcpclv4_ack_t& operator=(tcpclv4_ack_t&& o); //a move assignment: operator=(X&&)
+        TCPCL_LIB_EXPORT bool operator==(const tcpclv4_ack_t & o) const; //operator ==
+        TCPCL_LIB_EXPORT bool operator!=(const tcpclv4_ack_t & o) const; //operator !=
+        TCPCL_LIB_EXPORT friend std::ostream& operator<<(std::ostream& os, const tcpclv4_ack_t& o);
     };
 
 public:

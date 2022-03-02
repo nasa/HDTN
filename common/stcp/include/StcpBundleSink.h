@@ -27,12 +27,12 @@ public:
     STCP_LIB_EXPORT bool ReadyToBeDeleted();
 private:
 
-    STCP_LIB_EXPORT void TryStartTcpReceive();
-    STCP_LIB_EXPORT void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
-    STCP_LIB_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    STCP_LIB_EXPORT void PopCbThreadFunc();
-    STCP_LIB_EXPORT void DoStcpShutdown();
-    STCP_LIB_EXPORT void HandleSocketShutdown();
+    STCP_LIB_NO_EXPORT void TryStartTcpReceive();
+    STCP_LIB_NO_EXPORT void HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex);
+    STCP_LIB_NO_EXPORT void HandleTcpReceiveBundleData(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    STCP_LIB_NO_EXPORT void PopCbThreadFunc();
+    STCP_LIB_NO_EXPORT void DoStcpShutdown();
+    STCP_LIB_NO_EXPORT void HandleSocketShutdown();
     
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;

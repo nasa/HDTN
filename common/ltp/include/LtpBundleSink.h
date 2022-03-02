@@ -24,12 +24,12 @@ public:
     LTP_LIB_EXPORT ~LtpBundleSink();
     LTP_LIB_EXPORT bool ReadyToBeDeleted();
 private:
-    LTP_LIB_EXPORT void RemoveCallback();
+    LTP_LIB_NO_EXPORT void RemoveCallback();
 
     //tcpcl received data callback functions
-    LTP_LIB_EXPORT void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
+    LTP_LIB_NO_EXPORT void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec,
         uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock);
-    LTP_LIB_EXPORT void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
+    LTP_LIB_NO_EXPORT void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 
     const LtpWholeBundleReadyCallback_t m_ltpWholeBundleReadyCallback;
 

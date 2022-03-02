@@ -7,7 +7,7 @@
 #include <list>
 #include <boost/make_unique.hpp>
 
-class TcpclV4Induct : public Induct {
+class CLASS_VISIBILITY_INDUCT_MANAGER_LIB TcpclV4Induct : public Induct {
 public:
     INDUCT_MANAGER_LIB_EXPORT TcpclV4Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
         const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,

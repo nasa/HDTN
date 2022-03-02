@@ -27,11 +27,11 @@ public:
     UDP_LIB_EXPORT bool ReadyToBeDeleted();
 private:
 
-    UDP_LIB_EXPORT void StartUdpReceive();
-    UDP_LIB_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
-    UDP_LIB_EXPORT void PopCbThreadFunc();
-    UDP_LIB_EXPORT void DoUdpShutdown();
-    UDP_LIB_EXPORT void HandleSocketShutdown();
+    UDP_LIB_NO_EXPORT void StartUdpReceive();
+    UDP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
+    UDP_LIB_NO_EXPORT void PopCbThreadFunc();
+    UDP_LIB_NO_EXPORT void DoUdpShutdown();
+    UDP_LIB_NO_EXPORT void HandleSocketShutdown();
 
     
     //std::vector<uint8_t> m_fragmentedBundleRxConcat;

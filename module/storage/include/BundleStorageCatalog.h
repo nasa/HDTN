@@ -53,12 +53,12 @@ public:
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
 
 private:
-    STORAGE_LIB_EXPORT catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId,
+    STORAGE_LIB_NO_EXPORT catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId,
         const std::vector<std::pair<const cbhe_eid_t*, priorities_to_expirations_array_t *> > & destEidPlusPriorityArrayPtrs);
-    STORAGE_LIB_EXPORT bool Insert_OrderBySequence(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert, const uint64_t mySequence);
-    STORAGE_LIB_EXPORT void Insert_OrderByFifo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
-    STORAGE_LIB_EXPORT void Insert_OrderByFilo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
-    STORAGE_LIB_EXPORT bool Remove(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToRemove);
+    STORAGE_LIB_NO_EXPORT bool Insert_OrderBySequence(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert, const uint64_t mySequence);
+    STORAGE_LIB_NO_EXPORT void Insert_OrderByFifo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
+    STORAGE_LIB_NO_EXPORT void Insert_OrderByFilo(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToInsert);
+    STORAGE_LIB_NO_EXPORT bool Remove(custids_flist_plus_lastiterator_t & custodyIdFlistPlusLastIt, const uint64_t custodyIdToRemove);
 
 protected:
     dest_eid_to_priorities_map_t m_destEidToPrioritiesMap;

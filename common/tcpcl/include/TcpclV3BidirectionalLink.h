@@ -11,7 +11,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
 
-class TcpclV3BidirectionalLink : public BidirectionalLink {
+class CLASS_VISIBILITY_TCPCL_LIB TcpclV3BidirectionalLink : public BidirectionalLink {
 public:
     TCPCL_LIB_EXPORT TcpclV3BidirectionalLink(
         const std::string & implementationStringForCout,
@@ -97,23 +97,23 @@ protected:
     TCPCL_LIB_EXPORT virtual void Virtual_OnContactHeaderCompletedSuccessfully();
 
 private:
-    TCPCL_LIB_EXPORT void BaseClass_ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    TCPCL_LIB_EXPORT void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
-    TCPCL_LIB_EXPORT void BaseClass_AckCallback(uint64_t totalBytesAcknowledged);
-    TCPCL_LIB_EXPORT void BaseClass_RestartNoKeepaliveReceivedTimer();
-    TCPCL_LIB_EXPORT void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
-    TCPCL_LIB_EXPORT void BaseClass_KeepAliveCallback();
-    TCPCL_LIB_EXPORT void BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
+    TCPCL_LIB_NO_EXPORT void BaseClass_ContactHeaderCallback(CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
+    TCPCL_LIB_NO_EXPORT void BaseClass_DataSegmentCallback(padded_vector_uint8_t & dataSegmentDataVec, bool isStartFlag, bool isEndFlag);
+    TCPCL_LIB_NO_EXPORT void BaseClass_AckCallback(uint64_t totalBytesAcknowledged);
+    TCPCL_LIB_NO_EXPORT void BaseClass_RestartNoKeepaliveReceivedTimer();
+    TCPCL_LIB_NO_EXPORT void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
+    TCPCL_LIB_NO_EXPORT void BaseClass_KeepAliveCallback();
+    TCPCL_LIB_NO_EXPORT void BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds);
-    TCPCL_LIB_EXPORT void BaseClass_BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
-    TCPCL_LIB_EXPORT void BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength);
+    TCPCL_LIB_NO_EXPORT void BaseClass_BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode);
+    TCPCL_LIB_NO_EXPORT void BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength);
 
-    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    TCPCL_LIB_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
-    TCPCL_LIB_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_EXPORT void BaseClass_DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
-    TCPCL_LIB_EXPORT void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void BaseClass_DoHandleSocketShutdown(bool sendShutdownMessage, bool reasonWasTimeOut);
+    TCPCL_LIB_NO_EXPORT void BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e);
 
 public:
     //tcpcl stats

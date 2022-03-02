@@ -1,12 +1,18 @@
 #ifndef LTP_H
 #define LTP_H 1
-
+#include "ltp_lib_export.h"
+#ifndef CLASS_VISIBILITY_LTP_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_LTP_LIB
+#  else
+#    define CLASS_VISIBILITY_LTP_LIB LTP_LIB_EXPORT
+#  endif
+#endif
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <boost/integer.hpp>
 #include <boost/function.hpp>
 #include <vector>
-#include "ltp_lib_export.h"
 
 enum class LTP_MAIN_RX_STATE
 {
@@ -257,11 +263,11 @@ public:
     LTP_LIB_EXPORT static bool GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver);
 
 private:
-    LTP_LIB_EXPORT void SetBeginningState();
-    LTP_LIB_EXPORT const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
-    LTP_LIB_EXPORT bool NextStateAfterTrailerExtensions(std::string & errorMessage);
-    LTP_LIB_EXPORT const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
-    LTP_LIB_EXPORT const uint8_t * TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    LTP_LIB_NO_EXPORT void SetBeginningState();
+    LTP_LIB_NO_EXPORT const uint8_t * NextStateAfterHeaderExtensions(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    LTP_LIB_NO_EXPORT bool NextStateAfterTrailerExtensions(std::string & errorMessage);
+    LTP_LIB_NO_EXPORT const uint8_t * TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
+    LTP_LIB_NO_EXPORT const uint8_t * TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage);
 public:
 	std::vector<uint8_t> m_sdnvTempVec;
     LTP_MAIN_RX_STATE m_mainRxState;

@@ -9,6 +9,8 @@ add_library(stcp_lib
 	src/StcpBundleSource.cpp
 )
 GENERATE_EXPORT_HEADER(stcp_lib)
+set_property(TARGET stcp_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET stcp_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS stcp_lib DESTINATION lib)
 install(FILES
 	include/StcpBundleSink.h

@@ -3,7 +3,7 @@
 
 #include "TcpclV3BidirectionalLink.h"
 
-class TcpclBundleSink : public TcpclV3BidirectionalLink {
+class CLASS_VISIBILITY_TCPCL_LIB TcpclBundleSink : public TcpclV3BidirectionalLink {
 private:
     TcpclBundleSink();
 public:
@@ -27,7 +27,7 @@ public:
         //const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction = TryGetOpportunisticDataFunction_t(),
         //const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback = NotifyOpportunisticDataAckedCallback_t(),
         const unsigned int maxUnacked = 10, const uint64_t maxFragmentSize = 100000000 ); //todo
-    TCPCL_LIB_EXPORT ~TcpclBundleSink();
+    TCPCL_LIB_EXPORT virtual ~TcpclBundleSink();
     TCPCL_LIB_EXPORT bool ReadyToBeDeleted();
     TCPCL_LIB_EXPORT uint64_t GetRemoteNodeId() const;
     TCPCL_LIB_EXPORT void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
@@ -35,15 +35,15 @@ public:
     TCPCL_LIB_EXPORT void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
 private:
 
-    TCPCL_LIB_EXPORT void TryStartTcpReceive();
-    TCPCL_LIB_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    TCPCL_LIB_EXPORT void PopCbThreadFunc();
+    TCPCL_LIB_NO_EXPORT void TryStartTcpReceive();
+    TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    TCPCL_LIB_NO_EXPORT void PopCbThreadFunc();
     
-    TCPCL_LIB_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
-    TCPCL_LIB_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    TCPCL_LIB_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
-    TCPCL_LIB_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    TCPCL_LIB_EXPORT virtual void Virtual_OnContactHeaderCompletedSuccessfully();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnContactHeaderCompletedSuccessfully();
 
     
 

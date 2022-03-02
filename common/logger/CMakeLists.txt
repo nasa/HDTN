@@ -9,6 +9,8 @@ add_library(log_lib
       	src/Logger.cpp
 )
 GENERATE_EXPORT_HEADER(log_lib)
+set_property(TARGET log_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET log_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS log_lib DESTINATION lib)
 install(FILES
 	include/Logger.h

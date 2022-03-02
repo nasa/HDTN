@@ -14,6 +14,8 @@ add_library(outduct_manager_lib
 	src/OutductManager.cpp
 )
 GENERATE_EXPORT_HEADER(outduct_manager_lib)
+set_property(TARGET outduct_manager_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET outduct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS outduct_manager_lib DESTINATION lib)
 install(FILES
 	include/LtpOverUdpOutduct.h

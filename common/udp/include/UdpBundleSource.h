@@ -31,17 +31,17 @@ public:
     UDP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
     UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
     UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
-    UDP_LIB_EXPORT bool ReadyToForward();
+    UDP_LIB_EXPORT bool ReadyToForward() const;
     UDP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    UDP_LIB_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
-    UDP_LIB_EXPORT void OnConnect(const boost::system::error_code & ec);
-    UDP_LIB_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-    UDP_LIB_EXPORT void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
+    UDP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
+    UDP_LIB_NO_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_NO_EXPORT void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
 
-    UDP_LIB_EXPORT void DoUdpShutdown();
-    UDP_LIB_EXPORT void DoHandleSocketShutdown();
-    UDP_LIB_EXPORT void PacketsSentCallback();
+    UDP_LIB_NO_EXPORT void DoUdpShutdown();
+    UDP_LIB_NO_EXPORT void DoHandleSocketShutdown();
+    UDP_LIB_NO_EXPORT void PacketsSentCallback();
     
 
 

@@ -70,7 +70,7 @@ private:
     LOG_LIB_EXPORT Logger();
     LOG_LIB_EXPORT Logger(Logger const&);
     LOG_LIB_EXPORT Logger& operator=(Logger const&);
-    LOG_LIB_EXPORT virtual ~Logger();
+    LOG_LIB_EXPORT ~Logger();
 
     LOG_LIB_EXPORT void init();
     LOG_LIB_EXPORT void createModuleLogFile(const std::string & module);

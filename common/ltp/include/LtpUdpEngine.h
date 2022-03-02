@@ -9,7 +9,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
 
-class LtpUdpEngine : public LtpEngine {
+class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
     LtpUdpEngine();
 public:
@@ -28,9 +28,9 @@ public:
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
 private:
-    LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
-    LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
-    LTP_LIB_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred);
+    LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
+    LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
+    LTP_LIB_NO_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
     

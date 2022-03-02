@@ -42,13 +42,13 @@ public:
     //std::size_t GetTotalBundleBytesUnacked();
     LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    LTP_LIB_EXPORT void RemoveCallback();
+    LTP_LIB_NO_EXPORT void RemoveCallback();
 
     //ltp callback functions for a sender
-    LTP_LIB_EXPORT void SessionStartCallback(const Ltp::session_id_t & sessionId);
-    LTP_LIB_EXPORT void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId);
-    LTP_LIB_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId);
-    LTP_LIB_EXPORT void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
+    LTP_LIB_NO_EXPORT void SessionStartCallback(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 
     volatile bool m_useLocalConditionVariableAckReceived;
     boost::condition_variable m_localConditionVariableAckReceived;

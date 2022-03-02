@@ -33,8 +33,8 @@ public:
     
     LTP_LIB_EXPORT bool ReadyToForward();
 private:
-    LTP_LIB_EXPORT void StartUdpReceive();
-    LTP_LIB_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
+    LTP_LIB_NO_EXPORT void StartUdpReceive();
+    LTP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
 public:
     LTP_LIB_EXPORT static std::shared_ptr<LtpUdpEngineManager> GetOrCreateInstance(const uint16_t myBoundUdpPort);
     LTP_LIB_EXPORT static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);

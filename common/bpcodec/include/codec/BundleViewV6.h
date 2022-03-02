@@ -86,8 +86,8 @@ public:
     //bool RenderInPlace(const std::size_t paddingLeft);
     BPCODEC_EXPORT void Reset(); //should be private
 private:
-    BPCODEC_EXPORT bool Load(const bool loadPrimaryBlockOnly);
-    BPCODEC_EXPORT bool Render(uint8_t * serialization, uint64_t & sizeSerialized);
+    BPCODEC_NO_EXPORT bool Load(const bool loadPrimaryBlockOnly);
+    BPCODEC_NO_EXPORT bool Render(uint8_t * serialization, uint64_t & sizeSerialized);
     
 public:
     Bpv6PrimaryBlockView m_primaryBlockView;

@@ -9,6 +9,13 @@
 #include "EnumAsFlagsMacro.h"
 #include <array>
 #include "bpcodec_export.h"
+#ifndef CLASS_VISIBILITY_BPCODEC
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_BPCODEC
+#  else
+#    define CLASS_VISIBILITY_BPCODEC BPCODEC_EXPORT
+#  endif
+#endif
 
 enum class BPV7_CRC_TYPE : uint8_t {
     NONE       = 0,
@@ -255,7 +262,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS {
 };
 
 
-struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
     static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
         1 + //cbor initial byte denoting cbor array
         1 + //bundle version 7 byte
@@ -304,7 +311,7 @@ struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT virtual uint64_t GetSequenceForMillisecondsScale() const;
 };
 
-struct Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
 
     static constexpr uint64_t smallestSerializedCanonicalSize = //uint64_t bufferSize
         1 + //cbor initial byte denoting cbor array
@@ -355,7 +362,7 @@ struct Bpv7CanonicalBlock {
 };
 
 
-struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize =
         1 + //cbor initial byte denoting cbor array (major type 4, additional information 2)
         9 + //node number
@@ -377,7 +384,7 @@ struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
     cbhe_eid_t m_previousNode;
 };
 
-struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize = 9;
 
     BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(); //a default constructor: X()
@@ -396,7 +403,7 @@ struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
     uint64_t m_bundleAgeMilliseconds;
 };
 
-struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize =
         1 + //cbor initial byte denoting cbor array (major type 4, additional information 2)
         9 + //hop limit
@@ -420,14 +427,14 @@ struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     uint64_t m_hopCount;
 };
 
-struct Bpv7AbstractSecurityBlockValueBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueBase {
     BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
 };
-struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
     BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueUint();
     BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
     BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
@@ -436,7 +443,7 @@ struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValu
 
     uint64_t m_uintValue;
 };
-struct Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
     BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueByteString();
     BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
     BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
@@ -446,7 +453,7 @@ struct Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlo
     std::vector<uint8_t> m_byteString;
 };
 
-struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
 
     typedef std::vector<uint64_t> security_targets_t;
     typedef uint64_t security_context_id_t;
@@ -505,7 +512,7 @@ protected:
     std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
 };
 
-struct Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock(); //a default constructor: X()
     BPCODEC_EXPORT virtual ~Bpv7BlockIntegrityBlock(); //a destructor: ~X()
     BPCODEC_EXPORT Bpv7BlockIntegrityBlock(const Bpv7BlockIntegrityBlock& o) = delete; //a copy constructor: X(const X&)
@@ -525,7 +532,7 @@ struct Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllExpectedHmacPtrs();
 };
 
-struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(); //a default constructor: X()
     BPCODEC_EXPORT virtual ~Bpv7BlockConfidentialityBlock(); //a destructor: ~X()
     BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy constructor: X(const X&)
@@ -545,17 +552,17 @@ struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
     BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
     BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
 private:
-    BPCODEC_EXPORT std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
+    BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
 
-struct Bpv7AdministrativeRecordContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBase {
     BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const = 0;
 };
-struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7AdministrativeRecordContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7AdministrativeRecordContentBase {
     typedef std::pair<bool, uint64_t> status_info_content_t; //[status-indicator: bool, optional_timestamp: dtn_time]
     typedef std::array<status_info_content_t, 4> bundle_status_information_t;
 
@@ -585,7 +592,7 @@ struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7Administra
     bool m_subjectBundleIsFragment;
     bool m_reportStatusTimeFlagWasSet;
 };
-struct Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
     
     BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBibePduMessage();
     BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
@@ -599,7 +606,7 @@ struct Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7Administrative
     uint64_t m_encapsulatedBundleLength;
     std::vector<uint8_t> m_temporaryEncapsulatedBundleStorage;
 };
-struct Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
 
     BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE m_adminRecordTypeCode;
     std::unique_ptr<Bpv7AdministrativeRecordContentBase> m_adminRecordContentPtr;

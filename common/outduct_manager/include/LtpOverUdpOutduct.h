@@ -6,7 +6,7 @@
 #include "LtpBundleSource.h"
 #include <list>
 
-class LtpOverUdpOutduct : public Outduct {
+class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB LtpOverUdpOutduct : public Outduct {
 public:
     OUTDUCT_MANAGER_LIB_EXPORT LtpOverUdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~LtpOverUdpOutduct();

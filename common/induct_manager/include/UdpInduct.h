@@ -5,7 +5,7 @@
 #include "Induct.h"
 #include "UdpBundleSink.h"
 
-class UdpInduct : public Induct {
+class CLASS_VISIBILITY_INDUCT_MANAGER_LIB UdpInduct : public Induct {
 public:
     INDUCT_MANAGER_LIB_EXPORT UdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig);
     INDUCT_MANAGER_LIB_EXPORT virtual ~UdpInduct();

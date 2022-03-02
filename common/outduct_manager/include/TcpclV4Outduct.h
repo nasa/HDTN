@@ -6,7 +6,7 @@
 #include "TcpclV4BundleSource.h"
 #include <list>
 
-class TcpclV4Outduct : public Outduct {
+class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB TcpclV4Outduct : public Outduct {
 public:
     OUTDUCT_MANAGER_LIB_EXPORT TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
         const uint64_t maxOpportunisticRxBundleSizeBytes,

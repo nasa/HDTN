@@ -55,7 +55,7 @@ private:
     hdtn::WorkerStats m_workerStats;
 
 private:
-    void ThreadFunc();
+    STORAGE_LIB_NO_EXPORT void ThreadFunc();
     //void Write(hdtn::block_hdr *hdr, zmq::message_t *message);
     //void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock);
 

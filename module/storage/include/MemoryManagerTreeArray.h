@@ -33,12 +33,12 @@ public:
 private:
 
 
-    STORAGE_LIB_EXPORT bool GetAndSetFirstFreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t * segmentId);
-    STORAGE_LIB_EXPORT bool IsSegmentFree(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId);
-    STORAGE_LIB_EXPORT void FreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId, bool *success);
-    STORAGE_LIB_EXPORT bool AllocateSegmentId_NoCheck(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId);
-    STORAGE_LIB_EXPORT void SetupTree();
-    STORAGE_LIB_EXPORT void FreeTree();
+    STORAGE_LIB_NO_EXPORT bool GetAndSetFirstFreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t * segmentId);
+    STORAGE_LIB_NO_EXPORT bool IsSegmentFree(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId);
+    STORAGE_LIB_NO_EXPORT void FreeSegmentId(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId, bool *success);
+    STORAGE_LIB_NO_EXPORT bool AllocateSegmentId_NoCheck(const boost::uint32_t depthIndex, const boost::uint32_t rowIndex, boost::uint32_t segmentId);
+    STORAGE_LIB_NO_EXPORT void SetupTree();
+    STORAGE_LIB_NO_EXPORT void FreeTree();
 private:
     const boost::uint64_t M_MAX_SEGMENTS;
     boost::uint64_t * m_bitMasks[MAX_TREE_ARRAY_DEPTH];

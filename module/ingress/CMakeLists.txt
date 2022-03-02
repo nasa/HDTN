@@ -7,6 +7,8 @@ add_library(ingress_async_lib
 	src/IngressAsyncRunner.cpp
 )
 GENERATE_EXPORT_HEADER(ingress_async_lib)
+set_property(TARGET ingress_async_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET ingress_async_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS ingress_async_lib DESTINATION lib)
 install(FILES
 	include/ingress.h

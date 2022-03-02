@@ -62,6 +62,8 @@ add_library(storage_lib
         src/ZmqStorageInterface.cpp
 )
 GENERATE_EXPORT_HEADER(storage_lib)
+set_property(TARGET storage_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET storage_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS storage_lib DESTINATION lib)
 install(FILES
 	include/BundleStorageCatalog.h

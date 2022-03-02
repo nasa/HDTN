@@ -1,6 +1,13 @@
 #ifndef _BUNDLE_STORAGE_MANAGER_BASE_H
 #define _BUNDLE_STORAGE_MANAGER_BASE_H
-
+#include "storage_lib_export.h"
+#ifndef CLASS_VISIBILITY_STORAGE_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_STORAGE_LIB
+#  else
+#    define CLASS_VISIBILITY_STORAGE_LIB STORAGE_LIB_EXPORT
+#  endif
+#endif
 #include <boost/integer.hpp>
 #include <stdint.h>
 #include <map>
@@ -20,7 +27,7 @@
 #include "StorageConfig.h"
 #include "codec/bpv6.h"
 #include "BundleStorageCatalog.h"
-#include "storage_lib_export.h"
+
 
 
 
@@ -45,7 +52,7 @@ struct BundleStorageManagerSession_ReadFromDisk {
     STORAGE_LIB_EXPORT ~BundleStorageManagerSession_ReadFromDisk();
 };
 
-class BundleStorageManagerBase {
+class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerBase {
 protected:
     STORAGE_LIB_EXPORT BundleStorageManagerBase();
     STORAGE_LIB_EXPORT BundleStorageManagerBase(const std::string & jsonConfigFileName);

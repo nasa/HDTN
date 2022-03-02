@@ -1,13 +1,20 @@
 #ifndef OUTDUCT_H
 #define OUTDUCT_H 1
-
+#include "outduct_manager_lib_export.h"
+#ifndef CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB
+#  else
+#    define CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB OUTDUCT_MANAGER_LIB_EXPORT
+#  endif
+#endif
 #include <string>
 #include <boost/integer.hpp>
 #include <boost/function.hpp>
 #include "OutductsConfig.h"
 #include <list>
 #include <zmq.hpp>
-#include "outduct_manager_lib_export.h"
+
 
 struct OutductFinalStats {
     std::string m_convergenceLayer;
@@ -19,7 +26,7 @@ struct OutductFinalStats {
 
 
 
-class Outduct {
+class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB Outduct {
 private:
     Outduct();
 public:

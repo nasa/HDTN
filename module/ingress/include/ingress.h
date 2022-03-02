@@ -42,14 +42,14 @@ public:
     INGRESS_ASYNC_LIB_EXPORT int Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest,
              zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
-    INGRESS_ASYNC_LIB_EXPORT bool ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
+    INGRESS_ASYNC_LIB_NO_EXPORT bool ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
         std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing);
-    INGRESS_ASYNC_LIB_EXPORT void ReadZmqAcksThreadFunc();
-    INGRESS_ASYNC_LIB_EXPORT void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
-    INGRESS_ASYNC_LIB_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
-    INGRESS_ASYNC_LIB_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
-    INGRESS_ASYNC_LIB_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
-    INGRESS_ASYNC_LIB_EXPORT void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);
+    INGRESS_ASYNC_LIB_NO_EXPORT void ReadZmqAcksThreadFunc();
+    INGRESS_ASYNC_LIB_NO_EXPORT void ReadTcpclOpportunisticBundlesFromEgressThreadFunc();
+    INGRESS_ASYNC_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    INGRESS_ASYNC_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
+    INGRESS_ASYNC_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    INGRESS_ASYNC_LIB_NO_EXPORT void SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool isAvailable);
 public:
     uint64_t m_bundleCountStorage;
     boost::atomic_uint64_t m_bundleCountEgress;

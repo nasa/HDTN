@@ -1,6 +1,13 @@
 #ifndef _BP_SINK_PATTERN_H
 #define _BP_SINK_PATTERN_H 1
-
+#include "bp_app_patterns_lib_export.h"
+#ifndef CLASS_VISIBILITY_BP_APP_PATTERNS_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_BP_APP_PATTERNS_LIB
+#  else
+#    define CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BP_APP_PATTERNS_LIB_EXPORT
+#  endif
+#endif
 #include <stdint.h>
 #include "InductManager.h"
 #include "OutductManager.h"
@@ -8,9 +15,8 @@
 #include "codec/CustodyTransferManager.h"
 #include <boost/asio.hpp>
 #include "TcpclInduct.h"
-#include "bp_app_patterns_lib_export.h"
 
-class BpSinkPattern {
+class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSinkPattern {
 public:
     BP_APP_PATTERNS_LIB_EXPORT BpSinkPattern();
     BP_APP_PATTERNS_LIB_EXPORT void Stop();
@@ -20,14 +26,14 @@ public:
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size) = 0;
 private:
-    BP_APP_PATTERNS_LIB_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
-    BP_APP_PATTERNS_LIB_EXPORT bool Process(padded_vector_uint8_t & rxBuf, const std::size_t messageSize);
-    BP_APP_PATTERNS_LIB_EXPORT void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
-    BP_APP_PATTERNS_LIB_EXPORT void TransferRate_TimerExpired(const boost::system::error_code& e);
-    BP_APP_PATTERNS_LIB_EXPORT void SendAcsFromTimerThread();
-    BP_APP_PATTERNS_LIB_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
-    BP_APP_PATTERNS_LIB_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
-    BP_APP_PATTERNS_LIB_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    BP_APP_PATTERNS_LIB_NO_EXPORT bool Process(padded_vector_uint8_t & rxBuf, const std::size_t messageSize);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void AcsNeedToSend_TimerExpired(const boost::system::error_code& e);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void TransferRate_TimerExpired(const boost::system::error_code& e);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void SendAcsFromTimerThread();
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
 public:
 
     uint64_t m_totalPayloadBytesRx;

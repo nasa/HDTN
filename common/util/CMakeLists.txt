@@ -19,6 +19,8 @@ add_library(hdtn_util
 	src/BinaryConversions.cpp
 )
 GENERATE_EXPORT_HEADER(hdtn_util)
+set_property(TARGET hdtn_util PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET hdtn_util PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 target_link_libraries(hdtn_util ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB} ${openssl_LIB} ${crypto_LIB})
 target_include_directories(hdtn_util PUBLIC include ${Boost_INCLUDE_DIRS} ${libzmq_INCLUDE} ${openssl_INCLUDE} ${PROJECT_BINARY_DIR})
 install(TARGETS hdtn_util DESTINATION lib)

@@ -6,7 +6,7 @@
 
 
 
-class BundleStorageManagerAsio : public BundleStorageManagerBase {
+class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerAsio : public BundleStorageManagerBase {
 public:
     STORAGE_LIB_EXPORT BundleStorageManagerAsio();
     STORAGE_LIB_EXPORT BundleStorageManagerAsio(const std::string & jsonConfigFileName);
@@ -16,11 +16,11 @@ public:
 
 
 private:
-    STORAGE_LIB_EXPORT void TryDiskOperation_Consume_NotThreadSafe(const unsigned int diskId);
-    STORAGE_LIB_EXPORT void HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
+    STORAGE_LIB_NO_EXPORT void TryDiskOperation_Consume_NotThreadSafe(const unsigned int diskId);
+    STORAGE_LIB_NO_EXPORT void HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
         const unsigned int diskId, const unsigned int consumeIndex, const bool wasReadOperation);
 
-    STORAGE_LIB_EXPORT virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
+    STORAGE_LIB_NO_EXPORT virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
 
 private:
 

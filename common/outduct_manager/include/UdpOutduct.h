@@ -6,7 +6,7 @@
 #include "UdpBundleSource.h"
 #include <list>
 
-class UdpOutduct : public Outduct {
+class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB UdpOutduct : public Outduct {
 public:
     OUTDUCT_MANAGER_LIB_EXPORT UdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~UdpOutduct();

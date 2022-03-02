@@ -15,7 +15,7 @@ public:
     uint64_t m_messageCount;
 
 private:
-    EGRESS_ASYNC_LIB_EXPORT void MonitorExitKeypressThreadFunction();
+    EGRESS_ASYNC_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
     volatile bool m_runningFromSigHandler;
 };

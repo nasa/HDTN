@@ -32,20 +32,20 @@ public:
     STCP_LIB_EXPORT bool ReadyToForward();
     STCP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    STCP_LIB_EXPORT static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
-    STCP_LIB_EXPORT static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
-    STCP_LIB_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
-    STCP_LIB_EXPORT void OnConnect(const boost::system::error_code & ec);
-    STCP_LIB_EXPORT void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
-    STCP_LIB_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    STCP_LIB_EXPORT void HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred);
-    STCP_LIB_EXPORT void StartTcpReceive();
-    STCP_LIB_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
+    STCP_LIB_NO_EXPORT static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
+    STCP_LIB_NO_EXPORT static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
+    STCP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
+    STCP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
+    STCP_LIB_NO_EXPORT void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
+    STCP_LIB_NO_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    STCP_LIB_NO_EXPORT void HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred);
+    STCP_LIB_NO_EXPORT void StartTcpReceive();
+    STCP_LIB_NO_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
 
-    STCP_LIB_EXPORT void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    STCP_LIB_EXPORT void DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNotZero);
-    STCP_LIB_EXPORT void DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero);
-    STCP_LIB_EXPORT void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
+    STCP_LIB_NO_EXPORT void OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
+    STCP_LIB_NO_EXPORT void DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNotZero);
+    STCP_LIB_NO_EXPORT void DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero);
+    STCP_LIB_NO_EXPORT void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
     
     std::unique_ptr<TcpAsyncSender> m_tcpAsyncSenderPtr;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_handleTcpSendCallback;

@@ -26,7 +26,7 @@ public:
     LTP_LIB_EXPORT bool Empty() const;
     //std::vector<uint8_t> & GetUserDataRef(const uint64_t serialNumber);
 private:
-    LTP_LIB_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
+    LTP_LIB_NO_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
 private:
     boost::asio::deadline_timer m_deadlineTimer;
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;

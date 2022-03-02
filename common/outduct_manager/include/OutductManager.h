@@ -36,7 +36,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds);
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds);
 private:
-    OUTDUCT_MANAGER_LIB_EXPORT void OnSuccessfulBundleAck(uint64_t uuidIndex);
+    OUTDUCT_MANAGER_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t uuidIndex);
 
     struct thread_communication_t {
         boost::condition_variable m_cv;

@@ -15,7 +15,7 @@ public:
     uint64_t m_bundleData;
 
 private:
-    INGRESS_ASYNC_LIB_EXPORT void MonitorExitKeypressThreadFunction();
+    INGRESS_ASYNC_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
     volatile bool m_runningFromSigHandler;
 };

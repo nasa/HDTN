@@ -230,7 +230,7 @@ void UdpBundleSource::DoHandleSocketShutdown() {
     }
 }
 
-bool UdpBundleSource::ReadyToForward() {
+bool UdpBundleSource::ReadyToForward() const {
     return m_readyToForward;
 }
 

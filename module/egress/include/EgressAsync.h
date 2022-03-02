@@ -54,9 +54,9 @@ public:
     std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
     EGRESS_ASYNC_LIB_EXPORT void RouterEventHandler();
 private:
-    EGRESS_ASYNC_LIB_EXPORT void ReadZmqThreadFunc();
-    EGRESS_ASYNC_LIB_EXPORT void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
-    EGRESS_ASYNC_LIB_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    EGRESS_ASYNC_LIB_NO_EXPORT void ReadZmqThreadFunc();
+    EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
+    EGRESS_ASYNC_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
 
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;

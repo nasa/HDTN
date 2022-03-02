@@ -222,7 +222,7 @@ void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost:
     }
 }
 
-bool TcpclBundleSource::ReadyToForward() {
+bool TcpclBundleSource::ReadyToForward() const {
     return m_base_readyToForward;
 }
 

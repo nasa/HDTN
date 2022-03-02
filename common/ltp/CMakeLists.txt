@@ -20,6 +20,8 @@ add_library(ltp_lib
 	src/LtpClientServiceDataToSend.cpp
 )
 GENERATE_EXPORT_HEADER(ltp_lib)
+set_property(TARGET ltp_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+set_property(TARGET ltp_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 install(TARGETS ltp_lib DESTINATION lib)
 install(FILES
 	include/Ltp.h

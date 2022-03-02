@@ -6,7 +6,7 @@
 #include "TcpclBundleSource.h"
 #include <list>
 
-class TcpclOutduct : public Outduct {
+class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB TcpclOutduct : public Outduct {
 public:
     OUTDUCT_MANAGER_LIB_EXPORT TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());

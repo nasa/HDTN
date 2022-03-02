@@ -1,6 +1,13 @@
 #ifndef _BP_SOURCE_PATTERN_H
 #define _BP_SOURCE_PATTERN_H 1
-
+#include "bp_app_patterns_lib_export.h"
+#ifndef CLASS_VISIBILITY_BP_APP_PATTERNS_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_BP_APP_PATTERNS_LIB
+#  else
+#    define CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BP_APP_PATTERNS_LIB_EXPORT
+#  endif
+#endif
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
@@ -8,9 +15,9 @@
 #include "InductManager.h"
 #include "codec/bpv6.h"
 #include "codec/CustodyTransferManager.h"
-#include "bp_app_patterns_lib_export.h"
 
-class BpSourcePattern {
+
+class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSourcePattern {
 public:
     BP_APP_PATTERNS_LIB_EXPORT BpSourcePattern();
     BP_APP_PATTERNS_LIB_EXPORT virtual ~BpSourcePattern();
@@ -39,10 +46,10 @@ protected:
     virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) = 0;
     BP_APP_PATTERNS_LIB_EXPORT virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
 private:
-    BP_APP_PATTERNS_LIB_EXPORT void BpSourcePatternThreadFunc(uint32_t bundleRate);
-    BP_APP_PATTERNS_LIB_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
-    BP_APP_PATTERNS_LIB_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
-    BP_APP_PATTERNS_LIB_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void BpSourcePatternThreadFunc(uint32_t bundleRate);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
 
 
     OutductManager m_outductManager;
