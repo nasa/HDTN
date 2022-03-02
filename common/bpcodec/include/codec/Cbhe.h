@@ -12,8 +12,15 @@
 #include <cstddef>
 #include <ostream>
 #include "bpcodec_export.h"
+#ifndef CLASS_VISIBILITY_BPCODEC
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_BPCODEC
+#  else
+#    define CLASS_VISIBILITY_BPCODEC BPCODEC_EXPORT
+#  endif
+#endif
 
-struct cbhe_eid_t {
+struct CLASS_VISIBILITY_BPCODEC cbhe_eid_t {
     uint64_t nodeId;
     uint64_t serviceId;
     
@@ -42,7 +49,7 @@ struct cbhe_eid_t {
     BPCODEC_EXPORT friend std::ostream& operator<<(std::ostream& os, const cbhe_eid_t& o);
 };
 
-struct cbhe_bundle_uuid_t {
+struct CLASS_VISIBILITY_BPCODEC cbhe_bundle_uuid_t { //class visibility needed for HashMap16BitFixedSize.h
 
     //The creation timestamp is a pair of SDNVs that,
     //together with the source endpoint ID and (if the bundle is a
@@ -77,7 +84,7 @@ struct cbhe_bundle_uuid_t {
     BPCODEC_EXPORT bool operator<(const cbhe_bundle_uuid_t & o) const; //operator < so it can be used as a map key
 };
 
-struct cbhe_bundle_uuid_nofragment_t {
+struct CLASS_VISIBILITY_BPCODEC cbhe_bundle_uuid_nofragment_t { //class visibility needed for HashMap16BitFixedSize.h
 
     uint64_t creationSeconds;
     uint64_t sequence;

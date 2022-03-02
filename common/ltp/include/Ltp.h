@@ -110,7 +110,7 @@ class Ltp {
 
 
 public:
-    struct session_id_t {
+    struct CLASS_VISIBILITY_LTP_LIB session_id_t { //class visibility needed for LtpTimerManager
         uint64_t sessionOriginatorEngineId;
         uint64_t sessionNumber;
 

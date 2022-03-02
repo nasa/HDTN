@@ -251,7 +251,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6PreviousHopInsertionCanonicalBlock : public 
 };
 
 //https://datatracker.ietf.org/doc/html/draft-irtf-dtnrg-bundle-age-block-01
-struct Bpv6BundleAgeCanonicalBlock : public Bpv6CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv6BundleAgeCanonicalBlock : public Bpv6CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize = 10; //sdnv bundle age
 
     BPCODEC_EXPORT Bpv6BundleAgeCanonicalBlock(); //a default constructor: X()
