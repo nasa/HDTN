@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 
-add_library(induct_manager_lib STATIC
+add_library(induct_manager_lib
 	src/Induct.cpp
 	src/TcpclInduct.cpp
 	src/TcpclV4Induct.cpp
@@ -13,7 +13,24 @@ add_library(induct_manager_lib STATIC
 	src/LtpOverUdpInduct.cpp
 	src/InductManager.cpp
 )
-
+GENERATE_EXPORT_HEADER(induct_manager_lib)
+get_target_property(target_type induct_manager_lib TYPE)
+if (target_type STREQUAL SHARED_LIBRARY)
+	set_property(TARGET induct_manager_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
+	set_property(TARGET induct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
+endif()
+install(TARGETS induct_manager_lib DESTINATION lib)
+install(FILES
+	include/Induct.h
+	include/InductManager.h
+	include/LtpOverUdpInduct.h
+	include/StcpInduct.h
+	include/TcpclInduct.h
+	include/TcpclV4Induct.h
+	include/UdpInduct.h
+	${PROJECT_BINARY_DIR}/induct_manager_lib_export.h
+	DESTINATION include
+)
 target_link_libraries(induct_manager_lib 
 	hdtn_util
 	config_lib
@@ -24,6 +41,6 @@ target_link_libraries(induct_manager_lib
 	${Boost_LIBRARIES}
 	${pthread_LIB}
 )
-target_include_directories(induct_manager_lib PUBLIC include ${Boost_INCLUDE_DIRS})
+target_include_directories(induct_manager_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
 
 

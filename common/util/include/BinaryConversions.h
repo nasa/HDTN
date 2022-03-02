@@ -6,8 +6,9 @@
 #include <vector>
 #include <string>
 #include <boost/version.hpp>
+#include "hdtn_util_export.h"
 
-class BinaryConversions {
+class HDTN_UTIL_EXPORT BinaryConversions {
 public:
 #if (BOOST_VERSION >= 106600)
     static void DecodeBase64(const std::string & strBase64, std::vector<uint8_t> & binaryDecodedMessage);

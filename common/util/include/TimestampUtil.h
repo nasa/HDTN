@@ -5,11 +5,11 @@
 #include <ctime>
 #include <boost/date_time.hpp>
 #include <ostream>
+#include "hdtn_util_export.h"
 
-class TimestampUtil {
+class HDTN_UTIL_EXPORT TimestampUtil {
 private:
     TimestampUtil();
-    virtual ~TimestampUtil();
 
 public:
 
@@ -25,22 +25,22 @@ public:
 
         static constexpr unsigned int MAX_BUFFER_SIZE = 18; //MAX(sizeof(__m128i), 10 + sizeof(__m64i)) 
 
-        dtn_time_t(); //a default constructor: X()
-        dtn_time_t(uint64_t paramSecondsSinceStartOfYear2000, uint32_t paramNanosecondsSinceStartOfIndicatedSecond);
-        ~dtn_time_t(); //a destructor: ~X()
-        dtn_time_t(const dtn_time_t& o); //a copy constructor: X(const X&)
-        dtn_time_t(dtn_time_t&& o); //a move constructor: X(X&&)
-        dtn_time_t& operator=(const dtn_time_t& o); //a copy assignment: operator=(const X&)
-        dtn_time_t& operator=(dtn_time_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const dtn_time_t & o) const; //operator ==
-        bool operator!=(const dtn_time_t & o) const; //operator !=
-        bool operator<(const dtn_time_t & o) const; //operator < so it can be used as a map key
-        friend std::ostream& operator<<(std::ostream& os, const dtn_time_t& o);
-        uint64_t SerializeBpv6(uint8_t * serialization) const;
-        uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
-        uint64_t GetSerializationSizeBpv6() const;
-        bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
-        void SetZero();
+        HDTN_UTIL_EXPORT dtn_time_t(); //a default constructor: X()
+        HDTN_UTIL_EXPORT dtn_time_t(uint64_t paramSecondsSinceStartOfYear2000, uint32_t paramNanosecondsSinceStartOfIndicatedSecond);
+        HDTN_UTIL_EXPORT ~dtn_time_t(); //a destructor: ~X()
+        HDTN_UTIL_EXPORT dtn_time_t(const dtn_time_t& o); //a copy constructor: X(const X&)
+        HDTN_UTIL_EXPORT dtn_time_t(dtn_time_t&& o); //a move constructor: X(X&&)
+        HDTN_UTIL_EXPORT dtn_time_t& operator=(const dtn_time_t& o); //a copy assignment: operator=(const X&)
+        HDTN_UTIL_EXPORT dtn_time_t& operator=(dtn_time_t&& o); //a move assignment: operator=(X&&)
+        HDTN_UTIL_EXPORT bool operator==(const dtn_time_t & o) const; //operator ==
+        HDTN_UTIL_EXPORT bool operator!=(const dtn_time_t & o) const; //operator !=
+        HDTN_UTIL_EXPORT bool operator<(const dtn_time_t & o) const; //operator < so it can be used as a map key
+        HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const dtn_time_t& o);
+        HDTN_UTIL_EXPORT uint64_t SerializeBpv6(uint8_t * serialization) const;
+        HDTN_UTIL_EXPORT uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+        HDTN_UTIL_EXPORT uint64_t GetSerializationSizeBpv6() const;
+        HDTN_UTIL_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+        HDTN_UTIL_EXPORT void SetZero();
     };
 
     //Bpv6:
@@ -68,26 +68,26 @@ public:
         uint64_t secondsSinceStartOfYear2000;
         uint64_t sequenceNumber;
 
-        bpv6_creation_timestamp_t(); //a default constructor: X()
-        bpv6_creation_timestamp_t(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber);
-        ~bpv6_creation_timestamp_t(); //a destructor: ~X()
-        bpv6_creation_timestamp_t(const bpv6_creation_timestamp_t& o); //a copy constructor: X(const X&)
-        bpv6_creation_timestamp_t(bpv6_creation_timestamp_t&& o); //a move constructor: X(X&&)
-        bpv6_creation_timestamp_t& operator=(const bpv6_creation_timestamp_t& o); //a copy assignment: operator=(const X&)
-        bpv6_creation_timestamp_t& operator=(bpv6_creation_timestamp_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const bpv6_creation_timestamp_t & o) const; //operator ==
-        bool operator!=(const bpv6_creation_timestamp_t & o) const; //operator !=
-        bool operator<(const bpv6_creation_timestamp_t & o) const; //operator < so it can be used as a map key
-        friend std::ostream& operator<<(std::ostream& os, const bpv6_creation_timestamp_t& o);
-        uint64_t SerializeBpv6(uint8_t * serialization) const;
-        uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
-        uint64_t GetSerializationSizeBpv6() const;
-        bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
-        void SetZero();
-        boost::posix_time::ptime GetPtime() const;
-        void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
-        std::string GetUtcTimestampString(bool forFileName) const;
-        void SetTimeFromNow();
+        HDTN_UTIL_EXPORT bpv6_creation_timestamp_t(); //a default constructor: X()
+        HDTN_UTIL_EXPORT bpv6_creation_timestamp_t(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber);
+        HDTN_UTIL_EXPORT ~bpv6_creation_timestamp_t(); //a destructor: ~X()
+        HDTN_UTIL_EXPORT bpv6_creation_timestamp_t(const bpv6_creation_timestamp_t& o); //a copy constructor: X(const X&)
+        HDTN_UTIL_EXPORT bpv6_creation_timestamp_t(bpv6_creation_timestamp_t&& o); //a move constructor: X(X&&)
+        HDTN_UTIL_EXPORT bpv6_creation_timestamp_t& operator=(const bpv6_creation_timestamp_t& o); //a copy assignment: operator=(const X&)
+        HDTN_UTIL_EXPORT bpv6_creation_timestamp_t& operator=(bpv6_creation_timestamp_t&& o); //a move assignment: operator=(X&&)
+        HDTN_UTIL_EXPORT bool operator==(const bpv6_creation_timestamp_t & o) const; //operator ==
+        HDTN_UTIL_EXPORT bool operator!=(const bpv6_creation_timestamp_t & o) const; //operator !=
+        HDTN_UTIL_EXPORT bool operator<(const bpv6_creation_timestamp_t & o) const; //operator < so it can be used as a map key
+        HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const bpv6_creation_timestamp_t& o);
+        HDTN_UTIL_EXPORT uint64_t SerializeBpv6(uint8_t * serialization) const;
+        HDTN_UTIL_EXPORT uint64_t SerializeBpv6(uint8_t * serialization, uint64_t bufferSize) const;
+        HDTN_UTIL_EXPORT uint64_t GetSerializationSizeBpv6() const;
+        HDTN_UTIL_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+        HDTN_UTIL_EXPORT void SetZero();
+        HDTN_UTIL_EXPORT boost::posix_time::ptime GetPtime() const;
+        HDTN_UTIL_EXPORT void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
+        HDTN_UTIL_EXPORT std::string GetUtcTimestampString(bool forFileName) const;
+        HDTN_UTIL_EXPORT void SetTimeFromNow();
     };
 
     //Bpv7:
@@ -121,26 +121,26 @@ public:
 
         static constexpr unsigned int MAX_BUFFER_SIZE = 18; //MAX(sizeof(__m128i), 10 + sizeof(__m64i)) 
 
-        bpv7_creation_timestamp_t(); //a default constructor: X()
-        bpv7_creation_timestamp_t(uint64_t paramMillisecondsSinceStartOfYear2000, uint32_t paramSequenceNumber);
-        ~bpv7_creation_timestamp_t(); //a destructor: ~X()
-        bpv7_creation_timestamp_t(const bpv7_creation_timestamp_t& o); //a copy constructor: X(const X&)
-        bpv7_creation_timestamp_t(bpv7_creation_timestamp_t&& o); //a move constructor: X(X&&)
-        bpv7_creation_timestamp_t& operator=(const bpv7_creation_timestamp_t& o); //a copy assignment: operator=(const X&)
-        bpv7_creation_timestamp_t& operator=(bpv7_creation_timestamp_t&& o); //a move assignment: operator=(X&&)
-        bool operator==(const bpv7_creation_timestamp_t & o) const; //operator ==
-        bool operator!=(const bpv7_creation_timestamp_t & o) const; //operator !=
-        bool operator<(const bpv7_creation_timestamp_t & o) const; //operator < so it can be used as a map key
-        friend std::ostream& operator<<(std::ostream& os, const bpv7_creation_timestamp_t& o);
-        uint64_t SerializeBpv7(uint8_t * serialization) const;
-        uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
-        uint64_t GetSerializationSize() const;
-        bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
-        void SetZero();
-        boost::posix_time::ptime GetPtime() const;
-        void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
-        std::string GetUtcTimestampString(bool forFileName) const;
-        void SetTimeFromNow();
+        HDTN_UTIL_EXPORT bpv7_creation_timestamp_t(); //a default constructor: X()
+        HDTN_UTIL_EXPORT bpv7_creation_timestamp_t(uint64_t paramMillisecondsSinceStartOfYear2000, uint32_t paramSequenceNumber);
+        HDTN_UTIL_EXPORT ~bpv7_creation_timestamp_t(); //a destructor: ~X()
+        HDTN_UTIL_EXPORT bpv7_creation_timestamp_t(const bpv7_creation_timestamp_t& o); //a copy constructor: X(const X&)
+        HDTN_UTIL_EXPORT bpv7_creation_timestamp_t(bpv7_creation_timestamp_t&& o); //a move constructor: X(X&&)
+        HDTN_UTIL_EXPORT bpv7_creation_timestamp_t& operator=(const bpv7_creation_timestamp_t& o); //a copy assignment: operator=(const X&)
+        HDTN_UTIL_EXPORT bpv7_creation_timestamp_t& operator=(bpv7_creation_timestamp_t&& o); //a move assignment: operator=(X&&)
+        HDTN_UTIL_EXPORT bool operator==(const bpv7_creation_timestamp_t & o) const; //operator ==
+        HDTN_UTIL_EXPORT bool operator!=(const bpv7_creation_timestamp_t & o) const; //operator !=
+        HDTN_UTIL_EXPORT bool operator<(const bpv7_creation_timestamp_t & o) const; //operator < so it can be used as a map key
+        HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const bpv7_creation_timestamp_t& o);
+        HDTN_UTIL_EXPORT uint64_t SerializeBpv7(uint8_t * serialization) const;
+        HDTN_UTIL_EXPORT uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const;
+        HDTN_UTIL_EXPORT uint64_t GetSerializationSize() const;
+        HDTN_UTIL_EXPORT bool DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
+        HDTN_UTIL_EXPORT void SetZero();
+        HDTN_UTIL_EXPORT boost::posix_time::ptime GetPtime() const;
+        HDTN_UTIL_EXPORT void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
+        HDTN_UTIL_EXPORT std::string GetUtcTimestampString(bool forFileName) const;
+        HDTN_UTIL_EXPORT void SetTimeFromNow();
     };
 
     static const boost::posix_time::ptime & GetRfc5050Epoch();

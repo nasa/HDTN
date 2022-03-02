@@ -23,38 +23,38 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
         uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
         const std::string & remoteUdpHostname, const uint16_t remoteUdpPort*/
-    LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
+    LTP_LIB_EXPORT LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
         const std::string & remoteUdpHostname, const uint16_t remoteUdpPort);
 
-    ~LtpBundleSource();
-    void Stop();
-    bool Forward(const uint8_t* bundleData, const std::size_t size);
-    bool Forward(zmq::message_t & dataZmq);
-    bool Forward(std::vector<uint8_t> & dataVec);
-    std::size_t GetTotalDataSegmentsAcked();
-    std::size_t GetTotalDataSegmentsSent();
-    std::size_t GetTotalDataSegmentsUnacked();
+    LTP_LIB_EXPORT ~LtpBundleSource();
+    LTP_LIB_EXPORT void Stop();
+    LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size);
+    LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq);
+    LTP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec);
+    LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
+    LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
+    LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
     //std::size_t GetTotalBundleBytesAcked();
-    std::size_t GetTotalBundleBytesSent();
+    LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
     //std::size_t GetTotalBundleBytesUnacked();
-    void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+    LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    void RemoveCallback();
+    LTP_LIB_NO_EXPORT void RemoveCallback();
 
     //ltp callback functions for a sender
-    void SessionStartCallback(const Ltp::session_id_t & sessionId);
-    void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId);
-    void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId);
-    void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
+    LTP_LIB_NO_EXPORT void SessionStartCallback(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId);
+    LTP_LIB_NO_EXPORT void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode);
 
     volatile bool m_useLocalConditionVariableAckReceived;
     boost::condition_variable m_localConditionVariableAckReceived;
 
     //ltp vars
-    LtpUdpEngineManager * const m_ltpUdpEngineManagerPtr;
+    std::shared_ptr<LtpUdpEngineManager> m_ltpUdpEngineManagerPtr;
     LtpUdpEngine * m_ltpUdpEnginePtr;
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_THIS_ENGINE_ID;

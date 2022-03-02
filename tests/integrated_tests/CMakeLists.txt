@@ -6,7 +6,6 @@ SET(STORAGE_LIBRARY_NAME storage_lib)
 add_executable(integrated-tests
 	src/it_test_main.cpp
         src/integrated_tests.cpp
-	../../common/logger/src/Logger.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsync.cpp
         ../../common/bpcodec/apps/bpgen/src/BpGenAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
@@ -15,13 +14,12 @@ add_executable(integrated-tests
         ../../module/storage/src/test/ReleaseSender.cpp
         ../../module/scheduler/src/scheduler.cpp
 )
-
+install(TARGETS integrated-tests DESTINATION bin)
 target_include_directories(integrated-tests PUBLIC include
     ../../module/storage/src/test
     ../../module/storage/include
     ../../module/scheduler/include
     ../../common/include
-    ../../common/pool/include
     ../../common/logger/include
     ../../common/regsvr/lib/include
     ../../common/bpcodec/include
@@ -53,7 +51,7 @@ add_executable(cgr-test
     src/cgr_tests.cpp
     ../../module/scheduler/src/cgrServer.cpp
 )
-
+install(TARGETS cgr-test DESTINATION bin)
 target_include_directories(cgr-test PUBLIC include
     ../../module/scheduler/include
         lib/include

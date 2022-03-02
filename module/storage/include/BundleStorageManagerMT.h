@@ -4,18 +4,18 @@
 #include "BundleStorageManagerBase.h"
 
 
-class BundleStorageManagerMT : public BundleStorageManagerBase {
+class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerMT : public BundleStorageManagerBase {
 public:
-    BundleStorageManagerMT();
-    BundleStorageManagerMT(const std::string & jsonConfigFileName);
-    BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr);
-    virtual ~BundleStorageManagerMT();
-    virtual void Start();
+    STORAGE_LIB_EXPORT BundleStorageManagerMT();
+    STORAGE_LIB_EXPORT BundleStorageManagerMT(const std::string & jsonConfigFileName);
+    STORAGE_LIB_EXPORT BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr);
+    STORAGE_LIB_EXPORT virtual ~BundleStorageManagerMT();
+    STORAGE_LIB_EXPORT virtual void Start();
 
 
 private:
-    void ThreadFunc(unsigned int threadIndex);
-    virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
+    STORAGE_LIB_NO_EXPORT void ThreadFunc(unsigned int threadIndex);
+    STORAGE_LIB_NO_EXPORT virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
 private:
 
     //boost::condition_variable m_conditionVariables[NUM_STORAGE_THREADS];

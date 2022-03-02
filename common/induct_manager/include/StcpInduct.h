@@ -6,18 +6,18 @@
 #include "StcpBundleSink.h"
 #include <list>
 
-class StcpInduct : public Induct {
+class CLASS_VISIBILITY_INDUCT_MANAGER_LIB StcpInduct : public Induct {
 public:
-    StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
-    virtual ~StcpInduct();
+    INDUCT_MANAGER_LIB_EXPORT StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes);
+    INDUCT_MANAGER_LIB_EXPORT virtual ~StcpInduct();
     
 private:
-    StcpInduct();
-    void StartTcpAccept();
-    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error);
-    void ConnectionReadyToBeDeletedNotificationReceived();
-    void RemoveInactiveTcpConnections();
-    void DisableRemoveInactiveTcpConnections();
+    INDUCT_MANAGER_LIB_EXPORT StcpInduct();
+    INDUCT_MANAGER_LIB_EXPORT void StartTcpAccept();
+    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error);
+    INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();
+    INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveTcpConnections();
+    INDUCT_MANAGER_LIB_EXPORT void DisableRemoveInactiveTcpConnections();
 
     boost::asio::io_service m_ioService;
     boost::asio::ip::tcp::acceptor m_tcpAcceptor;

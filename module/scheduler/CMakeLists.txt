@@ -6,7 +6,7 @@ add_executable(hdtn-scheduler
     src/scheduler.cpp
     src/main.cpp
 )
-
+install(TARGETS hdtn-scheduler DESTINATION bin)
 target_link_libraries(hdtn-scheduler
 	bpcodec
 	hdtn_util

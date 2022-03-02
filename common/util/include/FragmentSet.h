@@ -10,10 +10,11 @@ Used by LtpFragmentSet and AGGREGATE CUSTODY SIGNAL(ACS) / CUSTODY TRANSFER ENHA
 #include <cstdint>
 #include <vector>
 #include <set>
+#include "hdtn_util_export.h"
 
-class FragmentSet {
+class HDTN_UTIL_EXPORT FragmentSet {
 public:
-    struct data_fragment_t {
+    struct HDTN_UTIL_EXPORT data_fragment_t {
         uint64_t beginIndex;
         uint64_t endIndex;
 
@@ -37,14 +38,6 @@ public:
     static bool DoesNotContainFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
     static void RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
     static void PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet);
-
-    FragmentSet(); //a default constructor: X()
-    virtual ~FragmentSet(); //a destructor: ~X()
-    
-
-private:
-
-    
 };
 
 #endif // FRAGMENT_SET_H

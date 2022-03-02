@@ -1,6 +1,13 @@
 #ifndef _BIDIRECTIONAL_LINK_H
 #define _BIDIRECTIONAL_LINK_H 1
-
+#include "tcpcl_lib_export.h"
+#ifndef CLASS_VISIBILITY_TCPCL_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_TCPCL_LIB
+#  else
+#    define CLASS_VISIBILITY_TCPCL_LIB TCPCL_LIB_EXPORT
+#  endif
+#endif
 #include <string>
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>

@@ -20,18 +20,18 @@ allocate integer range from [N*256+0, N*256+1, ... ,  N*256+255]
 class CustodyIdAllocator {
 public:
     
-    CustodyIdAllocator();
-    ~CustodyIdAllocator();
+    BPCODEC_EXPORT CustodyIdAllocator();
+    BPCODEC_EXPORT ~CustodyIdAllocator();
 
-    void InitializeAddUsedCustodyId(const uint64_t custodyId);
-    void InitializeAddUsedCustodyIdRange(const uint64_t custodyIdBegin, const uint64_t custodyIdEnd);
-    uint64_t FreeCustodyId(const uint64_t custodyId); //return number of multipliers freed
-    uint64_t FreeCustodyIdRange(const uint64_t custodyIdBegin, const uint64_t custodyIdEnd); //return number of multipliers freed
-    void ReserveNextCustodyIdBlock();
-    void Reset();
-    uint64_t GetNextCustodyIdForNextHopCtebToSend(const cbhe_eid_t & bundleSrcEid);
-    void PrintUsedCustodyIds();
-    void PrintUsedCustodyIdMultipliers();
+    BPCODEC_EXPORT void InitializeAddUsedCustodyId(const uint64_t custodyId);
+    BPCODEC_EXPORT void InitializeAddUsedCustodyIdRange(const uint64_t custodyIdBegin, const uint64_t custodyIdEnd);
+    BPCODEC_EXPORT uint64_t FreeCustodyId(const uint64_t custodyId); //return number of multipliers freed
+    BPCODEC_EXPORT uint64_t FreeCustodyIdRange(const uint64_t custodyIdBegin, const uint64_t custodyIdEnd); //return number of multipliers freed
+    BPCODEC_EXPORT void ReserveNextCustodyIdBlock();
+    BPCODEC_EXPORT void Reset();
+    BPCODEC_EXPORT uint64_t GetNextCustodyIdForNextHopCtebToSend(const cbhe_eid_t & bundleSrcEid);
+    BPCODEC_EXPORT void PrintUsedCustodyIds();
+    BPCODEC_EXPORT void PrintUsedCustodyIdMultipliers();
 private:
 
     uint64_t m_myNextCustodyIdAllocationBeginForNextHopCtebToSend;

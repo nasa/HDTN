@@ -5,6 +5,7 @@
 #include <list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
+#include "ltp_lib_export.h"
 
 //Single threaded class designed to run and be called from ioService thread only
 
@@ -15,17 +16,17 @@ private:
     LtpTimerManager();
 public:
     typedef boost::function<void(idType serialNumber, std::vector<uint8_t> & userData)> LtpTimerExpiredCallback_t;
-    LtpTimerManager(boost::asio::io_service & ioService, const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const LtpTimerExpiredCallback_t & callback);
-    ~LtpTimerManager();
-    void Reset();
+    LTP_LIB_EXPORT LtpTimerManager(boost::asio::io_service & ioService, const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, const LtpTimerExpiredCallback_t & callback);
+    LTP_LIB_EXPORT ~LtpTimerManager();
+    LTP_LIB_EXPORT void Reset();
        
-    bool StartTimer(const idType serialNumber, std::vector<uint8_t> userData = std::vector<uint8_t>());
-    bool DeleteTimer(const idType serialNumber);
-    bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned);
-    bool Empty() const;
+    LTP_LIB_EXPORT bool StartTimer(const idType serialNumber, std::vector<uint8_t> userData = std::vector<uint8_t>());
+    LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber);
+    LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned);
+    LTP_LIB_EXPORT bool Empty() const;
     //std::vector<uint8_t> & GetUserDataRef(const uint64_t serialNumber);
 private:
-    void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
+    LTP_LIB_NO_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);
 private:
     boost::asio::deadline_timer m_deadlineTimer;
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;

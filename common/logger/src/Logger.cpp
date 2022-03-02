@@ -1,6 +1,14 @@
 #include "Logger.h"
 //#define BOOST_LOG_DYN_LINK 1
 
+static const char* severity_strings[] =
+{
+    "Info",
+    "Notification",
+    "Warning",
+    "Error",
+    "Critical"
+};
 
 namespace logging = boost::log;
 namespace src = boost::log::sources;
@@ -46,6 +54,7 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", hdtn::severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", std::string)
 
 //Not used by Logger but here anyway? I didn't write this but used in other code
+/*
 std::string Datetime(){
 #ifndef _WIN32
     time_t rawtime;
@@ -61,6 +70,7 @@ std::string Datetime(){
     return "";
 #endif // ! _WIN32
 }
+*/
 
 Logger::Logger()
 {

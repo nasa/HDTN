@@ -4,33 +4,33 @@
 #include <boost/integer.hpp>
 #include <stdint.h>
 #include "BundleStorageConfig.h"
-
+#include "storage_lib_export.h"
 
 struct MemoryManagerLeafNode {
-	boost::uint64_t m_bitMask;
+    uint64_t m_bitMask;
 };
 
 struct MemoryManagerInnerNode {
-	boost::uint64_t m_bitMask;
-	void * m_childNodes; //array of 64 child nodes or leafnodes
+    uint64_t m_bitMask;
+    void * m_childNodes; //array of 64 child nodes or leafnodes
 };
 
 class MemoryManagerTree {
 public:
-	void SetupTree();
-	void FreeTree();
-	boost::uint32_t GetAndSetFirstFreeSegmentId();
-	bool FreeSegmentId(boost::uint32_t segmentId);
+    STORAGE_LIB_EXPORT void SetupTree();
+    STORAGE_LIB_EXPORT void FreeTree();
+    STORAGE_LIB_EXPORT boost::uint32_t GetAndSetFirstFreeSegmentId();
+    STORAGE_LIB_EXPORT bool FreeSegmentId(boost::uint32_t segmentId);
 
 private:
-	void SetupTree(const int depth, void *node);
-	void FreeTree(const int depth, void *node);
-	void GetAndSetFirstFreeSegmentId(const int depth, void *node, boost::uint32_t * segmentId);
-	void FreeSegmentId(const int depth, void *node, boost::uint32_t segmentId, bool *success);
+    STORAGE_LIB_NO_EXPORT void SetupTree(const int depth, void *node);
+    STORAGE_LIB_NO_EXPORT void FreeTree(const int depth, void *node);
+    STORAGE_LIB_NO_EXPORT void GetAndSetFirstFreeSegmentId(const int depth, void *node, boost::uint32_t * segmentId);
+    STORAGE_LIB_NO_EXPORT void FreeSegmentId(const int depth, void *node, boost::uint32_t segmentId, bool *success);
 
 private:
 
-	MemoryManagerInnerNode m_rootNode;
+    MemoryManagerInnerNode m_rootNode;
 };
 
 

@@ -8,7 +8,7 @@ add_executable(bpgen-async
     	       bpgen/src/BpGenAsyncMain.cpp
                bpgen/src/BpGenAsyncRunner.cpp
 )
-
+install(TARGETS bpgen-async DESTINATION bin)
 
 target_include_directories(bpgen-async PUBLIC 
 	../include
@@ -22,7 +22,7 @@ add_executable(bping
     	       bping/src/BPingMain.cpp
                bping/src/BPingRunner.cpp
 )
-
+install(TARGETS bping DESTINATION bin)
 target_include_directories(bping PUBLIC 
 	../include
 	bping/include
@@ -36,7 +36,7 @@ add_executable(bpsink-async
                bpsink/BpSinkAsyncMain.cpp
 	       bpsink/BpSinkAsyncRunner.cpp
 )
-
+install(TARGETS bpsink-async DESTINATION bin)
 target_include_directories(bpsink-async PUBLIC
 	../include 
 	bpsink/include
@@ -49,7 +49,7 @@ add_executable(bpsendfile
     	       bpsendfile/src/BpSendFileMain.cpp
                bpsendfile/src/BpSendFileRunner.cpp
 )
-
+install(TARGETS bpsendfile DESTINATION bin)
 target_include_directories(bpsendfile PUBLIC 
 	../include
 	bpsendfile/include
@@ -62,7 +62,7 @@ add_executable(bpreceivefile
     	       bpreceivefile/src/BpReceiveFileMain.cpp
                bpreceivefile/src/BpReceiveFileRunner.cpp
 )
-
+install(TARGETS bpreceivefile DESTINATION bin)
 target_include_directories(bpreceivefile PUBLIC 
 	../include
 	bpreceivefile/include

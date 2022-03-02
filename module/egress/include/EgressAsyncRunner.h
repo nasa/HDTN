@@ -3,19 +3,19 @@
 
 #include <stdint.h>
 #include "Logger.h"
-
+#include "egress_async_lib_export.h"
 
 class EgressAsyncRunner {
 public:
-    EgressAsyncRunner();
-    ~EgressAsyncRunner();
-    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    EGRESS_ASYNC_LIB_EXPORT EgressAsyncRunner();
+    EGRESS_ASYNC_LIB_EXPORT ~EgressAsyncRunner();
+    EGRESS_ASYNC_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
     uint64_t m_bundleCount;
     uint64_t m_bundleData;
     uint64_t m_messageCount;
 
 private:
-    void MonitorExitKeypressThreadFunction();
+    EGRESS_ASYNC_LIB_NO_EXPORT void MonitorExitKeypressThreadFunction();
 
     volatile bool m_runningFromSigHandler;
 };

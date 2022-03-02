@@ -14,29 +14,29 @@ class OutductManager {
 public:
     typedef boost::function<void(uint64_t outductUuidIndex)> OutductManager_OnSuccessfulOutductAckCallback_t;
 
-    OutductManager();
-    ~OutductManager();
-    bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxOpportunisticRxBundleSizeBytes,
+    OUTDUCT_MANAGER_LIB_EXPORT OutductManager();
+    OUTDUCT_MANAGER_LIB_EXPORT ~OutductManager();
+    OUTDUCT_MANAGER_LIB_EXPORT bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxOpportunisticRxBundleSizeBytes,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
-    void Clear();
-    bool AllReadyToForward() const;
-    void StopAllOutducts();
-    Outduct * GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid);
-    Outduct * GetOutductByOutductUuid(const uint64_t uuid);
-    void SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr);
-    boost::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
-    Outduct * GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid);
-    void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
+    OUTDUCT_MANAGER_LIB_EXPORT void Clear();
+    OUTDUCT_MANAGER_LIB_EXPORT bool AllReadyToForward() const;
+    OUTDUCT_MANAGER_LIB_EXPORT void StopAllOutducts();
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid);
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByOutductUuid(const uint64_t uuid);
+    OUTDUCT_MANAGER_LIB_EXPORT void SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr);
+    OUTDUCT_MANAGER_LIB_EXPORT boost::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid);
+    OUTDUCT_MANAGER_LIB_EXPORT void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
 
-    bool Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size);
-    bool Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq);
-    bool Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec);
 
-    bool Forward_Blocking(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds);
-    bool Forward_Blocking(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds);
-    bool Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds);
 private:
-    void OnSuccessfulBundleAck(uint64_t uuidIndex);
+    OUTDUCT_MANAGER_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t uuidIndex);
 
     struct thread_communication_t {
         boost::condition_variable m_cv;

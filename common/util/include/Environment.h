@@ -4,8 +4,9 @@
 #include <cstdlib>
 #include <string>
 #include <boost/filesystem.hpp>
+#include "hdtn_util_export.h"
 
-class Environment {
+class HDTN_UTIL_EXPORT Environment {
 protected:
     Environment() = default;
     virtual ~Environment() = default;
