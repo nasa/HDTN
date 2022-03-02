@@ -6,6 +6,7 @@
 #include <boost/thread.hpp>
 #include <cstdint>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "hdtn_util_export.h"
 
 typedef boost::function<void()> PacketsSentCallback_t;
 
@@ -13,30 +14,30 @@ class RateManagerAsync {
 private:
     RateManagerAsync();
 public:
-    RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent);
-    ~RateManagerAsync();
+    HDTN_UTIL_EXPORT RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent);
+    HDTN_UTIL_EXPORT ~RateManagerAsync();
 
-    void Reset();
+    HDTN_UTIL_EXPORT void Reset();
     
-    std::size_t GetTotalPacketsCompletelySent();
-    std::size_t GetTotalPacketsDequeuedForSend();
-    std::size_t GetTotalPacketsBeingSent();
-    std::size_t GetTotalBytesCompletelySent();
-    std::size_t GetTotalBytesDequeuedForSend();
-    std::size_t GetTotalBytesBeingSent();
+    HDTN_UTIL_EXPORT std::size_t GetTotalPacketsCompletelySent();
+    HDTN_UTIL_EXPORT std::size_t GetTotalPacketsDequeuedForSend();
+    HDTN_UTIL_EXPORT std::size_t GetTotalPacketsBeingSent();
+    HDTN_UTIL_EXPORT std::size_t GetTotalBytesCompletelySent();
+    HDTN_UTIL_EXPORT std::size_t GetTotalBytesDequeuedForSend();
+    HDTN_UTIL_EXPORT std::size_t GetTotalBytesBeingSent();
 
-    void WaitForAllDequeuedPacketsToFullySend_Blocking(unsigned int timeoutSeconds = 1000, bool printStats = false);
-    void WaitForAvailabilityToSendPacket_Blocking(unsigned int timeoutSeconds = 1000);
-    bool HasAvailabilityToSendPacket();
-    void SetPacketsSentCallback(const PacketsSentCallback_t & callback);
-    void SetRate(uint64_t rateBitsPerSec);
-    void NotifyPacketSentFromCallback_ThreadSafe(std::size_t bytes_transferred);
-    bool IoServiceThreadNotifyPacketSentCallback(std::size_t bytes_transferred);
-    bool SignalNewPacketDequeuedForSend(uint64_t packetSizeBytes);
+    HDTN_UTIL_EXPORT void WaitForAllDequeuedPacketsToFullySend_Blocking(unsigned int timeoutSeconds = 1000, bool printStats = false);
+    HDTN_UTIL_EXPORT void WaitForAvailabilityToSendPacket_Blocking(unsigned int timeoutSeconds = 1000);
+    HDTN_UTIL_EXPORT bool HasAvailabilityToSendPacket();
+    HDTN_UTIL_EXPORT void SetPacketsSentCallback(const PacketsSentCallback_t & callback);
+    HDTN_UTIL_EXPORT void SetRate(uint64_t rateBitsPerSec);
+    HDTN_UTIL_EXPORT void NotifyPacketSentFromCallback_ThreadSafe(std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT bool IoServiceThreadNotifyPacketSentCallback(std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT bool SignalNewPacketDequeuedForSend(uint64_t packetSizeBytes);
 private:
    
-    void TryRestartRateTimer();
-    void OnRate_TimerExpired(const boost::system::error_code& e);
+    HDTN_UTIL_EXPORT void TryRestartRateTimer();
+    HDTN_UTIL_EXPORT void OnRate_TimerExpired(const boost::system::error_code& e);
 private:
     boost::asio::io_service & m_ioServiceRef;
     boost::asio::deadline_timer m_rateTimer;

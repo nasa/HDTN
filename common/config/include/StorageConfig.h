@@ -10,29 +10,30 @@
 #include <tuple>
 #include "JsonSerializable.h"
 #include "Logger.h"
+#include "config_lib_export.h"
 
 struct storage_disk_config_t {
     std::string name;
     std::string storeFilePath;
 
-    storage_disk_config_t();
-    ~storage_disk_config_t();
+    CONFIG_LIB_EXPORT storage_disk_config_t();
+    CONFIG_LIB_EXPORT ~storage_disk_config_t();
 
-    storage_disk_config_t(const std::string & paramName, const std::string & paramStoreFilePath);
-    bool operator==(const storage_disk_config_t & other) const;
+    CONFIG_LIB_EXPORT storage_disk_config_t(const std::string & paramName, const std::string & paramStoreFilePath);
+    CONFIG_LIB_EXPORT bool operator==(const storage_disk_config_t & other) const;
 
 
     //a copy constructor: X(const X&)
-    storage_disk_config_t(const storage_disk_config_t& o);
+    CONFIG_LIB_EXPORT storage_disk_config_t(const storage_disk_config_t& o);
 
     //a move constructor: X(X&&)
-    storage_disk_config_t(storage_disk_config_t&& o);
+    CONFIG_LIB_EXPORT storage_disk_config_t(storage_disk_config_t&& o);
 
     //a copy assignment: operator=(const X&)
-    storage_disk_config_t& operator=(const storage_disk_config_t& o);
+    CONFIG_LIB_EXPORT storage_disk_config_t& operator=(const storage_disk_config_t& o);
 
     //a move assignment: operator=(X&&)
-    storage_disk_config_t& operator=(storage_disk_config_t&& o);
+    CONFIG_LIB_EXPORT storage_disk_config_t& operator=(storage_disk_config_t&& o);
 };
 
 typedef std::vector<storage_disk_config_t> storage_disk_config_vector_t;
@@ -46,30 +47,30 @@ class StorageConfig : public JsonSerializable {
 
 
 public:
-    StorageConfig();
-    ~StorageConfig();
+    CONFIG_LIB_EXPORT StorageConfig();
+    CONFIG_LIB_EXPORT ~StorageConfig();
 
     //a copy constructor: X(const X&)
-    StorageConfig(const StorageConfig& o);
+    CONFIG_LIB_EXPORT StorageConfig(const StorageConfig& o);
 
     //a move constructor: X(X&&)
-    StorageConfig(StorageConfig&& o);
+    CONFIG_LIB_EXPORT StorageConfig(StorageConfig&& o);
 
     //a copy assignment: operator=(const X&)
-    StorageConfig& operator=(const StorageConfig& o);
+    CONFIG_LIB_EXPORT StorageConfig& operator=(const StorageConfig& o);
 
     //a move assignment: operator=(X&&)
-    StorageConfig& operator=(StorageConfig&& o);
+    CONFIG_LIB_EXPORT StorageConfig& operator=(StorageConfig&& o);
 
-    bool operator==(const StorageConfig & other) const;
+    CONFIG_LIB_EXPORT bool operator==(const StorageConfig & other) const;
 
-    static StorageConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-    static StorageConfig_ptr CreateFromJson(const std::string & jsonString);
-    static StorageConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
-    virtual boost::property_tree::ptree GetNewPropertyTree() const;
-    virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromJson(const std::string & jsonString);
+    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
 
-    void AddDisk(const std::string & name, const std::string & storeFilePath);
+    CONFIG_LIB_EXPORT void AddDisk(const std::string & name, const std::string & storeFilePath);
 public:
 
     std::string m_storageImplementation;

@@ -23,11 +23,11 @@ m_totalDataSegmentsFailedToSend(0),
 m_totalDataSegmentsSent(0),
 m_totalBundleBytesSent(0)
 {
-    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, false);
+    m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
-        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, thisEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
+        m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers);
-        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtr(thisEngineId, false);
+        m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     }
 
     m_ltpUdpEnginePtr->SetSessionStartCallback(boost::bind(&LtpBundleSource::SessionStartCallback, this, boost::placeholders::_1));
@@ -68,7 +68,7 @@ void LtpBundleSource::Stop() {
         }
 
         m_removeCallbackCalled = false;
-        m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngine_ThreadSafe(M_THIS_ENGINE_ID, false, boost::bind(&LtpBundleSource::RemoveCallback, this));
+        m_ltpUdpEngineManagerPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(M_REMOTE_LTP_ENGINE_ID, false, boost::bind(&LtpBundleSource::RemoveCallback, this));
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
         for (unsigned int attempt = 0; attempt < 20; ++attempt) {
             if (m_removeCallbackCalled) {
@@ -120,7 +120,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
-    tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //TODO THIS ISN'T CURRENTLY USED
+    tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataVec.size();
     tReq->clientServiceDataToSend = std::move(dataVec);
     tReq->lengthOfRedPart = bundleBytesToSend;
@@ -143,7 +143,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
 
     boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
-    tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID;
+    tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataZmq.size();
     tReq->clientServiceDataToSend = std::move(dataZmq);
     tReq->lengthOfRedPart = bundleBytesToSend;

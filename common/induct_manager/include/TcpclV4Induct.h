@@ -7,30 +7,30 @@
 #include <list>
 #include <boost/make_unique.hpp>
 
-class TcpclV4Induct : public Induct {
+class CLASS_VISIBILITY_INDUCT_MANAGER_LIB TcpclV4Induct : public Induct {
 public:
-    TcpclV4Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
+    INDUCT_MANAGER_LIB_EXPORT TcpclV4Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
         const uint64_t myNodeId, const uint64_t maxBundleSizeBytes, const OnNewOpportunisticLinkCallback_t & onNewOpportunisticLinkCallback,
         const OnDeletedOpportunisticLinkCallback_t & onDeletedOpportunisticLinkCallback);
-    virtual ~TcpclV4Induct();
+    INDUCT_MANAGER_LIB_EXPORT virtual ~TcpclV4Induct();
 private:
     
 
 
     TcpclV4Induct();
-    void StartTcpAccept();
+    INDUCT_MANAGER_LIB_EXPORT void StartTcpAccept();
 #ifdef OPENSSL_SUPPORT_ENABLED
     boost::asio::ssl::context m_shareableSslContext;
-    void HandleTcpAccept(boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error);
+    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error);
 #else
-    void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code & error);
+    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code & error);
 #endif
-    void ConnectionReadyToBeDeletedNotificationReceived();
-    void RemoveInactiveTcpConnections();
-    void DisableRemoveInactiveTcpConnections();
-    void OnContactHeaderCallback_FromIoServiceThread(TcpclV4BundleSink * thisTcpclBundleSinkPtr);
-    void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
-    virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();
+    INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveTcpConnections();
+    INDUCT_MANAGER_LIB_EXPORT void DisableRemoveInactiveTcpConnections();
+    INDUCT_MANAGER_LIB_EXPORT void OnContactHeaderCallback_FromIoServiceThread(TcpclV4BundleSink * thisTcpclBundleSinkPtr);
+    INDUCT_MANAGER_LIB_EXPORT void NotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
+    INDUCT_MANAGER_LIB_EXPORT virtual void Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(const uint64_t remoteNodeId);
 
 
     boost::asio::io_service m_ioService;

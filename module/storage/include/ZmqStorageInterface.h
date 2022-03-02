@@ -10,7 +10,7 @@
 #include "stats.hpp"
 #include "zmq.hpp"
 #include "codec/bpv6.h"
-
+#include "storage_lib_export.h"
 
 //addresses for ZMQ IPC transport
 #define HDTN_STORAGE_TELEM_PATH "tcp://127.0.0.1:10460"
@@ -18,12 +18,12 @@
 
 
 class ZmqStorageInterface {
-   public:
-    ZmqStorageInterface();
-    ~ZmqStorageInterface();
-    void Stop();
-    bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
-    std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
+public:
+    STORAGE_LIB_EXPORT ZmqStorageInterface();
+    STORAGE_LIB_EXPORT ~ZmqStorageInterface();
+    STORAGE_LIB_EXPORT void Stop();
+    STORAGE_LIB_EXPORT bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    STORAGE_LIB_EXPORT std::size_t GetCurrentNumberOfBundlesDeletedFromStorage();
 
     hdtn::WorkerStats stats() { return m_workerStats; }
 
@@ -55,13 +55,13 @@ private:
     hdtn::WorkerStats m_workerStats;
 
 private:
-    void ThreadFunc();
+    STORAGE_LIB_NO_EXPORT void ThreadFunc();
     //void Write(hdtn::block_hdr *hdr, zmq::message_t *message);
     //void ReleaseData(uint32_t flow, uint64_t rate, uint64_t duration, zmq::socket_t *egressSock);
 
-   private:
-    
-    
+private:
+
+
 
 };
 

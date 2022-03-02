@@ -1,6 +1,13 @@
 #ifndef _BUNDLE_STORAGE_MANAGER_BASE_H
 #define _BUNDLE_STORAGE_MANAGER_BASE_H
-
+#include "storage_lib_export.h"
+#ifndef CLASS_VISIBILITY_STORAGE_LIB
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_STORAGE_LIB
+#  else
+#    define CLASS_VISIBILITY_STORAGE_LIB STORAGE_LIB_EXPORT
+#  endif
+#endif
 #include <boost/integer.hpp>
 #include <stdint.h>
 #include <map>
@@ -41,50 +48,50 @@ struct BundleStorageManagerSession_ReadFromDisk {
     std::unique_ptr<volatile uint8_t[]> readCache;// [READ_CACHE_NUM_SEGMENTS_PER_SESSION * SEGMENT_SIZE]; //may overflow stack, create on heap
     volatile bool readCacheIsSegmentReady[READ_CACHE_NUM_SEGMENTS_PER_SESSION];
 
-    BundleStorageManagerSession_ReadFromDisk();
-    ~BundleStorageManagerSession_ReadFromDisk();
+    STORAGE_LIB_EXPORT BundleStorageManagerSession_ReadFromDisk();
+    STORAGE_LIB_EXPORT ~BundleStorageManagerSession_ReadFromDisk();
 };
 
-class BundleStorageManagerBase {
+class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerBase {
 protected:
-    BundleStorageManagerBase();
-    BundleStorageManagerBase(const std::string & jsonConfigFileName);
-    BundleStorageManagerBase(const StorageConfig_ptr & storageConfigPtr);
+    STORAGE_LIB_EXPORT BundleStorageManagerBase();
+    STORAGE_LIB_EXPORT BundleStorageManagerBase(const std::string & jsonConfigFileName);
+    STORAGE_LIB_EXPORT BundleStorageManagerBase(const StorageConfig_ptr & storageConfigPtr);
 public:
 
-    virtual ~BundleStorageManagerBase();
+    STORAGE_LIB_EXPORT virtual ~BundleStorageManagerBase();
     virtual void Start() = 0;
 
     //write
-    uint64_t Push(BundleStorageManagerSession_WriteToDisk & session,
+    STORAGE_LIB_EXPORT uint64_t Push(BundleStorageManagerSession_WriteToDisk & session,
         const PrimaryBlock & bundlePrimaryBlock, const uint64_t bundleSizeBytes); //return totalSegmentsRequired
-    int PushSegment(BundleStorageManagerSession_WriteToDisk & session,
+    STORAGE_LIB_EXPORT int PushSegment(BundleStorageManagerSession_WriteToDisk & session,
         const PrimaryBlock & bundlePrimaryBlock, const uint64_t custodyId,
         const uint8_t * buf, std::size_t size);
-    uint64_t PushAllSegments(BundleStorageManagerSession_WriteToDisk & session,
+    STORAGE_LIB_EXPORT uint64_t PushAllSegments(BundleStorageManagerSession_WriteToDisk & session,
         const PrimaryBlock & bundlePrimaryBlock,
         const uint64_t custodyId, const uint8_t * allData, const std::size_t allDataSize); //return total bytes pushed
 
     //Read
-    uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids); //0 if empty, size if entry
-    uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestNodeIds); //0 if empty, size if entry
-    uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<std::pair<cbhe_eid_t, bool> > & availableDests); //0 if empty, size if entry
-    bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
-    bool ReturnCustodyIdToAwaitingSend(const uint64_t custodyId); //for expired custody timers
-    catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer
-    std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
-    bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf);
-    bool RemoveReadBundleFromDisk(const uint64_t custodyId);
-    bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);
-    bool RemoveReadBundleFromDisk(const catalog_entry_t * catalogEntryPtr, const uint64_t custodyId);
-    uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_t & bundleUuid);
-    uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
+    STORAGE_LIB_EXPORT uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<cbhe_eid_t> & availableDestinationEids); //0 if empty, size if entry
+    STORAGE_LIB_EXPORT uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<uint64_t> & availableDestNodeIds); //0 if empty, size if entry
+    STORAGE_LIB_EXPORT uint64_t PopTop(BundleStorageManagerSession_ReadFromDisk & session, const std::vector<std::pair<cbhe_eid_t, bool> > & availableDests); //0 if empty, size if entry
+    STORAGE_LIB_EXPORT bool ReturnTop(BundleStorageManagerSession_ReadFromDisk & session);
+    STORAGE_LIB_EXPORT bool ReturnCustodyIdToAwaitingSend(const uint64_t custodyId); //for expired custody timers
+    STORAGE_LIB_EXPORT catalog_entry_t * GetCatalogEntryPtrFromCustodyId(const uint64_t custodyId); //for deletion of custody timer
+    STORAGE_LIB_EXPORT std::size_t TopSegment(BundleStorageManagerSession_ReadFromDisk & session, void * buf);
+    STORAGE_LIB_EXPORT bool ReadAllSegments(BundleStorageManagerSession_ReadFromDisk & session, std::vector<uint8_t> & buf);
+    STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const uint64_t custodyId);
+    STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(BundleStorageManagerSession_ReadFromDisk & sessionRead);
+    STORAGE_LIB_EXPORT bool RemoveReadBundleFromDisk(const catalog_entry_t * catalogEntryPtr, const uint64_t custodyId);
+    STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_t & bundleUuid);
+    STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
 
 
 
-    bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
+    STORAGE_LIB_EXPORT bool RestoreFromDisk(uint64_t * totalBundlesRestored, uint64_t * totalBytesRestored, uint64_t * totalSegmentsRestored);
 
-    const MemoryManagerTreeArray & GetMemoryManagerConstRef();
+    STORAGE_LIB_EXPORT const MemoryManagerTreeArray & GetMemoryManagerConstRef();
 
 
 protected:

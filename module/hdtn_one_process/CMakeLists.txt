@@ -7,7 +7,7 @@ add_executable(hdtn-one-process
     src/HdtnOneProcessRunner.cpp
 	src/HdtnOneProcessMain.cpp
 )
-
+install(TARGETS hdtn-one-process DESTINATION bin)
 target_link_libraries(hdtn-one-process
 	bpcodec
 	hdtn_util

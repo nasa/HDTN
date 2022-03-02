@@ -3,8 +3,9 @@
 
 #include <string>
 #include <cstdint>
+#include "hdtn_util_export.h"
 
-class Uri {
+class HDTN_UTIL_EXPORT Uri {
 private:
     Uri();
     ~Uri();

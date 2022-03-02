@@ -39,15 +39,13 @@ add_executable(unit-tests
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
-    ../../common/logger/src/Logger.cpp
 )
-
+install(TARGETS unit-tests DESTINATION bin)
 target_include_directories(unit-tests PUBLIC include
     ../../module/egress/include
     ../../module/ingress/include
     ../../module/storage/include
     ../../common/include
-    ../../common/pool/include
     ${Boost_INCLUDE_DIRS}
     ${libzmq_INCLUDE}
 )

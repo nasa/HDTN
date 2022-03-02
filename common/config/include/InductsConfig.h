@@ -9,6 +9,7 @@
 #include <utility>
 #include <tuple>
 #include "JsonSerializable.h"
+#include "config_lib_export.h"
 
 struct induct_element_config_t {
     //common to all inducts
@@ -46,23 +47,23 @@ struct induct_element_config_t {
     std::string privateKeyPemFile;
     std::string diffieHellmanParametersPemFile;
 
-    induct_element_config_t();
-    ~induct_element_config_t();
+    CONFIG_LIB_EXPORT induct_element_config_t();
+    CONFIG_LIB_EXPORT ~induct_element_config_t();
 
-    bool operator==(const induct_element_config_t & o) const;
+    CONFIG_LIB_EXPORT bool operator==(const induct_element_config_t & o) const;
 
 
     //a copy constructor: X(const X&)
-    induct_element_config_t(const induct_element_config_t& o);
+    CONFIG_LIB_EXPORT induct_element_config_t(const induct_element_config_t& o);
 
     //a move constructor: X(X&&)
-    induct_element_config_t(induct_element_config_t&& o);
+    CONFIG_LIB_EXPORT induct_element_config_t(induct_element_config_t&& o);
 
     //a copy assignment: operator=(const X&)
-    induct_element_config_t& operator=(const induct_element_config_t& o);
+    CONFIG_LIB_EXPORT induct_element_config_t& operator=(const induct_element_config_t& o);
 
     //a move assignment: operator=(X&&)
-    induct_element_config_t& operator=(induct_element_config_t&& o);
+    CONFIG_LIB_EXPORT induct_element_config_t& operator=(induct_element_config_t&& o);
 };
 
 typedef std::vector<induct_element_config_t> induct_element_config_vector_t;
@@ -76,28 +77,28 @@ class InductsConfig : public JsonSerializable {
 
 
 public:
-    InductsConfig();
-    ~InductsConfig();
+    CONFIG_LIB_EXPORT InductsConfig();
+    CONFIG_LIB_EXPORT ~InductsConfig();
 
     //a copy constructor: X(const X&)
-    InductsConfig(const InductsConfig& o);
+    CONFIG_LIB_EXPORT InductsConfig(const InductsConfig& o);
 
     //a move constructor: X(X&&)
-    InductsConfig(InductsConfig&& o);
+    CONFIG_LIB_EXPORT InductsConfig(InductsConfig&& o);
 
     //a copy assignment: operator=(const X&)
-    InductsConfig& operator=(const InductsConfig& o);
+    CONFIG_LIB_EXPORT InductsConfig& operator=(const InductsConfig& o);
 
     //a move assignment: operator=(X&&)
-    InductsConfig& operator=(InductsConfig&& o);
+    CONFIG_LIB_EXPORT InductsConfig& operator=(InductsConfig&& o);
 
-    bool operator==(const InductsConfig & other) const;
+    CONFIG_LIB_EXPORT bool operator==(const InductsConfig & other) const;
 
-    static InductsConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-    static InductsConfig_ptr CreateFromJson(const std::string & jsonString);
-    static InductsConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
-    virtual boost::property_tree::ptree GetNewPropertyTree() const;
-    virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT static InductsConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
+    CONFIG_LIB_EXPORT static InductsConfig_ptr CreateFromJson(const std::string & jsonString);
+    CONFIG_LIB_EXPORT static InductsConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
+    CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
 
 public:
 

@@ -5,6 +5,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser/error.hpp>
 #include <boost/version.hpp>
+#include "hdtn_util_export.h"
 
 //since boost versions below 1.59 use boost spirit classic to do json parsing, and boost spirit is not thread safe by default,
 //we need to make sure that BOOST_SPIRIT_THREADSAFE is defined globally if using boost version 1.58 and below
@@ -14,7 +15,7 @@
 #endif
 
 
-class JsonSerializable {
+class HDTN_UTIL_EXPORT JsonSerializable {
 public:
     std::string ToJson(bool pretty = true);
     bool ToJsonFile(const std::string & fileName, bool pretty = true);

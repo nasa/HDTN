@@ -27,10 +27,10 @@
 #include <boost/log/utility/value_ref.hpp>
 #include <boost/smart_ptr/make_shared_object.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
+#include "log_lib_export.h"
 
 namespace hdtn{
 
-std::string Datetime();
 
 //Custom Severity Levels
 enum severity_level
@@ -42,14 +42,7 @@ enum severity_level
     critical
 };
 
-static const char* severity_strings[] =
-{
-    "Info",
-    "Notification",
-    "Warning",
-    "Error",
-    "Critical"
-};
+
 
 
 //Module Tags
@@ -66,22 +59,22 @@ typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend
 class Logger
 {
 public:
-    static Logger* getInstance();
-    void logInfo(const std::string & module, const std::string & message);
-    void logNotification(const std::string & module, const std::string & message);
-    void logWarning(const std::string & module, const std::string & message);
-    void logError(const std::string & module, const std::string & message);
-    void logCritical(const std::string & module, const std::string & message);
+    LOG_LIB_EXPORT static Logger* getInstance();
+    LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
+    LOG_LIB_EXPORT void logNotification(const std::string & module, const std::string & message);
+    LOG_LIB_EXPORT void logWarning(const std::string & module, const std::string & message);
+    LOG_LIB_EXPORT void logError(const std::string & module, const std::string & message);
+    LOG_LIB_EXPORT void logCritical(const std::string & module, const std::string & message);
 
 private:
-    Logger();
-    Logger(Logger const&);
-    Logger& operator=(Logger const&);
-    virtual ~Logger();
+    LOG_LIB_EXPORT Logger();
+    LOG_LIB_EXPORT Logger(Logger const&);
+    LOG_LIB_EXPORT Logger& operator=(Logger const&);
+    LOG_LIB_EXPORT ~Logger();
 
-    void init();
-    void createModuleLogFile(const std::string & module);
-    void createSeverityLogFile(hdtn::severity_level level);
+    LOG_LIB_EXPORT void init();
+    LOG_LIB_EXPORT void createModuleLogFile(const std::string & module);
+    LOG_LIB_EXPORT void createSeverityLogFile(hdtn::severity_level level);
     boost::log::sources::severity_logger_mt<severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance
 };

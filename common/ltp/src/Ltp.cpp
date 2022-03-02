@@ -1451,6 +1451,7 @@ void Ltp::GenerateCancelAcknowledgementSegmentLtpPacket(std::vector<uint8_t> & l
 
 //return true if valid message
 bool Ltp::GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool & isSenderToReceiver) {
+#if 0
     switch (static_cast<LTP_SEGMENT_TYPE_FLAGS>(segmentFlags)) {
         case LTP_SEGMENT_TYPE_FLAGS::REDDATA:
         case LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT:
@@ -1470,4 +1471,26 @@ bool Ltp::GetMessageDirectionFromSegmentFlags(const uint8_t segmentFlags, bool &
             return true;
     }
     return false;
+#else
+    //branchless routine
+    static constexpr uint16_t SENDER_TO_RECEIVER_TYPE_MESSAGES =
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::GREENDATA))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::GREENDATA_ENDOFBLOCK))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_SENDER))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_RECEIVER)));
+
+    static constexpr uint16_t ALL_VALID_MESSAGES = SENDER_TO_RECEIVER_TYPE_MESSAGES |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REPORT_SEGMENT))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_ACK_SEGMENT_TO_BLOCK_SENDER))) |
+        (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::CANCEL_SEGMENT_FROM_BLOCK_RECEIVER)));
+
+    const uint16_t mask = (static_cast<uint16_t>(1)) << segmentFlags;
+    isSenderToReceiver = ((mask & SENDER_TO_RECEIVER_TYPE_MESSAGES) != 0);
+    return ((mask & ALL_VALID_MESSAGES) != 0);
+#endif
 }

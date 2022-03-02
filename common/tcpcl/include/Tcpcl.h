@@ -7,6 +7,7 @@
 #include <boost/function.hpp>
 #include <vector>
 #include "PaddedVectorUint8.h"
+#include "tcpcl_lib_export.h"
 
 #define TCPCL_VERSION 3
 
@@ -91,29 +92,29 @@ public:
     typedef boost::function<void(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
         bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)> ShutdownMessageCallback_t;
 
-    Tcpcl();
-    ~Tcpcl();
-    void SetDataSegmentContentsReadCallback(DataSegmentContentsReadCallback_t callback);
-    void SetContactHeaderReadCallback(ContactHeaderReadCallback_t callback);
-    void SetAckSegmentReadCallback(AckSegmentReadCallback_t callback);
-    void SetBundleRefusalCallback(BundleRefusalCallback_t callback);
-    void SetNextBundleLengthCallback(NextBundleLengthCallback_t callback);
-    void SetKeepAliveCallback(KeepAliveCallback_t callback);
-    void SetShutdownMessageCallback(ShutdownMessageCallback_t callback);
-    void SetMaxReceiveBundleSizeBytes(const uint64_t maxRxBundleSizeBytes);
-    uint64_t GetMaxReceiveBundleSizeBytes() const;
+    TCPCL_LIB_EXPORT Tcpcl();
+    TCPCL_LIB_EXPORT ~Tcpcl();
+    TCPCL_LIB_EXPORT void SetDataSegmentContentsReadCallback(DataSegmentContentsReadCallback_t callback);
+    TCPCL_LIB_EXPORT void SetContactHeaderReadCallback(ContactHeaderReadCallback_t callback);
+    TCPCL_LIB_EXPORT void SetAckSegmentReadCallback(AckSegmentReadCallback_t callback);
+    TCPCL_LIB_EXPORT void SetBundleRefusalCallback(BundleRefusalCallback_t callback);
+    TCPCL_LIB_EXPORT void SetNextBundleLengthCallback(NextBundleLengthCallback_t callback);
+    TCPCL_LIB_EXPORT void SetKeepAliveCallback(KeepAliveCallback_t callback);
+    TCPCL_LIB_EXPORT void SetShutdownMessageCallback(ShutdownMessageCallback_t callback);
+    TCPCL_LIB_EXPORT void SetMaxReceiveBundleSizeBytes(const uint64_t maxRxBundleSizeBytes);
+    TCPCL_LIB_EXPORT uint64_t GetMaxReceiveBundleSizeBytes() const;
 
-    void InitRx();
-    void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
-    void HandleReceivedChar(const uint8_t rxVal);
-    static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
-    static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents);
-    static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint64_t sizeContents);
-    static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint64_t totalBytesAcknowledged);
-    static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode);
-    static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint64_t nextBundleLength);
-    static void GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage);
-    static void GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
+    TCPCL_LIB_EXPORT void InitRx();
+    TCPCL_LIB_EXPORT void HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars);
+    TCPCL_LIB_EXPORT void HandleReceivedChar(const uint8_t rxVal);
+    TCPCL_LIB_EXPORT static void GenerateContactHeader(std::vector<uint8_t> & hdr, CONTACT_HEADER_FLAGS flags, uint16_t keepAliveIntervalSeconds, const std::string & localEid);
+    TCPCL_LIB_EXPORT static void GenerateDataSegment(std::vector<uint8_t> & dataSegment, bool isStartSegment, bool isEndSegment, const uint8_t * contents, uint64_t sizeContents);
+    TCPCL_LIB_EXPORT static void GenerateDataSegmentHeaderOnly(std::vector<uint8_t> & dataSegmentHeaderDataVec, bool isStartSegment, bool isEndSegment, uint64_t sizeContents);
+    TCPCL_LIB_EXPORT static void GenerateAckSegment(std::vector<uint8_t> & ackSegment, uint64_t totalBytesAcknowledged);
+    TCPCL_LIB_EXPORT static void GenerateBundleRefusal(std::vector<uint8_t> & refusalMessage, BUNDLE_REFUSAL_CODES refusalCode);
+    TCPCL_LIB_EXPORT static void GenerateBundleLength(std::vector<uint8_t> & bundleLengthMessage, uint64_t nextBundleLength);
+    TCPCL_LIB_EXPORT static void GenerateKeepAliveMessage(std::vector<uint8_t> & keepAliveMessage);
+    TCPCL_LIB_EXPORT static void GenerateShutdownMessage(std::vector<uint8_t> & shutdownMessage,
         bool includeReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
         bool includeReconnectionDelay, uint64_t reconnectionDelaySeconds);
 public:

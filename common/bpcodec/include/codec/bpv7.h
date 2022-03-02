@@ -8,6 +8,14 @@
 #include "codec/Cose.h"
 #include "EnumAsFlagsMacro.h"
 #include <array>
+#include "bpcodec_export.h"
+#ifndef CLASS_VISIBILITY_BPCODEC
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_BPCODEC
+#  else
+#    define CLASS_VISIBILITY_BPCODEC BPCODEC_EXPORT
+#  endif
+#endif
 
 enum class BPV7_CRC_TYPE : uint8_t {
     NONE       = 0,
@@ -254,7 +262,7 @@ enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS {
 };
 
 
-struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
     static constexpr uint64_t smallestSerializedPrimarySize = //uint64_t bufferSize
         1 + //cbor initial byte denoting cbor array
         1 + //bundle version 7 byte
@@ -278,32 +286,32 @@ struct Bpv7CbhePrimaryBlock : public PrimaryBlock {
     uint16_t m_computedCrc16; //computed after serialization or deserialization
     BPV7_CRC_TYPE m_crcType; //placed uint8 at the end of struct (should be at the beginning) for more efficient memory usage
 
-    Bpv7CbhePrimaryBlock(); //a default constructor: X()
-    ~Bpv7CbhePrimaryBlock(); //a destructor: ~X()
-    Bpv7CbhePrimaryBlock(const Bpv7CbhePrimaryBlock& o); //a copy constructor: X(const X&)
-    Bpv7CbhePrimaryBlock(Bpv7CbhePrimaryBlock&& o); //a move constructor: X(X&&)
-    Bpv7CbhePrimaryBlock& operator=(const Bpv7CbhePrimaryBlock& o); //a copy assignment: operator=(const X&)
-    Bpv7CbhePrimaryBlock& operator=(Bpv7CbhePrimaryBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7CbhePrimaryBlock & o) const; //operator ==
-    bool operator!=(const Bpv7CbhePrimaryBlock & o) const; //operator !=
-    void SetZero();
-    uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_computedCrcXX
-    uint64_t GetSerializationSize() const;
-    bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
+    BPCODEC_EXPORT Bpv7CbhePrimaryBlock(); //a default constructor: X()
+    BPCODEC_EXPORT ~Bpv7CbhePrimaryBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7CbhePrimaryBlock(const Bpv7CbhePrimaryBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7CbhePrimaryBlock(Bpv7CbhePrimaryBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7CbhePrimaryBlock& operator=(const Bpv7CbhePrimaryBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7CbhePrimaryBlock& operator=(Bpv7CbhePrimaryBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7CbhePrimaryBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7CbhePrimaryBlock & o) const; //operator !=
+    BPCODEC_EXPORT void SetZero();
+    BPCODEC_EXPORT uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_computedCrcXX
+    BPCODEC_EXPORT uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
 
-    virtual bool HasCustodyFlagSet() const;
-    virtual bool HasFragmentationFlagSet() const;
-    virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
-    virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
-    virtual cbhe_eid_t GetFinalDestinationEid() const;
-    virtual uint8_t GetPriority() const;
-    virtual uint64_t GetExpirationSeconds() const;
-    virtual uint64_t GetSequenceForSecondsScale() const;
-    virtual uint64_t GetExpirationMilliseconds() const;
-    virtual uint64_t GetSequenceForMillisecondsScale() const;
+    BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const;
+    BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_t GetCbheBundleUuidFromPrimary() const;
+    BPCODEC_EXPORT virtual cbhe_bundle_uuid_nofragment_t GetCbheBundleUuidNoFragmentFromPrimary() const;
+    BPCODEC_EXPORT virtual cbhe_eid_t GetFinalDestinationEid() const;
+    BPCODEC_EXPORT virtual uint8_t GetPriority() const;
+    BPCODEC_EXPORT virtual uint64_t GetExpirationSeconds() const;
+    BPCODEC_EXPORT virtual uint64_t GetSequenceForSecondsScale() const;
+    BPCODEC_EXPORT virtual uint64_t GetExpirationMilliseconds() const;
+    BPCODEC_EXPORT virtual uint64_t GetSequenceForMillisecondsScale() const;
 };
 
-struct Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7CanonicalBlock {
 
     static constexpr uint64_t smallestSerializedCanonicalSize = //uint64_t bufferSize
         1 + //cbor initial byte denoting cbor array
@@ -335,117 +343,117 @@ struct Bpv7CanonicalBlock {
     BPV7_CRC_TYPE m_crcType; //placed uint8 at the end of struct for more efficient memory usage
     
 
-    Bpv7CanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv7CanonicalBlock(); //a destructor: ~X()
-    Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv7CanonicalBlock& operator=(const Bpv7CanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv7CanonicalBlock& operator=(Bpv7CanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7CanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    uint64_t GetSerializationSize() const;
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
-    static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
+    BPCODEC_EXPORT Bpv7CanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7CanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7CanonicalBlock(const Bpv7CanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7CanonicalBlock(Bpv7CanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7CanonicalBlock& operator=(const Bpv7CanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7CanonicalBlock& operator=(Bpv7CanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7CanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7CanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT void RecomputeCrcAfterDataModification(uint8_t * serializationBase, const uint64_t sizeSerialized);
+    BPCODEC_EXPORT static bool DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & canonicalPtr, uint8_t * serialization,
         uint64_t & numBytesTakenToDecode, uint64_t bufferSize, const bool skipCrcVerify, const bool isAdminRecord);
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
 
-struct Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7PreviousNodeCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize =
         1 + //cbor initial byte denoting cbor array (major type 4, additional information 2)
         9 + //node number
         9; //service number
         
-    Bpv7PreviousNodeCanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv7PreviousNodeCanonicalBlock(); //a destructor: ~X()
-    Bpv7PreviousNodeCanonicalBlock(const Bpv7PreviousNodeCanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv7PreviousNodeCanonicalBlock(Bpv7PreviousNodeCanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv7PreviousNodeCanonicalBlock& operator=(const Bpv7PreviousNodeCanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv7PreviousNodeCanonicalBlock& operator=(Bpv7PreviousNodeCanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7PreviousNodeCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock(const Bpv7PreviousNodeCanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock(Bpv7PreviousNodeCanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock& operator=(const Bpv7PreviousNodeCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7PreviousNodeCanonicalBlock& operator=(Bpv7PreviousNodeCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7PreviousNodeCanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
     cbhe_eid_t m_previousNode;
 };
 
-struct Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7BundleAgeCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize = 9;
 
-    Bpv7BundleAgeCanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv7BundleAgeCanonicalBlock(); //a destructor: ~X()
-    Bpv7BundleAgeCanonicalBlock(const Bpv7BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv7BundleAgeCanonicalBlock(Bpv7BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv7BundleAgeCanonicalBlock& operator=(const Bpv7BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv7BundleAgeCanonicalBlock& operator=(Bpv7BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7BundleAgeCanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv7BundleAgeCanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7BundleAgeCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(const Bpv7BundleAgeCanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock(Bpv7BundleAgeCanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock& operator=(const Bpv7BundleAgeCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7BundleAgeCanonicalBlock& operator=(Bpv7BundleAgeCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7BundleAgeCanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7BundleAgeCanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 
     uint64_t m_bundleAgeMilliseconds;
 };
 
-struct Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7HopCountCanonicalBlock : public Bpv7CanonicalBlock {
     static constexpr uint64_t largestSerializedDataOnlySize =
         1 + //cbor initial byte denoting cbor array (major type 4, additional information 2)
         9 + //hop limit
         9; //hop count
 
-    Bpv7HopCountCanonicalBlock(); //a default constructor: X()
-    virtual ~Bpv7HopCountCanonicalBlock(); //a destructor: ~X()
-    Bpv7HopCountCanonicalBlock(const Bpv7HopCountCanonicalBlock& o); //a copy constructor: X(const X&)
-    Bpv7HopCountCanonicalBlock(Bpv7HopCountCanonicalBlock&& o); //a move constructor: X(X&&)
-    Bpv7HopCountCanonicalBlock& operator=(const Bpv7HopCountCanonicalBlock& o); //a copy assignment: operator=(const X&)
-    Bpv7HopCountCanonicalBlock& operator=(Bpv7HopCountCanonicalBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7HopCountCanonicalBlock & o) const; //operator ==
-    bool operator!=(const Bpv7HopCountCanonicalBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
-    bool TryReserializeExtensionBlockDataWithoutResizeBpv7();
+    BPCODEC_EXPORT Bpv7HopCountCanonicalBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7HopCountCanonicalBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7HopCountCanonicalBlock(const Bpv7HopCountCanonicalBlock& o); //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7HopCountCanonicalBlock(Bpv7HopCountCanonicalBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7HopCountCanonicalBlock& operator=(const Bpv7HopCountCanonicalBlock& o); //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7HopCountCanonicalBlock& operator=(Bpv7HopCountCanonicalBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7HopCountCanonicalBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7HopCountCanonicalBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT bool TryReserializeExtensionBlockDataWithoutResizeBpv7();
 
     uint64_t m_hopLimit;
     uint64_t m_hopCount;
 };
 
-struct Bpv7AbstractSecurityBlockValueBase {
-    virtual ~Bpv7AbstractSecurityBlockValueBase() = 0; // Pure virtual destructor
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueBase {
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const = 0;
 };
-struct Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
-    virtual ~Bpv7AbstractSecurityBlockValueUint();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueUint : public Bpv7AbstractSecurityBlockValueBase {
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueUint();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
 
     uint64_t m_uintValue;
 };
-struct Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
-    virtual ~Bpv7AbstractSecurityBlockValueByteString();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlockValueByteString : public Bpv7AbstractSecurityBlockValueBase {
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlockValueByteString();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AbstractSecurityBlockValueBase * otherPtr) const;
 
     std::vector<uint8_t> m_byteString;
 };
 
-struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
 
     typedef std::vector<uint64_t> security_targets_t;
     typedef uint64_t security_context_id_t;
@@ -467,30 +475,30 @@ struct Bpv7AbstractSecurityBlock : public Bpv7CanonicalBlock {
     typedef id_value_pairs_vec_t security_results_t;
 
 
-    Bpv7AbstractSecurityBlock(); //a default constructor: X()
-    virtual ~Bpv7AbstractSecurityBlock(); //a destructor: ~X()
-    Bpv7AbstractSecurityBlock(const Bpv7AbstractSecurityBlock& o) = delete; //a copy constructor: X(const X&)
-    Bpv7AbstractSecurityBlock(Bpv7AbstractSecurityBlock&& o); //a move constructor: X(X&&)
-    Bpv7AbstractSecurityBlock& operator=(const Bpv7AbstractSecurityBlock& o) = delete; //a copy assignment: operator=(const X&)
-    Bpv7AbstractSecurityBlock& operator=(Bpv7AbstractSecurityBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7AbstractSecurityBlock & o) const; //operator ==
-    bool operator!=(const Bpv7AbstractSecurityBlock & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
-    bool IsSecurityContextParametersPresent() const;
-    void SetSecurityContextParametersPresent();
-    void ClearSecurityContextParametersPresent();
-    void SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS id);
+    BPCODEC_EXPORT Bpv7AbstractSecurityBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7AbstractSecurityBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7AbstractSecurityBlock(const Bpv7AbstractSecurityBlock& o) = delete; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7AbstractSecurityBlock(Bpv7AbstractSecurityBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7AbstractSecurityBlock& operator=(const Bpv7AbstractSecurityBlock& o) = delete; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7AbstractSecurityBlock& operator=(Bpv7AbstractSecurityBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7AbstractSecurityBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7AbstractSecurityBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT bool IsSecurityContextParametersPresent() const;
+    BPCODEC_EXPORT void SetSecurityContextParametersPresent();
+    BPCODEC_EXPORT void ClearSecurityContextParametersPresent();
+    BPCODEC_EXPORT void SetSecurityContextId(BPSEC_SECURITY_CONTEXT_IDENTIFIERS id);
 
-    static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize);
-    static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
-    static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec,
+    BPCODEC_EXPORT static uint64_t SerializeIdValuePairsVecBpv7(uint8_t * serialization, const id_value_pairs_vec_t & idValuePairsVec, uint64_t bufferSize);
+    BPCODEC_EXPORT static uint64_t IdValuePairsVecBpv7SerializationSize(const id_value_pairs_vec_t & idValuePairsVec);
+    BPCODEC_EXPORT static bool DeserializeIdValuePairsVecBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pairs_vec_t & idValuePairsVec,
         const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters, const uint64_t maxElements);
-    static bool DeserializeIdValuePairBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pair_t & idValuePair,
+    BPCODEC_EXPORT static bool DeserializeIdValuePairBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize, id_value_pair_t & idValuePair,
         const BPSEC_SECURITY_CONTEXT_IDENTIFIERS securityContext, const bool isForSecurityParameters);
-    static bool IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2);
+    BPCODEC_EXPORT static bool IsEqual(const id_value_pairs_vec_t & pVec1, const id_value_pairs_vec_t & pVec2);
 
     security_targets_t m_securityTargets;
     security_context_id_t m_securityContextId;
@@ -504,65 +512,65 @@ protected:
     std::vector<std::vector<uint8_t>*> Protected_GetAllSecurityResultsByteStringPtrs(uint64_t resultType);
 };
 
-struct Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
-    Bpv7BlockIntegrityBlock(); //a default constructor: X()
-    virtual ~Bpv7BlockIntegrityBlock(); //a destructor: ~X()
-    Bpv7BlockIntegrityBlock(const Bpv7BlockIntegrityBlock& o) = delete; //a copy constructor: X(const X&)
-    Bpv7BlockIntegrityBlock(Bpv7BlockIntegrityBlock&& o); //a move constructor: X(X&&)
-    Bpv7BlockIntegrityBlock& operator=(const Bpv7BlockIntegrityBlock& o) = delete; //a copy assignment: operator=(const X&)
-    Bpv7BlockIntegrityBlock& operator=(Bpv7BlockIntegrityBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7BlockIntegrityBlock & o) const; //operator ==
-    bool operator!=(const Bpv7BlockIntegrityBlock & o) const; //operator !=
-    virtual void SetZero();
+struct CLASS_VISIBILITY_BPCODEC Bpv7BlockIntegrityBlock : public Bpv7AbstractSecurityBlock {
+    BPCODEC_EXPORT Bpv7BlockIntegrityBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7BlockIntegrityBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7BlockIntegrityBlock(const Bpv7BlockIntegrityBlock& o) = delete; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7BlockIntegrityBlock(Bpv7BlockIntegrityBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7BlockIntegrityBlock& operator=(const Bpv7BlockIntegrityBlock& o) = delete; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7BlockIntegrityBlock& operator=(Bpv7BlockIntegrityBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7BlockIntegrityBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7BlockIntegrityBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
     
-    bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
-    COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
-    bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
-    bool IsSecurityParameterIntegrityScopePresentAndSet(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) const;
-    std::vector<uint8_t> * AddAndGetWrappedKeyPtr();
-    std::vector<uint8_t> * AppendAndGetExpectedHmacPtr();
-    std::vector<std::vector<uint8_t>*> GetAllExpectedHmacPtrs();
+    BPCODEC_EXPORT bool AddOrUpdateSecurityParameterShaVariant(COSE_ALGORITHMS alg);
+    BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterShaVariant(bool & success) const;
+    BPCODEC_EXPORT bool AddSecurityParameterIntegrityScope(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope);
+    BPCODEC_EXPORT bool IsSecurityParameterIntegrityScopePresentAndSet(BPSEC_BIB_HMAX_SHA2_INTEGRITY_SCOPE_MASKS integrityScope) const;
+    BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetExpectedHmacPtr();
+    BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllExpectedHmacPtrs();
 };
 
-struct Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
-    Bpv7BlockConfidentialityBlock(); //a default constructor: X()
-    virtual ~Bpv7BlockConfidentialityBlock(); //a destructor: ~X()
-    Bpv7BlockConfidentialityBlock(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy constructor: X(const X&)
-    Bpv7BlockConfidentialityBlock(Bpv7BlockConfidentialityBlock&& o); //a move constructor: X(X&&)
-    Bpv7BlockConfidentialityBlock& operator=(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy assignment: operator=(const X&)
-    Bpv7BlockConfidentialityBlock& operator=(Bpv7BlockConfidentialityBlock&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7BlockConfidentialityBlock & o) const; //operator ==
-    bool operator!=(const Bpv7BlockConfidentialityBlock & o) const; //operator !=
-    virtual void SetZero();
+struct CLASS_VISIBILITY_BPCODEC Bpv7BlockConfidentialityBlock : public Bpv7AbstractSecurityBlock {
+    BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7BlockConfidentialityBlock(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7BlockConfidentialityBlock(Bpv7BlockConfidentialityBlock&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7BlockConfidentialityBlock& operator=(const Bpv7BlockConfidentialityBlock& o) = delete; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7BlockConfidentialityBlock& operator=(Bpv7BlockConfidentialityBlock&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7BlockConfidentialityBlock & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7BlockConfidentialityBlock & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
 
-    bool AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg);
-    COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
-    bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
-    bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
-    std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
-    std::vector<uint8_t> * AddAndGetInitializationVectorPtr();
-    std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
-    std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
+    BPCODEC_EXPORT bool AddOrUpdateSecurityParameterAesVariant(COSE_ALGORITHMS alg);
+    BPCODEC_EXPORT COSE_ALGORITHMS GetSecurityParameterAesVariant(bool & success) const;
+    BPCODEC_EXPORT bool AddSecurityParameterScope(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope);
+    BPCODEC_EXPORT bool IsSecurityParameterScopePresentAndSet(BPSEC_BCB_AES_GCM_AAD_SCOPE_MASKS scope) const;
+    BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetAesWrappedKeyPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * AddAndGetInitializationVectorPtr();
+    BPCODEC_EXPORT std::vector<uint8_t> * AppendAndGetPayloadAuthenticationTagPtr();
+    BPCODEC_EXPORT std::vector<std::vector<uint8_t>*> GetAllPayloadAuthenticationTagPtrs();
 private:
-    std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
+    BPCODEC_NO_EXPORT std::vector<uint8_t> * Private_AddAndGetByteStringParamPtr(BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS parameter);
 };
 
-struct Bpv7AdministrativeRecordContentBase {
-    virtual ~Bpv7AdministrativeRecordContentBase() = 0; // Pure virtual destructor
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBase {
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBase() = 0; // Pure virtual destructor
     virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) = 0;
     virtual uint64_t GetSerializationSize() const = 0;
     virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) = 0;
     virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const = 0;
 };
-struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7AdministrativeRecordContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7AdministrativeRecordContentBase {
     typedef std::pair<bool, uint64_t> status_info_content_t; //[status-indicator: bool, optional_timestamp: dtn_time]
     typedef std::array<status_info_content_t, 4> bundle_status_information_t;
 
-    virtual ~Bpv7AdministrativeRecordContentBundleStatusReport();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBundleStatusReport();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
 
     
     // status-record-content = [
@@ -584,13 +592,13 @@ struct Bpv7AdministrativeRecordContentBundleStatusReport : public Bpv7Administra
     bool m_subjectBundleIsFragment;
     bool m_reportStatusTimeFlagWasSet;
 };
-struct Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7AdministrativeRecordContentBase {
     
-    virtual ~Bpv7AdministrativeRecordContentBibePduMessage();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
-    virtual uint64_t GetSerializationSize() const;
-    virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecordContentBibePduMessage();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual uint64_t GetSerializationSize() const;
+    BPCODEC_EXPORT virtual bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT virtual bool IsEqual(const Bpv7AdministrativeRecordContentBase * otherPtr) const;
 
     uint64_t m_transmissionId;
     uint64_t m_custodyRetransmissionTime;
@@ -598,25 +606,26 @@ struct Bpv7AdministrativeRecordContentBibePduMessage : public Bpv7Administrative
     uint64_t m_encapsulatedBundleLength;
     std::vector<uint8_t> m_temporaryEncapsulatedBundleStorage;
 };
-struct Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
+struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecord : public Bpv7CanonicalBlock {
 
     BPV7_ADMINISTRATIVE_RECORD_TYPE_CODE m_adminRecordTypeCode;
     std::unique_ptr<Bpv7AdministrativeRecordContentBase> m_adminRecordContentPtr;
     
-    Bpv7AdministrativeRecord(); //a default constructor: X()
-    virtual ~Bpv7AdministrativeRecord(); //a destructor: ~X()
-    Bpv7AdministrativeRecord(const Bpv7AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
-    Bpv7AdministrativeRecord(Bpv7AdministrativeRecord&& o); //a move constructor: X(X&&)
-    Bpv7AdministrativeRecord& operator=(const Bpv7AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
-    Bpv7AdministrativeRecord& operator=(Bpv7AdministrativeRecord&& o); //a move assignment: operator=(X&&)
-    bool operator==(const Bpv7AdministrativeRecord & o) const; //operator ==
-    bool operator!=(const Bpv7AdministrativeRecord & o) const; //operator !=
-    virtual void SetZero();
-    virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
-    virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
-    virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+    BPCODEC_EXPORT Bpv7AdministrativeRecord(); //a default constructor: X()
+    BPCODEC_EXPORT virtual ~Bpv7AdministrativeRecord(); //a destructor: ~X()
+    BPCODEC_EXPORT Bpv7AdministrativeRecord(const Bpv7AdministrativeRecord& o) = delete;; //a copy constructor: X(const X&)
+    BPCODEC_EXPORT Bpv7AdministrativeRecord(Bpv7AdministrativeRecord&& o); //a move constructor: X(X&&)
+    BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(const Bpv7AdministrativeRecord& o) = delete;; //a copy assignment: operator=(const X&)
+    BPCODEC_EXPORT Bpv7AdministrativeRecord& operator=(Bpv7AdministrativeRecord&& o); //a move assignment: operator=(X&&)
+    BPCODEC_EXPORT bool operator==(const Bpv7AdministrativeRecord & o) const; //operator ==
+    BPCODEC_EXPORT bool operator!=(const Bpv7AdministrativeRecord & o) const; //operator !=
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_dataPtr to serialized location
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
 
 
 #endif //BPV7_H
+

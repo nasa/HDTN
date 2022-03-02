@@ -15,6 +15,7 @@
 #include "OutductManager.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "Logger.h"
+#include "egress_async_lib_export.h"
 
 #define HEGR_NAME_SZ (32)
 #define HEGR_ENTRY_COUNT (1 << 20)
@@ -32,10 +33,10 @@ namespace hdtn {
 
 class HegrManagerAsync {
 public:
-    HegrManagerAsync();
-    ~HegrManagerAsync();
-    void Stop();
-    void Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    EGRESS_ASYNC_LIB_EXPORT HegrManagerAsync();
+    EGRESS_ASYNC_LIB_EXPORT ~HegrManagerAsync();
+    EGRESS_ASYNC_LIB_EXPORT void Stop();
+    EGRESS_ASYNC_LIB_EXPORT void Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 
     uint64_t m_bundleCount;
     uint64_t m_bundleData;
@@ -51,11 +52,11 @@ public:
 
     std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
-    void RouterEventHandler();
+    EGRESS_ASYNC_LIB_EXPORT void RouterEventHandler();
 private:
-    void ReadZmqThreadFunc();
-    void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
-    void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    EGRESS_ASYNC_LIB_NO_EXPORT void ReadZmqThreadFunc();
+    EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
+    EGRESS_ASYNC_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
 
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;

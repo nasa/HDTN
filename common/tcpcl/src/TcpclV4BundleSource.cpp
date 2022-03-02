@@ -306,7 +306,7 @@ void TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boos
     }
 }
 
-bool TcpclV4BundleSource::ReadyToForward() {
+bool TcpclV4BundleSource::ReadyToForward() const {
     return m_base_readyToForward;
 }
 

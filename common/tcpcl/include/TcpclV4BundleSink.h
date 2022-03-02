@@ -3,7 +3,7 @@
 
 #include "TcpclV4BidirectionalLink.h"
 
-class TcpclV4BundleSink : public TcpclV4BidirectionalLink {
+class CLASS_VISIBILITY_TCPCL_LIB TcpclV4BundleSink : public TcpclV4BidirectionalLink {
 private:
     TcpclV4BundleSink();
 public:
@@ -13,7 +13,7 @@ public:
     typedef boost::function<void()> NotifyOpportunisticDataAckedCallback_t;
     typedef boost::function<void(TcpclV4BundleSink * thisTcpclBundleSinkPtr)> OnContactHeaderCallback_t;
 
-    TcpclV4BundleSink(
+    TCPCL_LIB_EXPORT TcpclV4BundleSink(
 #ifdef OPENSSL_SUPPORT_ENABLED
         boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
 #else
@@ -33,31 +33,31 @@ public:
         //const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction = TryGetOpportunisticDataFunction_t(),
         //const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback = NotifyOpportunisticDataAckedCallback_t(),
         const unsigned int maxUnacked = 10, const uint64_t maxFragmentSize = 100000000 ); //todo
-    ~TcpclV4BundleSink();
-    bool ReadyToBeDeleted();
-    uint64_t GetRemoteNodeId() const;
-    void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
-    void SetTryGetOpportunisticDataFunction(const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction);
-    void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
+    TCPCL_LIB_EXPORT virtual ~TcpclV4BundleSink();
+    TCPCL_LIB_EXPORT bool ReadyToBeDeleted();
+    TCPCL_LIB_EXPORT uint64_t GetRemoteNodeId() const;
+    TCPCL_LIB_EXPORT void TrySendOpportunisticBundleIfAvailable_FromIoServiceThread();
+    TCPCL_LIB_EXPORT void SetTryGetOpportunisticDataFunction(const TryGetOpportunisticDataFunction_t & tryGetOpportunisticDataFunction);
+    TCPCL_LIB_EXPORT void SetNotifyOpportunisticDataAckedCallback(const NotifyOpportunisticDataAckedCallback_t & notifyOpportunisticDataAckedCallback);
 private:
 
     
 #ifdef OPENSSL_SUPPORT_ENABLED
-    void DoSslUpgrade();
-    void HandleSslHandshake(const boost::system::error_code & error);
-    void TryStartTcpReceiveSecure();
-    void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    TCPCL_LIB_NO_EXPORT void DoSslUpgrade();
+    TCPCL_LIB_NO_EXPORT void HandleSslHandshake(const boost::system::error_code & error);
+    TCPCL_LIB_NO_EXPORT void TryStartTcpReceiveSecure();
+    TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
 #endif
-    void TryStartTcpReceiveUnsecure();
-    void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
-    void PopCbThreadFunc();
+    TCPCL_LIB_NO_EXPORT void TryStartTcpReceiveUnsecure();
+    TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex);
+    TCPCL_LIB_NO_EXPORT void PopCbThreadFunc();
     
-    virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
-    virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
-    virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
-    virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendSuccessful_CalledFromIoServiceThread();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpSendContactHeaderSuccessful_CalledFromIoServiceThread();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
 
     
 

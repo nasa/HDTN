@@ -5,12 +5,12 @@
 
 
 //tcpcl
-class TcpclV4BundleSource : public TcpclV4BidirectionalLink {
+class CLASS_VISIBILITY_TCPCL_LIB TcpclV4BundleSource : public TcpclV4BidirectionalLink {
 private:
     TcpclV4BundleSource();
 public:
     typedef boost::function<void()> OnSuccessfulAckCallback_t;
-    TcpclV4BundleSource(
+    TCPCL_LIB_EXPORT TcpclV4BundleSource(
 #ifdef OPENSSL_SUPPORT_ENABLED
         boost::asio::ssl::context & shareableSslContextRef,
 #endif
@@ -19,28 +19,28 @@ public:
         const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t myMaxRxSegmentSizeBytes, const uint64_t myMaxRxBundleSizeBytes,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
 
-    ~TcpclV4BundleSource();
-    void Stop();
+    TCPCL_LIB_EXPORT virtual ~TcpclV4BundleSource();
+    TCPCL_LIB_EXPORT void Stop();
     
-    void Connect(const std::string & hostname, const std::string & port);
-    bool ReadyToForward();
-    void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+    TCPCL_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
+    TCPCL_LIB_EXPORT bool ReadyToForward() const;
+    TCPCL_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
-    void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
-    void OnConnect(const boost::system::error_code & ec);
-    void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
-    void StartTcpReceiveUnsecure();
-    void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred);
+    TCPCL_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
+    TCPCL_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
+    TCPCL_LIB_NO_EXPORT void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void StartTcpReceiveUnsecure();
+    TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred);
 #ifdef OPENSSL_SUPPORT_ENABLED
-    void StartTcpReceiveSecure();
-    void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred);
-    void HandleSslHandshake(const boost::system::error_code & error);
+    TCPCL_LIB_NO_EXPORT void StartTcpReceiveSecure();
+    TCPCL_LIB_NO_EXPORT void HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred);
+    TCPCL_LIB_NO_EXPORT void HandleSslHandshake(const boost::system::error_code & error);
 #endif
-    void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
+    TCPCL_LIB_NO_EXPORT void OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e);
 
-    virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
-    virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
-    virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_OnSuccessfulWholeBundleAcknowledged();
+    TCPCL_LIB_NO_EXPORT virtual void Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBundleVec);
 
     
     

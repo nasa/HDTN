@@ -13,8 +13,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         const uint64_t CLIENT_SERVICE_ID_DEST;
         const uint16_t BOUND_UDP_PORT_SRC;
         const uint16_t BOUND_UDP_PORT_DEST;
-        LtpUdpEngineManager * const ltpUdpEngineManagerSrcPtr;
-        LtpUdpEngineManager * const ltpUdpEngineManagerDestPtr;
+        std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr;
+        std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr;
         LtpUdpEngine * ltpUdpEngineSrcPtr;
         LtpUdpEngine * ltpUdpEngineDestPtr;
         const std::string DESIRED_RED_DATA_TO_SEND;
@@ -57,11 +57,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
             cvLock(cvMutex)
         {
-            ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
+            ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
                     "localhost", BOUND_UDP_PORT_SRC, 100, 0, 10000000, 0, 5, false);
-                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
+                ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
             ltpUdpEngineDestPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
             ltpUdpEngineDestPtr->SetRedPartReceptionCallback(boost::bind(&Test::RedPartReceptionCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -70,11 +70,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 boost::placeholders::_4, boost::placeholders::_5));
             ltpUdpEngineDestPtr->SetReceptionSessionCancelledCallback(boost::bind(&Test::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
 
-            ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false);
+            ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             if (ltpUdpEngineSrcPtr == NULL) {
-                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+                ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, ENGINE_ID_DEST, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
                     "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 0, 5, false);
-                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtr(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false);
+                ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             }
 
             ltpUdpEngineSrcPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartSenderCallback, this, boost::placeholders::_1));
@@ -90,28 +90,29 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
         ~Test() {
             removeCallbackCalled = false;
-            ltpUdpEngineManagerDestPtr->RemoveLtpUdpEngine_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&Test::RemoveCallback, this));
+            //sessionOriginatorEngineId is the remote engine id in the case of an induct
+            ltpUdpEngineManagerDestPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, boost::bind(&Test::RemoveCallback, this));
             boost::this_thread::sleep(boost::posix_time::milliseconds(100));
             for (unsigned int attempt = 0; attempt < 20; ++attempt) {
                 if (removeCallbackCalled) {
                     break;
                 }
-                std::cout << "waiting to remove ltp dest for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+                std::cout << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(100));
             }
-            std::cout << "removed ltp dest for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+            std::cout << "removed ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
 
             removeCallbackCalled = false;
-            ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngine_ThreadSafe(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, false, boost::bind(&Test::RemoveCallback, this));
+            ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(ENGINE_ID_DEST, false, boost::bind(&Test::RemoveCallback, this));
             boost::this_thread::sleep(boost::posix_time::milliseconds(100));
             for (unsigned int attempt = 0; attempt < 20; ++attempt) {
                 if (removeCallbackCalled) {
                     break;
                 }
-                std::cout << "waiting to remove ltp src for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+                std::cout << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(100));
             }
-            std::cout << "removed ltp src for session originator engine ID " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+            std::cout << "removed ltp src (outduct) for remote engine id " << ENGINE_ID_DEST << std::endl;
         }
 
         void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {

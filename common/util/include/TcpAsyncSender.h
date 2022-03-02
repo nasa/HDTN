@@ -23,12 +23,14 @@ that perform writes) until this operation completes.
 #ifdef OPENSSL_SUPPORT_ENABLED
 #include <boost/asio/ssl.hpp>
 #endif
+#include "hdtn_util_export.h"
 
 struct TcpAsyncSenderElement {
     typedef boost::function<void(const boost::system::error_code& error, std::size_t bytes_transferred)> OnSuccessfulSendCallbackByIoServiceThread_t;
-    TcpAsyncSenderElement();
+    HDTN_UTIL_EXPORT TcpAsyncSenderElement();
+    HDTN_UTIL_EXPORT ~TcpAsyncSenderElement();
     
-    void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
 
     std::vector<boost::asio::const_buffer> m_constBufferVec;
     std::vector<std::vector<boost::uint8_t> > m_underlyingData;
@@ -41,16 +43,16 @@ private:
     TcpAsyncSender();
 public:
     
-    TcpAsyncSender(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef);
+    HDTN_UTIL_EXPORT TcpAsyncSender(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef);
 
-    ~TcpAsyncSender();
+    HDTN_UTIL_EXPORT ~TcpAsyncSender();
     
-    void AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
-    void AsyncSend_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    HDTN_UTIL_EXPORT void AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    HDTN_UTIL_EXPORT void AsyncSend_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
     
-    void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
     boost::asio::io_service & m_ioServiceRef;
@@ -69,19 +71,19 @@ private:
 public:
     typedef boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > ssl_stream_sharedptr_t;
 
-    TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef);
+    HDTN_UTIL_EXPORT TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef);
 
-    ~TcpAsyncSenderSsl();
+    HDTN_UTIL_EXPORT ~TcpAsyncSenderSsl();
 
-    void AsyncSendSecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
-    void AsyncSendSecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
-    void AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
-    void AsyncSendUnsecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    HDTN_UTIL_EXPORT void AsyncSendSecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    HDTN_UTIL_EXPORT void AsyncSendSecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    HDTN_UTIL_EXPORT void AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
+    HDTN_UTIL_EXPORT void AsyncSendUnsecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
 
-    void HandleTcpSendSecure(const boost::system::error_code& error, std::size_t bytes_transferred);
-    void HandleTcpSendUnsecure(const boost::system::error_code& error, std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT void HandleTcpSendSecure(const boost::system::error_code& error, std::size_t bytes_transferred);
+    HDTN_UTIL_EXPORT void HandleTcpSendUnsecure(const boost::system::error_code& error, std::size_t bytes_transferred);
 
 
     boost::asio::io_service & m_ioServiceRef;

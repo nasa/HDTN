@@ -8,6 +8,7 @@
 #include <boost/shared_ptr.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "PaddedVectorUint8.h"
+#include "udp_lib_export.h"
 
 class UdpBundleSink {
 private:
@@ -16,21 +17,21 @@ public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallbackUdp_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
-    UdpBundleSink(boost::asio::io_service & ioService,
+    UDP_LIB_EXPORT UdpBundleSink(boost::asio::io_service & ioService,
         uint16_t udpPort,
         const WholeBundleReadyCallbackUdp_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
         const unsigned int maxUdpPacketSizeBytes,
         const NotifyReadyToDeleteCallback_t & notifyReadyToDeleteCallback = NotifyReadyToDeleteCallback_t());
-    ~UdpBundleSink();
-    bool ReadyToBeDeleted();
+    UDP_LIB_EXPORT ~UdpBundleSink();
+    UDP_LIB_EXPORT bool ReadyToBeDeleted();
 private:
 
-    void StartUdpReceive();
-    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
-    void PopCbThreadFunc();
-    void DoUdpShutdown();
-    void HandleSocketShutdown();
+    UDP_LIB_NO_EXPORT void StartUdpReceive();
+    UDP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
+    UDP_LIB_NO_EXPORT void PopCbThreadFunc();
+    UDP_LIB_NO_EXPORT void DoUdpShutdown();
+    UDP_LIB_NO_EXPORT void HandleSocketShutdown();
 
     
     //std::vector<uint8_t> m_fragmentedBundleRxConcat;

@@ -13,34 +13,34 @@
 class LtpUdpEngineManager {
 private:
     LtpUdpEngineManager();
-    LtpUdpEngineManager(const uint16_t myBoundUdpPort); //LtpUdpEngineManager can only be created by the GetOrCreateInstance() function
+    LTP_LIB_EXPORT LtpUdpEngineManager(const uint16_t myBoundUdpPort); //LtpUdpEngineManager can only be created by the GetOrCreateInstance() function
 public:
-    ~LtpUdpEngineManager();
+    LTP_LIB_EXPORT ~LtpUdpEngineManager();
 
-    void Start();
+    LTP_LIB_EXPORT void Start();
 
-    bool AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
+    LTP_LIB_EXPORT bool AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t remoteEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers);
 
-    LtpUdpEngine * GetLtpUdpEnginePtr(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct);
-    void RemoveLtpUdpEngine_ThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback);
-    void RemoveLtpUdpEngine_NotThreadSafe(const uint64_t expectedSessionOriginatorEngineId, const bool isInduct, const boost::function<void()> & callback);
-    void Stop();
-    void DoUdpShutdown();
+    LTP_LIB_EXPORT LtpUdpEngine * GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct);
+    LTP_LIB_EXPORT void RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback);
+    LTP_LIB_EXPORT void RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback);
+    LTP_LIB_EXPORT void Stop();
+    LTP_LIB_EXPORT void DoUdpShutdown();
     
-    bool ReadyToForward();
+    LTP_LIB_EXPORT bool ReadyToForward();
 private:
-    void StartUdpReceive();
-    void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
+    LTP_LIB_NO_EXPORT void StartUdpReceive();
+    LTP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
 public:
-    static LtpUdpEngineManager * GetOrCreateInstance(const uint16_t myBoundUdpPort);
-    static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
+    LTP_LIB_EXPORT static std::shared_ptr<LtpUdpEngineManager> GetOrCreateInstance(const uint16_t myBoundUdpPort);
+    LTP_LIB_EXPORT static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
 private:
     //LtpUdpEngineManager(); 
-    static std::map<uint16_t, std::unique_ptr<LtpUdpEngineManager> > m_staticMapBoundPortToLtpUdpEngineManagerPtr;
+    static std::map<uint16_t, std::weak_ptr<LtpUdpEngineManager> > m_staticMapBoundPortToLtpUdpEngineManagerPtr;
     static boost::mutex m_staticMutex;
     static uint64_t M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES;
     
@@ -56,7 +56,11 @@ private:
     
     std::vector<boost::uint8_t> m_udpReceiveBuffer;
     boost::asio::ip::udp::endpoint m_remoteEndpointReceived;
-    std::map<std::pair<uint64_t, bool>, std::unique_ptr<LtpUdpEngine> > m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr;
+    //std::map<std::pair<uint64_t, bool>, std::unique_ptr<LtpUdpEngine> > m_mapSessionOriginatorEngineIdPlusIsInductToLtpUdpEnginePtr;
+    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr; //inducts (differentiate by remote engine id using this map)
+    std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr; //outducts (differentiate by engine index encoded into the session number, cannot use this map)
+    std::vector<LtpUdpEngine*> m_vecEngineIndexToLtpUdpEngineTransmitterPtr;
+    unsigned int m_nextEngineIndex;
 
     volatile bool m_readyToForward;
 public:
