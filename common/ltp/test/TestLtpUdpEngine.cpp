@@ -4,6 +4,14 @@
 
 BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 {
+    struct MyTransmissionUserData : public LtpTransmissionRequestUserData {
+        MyTransmissionUserData() : m_data(0) {}
+        MyTransmissionUserData(const unsigned int data) : m_data(data) {}
+        virtual ~MyTransmissionUserData() {}
+
+        unsigned int m_data;
+    };
+
     struct Test {
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
@@ -78,9 +86,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             }
 
             ltpUdpEngineSrcPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartSenderCallback, this, boost::placeholders::_1));
-            ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1));
-            ltpUdpEngineSrcPtr->SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1));
-            ltpUdpEngineSrcPtr->SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+            ltpUdpEngineSrcPtr->SetTransmissionSessionCompletedCallback(boost::bind(&Test::TransmissionSessionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+            ltpUdpEngineSrcPtr->SetInitialTransmissionCompletedCallback(boost::bind(&Test::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2));
+            ltpUdpEngineSrcPtr->SetTransmissionSessionCancelledCallback(boost::bind(&Test::TransmissionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
 
         }
 
@@ -148,16 +156,28 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             lastReasonCode_receptionSessionCancelledCallback = reasonCode;
             BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
         }
-        void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
+        void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
             ++numTransmissionSessionCompletedCallbacks;
+            BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
+            MyTransmissionUserData * myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
+            BOOST_REQUIRE(myUserData);
+            BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
             BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             cv.notify_one();
         }
-        void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
+        void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
+            BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
+            MyTransmissionUserData * myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
+            BOOST_REQUIRE(myUserData);
+            BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
             BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             ++numInitialTransmissionCompletedCallbacks;
         }
-        void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+        void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
+            BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
+            MyTransmissionUserData * myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
+            BOOST_REQUIRE(myUserData);
+            BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
             ++numTransmissionSessionCancelledCallbacks;
             lastReasonCode_transmissionSessionCancelledCallback = reasonCode;
             BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
@@ -207,6 +227,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
@@ -241,6 +263,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_AND_GREEN_DATA_TO_SEND.data(), DESIRED_RED_AND_GREEN_DATA_TO_SEND.data() + DESIRED_RED_AND_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= 3)) {
@@ -275,6 +299,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = 0;
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= DESIRED_FULLY_GREEN_DATA_TO_SEND.size())) {
@@ -326,6 +352,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
@@ -377,6 +405,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
@@ -426,6 +456,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(5);
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
@@ -491,6 +523,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(5);
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
@@ -551,6 +585,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
@@ -608,6 +644,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks == 1)) {
@@ -729,6 +767,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
                 if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks) {
@@ -780,6 +820,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
                 if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCompletedCallbacks) {
@@ -830,6 +872,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numInitialTransmissionCompletedCallbacks) {
@@ -882,6 +926,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numInitialTransmissionCompletedCallbacks) {
@@ -946,6 +992,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
             tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_RED_DATA_TO_SEND.data(), DESIRED_RED_DATA_TO_SEND.data() + DESIRED_RED_DATA_TO_SEND.size()); //copy
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {

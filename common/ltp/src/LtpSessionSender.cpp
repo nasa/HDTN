@@ -8,7 +8,8 @@
 
 
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
-    LtpClientServiceDataToSend && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
+    LtpClientServiceDataToSend && dataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake,
+    uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, 
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
     const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
@@ -18,6 +19,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
     m_dataToSend(std::move(dataToSend)),
+    m_userDataPtr(std::move(userDataPtrToTake)),
     M_LENGTH_OF_RED_PART(lengthOfRedPart),
     m_dataIndexFirstPass(0),
     m_didNotifyForDeletion(false),
@@ -82,7 +84,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     else {
         if (!m_didNotifyForDeletion) {
             m_didNotifyForDeletion = true;
-            m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC);
+            m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
         }
     }
 }
@@ -211,11 +213,11 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             m_dataIndexFirstPass += bytesToSendGreen;
         }
         if (m_dataIndexFirstPass == m_dataToSend.size()) { //only ever enters here once
-            m_initialTransmissionCompletedCallback(M_SESSION_ID);
+            m_initialTransmissionCompletedCallback(M_SESSION_ID, m_userDataPtr);
             if (M_LENGTH_OF_RED_PART == 0) { //fully green case complete (notify engine for deletion)
                 if (!m_didNotifyForDeletion) {
                     m_didNotifyForDeletion = true;
-                    m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
+                    m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                 }
             }
             else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
@@ -224,7 +226,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                 if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                     if (!m_didNotifyForDeletion) {
                         m_didNotifyForDeletion = true;
-                        m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
+                        m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                     }
                 }
             }
@@ -295,7 +297,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
         if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
             if (!m_didNotifyForDeletion) {
                 m_didNotifyForDeletion = true;
-                m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED);
+                m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
             }
         }
     }
