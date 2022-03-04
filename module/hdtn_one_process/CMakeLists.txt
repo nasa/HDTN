@@ -15,7 +15,7 @@ target_link_libraries(hdtn-one-process
 	ingress_async_lib
 	storage_lib
 	egress_async_lib
-    hdtn_gui
+    ${hdtn_gui_LIB}
 	${libzmq_LIB}
 	${pthread_LIB}
 	${Boost_LIBRARIES}

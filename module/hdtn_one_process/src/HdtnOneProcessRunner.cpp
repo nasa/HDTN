@@ -10,7 +10,7 @@
 #include "EgressAsync.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
-#include "WebsocketServer.h"
+#include "Environment.h"
 
 
 #include <fstream>
@@ -22,7 +22,10 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
+#ifdef USE_HDTN_GUI
 #include <boost/property_tree/json_parser.hpp>
+#include "WebsocketServer.h"
+#endif
 
 
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction() {
@@ -126,12 +129,13 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-
-        const std::string DOCUMENT_ROOT = "module/gui/";
+#ifdef USE_HDTN_GUI
+        const boost::filesystem::path documentRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "gui"; //todo
+        const std::string DOCUMENT_ROOT = documentRootDir.string();
         const std::string HTML_FILE_NAME = "web_gui.html";
         const std::string PORT_NUMBER_AS_STRING = "8086";
 
-        const boost::filesystem::path htmlMainFilePath = boost::filesystem::path(DOCUMENT_ROOT) / boost::filesystem::path(HTML_FILE_NAME);
+        const boost::filesystem::path htmlMainFilePath = documentRootDir / boost::filesystem::path(HTML_FILE_NAME);
         if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
             std::cout << "found " << htmlMainFilePath.string() << std::endl;
         }
@@ -139,7 +143,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             std::cout << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml" << std::endl;
             return 1;
         }
-        if(hdtnConfig->m_userInterfaceOn){
+        if(hdtnConfig->m_userInterfaceOn) {
             //Launch Web GUI
             std::cout << "starting websocket server\n";
             WebsocketServer server(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING);
@@ -165,7 +169,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
                 //access ingress, egress, and storage objects to poll data and send JSON message
                 rate = (8.0 * (ingressPtr->m_bundleData - lastData)) / elapsedTime.total_microseconds();
                 averageRate = (8.0 * ingressPtr->m_bundleData) / totalTime.total_microseconds();
-                lastData = ingressPtr->m_bundleData;
+                lastData = static_cast<double>(ingressPtr->m_bundleData);
 
                 //Create JSON
                 boost::property_tree::ptree pt;
@@ -185,6 +189,17 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
                 server.SendNewTextData(json.c_str(), json.size());
             }
         }
+        else {
+#endif //USE_HDTN_GUI
+            while (running && m_runningFromSigHandler) {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+                if (useSignalHandler) {
+                    sigHandler.PollOnce();
+                }
+            }
+#ifdef USE_HDTN_GUI
+        }
+#endif
         std::ofstream output;
 //        output.open("ingress-" + currentDate);
 

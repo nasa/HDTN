@@ -3,62 +3,59 @@
 
 #include "CivetServer.h"
 #include <cstring>
-
-#include <boost/thread.hpp> 
-#include <boost/function.hpp>
-#include <boost/asio.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
 #include <set>
+#include "hdtn_gui_export.h"
+#ifndef CLASS_VISIBILITY_HDTN_GUI
+#  ifdef _WIN32
+#    define CLASS_VISIBILITY_HDTN_GUI
+#  else
+#    define CLASS_VISIBILITY_HDTN_GUI HDTN_GUI_EXPORT
+#  endif
+#endif
 
-class ExitHandler : public CivetHandler {
+class CLASS_VISIBILITY_HDTN_GUI ExitHandler : public CivetHandler {
 public:
-	ExitHandler();
-	bool handleGet(CivetServer *server, struct mg_connection *conn);
+    HDTN_GUI_EXPORT ExitHandler();
+    HDTN_GUI_EXPORT bool handleGet(CivetServer *server, struct mg_connection *conn);
 
-	volatile bool m_exitNow;
+    volatile bool m_exitNow;
 };
 
-class WebSocketHandler : public CivetWebSocketHandler {
+class CLASS_VISIBILITY_HDTN_GUI WebSocketHandler : public CivetWebSocketHandler {
 public:
-	WebSocketHandler();
-	~WebSocketHandler();
-	void SendDataToActiveWebsockets(const char * data, std::size_t size);
-	void SendBinaryDataToActiveWebsockets(const char * data, std::size_t size);
+    HDTN_GUI_EXPORT WebSocketHandler();
+    HDTN_GUI_EXPORT ~WebSocketHandler();
+    HDTN_GUI_EXPORT void SendTextDataToActiveWebsockets(const char * data, std::size_t size);
+    HDTN_GUI_EXPORT void SendBinaryDataToActiveWebsockets(const char * data, std::size_t size);
 
 private:
-	virtual bool handleConnection(CivetServer *server, const struct mg_connection *conn);
-	virtual void handleReadyState(CivetServer *server, struct mg_connection *conn);
-	virtual bool handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len);
-	virtual void handleClose(CivetServer *server, const struct mg_connection *conn);
-	void StartUdpReceive();
-	void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
-	void HandleUdpSend(const boost::system::error_code & error, std::size_t bytesTransferred);
+    HDTN_GUI_NO_EXPORT virtual bool handleConnection(CivetServer *server, const struct mg_connection *conn);
+    HDTN_GUI_NO_EXPORT virtual void handleReadyState(CivetServer *server, struct mg_connection *conn);
+    HDTN_GUI_NO_EXPORT virtual bool handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len);
+    HDTN_GUI_NO_EXPORT virtual void handleClose(CivetServer *server, const struct mg_connection *conn);
 
-	boost::mutex m_mutex;
-	//struct mg_connection * volatile m_activeConnection; //only allow one connection
-	std::set<struct mg_connection *> m_activeConnections; //allow multiple connections
-
-	boost::asio::io_service m_ioService;
-	boost::asio::ip::udp::socket m_udpSocket;
-	boost::asio::ip::udp::endpoint m_endpointToApcFromVm;
-	boost::asio::ip::udp::endpoint m_junkRemoteEndpointFromApcToVm;
-	boost::shared_ptr<boost::thread> m_ioServiceThread;
-	boost::uint8_t m_udpReceiveBuffer[2048];
+    boost::mutex m_mutex;
+    //struct mg_connection * volatile m_activeConnection; //only allow one connection
+    std::set<struct mg_connection *> m_activeConnections; //allow multiple connections
 };
 
-class WebsocketServer {
+class CLASS_VISIBILITY_HDTN_GUI WebsocketServer {
 public:
-	WebsocketServer(const std::string & documentRoot, const std::string & portNumberAsString);
-	bool RequestsExit();
-	void SendNewTextData(const char* data, std::size_t size);
-	void SendNewTextData(const std::string & data);
-	~WebsocketServer();
+    HDTN_GUI_EXPORT WebsocketServer(const std::string & documentRoot, const std::string & portNumberAsString);
+    HDTN_GUI_EXPORT bool RequestsExit();
+    HDTN_GUI_EXPORT void SendNewBinaryData(const char* data, std::size_t size);
+    HDTN_GUI_EXPORT void SendNewTextData(const char* data, std::size_t size);
+    HDTN_GUI_EXPORT void SendNewTextData(const std::string & data);
+    HDTN_GUI_EXPORT ~WebsocketServer();
 
 private:
-	WebsocketServer();
+    WebsocketServer();
 
-	boost::shared_ptr<CivetServer> m_civetServerSharedPtr;
-	boost::shared_ptr<ExitHandler> m_exitHandlerSharedPtr;
-	boost::shared_ptr<WebSocketHandler> m_websocketHandlerSharedPtr;	
+    boost::shared_ptr<CivetServer> m_civetServerSharedPtr;
+    boost::shared_ptr<ExitHandler> m_exitHandlerSharedPtr;
+    boost::shared_ptr<WebSocketHandler> m_websocketHandlerSharedPtr;
 };
 
 
