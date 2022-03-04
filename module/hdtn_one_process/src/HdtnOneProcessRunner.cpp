@@ -10,6 +10,8 @@
 #include "EgressAsync.h"
 #include "HdtnOneProcessRunner.h"
 #include "SignalHandler.h"
+#include "Environment.h"
+
 
 #include <fstream>
 #include <iostream>
@@ -20,7 +22,10 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
-
+#ifdef USE_HDTN_GUI
+#include <boost/property_tree/json_parser.hpp>
+#include "WebsocketServer.h"
+#endif
 
 
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction() {
@@ -40,6 +45,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
         bool isCutThroughOnlyTest = false;
+
         HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
@@ -123,20 +129,84 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "ingress, egress, and storage up and running" << std::endl;
-        while (running && m_runningFromSigHandler) {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(250));
-            if (useSignalHandler) {
+#ifdef USE_HDTN_GUI
+        const boost::filesystem::path documentRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "gui"; //todo
+        const std::string DOCUMENT_ROOT = documentRootDir.string();
+        const std::string HTML_FILE_NAME = "web_gui.html";
+        const std::string PORT_NUMBER_AS_STRING = "8086";
+
+        const boost::filesystem::path htmlMainFilePath = documentRootDir / boost::filesystem::path(HTML_FILE_NAME);
+        if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
+            std::cout << "found " << htmlMainFilePath.string() << std::endl;
+        }
+        else {
+            std::cout << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml" << std::endl;
+            return 1;
+        }
+        if(hdtnConfig->m_userInterfaceOn) {
+            //Launch Web GUI
+            std::cout << "starting websocket server\n";
+            WebsocketServer server(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING);
+
+            double lastData = 0;
+            double rate = 0;
+            double averageRate = 0;
+            std::string json;
+            boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
+            boost::posix_time::ptime lastTime = startTime;
+
+            //Loop to send data to webserver while HDTN is running
+            while (running && m_runningFromSigHandler && !server.RequestsExit()) {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+                if (useSignalHandler) {
                 sigHandler.PollOnce();
+                }
+                boost::posix_time::ptime newTime = boost::posix_time::microsec_clock::universal_time();
+                boost::posix_time::time_duration elapsedTime = newTime - lastTime;
+                lastTime=newTime;
+                boost::posix_time::time_duration totalTime = newTime - startTime;            
+
+                //access ingress, egress, and storage objects to poll data and send JSON message
+                rate = (8.0 * (ingressPtr->m_bundleData - lastData)) / elapsedTime.total_microseconds();
+                averageRate = (8.0 * ingressPtr->m_bundleData) / totalTime.total_microseconds();
+                lastData = static_cast<double>(ingressPtr->m_bundleData);
+
+                //Create JSON
+                boost::property_tree::ptree pt;
+                pt.put("bundleDataRate", rate);
+                pt.put("averageRate", averageRate);
+                pt.put("totalData", ingressPtr->m_bundleData/1000);
+                pt.put("bundleCountEgress", ingressPtr->m_bundleCountEgress);
+                pt.put("bundleCountStorage", ingressPtr->m_bundleCountStorage);
+                pt.put("totalBundlesErasedFromStorage", storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage());
+                pt.put("totalBundlesSentToEgressFromStorage", storagePtr->m_totalBundlesSentToEgressFromStorage);
+                pt.put("egressBundleCount", egressPtr->m_bundleCount);
+                pt.put("egressBundleData", egressPtr->m_bundleData/1000);
+                pt.put("egressMessageCount", egressPtr->m_messageCount);
+                std::stringstream ss;
+                boost::property_tree::json_parser::write_json(ss, pt);
+                json = ss.str();
+                server.SendNewTextData(json.c_str(), json.size());
             }
         }
-
+        else {
+#endif //USE_HDTN_GUI
+            while (running && m_runningFromSigHandler) {
+                boost::this_thread::sleep(boost::posix_time::milliseconds(250));
+                if (useSignalHandler) {
+                    sigHandler.PollOnce();
+                }
+            }
+#ifdef USE_HDTN_GUI
+        }
+#endif
         std::ofstream output;
 //        output.open("ingress-" + currentDate);
 
         std::ostringstream oss;
         oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
             "(MB)\n";
+        //Possibly out of Date
         double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
         oss << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
             << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024) << "\n";

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
+    <title>HDTN GUI</title>
+</head>
+
+<body>
+
+<style>
+    body {
+        margin:0;
+        font-family: Arial, Helvetica, sans-serif;
+        background-color: #121212;
+    }
+
+    .topnav {
+        overflow: hidden;
+        background-color:#7f7f7f;
+    }
+
+    .topnav a {
+        float: left;
+        color: #f2f2f2;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        font-size: 17px;
+    }
+
+    .topnav a:hover {
+        background-color: #ddd;
+        color: black;
+    }
+
+    .topnav a.active {
+        background-color: #04AA6D;
+        color: white;
+    }
+    
+    .rate_table {
+        table-layout: fixed;
+        background-color: #404040;
+        color: white;
+        font-size: 20px;
+        text-align: center;
+        width: 600px;
+    }
+
+    .rate_table th {
+        background-color: #04AA6D;
+        color: white;
+    }
+
+    .rate_table td {
+        color: white;
+    }
+
+
+    .engine_table {
+        table-layout: fixed;
+        background-color: #7f7f7f;
+        color: white;
+        font-size: 20px;
+        text-align: left;
+        width: 1150px;
+    }
+
+    .engine_table th {
+        background-color: #04AA6D;
+        color: white;
+    }
+
+    .engine_table td {
+        color: white;
+    }
+
+    .engine_table tr:nth-child(even) {
+        background-color: #404040;
+    }
+
+    .engine_table tr td:nth-child(even){
+        text-align: center;
+    }
+
+</style>
+
+<div class="topnav">
+    <a class="active" href="#home">HDTN</a>
+    <a href = "#stats">Statistics</a>
+    <a href = "#config">Config</a>
+</div>
+
+<div id="data_rate_graph" style="width:600px;height:450px;float:left;padding-left:16px;padding-top:16px"></div>
+
+<div id="storage_egress_chart" style="width:500px;height:450px;overflow:hidden;padding-left:50px;padding-top:16px"></div>
+
+<div id="rate_stats" style="width:1000px;height:75px;padding-left:16px;padding-top:16px;">
+<table class="rate_table">
+    <tr>
+        <th>Data Rate (Mbps)</th>
+        <th>Average Rate</th>
+        <th>Max Rate</th>
+    </tr>
+    <tr>
+        <td id="rate_data"></td>
+        <td id="avg_data"></td>
+        <td id="max_data"></td>
+    </tr>
+</table>
+</div>
+
+<div id="ingress_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">Ingress</th>
+    </tr>
+    <tr>
+        <td>Ingress Bundle Count Storage</td>
+        <td id="ingressBundleCountStorage"></td>
+        <td>Ingress Bundle Count Egress</td>
+        <td id="ingressBundleCountEgress"></td>
+    </tr>
+    <tr>
+        <td>Ingress Bundle Count</td>
+        <td id="ingressBundleCount"></td>
+        <td>Ingress Bundle Data (Mb)</td>
+        <td id="ingressBundleData"></td>
+    </tr>
+</table>
+</div>
+
+<div id="egress_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">Egress</th>
+    </tr>
+    <tr>
+        <td>Egress Message Count</td>
+        <td id="egressMessageCount"></td>
+        <td>Egress Bundle Count</td>
+        <td id="egressBundleCount"></td>
+    </tr>
+    <tr>
+        <td>Egress Bundle Data (Mb)</td>
+        <td id="egressBundleData"></td>
+        <td></td>
+        <td></td>
+    </tr>
+</table>
+</div>
+
+<div id="storage_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">Storage</th>
+    </tr>
+    <tr>
+        <td>Total Bundles Erased From Storage</td>
+        <td id="totalBundlesErasedFromStorage"></td>
+        <td>Total Bundles Sent To Egress From Storage</td>
+        <td id="totalBundlesSentToEgressFromStorage"></td>
+    </tr>
+</table>
+</div>
+
+
+
+<div id="ltp_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">LTP Engine</th>
+    </tr>
+    <tr>
+        <td>Count Async Send Calls</td>
+        <td id="countAsyncSendCalls"></td>
+        <td>Count Circular Buffer Overruns</td>
+        <td id="countCircularBufferOverruns"></td>
+    </tr>
+    <tr>
+        <td>Num Checkpoint Timer Expired Callbacks</td>
+        <td id="numCheckpointTimerExpiredCallbacks"></td>
+        <td>Num Discretionary Checkpoints Not Resent</td>
+        <td id="numDiscretionaryCheckpointsNotResent"></td>
+    </tr>
+    <tr>
+        <td>Num Report Segment Timer Expired Callbacks</td>
+        <td id="numReportSegmentTimerExpiredCallbacks"></td>
+        <td>Num Report Segments Unable To Be Issued</td>
+        <td id="numReportSegmentsUnableToBeIssued"></td>
+    </tr>
+    <tr>
+        <td>Num Report Segments Too Large And Needing Split</td>
+        <td id="numReportSegmentsTooLargeAndNeedingSplit"></td>
+        <td>Num Report Segments Created Via Split</td>
+        <td id="numReportSegmentsCreatedViaSplit"></td>
+    </tr>
+    <tr>
+        <td>Expected Session Originator Engine ID</td>
+        <td id="expectedSessionOriginatorEngineId"></td>
+        <td>Total Data Segments Sent Successfully With Ack</td>
+        <td id="totalDataSegmentsSentSuccessfullyWithAck"></td>
+    </tr>
+    <tr>
+        <td>Total Data Segments Failed To Send</td>
+        <td id="totalDataSegmentsFailedToSend"></td>
+        <td>Total Data Segments Sent</td>
+        <td id="totalDataSegmentsSent"></td>
+    </tr>
+</table>
+</div>
+
+<div id="stcp_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">STCP</th>
+    </tr>
+    <tr>
+        <td>Total STCP Bytes Sent</td>
+        <td id="totalStcpBytesSent"></td>
+        <td></td>
+        <td></td>
+    </tr>
+
+</table>
+</div>
+
+<div id="engine_stats" style="width:1200px;padding-left:16px;padding-top:16px;padding-bottom:16px;">
+<table class="engine_table">
+    <colgroup>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+        <col span="1" style="width:40%;"></col>
+        <col span="1" style="width:10%;"></col>
+    </colgroup>
+    <tr>
+        <th colspan="4" style="text-align:center">TCP</th>
+    </tr>
+  <tr>
+        <td>Total Data Segments Acked By TCP Send Callback</td>
+        <td id="totalDataSegmentsAckedByTcpSendCallback"></td>
+        <td>Total Bytes Acked By TCP Send Callback</td>
+        <td id="totalBytesAckedByTcpSendCallback"></td>
+    </tr>
+</table>
+</div>
+
+<script src="plotly-2.6.3.min.js"></script>
+<script src="web_gui.js"></script>
+
+</body>
+</html>
