@@ -45,7 +45,7 @@ else()
 	set(pthread_LIB pthread)
 endif()
 
-OPTION(USE_HDTN_GUI "Use Civetweb HDTN GUI" ON)
+OPTION(USE_HDTN_GUI "Use Civetweb HDTN GUI" OFF)
 if(USE_HDTN_GUI)
 	add_compile_definitions(USE_HDTN_GUI)
 	set(hdtn_gui_LIB hdtn_gui)
