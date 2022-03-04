@@ -4,14 +4,15 @@
 // processor: x86, x64
 // Uses the __cpuid intrinsic to get information about
 // CPU extended instruction set support.
-
+#ifndef CPU_FLAG_DETECTION_RUN_MAIN_ONLY
 #include "CpuFlagDetection.h"
+#endif
 #include <iostream>
 #include <vector>
 #include <bitset>
 #include <array>
 #include <string>
-#include <intrin.h>
+#include <cstring>
 
 
 #ifdef _MSC_VER
@@ -303,8 +304,8 @@ void InstructionSet::InstructionSet_Internal::GenerateFlagsString(std::string & 
     AppendFeature(flagsString, "SSE", InstructionSet::SSE());
     AppendFeature(flagsString, "SSE2", InstructionSet::SSE2());
     AppendFeature(flagsString, "SSE3", InstructionSet::SSE3());
-    AppendFeature(flagsString, "SSE4.1", InstructionSet::SSE41());
-    AppendFeature(flagsString, "SSE4.2", InstructionSet::SSE42());
+    AppendFeature(flagsString, "SSE41", InstructionSet::SSE41());
+    AppendFeature(flagsString, "SSE42", InstructionSet::SSE42());
     AppendFeature(flagsString, "SSE4a", InstructionSet::SSE4a());
     AppendFeature(flagsString, "SSSE3", InstructionSet::SSSE3());
     AppendFeature(flagsString, "SYSCALL", InstructionSet::SYSCALL());
@@ -316,6 +317,7 @@ void InstructionSet::InstructionSet_Internal::GenerateFlagsString(std::string & 
 // Initialize static member data
 const InstructionSet::InstructionSet_Internal InstructionSet::CPU_Rep;
 
+#ifndef CPU_FLAG_DETECTION_RUN_MAIN_ONLY
 std::string CpuFlagDetection::GetCpuFlagsCommaSeparated() {
     return InstructionSet::FlagsList();
 }
@@ -325,3 +327,13 @@ std::string CpuFlagDetection::GetCpuVendor() {
 std::string CpuFlagDetection::GetCpuBrand() {
     return InstructionSet::Brand();
 }
+
+#else
+//for use in cmake try_run() only
+int main() {
+    std::cout << "VENDOR_BEGIN" << InstructionSet::Vendor() << "VENDOR_END ";
+    std::cout << "BRAND_BEGIN" << InstructionSet::Brand() << "BRAND_END";
+    std::cout << "ALL_CPU_FLAGS_BEGIN" << InstructionSet::FlagsList() << "ALL_CPU_FLAGS_END";
+    return 0;
+}
+#endif

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 include (GenerateExportHeader)
+include(CheckSymbolExists)
+include(CheckIncludeFile)
 option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
 project(HDTN VERSION 1.0)
@@ -19,12 +21,8 @@ if(NOT Boost_USE_STATIC_LIBS)
 endif()
 
 OPTION(USE_X86_HARDWARE_ACCELERATION "Use CPU SSE/SSE2/BMI1/BMI2 instructions" ON)
-if(USE_X86_HARDWARE_ACCELERATION)
-    add_compile_definitions(USE_X86_HARDWARE_ACCELERATION)
-    if(NOT WIN32)
-        SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -msse -msse2 -mbmi -mbmi2 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2")
-    endif()
-endif()
+include(${CMAKE_SOURCE_DIR}/hardware_acceleration.cmake) # Determine if hardware acceleration can be used
+
 
 OPTION(LTP_RNG_USE_RDSEED "Use CPU RDSEED instruction as a source of randomness for LTP Random Number Generator" ON)
 if(LTP_RNG_USE_RDSEED)
