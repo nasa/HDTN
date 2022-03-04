@@ -15,7 +15,7 @@
 
 
 
-typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisSenderNeedsDeletedCallback_t;
+typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr)> NotifyEngineThatThisSenderNeedsDeletedCallback_t;
 
 typedef boost::function<void()> NotifyEngineThatThisSendersTimersProducedDataFunction_t;
 
@@ -36,7 +36,8 @@ public:
         uint8_t retryCount;
     };
     LTP_LIB_EXPORT ~LtpSessionSender();
-    LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend, uint64_t lengthOfRedPart, const uint64_t MTU,
+    LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
+        std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
@@ -59,6 +60,9 @@ private:
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
     LtpClientServiceDataToSend m_dataToSend;
+public:
+    std::shared_ptr<LtpTransmissionRequestUserData> m_userDataPtr;
+private:
     uint64_t M_LENGTH_OF_RED_PART;
     uint64_t m_dataIndexFirstPass;
     bool m_didNotifyForDeletion;

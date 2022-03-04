@@ -279,7 +279,9 @@ bool LtpEngine::NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer
    On reception of a valid transmission request from a client service,
    LTP proceeds as follows.
    */
-void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, LtpClientServiceDataToSend && clientServiceDataToSend, uint64_t lengthOfRedPart) { //only called directly by unit test (not thread safe)
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+    LtpClientServiceDataToSend && clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
+{ //only called directly by unit test (not thread safe)
 
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
@@ -293,22 +295,40 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     }
     Ltp::session_id_t senderSessionId(M_THIS_ENGINE_ID, randomSessionNumberGeneratedBySender);
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = boost::make_unique<LtpSessionSender>(
-        randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
+        randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), std::move(userDataPtrToTake),
+        lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
         M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_ioServiceLtpEngine,
-        boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+        boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4),
         boost::bind(&LtpEngine::TrySendPacketIfAvailable, this),
-        boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1), m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber);
+        boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2), m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber);
 
     if (m_sessionStartCallback) {
         //At the sender, the session start notice informs the client service of the initiation of the transmission session.
         m_sessionStartCallback(senderSessionId);
     }
 }
-void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId, const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart) {  //only called directly by unit test (not thread safe)
-    TransmissionRequest(destinationClientServiceId, destinationLtpEngineId, std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length), lengthOfRedPart);
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+    const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
+{  //only called directly by unit test (not thread safe)
+    TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
+        std::move(std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        std::move(userDataPtrToTake), lengthOfRedPart
+    );
+}
+void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+    const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart)
+{  //only called directly by unit test (not thread safe)
+    TransmissionRequest(destinationClientServiceId, destinationLtpEngineId,
+        std::move(std::vector<uint8_t>(clientServiceDataToCopyAndSend, clientServiceDataToCopyAndSend + length)),
+        std::move(std::shared_ptr<LtpTransmissionRequestUserData>()), lengthOfRedPart
+    );
 }
 void LtpEngine::TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest) {
-    TransmissionRequest(transmissionRequest->destinationClientServiceId, transmissionRequest->destinationLtpEngineId, std::move(transmissionRequest->clientServiceDataToSend), transmissionRequest->lengthOfRedPart);
+    TransmissionRequest(transmissionRequest->destinationClientServiceId, transmissionRequest->destinationLtpEngineId,
+        std::move(transmissionRequest->clientServiceDataToSend),
+        std::move(transmissionRequest->userDataPtr),
+        transmissionRequest->lengthOfRedPart
+    );
     TrySendPacketIfAvailable();
 }
 void LtpEngine::TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest) {
@@ -466,7 +486,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
         std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
             if (m_transmissionSessionCancelledCallback) {
-                m_transmissionSessionCancelledCallback(sessionId, reasonCode);
+                m_transmissionSessionCancelledCallback(sessionId, reasonCode, txSessionIt->second->m_userDataPtr);
             }
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
@@ -548,7 +568,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     
 }
 
-void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
     if (wasCancelled) {
         //send Cancel Segment to receiver (NextPacketToSendRoundRobin() will create the packet and start the timer)
         m_listCancelSegmentTimerInfo.emplace_back();
@@ -559,12 +579,12 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
         info.reasonCode = reasonCode;
 
         if (m_transmissionSessionCancelledCallback) {
-            m_transmissionSessionCancelledCallback(sessionId, reasonCode);
+            m_transmissionSessionCancelledCallback(sessionId, reasonCode, userDataPtr);
         }
     }
     else {
         if (m_transmissionSessionCompletedCallback) {
-            m_transmissionSessionCompletedCallback(sessionId);
+            m_transmissionSessionCompletedCallback(sessionId, userDataPtr);
         }
     }
 
@@ -594,9 +614,9 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
     SignalReadyForSend_ThreadSafe(); //posts the TrySendPacketIfAvailable(); so this won't be deleteted during execution
 }
 
-void LtpEngine::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
+void LtpEngine::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
     if (m_initialTransmissionCompletedCallback) {
-        m_initialTransmissionCompletedCallback(sessionId);
+        m_initialTransmissionCompletedCallback(sessionId, userDataPtr);
     }
 }
 
