@@ -9,7 +9,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 #include <immintrin.h>
 #endif
 
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
         BOOST_REQUIRE_EQUAL(decodedValueClassic, valueToEncode);
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 
         //encode fast
         encodedFast.resize(9);
@@ -206,13 +206,13 @@ BOOST_AUTO_TEST_CASE(CborUint64BitAppendixATestCase)
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, expectedEncoding.size());
         BOOST_REQUIRE_EQUAL(decodedValueFast, valueToEncode);
 
-#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
+#endif //#ifdef USE_CBOR_FAST
 
     }
 
 }
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 BOOST_AUTO_TEST_CASE(CborUint64BitNoOverwriteTestCase)
 {
     uint64_t s2;
@@ -271,7 +271,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
         CborDecodeU64Classic(encodedClassic.data(), &numBytesTakenToDecode, expectedEncodingSize - 1);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, 0);
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 
         
         //fail encoding if buffer too small (must return encoding size 0)
@@ -298,7 +298,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitEdgeCasesTestCase)
         CborDecodeU64Fast(encodedFast.data(), &numBytesTakenToDecode, expectedEncodingSize - 1);
         BOOST_REQUIRE_EQUAL((unsigned int)numBytesTakenToDecode, 0);
 
-#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
+#endif //#ifdef USE_CBOR_FAST
 
     }
 
@@ -375,7 +375,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE_EQUAL(totalBytesEncodedClassicBufSize9, totalExpectedEncodingSize * LOOP_COUNT);
     }
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
     //ENCODE ARRAY OF VALS (FAST)
     {
         std::cout << "encode fast\n";
@@ -465,7 +465,7 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
         BOOST_REQUIRE(allDecodedVals == allExpectedDecodedValues);
     }
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
     //DECODE ARRAY OF VALS (FAST)
     {
         std::cout << "decode fast\n";

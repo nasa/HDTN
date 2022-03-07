@@ -1,20 +1,61 @@
+if(USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED)
+	check_include_file("immintrin.h" HAVE_IMMINTRIN_H)
+	if(NOT HAVE_IMMINTRIN_H)
+        message(FATAL_ERROR "USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED was set but compiler doesn't have immintrin.h.. you must unset USE_X86_HARDWARE_ACCELERATION and LTP_RNG_USE_RDSEED as they won't work on this machine")
+    endif()
+	check_include_file("x86intrin.h" HAVE_X86INTRIN_H)
+	check_include_file("intrin.h" HAVE_INTRIN_H)
+
+	#note, check_symbol_exists does not work on intrinsics such as in:
+	#check_symbol_exists("_pdep_u64" "immintrin.h" HAVE_pdep_u64) #BMI2
+
+	#message("rd: ${CMAKE_REQUIRED_DEFINITIONS}")
+	if(HAVE_INTRIN_H)
+        SET(CMAKE_REQUIRED_DEFINITIONS  "${CMAKE_REQUIRED_DEFINITIONS};-DHAVE_INTRIN_H")
+		message("adding compile definition: HAVE_INTRIN_H")
+		add_compile_definitions(HAVE_INTRIN_H)
+    endif()
+	if(HAVE_X86INTRIN_H)
+        SET(CMAKE_REQUIRED_DEFINITIONS  "${CMAKE_REQUIRED_DEFINITIONS};-DHAVE_X86INTRIN_H")
+		message("adding compile definition: HAVE_X86INTRIN_H")
+		add_compile_definitions(HAVE_X86INTRIN_H)
+    endif()
+	#message("rd2: ${CMAKE_REQUIRED_DEFINITIONS}")
+endif()
 
 if(USE_X86_HARDWARE_ACCELERATION)
-	#check_include_file("immintrin.h" HAVE_IMMINTRIN_H)
-	#check_include_file("x86intrin.h" HAVE_X86INTRIN_H)
-	#check_include_file("nmmintrin.h" HAVE_NMMINTRIN_H) #crc32
-	#check_symbol_exists("_pdep_u64" "immintrin.h" HAVE_pdep_u64) #BMI2
-	#check_symbol_exists(_pext_u64 "immintrin.h" HAVE_pext_u64) #BMI2
-    #check_symbol_exists(_mm_crc32_u64 "nmmintrin.h" HAVE_mm_crc32_u64) #sse4.2
-	#check_symbol_exists(_mm_crc32_u8 "nmmintrin.h" HAVE_mm_crc32_u8) #sse4.2
-    #check_symbol_exists(_bittest64 "immintrin.h" HAVE_bittest64)
-    #check_symbol_exists(_bittestandreset64 "immintrin.h" HAVE_bittestandreset64)
-    #check_symbol_exists(__andn_u64 "x86intrin.h" HAVE__andn_u64) #gnu c only and BMI1 
+	check_include_file("emmintrin.h" HAVE_EMMINTRIN_H)
+	if(NOT HAVE_EMMINTRIN_H)
+        message(FATAL_ERROR "USE_X86_HARDWARE_ACCELERATION was set but compiler doesn't have emmintrin.h.. you must unset USE_X86_HARDWARE_ACCELERATION as it won't work on this machine")
+    endif()
+
+	check_include_file("nmmintrin.h" HAVE_NMMINTRIN_H)
+	if(NOT HAVE_NMMINTRIN_H)
+        message(FATAL_ERROR "USE_X86_HARDWARE_ACCELERATION was set but compiler doesn't have nmmintrin.h.. you must unset USE_X86_HARDWARE_ACCELERATION as it won't work on this machine")
+    endif()
+
+	check_include_file("smmintrin.h" HAVE_SMMINTRIN_H)
+	if(NOT HAVE_SMMINTRIN_H)
+        message(FATAL_ERROR "USE_X86_HARDWARE_ACCELERATION was set but compiler doesn't have smmintrin.h.. you must unset USE_X86_HARDWARE_ACCELERATION as it won't work on this machine")
+    endif()
+
+	
+
+	#message("rf: ${CMAKE_REQUIRED_FLAGS}")
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2 -mbmi -mbmi2 -msse3 -mssse3 -msse4.1 -msse4.2")
+    endif()
+	#message("rf2: ${CMAKE_REQUIRED_FLAGS}")
 	check_cxx_source_compiles("
 		#include <immintrin.h>
 		#include <emmintrin.h>
 		#include <smmintrin.h>
+		#ifdef HAVE_INTRIN_H
 		#include <intrin.h>
+		#endif
+		#ifdef HAVE_X86INTRIN_H
+		#include <x86intrin.h>
+		#endif
 		#include <cstdint>
 		int main() {
 			uint8_t data[32];
@@ -50,33 +91,51 @@ if(USE_X86_HARDWARE_ACCELERATION)
 					0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f //shr 0
 				};
 				__m128i mySet = _mm_setzero_si128();
-				_mm_storeu_si64(data, mySet);//SSE Store 64-bit integer from the first element of a into memory. mem_addr does not need to be aligned on any particular boundary.
+				//_mm_storeu_si64(data, mySet);//SSE Store 64-bit integer from the first element of a into memory. mem_addr does not need to be aligned on any particular boundary. //missing on gnuc
 				const __m128i shuffleControlMask = _mm_stream_load_si128((__m128i*) &SHUFFLE_SHR_128I[0]); //SSE4.1 requires alignment
 				mySet = _mm_shuffle_epi8(mySet, shuffleControlMask);
 			}
 			return 0;
 		}" USE_SDNV_FAST)
+
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "-msse2 -mavx -mavx2")
+    endif()
 	check_cxx_source_compiles("
 		#include <immintrin.h>
 		#include <emmintrin.h>
 		#include <smmintrin.h>
+		#ifdef HAVE_INTRIN_H
 		#include <intrin.h>
+		#endif
+		#ifdef HAVE_X86INTRIN_H
+		#include <x86intrin.h>
+		#endif
 		#include <cstdint>
 		int main() {
 			uint8_t data[32];
 			__m256i sdnvsEncoded = _mm256_loadu_si256((__m256i const*) data); //AVX Load 256-bits of integer data from memory into dst. mem_addr does not need to be aligned on any particular boundary.
-			int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
+			int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded); //AVX2 Create mask from the most significant bit of each 8-bit element in a, and store the result in dst.
 			const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
 			const uint64_t encoded64High = _mm_cvtsi128_si64(_mm256_castsi256_si128(_mm256_srli_si256(sdnvsEncoded, 8))); //SSE2 Copy the lower 64-bit integer in a to dst.
 			const __m256i shiftIn = _mm256_permute2f128_si256(_mm256_setzero_si256(), sdnvsEncoded, 0x03);
 			sdnvsEncoded = _mm256_alignr_epi8(shiftIn, sdnvsEncoded, 1);
 			return 0;
 		}" SDNV_SUPPORT_AVX2_FUNCTIONS)
+
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "-msse -msse2")
+    endif()
 	check_cxx_source_compiles("
 		#include <immintrin.h>
 		#include <emmintrin.h>
 		#include <smmintrin.h>
+		#ifdef HAVE_INTRIN_H
 		#include <intrin.h>
+		#endif
+		#ifdef HAVE_X86INTRIN_H
+		#include <x86intrin.h>
+		#endif
 		#include <cstdint>
 		int main() {
 			uint8_t data[32];
@@ -92,6 +151,10 @@ if(USE_X86_HARDWARE_ACCELERATION)
 			}
 			return 0;
 		}" USE_CBOR_FAST)
+
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "-msse4.2")
+    endif()
 	check_cxx_source_compiles("
 		#include <nmmintrin.h>
 		#include <cstdint>
@@ -101,12 +164,16 @@ if(USE_X86_HARDWARE_ACCELERATION)
 			crc = _mm_crc32_u64(crc, 0x123456789abcdU);
 			return 0;
 		}" USE_CRC32C_FAST)
+
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "-mbmi")
+    endif()
 	check_cxx_source_compiles("
 		#include <immintrin.h>
-		#if defined(__GNUC__)
+		#if defined(__GNUC__) && defined(HAVE_X86INTRIN_H)
 		#include <x86intrin.h>
 		#define _andn_u64(a, b)   (__andn_u64((a), (b)))
-		#else
+		#elif defined(_MSC_VER)
 		#include <ammintrin.h>
 		#endif
 		#include <cstdint>
@@ -116,9 +183,18 @@ if(USE_X86_HARDWARE_ACCELERATION)
             bits = _andn_u64(mask64, bits);
 			return 0;
 		}" USE_ANDN)
+
+	if(NOT WIN32)
+        SET(CMAKE_REQUIRED_FLAGS  "")
+    endif()
 	check_cxx_source_compiles("
 		#include <immintrin.h>
+		#ifdef HAVE_INTRIN_H
 		#include <intrin.h>
+		#endif
+		#ifdef HAVE_X86INTRIN_H
+		#include <x86intrin.h>
+		#endif
 		#include <cstdint>
 		int main() {
 			uint64_t bits = 0xff;
@@ -127,7 +203,13 @@ if(USE_X86_HARDWARE_ACCELERATION)
 			const bool bitWasAlreadyOne = _bittestandset64((int64_t*)&bits, 1);
 			return 0;
 		}" USE_BITTEST)
-	SET(TESTING_CPU_FLAGS_LIST "POPCNT;BMI1;BMI2;SSE;SSE2;SSE3;SSSE3;SSE41;SSE42;AVX;AVX2")
+endif() #USE_X86_HARDWARE_ACCELERATION
+
+
+
+#detect cpu flags
+if(USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED)
+	SET(TESTING_CPU_FLAGS_LIST "POPCNT;BMI1;BMI2;SSE;SSE2;SSE3;SSSE3;SSE41;SSE42;AVX;AVX2;RDSEED")
 	if(NOT CMAKE_CROSSCOMPILING)
 		TRY_RUN(
 			test_run_result # Name of variable to store the run result (process exit status; number) in:
@@ -166,8 +248,8 @@ if(USE_X86_HARDWARE_ACCELERATION)
 					set("${CURRENT_FLAG}_supported" FALSE)
 				endif()
 			endforeach()
-			message("BMI1_supported: ${BMI1_supported}")
-			message("BMII_supported: ${BMII_supported}")
+			#message("BMI1_supported: ${BMI1_supported}")
+			#message("BMII_supported: ${BMII_supported}")
 			#message("bmi1_index: ${bmi1_index}")
 		else()
 			message(FATAL_ERROR "failed to run ${CMAKE_CURRENT_SOURCE_DIR}/common/util/src/CpuFlagDetection.cpp")
@@ -177,18 +259,24 @@ if(USE_X86_HARDWARE_ACCELERATION)
 			set("${CURRENT_FLAG}_supported" TRUE)
 		endforeach()
 	endif()
-	#//bmi2,sse2,sse,sse41,ssse3 bmi1,popcnt (replace _mm_loadu_si128 sse3 with _mm_lddqu_si128)
+endif() #if(USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED) cpu flag detection
+
+#add compile definitions for x86 hardware acceleration
+if(USE_X86_HARDWARE_ACCELERATION)
+	#//bmi2,sse2,sse,sse41,ssse3 bmi1,popcnt
 	if(USE_SDNV_FAST AND SSE_supported AND SSE2_supported AND SSE3_supported AND SSSE3_supported AND SSE41_supported AND POPCNT_supported AND BMI1_supported AND BMI2_supported)
 		message("adding compile definition: USE_SDNV_FAST (cpu supports SSE, SSE2, SSE3, SSSE3, SSE4.1, POPCNT, BMI1, and BMI2)")
 		add_compile_definitions(USE_SDNV_FAST)
 	endif()
-	if(SDNV_SUPPORT_AVX2_FUNCTIONS AND AVX_supported AND AVX2_supported)
+	if(SDNV_SUPPORT_AVX2_FUNCTIONS AND AVX_supported AND AVX2_supported AND USE_SDNV_FAST)
 		message("adding compile definition: SDNV_SUPPORT_AVX2_FUNCTIONS (cpu supports AVX and AVX2) (but HDTN doesn't currently implement batch sdnv decode operations)")
 		add_compile_definitions(SDNV_SUPPORT_AVX2_FUNCTIONS)
 	endif()
 	if(USE_CBOR_FAST AND SSE_supported AND SSE2_supported)
 		message("adding compile definition: USE_CBOR_FAST (cpu supports SSE and SSE2)")
 		add_compile_definitions(USE_CBOR_FAST)
+		message("adding compile definition: USE_SSE_SSE2 (cpu supports SSE and SSE2) (used by TCPCLv4)") #for tcpclv4 loads and stores
+		add_compile_definitions(USE_SSE_SSE2)
 	endif()
 	if(USE_CRC32C_FAST AND SSE42_supported)
 		message("adding compile definition: USE_CRC32C_FAST (cpu supports SSE4.2)")
@@ -202,8 +290,48 @@ if(USE_X86_HARDWARE_ACCELERATION)
 		message("adding compile definition: USE_BITTEST")
 		add_compile_definitions(USE_BITTEST)
 	endif()
-    add_compile_definitions(USE_X86_HARDWARE_ACCELERATION)
     if(NOT WIN32)
         SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -msse -msse2 -mbmi -mbmi2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2")
     endif()
 endif()
+
+if(LTP_RNG_USE_RDSEED)
+	SET(rdseed_test_source_code "
+		#include <immintrin.h>
+		#ifdef HAVE_X86INTRIN_H
+		#include <x86intrin.h>
+		#endif
+		#include <cstdint>
+		int main() {
+			uint64_t random2 = 0\;
+			if (!_rdseed64_step((unsigned long long *)&random2)) {
+				return 1\; //failure
+			}
+			return 0\;
+		}"
+	)
+	check_cxx_source_compiles(${rdseed_test_source_code} RDSEED_COMPILES)
+	if(RDSEED_COMPILES)
+		if(NOT CMAKE_CROSSCOMPILING)
+			if(RDSEED_supported)
+				if(NOT WIN32)
+					SET(CMAKE_REQUIRED_FLAGS  "-mrdseed")
+				endif()
+				CHECK_CXX_SOURCE_RUNS(${rdseed_test_source_code} RDSEED_RUNS) #success if main returns 0
+				if(RDSEED_RUNS)
+					message("adding compile definition: LTP_RNG_USE_RDSEED (cpu supports RDSEED)")
+					add_compile_definitions(LTP_RNG_USE_RDSEED)
+					if(NOT WIN32)
+						SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mrdseed")
+					endif()
+				endif()
+			endif() #RDSEED_supported
+		else() #cross compiling (assume cpu supports RDSEED instruction)
+			message("adding compile definition: LTP_RNG_USE_RDSEED (cross compiling assumes cpu supports RDSEED)")
+			add_compile_definitions(LTP_RNG_USE_RDSEED)
+			if(NOT WIN32)
+				SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mrdseed")
+			endif()
+		endif()
+	endif()
+endif() #LTP_RNG_USE_RDSEED

@@ -5,7 +5,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 #include <immintrin.h>
 #endif
 
@@ -17,7 +17,7 @@
 
 //return output size
 unsigned int CborEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
     if (bufferSize >= 9) {
         return CborEncodeU64FastBufSize9(outputEncoded, valToEncodeU64);
     }
@@ -26,21 +26,21 @@ unsigned int CborEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU6
     }
 #else
     return CborEncodeU64Classic(outputEncoded, valToEncodeU64, bufferSize);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_CBOR_FAST
 }
 
 //return output size
 unsigned int CborEncodeU64BufSize9(uint8_t * const outputEncoded, const uint64_t valToEncodeU64) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
     return CborEncodeU64FastBufSize9(outputEncoded, valToEncodeU64);
 #else
     return CborEncodeU64ClassicBufSize9(outputEncoded, valToEncodeU64);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_CBOR_FAST
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
     if (bufferSize >= 9) {
         return CborDecodeU64FastBufSize9(inputEncoded, numBytes);
     }
@@ -49,16 +49,16 @@ uint64_t CborDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const u
     }
 #else
     return CborDecodeU64Classic(inputEncoded, numBytes, bufferSize);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_CBOR_FAST
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t CborDecodeU64BufSize9(const uint8_t * inputEncoded, uint8_t * numBytes) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
     return CborDecodeU64FastBufSize9(inputEncoded, numBytes);
 #else
     return CborDecodeU64ClassicBufSize9(inputEncoded, numBytes);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_CBOR_FAST
 }
 
 
@@ -322,7 +322,7 @@ static const uint8_t msbToRequiredEncodingSize[64] = {
     9,9,9,9,9,9,9,9
 };
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 
 static const uint8_t encodingSizeToType[10] = {
     0, //size 0 = invalid
@@ -591,7 +591,7 @@ uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t *
 }
 
 
-#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
+#endif //#ifdef USE_CBOR_FAST
 
 //return output size
 unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {

@@ -9,7 +9,7 @@ private:
     ~Bpv7Crc();
 
 public:
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CRC32C_FAST
     BPCODEC_EXPORT static uint32_t Crc32C_Unaligned_Hardware(const uint8_t* dataUnaligned, std::size_t length);
 #endif
     BPCODEC_EXPORT static uint32_t Crc32C_Unaligned_Software(const uint8_t* dataUnaligned, std::size_t length);

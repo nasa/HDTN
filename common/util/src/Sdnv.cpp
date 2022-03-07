@@ -6,7 +6,7 @@
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
 #include <algorithm>
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
 #include <immintrin.h>
 #endif
 
@@ -31,7 +31,7 @@
 
 //return output size
 unsigned int SdnvEncodeU32(uint8_t * outputEncoded, const uint32_t valToEncodeU32, const uint64_t bufferSize) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
     if (bufferSize >= 8) {
         return SdnvEncodeU32FastBufSize8(outputEncoded, valToEncodeU32);
     }
@@ -40,23 +40,23 @@ unsigned int SdnvEncodeU32(uint8_t * outputEncoded, const uint32_t valToEncodeU3
     }
 #else
     return SdnvEncodeU32Classic(outputEncoded, valToEncodeU32, bufferSize);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_SDNV_FAST
 
 }
 
 //return output size
 unsigned int SdnvEncodeU32BufSize8(uint8_t * outputEncoded, const uint32_t valToEncodeU32) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
     return SdnvEncodeU32FastBufSize8(outputEncoded, valToEncodeU32);
 #else
     return SdnvEncodeU32ClassicBufSize5(outputEncoded, valToEncodeU32);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_SDNV_FAST
 
 }
 
 //return output size
 unsigned int SdnvEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
     if (bufferSize >= 10) {
         return SdnvEncodeU64FastBufSize10(outputEncoded, valToEncodeU64);
     }
@@ -65,21 +65,21 @@ unsigned int SdnvEncodeU64(uint8_t * outputEncoded, const uint64_t valToEncodeU6
     }
 #else
     return SdnvEncodeU64Classic(outputEncoded, valToEncodeU64, bufferSize);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_SDNV_FAST
 }
 
 //return output size
 unsigned int SdnvEncodeU64BufSize10(uint8_t * outputEncoded, const uint64_t valToEncodeU64) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
     return SdnvEncodeU64FastBufSize10(outputEncoded, valToEncodeU64);
 #else
     return SdnvEncodeU64ClassicBufSize10(outputEncoded, valToEncodeU64);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_SDNV_FAST
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
     if (bufferSize >= 8) {
         return SdnvDecodeU32FastBufSize8(inputEncoded, numBytes);
     }
@@ -88,12 +88,12 @@ uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes, const u
     }
 #else
     return SdnvDecodeU32Classic(inputEncoded, numBytes, bufferSize);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_SDNV_FAST
 }
 
 //return decoded value (0 if failure), also set parameter numBytes taken to decode
 uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
     if (bufferSize >= 16) {
         return SdnvDecodeU64FastBufSize16(inputEncoded, numBytes);
     }
@@ -102,7 +102,7 @@ uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const u
     }
 #else
     return SdnvDecodeU64Classic(inputEncoded, numBytes, bufferSize);
-#endif // USE_X86_HARDWARE_ACCELERATION
+#endif // USE_SDNV_FAST
 }
 
 
@@ -461,7 +461,7 @@ static const uint8_t mask0x80Indices[70] = {
     9,9,9,9,9,9,9
 };
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
 //unsigned __int64 _bzhi_u64 (unsigned __int64 a, unsigned int index)
 //Copy all bits from unsigned 64-bit integer a to dst, and reset (set to 0) the high bits in dst starting at index.
 // n := index[7:0]
@@ -941,6 +941,7 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
     return decodedStart - decodedRemaining;
 }
 
+# ifdef SDNV_SUPPORT_AVX2_FUNCTIONS //must also support USE_SDNV_FAST
 //return num values decoded this iteration
 unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining) {
     //(Initial Step) Set the result to 0.  Set an index to the first
@@ -970,7 +971,7 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
     while (decodedRemaining && bytesRemainingIn256Buffer) {
         //std::cout << "remaining = " << decodedRemaining << " tbd=" << (int)sdnvTotalSizeBytesDecoded << std::endl;
 
-        int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded);//SSE2 most significant bit of the corresponding packed 8-bit integer in a. //_mm_movepi8_mask(sdnvEncoded); 
+        int significantBitsSetMask = _mm256_movemask_epi8(sdnvsEncoded);//AVX2 Create mask from the most significant bit of each 8-bit element in a, and store the result in dst.
         //std::cout << "  significantBitsSetMask: " << std::hex << significantBitsSetMask << std::dec << std::endl;
         const unsigned int maskIndex = boost::multiprecision::detail::find_lsb<int>(~significantBitsSetMask);
         const unsigned int sdnvSizeBytes = maskIndex + 1;
@@ -1036,8 +1037,8 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
     *numBytes = static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer;
     return decodedStart - decodedRemaining;
 }
-
-#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
+# endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
+#endif //#ifdef USE_SDNV_FAST
 
 //return output size
 unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
