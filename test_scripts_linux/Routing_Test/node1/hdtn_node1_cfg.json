@@ -1,5 +1,6 @@
 {
     "hdtnConfigName": "my hdtn config",
+    "userInterfaceOn": true,
     "mySchemeName": "unused_scheme_name",
     "myNodeId": 1,
     "myBpEchoServiceId": 2047,

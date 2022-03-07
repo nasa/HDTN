@@ -18,6 +18,13 @@ HDTN build environment requires:
 * Target: x86_64-linux-gnu 
 * Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio 2017) and Mac 
 
+## Optional CivetWeb Dependencies ## 
+HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
+* Can be obtained from https://github.com/civetweb/civetweb
+* User must build its C and C++ libraries using cmake with websocket support enabled.
+* Set the Cmake cache variable USE_HDTN_GUI to On (default is Off)
+* Set the Cmake variables to point to your civetweb installation: civetweb_INCLUDE, civetweb_LIB, civetwebcpp_LIB
+
 ## Packages installation ## 
 * Ubuntu
 $ sudo apt  install cmake
@@ -39,6 +46,7 @@ Getting Started
 
 Build HDTN
 ===========
+To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is not specified), follow these steps:
 * export HDTN_SOURCE_ROOT=/home/username/hdtn
 * cd $HDTN_SOURCE_ROOT
 * mkdir build

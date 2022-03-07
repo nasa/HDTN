@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#include <sstream>
+#include <cstdlib>
 #include <cassert>
 #include <iostream>
 
@@ -353,9 +354,10 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
         const uint64_t diffBundleBytesRx = totalBundleBytesRx - m_lastBundleBytesRx;
         const uint64_t diffBundlesRx = totalBundlesRx - m_lastBundlesRx;
         if (diffTotalPayloadBytesRx || diffBundleBytesRx || diffBundlesRx) {
-            const double payloadRateMbps = (diffTotalPayloadBytesRx * 8.0) / (diff.total_microseconds());
-            const double bundleRateMbps = (diffBundleBytesRx * 8.0) / (diff.total_microseconds());
-            const double bundlesPerSecond = (diffBundlesRx * 1e6) / (diff.total_microseconds());
+            double payloadRateMbps = (diffTotalPayloadBytesRx * 8.0) / (diff.total_microseconds());
+            double bundleRateMbps = (diffBundleBytesRx * 8.0) / (diff.total_microseconds());
+            double bundlesPerSecond = (diffBundlesRx * 1e6) / (diff.total_microseconds());
+
             printf("Payload Only Rate: %0.4f Mbits/sec, Total Rate: %0.4f Mbits/sec, %0.4f Bundles/sec: \n", payloadRateMbps, bundleRateMbps, bundlesPerSecond);
         }
         

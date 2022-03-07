@@ -47,6 +47,7 @@ public:
 public:
 
     std::string m_hdtnConfigName;
+    bool m_userInterfaceOn;
     std::string m_mySchemeName;
     uint64_t m_myNodeId;
     uint64_t m_myBpEchoServiceId;

@@ -13,6 +13,7 @@
 
 HdtnConfig::HdtnConfig() :
     m_hdtnConfigName("unnamed hdtn config"),
+    m_userInterfaceOn(true),
     m_mySchemeName("unused_scheme_name"),
     m_myNodeId(0),
     m_myBpEchoServiceId(2047), //dtnme default
@@ -54,6 +55,7 @@ HdtnConfig::~HdtnConfig() {
 //a copy constructor: X(const X&)
 HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_hdtnConfigName(o.m_hdtnConfigName),
+    m_userInterfaceOn(o.m_userInterfaceOn),
     m_mySchemeName(o.m_mySchemeName),
     m_myNodeId(o.m_myNodeId),
     m_myBpEchoServiceId(o.m_myBpEchoServiceId),
@@ -92,6 +94,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
 //a move constructor: X(X&&)
 HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_hdtnConfigName(std::move(o.m_hdtnConfigName)),
+    m_userInterfaceOn(o.m_userInterfaceOn),
     m_mySchemeName(std::move(o.m_mySchemeName)),
     m_myNodeId(o.m_myNodeId),
     m_myBpEchoServiceId(o.m_myBpEchoServiceId),
@@ -130,6 +133,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
 //a copy assignment: operator=(const X&)
 HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_hdtnConfigName = o.m_hdtnConfigName;
+    m_userInterfaceOn = o.m_userInterfaceOn;
     m_mySchemeName = o.m_mySchemeName;
     m_myNodeId = o.m_myNodeId;
     m_myBpEchoServiceId = o.m_myBpEchoServiceId;
@@ -169,6 +173,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
 //a move assignment: operator=(X&&)
 HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_hdtnConfigName = std::move(o.m_hdtnConfigName);
+    m_userInterfaceOn = o.m_userInterfaceOn;
     m_mySchemeName = std::move(o.m_mySchemeName);
     m_myNodeId = o.m_myNodeId;
     m_myBpEchoServiceId = o.m_myBpEchoServiceId;
@@ -207,6 +212,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
 
 bool HdtnConfig::operator==(const HdtnConfig & o) const {
     return (m_hdtnConfigName == o.m_hdtnConfigName) &&
+        (m_userInterfaceOn == o.m_userInterfaceOn) &&
         (m_mySchemeName == o.m_mySchemeName) &&
         (m_myNodeId == o.m_myNodeId) &&
         (m_myBpEchoServiceId == o.m_myBpEchoServiceId) &&
@@ -249,6 +255,7 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
             std::cerr << "error parsing JSON HDTN config: hdtnConfigName must be defined and not empty string\n";
             return false;
         }
+        m_userInterfaceOn = pt.get<bool>("userInterfaceOn");
         m_mySchemeName = pt.get<std::string>("mySchemeName");
         m_myNodeId = pt.get<uint64_t>("myNodeId");
         if (m_myNodeId == 0) {
@@ -347,6 +354,7 @@ HdtnConfig_ptr HdtnConfig::CreateFromPtree(const boost::property_tree::ptree & p
 boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("hdtnConfigName", m_hdtnConfigName);
+    pt.put("userInterfaceOn", m_userInterfaceOn);
     pt.put("mySchemeName", m_mySchemeName);
     pt.put("myNodeId", m_myNodeId);
     pt.put("myBpEchoServiceId", m_myBpEchoServiceId);
