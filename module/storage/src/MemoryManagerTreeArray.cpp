@@ -11,14 +11,23 @@
 #include <iostream>
 #include <string>
 #include <inttypes.h>
-#ifdef USE_X86_HARDWARE_ACCELERATION
-#include <immintrin.h>
-#if defined(__GNUC__)
-#include <x86intrin.h>
-#define _andn_u64(a, b)   (__andn_u64((a), (b)))
-#endif
-
-#endif
+#ifdef USE_BITTEST
+# include <immintrin.h>
+# ifdef HAVE_INTRIN_H
+#  include <intrin.h>
+# endif
+# ifdef HAVE_X86INTRIN_H
+#  include <x86intrin.h>
+# endif
+#elif defined(USE_ANDN)
+# include <immintrin.h>
+# if defined(__GNUC__) && defined(HAVE_X86INTRIN_H)
+#  include <x86intrin.h>
+#  define _andn_u64(a, b)   (__andn_u64((a), (b)))
+# elif defined(_MSC_VER)
+#  include <ammintrin.h>
+# endif
+#endif //USE_BITTEST or USE_ANDN
 
  //static uint64_t g_numLeaves = 0;
 
@@ -86,13 +95,11 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const uint32_t depthInd
 
     if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || GetAndSetFirstFreeSegmentId(depthIndex + 1, rowIndex + firstFreeIndex * (1 << (depthIndex * 6)), segmentId)) {
         if (*segmentId < M_MAX_SEGMENTS) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
-#if !defined(__GNUC__)
+#ifdef USE_BITTEST
             _bittestandreset64((int64_t*)currentBit64Ptr, firstFreeIndex);
-#else
+#elif defined(USE_ANDN)
             const uint64_t mask64 = (((uint64_t)1) << firstFreeIndex);
             *currentBit64Ptr = _andn_u64(mask64, *currentBit64Ptr);
-#endif
 #else
             const uint64_t mask64 = (((uint64_t)1) << firstFreeIndex);
             *currentBit64Ptr &= ~mask64;
@@ -135,7 +142,7 @@ bool MemoryManagerTreeArray::IsSegmentFree(const uint32_t depthIndex, const uint
     if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //leaf
         const uint64_t * const currentArrayPtr = m_bitMasks[depthIndex];
         const uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
-#if defined(USE_X86_HARDWARE_ACCELERATION) && !defined(__GNUC__)
+#ifdef USE_BITTEST
         return _bittest64((const int64_t*)currentBit64Ptr, index);
 #else
         const uint64_t mask64 = (((uint64_t)1) << index);
@@ -156,7 +163,7 @@ void MemoryManagerTreeArray::FreeSegmentId(const uint32_t depthIndex, const uint
     uint64_t * const currentArrayPtr = m_bitMasks[depthIndex];
     uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
     const unsigned int index = (segmentId >> (((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex) * 6)) & 63;
-#if defined(USE_X86_HARDWARE_ACCELERATION) && !defined(__GNUC__)
+#ifdef USE_BITTEST
     const bool bitWasAlreadyOne = _bittestandset64((int64_t*)currentBit64Ptr, index);
     if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //leaf
         *success = !bitWasAlreadyOne; //error if leaf bit is already 1 (empty)
@@ -188,13 +195,11 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NoCheck(const uint32_t depthIndex
 
     if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || AllocateSegmentId_NoCheck(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId)) {
         if (segmentId < M_MAX_SEGMENTS) {
-#ifdef USE_X86_HARDWARE_ACCELERATION
-#if !defined(__GNUC__)
+#ifdef USE_BITTEST
             _bittestandreset64((int64_t*)currentBit64Ptr, index);
-#else
+#elif defined(USE_ANDN)
             const uint64_t mask64 = (((uint64_t)1) << index);
             *currentBit64Ptr = _andn_u64(mask64, *currentBit64Ptr);
-#endif
 #else
             const uint64_t mask64 = (((uint64_t)1) << index);
             *currentBit64Ptr &= ~mask64;

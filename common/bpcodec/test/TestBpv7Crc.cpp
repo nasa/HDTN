@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(Bpv7CrcTestCase)
 
             uint32_t crc32Software = Bpv7Crc::Crc32C_Unaligned_Software(dataStart, messageStr.length());
             BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32Software);
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CRC32C_FAST
             uint32_t crc32Hardware = Bpv7Crc::Crc32C_Unaligned_Hardware(dataStart, messageStr.length());
             BOOST_REQUIRE_EQUAL(expectedCrc32C, crc32Hardware);
             //printf("%x %x %x\n", crc32Hardware, crc32Software, expectedCrc32C);

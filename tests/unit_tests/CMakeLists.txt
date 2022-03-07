@@ -21,6 +21,7 @@ add_executable(unit-tests
 	../../common/util/test/TestUri.cpp
 	../../common/util/test/TestEnumAsFlagsMacro.cpp
 	../../common/util/test/TestPaddedVectorUint8.cpp
+	../../common/util/test/TestCpuFlagDetection.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp

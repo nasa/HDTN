@@ -7,7 +7,7 @@
  */
 
 #include "HashMap16BitFixedSize.h"
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CRC32C_FAST
 #include <nmmintrin.h>
 #endif
 #include <boost/make_unique.hpp>
@@ -30,7 +30,7 @@ uint16_t HashMap16BitFixedSize<keyType, valueType>::GetHash(const cbhe_bundle_uu
     const uint64_t v4 = bundleUuid.srcEid.serviceId;
     const uint64_t v5 = bundleUuid.fragmentOffset;
     const uint64_t v6 = bundleUuid.dataLength;
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CRC32C_FAST
     const uint32_t crc32 = static_cast<uint32_t>(
         _mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(UINT32_MAX, v1), v2), v3), v4), v5), v6)
     );
@@ -48,7 +48,7 @@ uint16_t HashMap16BitFixedSize<keyType, valueType>::GetHash(const cbhe_bundle_uu
     const uint64_t v2 = bundleUuid.sequence;
     const uint64_t v3 = bundleUuid.srcEid.nodeId;
     const uint64_t v4 = bundleUuid.srcEid.serviceId;
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CRC32C_FAST
     const uint32_t crc32 = static_cast<uint32_t>(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(_mm_crc32_u64(UINT32_MAX, v1), v2), v3), v4));
     return (static_cast<uint16_t>(crc32 >> 16)) ^ (static_cast<uint16_t>(crc32));
 #else

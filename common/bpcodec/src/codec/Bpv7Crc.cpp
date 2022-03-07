@@ -1,6 +1,6 @@
 #include "codec/Bpv7Crc.h"
 #include <boost/crc.hpp>
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CRC32C_FAST
 #include <nmmintrin.h>
 #include <boost/endian/conversion.hpp>
 //#include <iostream>

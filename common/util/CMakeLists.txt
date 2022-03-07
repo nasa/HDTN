@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 add_library(hdtn_util
+	src/CpuFlagDetection.cpp
     src/CircularIndexBufferSingleProducerSingleConsumerConfigurable.cpp
     src/Environment.cpp
 	src/JsonSerializable.cpp
@@ -31,6 +32,7 @@ install(FILES
 	include/BinaryConversions.h
 	include/CborUint.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
+	include/CpuFlagDetection.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h
 	include/FragmentSet.h

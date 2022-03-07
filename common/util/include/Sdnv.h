@@ -49,7 +49,7 @@ HDTN_UTIL_EXPORT uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uin
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 HDTN_UTIL_EXPORT uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize);
 	
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SDNV_FAST
 //return output size
 HDTN_UTIL_EXPORT unsigned int SdnvEncodeU32FastBufSize8(uint8_t * outputEncoded, const uint32_t valToEncodeU32);
 
@@ -67,8 +67,12 @@ HDTN_UTIL_EXPORT uint64_t SdnvDecodeU64FastBufSize16(const uint8_t * data, uint8
 //return num values decoded this iteration
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
 
+
+# ifdef SDNV_SUPPORT_AVX2_FUNCTIONS //must also support USE_SDNV_FAST
 //return num values decoded this iteration
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
-#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
+# endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
+#endif //#ifdef USE_SDNV_FAST
+
 
 #endif      // _SDNV_UTIL_H 

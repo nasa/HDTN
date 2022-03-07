@@ -49,10 +49,10 @@ HDTN_UTIL_EXPORT uint64_t CborDecodeU64ClassicBufSize9(const uint8_t * const inp
 
 //return output size
 #define CborGetEncodingSizeU64 CborGetNumBytesRequiredToEncode
-//this version shall be used regardless of USE_X86_HARDWARE_ACCELERATION
+//this version shall be used regardless of USE_CBOR_FAST
 HDTN_UTIL_EXPORT unsigned int CborGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64);
 
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_CBOR_FAST
 //return output size
 HDTN_UTIL_EXPORT unsigned int CborEncodeU64Fast(uint8_t * const outputEncoded, const uint64_t valToEncodeU64, const uint64_t bufferSize);
 
@@ -70,7 +70,7 @@ HDTN_UTIL_EXPORT uint64_t CborDecodeU64Fast(const uint8_t * const inputEncoded, 
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 HDTN_UTIL_EXPORT uint64_t CborDecodeU64FastBufSize9(const uint8_t * const inputEncoded, uint8_t * numBytes);
 
-#endif //#ifdef USE_X86_HARDWARE_ACCELERATION
+#endif //#ifdef USE_CBOR_FAST
 
 //array ops
 HDTN_UTIL_EXPORT uint64_t CborTwoUint64ArraySerialize(uint8_t * serialization, const uint64_t element1, const uint64_t element2);

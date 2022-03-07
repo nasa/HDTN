@@ -3,14 +3,14 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
-#ifdef USE_X86_HARDWARE_ACCELERATION
+#ifdef USE_SSE_SSE2
 #include <immintrin.h>
 #include <emmintrin.h>
 #endif
 
 
 static BOOST_FORCEINLINE uint64_t UnalignedBigEndianToNativeU64(const uint8_t * const data) {
-#ifndef USE_X86_HARDWARE_ACCELERATION
+#ifndef USE_SSE_SSE2
     uint64_t result64Be;
     uint8_t * const result64BeAs8Ptr = (uint8_t*)&result64Be;
     result64BeAs8Ptr[0] = data[0];
@@ -33,7 +33,7 @@ static BOOST_FORCEINLINE uint64_t UnalignedBigEndianToNativeU64(const uint8_t * 
 
 static BOOST_FORCEINLINE void NativeU64ToUnalignedBigEndian(uint8_t * const output, uint64_t nativeValue) {
     const uint64_t valueBe = boost::endian::native_to_big(nativeValue);
-#ifndef USE_X86_HARDWARE_ACCELERATION
+#ifndef USE_SSE_SSE2
     uint8_t * const valueBeAs8Ptr = (uint8_t*)&valueBe;
     output[0] = valueBeAs8Ptr[0];
     output[1] = valueBeAs8Ptr[1];
@@ -49,7 +49,7 @@ static BOOST_FORCEINLINE void NativeU64ToUnalignedBigEndian(uint8_t * const outp
 }
 
 static BOOST_FORCEINLINE uint32_t UnalignedBigEndianToNativeU32(const uint8_t * const data) {
-#ifndef USE_X86_HARDWARE_ACCELERATION
+#ifndef USE_SSE_SSE2
     uint32_t result32Be;
     uint8_t * const result32BeAs8Ptr = (uint8_t*)&result32Be;
     result32BeAs8Ptr[0] = data[0];
@@ -68,7 +68,7 @@ static BOOST_FORCEINLINE uint32_t UnalignedBigEndianToNativeU32(const uint8_t * 
 
 static BOOST_FORCEINLINE void NativeU32ToUnalignedBigEndian(uint8_t * const output, uint32_t nativeValue) {
     const uint32_t valueBe = boost::endian::native_to_big(nativeValue);
-#ifndef USE_X86_HARDWARE_ACCELERATION
+#ifndef USE_SSE_SSE2
     uint8_t * const valueBeAs8Ptr = (uint8_t*)&valueBe;
     output[0] = valueBeAs8Ptr[0];
     output[1] = valueBeAs8Ptr[1];
@@ -80,7 +80,7 @@ static BOOST_FORCEINLINE void NativeU32ToUnalignedBigEndian(uint8_t * const outp
 }
 
 static BOOST_FORCEINLINE void ClearFourBytes(uint8_t * const output) {
-#ifndef USE_X86_HARDWARE_ACCELERATION
+#ifndef USE_SSE_SSE2
     output[0] = 0;
     output[1] = 0;
     output[2] = 0;
