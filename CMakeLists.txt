@@ -1,4 +1,22 @@
 cmake_minimum_required(VERSION 3.0)
+
+#
+# Suggestion from https://cmake.org/pipermail/cmake/2008-September/023808.html
+# If the user specifies -DCMAKE_BUILD_TYPE on the command line, take their definition
+# and dump it in the cache along with proper documentation, otherwise set CMAKE_BUILD_TYPE
+# to Release prior to calling PROJECT()
+#
+if(DEFINED CMAKE_BUILD_TYPE)
+   SET(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel.")
+else()
+   SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release RelWithDebInfo MinSizeRel.")
+endif()
+string( TOLOWER "${CMAKE_BUILD_TYPE}" build_type_lower )
+message("CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+if( build_type_lower STREQUAL "debug" )
+	message(WARNING "You are building in Debug mode!  HDTN can run order(s) of magnitude slower!")
+endif()
+
 include (GenerateExportHeader)
 include(CheckIncludeFile)
 include(CheckCXXSourceCompiles)
@@ -8,7 +26,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
 project(HDTN VERSION 1.0)
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_BUILD_TYPE Release)
+
 find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)

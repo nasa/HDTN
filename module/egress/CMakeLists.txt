@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
 project(hdtn-egress)
-#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
 
 add_library(egress_async_lib
