@@ -7,7 +7,7 @@ add_executable(hdtn-router
     src/main.cpp
     src/cgrServer.cpp
 )
-install(TARGETS hdtn-router DESTINATION bin)
+install(TARGETS hdtn-router DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-router
 	bpcodec
 	hdtn_util

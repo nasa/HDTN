@@ -27,9 +27,8 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 target_link_libraries(hdtn_util ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB} ${openssl_LIB} ${crypto_LIB})
 target_include_directories(hdtn_util PUBLIC include ${Boost_INCLUDE_DIRS} ${libzmq_INCLUDE} ${openssl_INCLUDE} ${PROJECT_BINARY_DIR})
-install(TARGETS hdtn_util DESTINATION lib)
-install(FILES
-	include/BinaryConversions.h
+set(MY_PUBLIC_HEADERS
+    include/BinaryConversions.h
 	include/CborUint.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
@@ -46,6 +45,9 @@ install(FILES
 	include/Uri.h
 	include/zmq.hpp
 	${PROJECT_BINARY_DIR}/hdtn_util_export.h
-	DESTINATION include
 )
-
+set_target_properties(hdtn_util PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS hdtn_util
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)

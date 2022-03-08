@@ -19,9 +19,8 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET induct_manager_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
 	set_property(TARGET induct_manager_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
-install(TARGETS induct_manager_lib DESTINATION lib)
-install(FILES
-	include/Induct.h
+set(MY_PUBLIC_HEADERS
+    include/Induct.h
 	include/InductManager.h
 	include/LtpOverUdpInduct.h
 	include/StcpInduct.h
@@ -29,7 +28,11 @@ install(FILES
 	include/TcpclV4Induct.h
 	include/UdpInduct.h
 	${PROJECT_BINARY_DIR}/induct_manager_lib_export.h
-	DESTINATION include
+)
+set_target_properties(induct_manager_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS induct_manager_lib
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 target_link_libraries(induct_manager_lib 
 	hdtn_util

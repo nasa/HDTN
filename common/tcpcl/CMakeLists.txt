@@ -20,9 +20,8 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET tcpcl_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
 	set_property(TARGET tcpcl_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
-install(TARGETS tcpcl_lib DESTINATION lib)
-install(FILES
-	include/BidirectionalLink.h
+set(MY_PUBLIC_HEADERS
+    include/BidirectionalLink.h
 	include/Tcpcl.h
 	include/TcpclBundleSink.h
 	include/TcpclBundleSource.h
@@ -32,7 +31,11 @@ install(FILES
 	include/TcpclV4BundleSink.h
 	include/TcpclV4BundleSource.h
 	${PROJECT_BINARY_DIR}/tcpcl_lib_export.h
-	DESTINATION include
+)
+set_target_properties(tcpcl_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS tcpcl_lib
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 target_link_libraries(tcpcl_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(tcpcl_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})

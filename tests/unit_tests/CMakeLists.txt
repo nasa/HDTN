@@ -41,7 +41,7 @@ add_executable(unit-tests
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
 )
-install(TARGETS unit-tests DESTINATION bin)
+install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_include_directories(unit-tests PUBLIC include
     ../../module/egress/include
     ../../module/ingress/include

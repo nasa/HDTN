@@ -30,9 +30,9 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 target_link_libraries(bpcodec hdtn_util)
 target_include_directories(bpcodec PUBLIC include ${PROJECT_BINARY_DIR})
-install(TARGETS bpcodec DESTINATION lib)
-install(FILES
-	include/codec/bpv6.h
+
+set(MY_PUBLIC_HEADERS
+    include/codec/bpv6.h
 	include/codec/bpv7.h
 	include/codec/Bpv7Crc.h
 	include/codec/BundleViewV6.h
@@ -43,15 +43,17 @@ install(FILES
 	include/codec/CustodyTransferManager.h
 	include/codec/PrimaryBlock.h
 	${PROJECT_BINARY_DIR}/bpcodec_export.h
-	DESTINATION include/codec
+)
+set_target_properties(bpcodec PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS bpcodec
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/codec"
 )
 install(FILES
 	../include/message.hpp
 	../include/stats.hpp
-	DESTINATION include
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-
-
 add_library(bp_app_patterns_lib
         src/app_patterns/BpSourcePattern.cpp
 		src/app_patterns/BpSinkPattern.cpp
@@ -64,11 +66,14 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 target_link_libraries(bp_app_patterns_lib bpcodec hdtn_util outduct_manager_lib induct_manager_lib ${pthread_LIB} ${Boost_LIBRARIES})
 target_include_directories(bp_app_patterns_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
-install(TARGETS bp_app_patterns_lib DESTINATION lib)
-install(FILES
-	include/app_patterns/BpSinkPattern.h
+set(MY_PUBLIC_HEADERS
+    include/app_patterns/BpSinkPattern.h
 	include/app_patterns/BpSourcePattern.h
 	${PROJECT_BINARY_DIR}/bp_app_patterns_lib_export.h
-	DESTINATION include/app_patterns
+)
+set_target_properties(bp_app_patterns_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS bp_app_patterns_lib
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/app_patterns"
 )
 add_subdirectory(apps)

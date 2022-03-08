@@ -14,7 +14,7 @@ add_executable(integrated-tests
         ../../module/storage/src/test/ReleaseSender.cpp
         ../../module/scheduler/src/scheduler.cpp
 )
-install(TARGETS integrated-tests DESTINATION bin)
+install(TARGETS integrated-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_include_directories(integrated-tests PUBLIC include
     ../../module/storage/src/test
     ../../module/storage/include
@@ -51,7 +51,7 @@ add_executable(cgr-test
     src/cgr_tests.cpp
     ../../module/scheduler/src/cgrServer.cpp
 )
-install(TARGETS cgr-test DESTINATION bin)
+install(TARGETS cgr-test DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_include_directories(cgr-test PUBLIC include
     ../../module/scheduler/include
         lib/include
