@@ -25,9 +25,8 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET ltp_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
 	set_property(TARGET ltp_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
-install(TARGETS ltp_lib DESTINATION lib)
-install(FILES
-	include/Ltp.h
+set(MY_PUBLIC_HEADERS
+    include/Ltp.h
 	include/LtpBundleSink.h
 	include/LtpBundleSource.h
 	include/LtpClientServiceDataToSend.h
@@ -42,7 +41,11 @@ install(FILES
 	include/LtpUdpEngine.h
 	include/LtpUdpEngineManager.h
 	${PROJECT_BINARY_DIR}/ltp_lib_export.h
-	DESTINATION include
+)
+set_target_properties(ltp_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS ltp_lib
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 target_link_libraries(ltp_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(ltp_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
@@ -51,7 +54,7 @@ add_executable(ltp-file-transfer
     apps/ltp_file_transfer/src/LtpFileTransferMain.cpp
 	apps/ltp_file_transfer/src/LtpFileTransferRunner.cpp
 )
-install(TARGETS ltp-file-transfer DESTINATION bin)
+install(TARGETS ltp-file-transfer DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_include_directories(ltp-file-transfer PUBLIC 
 	apps/ltp_file_transfer/include
 	${Boost_INCLUDE_DIRS}

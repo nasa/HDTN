@@ -2,12 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 project(hdtn-one-process)
 set(CMAKE_CXX_STANDARD 11)
 
-link_directories(hdtn-one-process ${CMAKE_INSTALL_PREFIX}/lib)
 add_executable(hdtn-one-process 
     src/HdtnOneProcessRunner.cpp
 	src/HdtnOneProcessMain.cpp
 )
-install(TARGETS hdtn-one-process DESTINATION bin)
+install(TARGETS hdtn-one-process DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-one-process
 	bpcodec
 	hdtn_util

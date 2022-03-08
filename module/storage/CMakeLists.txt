@@ -7,7 +7,7 @@ add_executable(hdtn-storage
         src/StorageRunner.cpp
         src/main.cpp
 )
-install(TARGETS hdtn-storage DESTINATION bin)
+install(TARGETS hdtn-storage DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-storage bpcodec hdtn_util storage_lib log_lib ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES} log_lib)
 
 
@@ -22,7 +22,7 @@ target_include_directories(hdtn-storage PUBLIC
 add_executable(hdtn-release-message-sender
 	src/test/release_message_sender.cpp
 )
-install(TARGETS hdtn-release-message-sender DESTINATION bin)
+install(TARGETS hdtn-release-message-sender DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-release-message-sender config_lib bpcodec ${libzmq_LIB} ${pthread_LIB} ${Boost_LIBRARIES})
 target_include_directories(hdtn-release-message-sender PUBLIC
 	include
@@ -38,7 +38,7 @@ add_executable(hdtn-multiple-release-message-sender
     src/test/ReleaseSender.cpp
     src/test/multiple_release_message_sender.cpp
 )
-install(TARGETS hdtn-multiple-release-message-sender DESTINATION bin)
+install(TARGETS hdtn-multiple-release-message-sender DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-multiple-release-message-sender config_lib hdtn_util bpcodec ${libzmq_LIB} ${pthread_LIB}  ${Boost_LIBRARIES})
 target_include_directories(hdtn-multiple-release-message-sender PUBLIC
     include
@@ -67,9 +67,8 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET storage_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
 	set_property(TARGET storage_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
-install(TARGETS storage_lib DESTINATION lib)
-install(FILES
-	include/BundleStorageCatalog.h
+set(MY_PUBLIC_HEADERS
+    include/BundleStorageCatalog.h
 	include/BundleStorageConfig.h
 	include/BundleStorageManagerAsio.h
 	include/BundleStorageManagerBase.h
@@ -82,7 +81,11 @@ install(FILES
 	include/StorageRunner.h
 	include/ZmqStorageInterface.h
 	${PROJECT_BINARY_DIR}/storage_lib_export.h
-	DESTINATION include
+)
+set_target_properties(storage_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS storage_lib
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 target_link_libraries(storage_lib hdtn_util config_lib bpcodec log_lib ${Boost_LIBRARIES} ${pthread_LIB} ${libzmq_LIB})
 target_include_directories(storage_lib PUBLIC
@@ -96,7 +99,7 @@ target_include_directories(storage_lib PUBLIC
 add_executable(storage-speedtest
         src/test/StorageSpeedTestMain.cpp
 )
-install(TARGETS storage-speedtest DESTINATION bin)
+install(TARGETS storage-speedtest DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(storage-speedtest bpcodec hdtn_util storage_lib ${Boost_LIBRARIES} ${pthread_LIB})
 target_include_directories(storage-speedtest PUBLIC ${Boost_INCLUDE_DIRS})
 

@@ -12,12 +12,15 @@ if (target_type STREQUAL SHARED_LIBRARY)
 	set_property(TARGET ingress_async_lib PROPERTY CXX_VISIBILITY_PRESET hidden)
 	set_property(TARGET ingress_async_lib PROPERTY VISIBILITY_INLINES_HIDDEN ON)
 endif()
-install(TARGETS ingress_async_lib DESTINATION lib)
-install(FILES
-	include/ingress.h
+set(MY_PUBLIC_HEADERS
+    include/ingress.h
 	include/IngressAsyncRunner.h
 	${PROJECT_BINARY_DIR}/ingress_async_lib_export.h
-	DESTINATION include
+)
+set_target_properties(ingress_async_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+install(TARGETS ingress_async_lib
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 target_link_libraries(ingress_async_lib 
 	hdtn_util 
@@ -39,7 +42,7 @@ target_include_directories(ingress_async_lib PUBLIC
 add_executable(hdtn-ingress 
     src/ingress.cpp
 )
-install(TARGETS hdtn-ingress DESTINATION bin)
+install(TARGETS hdtn-ingress DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-ingress
 	bpcodec
 	hdtn_util

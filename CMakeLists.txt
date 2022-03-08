@@ -27,6 +27,11 @@ option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 project(HDTN VERSION 1.0)
 set(CMAKE_CXX_STANDARD 11)
 
+SET(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "HDTN shared and static libraries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_LIBDIR/")
+SET(CMAKE_INSTALL_INCLUDEDIR "include/HDTN" CACHE PATH "HDTN public headers will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_INCLUDEDIR/")
+SET(CMAKE_INSTALL_BINDIR "bin" CACHE PATH "HDTN binaries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_BINDIR/")
+
+
 find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)
