@@ -1,9 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
-project(outduct_manager_lib)
-set(CMAKE_CXX_STANDARD 11)
-
-
-
 add_library(outduct_manager_lib
 	src/Outduct.cpp
 	src/TcpclOutduct.cpp
@@ -27,24 +21,26 @@ set(MY_PUBLIC_HEADERS
 	include/TcpclOutduct.h
 	include/TcpclV4Outduct.h
 	include/UdpOutduct.h
-	${PROJECT_BINARY_DIR}/outduct_manager_lib_export.h
+	${CMAKE_CURRENT_BINARY_DIR}/outduct_manager_lib_export.h
 )
 set_target_properties(outduct_manager_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 install(TARGETS outduct_manager_lib
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-target_link_libraries(outduct_manager_lib 
-	hdtn_util
-	config_lib
-	tcpcl_lib 
-	stcp_lib 
-	udp_lib 
-	ltp_lib
-	bpcodec
-	${Boost_LIBRARIES}
-	${pthread_LIB}
+target_link_libraries(outduct_manager_lib
+	PUBLIC
+		hdtn_util
+		config_lib
+		tcpcl_lib 
+		stcp_lib 
+		udp_lib 
+		ltp_lib
+		bpcodec
 )
-target_include_directories(outduct_manager_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
-
-
+target_include_directories(outduct_manager_lib
+	PUBLIC
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
+)

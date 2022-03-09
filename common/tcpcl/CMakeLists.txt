@@ -1,9 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
-project(tcpcl_lib)
-set(CMAKE_CXX_STANDARD 11)
-
-
-
 add_library(tcpcl_lib
     src/Tcpcl.cpp
 	src/TcpclV4.cpp
@@ -30,14 +24,20 @@ set(MY_PUBLIC_HEADERS
 	include/TcpclV4BidirectionalLink.h
 	include/TcpclV4BundleSink.h
 	include/TcpclV4BundleSource.h
-	${PROJECT_BINARY_DIR}/tcpcl_lib_export.h
+	${CMAKE_CURRENT_BINARY_DIR}/tcpcl_lib_export.h
 )
 set_target_properties(tcpcl_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 install(TARGETS tcpcl_lib
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-target_link_libraries(tcpcl_lib hdtn_util ${Boost_LIBRARIES} ${pthread_LIB})
-target_include_directories(tcpcl_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
-
-
+target_link_libraries(tcpcl_lib
+	PUBLIC
+		hdtn_util
+)
+target_include_directories(tcpcl_lib
+	PUBLIC
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
+)
