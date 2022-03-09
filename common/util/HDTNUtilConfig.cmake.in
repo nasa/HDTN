@@ -1,0 +1,16 @@
+get_filename_component(HDTNUTIL_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS filesystem regex date_time thread)
+if(@ENABLE_OPENSSL_SUPPORT@)
+	find_dependency(OpenSSL REQUIRED)
+endif()
+
+if(NOT TARGET HDTNUtil::HDTNUtil)
+    include("${HDTNUTIL_CMAKE_DIR}/HDTNUtilTargets.cmake")
+endif()
+
+set(libzmq_INCLUDE @libzmq_INCLUDE@)
+set(libzmq_LIB @libzmq_LIB@)
+
+set(HDTNUTIL_LIBRARIES HDTNUtil::HDTNUtil)
