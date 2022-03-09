@@ -40,6 +40,7 @@ add_library(storage_lib
 		src/CatalogEntry.cpp
         src/ZmqStorageInterface.cpp
 )
+target_compile_options(storage_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(storage_lib)
 get_target_property(target_type storage_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)

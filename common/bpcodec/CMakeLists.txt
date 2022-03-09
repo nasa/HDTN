@@ -16,6 +16,7 @@ add_library(bpcodec
 		src/codec/BundleViewV7.cpp
 		src/codec/Bpv7Crc.cpp
 )
+target_compile_options(bpcodec PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(bpcodec)
 get_target_property(target_type bpcodec TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)

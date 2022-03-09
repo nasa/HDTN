@@ -13,6 +13,7 @@ add_library(hdtn_util
 	src/Uri.cpp
 	src/BinaryConversions.cpp
 )
+target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 add_library(HDTN::hdtn_util ALIAS hdtn_util)
 GENERATE_EXPORT_HEADER(hdtn_util)
 get_target_property(target_type hdtn_util TYPE)

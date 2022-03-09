@@ -8,6 +8,7 @@ add_library(tcpcl_lib
 	src/TcpclV4BundleSink.cpp
 	src/TcpclV4BidirectionalLink.cpp
 )
+target_compile_options(tcpcl_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(tcpcl_lib)
 get_target_property(target_type tcpcl_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)
