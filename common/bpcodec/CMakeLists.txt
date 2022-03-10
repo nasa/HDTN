@@ -49,9 +49,11 @@ set(MY_PUBLIC_HEADERS
 )
 set_target_properties(bpcodec PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 install(TARGETS bpcodec
+	EXPORT bpcodec-targets
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/codec"
 )
+add_hdtn_package_export(bpcodec Bpcodec) #exported target will have the name HDTN::Bpcodec and not bpcodec.  Also requires install to EXPORT bpcodec-targets
 install(FILES
 	../include/message.hpp
 	../include/stats.hpp
@@ -87,7 +89,10 @@ set(MY_PUBLIC_HEADERS
 )
 set_target_properties(bp_app_patterns_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 install(TARGETS bp_app_patterns_lib
+	EXPORT bp_app_patterns_lib-targets
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/app_patterns"
 )
+add_hdtn_package_export(bp_app_patterns_lib BpAppPatternsLib) #exported target will have the name HDTN::BpAppPatternsLib and not bp_app_patterns_lib.  Also requires install to EXPORT bp_app_patterns_lib-targets
+
 add_subdirectory(apps)

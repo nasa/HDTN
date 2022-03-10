@@ -24,8 +24,21 @@ set(CMAKE_CXX_STANDARD 11)
 #set find_package search
 SET(CMAKE_PREFIX_PATH $ENV{HDTN_INSTALL_ROOT} CACHE PATH "Path for find_package to import installed hdtn libraries")
 
+#import all the libraries from HDTN (just to make sure they import.. unit tests won't need all of them)
 find_package(HDTNUtil REQUIRED)
 find_package(LtpLib REQUIRED)
+find_package(BpAppPatternsLib REQUIRED)
+find_package(Bpcodec REQUIRED)
+find_package(EgressLib REQUIRED)
+find_package(HDTNConfigLib REQUIRED)
+find_package(InductManagerLib REQUIRED)
+find_package(IngressLib REQUIRED)
+find_package(LoggerLib REQUIRED)
+find_package(OutductManagerLib REQUIRED)
+find_package(StcpLib REQUIRED)
+find_package(StorageLib REQUIRED)
+find_package(TcpclLib REQUIRED)
+find_package(UdpLib REQUIRED)
 find_package(Boost "1.67.0" REQUIRED timer unit_test_framework)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)
@@ -40,6 +53,8 @@ endif()
 
 add_executable(unit-tests-from-install
     src/test_main.cpp
+    ../../common/tcpcl/test/TestTcpcl.cpp
+	../../common/tcpcl/test/TestTcpclV4.cpp
 	../../common/ltp/test/TestLtp.cpp
 	../../common/ltp/test/TestLtpFragmentSet.cpp
 	../../common/ltp/test/TestLtpSessionRecreationPreventer.cpp
@@ -56,11 +71,41 @@ add_executable(unit-tests-from-install
 	../../common/util/test/TestEnumAsFlagsMacro.cpp
 	../../common/util/test/TestPaddedVectorUint8.cpp
 	../../common/util/test/TestCpuFlagDetection.cpp
+	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
+	../../common/bpcodec/test/TestCustodyTransfer.cpp
+	../../common/bpcodec/test/TestCustodyIdAllocator.cpp
+	../../common/bpcodec/test/TestBundleViewV6.cpp
+	../../common/bpcodec/test/TestBundleViewV7.cpp
+	../../common/bpcodec/test/TestBpsecDefaultSecurityContexts.cpp
+	../../common/bpcodec/test/TestBpv7Crc.cpp
+	../../common/config/test/TestInductsConfig.cpp
+	../../common/config/test/TestOutductsConfig.cpp
+	../../common/config/test/TestStorageConfig.cpp
+	../../common/config/test/TestHdtnConfig.cpp
+    ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
+    ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
+    ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
+	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp
+	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
+	../../module/storage/unit_tests/TestCustodyTimers.cpp
+    #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
 )
 
 target_link_libraries(unit-tests-from-install
 	HDTN::HDTNUtil
 	HDTN::LtpLib
+	HDTN::BpAppPatternsLib
+	HDTN::Bpcodec
+	HDTN::EgressLib
+	HDTN::HDTNConfigLib
+	HDTN::InductManagerLib
+	HDTN::IngressLib
+	HDTN::LoggerLib
+	HDTN::OutductManagerLib
+	HDTN::StcpLib
+	HDTN::StorageLib
+	HDTN::TcpclLib
+	HDTN::UdpLib
 	Boost::unit_test_framework
 	Boost::timer
 )

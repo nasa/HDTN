@@ -63,10 +63,6 @@ set(MY_PUBLIC_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/storage_lib_export.h
 )
 set_target_properties(storage_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
-install(TARGETS storage_lib
-	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-)
 target_link_libraries(storage_lib
 	PUBLIC
 		hdtn_util
@@ -82,6 +78,13 @@ target_include_directories(storage_lib
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for message.hpp
 )
+install(TARGETS storage_lib
+	EXPORT storage_lib-targets
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+add_hdtn_package_export(storage_lib StorageLib) #exported target will have the name HDTN::StorageLib and not storage_lib.  Also requires install to EXPORT storage_lib-targets
+
 
 add_executable(storage-speedtest
         src/test/StorageSpeedTestMain.cpp

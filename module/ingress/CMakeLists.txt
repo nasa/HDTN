@@ -14,10 +14,6 @@ set(MY_PUBLIC_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/ingress_async_lib_export.h
 )
 set_target_properties(ingress_async_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
-install(TARGETS ingress_async_lib
-	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-)
 target_link_libraries(ingress_async_lib
 	PUBLIC
 		hdtn_util
@@ -33,6 +29,13 @@ target_include_directories(ingress_async_lib
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for message.hpp
 )
+install(TARGETS ingress_async_lib
+	EXPORT ingress_async_lib-targets
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+add_hdtn_package_export(ingress_async_lib IngressLib) #exported target will have the name HDTN::IngressLib and not ingress_async_lib.  Also requires install to EXPORT ingress_async_lib-targets
+
 
 add_executable(hdtn-ingress 
     src/ingress.cpp

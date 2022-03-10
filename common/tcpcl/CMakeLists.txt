@@ -28,10 +28,6 @@ set(MY_PUBLIC_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/tcpcl_lib_export.h
 )
 set_target_properties(tcpcl_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
-install(TARGETS tcpcl_lib
-	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-)
 target_link_libraries(tcpcl_lib
 	PUBLIC
 		hdtn_util
@@ -42,3 +38,9 @@ target_include_directories(tcpcl_lib
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 )
+install(TARGETS tcpcl_lib
+	EXPORT tcpcl_lib-targets
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+add_hdtn_package_export(tcpcl_lib TcpclLib) #exported target will have the name HDTN::TcpclLib and not tcpcl_lib.  Also requires install to EXPORT tcpcl_lib-targets
