@@ -1,9 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
-project(config_lib)
-set(CMAKE_CXX_STANDARD 11)
-
-
-
 add_library(config_lib
     src/InductsConfig.cpp
 	src/OutductsConfig.cpp
@@ -21,14 +15,23 @@ set(MY_PUBLIC_HEADERS
 	include/InductsConfig.h
 	include/OutductsConfig.h
 	include/StorageConfig.h
-	${PROJECT_BINARY_DIR}/config_lib_export.h
+	${CMAKE_CURRENT_BINARY_DIR}/config_lib_export.h
 )
 set_target_properties(config_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
+target_link_libraries(config_lib
+	PUBLIC
+		hdtn_util
+		log_lib
+)
+target_include_directories(config_lib
+	PUBLIC
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
+)
 install(TARGETS config_lib
+	EXPORT config_lib-targets
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-target_link_libraries(config_lib hdtn_util log_lib ${Boost_LIBRARIES})
-target_include_directories(config_lib PUBLIC include ${Boost_INCLUDE_DIRS} ${PROJECT_BINARY_DIR})
-
-
+add_hdtn_package_export(config_lib HDTNConfigLib) #exported target will have the name HDTN::HDTNConfigLib and not config_lib.  Also requires install to EXPORT config_lib-targets

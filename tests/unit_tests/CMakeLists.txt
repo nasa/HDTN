@@ -1,7 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
-project(unit-tests)
-set(CMAKE_CXX_STANDARD 11)
-
 add_executable(unit-tests
     src/test_main.cpp
     ../../common/tcpcl/test/TestTcpcl.cpp
@@ -42,26 +38,16 @@ add_executable(unit-tests
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
 )
 install(TARGETS unit-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_include_directories(unit-tests PUBLIC include
-    ../../module/egress/include
-    ../../module/ingress/include
-    ../../module/storage/include
-    ../../common/include
-    ${Boost_INCLUDE_DIRS}
-    ${libzmq_INCLUDE}
-)
 
-#target_link_libraries(boost-unit-tests bpcodec ${Boost_LIBRARIES})
 target_link_libraries(unit-tests
-	${libzmq_LIB}
-	${pthread_LIB}
 	hdtn_util
 	tcpcl_lib
 	stcp_lib
 	ltp_lib
 	storage_lib
 	config_lib
-    ingress_async_lib
+	ingress_async_lib
 	bpcodec
-	${Boost_LIBRARIES}
+	Boost::unit_test_framework
+	Boost::timer
 )

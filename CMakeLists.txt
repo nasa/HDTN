@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.12) #using generator $<TARGET_NAME_IF_EXISTS:tgt> which is new in version 3.12.
 
 #
 # Suggestion from https://cmake.org/pipermail/cmake/2008-September/023808.html
@@ -17,26 +17,29 @@ if( build_type_lower STREQUAL "debug" )
 	message(WARNING "You are building in Debug mode!  HDTN can run order(s) of magnitude slower!")
 endif()
 
-include (GenerateExportHeader)
+include(GenerateExportHeader)
 include(CheckIncludeFile)
 include(CheckCXXSourceCompiles)
 include(CheckCXXSourceRuns)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
-project(HDTN VERSION 1.0)
+set(HDTN_VERSION "1.0")
+project(HDTN VERSION ${HDTN_VERSION})
 set(CMAKE_CXX_STANDARD 11)
 
 SET(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "HDTN shared and static libraries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_LIBDIR/")
 SET(CMAKE_INSTALL_INCLUDEDIR "include/HDTN" CACHE PATH "HDTN public headers will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_INCLUDEDIR/")
 SET(CMAKE_INSTALL_BINDIR "bin" CACHE PATH "HDTN binaries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_BINDIR/")
 
-
-find_package(Boost 1.67.0 REQUIRED system filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
+set(MIN_BOOST_VERSION 1.67.0)
+find_package(Boost ${MIN_BOOST_VERSION} REQUIRED system date_time filesystem timer thread regex filesystem program_options unit_test_framework iostreams random log log_setup)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
     add_compile_definitions(_WIN32_WINNT=0x0A00)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _CRT_SECURE_NO_WARNINGS)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _WIN32_WINNT=0x0A00)
 endif()
 
 #logging link type
@@ -54,17 +57,14 @@ if (WIN32)
 	#add_compile_definitions(ZMQ_STATIC)
 	set(libzmq_INCLUDE "C:/libzmq_msvc_x64/include" CACHE PATH "Folder to Libzmq headers")
 	set(libzmq_LIB "C:/libzmq_msvc_x64/lib/libzmq-v141-mt-4_3_4.lib" CACHE FILEPATH "Libzmq library")
-	set(pthread_LIB "")
 else()
 	set(libzmq_INCLUDE "")
 	set(libzmq_LIB zmq)
-	set(pthread_LIB pthread)
 endif()
 
 OPTION(USE_HDTN_GUI "Use Civetweb HDTN GUI" OFF)
 if(USE_HDTN_GUI)
 	add_compile_definitions(USE_HDTN_GUI)
-	set(hdtn_gui_LIB hdtn_gui)
 	if (WIN32)
 		set(civetweb_INCLUDE "C:/civetweb_msvc2017/include" CACHE PATH "Folder to CivetServer.h and civetweb.h")
 		set(civetweb_LIB "C:/civetweb_msvc2017/lib_release/civetweb.lib" CACHE FILEPATH "Civetweb library")
@@ -74,28 +74,20 @@ if(USE_HDTN_GUI)
 		set(civetweb_LIB "/path/to/hdtn/external.install/lib/libcivetweb.so" CACHE FILEPATH "Civetweb library")
 		set(civetwebcpp_LIB "" CACHE FILEPATH "Civetweb CPP library")
 	endif()
-else()
-	set(hdtn_gui_LIB "")
 endif()
 
 OPTION(ENABLE_OPENSSL_SUPPORT "TcpclV4 can use OpenSSL" ON)
 if(ENABLE_OPENSSL_SUPPORT)
     add_compile_definitions(OPENSSL_SUPPORT_ENABLED)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT OPENSSL_SUPPORT_ENABLED) #used by TcpAsyncSender.h and various TcpclV4 includes
+	OPTION(OPENSSL_USE_STATIC_LIBS Off)
     if (WIN32)
-		#add_compile_definitions(ZMQ_STATIC)
-		set(openssl_INCLUDE "C:/openssl-1.1.1e_msvc2017/include" CACHE PATH "Folder to Libzmq headers")
-		set(openssl_LIB "C:/openssl-1.1.1e_msvc2017/lib/libssl_static.lib" CACHE FILEPATH "Openssl Crypto library")
-		set(crypto_LIB "C:/openssl-1.1.1e_msvc2017/lib/libcrypto_static.lib" CACHE FILEPATH "Openssl library")
-	else()
-		set(openssl_INCLUDE "")
-		set(openssl_LIB ssl)
-		set(crypto_LIB crypto)
+		set(OPENSSL_ROOT_DIR "C:/openssl-1.1.1e_msvc2017" CACHE PATH "Folder to the root directory of an OpenSSL installation")
 	endif()
-else()
-	set(openssl_INCLUDE "")
-	set(openssl_LIB "")
-	set(crypto_LIB "")
+	find_package(OpenSSL REQUIRED)
 endif()
+
+include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
 add_subdirectory(common/bpcodec)
 add_subdirectory(common/logger)

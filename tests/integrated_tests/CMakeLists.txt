@@ -1,8 +1,3 @@
-cmake_minimum_required(VERSION 3.0)
-project(integrated-tests)
-set(CMAKE_CXX_STANDARD 11)
-
-SET(STORAGE_LIBRARY_NAME storage_lib)
 add_executable(integrated-tests
 	src/it_test_main.cpp
         src/integrated_tests.cpp
@@ -20,19 +15,13 @@ target_include_directories(integrated-tests PUBLIC include
     ../../module/storage/include
     ../../module/scheduler/include
     ../../common/include
-    ../../common/logger/include
-    ../../common/regsvr/lib/include
     ../../common/bpcodec/include
     ../../common/bpcodec/apps/bpgen/include
     ../../common/bpcodec/apps/bpsink/include
-    ${Boost_INCLUDE_DIRS}
-    ${libzmq_INCLUDE}
 )
 
 target_link_libraries(integrated-tests 
-	${libzmq_LIB}
-	${pthread_LIB}
-	${STORAGE_LIBRARY_NAME}
+	storage_lib
 	hdtn_util
 	tcpcl_lib
 	stcp_lib
@@ -44,7 +33,7 @@ target_link_libraries(integrated-tests
 	outduct_manager_lib
 	bpcodec
 	bp_app_patterns_lib
-	${Boost_LIBRARIES}
+	Boost::unit_test_framework
 )
 
 add_executable(cgr-test
@@ -52,22 +41,15 @@ add_executable(cgr-test
     ../../module/scheduler/src/cgrServer.cpp
 )
 install(TARGETS cgr-test DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_include_directories(cgr-test PUBLIC include
-    ../../module/scheduler/include
-        lib/include
-    include
-        ../../common/bpcodec/include
-        ../../common/regsvr/lib/include
-        ../../common/include
-    ${Boost_INCLUDE_DIRS}
-    ${libzmq_INCLUDE}
+target_include_directories(cgr-test
+	PUBLIC
+		../../module/scheduler/include
+		../../common/include
 )
 
 target_link_libraries(cgr-test
     bpcodec
     hdtn_util
     config_lib
-    ${pthread_LIB}
-    ${libzmq_LIB}
-    ${Boost_LIBRARIES}
+	Boost::unit_test_framework
 )

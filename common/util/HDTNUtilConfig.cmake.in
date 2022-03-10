@@ -1,0 +1,24 @@
+get_filename_component(HDTNUTIL_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+#find_dependency seems broken for multiple calls to find_boost, use find_package instead (https://stackoverflow.com/questions/52763112/cmake-boost-find-depedency-config)
+#find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS filesystem regex date_time thread)
+find_package(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS filesystem regex date_time thread)
+
+if(@ENABLE_OPENSSL_SUPPORT@)
+	find_dependency(OpenSSL REQUIRED)
+endif()
+
+if(NOT TARGET HDTN::HDTNUtil)
+    include("${HDTNUTIL_CMAKE_DIR}/HDTNUtilTargets.cmake")
+endif()
+
+#because HDTNUtil serves as a dependency for all other HDTN libraries, the following lines set settings needed for all
+set(libzmq_INCLUDE @libzmq_INCLUDE@)
+set(libzmq_LIB @libzmq_LIB@)
+
+#add compile definitions from hardware_acceleration.cmake used in Sdnv.h, CborUint.h, and Bpv7Crc.h (should be fixed, but for now the package config must export it)
+#also add compile definitions from root cmake such as openssl support 
+add_compile_definitions(@COMPILE_DEFINITIONS_TO_EXPORT@)
+
+set(HDTNUTIL_LIBRARIES HDTN::HDTNUtil)

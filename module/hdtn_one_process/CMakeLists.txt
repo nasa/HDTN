@@ -1,27 +1,22 @@
-cmake_minimum_required(VERSION 3.0)
-project(hdtn-one-process)
-set(CMAKE_CXX_STANDARD 11)
-
 add_executable(hdtn-one-process 
     src/HdtnOneProcessRunner.cpp
 	src/HdtnOneProcessMain.cpp
 )
 install(TARGETS hdtn-one-process DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-one-process
-	bpcodec
-	hdtn_util
-    log_lib
-	ingress_async_lib
-	storage_lib
-	egress_async_lib
-    ${hdtn_gui_LIB}
-	${libzmq_LIB}
-	${pthread_LIB}
-	${Boost_LIBRARIES}
+	PUBLIC
+		bpcodec
+		hdtn_util
+		log_lib
+		ingress_async_lib
+		storage_lib
+		egress_async_lib
+		$<TARGET_NAME_IF_EXISTS:hdtn_gui>
+		Boost::program_options
 )
-target_include_directories(hdtn-one-process PUBLIC
-	include
-	${Boost_INCLUDE_DIRS}
-	${libzmq_INCLUDE}
+target_include_directories(hdtn-one-process
+	PUBLIC
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 )
-
