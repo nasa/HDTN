@@ -38,6 +38,8 @@ find_package(Boost ${MIN_BOOST_VERSION} REQUIRED system date_time filesystem tim
 if(WIN32)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
     add_compile_definitions(_WIN32_WINNT=0x0A00)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _CRT_SECURE_NO_WARNINGS)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT _WIN32_WINNT=0x0A00)
 endif()
 
 #logging link type
@@ -77,6 +79,7 @@ endif()
 OPTION(ENABLE_OPENSSL_SUPPORT "TcpclV4 can use OpenSSL" ON)
 if(ENABLE_OPENSSL_SUPPORT)
     add_compile_definitions(OPENSSL_SUPPORT_ENABLED)
+	list(APPEND COMPILE_DEFINITIONS_TO_EXPORT OPENSSL_SUPPORT_ENABLED) #used by TcpAsyncSender.h and various TcpclV4 includes
 	OPTION(OPENSSL_USE_STATIC_LIBS Off)
     if (WIN32)
 		set(OPENSSL_ROOT_DIR "C:/openssl-1.1.1e_msvc2017" CACHE PATH "Folder to the root directory of an OpenSSL installation")

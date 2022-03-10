@@ -10,7 +10,12 @@ if(NOT TARGET HDTNUtil::HDTNUtil)
     include("${HDTNUTIL_CMAKE_DIR}/HDTNUtilTargets.cmake")
 endif()
 
+#because HDTNUtil serves as a dependency for all other HDTN libraries, the following lines set settings needed for all
 set(libzmq_INCLUDE @libzmq_INCLUDE@)
 set(libzmq_LIB @libzmq_LIB@)
+
+#add compile definitions from hardware_acceleration.cmake used in Sdnv.h, CborUint.h, and Bpv7Crc.h (should be fixed, but for now the package config must export it)
+#also add compile definitions from root cmake such as openssl support 
+add_compile_definitions(@COMPILE_DEFINITIONS_TO_EXPORT@)
 
 set(HDTNUTIL_LIBRARIES HDTNUtil::HDTNUtil)
