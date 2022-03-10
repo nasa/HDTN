@@ -38,10 +38,6 @@ set(MY_PUBLIC_HEADERS
 	${CMAKE_CURRENT_BINARY_DIR}/ltp_lib_export.h
 )
 set_target_properties(ltp_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
-install(TARGETS ltp_lib
-	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-)
 target_link_libraries(ltp_lib
 	PUBLIC
 		hdtn_util
@@ -53,6 +49,12 @@ target_include_directories(ltp_lib
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for GENERATE_EXPORT_HEADER
 )
+install(TARGETS ltp_lib
+	EXPORT ltp_lib-targets
+	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+add_hdtn_package_export(ltp_lib LtpLib) #exported target will have the name HDTN::LtpLib and not ltp_lib.  Also requires install to EXPORT ltp_lib-targets
 
 add_executable(ltp-file-transfer
     apps/ltp_file_transfer/src/LtpFileTransferMain.cpp

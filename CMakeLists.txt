@@ -17,7 +17,7 @@ if( build_type_lower STREQUAL "debug" )
 	message(WARNING "You are building in Debug mode!  HDTN can run order(s) of magnitude slower!")
 endif()
 
-include (GenerateExportHeader)
+include(GenerateExportHeader)
 include(CheckIncludeFile)
 include(CheckCXXSourceCompiles)
 include(CheckCXXSourceRuns)
@@ -86,6 +86,8 @@ if(ENABLE_OPENSSL_SUPPORT)
 	endif()
 	find_package(OpenSSL REQUIRED)
 endif()
+
+include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
 add_subdirectory(common/bpcodec)
 add_subdirectory(common/logger)

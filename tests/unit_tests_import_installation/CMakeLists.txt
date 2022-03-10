@@ -25,6 +25,7 @@ set(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_PREFIX_PATH $ENV{HDTN_INSTALL_ROOT} CACHE PATH "Path for find_package to import installed hdtn libraries")
 
 find_package(HDTNUtil REQUIRED)
+find_package(LtpLib REQUIRED)
 find_package(Boost "1.67.0" REQUIRED timer unit_test_framework)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)
@@ -39,6 +40,13 @@ endif()
 
 add_executable(unit-tests-from-install
     src/test_main.cpp
+	../../common/ltp/test/TestLtp.cpp
+	../../common/ltp/test/TestLtpFragmentSet.cpp
+	../../common/ltp/test/TestLtpSessionRecreationPreventer.cpp
+	../../common/ltp/test/TestLtpRandomNumberGenerator.cpp
+	../../common/ltp/test/TestLtpEngine.cpp
+	../../common/ltp/test/TestLtpUdpEngine.cpp
+	../../common/ltp/test/TestLtpTimerManager.cpp
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCborUint.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
@@ -51,7 +59,8 @@ add_executable(unit-tests-from-install
 )
 
 target_link_libraries(unit-tests-from-install
-	HDTNUtil::HDTNUtil
+	HDTN::HDTNUtil
+	HDTN::LtpLib
 	Boost::unit_test_framework
 	Boost::timer
 )
