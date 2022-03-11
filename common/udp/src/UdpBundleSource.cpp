@@ -240,7 +240,7 @@ void UdpBundleSource::HandlePostForUdpSendVecMessage(boost::shared_ptr<std::vect
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
         m_queueVecDataToSendPtrs.pop();
-        ++m_totalPacketsLimitedByRate;
+        m_totalPacketsLimitedByRate += (!m_queueVecDataToSendPtrs.empty());
     }
     //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
         
@@ -259,7 +259,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(boost::shared_ptr<zmq::mess
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
         m_queueZmqDataToSendPtrs.pop();
-        ++m_totalPacketsLimitedByRate;
+        m_totalPacketsLimitedByRate += (!m_queueZmqDataToSendPtrs.empty());
     }
     //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
 
