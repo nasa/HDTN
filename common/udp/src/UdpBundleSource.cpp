@@ -6,7 +6,8 @@
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
 
-static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(100));
+static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
+static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
 
 UdpBundleSource::UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
@@ -28,19 +29,21 @@ m_totalPacketsLimitedByRate(0)
 {
     //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
     const uint64_t rateBytesPerSecond = rateBps >> 3;
-    const uint64_t minimumRateBytesPerSecond = 655360;
-    const uint64_t minimumRateBitsPerSecond = 655360 << 3;
+    //const uint64_t minimumRateBytesPerSecond = 655360;
+    //const uint64_t minimumRateBitsPerSecond = 655360 << 3;
     m_tokenRateLimiter.SetRate(
         rateBytesPerSecond, // 20ms per token
         boost::posix_time::seconds(1),
-        static_tokenRefreshTimeDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+        static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
     );
     const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
     std::cout << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  rateBytesPerSecond = " << rateBytesPerSecond << "  token limit = " << tokenLimit << "\n";
-    std::cout << "UdpBundleSource: minimum rate bitsPerSec = " << minimumRateBitsPerSecond << " minimum rateBytesPerSecond = " << minimumRateBytesPerSecond << "\n";
-    if (tokenLimit < 65536u) {
-        std::cout << "error in UdpBundleSource constructor: the token limit of " << tokenLimit << " bytes is less than the max udp packet size of 65536 bytes.  UDP packets may never be sent!\n";
-    }
+
+    //The following error message should no longer be relevant since the Token Bucket is allowed to go negative if there is at least 1 token in the bucket.
+    //std::cout << "UdpBundleSource: minimum rate bitsPerSec = " << minimumRateBitsPerSecond << " minimum rateBytesPerSecond = " << minimumRateBytesPerSecond << "\n";
+    //if (tokenLimit < 65536u) {
+    //    std::cout << "error in UdpBundleSource constructor: the token limit of " << tokenLimit << " bytes is less than the max udp packet size of 65536 bytes.  UDP packets may never be sent!\n";
+    //}
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
@@ -106,7 +109,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     m_tokenRateLimiter.SetRate(
         rateBytesPerSecond, // 20ms per token
         boost::posix_time::seconds(1),
-        static_tokenRefreshTimeDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+        static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
     );
 }
 
@@ -227,31 +230,39 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
 
 void UdpBundleSource::HandlePostForUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr) {
     //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
-    if (m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
-        boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendPtr);
+    m_queueVecDataToSendPtrs.emplace(std::move(vecDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
+    boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendFrontOfQueuePtr = m_queueVecDataToSendPtrs.front();
+    //try to remove the front of the queue if tokens available
+    if (m_tokenRateLimiter.TakeTokens(vecDataToSendFrontOfQueuePtr->size())) { //there are tokens available for the packet at the front of the queue, send this now
+        boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendFrontOfQueuePtr);
         m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
-            boost::bind(&UdpBundleSource::HandleUdpSendVecMessage, this, std::move(vecDataToSendPtr),
+            boost::bind(&UdpBundleSource::HandleUdpSendVecMessage, this, std::move(vecDataToSendFrontOfQueuePtr),
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
+        m_queueVecDataToSendPtrs.pop();
+        ++m_totalPacketsLimitedByRate;
     }
-    else { //no tokens available, queue the packet so it can be processed by the m_tokenRefreshTimer expiration
-        m_queueVecDataToSendPtrs.emplace(std::move(vecDataToSendPtr));
-    }
+    //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
+        
     TryRestartTokenRefreshTimer(); //start the token refresh timer if and only if it is not already running
 }
 
 void UdpBundleSource::HandlePostForUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & zmqDataToSendPtr) {
     //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
-    if (m_tokenRateLimiter.TakeTokens(zmqDataToSendPtr->size())) { //there are tokens available, send this now
-        boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size());
+    m_queueZmqDataToSendPtrs.emplace(std::move(zmqDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
+    boost::shared_ptr<zmq::message_t> & zmqDataToSendFrontOfQueuePtr = m_queueZmqDataToSendPtrs.front();
+    //try to remove the front of the queue if tokens available
+    if (m_tokenRateLimiter.TakeTokens(zmqDataToSendFrontOfQueuePtr->size())) { //there are tokens available, send this now
+        boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendFrontOfQueuePtr->data(), zmqDataToSendFrontOfQueuePtr->size());
         m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
-            boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, std::move(zmqDataToSendPtr),
+            boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, std::move(zmqDataToSendFrontOfQueuePtr),
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
+        m_queueZmqDataToSendPtrs.pop();
+        ++m_totalPacketsLimitedByRate;
     }
-    else { //no tokens available, queue the packet so it can be processed by the m_tokenRefreshTimer expiration
-        m_queueZmqDataToSendPtrs.emplace(std::move(zmqDataToSendPtr));
-    }
+    //else //no tokens available, the already queued packet will be processed by the m_tokenRefreshTimer expiration
+
     TryRestartTokenRefreshTimer(); //start the token refresh timer if and only if it is not already running
 }
 
