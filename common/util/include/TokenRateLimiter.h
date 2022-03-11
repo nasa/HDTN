@@ -10,9 +10,9 @@
  * The expected workflow is to:
  * 1. Define the limit with setRate()
  * 2. For each possible event:
- *    a. Call addTime() based on the time since last use.
- *    b. Call remainingTokens() to see if the wanted use is possible.
- *    c. If possible, call takeTokens() to reduce the bucket.
+ *    a. Call AddTime() based on the time since last use.
+ *    b. Call GetRemainingTokens() to see if the wanted use is possible.
+ *    c. If possible, call TakeTokens() to reduce the bucket.
  */
 class TokenRateLimiter {
 public:
@@ -48,6 +48,12 @@ public:
      */
     HDTN_UTIL_EXPORT uint64_t GetRemainingTokens() const;
 
+    /** Get whether or not the token bucket is at full capacity of tokens.
+     *
+     * @return True if the token bucket is at full capacity of tokens, or false if tokens can still be added.
+     */
+    HDTN_UTIL_EXPORT bool HasFullBucketOfTokens() const;
+
     /** Decrement from the bucket.
      *
      * @param tokens The number of tokens to take away.
@@ -63,7 +69,7 @@ private:
     /// Maximum #m_limit for burst situations
     uint64_t m_limit;
 
-    /// Denormalized count in units of (tokens*m_rate_intvl)
+    /// Denormalized count in units of (tokens*m_rateInterval)
     uint64_t m_remain;
 
 };

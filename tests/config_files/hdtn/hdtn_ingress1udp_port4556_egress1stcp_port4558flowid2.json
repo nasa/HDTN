@@ -48,8 +48,8 @@
         "outductConfigName": "myconfig",
         "outductVector": [
             {
-                "name": "udp_egress2",
-                "convergenceLayer": "udp",
+                "name": "stcp_egress",
+                "convergenceLayer": "stcp",
                 "nextHopEndpointId": "ipn:2.1",
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
@@ -57,7 +57,7 @@
                 "finalDestinationEidUris": [
                     "ipn:2.1"
                 ],
-                "udpRateBps": 800000
+                "keepAliveIntervalSeconds": 17
             }
         ]
     },

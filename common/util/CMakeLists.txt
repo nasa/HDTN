@@ -9,7 +9,7 @@ add_library(hdtn_util
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
 	src/CborUint.cpp
-	src/RateManagerAsync.cpp
+	#src/RateManagerAsync.cpp
 	src/Uri.cpp
 	src/BinaryConversions.cpp
 	src/TokenRateLimiter.cpp
@@ -53,7 +53,7 @@ set(MY_PUBLIC_HEADERS
 	include/FragmentSet.h
 	include/JsonSerializable.h
 	include/PaddedVectorUint8.h
-	include/RateManagerAsync.h
+	#include/RateManagerAsync.h
 	include/Sdnv.h
 	include/SignalHandler.h
 	include/TcpAsyncSender.h

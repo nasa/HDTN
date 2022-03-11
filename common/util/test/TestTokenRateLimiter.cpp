@@ -12,8 +12,10 @@ BOOST_AUTO_TEST_CASE(TokenRateLimiterLowRate)
 
     // deplete the tokens
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 5);
+    BOOST_REQUIRE(limiter.HasFullBucketOfTokens());
     BOOST_REQUIRE(limiter.TakeTokens(3));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 2);
+    BOOST_REQUIRE(!limiter.HasFullBucketOfTokens());
     BOOST_REQUIRE(!limiter.TakeTokens(3));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 2);
     BOOST_REQUIRE(limiter.TakeTokens(2));
@@ -33,6 +35,7 @@ BOOST_AUTO_TEST_CASE(TokenRateLimiterLowRate)
     // burst limit
     limiter.AddTime(boost::posix_time::seconds(2));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 5);
+    BOOST_REQUIRE(limiter.HasFullBucketOfTokens());
 }
 
 BOOST_AUTO_TEST_CASE(TokenRateLimiterHighRate)
@@ -49,10 +52,12 @@ BOOST_AUTO_TEST_CASE(TokenRateLimiterHighRate)
         boost::posix_time::milliseconds(100)
     );
 
+    BOOST_REQUIRE(limiter.HasFullBucketOfTokens());
     // deplete the tokens
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), u64_1e8);
     BOOST_REQUIRE(limiter.TakeTokens(u64_5e7));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), u64_5e7);
+    BOOST_REQUIRE(!limiter.HasFullBucketOfTokens());
     BOOST_REQUIRE(limiter.TakeTokens(u64_3e7));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), u64_2e7);
     BOOST_REQUIRE(limiter.TakeTokens(u64_2e7));
@@ -64,4 +69,5 @@ BOOST_AUTO_TEST_CASE(TokenRateLimiterHighRate)
     // burst limit
     limiter.AddTime(boost::posix_time::seconds(2));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), u64_1e8);
+    BOOST_REQUIRE(limiter.HasFullBucketOfTokens());
 }

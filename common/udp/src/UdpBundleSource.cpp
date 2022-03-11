@@ -6,16 +6,41 @@
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
 
+static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(100));
 
 UdpBundleSource::UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
 m_resolver(m_ioService),
-m_rateManagerAsync(m_ioService, rateBps, maxUnacked),
+m_tokenRefreshTimer(m_ioService),
+m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin),
 m_udpSocket(m_ioService),
+m_maxPacketsBeingSent(maxUnacked),
+m_bytesToAckBySentCallbackCb(static_cast<uint32_t>(m_maxPacketsBeingSent + 10)),
+m_bytesToAckBySentCallbackCbVec(m_maxPacketsBeingSent + 10),
 m_readyToForward(false),
-m_useLocalConditionVariableAckReceived(false) //for destructor only
+m_useLocalConditionVariableAckReceived(false), //for destructor only
+m_tokenRefreshTimerIsRunning(false),
+m_totalPacketsSentBySentCallback(0),
+m_totalBytesSentBySentCallback(0),
+m_totalPacketsDequeuedForSend(0),
+m_totalBytesDequeuedForSend(0),
+m_totalPacketsLimitedByRate(0)
 {
-    m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
+    //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
+    const uint64_t rateBytesPerSecond = rateBps >> 3;
+    const uint64_t minimumRateBytesPerSecond = 655360;
+    const uint64_t minimumRateBitsPerSecond = 655360 << 3;
+    m_tokenRateLimiter.SetRate(
+        rateBytesPerSecond, // 20ms per token
+        boost::posix_time::seconds(1),
+        static_tokenRefreshTimeDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+    );
+    const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
+    std::cout << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  rateBytesPerSecond = " << rateBytesPerSecond << "  token limit = " << tokenLimit << "\n";
+    std::cout << "UdpBundleSource: minimum rate bitsPerSec = " << minimumRateBitsPerSecond << " minimum rateBytesPerSecond = " << minimumRateBytesPerSecond << "\n";
+    if (tokenLimit < 65536u) {
+        std::cout << "error in UdpBundleSource constructor: the token limit of " << tokenLimit << " bytes is less than the max udp packet size of 65536 bytes.  UDP packets may never be sent!\n";
+    }
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
@@ -23,6 +48,12 @@ m_useLocalConditionVariableAckReceived(false) //for destructor only
 
 UdpBundleSource::~UdpBundleSource() {
     Stop();
+    //print stats
+    std::cout << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback << std::endl;
+    std::cout << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback << std::endl;
+    std::cout << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend << std::endl;
+    std::cout << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend << std::endl;
+    std::cout << "m_totalPacketsLimitedByRate " << m_totalPacketsLimitedByRate << std::endl;
 }
 
 void UdpBundleSource::Stop() {
@@ -71,7 +102,12 @@ void UdpBundleSource::Stop() {
 }
 
 void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
-    m_rateManagerAsync.SetRate(rateBitsPerSec);
+    const uint64_t rateBytesPerSecond = rateBitsPerSec >> 3;
+    m_tokenRateLimiter.SetRate(
+        rateBytesPerSecond, // 20ms per token
+        boost::posix_time::seconds(1),
+        static_tokenRefreshTimeDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+    );
 }
 
 bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
@@ -81,19 +117,22 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         return false;
     }
 
-    
-
-    if (!m_rateManagerAsync.SignalNewPacketDequeuedForSend(dataVec.size())) { //not thread safe
-        return false; //will print error messages inside function
+    const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexSentCallback == UINT32_MAX) { //push check
+        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
+        return false;
     }
-    
+
+    ++m_totalPacketsDequeuedForSend;
+    m_totalBytesDequeuedForSend += dataVec.size();
+
+    m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataVec.size();
+    m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
     boost::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = boost::make_shared<std::vector<uint8_t> >(std::move(dataVec));
     //dataVec invalid after this point
-    m_udpSocket.async_send_to(boost::asio::buffer(*udpDataToSendPtr), m_udpDestinationEndpoint,
-                                     boost::bind(&UdpBundleSource::HandleUdpSend, this, udpDataToSendPtr,
-                                                 boost::asio::placeholders::error,
-                                                 boost::asio::placeholders::bytes_transferred));
+    boost::asio::post(m_ioService, boost::bind(&UdpBundleSource::HandlePostForUdpSendVecMessage, this, std::move(udpDataToSendPtr)));
+    
     return true;
 }
 
@@ -104,18 +143,21 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
         return false;
     }
 
-    if (!m_rateManagerAsync.SignalNewPacketDequeuedForSend(dataZmq.size())) { //not thread safe
-        return false; //will print error messages inside function
+    const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
+    if (writeIndexSentCallback == UINT32_MAX) { //push check
+        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
+        return false;
     }
 
+    ++m_totalPacketsDequeuedForSend;
+    m_totalBytesDequeuedForSend += dataZmq.size();
 
+    m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataZmq.size();
+    m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
     boost::shared_ptr<zmq::message_t> zmqDataToSendPtr = boost::make_shared<zmq::message_t>(std::move(dataZmq));
     //dataZmq invalid after this point
-    m_udpSocket.async_send_to(boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size()), m_udpDestinationEndpoint,
-        boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, zmqDataToSendPtr,
-            boost::asio::placeholders::error,
-            boost::asio::placeholders::bytes_transferred));
+    boost::asio::post(m_ioService, boost::bind(&UdpBundleSource::HandlePostForUdpSendZmqMessage, this, std::move(zmqDataToSendPtr)));
     return true;
 }
 
@@ -126,27 +168,27 @@ bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size)
 
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsAcked() {
-    return m_rateManagerAsync.GetTotalPacketsCompletelySent();
+    return m_totalPacketsSentBySentCallback;
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsSent() {
-    return m_rateManagerAsync.GetTotalPacketsDequeuedForSend();
+    return m_totalPacketsDequeuedForSend;
 }
 
 std::size_t UdpBundleSource::GetTotalUdpPacketsUnacked() {
-    return m_rateManagerAsync.GetTotalPacketsBeingSent();
+    return m_totalPacketsDequeuedForSend - m_totalPacketsSentBySentCallback;
 }
 
 std::size_t UdpBundleSource::GetTotalBundleBytesAcked() {
-    return m_rateManagerAsync.GetTotalBytesCompletelySent();
+    return m_totalBytesSentBySentCallback;
 }
 
 std::size_t UdpBundleSource::GetTotalBundleBytesSent() {
-    return m_rateManagerAsync.GetTotalBytesDequeuedForSend();
+    return m_totalBytesDequeuedForSend;
 }
 
 std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() {
-    return m_rateManagerAsync.GetTotalBytesBeingSent();
+    return m_totalBytesDequeuedForSend - m_totalBytesSentBySentCallback;
 }
 
 
@@ -183,24 +225,80 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
     }
 }
 
+void UdpBundleSource::HandlePostForUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr) {
+    //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
+    if (m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
+        boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendPtr);
+        m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
+            boost::bind(&UdpBundleSource::HandleUdpSendVecMessage, this, std::move(vecDataToSendPtr),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+    else { //no tokens available, queue the packet so it can be processed by the m_tokenRefreshTimer expiration
+        m_queueVecDataToSendPtrs.emplace(std::move(vecDataToSendPtr));
+    }
+    TryRestartTokenRefreshTimer(); //start the token refresh timer if and only if it is not already running
+}
 
-void UdpBundleSource::HandleUdpSend(boost::shared_ptr<std::vector<boost::uint8_t> > dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void UdpBundleSource::HandlePostForUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & zmqDataToSendPtr) {
+    //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
+    if (m_tokenRateLimiter.TakeTokens(zmqDataToSendPtr->size())) { //there are tokens available, send this now
+        boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size());
+        m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
+            boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, std::move(zmqDataToSendPtr),
+                boost::asio::placeholders::error,
+                boost::asio::placeholders::bytes_transferred));
+    }
+    else { //no tokens available, queue the packet so it can be processed by the m_tokenRefreshTimer expiration
+        m_queueZmqDataToSendPtrs.emplace(std::move(zmqDataToSendPtr));
+    }
+    TryRestartTokenRefreshTimer(); //start the token refresh timer if and only if it is not already running
+}
+
+
+void UdpBundleSource::HandleUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in UdpBundleSource::HandleUdpSend: " << error.message() << std::endl;
         DoUdpShutdown();
     }
-    else {
-        m_rateManagerAsync.IoServiceThreadNotifyPacketSentCallback(bytes_transferred); //ioservice thread is calling this function
+    else if (!ProcessPacketSent(bytes_transferred)) {
+        DoUdpShutdown();
     }
 }
 
-void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in UdpBundleSource::HandleUdpSendZmqMessage: " << error.message() << std::endl;
         DoUdpShutdown();
     }
+    else if(!ProcessPacketSent(bytes_transferred)) {
+        DoUdpShutdown();
+    }
+}
+
+bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
+
+    const unsigned int readIndex = m_bytesToAckBySentCallbackCb.GetIndexForRead();
+    if (readIndex == UINT32_MAX) { //empty
+        std::cerr << "error in UdpBundleSource::ProcessPacketSent: AckCallback called with empty queue" << std::endl;
+        return false;
+    }
+    else if (m_bytesToAckBySentCallbackCbVec[readIndex] == bytes_transferred) {
+        ++m_totalPacketsSentBySentCallback;
+        m_totalBytesSentBySentCallback += m_bytesToAckBySentCallbackCbVec[readIndex];
+        m_bytesToAckBySentCallbackCb.CommitRead();
+
+        if (m_onSuccessfulAckCallback) {
+            m_onSuccessfulAckCallback();
+        }
+        if (m_useLocalConditionVariableAckReceived) {
+            m_localConditionVariableAckReceived.notify_one();
+        }
+        return true;
+    }
     else {
-        m_rateManagerAsync.IoServiceThreadNotifyPacketSentCallback(bytes_transferred); //ioservice thread is calling this function
+        std::cerr << "error in UdpBundleSource::ProcessPacketSent: wrong bytes acked: expected " << m_bytesToAckBySentCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+        return false;
     }
 }
 
@@ -238,11 +336,79 @@ void UdpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t
     m_onSuccessfulAckCallback = callback;
 }
 
-void UdpBundleSource::PacketsSentCallback() {
-    if (m_onSuccessfulAckCallback) {
-        m_onSuccessfulAckCallback();
+//restarts the token refresh timer if it is not running from now
+void UdpBundleSource::TryRestartTokenRefreshTimer() {
+    if (!m_tokenRefreshTimerIsRunning) {
+        const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+        if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
+            m_lastTimeTokensWereRefreshed = nowPtime;
+        }
+        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.async_wait(boost::bind(&UdpBundleSource::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
+        m_tokenRefreshTimerIsRunning = true;
     }
-    if (m_useLocalConditionVariableAckReceived) {
-        m_localConditionVariableAckReceived.notify_one();
+}
+//restarts the token refresh timer if it is not running from the given ptime
+void UdpBundleSource::TryRestartTokenRefreshTimer(const boost::posix_time::ptime & nowPtime) {
+    if (!m_tokenRefreshTimerIsRunning) {
+        if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
+            m_lastTimeTokensWereRefreshed = nowPtime;
+        }
+        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.async_wait(boost::bind(&UdpBundleSource::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
+        m_tokenRefreshTimerIsRunning = true;
+    }
+}
+
+void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_code& e) {
+    const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+    const boost::posix_time::time_duration diff = nowPtime - m_lastTimeTokensWereRefreshed;
+    m_tokenRateLimiter.AddTime(diff);
+    m_lastTimeTokensWereRefreshed = nowPtime;
+    m_tokenRefreshTimerIsRunning = false;
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        while (!m_queueVecDataToSendPtrs.empty()) {
+            boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr = m_queueVecDataToSendPtrs.front();
+            //empty the queue of rate limited packets
+            if (m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
+                boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendPtr);
+                m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
+                    boost::bind(&UdpBundleSource::HandleUdpSendVecMessage, this, std::move(vecDataToSendPtr),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+                m_queueVecDataToSendPtrs.pop();
+                ++m_totalPacketsLimitedByRate;
+            }
+            else { //no tokens available, empty the packet queue at the next m_tokenRefreshTimer expiration
+                TryRestartTokenRefreshTimer(nowPtime);
+                return;
+            }
+        }
+        while (!m_queueZmqDataToSendPtrs.empty()) {
+            boost::shared_ptr<zmq::message_t> & zmqDataToSendPtr = m_queueZmqDataToSendPtrs.front();
+            //empty the queue of rate limited packets
+            if (m_tokenRateLimiter.TakeTokens(zmqDataToSendPtr->size())) { //there are tokens available, send this now
+                boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size());
+                m_udpSocket.async_send_to(bufToSend, m_udpDestinationEndpoint,
+                    boost::bind(&UdpBundleSource::HandleUdpSendZmqMessage, this, std::move(zmqDataToSendPtr),
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+                m_queueZmqDataToSendPtrs.pop();
+                ++m_totalPacketsLimitedByRate;
+            }
+            else { //no tokens available, empty the packet queue at the next m_tokenRefreshTimer expiration
+                TryRestartTokenRefreshTimer(nowPtime);
+                return;
+            }
+        }
+        //If more tokens can be added, restart the timer so more tokens will be added at the next timer expiration.
+        //Otherwise, if full, don't restart the timer and the next send packet operation will start it.
+        if (!m_tokenRateLimiter.HasFullBucketOfTokens()) {
+            TryRestartTokenRefreshTimer(nowPtime);
+        }
+    }
+    else {
+        //std::cout << "timer cancelled\n";
     }
 }

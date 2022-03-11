@@ -65,7 +65,7 @@ add_executable(unit-tests-from-install
     ../../common/util/test/TestSdnv.cpp
 	../../common/util/test/TestCborUint.cpp
 	../../common/util/test/TestCircularIndexBuffer.cpp
-	../../common/util/test/TestRateManagerAsync.cpp
+	#../../common/util/test/TestRateManagerAsync.cpp
 	../../common/util/test/TestTimestampUtil.cpp
 	../../common/util/test/TestUri.cpp
 	../../common/util/test/TestEnumAsFlagsMacro.cpp

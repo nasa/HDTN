@@ -32,6 +32,10 @@ uint64_t TokenRateLimiter::GetRemainingTokens() const {
     return m_remain / m_rateInterval.ticks();
 }
 
+bool TokenRateLimiter::HasFullBucketOfTokens() const {
+    return (m_remain == m_limit);
+}
+
 bool TokenRateLimiter::TakeTokens(const uint64_t tokens) {
     const uint64_t delta = tokens * m_rateInterval.ticks();
     if (delta > m_remain) {
