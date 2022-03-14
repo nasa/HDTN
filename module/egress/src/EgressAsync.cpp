@@ -24,9 +24,6 @@
 #include <boost/shared_ptr.hpp>
 #include <fstream>
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/foreach.hpp>
 #include <sstream>
 
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
