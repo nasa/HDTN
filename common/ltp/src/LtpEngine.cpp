@@ -4,11 +4,14 @@
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
 
+static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
+static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
+
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, 
     const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
-    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers) :
+    uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -20,7 +23,11 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
     m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),
-    m_timeManagerOfCancelSegments(m_ioServiceLtpEngine, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2))
+    m_timeManagerOfCancelSegments(m_ioServiceLtpEngine, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
+    m_tokenRefreshTimer(m_ioServiceLtpEngine),
+    m_maxSendRateBitsPerSecOrZeroToDisable(maxSendRateBitsPerSecOrZeroToDisable),
+    m_tokenRefreshTimerIsRunning(false),
+    m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin)
 {
     m_ltpRxStateMachine.SetCancelSegmentContentsReadCallback(boost::bind(&LtpEngine::CancelSegmentReceivedCallback, this,
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -40,6 +47,13 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
 
     m_rng.SetEngineIndex(engineIndexForEncodingIntoRandomSessionNumber);
     SetMtuReportSegment(mtuReportSegment);
+
+    UpdateRate(m_maxSendRateBitsPerSecOrZeroToDisable);
+    if (m_maxSendRateBitsPerSecOrZeroToDisable) {
+        const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
+        std::cout << "LtpEngine: rate bitsPerSec = " << m_maxSendRateBitsPerSecOrZeroToDisable << "  token limit = " << tokenLimit << "\n";
+    }
+
     Reset();
 
     if (startIoServiceThread) {
@@ -55,6 +69,7 @@ LtpEngine::~LtpEngine() {
     std::cout << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued << std::endl;
     std::cout << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit << std::endl;
     std::cout << "m_numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplit << std::endl;
+    std::cout << "m_countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate << std::endl << std::endl;
 
     if (m_ioServiceLtpEngineThreadPtr) {
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
@@ -76,6 +91,7 @@ void LtpEngine::Reset() {
     m_listSendersNeedingDeleted.clear();
     m_listReceiversNeedingDeleted.clear();
 
+    m_countAsyncSendsLimitedByRate = 0;
     m_numCheckpointTimerExpiredCallbacks = 0;
     m_numDiscretionaryCheckpointsNotResent = 0;
     m_numReportSegmentTimerExpiredCallbacks = 0;
@@ -133,10 +149,25 @@ void LtpEngine::SignalReadyForSend_ThreadSafe() { //called by HandleUdpSend
 
 void LtpEngine::TrySendPacketIfAvailable() {
     if (m_ioServiceLtpEngineThreadPtr) { //if not running inside a unit test
+        //RATE STUFF (the TrySendPacketIfAvailable and OnTokenRefresh_TimerExpired run in the same thread)
+        if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
+            if (!m_tokenRateLimiter.CanTakeTokens()) { //no tokens available for next send, TrySendPacketIfAvailable() will be called at the next m_tokenRefreshTimer expiration
+                TryRestartTokenRefreshTimer(); //make sure this is running so that tokens can be replenished
+                return;
+            }
+        }
         std::vector<boost::asio::const_buffer> constBufferVec;
         boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
         uint64_t sessionOriginatorEngineId;
         if (NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
+            if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
+                std::size_t bytesToSend = 0;
+                for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
+                    bytesToSend += constBufferVec[i].size();
+                }
+                m_tokenRateLimiter.TakeTokens(bytesToSend);
+                TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
+            }
             SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId); //virtual call to child implementation
         }
     }
@@ -738,4 +769,63 @@ std::size_t LtpEngine::NumActiveReceivers() const {
 }
 std::size_t LtpEngine::NumActiveSenders() const {
     return m_mapSessionNumberToSessionSender.size();
+}
+
+void LtpEngine::UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    m_maxSendRateBitsPerSecOrZeroToDisable = maxSendRateBitsPerSecOrZeroToDisable;
+    if (maxSendRateBitsPerSecOrZeroToDisable) {
+        const uint64_t rateBytesPerSecond = m_maxSendRateBitsPerSecOrZeroToDisable >> 3;
+        m_tokenRateLimiter.SetRate(
+            rateBytesPerSecond,
+            boost::posix_time::seconds(1),
+            static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
+        );
+    }
+}
+
+
+//restarts the token refresh timer if it is not running from now
+void LtpEngine::TryRestartTokenRefreshTimer() {
+    if (!m_tokenRefreshTimerIsRunning) {
+        const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+        if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
+            m_lastTimeTokensWereRefreshed = nowPtime;
+        }
+        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.async_wait(boost::bind(&LtpEngine::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
+        m_tokenRefreshTimerIsRunning = true;
+    }
+}
+//restarts the token refresh timer if it is not running from the given ptime
+void LtpEngine::TryRestartTokenRefreshTimer(const boost::posix_time::ptime & nowPtime) {
+    if (!m_tokenRefreshTimerIsRunning) {
+        if (m_lastTimeTokensWereRefreshed.is_neg_infinity()) {
+            m_lastTimeTokensWereRefreshed = nowPtime;
+        }
+        m_tokenRefreshTimer.expires_at(nowPtime + static_tokenRefreshTimeDurationWindow);
+        m_tokenRefreshTimer.async_wait(boost::bind(&LtpEngine::OnTokenRefresh_TimerExpired, this, boost::asio::placeholders::error));
+        m_tokenRefreshTimerIsRunning = true;
+    }
+}
+
+void LtpEngine::OnTokenRefresh_TimerExpired(const boost::system::error_code& e) {
+    const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+    const boost::posix_time::time_duration diff = nowPtime - m_lastTimeTokensWereRefreshed;
+    m_tokenRateLimiter.AddTime(diff);
+    m_lastTimeTokensWereRefreshed = nowPtime;
+    m_tokenRefreshTimerIsRunning = false;
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        
+        //If more tokens can be added, restart the timer so more tokens will be added at the next timer expiration.
+        //Otherwise, if full, don't restart the timer and the next send packet operation will start it.
+        if (!m_tokenRateLimiter.HasFullBucketOfTokens()) {
+            TryRestartTokenRefreshTimer(nowPtime); //do this first before TrySendPacketIfAvailable so nowPtime can be used
+        }
+
+        TrySendPacketIfAvailable();
+    }
+    else {
+        //std::cout << "timer cancelled\n";
+    }
 }

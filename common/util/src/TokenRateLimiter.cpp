@@ -90,3 +90,7 @@ bool BorrowableTokenRateLimiter::TakeTokens(const uint64_t tokens) {
     m_remain -= delta;
     return true;
 }
+
+bool BorrowableTokenRateLimiter::CanTakeTokens() const {
+    return (m_remain >= 0);
+}

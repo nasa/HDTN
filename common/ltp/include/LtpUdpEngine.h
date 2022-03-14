@@ -9,7 +9,6 @@
 #include <queue>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
-#include "TokenRateLimiter.h"
 
 class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
@@ -30,26 +29,19 @@ public:
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
 
-    LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
 private:
     LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
     LTP_LIB_NO_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred);
 
-    LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
-    LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer(const boost::posix_time::ptime & nowPtime);
-    LTP_LIB_NO_EXPORT void OnTokenRefresh_TimerExpired(const boost::system::error_code& e);
+    
 
     
     
     boost::asio::io_service & m_ioServiceUdpRef;
     boost::asio::ip::udp::socket & m_udpSocketRef;
     boost::asio::ip::udp::endpoint m_remoteEndpoint;
-    BorrowableTokenRateLimiter m_tokenRateLimiter;
-    boost::asio::deadline_timer m_tokenRefreshTimer;
-    uint64_t m_maxSendRateBitsPerSecOrZeroToDisable;
-    bool m_tokenRefreshTimerIsRunning;
-    boost::posix_time::ptime m_lastTimeTokensWereRefreshed;
+    
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;
     const uint64_t M_MAX_UDP_RX_PACKET_SIZE_BYTES;
@@ -58,11 +50,9 @@ private:
 
     bool m_printedCbTooSmallNotice;
 
-    std::queue<std::size_t> m_queueRateLimitedBytes;
 public:
     volatile uint64_t m_countAsyncSendCalls;
     volatile uint64_t m_countAsyncSendCallbackCalls;
-    uint64_t m_countAsyncSendsLimitedByRate;
     uint64_t m_countCircularBufferOverruns;
 
     //unit testing drop packet simulation stuff

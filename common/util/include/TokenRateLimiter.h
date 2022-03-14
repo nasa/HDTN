@@ -131,6 +131,13 @@ public:
      */
     HDTN_UTIL_EXPORT bool TakeTokens(const uint64_t tokens);
 
+    /** Get whether or not the token bucket has tokens to take (contains a positive number of tokens).
+     *
+     * @param tokens The number of tokens to take away.
+     * @return True if there are a positive number of tokens.
+     */
+    HDTN_UTIL_EXPORT bool CanTakeTokens() const;
+
 private:
     /// Number of tokens to accumulate over #m_rateInterval
     int64_t m_rateTokens;

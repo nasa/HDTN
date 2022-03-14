@@ -84,28 +84,36 @@ BOOST_AUTO_TEST_CASE(BorrowableTokenRateLimiterLowRate)
 
     // deplete the tokens
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 5);
+    BOOST_REQUIRE(limiter.CanTakeTokens());
     BOOST_REQUIRE(limiter.HasFullBucketOfTokens());
     BOOST_REQUIRE(limiter.TakeTokens(3));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 2);
+    BOOST_REQUIRE(limiter.CanTakeTokens());
     BOOST_REQUIRE(!limiter.HasFullBucketOfTokens());
     BOOST_REQUIRE(limiter.TakeTokens(3));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), -1);
+    BOOST_REQUIRE(!limiter.CanTakeTokens());
     BOOST_REQUIRE(!limiter.TakeTokens(2));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), -1);
 
     // add fractional times until fully available
     limiter.AddTime(boost::posix_time::milliseconds(10));
+    BOOST_REQUIRE(!limiter.CanTakeTokens());
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 0);
     limiter.AddTime(boost::posix_time::milliseconds(8));
+    BOOST_REQUIRE(!limiter.CanTakeTokens());
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 0);
     limiter.AddTime(boost::posix_time::milliseconds(2));
+    BOOST_REQUIRE(limiter.CanTakeTokens()); //finally remain is 0
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 0);
     // next unit time
     limiter.AddTime(boost::posix_time::milliseconds(20));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 1);
+    BOOST_REQUIRE(limiter.CanTakeTokens());
 
     // burst limit
     limiter.AddTime(boost::posix_time::seconds(2));
     BOOST_REQUIRE_EQUAL(limiter.GetRemainingTokens(), 5);
     BOOST_REQUIRE(limiter.HasFullBucketOfTokens());
+    BOOST_REQUIRE(limiter.CanTakeTokens());
 }

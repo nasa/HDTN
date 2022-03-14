@@ -24,7 +24,7 @@
             "ltpCheckpointEveryNthDataSegment": 0,
             "ltpRandomNumberSizeBits": 64,
             "ltpSenderBoundPort": 1113,
-            "ltpMaxSendRateBitsPerSecOrZeroToDisable": 5000000
+            "ltpMaxSendRateBitsPerSecOrZeroToDisable": 50000000
         }
     ]
 }
