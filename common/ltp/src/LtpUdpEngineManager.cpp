@@ -31,19 +31,19 @@ void LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t max
 //static function
 std::shared_ptr<LtpUdpEngineManager> LtpUdpEngineManager::GetOrCreateInstance(const uint16_t myBoundUdpPort) {
     boost::mutex::scoped_lock theLock(m_staticMutex);
+    std::shared_ptr<LtpUdpEngineManager> sp;
     if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES == 0) {
         std::cerr << "Error in LtpUdpEngineManager::GetOrCreateInstance: LTP Max RX UDP packet size not set.. call SetMaxUdpRxPacketSizeBytesForAllLtp() first\n";
-        return NULL;
-    }
-    std::shared_ptr<LtpUdpEngineManager> sp;
-    std::map<uint16_t, std::weak_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
-    if ((it == m_staticMapBoundPortToLtpUdpEngineManagerPtr.end()) || (it->second.expired())) { //create new instance
-        sp.reset(new LtpUdpEngineManager(myBoundUdpPort));
-        m_staticMapBoundPortToLtpUdpEngineManagerPtr[myBoundUdpPort] = sp;
-        return sp;
     }
     else {
-        sp = it->second.lock();
+        std::map<uint16_t, std::weak_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
+        if ((it == m_staticMapBoundPortToLtpUdpEngineManagerPtr.end()) || (it->second.expired())) { //create new instance
+            sp.reset(new LtpUdpEngineManager(myBoundUdpPort));
+            m_staticMapBoundPortToLtpUdpEngineManagerPtr[myBoundUdpPort] = sp;
+        }
+        else {
+            sp = it->second.lock();
+        }
     }
     return sp;
 }
@@ -110,7 +110,8 @@ void LtpUdpEngineManager::RemoveLtpUdpEngineByRemoteEngineId_NotThreadSafe(const
 bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t remoteEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
-    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers)
+    const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
+    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable)
 {   
     if ((m_nextEngineIndex > 255) && (!isInduct)) {
         std::cerr << "error in LtpUdpEngineManager::AddLtpUdpEngine: a max of 254 engines can be added for one outduct with the same udp port\n";
@@ -139,7 +140,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
     std::unique_ptr<LtpUdpEngine> newLtpUdpEnginePtr = boost::make_unique<LtpUdpEngine>(m_ioServiceUdp,
         m_udpSocket, thisEngineId, engineIndex, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
         remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, checkpointEveryNthDataPacketSender,
-        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES);
+        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, maxSendRateBitsPerSecOrZeroToDisable);
     if (!isInduct) {
         ++m_nextEngineIndex;
         m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = newLtpUdpEnginePtr.get();

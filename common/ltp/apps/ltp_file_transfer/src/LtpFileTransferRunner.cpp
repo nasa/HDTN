@@ -63,6 +63,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         uint64_t estimatedFileSizeToReceive;
         uint32_t checkpointEveryNthTxPacket;
         uint32_t maxRetriesPerSerialNumber;
+        uint64_t maxSendRateBitsPerSecOrZeroToDisable;
         unsigned int numUdpRxPacketsCircularBufferSize;
         unsigned int maxRxUdpPacketSizeBytes;
 
@@ -90,6 +91,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("estimated-rx-filesize", boost::program_options::value<uint64_t>()->default_value(50000000), "How many bytes to initially reserve for rx (default 50MB).")
                 ("checkpoint-every-nth-tx-packet", boost::program_options::value<uint32_t>()->default_value(0), "Make every nth packet a checkpoint. (default 0 = disabled).")
                 ("max-retries-per-serial-number", boost::program_options::value<uint32_t>()->default_value(5), "Try to resend a serial number up to this many times. (default 5).")
+                ("max-send-rate-bits-per-sec", boost::program_options::value<uint64_t>()->default_value(0), "Send rate in bits-per-second FOR SENDERS ONLY (zero disables). (default 0)")
                 ;
 
             boost::program_options::variables_map vm;
@@ -133,6 +135,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             estimatedFileSizeToReceive = vm["estimated-rx-filesize"].as<uint64_t>();
             checkpointEveryNthTxPacket = vm["checkpoint-every-nth-tx-packet"].as<uint32_t>();
             maxRetriesPerSerialNumber = vm["max-retries-per-serial-number"].as<uint32_t>();
+            maxSendRateBitsPerSecOrZeroToDisable = vm["max-send-rate-bits-per-sec"].as<uint64_t>();
+            if (useReceiveFile && maxSendRateBitsPerSecOrZeroToDisable) {
+                std::cout << "error: maxSendRateBitsPerSecOrZeroToDisable was specified for a receiver\n";
+                return false;
+            }
             numUdpRxPacketsCircularBufferSize = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
@@ -209,7 +216,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             }
 
@@ -276,7 +283,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers, 0);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
             }
             

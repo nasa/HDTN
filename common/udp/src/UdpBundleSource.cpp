@@ -28,16 +28,12 @@ m_totalBytesDequeuedForSend(0),
 m_totalPacketsLimitedByRate(0)
 {
     //m_rateManagerAsync.SetPacketsSentCallback(boost::bind(&UdpBundleSource::PacketsSentCallback, this));
-    const uint64_t rateBytesPerSecond = rateBps >> 3;
     //const uint64_t minimumRateBytesPerSecond = 655360;
     //const uint64_t minimumRateBitsPerSecond = 655360 << 3;
-    m_tokenRateLimiter.SetRate(
-        rateBytesPerSecond, // 20ms per token
-        boost::posix_time::seconds(1),
-        static_tokenMaxLimitDurationWindow //token limit of rateBytesPerSecond / (1000ms/100ms) = rateBytesPerSecond / 10
-    );
+    UpdateRate(rateBps);
+    
     const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
-    std::cout << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  rateBytesPerSecond = " << rateBytesPerSecond << "  token limit = " << tokenLimit << "\n";
+    std::cout << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  token limit = " << tokenLimit << "\n";
 
     //The following error message should no longer be relevant since the Token Bucket is allowed to go negative if there is at least 1 token in the bucket.
     //std::cout << "UdpBundleSource: minimum rate bitsPerSec = " << minimumRateBitsPerSecond << " minimum rateBytesPerSecond = " << minimumRateBytesPerSecond << "\n";

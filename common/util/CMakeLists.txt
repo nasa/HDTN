@@ -56,6 +56,7 @@ set(MY_PUBLIC_HEADERS
 	#include/RateManagerAsync.h
 	include/Sdnv.h
 	include/SignalHandler.h
+	include/TokenRateLimiter.h
 	include/TcpAsyncSender.h
 	include/TimestampUtil.h
 	include/Uri.h
