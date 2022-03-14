@@ -10,7 +10,7 @@ LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductCon
         boost::posix_time::milliseconds(outductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(outductConfig.oneWayMarginTimeMs),
         outductConfig.ltpSenderBoundPort, outductConfig.numRxCircularBufferElements,
         outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber, (outductConfig.ltpRandomNumberSizeBits == 32),
-        m_outductConfig.remoteHostname, m_outductConfig.remotePort)
+        m_outductConfig.remoteHostname, m_outductConfig.remotePort, m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable)
 {}
 LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 

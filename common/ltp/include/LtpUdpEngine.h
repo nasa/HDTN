@@ -6,6 +6,7 @@
 #include <boost/asio.hpp>
 #include <vector>
 #include <map>
+#include <queue>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
 
@@ -20,18 +21,20 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, 
         const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-        uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes);
+        uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpUdpEngine();
 
     LTP_LIB_EXPORT virtual void Reset();
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
+
 private:
     LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
-    LTP_LIB_NO_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred);
+    LTP_LIB_NO_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred);
 
+    
 
     
     
@@ -46,6 +49,7 @@ private:
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
 
     bool m_printedCbTooSmallNotice;
+
 public:
     volatile uint64_t m_countAsyncSendCalls;
     volatile uint64_t m_countAsyncSendCallbackCalls;

@@ -11,6 +11,7 @@
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
+#include "TokenRateLimiter.h"
 
 class CLASS_VISIBILITY_LTP_LIB LtpEngine {
 private:
@@ -33,7 +34,7 @@ public:
     LTP_LIB_EXPORT LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
-        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers);
+        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -71,6 +72,8 @@ public:
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
+
+    LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
 protected:
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
@@ -94,6 +97,10 @@ private:
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
     LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
+
+    LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
+    LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer(const boost::posix_time::ptime & nowPtime);
+    LTP_LIB_NO_EXPORT void OnTokenRefresh_TimerExpired(const boost::system::error_code& e);
 private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
@@ -132,6 +139,11 @@ private:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
+    BorrowableTokenRateLimiter m_tokenRateLimiter;
+    boost::asio::deadline_timer m_tokenRefreshTimer;
+    uint64_t m_maxSendRateBitsPerSecOrZeroToDisable;
+    bool m_tokenRefreshTimerIsRunning;
+    boost::posix_time::ptime m_lastTimeTokensWereRefreshed;
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
 
     //session re-creation prevention
@@ -139,6 +151,8 @@ private:
 
 public:
     //stats
+
+    uint64_t m_countAsyncSendsLimitedByRate;
 
     //session sender stats
     uint64_t m_numCheckpointTimerExpiredCallbacks;

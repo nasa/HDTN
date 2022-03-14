@@ -34,6 +34,7 @@ struct outduct_element_config_t {
     uint32_t ltpCheckpointEveryNthDataSegment;
     uint32_t ltpRandomNumberSizeBits;
     uint16_t ltpSenderBoundPort;
+    uint64_t ltpMaxSendRateBitsPerSecOrZeroToDisable;
 
     //specific to udp
     uint64_t udpRateBps;

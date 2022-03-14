@@ -9,9 +9,10 @@ add_library(hdtn_util
 	src/TcpAsyncSender.cpp
 	src/Sdnv.cpp
 	src/CborUint.cpp
-	src/RateManagerAsync.cpp
+	#src/RateManagerAsync.cpp
 	src/Uri.cpp
 	src/BinaryConversions.cpp
+	src/TokenRateLimiter.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -52,9 +53,10 @@ set(MY_PUBLIC_HEADERS
 	include/FragmentSet.h
 	include/JsonSerializable.h
 	include/PaddedVectorUint8.h
-	include/RateManagerAsync.h
+	#include/RateManagerAsync.h
 	include/Sdnv.h
 	include/SignalHandler.h
+	include/TokenRateLimiter.h
 	include/TcpAsyncSender.h
 	include/TimestampUtil.h
 	include/Uri.h

@@ -1,15 +1,16 @@
 #include "LtpUdpEngine.h"
 #include <boost/make_unique.hpp>
 
+
 LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef,
     const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
     const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes) :
+    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable) :
     LtpEngine(thisEngineId, engineIndexForEncodingIntoRandomSessionNumber, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
-        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber, force32BitRandomNumbers),
+        ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable),
     m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
@@ -29,7 +30,7 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
 
 LtpUdpEngine::~LtpUdpEngine() {
     //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
-    std::cout << "~LtpUdpEngine m_countAsyncSendCalls " << m_countAsyncSendCalls << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
+    std::cout << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
 }
 
 
@@ -65,7 +66,7 @@ void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBuff
     }
     else {
         m_udpSocketRef.async_send_to(constBufferVec, m_remoteEndpoint,
-            boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback,
+            boost::bind(&LtpUdpEngine::HandleUdpSend, this, std::move(underlyingDataToDeleteOnSentCallback),
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
@@ -80,14 +81,14 @@ void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
 
 
 
-void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred) {
     ++m_countAsyncSendCallbackCalls;
     if (error) {
         std::cerr << "error in LtpUdpEngine::HandleUdpSend: " << error.message() << std::endl;
         //DoUdpShutdown();
     }
     else {
-        //TODO RATE STUFF
+        //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
         //std::cout << "sent " << bytes_transferred << std::endl;
 
         if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
@@ -95,4 +96,3 @@ void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8
         }
     }
 }
-
