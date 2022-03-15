@@ -13,7 +13,7 @@ LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t 
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
-m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort)),
+m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true)),
 M_CLIENT_SERVICE_ID(clientServiceId),
 M_THIS_ENGINE_ID(thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),

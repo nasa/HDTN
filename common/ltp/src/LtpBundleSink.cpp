@@ -16,7 +16,7 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     M_THIS_ENGINE_ID(thisEngineId),
     M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(expectedSessionOriginatorEngineId),
-    m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort))
+    m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true))
    
 {
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(expectedSessionOriginatorEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct

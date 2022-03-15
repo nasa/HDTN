@@ -56,8 +56,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             CLIENT_SERVICE_ID_DEST(300),
             BOUND_UDP_PORT_SRC(12345),
             BOUND_UDP_PORT_DEST(1113),
-            ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_SRC)),
-            ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_DEST)),
+            ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_SRC, true)),
+            ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_DEST, true)),
             //engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, false, true),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
             //engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345, true, true),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
@@ -65,6 +65,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
             cvLock(cvMutex)
         {
+            BOOST_REQUIRE(ltpUdpEngineManagerSrcPtr->StartIfNotAlreadyRunning()); //already running from constructor so should do nothing and return true 
+            BOOST_REQUIRE(ltpUdpEngineManagerSrcPtr->StartIfNotAlreadyRunning()); //still already running so should do nothing and return true 
+
             ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size

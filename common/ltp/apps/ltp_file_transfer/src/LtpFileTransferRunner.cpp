@@ -212,7 +212,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
             };
             SenderHelper senderHelper;
-            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort);
+            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true);
             LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
@@ -279,7 +279,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             ReceiverHelper receiverHelper;
 
             std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
-            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort);
+            std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true);
             LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
