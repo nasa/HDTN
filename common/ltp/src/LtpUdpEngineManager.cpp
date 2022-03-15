@@ -29,7 +29,7 @@ void LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t max
 }
 
 //static function
-std::shared_ptr<LtpUdpEngineManager> LtpUdpEngineManager::GetOrCreateInstance(const uint16_t myBoundUdpPort) {
+std::shared_ptr<LtpUdpEngineManager> LtpUdpEngineManager::GetOrCreateInstance(const uint16_t myBoundUdpPort, const bool autoStart) {
     boost::mutex::scoped_lock theLock(m_staticMutex);
     std::shared_ptr<LtpUdpEngineManager> sp;
     if (M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES == 0) {
@@ -38,7 +38,7 @@ std::shared_ptr<LtpUdpEngineManager> LtpUdpEngineManager::GetOrCreateInstance(co
     else {
         std::map<uint16_t, std::weak_ptr<LtpUdpEngineManager> >::iterator it = m_staticMapBoundPortToLtpUdpEngineManagerPtr.find(myBoundUdpPort);
         if ((it == m_staticMapBoundPortToLtpUdpEngineManagerPtr.end()) || (it->second.expired())) { //create new instance
-            sp.reset(new LtpUdpEngineManager(myBoundUdpPort));
+            sp.reset(new LtpUdpEngineManager(myBoundUdpPort, autoStart));
             m_staticMapBoundPortToLtpUdpEngineManagerPtr[myBoundUdpPort] = sp;
         }
         else {
@@ -49,7 +49,7 @@ std::shared_ptr<LtpUdpEngineManager> LtpUdpEngineManager::GetOrCreateInstance(co
 }
 
 //private constructor
-LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort) :
+LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort, const bool autoStart) :
     M_MY_BOUND_UDP_PORT(myBoundUdpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
@@ -58,27 +58,33 @@ LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort) :
     m_nextEngineIndex(1),
     m_readyToForward(false)
 {
-    //Receiver UDP
-    try {
-        m_udpSocket.open(boost::asio::ip::udp::v4());
-        m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), M_MY_BOUND_UDP_PORT)); // //if udpPort is 0 then bind to random ephemeral port
+    if (autoStart) {
+        StartIfNotAlreadyRunning(); //TODO EVALUATE IF AUTO START SAFE
     }
-    catch (const boost::system::system_error & e) {
-        std::cerr << "Could not bind on UDP port " << M_MY_BOUND_UDP_PORT << std::endl;
-        std::cerr << "  Error: " << e.what() << std::endl;
-
-        return;
-    }
-    printf("LtpUdpEngineManager bound successfully on UDP port %d ...", m_udpSocket.local_endpoint().port());
-    
-    Start(); //TODO EVALUATE IF AUTO START SAFE
 }
 
 //call Start after all UDP engines have been added
-void LtpUdpEngineManager::Start() {
-    StartUdpReceive(); //call before creating io_service thread so that it has "work"
+bool LtpUdpEngineManager::StartIfNotAlreadyRunning() {
+    if (!m_ioServiceUdpThreadPtr) {
+        //Receiver UDP
+        try {
+            m_udpSocket.open(boost::asio::ip::udp::v4());
+            m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), M_MY_BOUND_UDP_PORT)); // //if udpPort is 0 then bind to random ephemeral port
+        }
+        catch (const boost::system::system_error & e) {
+            std::cerr << "Could not bind on UDP port " << M_MY_BOUND_UDP_PORT << std::endl;
+            std::cerr << "  Error: " << e.what() << std::endl;
 
-    m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceUdp));
+            return false;
+        }
+        printf("LtpUdpEngineManager bound successfully on UDP port %d\n", m_udpSocket.local_endpoint().port());
+
+        StartUdpReceive(); //call before creating io_service thread so that it has "work"
+
+        m_ioServiceUdpThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceUdp));
+        m_readyToForward = true;
+    }
+    return true;
 }
 
 LtpUdpEngine * LtpUdpEngineManager::GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct) {

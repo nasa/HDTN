@@ -13,11 +13,21 @@
 class LtpUdpEngineManager {
 private:
     LtpUdpEngineManager();
-    LTP_LIB_EXPORT LtpUdpEngineManager(const uint16_t myBoundUdpPort); //LtpUdpEngineManager can only be created by the GetOrCreateInstance() function
+    LTP_LIB_EXPORT LtpUdpEngineManager(const uint16_t myBoundUdpPort, const bool autoStart); //LtpUdpEngineManager can only be created by the GetOrCreateInstance() function
 public:
     LTP_LIB_EXPORT ~LtpUdpEngineManager();
 
-    LTP_LIB_EXPORT void Start();
+    /** First bind the LTP UDP socket to myBoundUdpPort from the constructor.
+     * If binding succeeds, start the LTP udp socket io_service thread and start UDP asynchronous receiving.
+     * It is recommended this be called after all UDP engines have been added in case remote peers are already sending UDP packets to this manager.
+     *
+     * @return True if the operation completed successfully (or completed successfully in the past).
+     * Subsequent calls to StartIfNotAlreadyRunning() will succeed if the first call to StartIfNotAlreadyRunning() succeeded.
+     * False if the operation failed (socket didn't bind).
+     * @post If and only if this is the first call, then the socket is bound, a dedicated io_service thread for the udp socket is running,
+     * and the udp socket is listening for incoming packets on the bound port.
+     */
+    LTP_LIB_EXPORT bool StartIfNotAlreadyRunning();
 
     LTP_LIB_EXPORT bool AddLtpUdpEngine(const uint64_t thisEngineId, const uint64_t remoteEngineId, const bool isInduct, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
@@ -36,7 +46,7 @@ private:
     LTP_LIB_NO_EXPORT void StartUdpReceive();
     LTP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
 public:
-    LTP_LIB_EXPORT static std::shared_ptr<LtpUdpEngineManager> GetOrCreateInstance(const uint16_t myBoundUdpPort);
+    LTP_LIB_EXPORT static std::shared_ptr<LtpUdpEngineManager> GetOrCreateInstance(const uint16_t myBoundUdpPort, const bool autoStart);
     LTP_LIB_EXPORT static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
 private:
     //LtpUdpEngineManager(); 

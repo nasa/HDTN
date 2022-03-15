@@ -783,6 +783,10 @@ void LtpEngine::UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) 
     }
 }
 
+void LtpEngine::UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::UpdateRate, this, maxSendRateBitsPerSecOrZeroToDisable));
+}
+
 
 //restarts the token refresh timer if it is not running from now
 void LtpEngine::TryRestartTokenRefreshTimer() {
