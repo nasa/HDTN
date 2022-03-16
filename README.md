@@ -49,14 +49,13 @@ If LTP_RNG_USE_RDSEED is turned on, this feature will be enabled if CMake finds 
 
 ## Packages installation ## 
 * Ubuntu
-$ sudo apt  install cmake
+```
+$ sudo apt-get install cmake
 $ sudo apt-get install build-essential
-$ sudo apt-get install libzmq3-dev
-$ sudo apt-get install python3-zmq
-$ sudo apt install libboost-dev
-$ sudo apt install libboost-all-dev
-$ sudo apt-get install openssl
-$ sudo apt-get install libssl-dev
+$ sudo apt-get install libzmq3-dev python3-zmq
+$ sudo apt-get install libboost-dev libboost-all-dev
+$ sudo apt-get install openssl libssl-dev
+```
 
 ## Known issue ##
 * Ubuntu distributions may install an older CMake version that is not compatible
