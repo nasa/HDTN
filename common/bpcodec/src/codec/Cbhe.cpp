@@ -95,27 +95,60 @@ std::ostream& operator<<(std::ostream& os, const cbhe_eid_t & o) {
 uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;
     *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
-    *serialization++ = 2; //uri-code: 2
-    serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
-    return serialization - serializationBase;
+    if (nodeId == 0) { //dtn URI scheme for dtn:none (serviceId is a "don't care" for version 7 purposes)
+        *serialization++ = 1; //uri-code: 1
+        *serialization = 0; //if SSP is "none", the SSP SHALL be represented as a CBOR unsigned integer with the value zero.
+        return 3; //only 3 bytes to encode dtn:none
+    }
+    else { //encode as ipn URI scheme
+        *serialization++ = 2; //uri-code: 2
+        serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId);
+        return serialization - serializationBase;
+    }
 }
 uint64_t cbhe_eid_t::SerializeBpv7(uint8_t * serialization, uint64_t bufferSize) const {
     uint8_t * const serializationBase = serialization;
-    if (bufferSize < 2) {
+    if (bufferSize < 3) { //initialCborByte + uriCodeByte + [sspCodeZeroForDtnScheme | atLeastOneByteForIpnScheme]
         return 0;
     }
-    bufferSize -= 2;
     *serialization++ = (4U << 5) | 2; //major type 4, additional information 2
-    *serialization++ = 2; //uri-code: 2
-    serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId, bufferSize);
-    return serialization - serializationBase;
+    if (nodeId == 0) { //dtn URI scheme for dtn:none (serviceId is a "don't care" for version 7 purposes)
+        *serialization++ = 1; //uri-code: 1
+        *serialization = 0; //if SSP is "none", the SSP SHALL be represented as a CBOR unsigned integer with the value zero.
+        return 3; //only 3 bytes to encode dtn:none
+    }
+    else { //encode as ipn URI scheme
+        bufferSize -= 2; //initialCborByte + uriCodeByte
+        *serialization++ = 2; //uri-code: 2
+        serialization += CborTwoUint64ArraySerialize(serialization, nodeId, serviceId, bufferSize);
+        return serialization - serializationBase;
+    }
 }
 uint64_t cbhe_eid_t::GetSerializationSizeBpv7() const {
-    return 2 + CborTwoUint64ArraySerializationSize(nodeId, serviceId); //2 => outer array byte + uri-code byte
+    if (nodeId) { //ipn URI scheme
+        return 2 + CborTwoUint64ArraySerializationSize(nodeId, serviceId); //2 => outer array byte + uri-code byte
+    }
+    return 3; //dtn URI scheme of dtn:none ... initialCborByte + uriCodeByte + sspCodeZeroForDtnScheme
 }
 bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize) {
+    //two element CBOR array: (uri code + SSP)
+    // eid-structure = [
+    //   uri-code: uint,
+    //   SSP: any
+    // ]
+    // $eid /= [
+    //   uri-code: 1,
+    //   SSP: (tstr / 0)
+    // ]
+    // $eid /= [
+    //   uri-code: 2,
+    //   SSP: [
+    //     nodenum: uint,
+    //     servicenum: uint
+    //   ]
+    // ]
     const uint8_t * const serializationBase = serialization;
-    if (bufferSize < 2) {
+    if (bufferSize < 3) { //initialCborByte + uriCodeByte + [sspCodeZeroForDtnScheme | atLeastOneByteForIpnScheme]
         return false;
     }
     bufferSize -= 2; //initialCborByte + uriCodeByte
@@ -125,21 +158,40 @@ bool cbhe_eid_t::DeserializeBpv7(const uint8_t * serialization, uint8_t * numByt
         return false;
     }
     const uint8_t uriCodeByte = *serialization++;
-    if (uriCodeByte != 2) {
+    if (uriCodeByte == 1) { //only support dtn:none for the DTN scheme
+        //4.2.5.1.1.  The dtn URI Scheme
+        //Encoding considerations:  For transmission as a BP endpoint ID, the
+        //scheme-specific part of a URI of the dtn scheme SHALL be
+        //represented as a CBOR text string unless the EID's SSP is "none",
+        //in which case the SSP SHALL be represented as a CBOR unsigned
+        //integer with the value zero.
+
+        --bufferSize; //verified above with if (bufferSize < 3)
+        const uint8_t dtnSchemeSspInitialByte = *serialization++;
+        if (dtnSchemeSspInitialByte != 0) { //if unsupported dtn CBOR tstr
+            return false;
+        }
+        //per https://datatracker.ietf.org/doc/rfc6260/ section 2.2, set both the node number and service number to 0 to represent dtn:none
+        nodeId = 0;
+        serviceId = 0;
+    }
+    else if (uriCodeByte == 2) { //ipn URI scheme
+        uint8_t numBytesTakenToDecodeUri;
+        if (!CborTwoUint64ArrayDeserialize(serialization, &numBytesTakenToDecodeUri, bufferSize, nodeId, serviceId)) {
+            return false;
+        }
+        serialization += numBytesTakenToDecodeUri;
+        bufferSize -= numBytesTakenToDecodeUri;
+    }
+    else { //uri code other (not supported)
         return false;
     }
-    uint8_t numBytesTakenToDecodeUri;
-    if (!CborTwoUint64ArrayDeserialize(serialization, &numBytesTakenToDecodeUri, bufferSize, nodeId, serviceId)) {
-        return false;
-    }
-    serialization += numBytesTakenToDecodeUri;
     //An implementation of the Bundle Protocol MAY accept a sequence of
     //bytes that does not conform to the Bundle Protocol specification
     //(e.g., one that represents data elements in fixed-length arrays
     //rather than indefinite-length arrays) and transform it into
     //conformant BP structure before processing it.
     if (initialCborByte == ((4U << 5) | 31U)) { //major type 4, additional information 31 (Indefinite-Length Array)
-        bufferSize -= numBytesTakenToDecodeUri; //from element 2 above
         if (bufferSize == 0) {
             return false;
         }
