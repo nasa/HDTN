@@ -5,6 +5,9 @@ CMakeLists.txt.user
 build/
 build/*
 
+#Ignore external installation files
+external/*
+
 # Ignore files built for unit tests
 tests/unit_tests/build/
 tests/unit_tests/build/*
