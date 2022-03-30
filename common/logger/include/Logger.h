@@ -1,6 +1,13 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ ***************************************************************************
+ */
+
 #ifndef _HDTN_LOG_H
 #define _HDTN_LOG_H
-//#define BOOST_LOG_DYN_LINK 1
 
 #include <cstddef>
 #include <fstream>
@@ -43,19 +50,11 @@ enum severity_level
 };
 
 
-
-
-//Module Tags
-/*enum module
-{
-    egress,
-    ingress,
-    storage
-};*/
-
-//typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_ostream_backend> text_sink;
 typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sink_t;
 
+/**
+ * @brief Logger class used to create log files and log messages.
+ */
 class Logger
 {
 public:
@@ -74,7 +73,13 @@ private:
 
     LOG_LIB_EXPORT void init();
     LOG_LIB_EXPORT void createModuleLogFile(const std::string & module);
+
+    /**
+     * Creates a new log file for the requested severity level.
+     * @param level The severity level of the logs stored in this file.
+     */ 
     LOG_LIB_EXPORT void createSeverityLogFile(hdtn::severity_level level);
+
     boost::log::sources::severity_logger_mt<severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance
 };
