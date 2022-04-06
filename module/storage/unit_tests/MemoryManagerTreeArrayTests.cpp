@@ -16,7 +16,8 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
     BOOST_REQUIRE(t.IsSegmentFree(segmentId));
     BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
 
-    t.AllocateSegmentId_NoCheck_NotThreadSafe(segmentId);
+    BOOST_REQUIRE(t.AllocateSegmentId_NotThreadSafe(segmentId));
+    BOOST_REQUIRE(!t.AllocateSegmentId_NotThreadSafe(segmentId)); //cannot allocate again
 
     BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
     BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
@@ -34,7 +35,8 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
     BOOST_REQUIRE(t.IsSegmentFree(segmentId));
     BOOST_REQUIRE(t.IsSegmentFree(segmentId + 1));
 
-    t.AllocateSegmentId_NoCheck_NotThreadSafe(0);
+    BOOST_REQUIRE(t.AllocateSegmentId_NotThreadSafe(0));
+    BOOST_REQUIRE(!t.AllocateSegmentId_NotThreadSafe(0)); //cannot allocate again
     BOOST_REQUIRE_EQUAL(t.GetAndSetFirstFreeSegmentId_NotThreadSafe(), 1);
     BOOST_REQUIRE(!t.IsSegmentFree(0));
     BOOST_REQUIRE(!t.IsSegmentFree(1));

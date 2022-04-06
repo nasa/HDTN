@@ -534,13 +534,18 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 hdtn::Logger::getInstance()->logError("storage", msg);
                 return false;
             }
-            if (!m_memoryManager.IsSegmentFree(segmentId)) {
+            if (!m_memoryManager.IsSegmentFree(segmentId)) { //todo this is redundant per function below
                 static const std::string msg = "error: segmentId is already allocated";
                 std::cout << msg << "\n";
                 hdtn::Logger::getInstance()->logError("storage", msg);
                 return false;
             }
-            m_memoryManager.AllocateSegmentId_NoCheck_NotThreadSafe(segmentId);
+            if (!m_memoryManager.AllocateSegmentId_NotThreadSafe(segmentId)) {
+                static const std::string msg = "error: AllocateSegmentId_NotThreadSafe: segmentId is already allocated";
+                std::cout << msg << "\n";
+                hdtn::Logger::getInstance()->logError("storage", msg);
+                return false;
+            }
             segmentIdChainVec[session.nextLogicalSegment] = segmentId;
 
 

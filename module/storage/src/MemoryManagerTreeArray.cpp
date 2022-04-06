@@ -54,20 +54,13 @@ bool MemoryManagerTreeArray::IsBackupEqual(const backup_memmanager_t & backup) c
 }
 
 
-bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t depthIndex, const segment_id_t longIndex, segment_id_t & segmentId) {
-    const bool isLeaf = (depthIndex == (MAX_TREE_ARRAY_DEPTH - 1));
-    uint64_t & longRef = m_bitMasks[depthIndex][longIndex];
+bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t depthIndex, segment_id_t & segmentId) {
+    uint64_t & longRef = m_bitMasks[depthIndex][segmentId];
     const unsigned int firstFreeBitIndex = boost::multiprecision::detail::find_lsb<uint64_t>(longRef);
-    const segment_id_t inverseDepthIndex = ((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex);
-    const segment_id_t inverseDepthIndexTimes6 = inverseDepthIndex * 6;
-    const segment_id_t toAdd = (firstFreeBitIndex << inverseDepthIndexTimes6);// *(!isLeaf);
-    //const unsigned int nextLongIndex = toAdd >> 6;
-    const unsigned int nextLongIndex = (longIndex << 6) + firstFreeBitIndex;
-    //std::cout << "firstFreeBitIndex " << firstFreeBitIndex << " toAdd " << toAdd << " longIndex " << longIndex << " nextLongIndex " << nextLongIndex << "\n";
-    segmentId += toAdd; //same as: segmentId += firstFreeBitIndex * (1 << inverseDepthIndexTimes6); // 64^depth
+    segmentId = (segmentId << 6) | firstFreeBitIndex; //same as: segmentId += firstFreeBitIndex * (1 << inverseDepthIndexTimes6); // 64^depth
 
-
-    if (isLeaf || GetAndSetFirstFreeSegmentId(depthIndex + 1, nextLongIndex, segmentId)) {
+    const bool isLeaf = (depthIndex == (MAX_TREE_ARRAY_DEPTH - 1));
+    if (isLeaf || GetAndSetFirstFreeSegmentId(depthIndex + 1, segmentId)) {
         if (segmentId < M_MAX_SEGMENTS) {
 #ifdef USE_BITTEST
             _bittestandreset64((int64_t*)&longRef, firstFreeBitIndex);
@@ -104,7 +97,7 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t dept
 segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe() {
     if (m_bitMasks[0][0] == 0) return UINT32_MAX; //bitmask of zero means full (prevent undefined behavior in boost::multiprecision::detail::find_lsb)
     segment_id_t segmentId = 0;
-    GetAndSetFirstFreeSegmentId(0, 0, segmentId);
+    GetAndSetFirstFreeSegmentId(0, segmentId);
     if (segmentId >= M_MAX_SEGMENTS) return UINT32_MAX;
     return segmentId;
 }
@@ -254,7 +247,7 @@ void MemoryManagerTreeArray::AllocateRowsMaxMemory() {
         m_bitMasks[depthIndex].assign(arraySize64s, UINT64_MAX);
     }
 }
-
+/*
 bool MemoryManagerTreeArray::AllocateSegmentId_NoCheck(const segment_id_t depthIndex, const segment_id_t rowIndex, const segment_id_t segmentId) {
 
     uint64_t * const currentArrayPtr = m_bitMasks[depthIndex].data();
@@ -283,6 +276,52 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NoCheck(const segment_id_t depthI
 
 void MemoryManagerTreeArray::AllocateSegmentId_NoCheck_NotThreadSafe(const segment_id_t segmentId) {
     AllocateSegmentId_NoCheck(0, 0, segmentId);
+}
+*/
+bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t segmentId) {
+    if (segmentId >= M_MAX_SEGMENTS) return false;
+    //start at the leaf node
+    segment_id_t longIndex = segmentId;
+    bool childIsFull;
+    {
+        const segment_id_t bitIndex = longIndex & 63;
+        longIndex >>= 6; //divide by 64 bits per ui64
+        uint64_t & longRef = m_bitMasks[MAX_TREE_ARRAY_DEPTH - 1][longIndex];
+#ifdef USE_BITTEST
+        const bool bitWasAlreadyOne = _bittestandreset64((int64_t*)&longRef, bitIndex);
+        const bool success = bitWasAlreadyOne; //error if leaf bit was already 0 (already allocated)
+#else
+        const uint64_t mask64 = (((uint64_t)1) << index);
+        const bool success = ((longRef & mask64) != 0);
+# if defined(USE_ANDN)
+        longRef = _andn_u64(mask64, longRef);
+# else
+        longRef &= (~mask64);
+# endif
+#endif
+        if (!success) {
+            return false;
+        }
+        childIsFull = (longRef == 0);
+    }
+    for (segment_id_t depth = MAX_TREE_ARRAY_DEPTH - 1; ((depth != 0) && (childIsFull)); --depth) {
+        const segment_id_t bitIndex = longIndex & 63;
+        longIndex >>= 6; //divide by 64 bits per ui64
+        const segment_id_t depthIndex = depth - 1;
+        uint64_t & longRef = m_bitMasks[depthIndex][longIndex];
+#ifdef USE_BITTEST
+        _bittestandreset64((int64_t*)&longRef, bitIndex);
+#else
+        const uint64_t mask64 = (((uint64_t)1) << index);
+# if defined(USE_ANDN)
+        longRef = _andn_u64(mask64, longRef);
+# else
+        longRef &= (~mask64);
+# endif
+#endif
+        childIsFull = (longRef == 0);
+    }
+    return true;
 }
 
 bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(const segment_id_t segmentId) {
