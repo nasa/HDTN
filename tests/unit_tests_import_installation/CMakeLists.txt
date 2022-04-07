@@ -83,7 +83,6 @@ add_executable(unit-tests-from-install
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
-    ../../module/storage/unit_tests/MemoryManagerTreeTests.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
 	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp

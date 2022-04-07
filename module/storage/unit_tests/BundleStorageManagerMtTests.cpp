@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
             std::map < uint64_t, std::unique_ptr<PrimaryBlock> > mapBundleSizeToPrimary;
 
             uint64_t bytesWritten = 0, totalSegmentsWritten = 0;
-            backup_memmanager_t backup;
+            memmanager_t backup;
 
             {
                 std::unique_ptr<BundleStorageManagerBase> bsmPtr;

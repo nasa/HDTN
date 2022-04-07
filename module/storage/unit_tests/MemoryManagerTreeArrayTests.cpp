@@ -9,7 +9,7 @@
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 {
     MemoryManagerTreeArray t(MAX_MEMORY_MANAGER_SEGMENTS - 100);
-    backup_memmanager_t backup;
+    memmanager_t backup;
     const segment_id_t segmentId = 7777;
 
     BOOST_REQUIRE(t.IsSegmentFree(segmentId - 1));
@@ -46,25 +46,25 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayIsSegmentFreeTestCase)
 
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
 {
-    const boost::uint64_t MAX_SEGMENTS = (1024000000ULL * 8) / SEGMENT_SIZE + 1;
+    const uint64_t MAX_SEGMENTS = (1024000000ULL * 8) / SEGMENT_SIZE + 1;
     MemoryManagerTreeArray t(MAX_SEGMENTS);
 
-    //for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
-    for (boost::uint32_t i = 0; i < MAX_SEGMENTS; ++i) {
+    //for (segment_id_t i = 0; i < 16777216 * 64; ++i) {
+    for (segment_id_t i = 0; i < MAX_SEGMENTS; ++i) {
         BOOST_REQUIRE(t.IsSegmentFree(i));
-        const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
+        const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
         BOOST_REQUIRE_EQUAL(segmentId, i);
         //std::cout << "herei " << i << "\n";
         BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
     }
     //std::cout << "testing max\n";
     {
-        const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
+        const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
         BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX);
     }
 
     {
-        const boost::uint32_t segmentIds[11] = {
+        const segment_id_t segmentIds[11] = {
             123,
             12345,
             16777 - 43,
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
         };
 
         for (int i = 0; i < 11; ++i) {
-            const boost::uint32_t segmentId = segmentIds[i];
+            const segment_id_t segmentId = segmentIds[i];
             BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
             BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(segmentId));
             BOOST_REQUIRE(t.IsSegmentFree(segmentId));
@@ -87,15 +87,15 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
             BOOST_REQUIRE(t.IsSegmentFree(segmentId)); //still free
         }
         for (int i = 0; i < 11; ++i) {
-            const boost::uint32_t segmentId = segmentIds[i];
-            const boost::uint32_t newSegmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
+            const segment_id_t segmentId = segmentIds[i];
+            const segment_id_t newSegmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
             BOOST_REQUIRE_EQUAL(newSegmentId, segmentId);
             BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
         }
     }
 
     {
-        const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
+        const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
         BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX);
     }
 }
@@ -160,17 +160,17 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTinyTestCase)
     {
         const uint64_t MAX_SEGMENTS = 129;
         MemoryManagerTreeArray t(MAX_SEGMENTS);
-        //for (boost::uint32_t i = 0; i < 16777216 * 64; ++i) {
+        //for (segment_id_t i = 0; i < 16777216 * 64; ++i) {
         for (segment_id_t i = 0; i < MAX_SEGMENTS; ++i) {
             //BOOST_REQUIRE(t.IsSegmentFree(i));
-            std::cout << "i " << i << "\n";
+            //std::cout << "i " << i << "\n";
             const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
             BOOST_REQUIRE_EQUAL(segmentId, i);
             //BOOST_REQUIRE(!t.IsSegmentFree(segmentId));
         }
         std::cout << "testing max\n";
         {
-            const boost::uint32_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
+            const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
             BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX);
         }
         /*
