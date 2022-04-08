@@ -127,3 +127,17 @@ Note: RFC 9174 changed from the earlier -26 draft in that the Subject Alternativ
 
 To generate the Diffie-Hellman parameters PEM file (which is installed on an induct only), use the following command:
 * openssl dhparam -outform PEM -out dh4096.pem 4096
+
+Web User Interface
+=========
+This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed.
+CivetWeb can be found here: https://github.com/civetweb/civetweb
+Follow the installation instructions. 
+Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_HDTN_GUI" section:
+* Set "USE_HDTN_GUI" to ON
+* Move the CivetServer.h and civetweb.h files to the civetweb_INCLUDE location based on whether the operating system is Windows or Linux/MacOS.
+* Move the civetweb.lib file on Windows or libcivetweb.so file on Linux/MacOS to the corresponding civetweb_LIB location.
+* If on Windows, move the civetweb-cpp.lib file to the civetwebcpp_LIB location.
+
+Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
+

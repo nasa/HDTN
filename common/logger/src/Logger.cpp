@@ -1,5 +1,12 @@
+/***************************************************************************
+ * NASA Glenn Research Center, Cleveland, OH
+ * Released under the NASA Open Source Agreement (NOSA)
+ * May  2021
+ *
+ ****************************************************************************
+ */
+
 #include "Logger.h"
-//#define BOOST_LOG_DYN_LINK 1
 
 static const char* severity_strings[] =
 {
@@ -53,24 +60,6 @@ std::ostream& operator<< (std::ostream& strm, hdtn::module mod)
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", hdtn::severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", std::string)
 
-//Not used by Logger but here anyway? I didn't write this but used in other code
-/*
-std::string Datetime(){
-#ifndef _WIN32
-    time_t rawtime;
-    struct tm* timeinfo;
-    char buffer[80];
-
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-
-    strftime(buffer, 80, "%d-%m-%Y-%H:%M:%S", timeinfo);
-    return std::string(buffer);
-#else
-    return "";
-#endif // ! _WIN32
-}
-*/
 
 Logger::Logger()
 {
