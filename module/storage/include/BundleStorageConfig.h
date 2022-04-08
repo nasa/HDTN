@@ -9,7 +9,7 @@
 #define MAX_TREE_DEPTH 4 //obsolete for old segment allocator
 
 #define MAX_TREE_ARRAY_DEPTH 5
-#define MAX_MEMORY_MANAGER_SEGMENTS 1073741824 //64^5 = 1,073,741,824 (update this if you change MAX_TREE_ARRAY_DEPTH)
+#define MAX_MEMORY_MANAGER_SEGMENTS (1073741824 - 1) //64^5 = 1,073,741,824 (update this if you change MAX_TREE_ARRAY_DEPTH)
 
 ///////////////////////////
 //BUNDLE STORAGE MANAGER
