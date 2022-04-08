@@ -62,12 +62,13 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t dept
         if (segmentId < M_MAX_SEGMENTS) {
 #ifdef USE_BITTEST
             _bittestandreset64((int64_t*)&longRef, firstFreeBitIndex);
-#elif defined(USE_ANDN)
-            const uint64_t mask64 = (((uint64_t)1) << firstFreeIndex);
-            longRef = _andn_u64(mask64, longRef);
 #else
-            const uint64_t mask64 = (((uint64_t)1) << firstFreeIndex);
-            longRef &= ~mask64;
+            const uint64_t mask64 = (((uint64_t)1) << firstFreeBitIndex);
+# if defined(USE_ANDN)
+            longRef = _andn_u64(mask64, longRef);
+# else
+            longRef &= (~mask64);
+# endif
 #endif
         }
     }
@@ -162,7 +163,7 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t 
         const bool bitWasAlreadyOne = _bittestandreset64((int64_t*)&longRef, bitIndex);
         const bool success = bitWasAlreadyOne; //error if leaf bit was already 0 (already allocated)
 #else
-        const uint64_t mask64 = (((uint64_t)1) << index);
+        const uint64_t mask64 = (((uint64_t)1) << bitIndex);
         const bool success = ((longRef & mask64) != 0);
 # if defined(USE_ANDN)
         longRef = _andn_u64(mask64, longRef);
@@ -183,7 +184,7 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t 
 #ifdef USE_BITTEST
         _bittestandreset64((int64_t*)&longRef, bitIndex);
 #else
-        const uint64_t mask64 = (((uint64_t)1) << index);
+        const uint64_t mask64 = (((uint64_t)1) << bitIndex);
 # if defined(USE_ANDN)
         longRef = _andn_u64(mask64, longRef);
 # else
