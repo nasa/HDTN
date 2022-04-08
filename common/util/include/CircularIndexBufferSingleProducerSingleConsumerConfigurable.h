@@ -5,7 +5,8 @@
 #include <stdint.h>
 #include "hdtn_util_export.h"
 
-
+#define CIRCULAR_INDEX_BUFFER_FULL UINT32_MAX
+#define CIRCULAR_INDEX_BUFFER_EMPTY UINT32_MAX
 
 class HDTN_UTIL_EXPORT CircularIndexBufferSingleProducerSingleConsumerConfigurable {
 private:

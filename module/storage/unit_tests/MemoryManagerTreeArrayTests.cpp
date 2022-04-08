@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
     //std::cout << "testing max\n";
     {
         const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-        BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX);
+        BOOST_REQUIRE_EQUAL(segmentId, SEGMENT_ID_FULL);
     }
 
     {
@@ -96,7 +96,7 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTestCase)
 
     {
         const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-        BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX);
+        BOOST_REQUIRE_EQUAL(segmentId, SEGMENT_ID_FULL);
     }
 }
 
@@ -112,18 +112,18 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTinyTestCase)
         BOOST_REQUIRE(!t.IsSegmentFree(64)); //out of range
         BOOST_REQUIRE(!t.IsSegmentFree(65)); //out of range
         BOOST_REQUIRE(!t.IsSegmentFree(100000)); //way out of range
-        BOOST_REQUIRE(!t.IsSegmentFree(UINT32_MAX)); //way out of range
+        BOOST_REQUIRE(!t.IsSegmentFree(SEGMENT_ID_FULL)); //way out of range
         BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(0)); //already free
         BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(1)); //out of range
         BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(100000)); //way out of range
-        BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(UINT32_MAX)); //way out of range
+        BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(SEGMENT_ID_FULL)); //way out of range
         segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
         BOOST_REQUIRE_EQUAL(segmentId, 0);
         BOOST_REQUIRE(!t.IsSegmentFree(0)); //already allocated
         BOOST_REQUIRE(!t.IsSegmentFree(1)); //out of range
 
         segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-        BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX); //already full
+        BOOST_REQUIRE_EQUAL(segmentId, SEGMENT_ID_FULL); //already full
 
         BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(0)); //now freed
         BOOST_REQUIRE(t.IsSegmentFree(0));
@@ -142,14 +142,14 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTinyTestCase)
         //std::cout << "testing max\n";
         {
             const segment_id_t segmentId = t.GetAndSetFirstFreeSegmentId_NotThreadSafe();
-            BOOST_REQUIRE_EQUAL(segmentId, UINT32_MAX);
+            BOOST_REQUIRE_EQUAL(segmentId, SEGMENT_ID_FULL);
         }
-        /*
-        BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(1));
-        BOOST_REQUIRE(!t.FreeSegmentId_NotThreadSafe(128));
+        
+        BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(1));
+        BOOST_REQUIRE(t.FreeSegmentId_NotThreadSafe(128));
         BOOST_REQUIRE(t.IsSegmentFree(1));
         BOOST_REQUIRE(t.IsSegmentFree(128));
-        */
+        
     }
 
 }
@@ -157,20 +157,20 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayTinyTestCase)
 BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayAllocationTestCase)
 {
     static const std::vector<std::pair<uint64_t, std::vector<uint64_t> > > maxSegmentsPlusDepthSizesTestCases = {
-        {1, {1,1,1,1,1} },
-        {63, {1,1,1,1,1} },
-        {64, {1,1,1,1,2} },
-        {65, {1,1,1,1,2} },
-        {127, {1,1,1,1,2} },
-        {128, {1,1,1,1,3} },
-        {129, {1,1,1,1,3} },
-        {(64 * 64) - 1, {1,1,1,1,64} },
-        {(64 * 64), {1,1,1,2,65} },
-        {(64 * 64 * 64) - 1, {1,1,1,64,64*64} },
-        {(64 * 64 * 64), {1,1,2,65,64*64 + 1} },
-        {(64 * 64 * 64 * 64) - 1, {1,1,64,64 * 64,64 * 64 * 64} },
-        {(64 * 64 * 64 * 64), {1,2,65,64*64+1,64 * 64 * 64 + 1} },
-        {(64 * 64 * 64 * 64 * 64) - 1, {1,64,64*64,64 * 64*64,64 * 64 * 64*64} }/*,
+        {1, {1,1,1,1,1,1} },
+        {63, {1,1,1,1,1,1} },
+        {64, {1,1,1,1,1,2} },
+        {65, {1,1,1,1,1,2} },
+        {127, {1,1,1,1,1,2} },
+        {128, {1,1,1,1,1,3} },
+        {129, {1,1,1,1,1,3} },
+        {(64 * 64) - 1, {1,1,1,1,1,64} },
+        {(64 * 64), {1,1,1,1,2,65} },
+        {(64 * 64 * 64) - 1, {1,1,1,1,64,64*64} },
+        {(64 * 64 * 64), {1,1,1,2,65,64*64 + 1} },
+        {(64 * 64 * 64 * 64) - 1, {1,1,1,64,64 * 64,64 * 64 * 64} },
+        {(64 * 64 * 64 * 64), {1,1,2,65,64*64+1,64 * 64 * 64 + 1} },
+        {(64 * 64 * 64 * 64 * 64) - 1, {1,1,64,64*64,64 * 64*64,64 * 64 * 64*64} }/*,
         {(64 * 64 * 64 * 64), {1,2,65,64 * 64 + 1,64 * 64 * 64 + 1} }*/
     };
     for(std::size_t testCaseI = 0; testCaseI < maxSegmentsPlusDepthSizesTestCases.size(); ++testCaseI) {
@@ -195,7 +195,8 @@ BOOST_AUTO_TEST_CASE(MemoryManagerTreeArrayFullTestCase)
     //Test case "MemoryManagerTreeArrayFullTestCase" has passed with:
     //4294967240 assertions out of 4294967240 passed
     //took 2hrs with depth 5 and max segments of (1073741824 - 1)
-    const uint64_t MAX_SEGMENTS = (1024000000ULL * 8) / SEGMENT_SIZE + 11;
+
+    const uint64_t MAX_SEGMENTS = (102400000ULL * 8) / SEGMENT_SIZE + 11;
     MemoryManagerTreeArray t(MAX_SEGMENTS);
     for (segment_id_t i = 0; i < (MAX_SEGMENTS - 1); ++i) {
 

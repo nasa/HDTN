@@ -76,10 +76,10 @@ bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t dept
 }
 
 segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe() {
-    if (m_bitMasks[0][0] == 0) return UINT32_MAX; //bitmask of zero means full (prevent undefined behavior in boost::multiprecision::detail::find_lsb)
+    if (m_bitMasks[0][0] == 0) return SEGMENT_ID_FULL; //bitmask of zero means full (prevent undefined behavior in boost::multiprecision::detail::find_lsb)
     segment_id_t segmentId = 0;
     GetAndSetFirstFreeSegmentId(0, segmentId);
-    if (segmentId >= M_MAX_SEGMENTS) return UINT32_MAX;
+    if (segmentId >= M_MAX_SEGMENTS) return SEGMENT_ID_FULL;
     return segmentId;
 }
 
@@ -204,7 +204,7 @@ bool MemoryManagerTreeArray::AllocateSegments_ThreadSafe(segment_id_chain_vec_t 
     const std::size_t size = segmentVec.size();
     for (std::size_t i = 0; i < size; ++i) {
         const segment_id_t segmentId = GetAndSetFirstFreeSegmentId_NotThreadSafe();
-        if (segmentId != UINT32_MAX) { //success
+        if (segmentId != SEGMENT_ID_FULL) { //success
             segmentVec[i] = segmentId;
         }
         else { //fail

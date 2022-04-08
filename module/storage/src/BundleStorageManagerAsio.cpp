@@ -108,7 +108,7 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskId];
         const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
 
-        if (consumeIndex != UINT32_MAX) { //if not empty
+        if (consumeIndex != CIRCULAR_INDEX_BUFFER_EMPTY) { //if not empty
             m_diskOperationInProgressVec[diskId] = true;
 
             segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[diskId * CIRCULAR_INDEX_BUFFER_SIZE];
@@ -117,9 +117,9 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
             volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
 
             const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
-            if (segmentId == UINT32_MAX) {
-                std::cout << "error segmentId is max\n";
-                hdtn::Logger::getInstance()->logError("storage", "Error segmentId is max");
+            if (segmentId == SEGMENT_ID_LAST) {
+                std::cout << "error segmentId is last\n";
+                hdtn::Logger::getInstance()->logError("storage", "Error segmentId is last");
                 //continue;
             }
 

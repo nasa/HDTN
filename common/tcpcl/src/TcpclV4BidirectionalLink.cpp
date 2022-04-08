@@ -305,7 +305,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
 
 void TcpclV4BidirectionalLink::BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_t & ack) {
     const unsigned int readIndex = m_base_segmentsToAckCbPtr->GetIndexForRead();
-    if (readIndex == UINT32_MAX) { //empty
+    if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error: BaseClass_AckCallback called with empty queue" << std::endl;
         return;
     }
@@ -747,7 +747,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             dataIndex += bytesToSend;//bytes to ack must be cumulative of fragments
 
             const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
-            if (writeIndex == UINT32_MAX) { //push check
+            if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
                 std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Unexpected Error in Base_Forward.. cannot get cb write index" << std::endl;
                 return false;
             }
@@ -794,7 +794,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 
         const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
-        if (writeIndex == UINT32_MAX) { //push check
+        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
             std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Unexpected Error in Base_Forward.. cannot get cb write index" << std::endl;
             return false;
         }

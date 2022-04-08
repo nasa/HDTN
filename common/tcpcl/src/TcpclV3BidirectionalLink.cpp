@@ -212,7 +212,7 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
 
 void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowledged) {
     const unsigned int readIndex = m_base_bytesToAckCb.GetIndexForRead();
-    if (readIndex == UINT32_MAX) { //empty
+    if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error: AckCallback called with empty queue" << std::endl;
     }
     else {
@@ -470,7 +470,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
 
     const unsigned int writeIndex = m_base_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
-    if (writeIndex == UINT32_MAX) { //push check
+    if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Error in BaseClass_Forward.. too many unacked packets" << std::endl;
         return false;
     }

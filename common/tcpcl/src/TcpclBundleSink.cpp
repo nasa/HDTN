@@ -98,7 +98,7 @@ TcpclBundleSink::~TcpclBundleSink() {
 void TcpclBundleSink::TryStartTcpReceive() {
     if ((!m_stateTcpReadActive) && (m_base_tcpSocketPtr)) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-        if (writeIndex == UINT32_MAX) {
+        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
                 std::cout << "notice in TcpclBundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
@@ -137,12 +137,12 @@ void TcpclBundleSink::PopCbThreadFunc() {
     boost::mutex localMutex;
     boost::mutex::scoped_lock lock(localMutex);
 
-    while (m_running || (m_circularIndexBuffer.GetIndexForRead() != UINT32_MAX)) { //keep thread alive if running or cb not empty
+    while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY)) { //keep thread alive if running or cb not empty
 
 
         const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
         boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
-        if (consumeIndex == UINT32_MAX) { //if empty
+        if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
             m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;

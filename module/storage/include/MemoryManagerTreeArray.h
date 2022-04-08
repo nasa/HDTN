@@ -8,7 +8,7 @@
 #include <vector>
 #include "storage_lib_export.h"
 
-typedef uint32_t segment_id_t;
+
 typedef std::vector<segment_id_t> segment_id_chain_vec_t;
 
 typedef std::vector< std::vector<uint64_t> > memmanager_t;

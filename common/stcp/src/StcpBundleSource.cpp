@@ -127,7 +127,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
 
 
     const unsigned int writeIndexTcpSendCallback = m_bytesToAckByTcpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
-    if (writeIndexTcpSendCallback == UINT32_MAX) { //push check
+    if (writeIndexTcpSendCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
         std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
         return false;
     }
@@ -166,7 +166,7 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     }
 
     const unsigned int writeIndexTcpSendCallback = m_bytesToAckByTcpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
-    if (writeIndexTcpSendCallback == UINT32_MAX) { //push check
+    if (writeIndexTcpSendCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
         std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
         return false;
     }
@@ -306,7 +306,7 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
     }
     else {
         const unsigned int readIndex = m_bytesToAckByTcpSendCallbackCb.GetIndexForRead();
-        if (readIndex == UINT32_MAX) { //empty
+        if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
             std::cerr << "error: AckCallback called with empty queue" << std::endl;
         }
         else if (m_bytesToAckByTcpSendCallbackCbVec[readIndex] == bytes_transferred) {

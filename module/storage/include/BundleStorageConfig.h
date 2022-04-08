@@ -6,17 +6,26 @@
 ///////////////////////////
 //SEGMENT ALLOCATOR
 ///////////////////////////
-#define MAX_TREE_DEPTH 4 //obsolete for old segment allocator
+//#define MAX_TREE_DEPTH 4 //obsolete for old segment allocator
 
-#define MAX_TREE_ARRAY_DEPTH 5
-#define MAX_MEMORY_MANAGER_SEGMENTS (1073741824 - 1) //64^5 = 1,073,741,824 (update this if you change MAX_TREE_ARRAY_DEPTH)
+typedef uint32_t segment_id_t;
+#define SEGMENT_ID_FULL UINT32_MAX
+#define SEGMENT_ID_LAST SEGMENT_ID_FULL
+
+//#define MAX_TREE_ARRAY_DEPTH 5
+//#define MAX_MEMORY_MANAGER_SEGMENTS (1073741824 - 1) //64^5 = 1,073,741,824 (update this if you change MAX_TREE_ARRAY_DEPTH)
+//(segment allocator using MAX_MEMORY_MANAGER_SEGMENTS uses about 130 MByte RAM)
+
+#define MAX_TREE_ARRAY_DEPTH 6
+#define MAX_MEMORY_MANAGER_SEGMENTS (UINT32_MAX - 3) //min(UINT32_MAX, 64^6) since segment_id_t is a uint32_t (update this if you change MAX_TREE_ARRAY_DEPTH)
+//(segment allocator using MAX_MEMORY_MANAGER_SEGMENTS uses about 533 MByte RAM)
 
 ///////////////////////////
 //BUNDLE STORAGE MANAGER
 ///////////////////////////
 
 #define SEGMENT_SIZE 4096  
-#define SEGMENT_RESERVED_SPACE (sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint64_t))
+#define SEGMENT_RESERVED_SPACE (sizeof(uint64_t) + sizeof(segment_id_t) + sizeof(uint64_t))
 #define BUNDLE_STORAGE_PER_SEGMENT_SIZE (SEGMENT_SIZE - SEGMENT_RESERVED_SPACE)
 #define READ_CACHE_NUM_SEGMENTS_PER_SESSION 50
 

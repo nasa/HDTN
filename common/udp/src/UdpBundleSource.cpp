@@ -117,7 +117,7 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     }
 
     const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
-    if (writeIndexSentCallback == UINT32_MAX) { //push check
+    if (writeIndexSentCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
         std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
         return false;
     }
@@ -143,7 +143,7 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
     }
 
     const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
-    if (writeIndexSentCallback == UINT32_MAX) { //push check
+    if (writeIndexSentCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
         std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
         return false;
     }
@@ -286,7 +286,7 @@ void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> 
 bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
 
     const unsigned int readIndex = m_bytesToAckBySentCallbackCb.GetIndexForRead();
-    if (readIndex == UINT32_MAX) { //empty
+    if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
         std::cerr << "error in UdpBundleSource::ProcessPacketSent: AckCallback called with empty queue" << std::endl;
         return false;
     }
