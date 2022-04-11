@@ -1,4 +1,4 @@
-High Speed Delay Tolerant Network 
+High-rate Delay Tolerant Network 
 ==================================
 
 Overview
