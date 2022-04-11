@@ -1,9 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
- * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
+/**
+ * @file MemoryManagerTreeArray.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- ****************************************************************************
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
  */
 #include "MemoryManagerTreeArray.h"
 #include <boost/multiprecision/cpp_int.hpp>
@@ -51,7 +57,17 @@ bool MemoryManagerTreeArray::IsBackupEqual(const memmanager_t & backup) const {
     return (backup == m_bitMasks);
 }
 
-
+/** Private function to allocate and get the first available free segment number in numerical order.  Requires 6 recursive calls (depth first).
+* This function is used by the public function GetAndSetFirstFreeSegmentId_NotThreadSafe()
+*
+* @param depthIndex The current tree row/depth index (must be initialized to zero prior to the first call).
+* @param segmentId The reference to the segment Id (must be initialized to zero prior to the first call).
+*        It is calculated (assuming the tree is 6 rows deep) by the formula: Summation(r=0..5 of B * 64 ^ (5-r))
+*        where "B" is the least significant 1 bit and "r" is the row/depth index.
+*        See storage.pptx in the repository for more detailed information.
+* @return True if the uint64_t is full (all zeros) denoting the uint64_t cannot represent any more segments, or false otherwise.
+* @post The internal data structures are updated if and only if the MemoryManagerTreeArray is not full.
+*/
 bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t depthIndex, segment_id_t & segmentId) {
     uint64_t & longRef = m_bitMasks[depthIndex][segmentId];
     const unsigned int firstFreeBitIndex = boost::multiprecision::detail::find_lsb<uint64_t>(longRef);
@@ -98,7 +114,7 @@ bool MemoryManagerTreeArray::IsSegmentFree(const segment_id_t segmentId) const {
 #endif
 }
 
-bool MemoryManagerTreeArray::FreeSegmentId(const segment_id_t segmentId) {
+bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(const segment_id_t segmentId) {
     if (segmentId >= M_MAX_SEGMENTS) return false;
     //start at the leaf node
     segment_id_t longIndex = segmentId;
@@ -133,6 +149,11 @@ bool MemoryManagerTreeArray::FreeSegmentId(const segment_id_t segmentId) {
     return true;
 }
 
+/** Private function to allocate just enough memory to accomodate up to the given largestSegmentId.
+*
+* @param largestSegmentId The maximum number of segment Ids this data structure will support.
+* @post The internal data structures are resized with all bits set high.
+*/
 void MemoryManagerTreeArray::AllocateRows(const segment_id_t largestSegmentId) {
     //start at the leaf node
     segment_id_t longIndex = largestSegmentId >> 6; //divide by 64 bits per ui64
@@ -143,6 +164,10 @@ void MemoryManagerTreeArray::AllocateRows(const segment_id_t largestSegmentId) {
     }
 }
 
+/** Deprecated private function to allocate too much memory for any small capacity of segment Ids.
+*
+* @post The internal data structures are resized with all bits set high.
+*/
 void MemoryManagerTreeArray::AllocateRowsMaxMemory() {
     for (segment_id_t depthIndex = 0; depthIndex < MAX_TREE_ARRAY_DEPTH; ++depthIndex) {
         const uint64_t arraySize64s = (((uint64_t)1) << (depthIndex * 6));
@@ -196,10 +221,6 @@ bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t 
     return true;
 }
 
-bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(const segment_id_t segmentId) {
-    return FreeSegmentId(segmentId);
-}
-
 bool MemoryManagerTreeArray::AllocateSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec) { //number of segments should be the vector size
     boost::mutex::scoped_lock lock(m_mutex);
     const std::size_t size = segmentVec.size();
@@ -228,7 +249,6 @@ bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(const segment_id_chain_vec_
             success = false;
         }
     }
-    //segmentVec.resize(0);
     return success;
 }
 
