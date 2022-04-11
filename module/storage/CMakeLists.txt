@@ -56,7 +56,6 @@ set(MY_PUBLIC_HEADERS
 	include/CatalogEntry.h
 	include/CustodyTimers.h
 	include/HashMap16BitFixedSize.h
-	include/MemoryManagerTree.h
 	include/MemoryManagerTreeArray.h
 	include/StorageRunner.h
 	include/ZmqStorageInterface.h

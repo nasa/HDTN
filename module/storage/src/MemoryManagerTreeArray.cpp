@@ -1,9 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
- * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
+/**
+ * @file MemoryManagerTreeArray.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- ****************************************************************************
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
  */
 #include "MemoryManagerTreeArray.h"
 #include <boost/multiprecision/cpp_int.hpp>
@@ -29,198 +35,190 @@
 # endif
 #endif //USE_BITTEST or USE_ANDN
 
- //static uint64_t g_numLeaves = 0;
-
-MemoryManagerTreeArray::MemoryManagerTreeArray(const uint64_t maxSegments) : M_MAX_SEGMENTS(maxSegments) {
-    SetupTree();
+MemoryManagerTreeArray::MemoryManagerTreeArray(const uint64_t maxSegments) : M_MAX_SEGMENTS(maxSegments), m_bitMasks(MAX_TREE_ARRAY_DEPTH) {
+#if 0
+    AllocateRowsMaxMemory();
+#else
+    AllocateRows(static_cast<segment_id_t>(M_MAX_SEGMENTS));
+#endif
 }
-MemoryManagerTreeArray::~MemoryManagerTreeArray() {
-    FreeTree();
+MemoryManagerTreeArray::~MemoryManagerTreeArray() {}
+
+
+void MemoryManagerTreeArray::BackupDataToVector(memmanager_t & backup) const {
+    backup = m_bitMasks;
 }
 
-void MemoryManagerTreeArray::SetupTree() {
-    for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
-        const uint64_t arraySize64s = (((uint64_t)1) << (i * 6));
-        //std::cout << i << " " << arraySize64s << "\n";
-        m_bitMasks[i] = (uint64_t*)malloc(arraySize64s * sizeof(uint64_t));
-        uint64_t * const currentArrayPtr = m_bitMasks[i];
-        for (uint64_t j = 0; j < arraySize64s; ++j) {
-            currentArrayPtr[j] = UINT64_MAX;
+const memmanager_t & MemoryManagerTreeArray::GetVectorsConstRef() const {
+    return m_bitMasks;
+}
+
+bool MemoryManagerTreeArray::IsBackupEqual(const memmanager_t & backup) const {
+    return (backup == m_bitMasks);
+}
+
+/** Private function to allocate and get the first available free segment number in numerical order.  Requires 6 recursive calls (depth first).
+* This function is used by the public function GetAndSetFirstFreeSegmentId_NotThreadSafe()
+*
+* @param depthIndex The current tree row/depth index (must be initialized to zero prior to the first call).
+* @param segmentId The reference to the segment Id (must be initialized to zero prior to the first call).
+*        It is calculated (assuming the tree is 6 rows deep) by the formula: Summation(r=0..5 of B * 64 ^ (5-r))
+*        where "B" is the least significant 1 bit and "r" is the row/depth index.
+*        See storage.pptx in the repository for more detailed information.
+* @return True if the uint64_t is full (all zeros) denoting the uint64_t cannot represent any more segments, or false otherwise.
+* @post The internal data structures are updated if and only if the MemoryManagerTreeArray is not full.
+*/
+bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const segment_id_t depthIndex, segment_id_t & segmentId) {
+    uint64_t & longRef = m_bitMasks[depthIndex][segmentId];
+    const unsigned int firstFreeBitIndex = boost::multiprecision::detail::find_lsb<uint64_t>(longRef);
+    segmentId = (segmentId << 6) | firstFreeBitIndex; //same as: segmentId += firstFreeBitIndex * (1 << inverseDepthIndexTimes6); // 64^depth
+
+    const bool isLeaf = (depthIndex == (MAX_TREE_ARRAY_DEPTH - 1));
+    if (isLeaf || GetAndSetFirstFreeSegmentId(depthIndex + 1, segmentId)) {
+        if (segmentId < M_MAX_SEGMENTS) {
+#ifdef USE_BITTEST
+            _bittestandreset64((int64_t*)&longRef, firstFreeBitIndex);
+#else
+            const uint64_t mask64 = (((uint64_t)1) << firstFreeBitIndex);
+# if defined(USE_ANDN)
+            longRef = _andn_u64(mask64, longRef);
+# else
+            longRef &= (~mask64);
+# endif
+#endif
         }
     }
 
-
+    return (longRef == 0); //return isFull
 }
 
-
-void MemoryManagerTreeArray::FreeTree() {
-    for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
-        free(m_bitMasks[i]);
-    }
+segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe() {
+    if (m_bitMasks[0][0] == 0) return SEGMENT_ID_FULL; //bitmask of zero means full (prevent undefined behavior in boost::multiprecision::detail::find_lsb)
+    segment_id_t segmentId = 0;
+    GetAndSetFirstFreeSegmentId(0, segmentId);
+    if (segmentId >= M_MAX_SEGMENTS) return SEGMENT_ID_FULL;
+    return segmentId;
 }
 
-void MemoryManagerTreeArray::BackupDataToVector(backup_memmanager_t & backup) const {
-    backup.resize(MAX_TREE_ARRAY_DEPTH);
-    for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
-        const uint64_t arraySize64s = (((uint64_t)1) << (i * 6));
-        std::vector<uint64_t> & row = backup[i];
-        row.resize(arraySize64s);
-        const uint64_t * const currentArrayPtr = m_bitMasks[i];
-        for (uint64_t j = 0; j < arraySize64s; ++j) {
-            row[j] = currentArrayPtr[j];
+bool MemoryManagerTreeArray::IsSegmentFree(const segment_id_t segmentId) const {
+    if (segmentId >= M_MAX_SEGMENTS) return false;
+    //just look at the leaf node
+    segment_id_t longIndex = segmentId >> 6; //divide by 64 bits per ui64
+    const segment_id_t bitIndex = segmentId & 63;
+    const uint64_t leafLong = m_bitMasks[MAX_TREE_ARRAY_DEPTH - 1][longIndex];
+#ifdef USE_BITTEST
+    return _bittest64((const int64_t*)&leafLong, bitIndex);
+#else
+    const uint64_t mask64 = (((uint64_t)1) << bitIndex);
+    return (leafLong & mask64); //leaf bit is 1 (empty)
+#endif
+}
+
+bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(const segment_id_t segmentId) {
+    if (segmentId >= M_MAX_SEGMENTS) return false;
+    //start at the leaf node
+    segment_id_t longIndex = segmentId;
+    {
+        const segment_id_t bitIndex = longIndex & 63;
+        longIndex >>= 6; //divide by 64 bits per ui64
+        uint64_t & longRef = m_bitMasks[MAX_TREE_ARRAY_DEPTH-1][longIndex];
+#ifdef USE_BITTEST
+        const bool bitWasAlreadyOne = _bittestandset64((int64_t*)&longRef, bitIndex);
+        const bool success = !bitWasAlreadyOne; //error if leaf bit is already 1 (empty)
+#else
+        const uint64_t mask64 = (((uint64_t)1) << bitIndex);
+        const bool success = ((longRef & mask64) == 0);
+        longRef |= mask64;
+#endif
+        if (!success) {
+            return false;
         }
     }
-}
-
-bool MemoryManagerTreeArray::IsBackupEqual(const backup_memmanager_t & backup) const {
-    for (unsigned int i = 0; i < MAX_TREE_ARRAY_DEPTH; ++i) {
-        const uint64_t arraySize64s = (((uint64_t)1) << (i * 6));
-        const std::vector<uint64_t> & row = backup[i];
-        const uint64_t * const currentArrayPtr = m_bitMasks[i];
-        for (uint64_t j = 0; j < arraySize64s; ++j) {
-            if (row[j] != currentArrayPtr[j]) return false;
-        }
+    for (segment_id_t depth = MAX_TREE_ARRAY_DEPTH - 1; depth != 0; --depth) {
+        const segment_id_t bitIndex = longIndex & 63;
+        longIndex >>= 6; //divide by 64 bits per ui64
+        const segment_id_t depthIndex = depth - 1;
+        uint64_t & longRef = m_bitMasks[depthIndex][longIndex];
+#ifdef USE_BITTEST
+        _bittestandset64((int64_t*)&longRef, bitIndex);
+#else
+        const uint64_t mask64 = (((uint64_t)1) << bitIndex);
+        longRef |= mask64;
+#endif
     }
     return true;
 }
 
+/** Private function to allocate just enough memory to accomodate up to the given largestSegmentId.
+*
+* @param largestSegmentId The maximum number of segment Ids this data structure will support.
+* @post The internal data structures are resized with all bits set high.
+*/
+void MemoryManagerTreeArray::AllocateRows(const segment_id_t largestSegmentId) {
+    //start at the leaf node
+    segment_id_t longIndex = largestSegmentId >> 6; //divide by 64 bits per ui64
+    for (segment_id_t depth = MAX_TREE_ARRAY_DEPTH; depth != 0; --depth) {
+        segment_id_t depthIndex = depth - 1;
+        m_bitMasks[depthIndex].assign(longIndex + 1, UINT64_MAX);
+        longIndex >>= 6; //same as: rowIndex += index * (1 << inverseDepthIndexTimes6); //rowIndex += index * (64^depthIndex)
+    }
+}
 
-bool MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId(const uint32_t depthIndex, const uint32_t rowIndex, uint32_t * segmentId) {
+/** Deprecated private function to allocate too much memory for any small capacity of segment Ids.
+*
+* @post The internal data structures are resized with all bits set high.
+*/
+void MemoryManagerTreeArray::AllocateRowsMaxMemory() {
+    for (segment_id_t depthIndex = 0; depthIndex < MAX_TREE_ARRAY_DEPTH; ++depthIndex) {
+        const uint64_t arraySize64s = (((uint64_t)1) << (depthIndex * 6));
+        m_bitMasks[depthIndex].assign(arraySize64s, UINT64_MAX);
+    }
+}
 
-    uint64_t * const currentArrayPtr = m_bitMasks[depthIndex];
-    uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
-    const unsigned int firstFreeIndex = boost::multiprecision::detail::find_lsb<uint64_t>(*currentBit64Ptr);
-    *segmentId += firstFreeIndex * (1 << (((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex) * 6)); // 64^depth
-
-
-    if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || GetAndSetFirstFreeSegmentId(depthIndex + 1, rowIndex + firstFreeIndex * (1 << (depthIndex * 6)), segmentId)) {
-        if (*segmentId < M_MAX_SEGMENTS) {
+bool MemoryManagerTreeArray::AllocateSegmentId_NotThreadSafe(const segment_id_t segmentId) {
+    if (segmentId >= M_MAX_SEGMENTS) return false;
+    //start at the leaf node
+    segment_id_t longIndex = segmentId;
+    bool childIsFull;
+    {
+        const segment_id_t bitIndex = longIndex & 63;
+        longIndex >>= 6; //divide by 64 bits per ui64
+        uint64_t & longRef = m_bitMasks[MAX_TREE_ARRAY_DEPTH - 1][longIndex];
 #ifdef USE_BITTEST
-            _bittestandreset64((int64_t*)currentBit64Ptr, firstFreeIndex);
-#elif defined(USE_ANDN)
-            const uint64_t mask64 = (((uint64_t)1) << firstFreeIndex);
-            *currentBit64Ptr = _andn_u64(mask64, *currentBit64Ptr);
+        const bool bitWasAlreadyOne = _bittestandreset64((int64_t*)&longRef, bitIndex);
+        const bool success = bitWasAlreadyOne; //error if leaf bit was already 0 (already allocated)
 #else
-            const uint64_t mask64 = (((uint64_t)1) << firstFreeIndex);
-            *currentBit64Ptr &= ~mask64;
+        const uint64_t mask64 = (((uint64_t)1) << bitIndex);
+        const bool success = ((longRef & mask64) != 0);
+# if defined(USE_ANDN)
+        longRef = _andn_u64(mask64, longRef);
+# else
+        longRef &= (~mask64);
+# endif
 #endif
+        if (!success) {
+            return false;
         }
+        childIsFull = (longRef == 0);
     }
-    /*
-
-    if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //at the child leaf
-        *currentBit64Ptr &= ~mask64;
-
-    }
-    else { //at an inner node
-        const unsigned int nextRowIndex = rowIndex + firstFreeIndex * (1 << (depthIndex * 6));
-        if (GetAndSetFirstFreeSegmentId(depthIndex + 1, nextRowIndex, segmentId)) {
-            *currentBit64Ptr &= ~mask64;
-        }
-    }
-    */
-
-    return (*currentBit64Ptr == 0); //return isFull
-
-
-
-
-}
-
-segment_id_t MemoryManagerTreeArray::GetAndSetFirstFreeSegmentId_NotThreadSafe() {
-    if (m_bitMasks[0][0] == 0) return UINT32_MAX; //bitmask of zero means full
-    uint32_t segmentId = 0;
-    GetAndSetFirstFreeSegmentId(0, 0, &segmentId);
-    if (segmentId >= M_MAX_SEGMENTS) return UINT32_MAX;
-    return segmentId;
-}
-
-bool MemoryManagerTreeArray::IsSegmentFree(const uint32_t depthIndex, const uint32_t rowIndex, uint32_t segmentId) {
-
-    const unsigned int index = (segmentId >> (((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex) * 6)) & 63;
-
-    if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //leaf
-        const uint64_t * const currentArrayPtr = m_bitMasks[depthIndex];
-        const uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
+    for (segment_id_t depth = MAX_TREE_ARRAY_DEPTH - 1; ((depth != 0) && (childIsFull)); --depth) {
+        const segment_id_t bitIndex = longIndex & 63;
+        longIndex >>= 6; //divide by 64 bits per ui64
+        const segment_id_t depthIndex = depth - 1;
+        uint64_t & longRef = m_bitMasks[depthIndex][longIndex];
 #ifdef USE_BITTEST
-        return _bittest64((const int64_t*)currentBit64Ptr, index);
+        _bittestandreset64((int64_t*)&longRef, bitIndex);
 #else
-        const uint64_t mask64 = (((uint64_t)1) << index);
-        return (*currentBit64Ptr & mask64); //leaf bit is 1 (empty)
+        const uint64_t mask64 = (((uint64_t)1) << bitIndex);
+# if defined(USE_ANDN)
+        longRef = _andn_u64(mask64, longRef);
+# else
+        longRef &= (~mask64);
+# endif
 #endif
+        childIsFull = (longRef == 0);
     }
-    else { //inner node
-        return IsSegmentFree(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId);
-    }
-}
-
-bool MemoryManagerTreeArray::IsSegmentFree(segment_id_t segmentId) {
-    return IsSegmentFree(0, 0, segmentId);
-}
-
-void MemoryManagerTreeArray::FreeSegmentId(const uint32_t depthIndex, const uint32_t rowIndex, uint32_t segmentId, bool *success) {
-
-    uint64_t * const currentArrayPtr = m_bitMasks[depthIndex];
-    uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
-    const unsigned int index = (segmentId >> (((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex) * 6)) & 63;
-#ifdef USE_BITTEST
-    const bool bitWasAlreadyOne = _bittestandset64((int64_t*)currentBit64Ptr, index);
-    if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //leaf
-        *success = !bitWasAlreadyOne; //error if leaf bit is already 1 (empty)
-    }
-    else { //inner node
-        FreeSegmentId(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId, success);
-    }
-#else
-    const uint64_t mask64 = (((uint64_t)1) << index);
-
-    if (depthIndex == MAX_TREE_ARRAY_DEPTH - 1) { //leaf
-        //if (*currentBit64Ptr & mask64) { //leaf bit is already 1 (empty)
-        //    *success = false; //error
-        //}
-        *success = ((*currentBit64Ptr & mask64) == 0);
-    }
-    else { //inner node
-        FreeSegmentId(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId, success);
-    }
-    *currentBit64Ptr |= mask64;
-#endif
-}
-
-bool MemoryManagerTreeArray::AllocateSegmentId_NoCheck(const uint32_t depthIndex, const uint32_t rowIndex, uint32_t segmentId) {
-
-    uint64_t * const currentArrayPtr = m_bitMasks[depthIndex];
-    uint64_t * const currentBit64Ptr = &currentArrayPtr[rowIndex];
-    const unsigned int index = (segmentId >> (((MAX_TREE_ARRAY_DEPTH - 1) - depthIndex) * 6)) & 63;
-
-    if ((depthIndex == MAX_TREE_ARRAY_DEPTH - 1) || AllocateSegmentId_NoCheck(depthIndex + 1, rowIndex + index * (1 << (depthIndex * 6)), segmentId)) {
-        if (segmentId < M_MAX_SEGMENTS) {
-#ifdef USE_BITTEST
-            _bittestandreset64((int64_t*)currentBit64Ptr, index);
-#elif defined(USE_ANDN)
-            const uint64_t mask64 = (((uint64_t)1) << index);
-            *currentBit64Ptr = _andn_u64(mask64, *currentBit64Ptr);
-#else
-            const uint64_t mask64 = (((uint64_t)1) << index);
-            *currentBit64Ptr &= ~mask64;
-#endif
-        }
-    }
-
-
-    return (*currentBit64Ptr == 0); //return isFull
-
-
-}
-
-void MemoryManagerTreeArray::AllocateSegmentId_NoCheck_NotThreadSafe(segment_id_t segmentId) {
-    AllocateSegmentId_NoCheck(0, 0, segmentId);
-}
-
-bool MemoryManagerTreeArray::FreeSegmentId_NotThreadSafe(segment_id_t segmentId) {
-    bool success = true;
-    FreeSegmentId(0, 0, segmentId, &success);
-    return success;
+    return true;
 }
 
 bool MemoryManagerTreeArray::AllocateSegments_ThreadSafe(segment_id_chain_vec_t & segmentVec) { //number of segments should be the vector size
@@ -228,7 +226,7 @@ bool MemoryManagerTreeArray::AllocateSegments_ThreadSafe(segment_id_chain_vec_t 
     const std::size_t size = segmentVec.size();
     for (std::size_t i = 0; i < size; ++i) {
         const segment_id_t segmentId = GetAndSetFirstFreeSegmentId_NotThreadSafe();
-        if (segmentId != UINT32_MAX) { //success
+        if (segmentId != SEGMENT_ID_FULL) { //success
             segmentVec[i] = segmentId;
         }
         else { //fail
@@ -251,7 +249,6 @@ bool MemoryManagerTreeArray::FreeSegments_ThreadSafe(const segment_id_chain_vec_
             success = false;
         }
     }
-    //segmentVec.resize(0);
     return success;
 }
 

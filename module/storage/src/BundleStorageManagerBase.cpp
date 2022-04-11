@@ -1,9 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
- * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
+/**
+ * @file BundleStorageManagerBase.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- ****************************************************************************
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
  */
 
 #include "BundleStorageManagerBase.h"
@@ -157,7 +163,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
     unsigned int produceIndex = cb.GetIndexForWrite();
-    while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+    while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //store the volatile, wait until not full				
         m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
         produceIndex = cb.GetIndexForWrite();
@@ -171,7 +177,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     circularBufferSegmentIdsPtr[produceIndex] = segmentId;
     m_circularBufferReadFromStoragePointers[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = NULL; //isWriteToDisk = true
 
-    storageSegmentHeader.nextSegmentId = (session.nextLogicalSegment == segmentIdChainVec.size()) ? UINT32_MAX : segmentIdChainVec[session.nextLogicalSegment];
+    storageSegmentHeader.nextSegmentId = (session.nextLogicalSegment == segmentIdChainVec.size()) ? SEGMENT_ID_LAST : segmentIdChainVec[session.nextLogicalSegment];
     storageSegmentHeader.custodyId = custodyId;
     storageSegmentHeader.ToLittleEndianInplace(); //should optimize out and do nothing
     memcpy(dataCb, &storageSegmentHeader, SEGMENT_RESERVED_SPACE);
@@ -278,7 +284,7 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
         const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
         unsigned int produceIndex = cb.GetIndexForWrite();
-        while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+        while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //store the volatile, wait until not full				
             m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
             produceIndex = cb.GetIndexForWrite();
@@ -323,14 +329,14 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
         std::cout << msg << "\n";
         hdtn::Logger::getInstance()->logError("storage", msg);
     }
-    else if ((session.nextLogicalSegment == segments.size()) && (storageSegmentHeader.nextSegmentId != UINT32_MAX)) {
-        const std::string msg = "Error: read nextSegmentId = " + boost::lexical_cast<std::string>(storageSegmentHeader.nextSegmentId) + " is not UINT32_MAX";
+    else if ((session.nextLogicalSegment == segments.size()) && (storageSegmentHeader.nextSegmentId != SEGMENT_ID_LAST)) {
+        const std::string msg = "Error: read nextSegmentId = " + boost::lexical_cast<std::string>(storageSegmentHeader.nextSegmentId) + " is not SEGMENT_ID_LAST";
         std::cout << msg << "\n";
         hdtn::Logger::getInstance()->logError("storage", msg);
     }
 
     std::size_t size = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
-    if (storageSegmentHeader.nextSegmentId == UINT32_MAX) {
+    if (storageSegmentHeader.nextSegmentId == SEGMENT_ID_LAST) {
         uint64_t modBytes = (session.catalogEntryPtr->bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE);
         if (modBytes != 0) {
             size = modBytes;
@@ -374,7 +380,7 @@ bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const catalog_entry_t * 
     const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
     unsigned int produceIndex = cb.GetIndexForWrite();
-    while (produceIndex == UINT32_MAX) { //store the volatile, wait until not full				
+    while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //store the volatile, wait until not full				
         m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
         produceIndex = cb.GetIndexForWrite();
@@ -534,20 +540,25 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 hdtn::Logger::getInstance()->logError("storage", msg);
                 return false;
             }
-            if (!m_memoryManager.IsSegmentFree(segmentId)) {
+            if (!m_memoryManager.IsSegmentFree(segmentId)) { //todo this is redundant per function below
                 static const std::string msg = "error: segmentId is already allocated";
                 std::cout << msg << "\n";
                 hdtn::Logger::getInstance()->logError("storage", msg);
                 return false;
             }
-            m_memoryManager.AllocateSegmentId_NoCheck_NotThreadSafe(segmentId);
+            if (!m_memoryManager.AllocateSegmentId_NotThreadSafe(segmentId)) {
+                static const std::string msg = "error: AllocateSegmentId_NotThreadSafe: segmentId is already allocated";
+                std::cout << msg << "\n";
+                hdtn::Logger::getInstance()->logError("storage", msg);
+                return false;
+            }
             segmentIdChainVec[session.nextLogicalSegment] = segmentId;
 
 
 
             if ((session.nextLogicalSegment + 1) >= segmentIdChainVec.size()) { //==
-                if (storageSegmentHeader.nextSegmentId != UINT32_MAX) { //there are more segments
-                    static const std::string msg = "error: at the last logical segment but nextSegmentId != UINT32_MAX";
+                if (storageSegmentHeader.nextSegmentId != SEGMENT_ID_LAST) { //there are more segments
+                    static const std::string msg = "error: at the last logical segment but nextSegmentId != SEGMENT_ID_LAST";
                     std::cout << msg << "\n";
                     hdtn::Logger::getInstance()->logError("storage", msg);
                     return false;
@@ -558,8 +569,8 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 //std::cout << "write complete\n";
             }
 
-            if (storageSegmentHeader.nextSegmentId == UINT32_MAX) { //there are more segments
-                static const std::string msg = "error: there are more logical segments but nextSegmentId == UINT32_MAX";
+            if (storageSegmentHeader.nextSegmentId == SEGMENT_ID_LAST) { //there are more segments
+                static const std::string msg = "error: there are more logical segments but nextSegmentId == SEGMENT_ID_LAST";
                 std::cout << msg << "\n";
                 hdtn::Logger::getInstance()->logError("storage", msg);
                 return false;

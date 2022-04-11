@@ -44,7 +44,7 @@ void LtpUdpEngine::Reset() {
 
 void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size) {
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-    if (writeIndex == UINT32_MAX) {
+    if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
         ++m_countCircularBufferOverruns;
         if (!m_printedCbTooSmallNotice) {
             m_printedCbTooSmallNotice = true;

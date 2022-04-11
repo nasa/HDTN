@@ -47,6 +47,17 @@ If USE_X86_HARDWARE_ACCELERATION is turned on, then some or all of the following
 If LTP_RNG_USE_RDSEED is turned on, this feature will be enabled if CMake finds support for this CPU instruction:
 * An additional source of randomness for LTP's random number generator requires RDSEED.  You may choose to disable this feature for potentially faster LTP performance even if the CPU supports it.
 
+## Storage Capacity Compilation Parameters ## 
+HDTN build environment sets by default two CMake cache variables: STORAGE_SEGMENT_ID_SIZE_BITS and STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB.
+* The flag `STORAGE_SEGMENT_ID_SIZE_BITS` must be set to 32 (default and recommended) or 64.  It determines the size/type of the storage module's `segment_id_t` Using 32-bit for this type will significantly decrease memory usage (by about half).
+    * If this value is 32, The formula for the max segments (S) is given by `S = min(UINT32_MAX, 64^6) = ~4.3 Billion segments` since segment_id_t is a uint32_t. A segment allocator using 4.3 Billion segments uses about 533 MByte RAM), and multiplying by the minimum 4KB block size gives ~17TB bundle storage capacity.  Make sure to appropriately set the `totalStorageCapacityBytes` variable in the HDTN json config so that only the required amount of memory is used for the segment allocator.
+    * If this value is 64, The formula for the max segments (S) is given by `S = min(UINT64_MAX, 64^6) = ~68.7 Billion segments` since segment_id_t is a uint64_t. Using a segment allocator with 68.7 Billion segments, when multiplying by the minimum 4KB block size gives ~281TB bundle storage capacity.
+* The flag `STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB` must be set to an integer of at least 1 (default is 1 and recommended).  It determines the minimum increment of bundle storage based on the standard block size of 4096 bytes.  For example:
+    * If `STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB` = 1, then a `4KB * 1 = 4KB` block size is used.  A bundle size of 1KB would require 4KB of storage.  A bundle size of 6KB would require 8KB of storage.
+    * If `STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB` = 2, then a `4KB * 2 = 8KB` block size is used.  A bundle size of 1KB would require 8KB of storage.  A bundle size of 6KB would require 8KB of storage.  A bundle size of 9KB would require 16KB of storage.  If `STORAGE_SEGMENT_ID_SIZE_BITS=32`, then bundle storage capacity could potentially be doubled from ~17TB to ~34TB.
+
+For more information on how the storage works, see `module/storage/doc/storage.pptx` in this repository.
+
 ## Packages installation ## 
 * Ubuntu
 ```

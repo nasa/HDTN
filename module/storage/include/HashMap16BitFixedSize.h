@@ -1,5 +1,24 @@
+/**
+ * @file HashMap16BitFixedSize.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This templated HashMap16BitFixedSize class defines optimized methods for hashing and storing unique
+ * information about bundles into a fixed bucket hash map size of 2^16.
+ */
+
 #ifndef _HASH_MAP_16BIT_FIXED_SIZE_H
-#define _HASH_MAP_16BIT_FIXED_SIZE_H
+#define _HASH_MAP_16BIT_FIXED_SIZE_H 1
 
 #include <cstdint>
 #include <forward_list>

@@ -31,7 +31,7 @@ bool CircularIndexBufferSingleProducerSingleConsumerConfigurable::IsEmpty() {
 
 unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetIndexForWrite() {
 	if (IsFull())
-		return UINT32_MAX;
+		return CIRCULAR_INDEX_BUFFER_FULL;
 	return m_cbEndIndex;
 }
 
@@ -46,7 +46,7 @@ void CircularIndexBufferSingleProducerSingleConsumerConfigurable::CommitWrite() 
 
 unsigned int CircularIndexBufferSingleProducerSingleConsumerConfigurable::GetIndexForRead() {
 	if (IsEmpty())
-		return UINT32_MAX;
+		return CIRCULAR_INDEX_BUFFER_EMPTY;
 	return m_cbStartIndex;
 }
 

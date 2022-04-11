@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
 
         //push 1 byte
         const unsigned int writeIndex = cib.GetIndexForWrite();
-        BOOST_REQUIRE(writeIndex != UINT32_MAX); //push check
+        BOOST_REQUIRE(writeIndex != CIRCULAR_INDEX_BUFFER_FULL); //push check
         cbData[writeIndex] = i;
         cib.CommitWrite(); //pushed
         BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -30,9 +30,9 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
 
 
         //pop 1 byte
-        uint32_t valueReadBack = UINT32_MAX;
+        uint32_t valueReadBack = CIRCULAR_INDEX_BUFFER_EMPTY;
         const unsigned int readIndex = cib.GetIndexForRead();
-        BOOST_REQUIRE(readIndex != UINT32_MAX); //pop check
+        BOOST_REQUIRE(readIndex != CIRCULAR_INDEX_BUFFER_EMPTY); //pop check
         valueReadBack = cbData[readIndex];
         cib.CommitRead();//pop success
         BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
         //push 1 byte
         {
             const unsigned int writeIndex = cib.GetIndexForWrite();
-            BOOST_REQUIRE(writeIndex != UINT32_MAX); //push check
+            BOOST_REQUIRE(writeIndex != CIRCULAR_INDEX_BUFFER_FULL); //push check
             cbData[writeIndex] = i;
             cib.CommitWrite(); //pushed
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
         //push byte 2
         {
             const unsigned int writeIndex = cib.GetIndexForWrite();
-            BOOST_REQUIRE(writeIndex != UINT32_MAX); //push check
+            BOOST_REQUIRE(writeIndex != CIRCULAR_INDEX_BUFFER_FULL); //push check
             cbData[writeIndex] = i + 10;
             cib.CommitWrite(); //pushed
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -74,9 +74,9 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
 
         //pop byte 1
         {
-            uint32_t valueReadBack = UINT32_MAX;
+            uint32_t valueReadBack = CIRCULAR_INDEX_BUFFER_EMPTY;
             const unsigned int readIndex = cib.GetIndexForRead();
-            BOOST_REQUIRE(readIndex != UINT32_MAX); //pop check
+            BOOST_REQUIRE(readIndex != CIRCULAR_INDEX_BUFFER_EMPTY); //pop check
             valueReadBack = cbData[readIndex];
             cib.CommitRead();//pop success
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -87,9 +87,9 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
 
         //pop byte 2
         {
-            uint32_t valueReadBack = UINT32_MAX;
+            uint32_t valueReadBack = CIRCULAR_INDEX_BUFFER_EMPTY;
             const unsigned int readIndex = cib.GetIndexForRead();
-            BOOST_REQUIRE(readIndex != UINT32_MAX); //pop check
+            BOOST_REQUIRE(readIndex != CIRCULAR_INDEX_BUFFER_EMPTY); //pop check
             valueReadBack = cbData[readIndex];
             cib.CommitRead();//pop success
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
         for (uint32_t j = 1; j < (SIZE_CB); ++j) {
             //push
             const unsigned int writeIndex = cib.GetIndexForWrite();
-            BOOST_REQUIRE(writeIndex != UINT32_MAX); //push check
+            BOOST_REQUIRE(writeIndex != CIRCULAR_INDEX_BUFFER_FULL); //push check
             cbData[writeIndex] = j + i;
             cib.CommitWrite(); //pushed
             if (j == (SIZE_CB - 1)) {
@@ -122,16 +122,16 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
 
         //push another but fail
         const unsigned int writeIndex = cib.GetIndexForWrite();
-        BOOST_REQUIRE(writeIndex == UINT32_MAX); //push fail
+        BOOST_REQUIRE(writeIndex == CIRCULAR_INDEX_BUFFER_FULL); //push fail
         BOOST_REQUIRE(cib.IsFull()); //is full
         BOOST_REQUIRE(!cib.IsEmpty()); //not empty
         BOOST_REQUIRE_EQUAL(cib.NumInBuffer(), SIZE_CB - 1); //num bytes still
 
         for (uint32_t j = 1; j < (SIZE_CB); ++j) {
             //pop
-            uint32_t valueReadBack = UINT32_MAX;
+            uint32_t valueReadBack = CIRCULAR_INDEX_BUFFER_EMPTY;
             const unsigned int readIndex = cib.GetIndexForRead();
-            BOOST_REQUIRE(readIndex != UINT32_MAX); //pop check
+            BOOST_REQUIRE(readIndex != CIRCULAR_INDEX_BUFFER_EMPTY); //pop check
             valueReadBack = cbData[readIndex];
             cib.CommitRead();//pop success
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
         //try to pop another byte but fail
         {
             const unsigned int readIndex = cib.GetIndexForRead();
-            BOOST_REQUIRE(readIndex == UINT32_MAX); //pop fail
+            BOOST_REQUIRE(readIndex == CIRCULAR_INDEX_BUFFER_EMPTY); //pop fail
             BOOST_REQUIRE(!cib.IsFull() ); //not full
             BOOST_REQUIRE(cib.IsEmpty()); //is empty
             BOOST_REQUIRE_EQUAL(cib.NumInBuffer(), 0); //num bytes still 0
@@ -165,7 +165,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
         for (uint32_t j = 1; j <= 7; ++j) {
             //push
             const unsigned int writeIndex = cib.GetIndexForWrite();
-            BOOST_REQUIRE(writeIndex != UINT32_MAX); //push check
+            BOOST_REQUIRE(writeIndex != CIRCULAR_INDEX_BUFFER_FULL); //push check
             cbData[writeIndex] = j + i;
             cib.CommitWrite(); //pushed
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -176,9 +176,9 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
 
         for (uint32_t j = 1; j <= 7; ++j) {
             //pop
-            uint32_t valueReadBack = UINT32_MAX;
+            uint32_t valueReadBack = CIRCULAR_INDEX_BUFFER_EMPTY;
             const unsigned int readIndex = cib.GetIndexForRead();
-            BOOST_REQUIRE(readIndex != UINT32_MAX); //pop check
+            BOOST_REQUIRE(readIndex != CIRCULAR_INDEX_BUFFER_EMPTY); //pop check
             valueReadBack = cbData[readIndex];
             cib.CommitRead();//pop success
             BOOST_REQUIRE(!cib.IsFull()); //not full
@@ -198,7 +198,7 @@ BOOST_AUTO_TEST_CASE(CircularIndexBuffer_TestCase)
         //try to pop another byte but fail
         {
             const unsigned int readIndex = cib.GetIndexForRead();
-            BOOST_REQUIRE(readIndex == UINT32_MAX); //pop fail
+            BOOST_REQUIRE(readIndex == CIRCULAR_INDEX_BUFFER_EMPTY); //pop fail
             BOOST_REQUIRE(!cib.IsFull()); //not full
             BOOST_REQUIRE(cib.IsEmpty()); //is empty
             BOOST_REQUIRE_EQUAL(cib.NumInBuffer(), 0); //num bytes still 0
