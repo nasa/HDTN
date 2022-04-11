@@ -1,5 +1,23 @@
+/**
+ * @file BundleStorageConfig.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This file sets up all the compile time configuration settings for the storage module.
+ */
+
 #ifndef _BUNDLE_STORAGE_CONFIG_H
-#define _BUNDLE_STORAGE_CONFIG_H
+#define _BUNDLE_STORAGE_CONFIG_H 1
 
 #include <cstdint>
 
