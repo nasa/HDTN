@@ -15,7 +15,7 @@ if(NOT TARGET HDTN::StorageLib)
 endif()
 
 #add compile definitions for storage (should be fixed, but for now the package config must export it)
-add_compile_definitions(@STORAGE_SEGMENT_ID_SIZE_BITS@)
-add_compile_definitions(@STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB@)
+add_compile_definitions(STORAGE_SEGMENT_ID_SIZE_BITS=@STORAGE_SEGMENT_ID_SIZE_BITS@)
+add_compile_definitions(STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB=@STORAGE_SEGMENT_SIZE_MULTIPLE_OF_4KB@)
 
 set(STORAGELIB_LIBRARIES HDTN::StorageLib)
