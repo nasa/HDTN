@@ -84,6 +84,7 @@ public:
         HDTN_UTIL_EXPORT uint64_t GetSerializationSizeBpv6() const;
         HDTN_UTIL_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
         HDTN_UTIL_EXPORT void SetZero();
+        HDTN_UTIL_EXPORT void Set(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber);
         HDTN_UTIL_EXPORT boost::posix_time::ptime GetPtime() const;
         HDTN_UTIL_EXPORT void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
         HDTN_UTIL_EXPORT std::string GetUtcTimestampString(bool forFileName) const;

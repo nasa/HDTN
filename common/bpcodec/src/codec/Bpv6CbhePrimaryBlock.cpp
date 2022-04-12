@@ -1,9 +1,16 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
- * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
+/**
+ * @file Bpv6CbhePrimaryBlock.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ * @author  Gilbert Clark
  *
- ****************************************************************************
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
  */
 
 
@@ -93,7 +100,68 @@ void Bpv6CbhePrimaryBlock::SetZero() {
     m_fragmentOffset = 0;
     m_totalApplicationDataUnitLength = 0;
 }
+#if defined(USE_SDNV_FAST) && defined(SDNV_SUPPORT_AVX2_FUNCTIONS)
+bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
+    const uint8_t * const serializationBase = serialization;
 
+    if (bufferSize == 0) { //version
+        return false;
+    }
+    const uint8_t version = *serialization++;
+    --bufferSize;
+    if (version != BPV6_CCSDS_VERSION) {
+        return false;
+    }
+
+    static constexpr unsigned int numSdnvsToDecode =
+        2 + //flags, length
+        8 + //dest, src, reportTo, custodian Eids
+        2 + //creation timestamp
+        1 + //lifetime
+        1; //dictionary length expected 0
+    uint64_t decodedSdnvs[numSdnvsToDecode];
+    uint64_t numBytesTakenToDecodeThisSdnvArray;
+    if (!SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize)) {
+        return false;
+    }
+    serialization += numBytesTakenToDecodeThisSdnvArray;
+    bufferSize -= numBytesTakenToDecodeThisSdnvArray;
+
+    m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(decodedSdnvs[0]);
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
+    m_blockLength = decodedSdnvs[1];
+    m_destinationEid.Set(decodedSdnvs[2], decodedSdnvs[3]);
+    m_sourceNodeId.Set(decodedSdnvs[4], decodedSdnvs[5]);
+    m_reportToEid.Set(decodedSdnvs[6], decodedSdnvs[7]);
+    m_custodianEid.Set(decodedSdnvs[8], decodedSdnvs[9]);
+    m_creationTimestamp.Set(decodedSdnvs[10], decodedSdnvs[11]);
+    m_lifetimeSeconds = decodedSdnvs[12];
+    const uint64_t dictionaryLength = decodedSdnvs[13];
+    if (dictionaryLength != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
+        printf("error: cbhe bpv6 primary decode: dictionary size not 0\n");
+        return false;
+    }
+    // Skip the entirety of the dictionary - we assume an IPN scheme
+
+    if (isFragment) {
+        if (!SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, bufferSize)) {
+            return false;
+        }
+        serialization += numBytesTakenToDecodeThisSdnvArray;
+        //bufferSize -= numBytesTakenToDecodeThisSdnvArray;
+
+        m_fragmentOffset = decodedSdnvs[0];
+        m_totalApplicationDataUnitLength = decodedSdnvs[1];
+    }
+    else {
+        m_fragmentOffset = 0;
+        m_totalApplicationDataUnitLength = 0;
+    }
+
+    numBytesTakenToDecode = serialization - serializationBase;
+    return true;
+}
+#else
 bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
     uint8_t sdnvSize;
     const uint8_t * const serializationBase = serialization;
@@ -214,6 +282,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     numBytesTakenToDecode = serialization - serializationBase;
     return true;
 }
+#endif
 
 uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;

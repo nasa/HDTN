@@ -1,5 +1,18 @@
-//Implementation of https://tools.ietf.org/html/rfc6256
-// Using Self-Delimiting Numeric Values in Protocols
+/**
+ * @file Sdnv.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov> (Hardware accelerated functions)
+ * @author  Gilbert Clark (Classic functions)
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ */
+
 #include "Sdnv.h"
 #include <iostream>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -647,7 +660,7 @@ unsigned int SdnvEncodeU32FastBufSize8(uint8_t * outputEncoded, const uint32_t v
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU32 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint32_t>(valToEncodeU32)));
 #else
-    const unsigned int msb = boost::multiprecision::detail::find_msb<uint32_t>(valToEncodeU32 + (valToEncodeU32 == 0));
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint32_t>(valToEncodeU32 | (valToEncodeU32 == 0)); // "|" is same as "+" here
 #endif
 
     const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
@@ -669,7 +682,7 @@ unsigned int SdnvEncodeU64FastBufSize10(uint8_t * outputEncoded, const uint64_t 
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
 #else
-    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 + (valToEncodeU64 == 0));
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 | (valToEncodeU64 == 0)); // "|" is same as "+" here
 #endif
 
     const unsigned int mask0x80Index = mask0x80Indices[msb]; //(msb / 7);
@@ -1037,6 +1050,54 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
     *numBytes = static_cast<unsigned int>(sizeof(__m256i)) - bytesRemainingIn256Buffer;
     return decodedStart - decodedRemaining;
 }
+
+bool SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize) {
+    const uint8_t * const serializationBase = serialization;
+
+    while ((bufferSize >= sizeof(__m256i)) && decodedRemaining) {
+        //return decoded value (0 if failure), also set parameter numBytes taken to decode
+        uint8_t totalBytesDecoded;
+        unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
+        if (numValsDecodedThisIteration == 0) {
+            return false;
+        }
+        decodedRemaining -= numValsDecodedThisIteration;
+        decodedValues += numValsDecodedThisIteration;
+
+        bufferSize -= totalBytesDecoded;
+        serialization += totalBytesDecoded;
+    }
+
+    while ((bufferSize >= sizeof(__m128i)) && decodedRemaining) {
+        //return decoded value (0 if failure), also set parameter numBytes taken to decode
+        uint8_t totalBytesDecoded;
+        unsigned int numValsDecodedThisIteration = SdnvDecodeMultipleU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
+        if (numValsDecodedThisIteration == 0) {
+            return false;
+        }
+        decodedRemaining -= numValsDecodedThisIteration;
+        decodedValues += numValsDecodedThisIteration;
+
+        bufferSize -= totalBytesDecoded;
+        serialization += totalBytesDecoded;
+    }
+
+    while (decodedRemaining) {
+        uint8_t sdnvSize;
+        *decodedValues++ = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
+        if (sdnvSize == 0) {
+            return false;
+        }
+        --decodedRemaining;
+
+        serialization += sdnvSize;
+        bufferSize -= sdnvSize;
+    }
+
+    numBytesTakenToDecode = serialization - serializationBase;
+    return true;
+}
+
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
 #endif //#ifdef USE_SDNV_FAST
 
@@ -1047,7 +1108,7 @@ unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64) {
     //bitscan seems to have undefined behavior on a value of zero
     const unsigned int msb = (static_cast<bool>(valToEncodeU64 != 0)) * (static_cast<uint8_t>(boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64)));
 #else
-    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 + (valToEncodeU64 == 0));
+    const unsigned int msb = boost::multiprecision::detail::find_msb<uint64_t>(valToEncodeU64 | (valToEncodeU64 == 0)); // "|" is same as "+" here
 #endif
 
     return mask0x80Indices[msb] + 1; //(msb / 7);

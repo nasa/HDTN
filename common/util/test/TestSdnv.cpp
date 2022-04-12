@@ -1,3 +1,17 @@
+/**
+ * @file TestSdnv.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ */
+
 #include <boost/test/unit_test.hpp>
 #include <iostream>
 #include <string>
@@ -691,6 +705,36 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
         }
         BOOST_REQUIRE_EQUAL(j, totalBytesEncoded);
         BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals);
+    }
+
+    //DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS
+    {
+        std::vector<uint64_t> allDecodedValsFastMultiple32(testVals.size());
+        uint64_t numBytesTakenToDecode;
+        BOOST_REQUIRE(SdnvDecodeArrayU64Fast(allEncodedData.data(), numBytesTakenToDecode, allDecodedValsFastMultiple32.data(), static_cast<unsigned int>(allDecodedValsFastMultiple32.size()), allEncodedData.size()));
+        
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals);
+    }
+
+    //DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS
+    for(uint8_t val=0; val < 100; ++val) { //all these vals are equivalent as encoded and decoded since they are <= 127
+        std::vector<uint64_t> allDecodedValsFastMultiple32(val + 1);
+        std::vector<uint64_t> allExpectedDecodedValsFastMultiple32(val + 1);
+        std::vector<uint8_t> allEncoded1ByteVals(100);
+        for (std::size_t i = 0; i < allDecodedValsFastMultiple32.size(); ++i) {
+            allEncoded1ByteVals[i] = static_cast<uint8_t>(i);
+            allExpectedDecodedValsFastMultiple32[i] = i;
+        }
+        //min size encoded buffer size
+        for(unsigned int scheme = 0; scheme < 2; ++scheme) {
+            const uint64_t encodedBufferSize = (scheme == 0) ? allDecodedValsFastMultiple32.size() : 100;
+            uint64_t numBytesTakenToDecode;
+            BOOST_REQUIRE(SdnvDecodeArrayU64Fast(allEncoded1ByteVals.data(), numBytesTakenToDecode, allDecodedValsFastMultiple32.data(), static_cast<unsigned int>(allDecodedValsFastMultiple32.size()), encodedBufferSize));
+
+            BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, allDecodedValsFastMultiple32.size());
+            BOOST_REQUIRE(allDecodedValsFastMultiple32 == allExpectedDecodedValsFastMultiple32);
+        }
     }
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
 #endif //#ifdef USE_SDNV_FAST

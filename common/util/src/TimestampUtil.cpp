@@ -309,6 +309,10 @@ void TimestampUtil::bpv6_creation_timestamp_t::SetZero() {
     secondsSinceStartOfYear2000 = 0;
     sequenceNumber = 0;
 }
+void TimestampUtil::bpv6_creation_timestamp_t::Set(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber) {
+    secondsSinceStartOfYear2000 = paramSecondsSinceStartOfYear2000;
+    sequenceNumber = paramSequenceNumber;
+}
 boost::posix_time::ptime TimestampUtil::bpv6_creation_timestamp_t::GetPtime() const {
     return TimestampUtil::GetRfc5050Epoch() + boost::posix_time::seconds(secondsSinceStartOfYear2000);
 }

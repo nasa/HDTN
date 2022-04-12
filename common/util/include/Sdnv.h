@@ -1,5 +1,23 @@
-//Implementation of https://tools.ietf.org/html/rfc6256
-// Using Self-Delimiting Numeric Values in Protocols
+/**
+ * @file Sdnv.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov> (Hardware accelerated functions)
+ * @author  Gilbert Clark (Classic functions)
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This is an implementation of https://tools.ietf.org/html/rfc6256
+ * Using Self-Delimiting Numeric Values in Protocols
+ */
+
 #ifndef _SDNV_UTIL_H
 #define _SDNV_UTIL_H 1
 
@@ -71,6 +89,8 @@ HDTN_UTIL_EXPORT unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, ui
 # ifdef SDNV_SUPPORT_AVX2_FUNCTIONS //must also support USE_SDNV_FAST
 //return num values decoded this iteration
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
+
+HDTN_UTIL_EXPORT bool SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize);
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
 #endif //#ifdef USE_SDNV_FAST
 
