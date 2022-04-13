@@ -30,6 +30,8 @@
 
 //must be at least sizeof(_m128i)
 #define SDNV_DECODE_MINIMUM_SAFE_BUFFER_SIZE 16
+#define DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE 0 //works for classic and fast routines
+#define DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE 1 //works only for classic routines
 
 //return output size
 HDTN_UTIL_EXPORT unsigned int SdnvGetNumBytesRequiredToEncode(const uint64_t valToEncodeU64);

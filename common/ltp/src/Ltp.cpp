@@ -1014,7 +1014,21 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
 //After call:
 //Leaves m_dataSegmentRxState in proper state not exceeding last state READ_CLIENT_SERVICE_DATA
 const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
-
+    /*
+    static constexpr unsigned int numSdnvsToDecode =
+        1 + //m_dataSegmentMetadata.clientServiceId
+        1 + //m_dataSegmentMetadata.offset
+        1 + //m_dataSegmentMetadata.length
+        1 + //m_dataSegment_checkpointSerialNumber
+        1; //m_dataSegment_reportSerialNumber
+    uint64_t decodedSdnvs[numSdnvsToDecode];
+    uint64_t numBytesTakenToDecodeThisSdnvArray;
+    if (SdnvDecodeArrayU64(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize) != numSdnvsToDecode) {
+        return false;
+    }
+    serialization += numBytesTakenToDecodeThisSdnvArray;
+    bufferSize -= numBytesTakenToDecodeThisSdnvArray;
+    */
     uint8_t sdnvSize;
 
     //shortcut READ_CLIENT_SERVICE_ID_SDNV

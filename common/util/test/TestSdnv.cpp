@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitTestCase)
             const uint32_t valDecodedWillFail = SdnvDecodeU32(encoded.data(), &numBytesDecodedWillFail, outputSizeBytes - 1); //will call classic routine
             BOOST_REQUIRE_NE(outputSizeBytes, numBytesDecodedWillFail);
             BOOST_REQUIRE_EQUAL(numBytesDecodedWillFail, 0);
-            BOOST_REQUIRE_EQUAL(valDecodedWillFail, 0);
+            BOOST_REQUIRE_EQUAL(valDecodedWillFail, DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE);
         }
         if (val <= 127) {
             BOOST_REQUIRE_EQUAL(outputSizeBytes, 1);
@@ -402,10 +402,12 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitErrorDecodeTestCase)
     encoded.assign(encoded.size(), 0xff); //never ending sdnv
     decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
+    BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #ifdef USE_SDNV_FAST
     numBytesTakenToDecode = UINT8_MAX;
     decodedVal = SdnvDecodeU32FastBufSize8(encoded.data(), &numBytesTakenToDecode);
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 5 bytes)
+    BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #endif
     encoded.assign(encoded.size(), 0);
     const unsigned int outputSizeBytes = SdnvEncodeU32ClassicBufSize5(encoded.data(), UINT32_MAX);
@@ -424,10 +426,12 @@ BOOST_AUTO_TEST_CASE(Sdnv32BitErrorDecodeTestCase)
         numBytesTakenToDecode = UINT8_MAX;
         decodedVal = SdnvDecodeU32Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT32_MAX)
+        BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #ifdef USE_SDNV_FAST
         numBytesTakenToDecode = UINT8_MAX;
         decodedVal = SdnvDecodeU32FastBufSize8(encoded.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT32_MAX)
+        BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #endif
     }
 }
@@ -441,10 +445,12 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
     uint64_t decodedVal;
     decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
+    BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #ifdef USE_SDNV_FAST
     numBytesTakenToDecode = UINT8_MAX;
     decodedVal = SdnvDecodeU64FastBufSize16(encoded.data(), &numBytesTakenToDecode);
     BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (encoded sdnv > 10 bytes)
+    BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #endif
     encoded.assign(encoded.size(), 0);
     const unsigned int outputSizeBytes = SdnvEncodeU64ClassicBufSize10(encoded.data(), UINT64_MAX);
@@ -463,10 +469,12 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitErrorDecodeTestCase)
         numBytesTakenToDecode = UINT8_MAX;
         decodedVal = SdnvDecodeU64Classic(encoded.data(), &numBytesTakenToDecode, encoded.size());
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT64_MAX)
+        BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #ifdef USE_SDNV_FAST
         numBytesTakenToDecode = UINT8_MAX;
         decodedVal = SdnvDecodeU64FastBufSize16(encoded.data(), &numBytesTakenToDecode);
         BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //expect invalid (decoded value would be > UINT64_MAX)
+        BOOST_REQUIRE_EQUAL(decodedVal, DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE);
 #endif
     }
 }
@@ -543,7 +551,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
             const uint64_t valDecodedWillFail = SdnvDecodeU64(encoded.data(), &numBytesDecodedWillFail, outputSizeBytes - 1); //will call classic routine
             BOOST_REQUIRE_NE(outputSizeBytes, numBytesDecodedWillFail);
             BOOST_REQUIRE_EQUAL(numBytesDecodedWillFail, 0);
-            BOOST_REQUIRE_EQUAL(valDecodedWillFail, 0);
+            BOOST_REQUIRE_EQUAL(valDecodedWillFail, DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE);
         }
         if (val <= 127) {
             BOOST_REQUIRE_EQUAL(outputSizeBytes, 1);
@@ -792,6 +800,29 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
             BOOST_REQUIRE(allDecodedValsFastMultiple32 == allExpectedDecodedValsFastMultiple32);
         }
     }
+
+    //ERROR DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS using SdnvDecodeArrayU64Fast and 1 byte sdnvs followed by never ending sdnv
+    for (uint8_t val = 0; val < 100; ++val) { //all these vals are equivalent as encoded and decoded since they are <= 127
+        std::vector<uint64_t> allDecodedValsFastMultiple32(150); //will be unused but make sure enough space
+        std::vector<uint8_t> allEncoded1ByteVals(200);
+        for (std::size_t i = 0; i < val; ++i) {
+            allEncoded1ByteVals[i] = static_cast<uint8_t>(i);
+        }
+        for (std::size_t i = val; i < allEncoded1ByteVals.size(); ++i) {
+            allEncoded1ByteVals[i] = 0xff; //never ending sdnv
+        }
+        uint64_t numBytesTakenToDecode;
+        const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64Fast(
+            allEncoded1ByteVals.data(),
+            numBytesTakenToDecode,
+            allDecodedValsFastMultiple32.data(),
+            static_cast<unsigned int>(allDecodedValsFastMultiple32.size()),
+            allEncoded1ByteVals.size()
+        );
+
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //error case
+        BOOST_REQUIRE_EQUAL(numValuesActuallyDecoded, 0); //error case
+    }
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
 #endif //#ifdef USE_SDNV_FAST
 
@@ -879,6 +910,30 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
             BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, allDecodedValsFastMultiple32.size());
             BOOST_REQUIRE(allDecodedValsFastMultiple32 == allExpectedDecodedValsFastMultiple32);
         }
+    }
+
+    //ERROR DECODE ARRAY OF VALS using SdnvDecodeArrayU64Classic and 1 byte sdnvs followed by never ending sdnv
+    for (uint8_t val = 0; val < 100; ++val) { //all these vals are equivalent as encoded and decoded since they are <= 127
+        std::vector<uint64_t> allDecodedValsFastMultiple32(150); //will be unused but make sure enough space
+        std::vector<uint8_t> allEncoded1ByteVals(200);
+        for (std::size_t i = 0; i < val; ++i) {
+            allEncoded1ByteVals[i] = static_cast<uint8_t>(i);
+        }
+        for (std::size_t i = val; i < allEncoded1ByteVals.size(); ++i) {
+            allEncoded1ByteVals[i] = 0xff; //never ending sdnv
+        }
+        uint64_t numBytesTakenToDecode;
+        const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64Classic(
+            allEncoded1ByteVals.data(),
+            numBytesTakenToDecode,
+            allDecodedValsFastMultiple32.data(),
+            static_cast<unsigned int>(allDecodedValsFastMultiple32.size()),
+            allEncoded1ByteVals.size()
+        );
+
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, 0); //error case
+        BOOST_REQUIRE_EQUAL(numValuesActuallyDecoded, 0); //error case
+
     }
 }
 

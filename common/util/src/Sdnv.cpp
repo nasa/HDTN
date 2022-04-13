@@ -104,7 +104,7 @@ uint32_t SdnvDecodeU32(const uint8_t * inputEncoded, uint8_t * numBytes, const u
 #endif // USE_SDNV_FAST
 }
 
-//return decoded value (0 if failure), also set parameter numBytes taken to decode
+//return decoded value (or DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE or DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE on failure)), also set parameter numBytes taken to decode
 uint64_t SdnvDecodeU64(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
 #ifdef USE_SDNV_FAST
     if (bufferSize >= 16) {
@@ -409,7 +409,7 @@ unsigned int SdnvEncodeU64ClassicBufSize10(uint8_t * outputEncoded, const uint64
     }
 }
 
-//return decoded value (return invalid number that must be ignored on failure)
+//return decoded value (or DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE or DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
     //(Initial Step) Set the result to 0.  Set an index to the first
@@ -422,20 +422,32 @@ uint32_t SdnvDecodeU32Classic(const uint8_t * inputEncoded, uint8_t * numBytes, 
     const uint8_t * const firstBytePtr = inputEncoded;
     uint32_t result = 0;
     const uint64_t byteCountMax = std::min(static_cast<uint64_t>(5), bufferSize);
-    for (uint8_t byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
+    uint8_t byteCount;
+    for (byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = ((byteCount == 5) && ((*firstBytePtr) > 0x8f)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT32_MAX
-            return result;
+            if ((byteCount == 5) && ((*firstBytePtr) > 0x8f)) { //decode error due to decoded value would be > UINT32_MAX
+                *numBytes = 0; //set 0 if invalid
+                return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE;
+            }
+            else {
+                *numBytes = byteCount;
+                return result;
+            }
         }
     }
-    *numBytes = 0;
-    return 0;
+    *numBytes = 0; //set 0 if invalid
+    if (byteCount == 6) { //decode error due to encoded sdnv being > 5 bytes
+        return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE;
+    }
+    else { //not enough bytes in buffer for an sdnv decode
+        return DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE;
+    }
 }
 
-//return decoded value (return invalid number that must be ignored on failure)
+//return decoded value (or DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE or DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes, const uint64_t bufferSize) {
     //(Initial Step) Set the result to 0.  Set an index to the first
@@ -448,17 +460,29 @@ uint64_t SdnvDecodeU64Classic(const uint8_t * inputEncoded, uint8_t * numBytes, 
     const uint8_t * const firstBytePtr = inputEncoded;
     uint64_t result = 0;
     const uint64_t byteCountMax = std::min(static_cast<uint64_t>(10), bufferSize);
-    for (uint8_t byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
+    uint8_t byteCount;
+    for (byteCount = 1; byteCount <= byteCountMax; ++byteCount) {
         result <<= 7;
         const uint8_t currentByte = *inputEncoded++;
         result += (currentByte & 0x7f);
         if ((currentByte & 0x80) == 0) { //if msbit is a 0 then stop
-            *numBytes = ((byteCount == 10) && ((*firstBytePtr) > 0x81)) ? 0 : byteCount; //set 0 if invalid, decoded value would be > UINT64_MAX
-            return result;
+            if ((byteCount == 10) && ((*firstBytePtr) > 0x81)) {//decode error due to decoded value would be > UINT64_MAX
+                *numBytes = 0; //set 0 if invalid
+                return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE;
+            }
+            else {
+                *numBytes = byteCount;
+                return result;
+            }
         }
     }
-    *numBytes = 0;
-    return 0;
+    *numBytes = 0; //set 0 if invalid
+    if (byteCount == 11) { //decode error due to encoded sdnv being > 10 bytes
+        return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE;
+    }
+    else { //not enough bytes in buffer for an sdnv decode
+        return DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE;
+    }
 }
 
 static const uint8_t mask0x80Indices[70] = {
@@ -759,10 +783,10 @@ uint32_t SdnvDecodeU32FastBufSize8(const uint8_t * data, uint8_t * numBytes) {
     const bool valid = (((((uint16_t)maskIndex) << 8) | data[0]) <= 0x048fU);
 #endif
     *numBytes = numBytesToDecode * valid; //sdnvSizeBytes;
-    return static_cast<uint32_t>(decoded);
+    return static_cast<uint32_t>(decoded) * valid; //decoded value shall return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE (0) on failure
 }
 
-//return decoded value (return invalid number that must be ignored on failure)
+//return decoded value (return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE on failure)
 //  also sets parameter numBytes taken to decode (set to 0 on failure)
 uint64_t SdnvDecodeU64FastBufSize16(const uint8_t * data, uint8_t * numBytes) {
     //(Initial Step) Set the result to 0.  Set an index to the first
@@ -849,7 +873,7 @@ uint64_t SdnvDecodeU64FastBufSize16(const uint8_t * data, uint8_t * numBytes) {
     //std::cout << "significantBitsSetMask: " << significantBitsSetMask << " maskIndex: " << maskIndex << " u64ByteSwapped " << std::hex << u64ByteSwapped << " d " << std::dec << decoded << std::endl;
     //std::cout << " u64HighByteSwapped " << std::hex << u64HighByteSwapped << " d2 " << decoded2 << std::dec << std::endl;
     *numBytes = numBytesToDecode * valid; //sdnvSizeBytes;
-    return decoded;
+    return decoded * valid; //decoded value shall return DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE (0) on failure
 }
 
 
@@ -866,7 +890,6 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
     //Instruction   Selector mask    Source       Destination
     //PEXT          0xff00fff0       0x12345678   0x00012567
     //PDEP          0xff00fff0       0x00012567   0x12005670
-
 
 
     //static const __m128i junk;
@@ -893,6 +916,11 @@ unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, uint8_t * numBytes,
         }
         
         const uint64_t encoded64 = _mm_cvtsi128_si64(sdnvsEncoded); //SSE2 Copy the lower 64-bit integer in a to dst.
+        const bool valid = (((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64)) <= 0x0981U);
+        if (!valid) { //decode error detected
+            *numBytes = 0;
+            return 0;
+        }
         const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
         uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
         decoded <<= decodedShifts[maskIndex];
@@ -994,6 +1022,11 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
         }
 
         const uint64_t encoded64 = _mm_cvtsi128_si64(_mm256_castsi256_si128(sdnvsEncoded)); //SSE2 Copy the lower 64-bit integer in a to dst.
+        const bool valid = (((((uint16_t)maskIndex) << 8) | ((uint8_t)encoded64)) <= 0x0981U);
+        if (!valid) { //decode error detected
+            *numBytes = 0;
+            return 0;
+        }
         const uint64_t u64ByteSwapped = boost::endian::big_to_native(encoded64);
         uint64_t decoded = _pext_u64(u64ByteSwapped, masksPdepPext1[maskIndex]);
         decoded <<= decodedShifts[maskIndex];
@@ -1060,6 +1093,10 @@ unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & nu
         //return decoded value (0 if failure), also set parameter numBytes taken to decode
         uint8_t totalBytesDecoded;
         unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
+        if (totalBytesDecoded == 0) { //a decode error was detected in one of the sdnvs
+            numBytesTakenToDecode = 0;
+            return 0;
+        }
         if (numValsDecodedThisIteration == 0) {
             goto returnSection; //only a partial decode
         }
@@ -1074,6 +1111,10 @@ unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & nu
         //return decoded value (0 if failure), also set parameter numBytes taken to decode
         uint8_t totalBytesDecoded;
         unsigned int numValsDecodedThisIteration = SdnvDecodeMultipleU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
+        if (totalBytesDecoded == 0) { //a decode error was detected in one of the sdnvs
+            numBytesTakenToDecode = 0;
+            return 0;
+        }
         if (numValsDecodedThisIteration == 0) {
             goto returnSection; //only a partial decode
         }
@@ -1086,12 +1127,18 @@ unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & nu
 
     while (decodedRemaining) {
         uint8_t sdnvSize;
-        *decodedValues = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
-        if (sdnvSize == 0) {
-            break; //only a partial decode
+        const uint64_t decodedValue = SdnvDecodeU64Classic(serialization, &sdnvSize, bufferSize); //call Classic routine directly since we are guaranteed to have a bufferSize < 16
+        if (sdnvSize == 0) { //a decode error was detected in one of the sdnvs
+            if (decodedValue == DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE) {
+                numBytesTakenToDecode = 0;
+                return 0;
+            }
+            else { //implied if (decodedValue == DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE) {
+                break;
+            }
         }
         --decodedRemaining;
-        ++decodedValues;
+        *decodedValues++ = decodedValue;
 
         serialization += sdnvSize;
         bufferSize -= sdnvSize;
@@ -1112,12 +1159,18 @@ unsigned int SdnvDecodeArrayU64Classic(const uint8_t * serialization, uint64_t &
 
     while (decodedRemaining) {
         uint8_t sdnvSize;
-        *decodedValues = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
-        if (sdnvSize == 0) {
-            break; //only a partial decode
+        const uint64_t decodedValue = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
+        if (sdnvSize == 0) { //a decode error was detected in one of the sdnvs
+            if (decodedValue == DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE) {
+                numBytesTakenToDecode = 0;
+                return 0;
+            }
+            else { //implied if (decodedValue == DECODE_FAILURE_NOT_ENOUGH_ENCODED_BYTES_RETURN_VALUE) {
+                break;
+            }
         }
         --decodedRemaining;
-        ++decodedValues;
+        *decodedValues++ = decodedValue;
 
         serialization += sdnvSize;
         bufferSize -= sdnvSize;
