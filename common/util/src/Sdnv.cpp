@@ -1051,15 +1051,17 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
     return decodedStart - decodedRemaining;
 }
 
-bool SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize) {
+//return num values actually decoded
+unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize) {
     const uint8_t * const serializationBase = serialization;
+    const uint64_t * const decodedValuesBase = decodedValues;
 
     while ((bufferSize >= sizeof(__m256i)) && decodedRemaining) {
         //return decoded value (0 if failure), also set parameter numBytes taken to decode
         uint8_t totalBytesDecoded;
         unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
         if (numValsDecodedThisIteration == 0) {
-            return false;
+            return static_cast<unsigned int>(decodedValues - decodedValuesBase); //only a partial decode
         }
         decodedRemaining -= numValsDecodedThisIteration;
         decodedValues += numValsDecodedThisIteration;
@@ -1073,7 +1075,7 @@ bool SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTa
         uint8_t totalBytesDecoded;
         unsigned int numValsDecodedThisIteration = SdnvDecodeMultipleU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
         if (numValsDecodedThisIteration == 0) {
-            return false;
+            return static_cast<unsigned int>(decodedValues - decodedValuesBase); //only a partial decode
         }
         decodedRemaining -= numValsDecodedThisIteration;
         decodedValues += numValsDecodedThisIteration;
@@ -1084,18 +1086,19 @@ bool SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTa
 
     while (decodedRemaining) {
         uint8_t sdnvSize;
-        *decodedValues++ = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
+        *decodedValues = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
         if (sdnvSize == 0) {
-            return false;
+            return static_cast<unsigned int>(decodedValues - decodedValuesBase); //only a partial decode
         }
         --decodedRemaining;
+        ++decodedValues;
 
         serialization += sdnvSize;
         bufferSize -= sdnvSize;
     }
 
     numBytesTakenToDecode = serialization - serializationBase;
-    return true;
+    return static_cast<unsigned int>(decodedValues - decodedValuesBase); //full decode (original decodedRemaining == retVal)
 }
 
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS

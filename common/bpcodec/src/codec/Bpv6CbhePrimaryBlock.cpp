@@ -121,7 +121,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
         1; //dictionary length expected 0
     uint64_t decodedSdnvs[numSdnvsToDecode];
     uint64_t numBytesTakenToDecodeThisSdnvArray;
-    if (!SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize)) {
+    if (SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize) != numSdnvsToDecode) {
         return false;
     }
     serialization += numBytesTakenToDecodeThisSdnvArray;
@@ -144,7 +144,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     // Skip the entirety of the dictionary - we assume an IPN scheme
 
     if (isFragment) {
-        if (!SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, bufferSize)) {
+        if (SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, bufferSize) != 2) {
             return false;
         }
         serialization += numBytesTakenToDecodeThisSdnvArray;
