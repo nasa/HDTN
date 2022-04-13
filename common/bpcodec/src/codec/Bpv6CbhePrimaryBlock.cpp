@@ -100,7 +100,7 @@ void Bpv6CbhePrimaryBlock::SetZero() {
     m_fragmentOffset = 0;
     m_totalApplicationDataUnitLength = 0;
 }
-#if defined(USE_SDNV_FAST) && defined(SDNV_SUPPORT_AVX2_FUNCTIONS)
+
 bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
     const uint8_t * const serializationBase = serialization;
 
@@ -121,7 +121,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
         1; //dictionary length expected 0
     uint64_t decodedSdnvs[numSdnvsToDecode];
     uint64_t numBytesTakenToDecodeThisSdnvArray;
-    if (SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize) != numSdnvsToDecode) {
+    if (SdnvDecodeArrayU64(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize) != numSdnvsToDecode) {
         return false;
     }
     serialization += numBytesTakenToDecodeThisSdnvArray;
@@ -137,101 +137,6 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     m_creationTimestamp.Set(decodedSdnvs[10], decodedSdnvs[11]);
     m_lifetimeSeconds = decodedSdnvs[12];
     const uint64_t dictionaryLength = decodedSdnvs[13];
-    if (dictionaryLength != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
-        printf("error: cbhe bpv6 primary decode: dictionary size not 0\n");
-        return false;
-    }
-    // Skip the entirety of the dictionary - we assume an IPN scheme
-
-    if (isFragment) {
-        if (SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, bufferSize) != 2) {
-            return false;
-        }
-        serialization += numBytesTakenToDecodeThisSdnvArray;
-        //bufferSize -= numBytesTakenToDecodeThisSdnvArray;
-
-        m_fragmentOffset = decodedSdnvs[0];
-        m_totalApplicationDataUnitLength = decodedSdnvs[1];
-    }
-    else {
-        m_fragmentOffset = 0;
-        m_totalApplicationDataUnitLength = 0;
-    }
-
-    numBytesTakenToDecode = serialization - serializationBase;
-    return true;
-}
-#else
-bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize) {
-    uint8_t sdnvSize;
-    const uint8_t * const serializationBase = serialization;
-
-    if (bufferSize < 1) { //version
-        return false;
-    }
-    const uint8_t version = *serialization++;
-    --bufferSize;
-    if(version != BPV6_CCSDS_VERSION) {
-        return false;
-    }
-    m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(SdnvDecodeU64(serialization, &sdnvSize, bufferSize));
-    if (sdnvSize == 0) {
-        return false;
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-    const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
-
-    m_blockLength = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
-    if (sdnvSize == 0) {
-        return false;
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    if (!m_destinationEid.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
-        return false; //failure
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    if (!m_sourceNodeId.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
-        return false; //failure
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    if (!m_reportToEid.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
-        return false; //failure
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    
-    if (!m_custodianEid.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
-        return false; //failure
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    if (!m_creationTimestamp.DeserializeBpv6(serialization, &sdnvSize, bufferSize)) { // sdnvSize will never be 0 if function returns true
-        return false; //failure
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    m_lifetimeSeconds = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
-    if (sdnvSize == 0) {
-        return false;
-    }
-    serialization += sdnvSize;
-    bufferSize -= sdnvSize;
-
-    if (bufferSize == 0) { //dictionary length
-        return false;
-    }
-    const uint8_t dictionaryLength = *serialization++;
-    --bufferSize;
     if (dictionaryLength != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
         //RFC6260
         //3.2.  Reception
@@ -256,23 +161,17 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
         printf("error: cbhe bpv6 primary decode: dictionary size not 0\n");
         return false;
     }
-
     // Skip the entirety of the dictionary - we assume an IPN scheme
 
-    if(isFragment) {
-        m_fragmentOffset = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
-        if (sdnvSize == 0) {
+    if (isFragment) {
+        if (SdnvDecodeArrayU64(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, bufferSize) != 2) {
             return false;
         }
-        serialization += sdnvSize;
-        bufferSize -= sdnvSize;
+        serialization += numBytesTakenToDecodeThisSdnvArray;
+        //bufferSize -= numBytesTakenToDecodeThisSdnvArray;
 
-        m_totalApplicationDataUnitLength = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
-        if (sdnvSize == 0) {
-            return false;
-        }
-        serialization += sdnvSize;
-        bufferSize -= sdnvSize;
+        m_fragmentOffset = decodedSdnvs[0];
+        m_totalApplicationDataUnitLength = decodedSdnvs[1];
     }
     else {
         m_fragmentOffset = 0;
@@ -282,7 +181,6 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     numBytesTakenToDecode = serialization - serializationBase;
     return true;
 }
-#endif
 
 uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
     uint8_t * const serializationBase = serialization;

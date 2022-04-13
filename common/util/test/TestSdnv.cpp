@@ -744,7 +744,7 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
         BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals);
     }
 
-    //DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS
+    //DECODE UP TO 32-BYTES AT A TIME ARRAY OF VALS using SdnvDecodeArrayU64Fast and 1 byte sdnvs
     for(uint8_t val=0; val < 100; ++val) { //all these vals are equivalent as encoded and decoded since they are <= 127
         std::vector<uint64_t> allDecodedValsFastMultiple32(val + 1);
         allDecodedValsFastMultiple32.reserve(allDecodedValsFastMultiple32.size() * 3); //triple capacity for partial decode test scheme below
@@ -794,6 +794,92 @@ BOOST_AUTO_TEST_CASE(Sdnv64BitTestCase)
     }
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
 #endif //#ifdef USE_SDNV_FAST
+
+    //DECODE ARRAY OF VALS using SdnvDecodeArrayU64Classic (same as above but switch out SdnvDecodeArrayU64Fast for SdnvDecodeArrayU64Classic)
+    {
+        std::vector<uint64_t> allDecodedValsFastMultiple32(testVals.size());
+        allDecodedValsFastMultiple32.assign(allDecodedValsFastMultiple32.size(), 0); //make sure the SdnvDecodeArrayU64Fast function actually writes data
+        uint64_t numBytesTakenToDecode;
+        const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64Classic(
+            allEncodedData.data(),
+            numBytesTakenToDecode,
+            allDecodedValsFastMultiple32.data(),
+            static_cast<unsigned int>(allDecodedValsFastMultiple32.size()),
+            allEncodedData.size()
+        );
+        BOOST_REQUIRE_EQUAL(allDecodedValsFastMultiple32.size(), numValuesActuallyDecoded);
+
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, totalBytesEncoded);
+        BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals);
+    }
+
+    //DECODE ARRAY OF VALS using SdnvDecodeArrayU64Classic (same as above but force a partial decode)
+    {
+        std::vector<uint64_t> allDecodedValsFastMultiple32(testVals.size() * 2); //double expected number to emulate a partial decode
+        allDecodedValsFastMultiple32.assign(allDecodedValsFastMultiple32.size(), 0); //make sure the SdnvDecodeArrayU64Fast function actually writes data
+        uint64_t numBytesTakenToDecode;
+        const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64Classic(
+            allEncodedData.data(),
+            numBytesTakenToDecode,
+            allDecodedValsFastMultiple32.data(),
+            static_cast<unsigned int>(allDecodedValsFastMultiple32.size()),
+            allEncodedData.size()
+        );
+        BOOST_REQUIRE_EQUAL(allDecodedValsFastMultiple32.size(), numValuesActuallyDecoded * 2); //actually decoded half of expected
+
+        BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, totalBytesEncoded);
+        allDecodedValsFastMultiple32.resize(numValuesActuallyDecoded); //resize before comparision
+        BOOST_REQUIRE(allDecodedValsFastMultiple32 == testVals);
+    }
+
+    //DECODE ARRAY OF VALS using SdnvDecodeArrayU64Classic and 1 byte sdnvs
+    for (uint8_t val = 0; val < 100; ++val) { //all these vals are equivalent as encoded and decoded since they are <= 127
+        std::vector<uint64_t> allDecodedValsFastMultiple32(val + 1);
+        allDecodedValsFastMultiple32.reserve(allDecodedValsFastMultiple32.size() * 3); //triple capacity for partial decode test scheme below
+        std::vector<uint64_t> allExpectedDecodedValsFastMultiple32(val + 1);
+        std::vector<uint8_t> allEncoded1ByteVals(100);
+        for (std::size_t i = 0; i < allDecodedValsFastMultiple32.size(); ++i) {
+            allEncoded1ByteVals[i] = static_cast<uint8_t>(i);
+            allExpectedDecodedValsFastMultiple32[i] = i;
+        }
+
+        for (unsigned int scheme = 0; scheme < 3; ++scheme) {
+            allDecodedValsFastMultiple32.assign(allDecodedValsFastMultiple32.size(), UINT8_MAX); //make sure the SdnvDecodeArrayU64Fast function actually writes data
+            uint64_t encodedBufferSize;
+            unsigned int numSdnvsToDecode;
+            if (scheme == 0) {
+                encodedBufferSize = allDecodedValsFastMultiple32.size(); //min size encoded buffer size
+                numSdnvsToDecode = static_cast<unsigned int>(allDecodedValsFastMultiple32.size());
+            }
+            else if (scheme == 1) {
+                encodedBufferSize = 100; //larger encoded buffer size to force avx operations
+                numSdnvsToDecode = static_cast<unsigned int>(allDecodedValsFastMultiple32.size());
+            }
+            else {
+                encodedBufferSize = allDecodedValsFastMultiple32.size(); //min size encoded buffer size
+                numSdnvsToDecode = static_cast<unsigned int>(allDecodedValsFastMultiple32.size() * 3); //parital decode scheme (try decode more sdnvs than available)      
+            }
+
+            uint64_t numBytesTakenToDecode;
+            const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64Classic(
+                allEncoded1ByteVals.data(),
+                numBytesTakenToDecode,
+                allDecodedValsFastMultiple32.data(),
+                numSdnvsToDecode,
+                encodedBufferSize
+            );
+            BOOST_REQUIRE_EQUAL(allDecodedValsFastMultiple32.size(), numValuesActuallyDecoded);
+            if (scheme != 2) {
+                BOOST_REQUIRE_EQUAL(numValuesActuallyDecoded, numSdnvsToDecode);
+            }
+            else {
+                BOOST_REQUIRE_EQUAL(numValuesActuallyDecoded * 3, numSdnvsToDecode);
+            }
+
+            BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, allDecodedValsFastMultiple32.size());
+            BOOST_REQUIRE(allDecodedValsFastMultiple32 == allExpectedDecodedValsFastMultiple32);
+        }
+    }
 }
 
 
