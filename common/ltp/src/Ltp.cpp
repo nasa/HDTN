@@ -748,19 +748,19 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_reportSegment_receptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
+                    m_reportSegment.tmpReceptionClaimCount = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
                     }
-                    else if (m_reportSegment_receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
+                    else if (m_reportSegment.tmpReceptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
                         errorMessage = "error in LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, count == 0";
                         return false;
                     }
                     else {
                         m_sdnvTempVec.clear();
                         m_reportSegment.receptionClaims.clear();
-                        m_reportSegment.receptionClaims.reserve(m_reportSegment_receptionClaimCount);
+                        m_reportSegment.receptionClaims.reserve(m_reportSegment.tmpReceptionClaimCount);
                         m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                     }
                 }
@@ -806,7 +806,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     else {
                         m_reportSegment.receptionClaims.back().length = claimLength;
                         m_sdnvTempVec.clear();
-                        if (m_reportSegment.receptionClaims.size() < m_reportSegment_receptionClaimCount) {
+                        if (m_reportSegment.receptionClaims.size() < m_reportSegment.tmpReceptionClaimCount) {
                             m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                         }
                         else if (m_numTrailerExtensionTlvs) {
@@ -1015,7 +1015,7 @@ bool Ltp::NextStateAfterTrailerExtensions(std::string & errorMessage) {
 //Leaves m_dataSegmentRxState in proper state not exceeding last state READ_CLIENT_SERVICE_DATA
 const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
 
-#if 1
+#if 1 //this is the sdnv array decode (batch operation) version
     static constexpr unsigned int maxNumSdnvsToDecode =
         1 + //m_dataSegmentMetadata.clientServiceId
         1 + //m_dataSegmentMetadata.offset
@@ -1190,7 +1190,80 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 //m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV;
 //m_mainRxState = LTP_MAIN_RX_STATE::READ_REPORT_SEGMENT_CONTENT;
 const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, std::size_t & numChars, std::string & errorMessage) {
+#if 1 //this is the sdnv array decode (batch operation) version
+    static constexpr unsigned int numSdnvsToDecode =
+        1 + //m_reportSegment.reportSerialNumber
+        1 + //m_reportSegment.checkpointSerialNumber
+        1 + //m_reportSegment.upperBound
+        1 + //m_reportSegment.lowerBound
+        1; //m_reportSegment.tmpReceptionClaimCount
+    uint64_t * const decodedSdnvs = &m_reportSegment.reportSerialNumber; //start of the "array"
+    uint64_t numBytesTakenToDecodeThisSdnvArray;
+    bool decodeErrorDetected;
+    const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64(rxVals, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, numChars, decodeErrorDetected);
+    if (decodeErrorDetected) {
+        return NULL; //failure
+    }
+    if (numValuesActuallyDecoded == 0) {
+        return rxVals; //fall back to slower decode due to not enough bytes being available (leaving state unmodified)
+    }
 
+    //it turns out that the LTP_REPORT_SEGMENT_RX_STATE will be identical to the numValuesActuallyDecoded so no LUT is needed
+    m_reportSegmentRxState = static_cast<LTP_REPORT_SEGMENT_RX_STATE>(numValuesActuallyDecoded);
+
+    numChars -= numBytesTakenToDecodeThisSdnvArray;
+    rxVals += numBytesTakenToDecodeThisSdnvArray;
+    if (numValuesActuallyDecoded < numSdnvsToDecode) {
+        return rxVals;
+    }
+
+    //at this point (numValuesActuallyDecoded == numSdnvsToDecode), so we at least have receptionClaimCount (current state is LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV
+    if (m_reportSegment.tmpReceptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
+        errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, count == 0";
+        return NULL;
+    }
+    m_reportSegment.receptionClaims.clear();
+    m_reportSegment.receptionClaims.resize(m_reportSegment.tmpReceptionClaimCount); //must resize instead of reserve or default ctor will be called.. resize later
+    //std::cout << "shortcut rcc" << std::endl;
+    const unsigned int numReceptionClaimSdnvsToDecode = static_cast<unsigned int>(m_reportSegment.tmpReceptionClaimCount << 1); //*2
+    const unsigned int numReceptionClaimSdnvsActuallyDecoded = SdnvDecodeArrayU64(rxVals, numBytesTakenToDecodeThisSdnvArray,
+        (uint64_t *)m_reportSegment.receptionClaims.data(), numReceptionClaimSdnvsToDecode, numChars, decodeErrorDetected);
+    if (decodeErrorDetected) {
+        return NULL; //failure
+    }
+    //if odd then only read offset, need to read length, but if even then read length but may need to loop back to beginning and read another offset
+    const unsigned int isOddAsInt = (numReceptionClaimSdnvsActuallyDecoded & 1u); 
+    //READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV = 5, READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV = 6
+    m_reportSegmentRxState = static_cast<LTP_REPORT_SEGMENT_RX_STATE>(static_cast<unsigned int>(LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV) + isOddAsInt); //set next state
+    m_reportSegment.receptionClaims.resize((numReceptionClaimSdnvsActuallyDecoded + 1) >> 1); //ceil(numReceptionClaimSdnvsActuallyDecoded/2.0)
+    const unsigned int numLengthsRead = numReceptionClaimSdnvsActuallyDecoded >> 1; //floor(numReceptionClaimSdnvsActuallyDecoded/2.0) since offset read first then length second
+    for (unsigned int i = 0; i < numLengthsRead; ++i) {
+        if (m_reportSegment.receptionClaims[i].length == 0) {
+            //must be 1 or more (A reception claim's length shall never be less than 1)
+            errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV, count == 0";
+            return NULL;
+        }
+    }
+    if (numReceptionClaimSdnvsToDecode == numReceptionClaimSdnvsActuallyDecoded) { //done
+        if (m_numTrailerExtensionTlvs) {
+            m_trailerRxState = LTP_TRAILER_RX_STATE::READ_ONE_TRAILER_EXTENSION_TAG_BYTE;
+            m_mainRxState = LTP_MAIN_RX_STATE::READ_TRAILER;
+        }
+        else {
+            //callback report segment
+            if (m_reportSegmentContentsReadCallback) {
+                m_reportSegmentContentsReadCallback(m_sessionId, m_reportSegment, m_headerExtensions, m_trailerExtensions);
+            }
+            SetBeginningState();
+            //std::cout << "shortcut rcl cb" << std::endl;
+        }
+    }
+    
+    numChars -= numBytesTakenToDecodeThisSdnvArray;
+    rxVals += numBytesTakenToDecodeThisSdnvArray;
+    return rxVals;
+
+#else //below is the working non-batch read version
     uint8_t sdnvSize;
 
     //shortcut READ_REPORT_SERIAL_NUMBER_SDNV
@@ -1267,7 +1340,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
 
     //shortcut READ_RECEPTION_CLAIM_COUNT_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
-        m_reportSegment_receptionClaimCount = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
+        m_reportSegment.tmpReceptionClaimCount = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, sdnvSize is 0";
             return NULL;
@@ -1275,13 +1348,13 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
         else { //success READ_RECEPTION_CLAIM_COUNT_SDNV 
             numChars -= sdnvSize;
             rxVals += sdnvSize;
-            if (m_reportSegment_receptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
+            if (m_reportSegment.tmpReceptionClaimCount == 0) { //must be 1 or more (The content of an RS comprises one or more data reception claims)
                 errorMessage = "error in shortcut LTP_REPORT_SEGMENT_RX_STATE::READ_RECEPTION_CLAIM_COUNT_SDNV, count == 0";
                 return NULL;
             }
             else {
                 m_reportSegment.receptionClaims.clear();
-                m_reportSegment.receptionClaims.reserve(m_reportSegment_receptionClaimCount);
+                m_reportSegment.receptionClaims.reserve(m_reportSegment.tmpReceptionClaimCount);
                 m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                 //std::cout << "shortcut rcc" << std::endl;
             }
@@ -1328,7 +1401,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
                 }
                 else {
                     m_reportSegment.receptionClaims.back().length = claimLength;
-                    if (m_reportSegment.receptionClaims.size() < m_reportSegment_receptionClaimCount) {
+                    if (m_reportSegment.receptionClaims.size() < m_reportSegment.tmpReceptionClaimCount) {
                         m_reportSegmentRxState = LTP_REPORT_SEGMENT_RX_STATE::READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV;
                         //std::cout << "shortcut rcl" << std::endl;
                     }
@@ -1353,7 +1426,7 @@ const uint8_t * Ltp::TryShortcutReadReportSegmentSdnvs(const uint8_t * rxVals, s
             return rxVals;
         }
     }
-
+#endif
 }
 
 

@@ -55,12 +55,12 @@ enum class LTP_DATA_SEGMENT_RX_STATE
 enum class LTP_REPORT_SEGMENT_RX_STATE
 {
     READ_REPORT_SERIAL_NUMBER_SDNV = 0,
-    READ_CHECKPOINT_SERIAL_NUMBER_SDNV,
-    READ_UPPER_BOUND_SDNV,
-    READ_LOWER_BOUND_SDNV,
-    READ_RECEPTION_CLAIM_COUNT_SDNV,
-    READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV,
-    READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV
+    READ_CHECKPOINT_SERIAL_NUMBER_SDNV = 1,
+    READ_UPPER_BOUND_SDNV = 2,
+    READ_LOWER_BOUND_SDNV = 3,
+    READ_RECEPTION_CLAIM_COUNT_SDNV = 4,
+    READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV = 5,
+    READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV = 6
 };
 enum class LTP_REPORT_ACKNOWLEDGEMENT_SEGMENT_RX_STATE
 {
@@ -150,6 +150,7 @@ public:
         uint64_t checkpointSerialNumber;
         uint64_t upperBound;
         uint64_t lowerBound;
+        uint64_t tmpReceptionClaimCount; //Used only by sdnv decode operations as temporary variable. Class members ignore (treat as padding bytes).
         std::vector<reception_claim_t> receptionClaims;
 
         LTP_LIB_EXPORT report_segment_t(); //a default constructor: X()
@@ -292,7 +293,6 @@ public:
     uint64_t m_dataSegment_reportSerialNumber;
     
     report_segment_t m_reportSegment;
-    uint64_t m_reportSegment_receptionClaimCount;
 
     uint64_t m_reportAcknowledgementSegment_reportSerialNumber;
 
