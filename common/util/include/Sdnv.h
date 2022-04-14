@@ -93,40 +93,46 @@ HDTN_UTIL_EXPORT unsigned int SdnvDecodeMultipleU64Fast(const uint8_t * data, ui
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * numBytes, uint64_t * decodedValues, unsigned int decodedRemaining);
 
 /** Decode an array of SDNVs that were encoded to a max of 10-bytes using all possible hardware acceleration available including AVX, and will be decoded to and array of uint64_t.
+* In the event of a decoding error, both numBytesTakenToDecode and the return value will both be set to 0.
+* In the event of an insufficient buffer size to satisfy decodedRemaining, both numBytesTakenToDecode and the return value will both be set to whatever could be decoded, possibly 0.
 *
 * @param serialization The encoded SDNV data to decode.
-* @param numBytesTakenToDecode The reference parameter to return the number of encoded bytes (from parameter serialization) actually read and decoded (will be less than or equal to bufferSize).
+* @param numBytesTakenToDecode The reference parameter to return the number of encoded bytes (from parameter serialization) actually read and decoded (will be less than or equal to bufferSize).  It will be 0 if any sdnv fails to decode.
 * @param decodedValues The array to return the decoded SDNVs.
 * @param decodedRemaining The desired number of SDNVs to attempt to decode.
 * @param bufferSize The size of the buffer of encoded bytes in parameter serialization.  Ideally this should be padded 32 bytes at the end to force all operations to be AVX and ensure max performance.
 * @return The number of SDNV values actually decoded (will be equal to decodedRemaining if all desired SDNVs were successfully decoded,
-*         or less than decodedRemaining if only a partial number of SDNVs were decoded)
+*         or less than decodedRemaining if only a partial number of SDNVs were decoded), or 0 if any sdnv fails to decode.
 */
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize);
 # endif //#ifdef SDNV_SUPPORT_AVX2_FUNCTIONS
 #endif //#ifdef USE_SDNV_FAST
 
 /** Decode an array of SDNVs that were encoded to a max of 10-bytes (using non-AVX hardware acceleration if available), and will be decoded to and array of uint64_t.
+* In the event of a decoding error, both numBytesTakenToDecode and the return value will both be set to 0.
+* In the event of an insufficient buffer size to satisfy decodedRemaining, both numBytesTakenToDecode and the return value will both be set to whatever could be decoded, possibly 0.
 *
 * @param serialization The encoded SDNV data to decode.
-* @param numBytesTakenToDecode The reference parameter to return the number of encoded bytes (from parameter serialization) actually read and decoded (will be less than or equal to bufferSize).
+* @param numBytesTakenToDecode The reference parameter to return the number of encoded bytes (from parameter serialization) actually read and decoded (will be less than or equal to bufferSize).  It will be 0 if any sdnv fails to decode.
 * @param decodedValues The array to return the decoded SDNVs.
 * @param decodedRemaining The desired number of SDNVs to attempt to decode.
 * @param bufferSize The size of the buffer of encoded bytes in parameter serialization.  Ideally this should be padded 32 bytes at the end to force all operations to be AVX and ensure max performance.
 * @return The number of SDNV values actually decoded (will be equal to decodedRemaining if all desired SDNVs were successfully decoded,
-*         or less than decodedRemaining if only a partial number of SDNVs were decoded)
+*         or less than decodedRemaining if only a partial number of SDNVs were decoded), or 0 if any sdnv fails to decode.
 */
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeArrayU64Classic(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize);
 
 /** Decode an array of SDNVs that were encoded to a max of 10-bytes (using hardware acceleration if available), and will be decoded to and array of uint64_t.
+* In the event of a decoding error, both numBytesTakenToDecode and the return value will both be set to 0.
+* In the event of an insufficient buffer size to satisfy decodedRemaining, both numBytesTakenToDecode and the return value will both be set to whatever could be decoded, possibly 0.
 *
 * @param serialization The encoded SDNV data to decode.
-* @param numBytesTakenToDecode The reference parameter to return the number of encoded bytes (from parameter serialization) actually read and decoded (will be less than or equal to bufferSize).
+* @param numBytesTakenToDecode The reference parameter to return the number of encoded bytes (from parameter serialization) actually read and decoded (will be less than or equal to bufferSize).  It will be 0 if any sdnv fails to decode.
 * @param decodedValues The array to return the decoded SDNVs.
 * @param decodedRemaining The desired number of SDNVs to attempt to decode.
 * @param bufferSize The size of the buffer of encoded bytes in parameter serialization.  Ideally this should be padded 32 bytes at the end to force all operations to be AVX and ensure max performance.
 * @return The number of SDNV values actually decoded (will be equal to decodedRemaining if all desired SDNVs were successfully decoded,
-*         or less than decodedRemaining if only a partial number of SDNVs were decoded)
+*         or less than decodedRemaining if only a partial number of SDNVs were decoded), or 0 if any sdnv fails to decode.
 */
 HDTN_UTIL_EXPORT unsigned int SdnvDecodeArrayU64(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize);
 
