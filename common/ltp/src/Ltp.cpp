@@ -1032,9 +1032,13 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
     static const uint8_t numSdnvsToDecodeByIsCheckpoint[2] = { 3,5 };
     const unsigned int numSdnvsToDecode = numSdnvsToDecodeByIsCheckpoint[isCheckPoint];
     uint64_t numBytesTakenToDecodeThisSdnvArray;
-    const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64(rxVals, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, numChars);
-    if (numValuesActuallyDecoded == 0) {
+    bool decodeErrorDetected;
+    const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64(rxVals, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, numChars, decodeErrorDetected);
+    if (decodeErrorDetected) {
         return NULL; //failure
+    }
+    if (numValuesActuallyDecoded == 0) {
+        return rxVals; //fall back to slower decode due to not enough bytes being available (leaving state unmodified)
     }
 
     m_dataSegmentMetadata.clientServiceId = decodedSdnvs[0];

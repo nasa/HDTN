@@ -1085,15 +1085,17 @@ unsigned int SdnvDecodeMultiple256BitU64Fast(const uint8_t * data, uint8_t * num
 }
 
 //return num values actually decoded
-unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize) {
+unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize, bool & decodeErrorDetected) {
     const uint8_t * const serializationBase = serialization;
     const uint64_t * const decodedValuesBase = decodedValues;
+    decodeErrorDetected = false;
 
     while ((bufferSize >= sizeof(__m256i)) && decodedRemaining) {
         //return decoded value (0 if failure), also set parameter numBytes taken to decode
         uint8_t totalBytesDecoded;
         unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
         if (totalBytesDecoded == 0) { //a decode error was detected in one of the sdnvs
+            decodeErrorDetected = true;
             numBytesTakenToDecode = 0;
             return 0;
         }
@@ -1112,6 +1114,7 @@ unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & nu
         uint8_t totalBytesDecoded;
         unsigned int numValsDecodedThisIteration = SdnvDecodeMultipleU64Fast(serialization, &totalBytesDecoded, decodedValues, decodedRemaining);
         if (totalBytesDecoded == 0) { //a decode error was detected in one of the sdnvs
+            decodeErrorDetected = true;
             numBytesTakenToDecode = 0;
             return 0;
         }
@@ -1130,6 +1133,7 @@ unsigned int SdnvDecodeArrayU64Fast(const uint8_t * serialization, uint64_t & nu
         const uint64_t decodedValue = SdnvDecodeU64Classic(serialization, &sdnvSize, bufferSize); //call Classic routine directly since we are guaranteed to have a bufferSize < 16
         if (sdnvSize == 0) { //a decode error was detected in one of the sdnvs
             if (decodedValue == DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE) {
+                decodeErrorDetected = true;
                 numBytesTakenToDecode = 0;
                 return 0;
             }
@@ -1153,15 +1157,17 @@ returnSection:
 
 
 //return num values actually decoded
-unsigned int SdnvDecodeArrayU64Classic(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize) {
+unsigned int SdnvDecodeArrayU64Classic(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize, bool & decodeErrorDetected) {
     const uint8_t * const serializationBase = serialization;
     const uint64_t * const decodedValuesBase = decodedValues;
+    decodeErrorDetected = false;
 
     while (decodedRemaining) {
         uint8_t sdnvSize;
         const uint64_t decodedValue = SdnvDecodeU64(serialization, &sdnvSize, bufferSize);
         if (sdnvSize == 0) { //a decode error was detected in one of the sdnvs
             if (decodedValue == DECODE_FAILURE_INVALID_SDNV_RETURN_VALUE) {
+                decodeErrorDetected = true;
                 numBytesTakenToDecode = 0;
                 return 0;
             }
@@ -1181,11 +1187,11 @@ unsigned int SdnvDecodeArrayU64Classic(const uint8_t * serialization, uint64_t &
 }
 
 //return num values actually decoded
-unsigned int SdnvDecodeArrayU64(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize) {
+unsigned int SdnvDecodeArrayU64(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t * decodedValues, unsigned int decodedRemaining, uint64_t bufferSize, bool & decodeErrorDetected) {
 #if defined(USE_SDNV_FAST) && defined(SDNV_SUPPORT_AVX2_FUNCTIONS)
-    return SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecode, decodedValues, decodedRemaining, bufferSize);
+    return SdnvDecodeArrayU64Fast(serialization, numBytesTakenToDecode, decodedValues, decodedRemaining, bufferSize, decodeErrorDetected);
 #else
-    return SdnvDecodeArrayU64Classic(serialization, numBytesTakenToDecode, decodedValues, decodedRemaining, bufferSize);
+    return SdnvDecodeArrayU64Classic(serialization, numBytesTakenToDecode, decodedValues, decodedRemaining, bufferSize, decodeErrorDetected);
 #endif
 }
 
