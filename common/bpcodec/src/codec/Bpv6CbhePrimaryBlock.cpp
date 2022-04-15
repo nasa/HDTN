@@ -119,26 +119,27 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
         2 + //creation timestamp
         1 + //lifetime
         1; //dictionary length expected 0
-    uint64_t decodedSdnvs[numSdnvsToDecode];
+    uint64_t * const decodedSdnvs = (uint64_t *)(&m_bundleProcessingControlFlags); //start of the "array" instead of "uint64_t decodedSdnvs[numSdnvsToDecode];"
     uint64_t numBytesTakenToDecodeThisSdnvArray;
-    bool decodeErrorDetected;
+    bool decodeErrorDetected; //ignored because we expect all bytes to be present during decode, so it will be error free if return equals numSdnvsToDecode
     if (SdnvDecodeArrayU64(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, numSdnvsToDecode, bufferSize, decodeErrorDetected) != numSdnvsToDecode) {
         return false;
     }
     serialization += numBytesTakenToDecodeThisSdnvArray;
-    bufferSize -= numBytesTakenToDecodeThisSdnvArray;
+    //bufferSize -= numBytesTakenToDecodeThisSdnvArray; //do this in the if(isFragment)
 
-    m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(decodedSdnvs[0]);
-    const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
-    m_blockLength = decodedSdnvs[1];
-    m_destinationEid.Set(decodedSdnvs[2], decodedSdnvs[3]);
-    m_sourceNodeId.Set(decodedSdnvs[4], decodedSdnvs[5]);
-    m_reportToEid.Set(decodedSdnvs[6], decodedSdnvs[7]);
-    m_custodianEid.Set(decodedSdnvs[8], decodedSdnvs[9]);
-    m_creationTimestamp.Set(decodedSdnvs[10], decodedSdnvs[11]);
-    m_lifetimeSeconds = decodedSdnvs[12];
-    const uint64_t dictionaryLength = decodedSdnvs[13];
-    if (dictionaryLength != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
+    //the following copies are no longer needed as the SdnvDecodeArrayU64 will treat the members as an array starting at &m_bundleProcessingControlFlags
+    //m_bundleProcessingControlFlags = static_cast<BPV6_BUNDLEFLAG>(decodedSdnvs[0]);
+    //m_blockLength = decodedSdnvs[1];
+    //m_destinationEid.Set(decodedSdnvs[2], decodedSdnvs[3]);
+    //m_sourceNodeId.Set(decodedSdnvs[4], decodedSdnvs[5]);
+    //m_reportToEid.Set(decodedSdnvs[6], decodedSdnvs[7]);
+    //m_custodianEid.Set(decodedSdnvs[8], decodedSdnvs[9]);
+    //m_creationTimestamp.Set(decodedSdnvs[10], decodedSdnvs[11]);
+    //m_lifetimeSeconds = decodedSdnvs[12];
+    //m_tmpDictionaryLengthIgnoredAndAssumedZero = decodedSdnvs[13];
+
+    if (m_tmpDictionaryLengthIgnoredAndAssumedZero != 0) { //dictionary length (must be 1 byte zero value (1-byte sdnv's are the value itself) 
         //RFC6260
         //3.2.  Reception
         //
@@ -164,15 +165,19 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     }
     // Skip the entirety of the dictionary - we assume an IPN scheme
 
+    const bool isFragment = ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET);
     if (isFragment) {
-        if (SdnvDecodeArrayU64(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, bufferSize, decodeErrorDetected) != 2) {
+        bufferSize -= numBytesTakenToDecodeThisSdnvArray;
+        uint64_t * const decodedSdnvsFragment = &m_fragmentOffset;
+        if (SdnvDecodeArrayU64(serialization, numBytesTakenToDecodeThisSdnvArray, decodedSdnvsFragment, 2, bufferSize, decodeErrorDetected) != 2) {
             return false;
         }
         serialization += numBytesTakenToDecodeThisSdnvArray;
-        //bufferSize -= numBytesTakenToDecodeThisSdnvArray;
+        //bufferSize -= numBytesTakenToDecodeThisSdnvArray; //not needed (not used past this point)
 
-        m_fragmentOffset = decodedSdnvs[0];
-        m_totalApplicationDataUnitLength = decodedSdnvs[1];
+        //the following copies are no longer needed as the SdnvDecodeArrayU64 will treat the members as a two element array starting at &m_fragmentOffset
+        //m_fragmentOffset = decodedSdnvs[0];
+        //m_totalApplicationDataUnitLength = decodedSdnvs[1];
     }
     else {
         m_fragmentOffset = 0;
@@ -183,7 +188,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
     return true;
 }
 
-uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
+uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) { //modifies m_blockLength
     uint8_t * const serializationBase = serialization;
 
     *serialization++ = BPV6_CCSDS_VERSION;
@@ -209,12 +214,12 @@ uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) const {
         serialization += SdnvEncodeU64BufSize10(serialization, m_totalApplicationDataUnitLength);
     }
 
-    const uint64_t blockLength = serialization - (blockLengthPtrForLater + 1);
-    if (blockLength > 127) { // our encoding failed because our block length was too long ...
+    m_blockLength = serialization - (blockLengthPtrForLater + 1);
+    if (m_blockLength > 127) { // our encoding failed because our block length was too long ...
         printf("error in Bpv6CbhePrimaryBlock::SerializeBpv6 blockLength > 127\n");
         return 0;
     }
-    *blockLengthPtrForLater = static_cast<uint8_t>(blockLength); // 1-byte sdnv's are the value itself
+    *blockLengthPtrForLater = static_cast<uint8_t>(m_blockLength); // 1-byte sdnv's are the value itself
     
     return serialization - serializationBase;
 }

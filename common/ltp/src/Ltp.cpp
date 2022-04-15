@@ -583,8 +583,8 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     else if ((m_segmentTypeFlags >= 1) && (m_segmentTypeFlags <= 3)) { //checkpoint
                         m_sdnvTempVec.clear();
                         m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV;
-                        m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegment_checkpointSerialNumber;
-                        m_dataSegmentMetadata.reportSerialNumber = &m_dataSegment_reportSerialNumber;
+                        m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegmentMetadata.tmpCheckpointSerialNumber;
+                        m_dataSegmentMetadata.reportSerialNumber = &m_dataSegmentMetadata.tmpReportSerialNumber;
                     }
                     else {
                         m_dataSegment_clientServiceData.clear();
@@ -603,7 +603,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
+                    m_dataSegmentMetadata.tmpCheckpointSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -622,7 +622,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                 }
                 else if ((rxVal & 0x80) == 0) { //if msbit is a 0 then stop
                     uint8_t sdnvSize;
-                    m_dataSegment_reportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
+                    m_dataSegmentMetadata.tmpReportSerialNumber = SdnvDecodeU64(m_sdnvTempVec.data(), &sdnvSize, m_sdnvTempVec.capacity());
                     if (sdnvSize != m_sdnvTempVec.size()) {
                         errorMessage = "error in LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize != m_sdnvTempVec.size()";
                         return false;
@@ -1020,9 +1020,9 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         1 + //m_dataSegmentMetadata.clientServiceId
         1 + //m_dataSegmentMetadata.offset
         1 + //m_dataSegmentMetadata.length
-        1 + //m_dataSegment_checkpointSerialNumber
-        1; //m_dataSegment_reportSerialNumber
-    uint64_t decodedSdnvs[maxNumSdnvsToDecode];
+        1 + //m_dataSegmentMetadata.tmpCheckpointSerialNumber
+        1; //m_dataSegmentMetadata.tmpReportSerialNumber
+    uint64_t * const decodedSdnvs = &m_dataSegmentMetadata.clientServiceId; //start of the "array"
     static constexpr uint16_t CHECKPOINT_TYPE_MESSAGES =
         (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT))) |
         (1U << (static_cast<uint8_t>(LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART))) |
@@ -1041,10 +1041,6 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         return rxVals; //fall back to slower decode due to not enough bytes being available (leaving state unmodified)
     }
 
-    m_dataSegmentMetadata.clientServiceId = decodedSdnvs[0];
-    m_dataSegmentMetadata.offset = decodedSdnvs[1];
-    m_dataSegmentMetadata.length = decodedSdnvs[2];
-
     //it turns out that the LTP_DATA_SEGMENT_RX_STATE will be identical to the numValuesActuallyDecoded so no LUT is needed
     m_dataSegmentRxState = static_cast<LTP_DATA_SEGMENT_RX_STATE>(numValuesActuallyDecoded);
 
@@ -1056,10 +1052,8 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
         m_dataSegment_clientServiceData.clear();
         m_dataSegment_clientServiceData.reserve(m_dataSegmentMetadata.length); //todo make sure cant crash
         if (isCheckPoint) { //checkpoint
-            m_dataSegment_checkpointSerialNumber = decodedSdnvs[3];
-            m_dataSegment_reportSerialNumber = decodedSdnvs[4];
-            m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegment_checkpointSerialNumber;
-            m_dataSegmentMetadata.reportSerialNumber = &m_dataSegment_reportSerialNumber;
+            m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegmentMetadata.tmpCheckpointSerialNumber;
+            m_dataSegmentMetadata.reportSerialNumber = &m_dataSegmentMetadata.tmpReportSerialNumber;
         }
         else { //not checkpoint
             m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CLIENT_SERVICE_DATA; //only case where m_dataSegmentRxState needs modified from above
@@ -1125,8 +1119,8 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
             rxVals += sdnvSize;
             if ((m_segmentTypeFlags >= 1) && (m_segmentTypeFlags <= 3)) { //checkpoint
                 m_dataSegmentRxState = LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV;
-                m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegment_checkpointSerialNumber;
-                m_dataSegmentMetadata.reportSerialNumber = &m_dataSegment_reportSerialNumber;
+                m_dataSegmentMetadata.checkpointSerialNumber = &m_dataSegmentMetadata.tmpCheckpointSerialNumber;
+                m_dataSegmentMetadata.reportSerialNumber = &m_dataSegmentMetadata.tmpReportSerialNumber;
                 //std::cout << "shortcut length" << std::endl;
             }
             else {
@@ -1147,7 +1141,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_CHECKPOINT_SERIAL_NUMBER_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
-        m_dataSegment_checkpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
+        m_dataSegmentMetadata.tmpCheckpointSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_CHECKPOINT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
             return NULL;
@@ -1164,7 +1158,7 @@ const uint8_t * Ltp::TryShortcutReadDataSegmentSdnvs(const uint8_t * rxVals, std
 
     //shortcut READ_REPORT_SERIAL_NUMBER_SDNV
     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining
-        m_dataSegment_reportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
+        m_dataSegmentMetadata.tmpReportSerialNumber = SdnvDecodeU64(rxVals, &sdnvSize, numChars);
         if (sdnvSize == 0) {
             errorMessage = "error in shortcut LTP_DATA_SEGMENT_RX_STATE::READ_REPORT_SERIAL_NUMBER_SDNV, sdnvSize is 0";
             return NULL;

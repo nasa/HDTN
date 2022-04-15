@@ -840,3 +840,42 @@ BOOST_AUTO_TEST_CASE(Bpv6BundleStatusReportTestCase)
 
 
 }
+
+BOOST_AUTO_TEST_CASE(Bpv6PrimaryFragmentTestCase)
+{
+    Bpv6CbhePrimaryBlock primary;
+    primary.SetZero();
+    static const BPV6_BUNDLEFLAG BUNDLEFLAGS = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ISFRAGMENT | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
+    primary.m_bundleProcessingControlFlags = BUNDLEFLAGS;
+    //primary.m_blockLength = will be modified by SerializeBpv6;
+    primary.m_sourceNodeId.Set(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC);
+    primary.m_destinationEid.Set(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC);
+    primary.m_custodianEid.Set(3333, 4444);
+    primary.m_reportToEid.Set(5555, 6666);
+    primary.m_creationTimestamp.Set(PRIMARY_TIME, PRIMARY_SEQ); //(uint64_t)bpv6_unix_to_5050(curr_time);
+    primary.m_lifetimeSeconds = PRIMARY_LIFETIME;
+
+    primary.m_fragmentOffset = 10000;
+    primary.m_totalApplicationDataUnitLength = 10001;
+
+    std::vector<uint8_t> serialization(1000);
+    const uint64_t serializationSize = primary.SerializeBpv6(serialization.data());
+    Bpv6CbhePrimaryBlock primary2;
+    primary2.SetZero();
+    uint64_t numBytesTakenToDecode = 0;
+    primary2.DeserializeBpv6(serialization.data(), numBytesTakenToDecode, serialization.size()); //using buffer size 1000 to ensure hardware operations
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, serializationSize);
+    BOOST_REQUIRE_EQUAL(numBytesTakenToDecode, primary2.GetSerializationSize());
+
+    BOOST_REQUIRE_EQUAL(primary2.m_bundleProcessingControlFlags, BUNDLEFLAGS);
+    BOOST_REQUIRE_EQUAL(primary2.m_blockLength, numBytesTakenToDecode - 4); //4 because 1-byte version + flags is 2 byte sdnv + block length must be 1 byte sdnv
+    BOOST_REQUIRE_EQUAL(primary2.m_sourceNodeId, cbhe_eid_t(PRIMARY_SRC_NODE, PRIMARY_SRC_SVC));
+    BOOST_REQUIRE_EQUAL(primary2.m_destinationEid, cbhe_eid_t(PRIMARY_DEST_NODE, PRIMARY_DEST_SVC));
+    BOOST_REQUIRE_EQUAL(primary2.m_custodianEid, cbhe_eid_t(3333, 4444));
+    BOOST_REQUIRE_EQUAL(primary2.m_reportToEid, cbhe_eid_t(5555, 6666));
+    BOOST_REQUIRE_EQUAL(primary2.m_creationTimestamp, TimestampUtil::bpv6_creation_timestamp_t(PRIMARY_TIME, PRIMARY_SEQ));
+    BOOST_REQUIRE_EQUAL(primary2.m_lifetimeSeconds, PRIMARY_LIFETIME);
+    BOOST_REQUIRE_EQUAL(primary2.m_fragmentOffset, 10000);
+    BOOST_REQUIRE_EQUAL(primary2.m_totalApplicationDataUnitLength, 10001);
+    BOOST_REQUIRE(primary == primary2);
+}

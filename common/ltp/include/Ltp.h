@@ -213,6 +213,8 @@ public:
         uint64_t clientServiceId;
         uint64_t offset;
         uint64_t length;
+        uint64_t tmpCheckpointSerialNumber; //Used only by sdnv decode operations as temporary variable. Class members ignore (treat as padding bytes).
+        uint64_t tmpReportSerialNumber; //Used only by sdnv decode operations as temporary variable. Class members ignore (treat as padding bytes).
         uint64_t * checkpointSerialNumber;
         uint64_t * reportSerialNumber;
     };
@@ -289,8 +291,6 @@ public:
 
     data_segment_metadata_t m_dataSegmentMetadata;
     std::vector<uint8_t> m_dataSegment_clientServiceData;
-    uint64_t m_dataSegment_checkpointSerialNumber;
-    uint64_t m_dataSegment_reportSerialNumber;
     
     report_segment_t m_reportSegment;
 
