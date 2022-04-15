@@ -1,3 +1,26 @@
+/**
+ * @file LtpTimerManager.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This LtpTimerManager templated class encapsulates one boost::asio::deadline_timer for use with one LTP session.
+ * The boost::asio::deadline_timer uses/shares the user's provided boost::asio::io_service.
+ * This is a single threaded class designed to run and be called from one ioService thread only.
+ * Time expiration is based on 2*(one_way_light_time + one_way_margin_time)
+ * Explicit template instantiation is defined in its .cpp file for idType of Ltp::session_id_t and uint64_t.
+ * The idType is a "serial number" used to associate an expiry time with. 
+ */
+
 #ifndef LTP_TIMER_MANAGER_H
 #define LTP_TIMER_MANAGER_H 1
 
@@ -6,8 +29,6 @@
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 #include "ltp_lib_export.h"
-
-//Single threaded class designed to run and be called from ioService thread only
 
 
 template <typename idType>

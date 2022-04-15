@@ -1,3 +1,25 @@
+/**
+ * @file Ltp.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This Ltp class defines data structures used in the LTP library,
+ * defines methods for encoding LTP headers (segments),
+ * and defines methods for finite-state machine (FSM) receiving
+ * of all bytes or partial bytes of an LTP message with custom callback functions
+ * that (if the function is defined) get called whenever the appropriate number of bytes is received.
+ */
+
 #ifndef LTP_H
 #define LTP_H 1
 #include "ltp_lib_export.h"
