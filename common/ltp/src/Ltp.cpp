@@ -361,6 +361,25 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                     m_segmentTypeFlags = rxVal & 0x0f;
                     m_sdnvTempVec.clear();
 
+#if 1 //this is the sdnv 2-array-element decode (batch operation) version
+                    uint64_t * const decodedSdnvs = &m_sessionId.sessionOriginatorEngineId; //start of the "2 element array"
+                    uint64_t numBytesTakenToDecodeThisSdnvArray;
+                    bool decodeErrorDetected;
+                    const unsigned int numValuesActuallyDecoded = SdnvDecodeArrayU64(rxVals, numBytesTakenToDecodeThisSdnvArray, decodedSdnvs, 2, numChars, decodeErrorDetected);
+                    if (decodeErrorDetected) {
+                        errorMessage = "error in shortcut LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV, error decoding sessionOriginatorEngineId or sessionNumber";
+                        return false;
+                    }
+                    if ((sessionOriginatorEngineIdDecodedCallbackPtr) && (numValuesActuallyDecoded)) { //if numValuesActuallyDecoded is 1 or 2 then sessionOriginatorEngineId was decoded
+                        (*sessionOriginatorEngineIdDecodedCallbackPtr)(m_sessionId.sessionOriginatorEngineId);
+                    }
+
+                    //it turns out that the LTP_HEADER_RX_STATE will be identical to READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV + numValuesActuallyDecoded so no LUT is needed
+                    m_headerRxState = static_cast<LTP_HEADER_RX_STATE>(static_cast<unsigned int>(LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV) + numValuesActuallyDecoded); //set next state
+
+                    numChars -= numBytesTakenToDecodeThisSdnvArray;
+                    rxVals += numBytesTakenToDecodeThisSdnvArray;
+#else //below is the working non-batch read version
                     //shortcut READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV (and then maybe READ_SESSION_NUMBER_SDNV)
                     if (numChars >= 16) { //shortcut/optimization to avoid reading populating m_sdnvTempVec, just decode from rxVals if there's enough bytes remaining 
                         uint8_t sdnvSize;
@@ -400,7 +419,7 @@ bool Ltp::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars, std:
                         //std::cout << "skipping ltp read session originator engine id sdnv shortcut" << std::endl;
                         m_headerRxState = LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV;
                     }
-                    
+#endif
                 }
             }
             else if (headerRxState == LTP_HEADER_RX_STATE::READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV) {
