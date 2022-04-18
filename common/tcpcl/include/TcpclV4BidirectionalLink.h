@@ -13,7 +13,7 @@
  *
  * @section DESCRIPTION
  *
- * This TcpclV3BidirectionalLink virtual base class defines common functionality
+ * This TcpclV4BidirectionalLink virtual base class defines common functionality
  * for version 4 of the TCP Convergence-Layer Protocol for the bidirectional
  * nature of the TCPCL protocol, such that any "bundle source" must be prepared
  * to receive bundles, and any "bundle sink" must be prepared to send bundles,

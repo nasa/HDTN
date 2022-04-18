@@ -13,7 +13,7 @@
  *
  * @section DESCRIPTION
  *
- * This Tcpcl class implements RFC 9174 (version 4 of the TCP Convergence-Layer Protocol).
+ * This TcpclV4 class implements RFC 9174 (version 4 of the TCP Convergence-Layer Protocol).
  * It defines data structures used in the TCPCL Version 4 library,
  * defines methods for encoding TCPCL Version 4 headers (segments),
  * and defines methods for finite-state machine (FSM) receiving
