@@ -1,3 +1,24 @@
+/**
+ * @file TcpclBundleSource.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This TcpclBundleSource class encapsulates the appropriate TCPCL version 3 functionality
+ * to send a pipeline of bundles (or any other user defined data) over a TCPCL version 3 link
+ * and calls the user defined function OnSuccessfulAckCallback_t when the session closes, meaning
+ * a bundle is fully sent (i.e. gets acknowledged by the remote receiver).
+ */
+
 #ifndef _TCPCL_BUNDLE_SOURCE_H
 #define _TCPCL_BUNDLE_SOURCE_H 1
 

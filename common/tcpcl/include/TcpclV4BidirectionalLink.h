@@ -1,3 +1,26 @@
+/**
+ * @file TcpclV4BidirectionalLink.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This TcpclV4BidirectionalLink virtual base class defines common functionality
+ * for version 4 of the TCP Convergence-Layer Protocol for the bidirectional
+ * nature of the TCPCL protocol, such that any "bundle source" must be prepared
+ * to receive bundles, and any "bundle sink" must be prepared to send bundles,
+ * and in both cases they must share the same underlying TCP socket/connection.
+ * This class can be compiled with or without OpenSSL support.
+ */
+
 #ifndef _TCPCLV4_BIDIRECTIONAL_LINK_H
 #define _TCPCLV4_BIDIRECTIONAL_LINK_H 1
 

@@ -1,3 +1,22 @@
+/**
+ * @file LtpSessionSender.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This LtpSessionSender class encapsulates one LTP sending session.
+ * It uses its own asynchronous timer which uses/shares the user's provided boost::asio::io_service.
+ */
+
 #ifndef LTP_SESSION_SENDER_H
 #define LTP_SESSION_SENDER_H 1
 

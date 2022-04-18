@@ -1,11 +1,28 @@
+/**
+ * @file FragmentSet.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This FragmentSet static class provides methods to manage contiguous data fragments using
+ * an std::set<data_fragment_t> in order to determine what pieces of data are missing and need retransmitted.
+ * This class can be used for bytes of a packet or packet ids of a sequence of packets.
+ * Contiguous data that does not abut must be split up
+ * into pairs of start and end indices called a data_fragment_t.
+ * This class is used by LtpFragmentSet and AGGREGATE CUSTODY SIGNAL(ACS) / CUSTODY TRANSFER ENHANCEMENT BLOCK(CTEB)
+ */
+
 #ifndef FRAGMENT_SET_H
 #define FRAGMENT_SET_H 1
-
-/*
-Manages contiguous data in a set.  Contiguous data that does not abut must be split up
-into pairs of start and end indices called a data_fragment_t
-Used by LtpFragmentSet and AGGREGATE CUSTODY SIGNAL(ACS) / CUSTODY TRANSFER ENHANCEMENT BLOCK(CTEB)
-*/
 
 #include <cstdint>
 #include <vector>

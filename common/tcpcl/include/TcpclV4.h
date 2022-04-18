@@ -1,3 +1,26 @@
+/**
+ * @file TcpclV4.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This TcpclV4 class implements RFC 9174 (version 4 of the TCP Convergence-Layer Protocol).
+ * It defines data structures used in the TCPCL Version 4 library,
+ * defines methods for encoding TCPCL Version 4 headers (segments),
+ * and defines methods for finite-state machine (FSM) receiving
+ * of all bytes or partial bytes of a TCPCL Version 4 message with custom callback functions
+ * that (if the function is defined) get called whenever the appropriate number of bytes is received.
+ */
+
 #ifndef TCPCLV4_H
 #define TCPCLV4_H 1
 

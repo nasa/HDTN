@@ -1,3 +1,23 @@
+/**
+ * @file TimestampUtil.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This TimestampUtil static class, together with dtn_time_t (BPv6), bpv6_creation_timestamp_t (BPv6)
+ * and bpv7_creation_timestamp_t (BPv7)
+ * provide a means to work with bundle times using boost::posix_time objects and its microsecond clock.
+ */
+
 #ifndef TIMESTAMP_UTIL_H
 #define TIMESTAMP_UTIL_H 1
 
@@ -84,6 +104,7 @@ public:
         HDTN_UTIL_EXPORT uint64_t GetSerializationSizeBpv6() const;
         HDTN_UTIL_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint8_t * numBytesTakenToDecode, uint64_t bufferSize);
         HDTN_UTIL_EXPORT void SetZero();
+        HDTN_UTIL_EXPORT void Set(uint64_t paramSecondsSinceStartOfYear2000, uint64_t paramSequenceNumber);
         HDTN_UTIL_EXPORT boost::posix_time::ptime GetPtime() const;
         HDTN_UTIL_EXPORT void SetFromPtime(const boost::posix_time::ptime & posixTimeValue);
         HDTN_UTIL_EXPORT std::string GetUtcTimestampString(bool forFileName) const;

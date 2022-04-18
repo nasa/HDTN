@@ -81,6 +81,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     cbhe_eid_t m_custodianEid;
     TimestampUtil::bpv6_creation_timestamp_t m_creationTimestamp;
     uint64_t m_lifetimeSeconds;
+    uint64_t m_tmpDictionaryLengthIgnoredAndAssumedZero; //Used only by sdnv decode operations as temporary variable to preserve sdnv encoded order. Class members ignore (treat as padding bytes).
     uint64_t m_fragmentOffset;
     uint64_t m_totalApplicationDataUnitLength;
 
@@ -95,7 +96,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT bool operator==(const Bpv6CbhePrimaryBlock & o) const; //operator ==
     BPCODEC_EXPORT bool operator!=(const Bpv6CbhePrimaryBlock & o) const; //operator !=
     BPCODEC_EXPORT void SetZero();
-    BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization) const;
+    BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization); //not const as it needs to modify m_blockLength
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
     

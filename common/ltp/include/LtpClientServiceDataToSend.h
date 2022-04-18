@@ -1,3 +1,25 @@
+/**
+ * @file LtpClientServiceDataToSend.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This LtpClientServiceDataToSend class encapsulates the bundle or user data to send and keep
+ * persistent while an LTP session is alive and asynchronous UDP send operations are ongoing.
+ * The class can hold a vector<uint8_t> or a ZeroMQ message.
+ * Messages are intended to be moved into this class to avoid memory copies.
+ * The data is then able to be destroyed once the LTP send session completes/closes.
+ */
+
 #ifndef LTP_CLIENT_SERVICE_DATA_TO_SEND_H
 #define LTP_CLIENT_SERVICE_DATA_TO_SEND_H 1
 

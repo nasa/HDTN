@@ -1,3 +1,17 @@
+/**
+ * @file LtpUdpEngineManager.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ */
+
 #include "LtpUdpEngineManager.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
@@ -198,7 +212,19 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
             DoUdpShutdown();
             return;
         }
-        
+#if defined(USE_SDNV_FAST) && defined(SDNV_SUPPORT_AVX2_FUNCTIONS)
+        uint64_t decodedValues[2];
+        const unsigned int numSdnvsToDecode = 2u - isSenderToReceiver;
+        uint8_t totalBytesDecoded;
+        unsigned int numValsDecodedThisIteration = SdnvDecodeMultiple256BitU64Fast(&m_udpReceiveBuffer[1], &totalBytesDecoded, decodedValues, numSdnvsToDecode);
+        if (numValsDecodedThisIteration != numSdnvsToDecode) { //all required sdnvs were not decoded, possibly due to a decode error
+            std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive(): cannot read 1 or more of sessionOriginatorEngineId or sessionNumber.. ignoring packet" << std::endl;
+            StartUdpReceive();
+            return;
+        }
+        const uint64_t & sessionOriginatorEngineId = decodedValues[0];
+        const uint64_t & sessionNumber = decodedValues[1];
+#else
         uint8_t sdnvSize;
         const uint64_t sessionOriginatorEngineId = SdnvDecodeU64(&m_udpReceiveBuffer[1], &sdnvSize, (100 - 1)); //no worries about hardware accelerated sdnv read out of bounds due to minimum 100 byte size
         if (sdnvSize == 0) {
@@ -206,6 +232,16 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
             StartUdpReceive();
             return;
         }
+        uint64_t sessionNumber;
+        if (!isSenderToReceiver) {
+            sessionNumber = SdnvDecodeU64(&m_udpReceiveBuffer[1 + sdnvSize], &sdnvSize, ((100 - 10) - 1)); //no worries about hardware accelerated sdnv read out of bounds due to minimum 100 byte size
+            if (sdnvSize == 0) {
+                std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive(): cannot read sessionNumber.. ignoring packet" << std::endl;
+                StartUdpReceive();
+                return;
+            }
+        }
+#endif
 
         LtpUdpEngine * ltpUdpEnginePtr;
         if (isSenderToReceiver) { //received an isSenderToReceiver message type => isInduct (this ltp engine received a message type that only travels from an outduct (sender) to an induct (receiver))
@@ -221,12 +257,6 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         }
         else { //received an isReceiverToSender message type => isOutduct (this ltp engine received a message type that only travels from an induct (receiver) to an outduct (sender))
             //sessionOriginatorEngineId is my engine id in the case of an outduct.. need to get the session number to find the proper LtpUdpEngine
-            const uint64_t sessionNumber = SdnvDecodeU64(&m_udpReceiveBuffer[1 + sdnvSize], &sdnvSize, ((100 - 10) - 1)); //no worries about hardware accelerated sdnv read out of bounds due to minimum 100 byte size
-            if (sdnvSize == 0) {
-                std::cerr << "error in LtpUdpEngineManager::HandleUdpReceive(): cannot read sessionNumber.. ignoring packet" << std::endl;
-                StartUdpReceive();
-                return;
-            }
             const uint8_t engineIndex = LtpRandomNumberGenerator::GetEngineIndexFromRandomSessionNumber(sessionNumber);
             ltpUdpEnginePtr = m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex];
             if (ltpUdpEnginePtr == NULL) {

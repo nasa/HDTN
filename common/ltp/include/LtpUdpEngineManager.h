@@ -1,3 +1,25 @@
+/**
+ * @file LtpUdpEngineManager.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This LtpUdpEngineManager class is singleton pattern class used to share
+ * UDP sockets that bind to the same UDP port with various LtpUdpEngine(s).
+ * It manages a bidirectional udp socket paired with its own boost::asio::io_service and thread.
+ * It quickly examines the first few bytes of incoming UDP packets so that it can
+ * route them to their proper LtpUdpEngine.
+ */
+
 #ifndef _LTP_UDP_ENGINE_MANAGER_H
 #define _LTP_UDP_ENGINE_MANAGER_H 1
 

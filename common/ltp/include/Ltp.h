@@ -1,3 +1,25 @@
+/**
+ * @file Ltp.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This Ltp class defines data structures used in the LTP library,
+ * defines methods for encoding LTP headers (segments),
+ * and defines methods for finite-state machine (FSM) receiving
+ * of all bytes or partial bytes of an LTP message with custom callback functions
+ * that (if the function is defined) get called whenever the appropriate number of bytes is received.
+ */
+
 #ifndef LTP_H
 #define LTP_H 1
 #include "ltp_lib_export.h"
@@ -27,12 +49,12 @@ enum class LTP_MAIN_RX_STATE
 enum class LTP_HEADER_RX_STATE
 {
 	READ_CONTROL_BYTE = 0,
-	READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV,
-    READ_SESSION_NUMBER_SDNV,
-	READ_NUM_EXTENSIONS_BYTE,
-	READ_ONE_HEADER_EXTENSION_TAG_BYTE,
-    READ_ONE_HEADER_EXTENSION_LENGTH_SDNV,
-    READ_ONE_HEADER_EXTENSION_VALUE
+	READ_SESSION_ORIGINATOR_ENGINE_ID_SDNV = 1,
+    READ_SESSION_NUMBER_SDNV = 2,
+	READ_NUM_EXTENSIONS_BYTE = 3,
+	READ_ONE_HEADER_EXTENSION_TAG_BYTE = 4,
+    READ_ONE_HEADER_EXTENSION_LENGTH_SDNV = 5,
+    READ_ONE_HEADER_EXTENSION_VALUE = 6
 };
 
 enum class LTP_TRAILER_RX_STATE
@@ -45,22 +67,22 @@ enum class LTP_TRAILER_RX_STATE
 enum class LTP_DATA_SEGMENT_RX_STATE
 {
 	READ_CLIENT_SERVICE_ID_SDNV = 0,
-    READ_OFFSET_SDNV,
-    READ_LENGTH_SDNV,
-    READ_CHECKPOINT_SERIAL_NUMBER_SDNV,
-    READ_REPORT_SERIAL_NUMBER_SDNV,
-	READ_CLIENT_SERVICE_DATA
+    READ_OFFSET_SDNV = 1,
+    READ_LENGTH_SDNV = 2,
+    READ_CHECKPOINT_SERIAL_NUMBER_SDNV = 3,
+    READ_REPORT_SERIAL_NUMBER_SDNV = 4,
+	READ_CLIENT_SERVICE_DATA = 5
 };
 
 enum class LTP_REPORT_SEGMENT_RX_STATE
 {
     READ_REPORT_SERIAL_NUMBER_SDNV = 0,
-    READ_CHECKPOINT_SERIAL_NUMBER_SDNV,
-    READ_UPPER_BOUND_SDNV,
-    READ_LOWER_BOUND_SDNV,
-    READ_RECEPTION_CLAIM_COUNT_SDNV,
-    READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV,
-    READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV
+    READ_CHECKPOINT_SERIAL_NUMBER_SDNV = 1,
+    READ_UPPER_BOUND_SDNV = 2,
+    READ_LOWER_BOUND_SDNV = 3,
+    READ_RECEPTION_CLAIM_COUNT_SDNV = 4,
+    READ_ONE_RECEPTION_CLAIM_OFFSET_SDNV = 5,
+    READ_ONE_RECEPTION_CLAIM_LENGTH_SDNV = 6
 };
 enum class LTP_REPORT_ACKNOWLEDGEMENT_SEGMENT_RX_STATE
 {
@@ -150,6 +172,7 @@ public:
         uint64_t checkpointSerialNumber;
         uint64_t upperBound;
         uint64_t lowerBound;
+        uint64_t tmpReceptionClaimCount; //Used only by sdnv decode operations as temporary variable. Class members ignore (treat as padding bytes).
         std::vector<reception_claim_t> receptionClaims;
 
         LTP_LIB_EXPORT report_segment_t(); //a default constructor: X()
@@ -212,6 +235,8 @@ public:
         uint64_t clientServiceId;
         uint64_t offset;
         uint64_t length;
+        uint64_t tmpCheckpointSerialNumber; //Used only by sdnv decode operations as temporary variable. Class members ignore (treat as padding bytes).
+        uint64_t tmpReportSerialNumber; //Used only by sdnv decode operations as temporary variable. Class members ignore (treat as padding bytes).
         uint64_t * checkpointSerialNumber;
         uint64_t * reportSerialNumber;
     };
@@ -288,11 +313,8 @@ public:
 
     data_segment_metadata_t m_dataSegmentMetadata;
     std::vector<uint8_t> m_dataSegment_clientServiceData;
-    uint64_t m_dataSegment_checkpointSerialNumber;
-    uint64_t m_dataSegment_reportSerialNumber;
     
     report_segment_t m_reportSegment;
-    uint64_t m_reportSegment_receptionClaimCount;
 
     uint64_t m_reportAcknowledgementSegment_reportSerialNumber;
 

@@ -1,3 +1,25 @@
+/**
+ * @file StcpBundleSource.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This StcpBundleSource class encapsulates the appropriate "DTN simple TCP convergence layer (STCP)" functionality
+ * to send a pipeline of bundles (or any other user defined data) over an STCP link
+ * and calls the user defined function OnSuccessfulAckCallback_t when the session closes, meaning
+ * a bundle is fully sent (i.e. the OS TCP protocol notified that the byte stream was delivered).
+ * This class is implemented based on the ION.pdf V4.0.1 sections STCPCLI and STCPCLO.
+ */
+
 #ifndef _STCP_BUNDLE_SOURCE_H
 #define _STCP_BUNDLE_SOURCE_H 1
 

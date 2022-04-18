@@ -1,3 +1,21 @@
+/**
+ * @file LtpEngine.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This LtpEngine class manages all the active LTP sending or receiving sessions.
+ */
+
 #ifndef LTP_ENGINE_H
 #define LTP_ENGINE_H 1
 
@@ -140,7 +158,7 @@ private:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
-    BorrowableTokenRateLimiter m_tokenRateLimiter;
+    TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;
     uint64_t m_maxSendRateBitsPerSecOrZeroToDisable;
     bool m_tokenRefreshTimerIsRunning;
