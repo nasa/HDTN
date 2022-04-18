@@ -158,7 +158,7 @@ private:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
-    BorrowableTokenRateLimiter m_tokenRateLimiter;
+    TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;
     uint64_t m_maxSendRateBitsPerSecOrZeroToDisable;
     bool m_tokenRefreshTimerIsRunning;

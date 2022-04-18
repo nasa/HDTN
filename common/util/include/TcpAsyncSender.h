@@ -1,17 +1,35 @@
+/**
+ * @file TcpAsyncSender.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * These TcpAsyncSender/TcpAsyncSenderSsl classes in conjuction with their data (class TcpAsyncSenderElement)
+ * provide a means to ensure TCP or SSL sockets using boost::asio::write fully complete
+ * and that no other writes occur during the write
+ * and that the data remains valid during the write.
+ * This class exists because according to:
+ * https://www.boost.org/doc/libs/1_75_0/doc/html/boost_asio/reference/async_write/overload1.html
+ *
+ * Regarding the use of async_write, it says:
+ *
+ * This operation is implemented in terms of zero or more calls to the stream's async_write_some function,
+ * and is known as a composed operation. The program must ensure that the stream performs no other write
+ * operations (such as async_write, the stream's async_write_some function, or any other composed operations
+ * that perform writes) until this operation completes.
+ */
+
 #ifndef _TCP_ASYNC_SENDER_H
 #define _TCP_ASYNC_SENDER_H 1
-/*
-A class that exists because according to:
-    https://www.boost.org/doc/libs/1_75_0/doc/html/boost_asio/reference/async_write/overload1.html
-
-Regarding the use of async_write, it says:
-
-This operation is implemented in terms of zero or more calls to the stream's async_write_some function,
-and is known as a composed operation. The program must ensure that the stream performs no other write
-operations (such as async_write, the stream's async_write_some function, or any other composed operations
-that perform writes) until this operation completes.
-
-*/
 
 #include <string>
 #include <boost/thread.hpp>

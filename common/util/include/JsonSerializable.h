@@ -1,5 +1,27 @@
+/**
+ * @file JsonSerializable.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This JsonSerializable virtual base class provides methods to 
+ * us a boost::property_tree::ptree for the serialization and deserialization
+ * of C++ classes between JSON or XML.
+ * Inheriting from this class helps to overcome some of the limitations
+ * of property_tree such as C++ numerical values being serialized into JSON strings.
+ */
+
 #ifndef JSON_SERIALIZABLE_H
-#define JSON_SERIALIZABLE_H
+#define JSON_SERIALIZABLE_H 1
 
 #include <string>
 #include <boost/property_tree/ptree.hpp>

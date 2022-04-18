@@ -56,7 +56,7 @@ private:
     boost::asio::io_service m_ioService;
     boost::asio::io_service::work m_work;
     boost::asio::ip::udp::resolver m_resolver;
-    BorrowableTokenRateLimiter m_tokenRateLimiter;
+    TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;
     boost::posix_time::ptime m_lastTimeTokensWereRefreshed;
     std::queue<boost::shared_ptr<std::vector<boost::uint8_t> > > m_queueVecDataToSendPtrs;
