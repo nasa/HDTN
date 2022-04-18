@@ -1,3 +1,25 @@
+/**
+ * @file StcpBundleSink.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This StcpBundleSink class encapsulates the appropriate "DTN simple TCP convergence layer (STCP)" functionality
+ * to receive bundles (or any other user defined data) over an STCP link
+ * and calls the user defined function WholeBundleReadyCallback_t when a new bundle
+ * is received.
+ * This class is implemented based on the ION.pdf V4.0.1 sections STCPCLI and STCPCLO.
+ */
+
 #ifndef _STCP_BUNDLE_SINK_H
 #define _STCP_BUNDLE_SINK_H 1
 

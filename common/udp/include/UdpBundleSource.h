@@ -1,3 +1,25 @@
+/**
+ * @file UdpBundleSource.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This UdpBundleSource class encapsulates the appropriate UDP functionality
+ * to send a pipeline of bundles (or any other user defined data) over a UDP socket
+ * and calls the user defined function OnSuccessfulAckCallback_t when the session closes, meaning
+ * a bundle has been delivered to this OS UDP network layer.
+ * This class assumes an entire bundle is small enough to fit entirely in one UDP datagram.
+ */
+
 #ifndef _UDP_BUNDLE_SOURCE_H
 #define _UDP_BUNDLE_SOURCE_H 1
 

@@ -14,7 +14,7 @@
  * @section DESCRIPTION
  *
  * This JsonSerializable virtual base class provides methods to 
- * us a boost::property_tree::ptree for the serialization and deserialization
+ * use a boost::property_tree::ptree for the serialization and deserialization
  * of C++ classes between JSON or XML.
  * Inheriting from this class helps to overcome some of the limitations
  * of property_tree such as C++ numerical values being serialized into JSON strings.
