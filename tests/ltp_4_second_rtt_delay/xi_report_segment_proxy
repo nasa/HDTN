@@ -1,0 +1,3 @@
+export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
+# .0015*10000 = 15MB
+$HDTN_BUILD_ROOT/module/udp_delay_sim/udp-delay-sim --remote-udp-hostname=rho --remote-udp-port=1113 --my-bound-udp-port=1115 --num-rx-udp-packets-buffer-size=10000 --max-rx-udp-packet-size-bytes=1500 --send-delay-ms=2000

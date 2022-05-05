@@ -49,12 +49,13 @@ void BpSourcePattern::Stop() {
 }
 
 void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
-    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId, const unsigned int bundleSendTimeoutSeconds,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
     if (m_running) {
         std::cerr << "error: BpSourcePattern::Start called while BpSourcePattern is already running" << std::endl;
         return;
     }
+    m_bundleSendTimeoutSeconds = bundleSendTimeoutSeconds;
     m_finalDestinationEid = finalDestEid;
     m_myEid = myEid;
     m_myCustodianServiceId = myCustodianServiceId;
@@ -409,12 +410,12 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         //send message
         while (m_running) {
             m_isWaitingForRxBundleBeforeNextTx = true;
-            if ((!m_useInductForSendingBundles) && (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, 3))) {
-                std::cerr << "BpSourcePattern was unable to send a bundle for 3 seconds on the outduct.. retrying" << std::endl;
+            if ((!m_useInductForSendingBundles) && (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, m_bundleSendTimeoutSeconds))) {
+                std::cerr << "BpSourcePattern was unable to send a bundle for " << m_bundleSendTimeoutSeconds << " seconds on the outduct.. retrying" << std::endl;
             }
-            else if (m_useInductForSendingBundles && (!m_tcpclInductPtr->ForwardOnOpportunisticLink(m_tcpclOpportunisticRemoteNodeId, bundleToSend, 3))) {
+            else if (m_useInductForSendingBundles && (!m_tcpclInductPtr->ForwardOnOpportunisticLink(m_tcpclOpportunisticRemoteNodeId, bundleToSend, m_bundleSendTimeoutSeconds))) {
                 //note BpSource has no routing capability so it must send to the only connection available to it
-                std::cerr << "BpSourcePattern was unable to send a bundle for 3 seconds on the opportunistic induct.. retrying" << std::endl;
+                std::cerr << "BpSourcePattern was unable to send a bundle for " << m_bundleSendTimeoutSeconds << " seconds on the opportunistic induct.. retrying" << std::endl;
             }
             else { //success forward
                 if (bundleToSend.size() != 0) {

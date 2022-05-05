@@ -1,0 +1,3 @@
+export HDTN_BUILD_ROOT=/home/btomko/hdtn/build
+export HDTN_SOURCE_ROOT=/home/btomko/hdtn
+$HDTN_BUILD_ROOT/common/bpcodec/apps/bpgen-async --bundle-rate=0 --bundle-send-timeout-seconds=10 --bundle-size=100000 --max-bundle-size-bytes=500000 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --outducts-config-file=./rho_bpgen_stcp.json

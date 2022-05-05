@@ -23,7 +23,7 @@ public:
     BP_APP_PATTERNS_LIB_EXPORT virtual ~BpSourcePattern();
     BP_APP_PATTERNS_LIB_EXPORT void Stop();
     BP_APP_PATTERNS_LIB_EXPORT void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
-        const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+        const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId, const unsigned int bundleSendTimeoutSeconds,
         const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
 
     uint64_t m_bundleCount;
@@ -60,6 +60,7 @@ private:
     bool m_custodyTransferUseAcs;
     bool m_useInductForSendingBundles;
     bool m_useBpVersion7;
+    unsigned int m_bundleSendTimeoutSeconds;
     cbhe_eid_t m_finalDestinationEid;
     cbhe_eid_t m_myEid;
     uint64_t m_myCustodianServiceId;

@@ -34,6 +34,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         bool custodyTransferUseAcs;
         bool forceDisableCustody;
         bool useBpVersion7;
+        unsigned int bundleSendTimeoutSeconds;
 
         boost::program_options::options_description desc("Allowed options");
         try {
@@ -49,6 +50,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                     ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
                     ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
+                    ("bundle-send-timeout-seconds", boost::program_options::value<unsigned int>()->default_value(3), "Max time to send a bundle and get acknowledgement.")
                     ;
 
                 boost::program_options::variables_map vm;
@@ -108,6 +110,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 fileOrFolderPath = vm["file-or-folder-path"].as<std::string>();
                 maxBundleSizeBytes = vm["max-bundle-size-bytes"].as<uint64_t>();
                 myCustodianServiceId = vm["my-custodian-service-id"].as<uint64_t>();
+                bundleSendTimeoutSeconds = vm["bundle-send-timeout-seconds"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -130,7 +133,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         if (bpSendFile.GetNumberOfFilesToSend() == 0) {
             return false;
         }
-        bpSendFile.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId, false, forceDisableCustody, useBpVersion7);
+        bpSendFile.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId, bundleSendTimeoutSeconds, false, forceDisableCustody, useBpVersion7);
 
         std::cout << "running BpSendFile\n";
         
