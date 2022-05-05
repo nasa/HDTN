@@ -11,7 +11,7 @@
     "acsSendPeriodMilliseconds": 1000,
     "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
     "maxBundleSizeBytes": 10000000,
-    "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "maxIngressBundleWaitOnEgressMilliseconds": 10000,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
@@ -29,7 +29,7 @@
     "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 40,
+    "zmqMaxMessagesPerPath": 400,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
@@ -53,7 +53,7 @@
                 "nextHopEndpointId": "ipn:20.1",
                 "remoteHostname": "xi",
                 "remotePort": 1114,
-                "bundlePipelineLimit": 50,
+                "bundlePipelineLimit": 500,
                 "finalDestinationEidUris": [
                     "ipn:1.1",
                     "ipn:2.1",

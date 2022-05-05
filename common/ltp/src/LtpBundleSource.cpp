@@ -23,7 +23,7 @@ LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t 
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable) :
+    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint32_t bundlePipelineLimit) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
@@ -31,6 +31,7 @@ m_ltpUdpEngineManagerPtr(LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort
 M_CLIENT_SERVICE_ID(clientServiceId),
 M_THIS_ENGINE_ID(thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
+M_BUNDLE_PIPELINE_LIMIT(bundlePipelineLimit),
 
 m_totalDataSegmentsSentSuccessfullyWithAck(0),
 m_totalDataSegmentsFailedToSend(0),
@@ -127,8 +128,8 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 
 bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     
-    if (m_activeSessionsSet.size() > 100) {
-        std::cerr << "Error in LtpBundleSource::Forward.. too many unacked sessions" << std::endl;
+    if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
+        std::cerr << "Error in LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
         return false;
     }
 
@@ -150,8 +151,8 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
 
 
-    if (m_activeSessionsSet.size() > 100) {
-        std::cerr << "Error in LtpBundleSource::Forward.. too many unacked sessions" << std::endl;
+    if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
+        std::cerr << "Error in LtpBundleSource::Forward(zmq::message_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
         return false;
     }
 

@@ -43,13 +43,13 @@
                 "thisLtpEngineId": 20,
                 "remoteLtpEngineId": 10,
                 "ltpReportSegmentMtu": 1000,
-                "oneWayLightTimeMs": 1000,
+                "oneWayLightTimeMs": 2000,
                 "oneWayMarginTimeMs": 200,
                 "clientServiceId": 1,
                 "preallocatedRedDataBytes": 1000000,
                 "ltpMaxRetriesPerSerialNumber": 500,
                 "ltpRandomNumberSizeBits": 64,
-                "ltpRemoteUdpHostname": "nuc3",
+                "ltpRemoteUdpHostname": "xi",
                 "ltpRemoteUdpPort": 1115,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
             }

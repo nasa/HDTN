@@ -48,7 +48,7 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint32_t bundlePipelineLimit);
 
     LTP_LIB_EXPORT ~LtpBundleSource();
     LTP_LIB_EXPORT void Stop();
@@ -80,6 +80,7 @@ private:
     const uint64_t M_CLIENT_SERVICE_ID;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_REMOTE_LTP_ENGINE_ID;
+    const uint32_t M_BUNDLE_PIPELINE_LIMIT;
     std::set<Ltp::session_id_t> m_activeSessionsSet;
 
     OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
