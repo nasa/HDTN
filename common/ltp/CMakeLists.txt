@@ -13,7 +13,7 @@ add_library(ltp_lib
 	src/LtpBundleSource.cpp
 	src/LtpClientServiceDataToSend.cpp
 )
-target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_RDSEED_COMPILE_FLAG})
+target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_RDSEED_COMPILE_FLAG} ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(ltp_lib)
 get_target_property(target_type ltp_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)
