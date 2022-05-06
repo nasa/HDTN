@@ -30,6 +30,11 @@
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
 #include "TokenRateLimiter.h"
+#define USE_TSL_HASH_MAP 1
+#ifdef USE_TSL_HASH_MAP
+//# include "tsl/sparse_map.h"
+#include <unordered_map>
+#endif
 
 class CLASS_VISIBILITY_LTP_LIB LtpEngine {
 private:
@@ -133,15 +138,25 @@ private:
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     boost::random_device m_randomDevice;
     //boost::mutex m_randomDeviceMutex;
-    std::map<uint64_t, std::unique_ptr<LtpSessionSender> > m_mapSessionNumberToSessionSender;
-    std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> > m_mapSessionIdToSessionReceiver;
+#ifdef USE_TSL_HASH_MAP
+    typedef std::unordered_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
+    typedef std::unordered_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
+    //typedef tsl::sparse_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
+    //typedef tsl::sparse_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t> map_session_id_to_session_receiver_t;
+#else
+    typedef std::map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
+    typedef std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> > map_session_id_to_session_receiver_t;
+#endif
+    map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
+    map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
+
     std::list<std::pair<uint64_t, std::vector<uint8_t> > > m_closedSessionDataToSend; //sessionOriginatorEngineId, data
     std::list<cancel_segment_timer_info_t> m_listCancelSegmentTimerInfo;
     std::list<uint64_t> m_listSendersNeedingDeleted;
     std::list<Ltp::session_id_t> m_listReceiversNeedingDeleted;
 
-    std::map<uint64_t, std::unique_ptr<LtpSessionSender> >::iterator m_sendersIterator;
-    std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> >::iterator m_receiversIterator;
+    map_session_number_to_session_sender_t::iterator m_sendersIterator;
+    map_session_id_to_session_receiver_t::iterator m_receiversIterator;
 
     SessionStartCallback_t m_sessionStartCallback;
     RedPartReceptionCallback_t m_redPartReceptionCallback;
