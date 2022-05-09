@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_SRC, 100, 0, 10000000, 0, 5, false, 0, 5);
+                    "localhost", BOUND_UDP_PORT_SRC, 100, 0, 10000000, 0, 5, false, 0, 5, 1000);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
             ltpUdpEngineDestPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, ENGINE_ID_DEST, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 0, 5, false, 0, 5);
+                    "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 0, 5, false, 0, 5, 0);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             }
 

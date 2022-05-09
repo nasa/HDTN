@@ -61,8 +61,7 @@ bool LtpTimerManager<idType>::StartTimer(const idType serialNumber, std::vector<
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     
     std::pair<typename id_to_listiteratorplususerdata_map_t::iterator, bool> retVal =
-        m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.insert(
-            id_to_listiteratorplususerdata_map_insertion_element_t(serialNumber, listiterator_userdata_pair_t()));
+        m_mapCheckpointSerialNumberToExpiryListIteratorPlusUserData.emplace(serialNumber, listiterator_userdata_pair_t());
     if (retVal.second) {
         //value was inserted
         retVal.first->second.first = m_listCheckpointSerialNumberPlusExpiry.insert(m_listCheckpointSerialNumberPlusExpiry.end(), id_ptime_pair_t(serialNumber,expiry));

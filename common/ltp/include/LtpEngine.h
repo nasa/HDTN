@@ -55,7 +55,7 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions);
+        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -117,7 +117,7 @@ private:
 
     LTP_LIB_NO_EXPORT void CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
-    LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderHasProducibleDataFunction(const uint64_t sessionNumber);
+    LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderHasProducibleData(const uint64_t sessionNumber);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::session_id_t & sessionId);
     LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
@@ -137,6 +137,7 @@ private:
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
+    const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;
 
     typedef std::unordered_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
@@ -144,8 +145,8 @@ private:
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
 
-    std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_closedSessionDataToSend; //sessionOriginatorEngineId, data
-    std::queue<cancel_segment_timer_info_t> m_listCancelSegmentTimerInfo;
+    std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
+    std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
     std::queue<uint64_t> m_queueSendersNeedingDeleted;
     std::queue<uint64_t> m_queueSendersNeedingDataSent;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeleted;

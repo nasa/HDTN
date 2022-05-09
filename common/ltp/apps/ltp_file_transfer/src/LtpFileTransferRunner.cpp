@@ -216,7 +216,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, 5);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, 5, 0);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             }
 
@@ -283,7 +283,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers, 0, 5);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers, 0, 5, 10);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
             }
             

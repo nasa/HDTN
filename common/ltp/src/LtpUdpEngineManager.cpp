@@ -131,7 +131,8 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const std::string & remoteHostname, const uint16_t remotePort, const unsigned int numUdpRxCircularBufferVectors,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
-    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions)
+    uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
+    const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable)
 {   
     if ((m_nextEngineIndex > 255) && (!isInduct)) {
         std::cerr << "error in LtpUdpEngineManager::AddLtpUdpEngine: a max of 254 engines can be added for one outduct with the same udp port\n";
@@ -160,7 +161,8 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
     std::unique_ptr<LtpUdpEngine> newLtpUdpEnginePtr = boost::make_unique<LtpUdpEngine>(m_ioServiceUdp,
         m_udpSocket, thisEngineId, engineIndex, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
         remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, checkpointEveryNthDataPacketSender,
-        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions);
+        maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
+        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
     if (!isInduct) {
         ++m_nextEngineIndex;
         m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = newLtpUdpEnginePtr.get();
