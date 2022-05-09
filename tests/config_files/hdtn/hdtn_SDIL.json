@@ -59,7 +59,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "DTNME_Ground_Node",
                 "ltpRemoteUdpPort": 1113,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500
             }
         ]
     },

@@ -26,7 +26,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef, 
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
-    const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
+    const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
     const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
     const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber) :
     m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
@@ -45,12 +45,12 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
-    m_notifyEngineThatThisSendersTimersProducedDataFunction(notifyEngineThatThisSendersTimersProducedDataFunction),
+    m_notifyEngineThatThisSenderHasProducibleDataFunction(notifyEngineThatThisSenderHasProducibleDataFunction),
     m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback),
     m_numCheckpointTimerExpiredCallbacks(0),
     m_numDiscretionaryCheckpointsNotResent(0)
 {
-
+    m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //to trigger first pass of red data
 }
 
 LtpSessionSender::~LtpSessionSender() {
@@ -91,8 +91,8 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
         else {
             //resend 
             ++resendFragment.retryCount;
-            m_resendFragmentsList.push_back(resendFragment);
-            m_notifyEngineThatThisSendersTimersProducedDataFunction();
+            m_resendFragmentsQueue.push(resendFragment);
+            m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
         }
     }
     else {
@@ -109,15 +109,15 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
         //highest priority
         underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
         (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSend.front());
-        m_nonDataToSend.pop_front();
+        m_nonDataToSend.pop();
         constBufferVec.resize(1);
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
         return true;
     }
 
-    if (!m_resendFragmentsList.empty()) {
+    if (!m_resendFragmentsQueue.empty()) {
         //std::cout << "resend fragment\n";
-        LtpSessionSender::resend_fragment_t & resendFragment = m_resendFragmentsList.front();
+        LtpSessionSender::resend_fragment_t & resendFragment = m_resendFragmentsQueue.front();
         Ltp::data_segment_metadata_t meta;
         meta.clientServiceId = M_CLIENT_SERVICE_ID;
         meta.offset = resendFragment.offset;
@@ -153,7 +153,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
         //std::cout << "rf o: " << resendFragment.offset << " l: " << resendFragment.length << " flags: " << (int)resendFragment.flags << std::endl;
         //std::cout << (int)(*(m_dataToSend.data() + resendFragment.offset)) << std::endl;
         constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + resendFragment.offset, resendFragment.length);
-        m_resendFragmentsList.pop_front();
+        m_resendFragmentsQueue.pop();
         return true;
     }
 
@@ -260,7 +260,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //Response: first, an RA segment with the same report serial number as
     //the RS segment is issued and is, in concept, appended to the queue of
     //internal operations traffic bound for the receiver.
-    m_nonDataToSend.emplace_back();
+    m_nonDataToSend.emplace(); //m_notifyEngineThatThisSenderHasProducibleDataFunction at the end of this function
     //std::cout << "sender queue rsn " << reportSegment.reportSerialNumber << "\n";
     Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_nonDataToSend.back(),
         M_SESSION_ID, reportSegment.reportSerialNumber, NULL, NULL);
@@ -272,6 +272,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //processed -- then no further action is taken.
     if (m_reportSegmentSerialNumbersReceivedSet.insert(reportSegment.reportSerialNumber).second == false) { //serial number was not inserted (already exists)
         //std::cout << "serial number was not inserted (already exists)\n";
+        m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //from the m_nonDataToSend
         return; //no work to do.. ignore this redundant report segment
     }
 
@@ -362,8 +363,12 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                 }
             }
             
-            m_resendFragmentsList.emplace_back(dataIndex, bytesToSendRed, checkpointSerialNumber, reportSegment.reportSerialNumber, flags);
+            m_resendFragmentsQueue.emplace(dataIndex, bytesToSendRed, checkpointSerialNumber, reportSegment.reportSerialNumber, flags);
             dataIndex += bytesToSendRed;
         }
+    }
+
+    if (!m_didNotifyForDeletion) {
+        m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
     }
 }

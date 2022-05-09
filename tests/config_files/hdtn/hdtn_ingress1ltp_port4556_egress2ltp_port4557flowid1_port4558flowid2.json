@@ -51,7 +51,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "localhost",
                 "ltpRemoteUdpPort": 1113,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500
             },
             {
                 "name": "i2",
@@ -70,7 +71,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "localhost",
                 "ltpRemoteUdpPort": 2113,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500
             }
         ]
     },

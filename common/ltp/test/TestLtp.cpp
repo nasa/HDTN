@@ -15,7 +15,6 @@
 #include <boost/test/unit_test.hpp>
 #include "Ltp.h"
 #include <boost/bind/bind.hpp>
-//#include "tsl/sparse_map.h"
 #include <boost/make_unique.hpp>
 
 BOOST_AUTO_TEST_CASE(LtpSessionIdTestCase)
@@ -39,44 +38,6 @@ BOOST_AUTO_TEST_CASE(LtpSessionIdTestCase)
     BOOST_REQUIRE( (Ltp::session_id_t(500, 400) < Ltp::session_id_t(500, 600)));
     BOOST_REQUIRE(!(Ltp::session_id_t(400, 1000) < Ltp::session_id_t(200, 2000)));
     BOOST_REQUIRE( (Ltp::session_id_t(200, 2000) < Ltp::session_id_t(400, 1000)));
-
-    /*
-    typedef std::pair<Ltp::session_id_t, std::unique_ptr<uint64_t> > myt;
-    static_assert(std::is_nothrow_move_constructible<myt>::value ||
-        std::is_copy_constructible<myt>::value,
-        "Key, and T if present, must be nothrow move constructible "
-        "and/or copy constructible.");
-    */
-    /*
-    typedef tsl::sparse_map<Ltp::session_id_t, std::unique_ptr<uint64_t>, Ltp::hash_session_id_t> test_map_t;
-    test_map_t tslMap(5000);
-    tslMap.max_load_factor(1.0f);
-    //std::cout << "tslMap.bucket_count() " << tslMap.bucket_count() << "\n";
-    //std::cout << "tslMap.max_bucket_count() " << tslMap.max_bucket_count() << "\n";
-    //std::cout << "tslMap.load_factor() " << tslMap.load_factor() << "\n";
-    //std::cout << "tslMap.max_load_factor() " << tslMap.max_load_factor() << "\n";
-    test_map_t::iterator it = tslMap.begin();
-    BOOST_REQUIRE(it == tslMap.end());
-    tslMap.emplace(Ltp::session_id_t(200, 2000), boost::make_unique<uint64_t>(5));
-    it = tslMap.begin();
-    BOOST_REQUIRE(it != tslMap.end());
-    BOOST_REQUIRE_EQUAL(it->first, Ltp::session_id_t(200, 2000));
-    BOOST_REQUIRE_EQUAL(*(it->second), 5);
-
-    tslMap.emplace(Ltp::session_id_t(300, 3000), boost::make_unique<uint64_t>(6));
-    it = tslMap.begin();
-    BOOST_REQUIRE(it != tslMap.end());
-    ++it;
-    BOOST_REQUIRE(it != tslMap.end());
-    ++it;
-    BOOST_REQUIRE(it == tslMap.end());
-
-    it = tslMap.begin();
-    BOOST_REQUIRE(it != tslMap.end());
-    it = tslMap.erase(it);
-    BOOST_REQUIRE(it != tslMap.end());
-    ++it;
-    BOOST_REQUIRE(it == tslMap.end());*/
 }
 
 BOOST_AUTO_TEST_CASE(LtpDataSegmentMetadataTestCase)

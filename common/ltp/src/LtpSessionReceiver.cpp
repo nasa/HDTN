@@ -23,7 +23,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-    const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisReceiversTimersProducedDataFunction,
+    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
     const uint32_t maxRetriesPerSerialNumber) :
     m_timeManagerOfReportSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
@@ -41,7 +41,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_receivedEobFromGreenOrRed(false),
     m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisReceiverNeedsDeletedCallback(notifyEngineThatThisReceiverNeedsDeletedCallback),
-    m_notifyEngineThatThisReceiversTimersProducedDataFunction(notifyEngineThatThisReceiversTimersProducedDataFunction),
+    m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(notifyEngineThatThisSendersTimersHasProducibleDataFunction),
     m_numReportSegmentTimerExpiredCallbacks(0),
     m_numReportSegmentsUnableToBeIssued(0),
     m_numReportSegmentsTooLargeAndNeedingSplit(0),
@@ -83,8 +83,8 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
 
     if (retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         //resend 
-        m_reportSerialNumbersToSendList.push_back(std::pair<uint64_t, uint8_t>(reportSerialNumber, retryCount + 1)); //initial retryCount of 1
-        m_notifyEngineThatThisReceiversTimersProducedDataFunction();
+        m_reportSerialNumbersToSendQueue.emplace(reportSerialNumber, retryCount + 1); //initial retryCount of 1
+        m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
     }
     else {
         if (!m_didNotifyForDeletion) {
@@ -96,11 +96,11 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
 
 bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
 
-    if (!m_reportSerialNumbersToSendList.empty()) {
+    if (!m_reportSerialNumbersToSendQueue.empty()) {
         
-        const uint64_t rsn = m_reportSerialNumbersToSendList.front().first;
+        const uint64_t rsn = m_reportSerialNumbersToSendQueue.front().first;
         //std::cout << "dequeue rsn for send " << rsn << std::endl;
-        const uint8_t retryCount = m_reportSerialNumbersToSendList.front().second;
+        const uint8_t retryCount = m_reportSerialNumbersToSendQueue.front().second;
         std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
             //std::cout << "found!\n";
@@ -109,14 +109,14 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
                 M_SESSION_ID, reportSegmentIt->second, NULL, NULL);
             constBufferVec.resize(1);
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-            m_reportSerialNumbersToSendList.pop_front();
+            m_reportSerialNumbersToSendQueue.pop();
             //std::cout << "start rsn " << rsn << std::endl;
             m_timeManagerOfReportSerialNumbers.StartTimer(rsn, std::vector<uint8_t>({ retryCount }));
             return true;
         }
         else {
             std::cerr << "error in LtpSessionReceiver::NextDataToSend: cannot find report segment\n";
-            m_reportSerialNumbersToSendList.pop_front();
+            m_reportSerialNumbersToSendQueue.pop();
         }
     }
 
@@ -144,7 +144,7 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
     //std::cout << "m_timeManagerOfReportSerialNumbers.empty() b4: " << m_timeManagerOfReportSerialNumbers.Empty() << std::endl;
     m_timeManagerOfReportSerialNumbers.DeleteTimer(reportSerialNumberBeingAcknowledged);
     //std::cout << "m_timeManagerOfReportSerialNumbers.empty() after: " << m_timeManagerOfReportSerialNumbers.Empty() << std::endl;
-    if (m_reportSerialNumbersToSendList.empty() && m_timeManagerOfReportSerialNumbers.Empty()) {
+    if (m_reportSerialNumbersToSendQueue.empty() && m_timeManagerOfReportSerialNumbers.Empty()) {
         //TODO.. NOT SURE WHAT TO DO WHEN GREEN EOB LOST
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
             if (!m_didNotifyForDeletion) {
@@ -370,7 +370,8 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     }
                     m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
                     //std::cout << "queue send rsn " << rsn << "\n";
-                    m_reportSerialNumbersToSendList.push_back(std::pair<uint64_t, uint8_t>(rsn, 1)); //initial retryCount of 1
+                    m_reportSerialNumbersToSendQueue.emplace(rsn, 1); //initial retryCount of 1
+                    m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
                 }
             }
         }

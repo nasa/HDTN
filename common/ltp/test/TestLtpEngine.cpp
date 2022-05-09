@@ -51,8 +51,8 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
             CLIENT_SERVICE_ID_DEST(300),
-            engineSrc(ENGINE_ID_SRC, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
-            engineDest(ENGINE_ID_DEST, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+            engineSrc(ENGINE_ID_SRC, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
+            engineDest(ENGINE_ID_DEST, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_TOO_MUCH_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog! 12345678910"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             std::vector<boost::asio::const_buffer> constBufferVec;
             boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
             uint64_t sessionOriginatorEngineId;
-            if (src.NextPacketToSendRoundRobin(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
+            if (src.GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
                 if (swapHeader) {
                     uint8_t *data = static_cast<uint8_t*>(const_cast<void*>(constBufferVec[0].data()));
                     data[0] = static_cast<uint8_t>(headerReplacement);

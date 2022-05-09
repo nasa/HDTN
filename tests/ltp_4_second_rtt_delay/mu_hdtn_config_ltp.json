@@ -51,7 +51,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "xi",
                 "ltpRemoteUdpPort": 1115,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500
             }
         ]
     },

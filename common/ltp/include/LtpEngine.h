@@ -30,11 +30,8 @@
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
 #include "TokenRateLimiter.h"
-#define USE_TSL_HASH_MAP 1
-#ifdef USE_TSL_HASH_MAP
-//# include "tsl/sparse_map.h"
 #include <unordered_map>
-#endif
+#include <queue>
 
 class CLASS_VISIBILITY_LTP_LIB LtpEngine {
 private:
@@ -57,7 +54,8 @@ public:
     LTP_LIB_EXPORT LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
-        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+        uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
+        const uint64_t maxSimultaneousSessions);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -91,7 +89,7 @@ public:
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
-    LTP_LIB_EXPORT bool NextPacketToSendRoundRobin(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId);
+    LTP_LIB_EXPORT bool GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId);
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
@@ -119,7 +117,9 @@ private:
 
     LTP_LIB_NO_EXPORT void CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
+    LTP_LIB_NO_EXPORT void NotifyEngineThatThisSenderHasProducibleDataFunction(const uint64_t sessionNumber);
     LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode);
+    LTP_LIB_NO_EXPORT void NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::session_id_t & sessionId);
     LTP_LIB_NO_EXPORT void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr);
 
     LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
@@ -136,27 +136,20 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
+    const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
     boost::random_device m_randomDevice;
-    //boost::mutex m_randomDeviceMutex;
-#ifdef USE_TSL_HASH_MAP
+
     typedef std::unordered_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
     typedef std::unordered_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
-    //typedef tsl::sparse_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
-    //typedef tsl::sparse_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t> map_session_id_to_session_receiver_t;
-#else
-    typedef std::map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
-    typedef std::map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver> > map_session_id_to_session_receiver_t;
-#endif
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
 
-    std::list<std::pair<uint64_t, std::vector<uint8_t> > > m_closedSessionDataToSend; //sessionOriginatorEngineId, data
-    std::list<cancel_segment_timer_info_t> m_listCancelSegmentTimerInfo;
-    std::list<uint64_t> m_listSendersNeedingDeleted;
-    std::list<Ltp::session_id_t> m_listReceiversNeedingDeleted;
-
-    map_session_number_to_session_sender_t::iterator m_sendersIterator;
-    map_session_id_to_session_receiver_t::iterator m_receiversIterator;
+    std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_closedSessionDataToSend; //sessionOriginatorEngineId, data
+    std::queue<cancel_segment_timer_info_t> m_listCancelSegmentTimerInfo;
+    std::queue<uint64_t> m_queueSendersNeedingDeleted;
+    std::queue<uint64_t> m_queueSendersNeedingDataSent;
+    std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeleted;
+    std::queue<Ltp::session_id_t> m_queueReceiversNeedingDataSent;
 
     SessionStartCallback_t m_sessionStartCallback;
     RedPartReceptionCallback_t m_redPartReceptionCallback;

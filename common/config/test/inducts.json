@@ -18,7 +18,8 @@
             "ltpRandomNumberSizeBits": 32,
             "ltpRemoteUdpHostname": "",
             "ltpRemoteUdpPort": 0,
-            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500
         },
         {
             "name": "i2",
