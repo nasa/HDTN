@@ -18,7 +18,8 @@
             "ltpRandomNumberSizeBits": 64,
             "ltpRemoteUdpHostname": "localhost",
             "ltpRemoteUdpPort": 4556,
-            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+            "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+            "ltpMaxExpectedSimultaneousSessions": 500
         }
     ]
 }

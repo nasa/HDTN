@@ -33,6 +33,7 @@ struct induct_element_config_t {
     std::string ltpRemoteUdpHostname;
     uint16_t ltpRemoteUdpPort;
     uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
+    uint64_t ltpMaxExpectedSimultaneousSessions;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;

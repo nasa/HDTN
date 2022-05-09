@@ -59,7 +59,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpRemoteUdpHostname": "tantalus",
                 "ltpRemoteUdpPort": 1113,
-                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000
+                "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
+                "ltpMaxExpectedSimultaneousSessions": 500
             }
 
         ]

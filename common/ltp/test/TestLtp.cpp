@@ -15,6 +15,7 @@
 #include <boost/test/unit_test.hpp>
 #include "Ltp.h"
 #include <boost/bind/bind.hpp>
+#include <boost/make_unique.hpp>
 
 BOOST_AUTO_TEST_CASE(LtpSessionIdTestCase)
 {

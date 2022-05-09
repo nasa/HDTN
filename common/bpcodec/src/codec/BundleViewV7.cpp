@@ -84,7 +84,7 @@ bool BundleViewV7::Load(const bool skipCrcVerifyInCanonicalBlocks, const bool lo
             if (Bpv7BlockConfidentialityBlock * bcbPtr = dynamic_cast<Bpv7BlockConfidentialityBlock*>(cbv.headerPtr.get())) {
                 const std::vector<uint64_t> & securityTargets = bcbPtr->m_securityTargets;
                 for (std::size_t i = 0; i < securityTargets.size(); ++i) {
-                    if (!m_mapEncryptedBlockNumberToBcbPtr.insert(std::pair<uint64_t, Bpv7BlockConfidentialityBlock*>(securityTargets[i], bcbPtr)).second) {
+                    if (!m_mapEncryptedBlockNumberToBcbPtr.emplace(securityTargets[i], bcbPtr).second) {
                         return false;
                     }
                 }

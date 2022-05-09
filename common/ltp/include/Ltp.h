@@ -138,18 +138,21 @@ public:
 
         LTP_LIB_EXPORT session_id_t(); //a default constructor: X()
         LTP_LIB_EXPORT session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber);
-        LTP_LIB_EXPORT ~session_id_t(); //a destructor: ~X()
-        LTP_LIB_EXPORT session_id_t(const session_id_t& o); //a copy constructor: X(const X&)
-        LTP_LIB_EXPORT session_id_t(session_id_t&& o); //a move constructor: X(X&&)
-        LTP_LIB_EXPORT session_id_t& operator=(const session_id_t& o); //a copy assignment: operator=(const X&)
-        LTP_LIB_EXPORT session_id_t& operator=(session_id_t&& o); //a move assignment: operator=(X&&)
-        LTP_LIB_EXPORT session_id_t& operator=(const uint64_t o); //assign to uint64 (for template code in LtpTimerManager)
+        LTP_LIB_EXPORT ~session_id_t() noexcept; //a destructor: ~X()
+        LTP_LIB_EXPORT session_id_t(const session_id_t& o) noexcept; //a copy constructor: X(const X&)
+        LTP_LIB_EXPORT session_id_t(session_id_t&& o) noexcept; //a move constructor: X(X&&)
+        LTP_LIB_EXPORT session_id_t& operator=(const session_id_t& o) noexcept; //a copy assignment: operator=(const X&)
+        LTP_LIB_EXPORT session_id_t& operator=(session_id_t&& o) noexcept; //a move assignment: operator=(X&&)
+        LTP_LIB_EXPORT session_id_t& operator=(const uint64_t o) noexcept; //assign to uint64 (for template code in LtpTimerManager)
         LTP_LIB_EXPORT bool operator==(const session_id_t & o) const; //operator ==
         LTP_LIB_EXPORT bool operator==(const uint64_t o) const; //operator == (for template code in LtpTimerManager)
         LTP_LIB_EXPORT bool operator!=(const session_id_t & o) const; //operator !=
         LTP_LIB_EXPORT bool operator<(const session_id_t & o) const; //operator < so it can be used as a map key
         LTP_LIB_EXPORT friend std::ostream& operator<<(std::ostream& os, const session_id_t& o);
         LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
+    };
+    struct CLASS_VISIBILITY_LTP_LIB hash_session_id_t {
+        LTP_LIB_EXPORT std::size_t operator()(const session_id_t& sid) const;
     };
     struct reception_claim_t {
         uint64_t offset;

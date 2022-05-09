@@ -19,25 +19,27 @@
 #include <boost/lexical_cast.hpp>
 #include <iostream>
 #include "Sdnv.h"
-
+#ifdef USE_CRC32C_FAST
+#include <nmmintrin.h>
+#endif
 
 Ltp::session_id_t::session_id_t() : sessionOriginatorEngineId(0), sessionNumber(0) { } //a default constructor: X()
 Ltp::session_id_t::session_id_t(uint64_t paramSessionOriginatorEngineId, uint64_t paramSessionNumber) :
     sessionOriginatorEngineId(paramSessionOriginatorEngineId), sessionNumber(paramSessionNumber) { }
-Ltp::session_id_t::~session_id_t() { } //a destructor: ~X()
-Ltp::session_id_t::session_id_t(const session_id_t& o) : sessionOriginatorEngineId(o.sessionOriginatorEngineId), sessionNumber(o.sessionNumber) { } //a copy constructor: X(const X&)
-Ltp::session_id_t::session_id_t(session_id_t&& o) : sessionOriginatorEngineId(o.sessionOriginatorEngineId), sessionNumber(o.sessionNumber) { } //a move constructor: X(X&&)
-Ltp::session_id_t& Ltp::session_id_t::operator=(const session_id_t& o) { //a copy assignment: operator=(const X&)
+Ltp::session_id_t::~session_id_t() noexcept { } //a destructor: ~X()
+Ltp::session_id_t::session_id_t(const session_id_t& o) noexcept : sessionOriginatorEngineId(o.sessionOriginatorEngineId), sessionNumber(o.sessionNumber) { } //a copy constructor: X(const X&)
+Ltp::session_id_t::session_id_t(session_id_t&& o) noexcept : sessionOriginatorEngineId(o.sessionOriginatorEngineId), sessionNumber(o.sessionNumber) { } //a move constructor: X(X&&)
+Ltp::session_id_t& Ltp::session_id_t::operator=(const session_id_t& o) noexcept { //a copy assignment: operator=(const X&)
     sessionOriginatorEngineId = o.sessionOriginatorEngineId;
     sessionNumber = o.sessionNumber;
     return *this;
 }
-Ltp::session_id_t& Ltp::session_id_t::operator=(session_id_t && o) { //a move assignment: operator=(X&&)
+Ltp::session_id_t& Ltp::session_id_t::operator=(session_id_t && o) noexcept { //a move assignment: operator=(X&&)
     sessionOriginatorEngineId = o.sessionOriginatorEngineId;
     sessionNumber = o.sessionNumber;
     return *this;
 }
-Ltp::session_id_t& Ltp::session_id_t::operator=(const uint64_t o) { //assign to uint64 (for template code in LtpTimerManager)
+Ltp::session_id_t& Ltp::session_id_t::operator=(const uint64_t o) noexcept { //assign to uint64 (for template code in LtpTimerManager)
     sessionOriginatorEngineId = o;
     sessionNumber = o;
     return *this;
@@ -76,6 +78,14 @@ uint64_t Ltp::session_id_t::Serialize(uint8_t * serialization) const {
     serialization += SdnvEncodeU64BufSize10(serialization, sessionOriginatorEngineId);
     serialization += SdnvEncodeU64BufSize10(serialization, sessionNumber);
     return serialization - serializationBase;
+}
+
+std::size_t Ltp::hash_session_id_t::operator()(const session_id_t& sid) const {
+#ifdef USE_CRC32C_FAST
+    return static_cast<std::size_t>(_mm_crc32_u64(_mm_crc32_u64(UINT32_MAX, sid.sessionNumber), sid.sessionOriginatorEngineId));
+#else
+    return static_cast<std::size_t>(sid.sessionNumber ^ sid.sessionOriginatorEngineId);
+#endif
 }
 
 

@@ -23,7 +23,7 @@
 #include "LtpFragmentSet.h"
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
-#include <list>
+#include <queue>
 #include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
 #include "LtpTimerManager.h"
@@ -36,7 +36,7 @@
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr)> NotifyEngineThatThisSenderNeedsDeletedCallback_t;
 
-typedef boost::function<void()> NotifyEngineThatThisSendersTimersProducedDataFunction_t;
+typedef boost::function<void(const uint64_t sessionNumber)> NotifyEngineThatThisSenderHasProducibleDataFunction_t;
 
 class LtpSessionSender {
 private:
@@ -60,7 +60,7 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
-        const NotifyEngineThatThisSendersTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
+        const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
         const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
     LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
@@ -72,8 +72,8 @@ public:
     
 private:
     std::set<LtpFragmentSet::data_fragment_t> m_dataFragmentsAckedByReceiver;
-    std::list<std::vector<uint8_t> > m_nonDataToSend;
-    std::list<resend_fragment_t> m_resendFragmentsList;
+    std::queue<std::vector<uint8_t> > m_nonDataToSend;
+    std::queue<resend_fragment_t> m_resendFragmentsQueue;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
     LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
@@ -93,7 +93,7 @@ private:
     const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
-    const NotifyEngineThatThisSendersTimersProducedDataFunction_t m_notifyEngineThatThisSendersTimersProducedDataFunction;
+    const NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
     const InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
 
 public:

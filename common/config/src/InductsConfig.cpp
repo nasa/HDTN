@@ -31,6 +31,8 @@ induct_element_config_t::induct_element_config_t() :
     ltpRemoteUdpHostname(""),
     ltpRemoteUdpPort(0),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
+    ltpMaxExpectedSimultaneousSessions(0),
+
     keepAliveIntervalSeconds(0),
 
     tcpclV3MyMaxTxSegmentSizeBytes(0),
@@ -64,6 +66,8 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     ltpRemoteUdpHostname(o.ltpRemoteUdpHostname),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
+    ltpMaxExpectedSimultaneousSessions(o.ltpMaxExpectedSimultaneousSessions),
+
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
@@ -94,6 +98,8 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     ltpRemoteUdpHostname(std::move(o.ltpRemoteUdpHostname)),
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
+    ltpMaxExpectedSimultaneousSessions(o.ltpMaxExpectedSimultaneousSessions),
+
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
     tcpclV3MyMaxTxSegmentSizeBytes(o.tcpclV3MyMaxTxSegmentSizeBytes),
@@ -124,6 +130,8 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     ltpRemoteUdpHostname = o.ltpRemoteUdpHostname;
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
+    ltpMaxExpectedSimultaneousSessions = o.ltpMaxExpectedSimultaneousSessions;
+
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
@@ -156,6 +164,8 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     ltpRemoteUdpHostname = std::move(o.ltpRemoteUdpHostname);
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
+    ltpMaxExpectedSimultaneousSessions = o.ltpMaxExpectedSimultaneousSessions;
+
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
     tcpclV3MyMaxTxSegmentSizeBytes = o.tcpclV3MyMaxTxSegmentSizeBytes;
@@ -187,6 +197,8 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (ltpRemoteUdpHostname == o.ltpRemoteUdpHostname) &&
         (ltpRemoteUdpPort == o.ltpRemoteUdpPort) &&
         (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
+        (ltpMaxExpectedSimultaneousSessions == o.ltpMaxExpectedSimultaneousSessions) &&
+
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
         (tcpclV3MyMaxTxSegmentSizeBytes == o.tcpclV3MyMaxTxSegmentSizeBytes) &&
@@ -291,6 +303,7 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname");
                 inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort");
                 inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = inductElementConfigPt.second.get<uint64_t>("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize");
+                inductElementConfig.ltpMaxExpectedSimultaneousSessions = inductElementConfigPt.second.get<uint64_t>("ltpMaxExpectedSimultaneousSessions");
             }
             else {
                 static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpReportSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
@@ -415,6 +428,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("ltpRemoteUdpHostname", inductElementConfig.ltpRemoteUdpHostname);
             inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
             inductElementConfigPt.put("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
+            inductElementConfigPt.put("ltpMaxExpectedSimultaneousSessions", inductElementConfig.ltpMaxExpectedSimultaneousSessions);
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);

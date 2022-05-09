@@ -24,14 +24,14 @@
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include "LtpTimerManager.h"
-#include <list>
+#include <queue>
 #include <set>
 #include <boost/asio.hpp>
 #include "LtpNoticesToClientService.h"
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
 
-typedef boost::function<void()> NotifyEngineThatThisReceiversTimersProducedDataFunction_t;
+typedef boost::function<void(const Ltp::session_id_t & sessionId)> NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t;
 
 class LtpSessionReceiver {
 private:
@@ -45,7 +45,7 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-        const NotifyEngineThatThisReceiversTimersProducedDataFunction_t & notifyEngineThatThisSendersTimersProducedDataFunction,
+        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
         const uint32_t maxRetriesPerSerialNumber = 5);
 
     LTP_LIB_EXPORT ~LtpSessionReceiver();
@@ -64,7 +64,7 @@ private:
     std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
-    std::list<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendList; //pair<reportSerialNumber, retryCount>
+    std::queue<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
     LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
     uint64_t m_nextReportSegmentReportSerialNumber;
     padded_vector_uint8_t m_dataReceivedRed;
@@ -82,7 +82,7 @@ private:
     bool m_receivedEobFromGreenOrRed;
     boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
-    const NotifyEngineThatThisReceiversTimersProducedDataFunction_t m_notifyEngineThatThisReceiversTimersProducedDataFunction;
+    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
 
 public:
     //stats
