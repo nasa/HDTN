@@ -6,49 +6,49 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <set>
-#include "hdtn_gui_export.h"
-#ifndef CLASS_VISIBILITY_HDTN_GUI
+#include "gui_lib_export.h"
+#ifndef CLASS_VISIBILITY_GUI_LIB
 #  ifdef _WIN32
-#    define CLASS_VISIBILITY_HDTN_GUI
+#    define CLASS_VISIBILITY__GUI_LIB
 #  else
-#    define CLASS_VISIBILITY_HDTN_GUI HDTN_GUI_EXPORT
+#    define CLASS_VISIBILITY_GUI_LIB GUI_LIB_EXPORT
 #  endif
 #endif
 
-class CLASS_VISIBILITY_HDTN_GUI ExitHandler : public CivetHandler {
+class CLASS_VISIBILITY_GUI_LIB ExitHandler : public CivetHandler {
 public:
-    HDTN_GUI_EXPORT ExitHandler();
-    HDTN_GUI_EXPORT bool handleGet(CivetServer *server, struct mg_connection *conn);
+    GUI_LIB_EXPORT ExitHandler();
+    GUI_LIB_EXPORT bool handleGet(CivetServer *server, struct mg_connection *conn);
 
     volatile bool m_exitNow;
 };
 
-class CLASS_VISIBILITY_HDTN_GUI WebSocketHandler : public CivetWebSocketHandler {
+class CLASS_VISIBILITY_GUI_LIB WebSocketHandler : public CivetWebSocketHandler {
 public:
-    HDTN_GUI_EXPORT WebSocketHandler();
-    HDTN_GUI_EXPORT ~WebSocketHandler();
-    HDTN_GUI_EXPORT void SendTextDataToActiveWebsockets(const char * data, std::size_t size);
-    HDTN_GUI_EXPORT void SendBinaryDataToActiveWebsockets(const char * data, std::size_t size);
+    GUI_LIB_EXPORT WebSocketHandler();
+    GUI_LIB_EXPORT ~WebSocketHandler();
+    GUI_LIB_EXPORT void SendTextDataToActiveWebsockets(const char * data, std::size_t size);
+    GUI_LIB_EXPORT void SendBinaryDataToActiveWebsockets(const char * data, std::size_t size);
 
 private:
-    HDTN_GUI_NO_EXPORT virtual bool handleConnection(CivetServer *server, const struct mg_connection *conn);
-    HDTN_GUI_NO_EXPORT virtual void handleReadyState(CivetServer *server, struct mg_connection *conn);
-    HDTN_GUI_NO_EXPORT virtual bool handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len);
-    HDTN_GUI_NO_EXPORT virtual void handleClose(CivetServer *server, const struct mg_connection *conn);
+    GUI_LIB_NO_EXPORT virtual bool handleConnection(CivetServer *server, const struct mg_connection *conn);
+    GUI_LIB_NO_EXPORT virtual void handleReadyState(CivetServer *server, struct mg_connection *conn);
+    GUI_LIB_NO_EXPORT virtual bool handleData(CivetServer *server, struct mg_connection *conn, int bits, char *data, size_t data_len);
+    GUI_LIB_NO_EXPORT virtual void handleClose(CivetServer *server, const struct mg_connection *conn);
 
     boost::mutex m_mutex;
     //struct mg_connection * volatile m_activeConnection; //only allow one connection
     std::set<struct mg_connection *> m_activeConnections; //allow multiple connections
 };
 
-class CLASS_VISIBILITY_HDTN_GUI WebsocketServer {
+class CLASS_VISIBILITY_GUI_LIB WebsocketServer {
 public:
-    HDTN_GUI_EXPORT WebsocketServer(const std::string & documentRoot, const std::string & portNumberAsString);
-    HDTN_GUI_EXPORT bool RequestsExit();
-    HDTN_GUI_EXPORT void SendNewBinaryData(const char* data, std::size_t size);
-    HDTN_GUI_EXPORT void SendNewTextData(const char* data, std::size_t size);
-    HDTN_GUI_EXPORT void SendNewTextData(const std::string & data);
-    HDTN_GUI_EXPORT ~WebsocketServer();
+    GUI_LIB_EXPORT WebsocketServer(const std::string & documentRoot, const std::string & portNumberAsString);
+    GUI_LIB_EXPORT bool RequestsExit();
+    GUI_LIB_EXPORT void SendNewBinaryData(const char* data, std::size_t size);
+    GUI_LIB_EXPORT void SendNewTextData(const char* data, std::size_t size);
+    GUI_LIB_EXPORT void SendNewTextData(const std::string & data);
+    GUI_LIB_EXPORT ~WebsocketServer();
 
 private:
     WebsocketServer();

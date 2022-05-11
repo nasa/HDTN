@@ -1,6 +1,7 @@
 #include <boost/thread.hpp>
 #include <boost/make_shared.hpp>
 #include "WebsocketServer.h"
+#include "Environment.h"
 #include <iostream>
 #include <boost/filesystem.hpp>
 
@@ -13,7 +14,9 @@ void MonitorExitKeypressThreadFunction() {
 
 int main()
 {
-    const std::string DOCUMENT_ROOT = ".";
+    const boost::filesystem::path documentRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "gui"; //todo
+    const std::string DOCUMENT_ROOT = documentRootDir.string();
+
     const std::string HTML_FILE_NAME = "web_gui.html";
     const std::string PORT_NUMBER_AS_STRING = "8086";
 
@@ -30,6 +33,8 @@ int main()
 
     while (m_running && !server.RequestsExit()) {
         boost::this_thread::sleep(boost::posix_time::seconds(1));
+        //update webpage
+
     }
 
 
