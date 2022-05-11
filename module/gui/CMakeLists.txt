@@ -19,6 +19,7 @@ target_link_libraries(hdtn_gui
 		bpcodec
 		${civetweb_LIB}
 		${civetwebcpp_LIB}
+        ${CMAKE_DL_LIBS}
 )
 target_include_directories(hdtn_gui
 	PUBLIC
