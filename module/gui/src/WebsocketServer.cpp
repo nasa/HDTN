@@ -156,7 +156,7 @@ bool WebsocketServer::Run(int argc, const char* const argv[], volatile bool & ru
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("document-root", boost::program_options::value<std::string>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "gui").string()), "Document Root.")
+                ("document-root", boost::program_options::value<std::string>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src" ).string()), "Document Root.")
                 ("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Port number.")
                 ;
 
