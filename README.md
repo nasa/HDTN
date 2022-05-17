@@ -22,7 +22,7 @@ HDTN build environment requires:
 HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
 * Can be obtained from https://github.com/civetweb/civetweb
 * User must build its C and C++ libraries using cmake with websocket support enabled.
-* Set the Cmake cache variable USE_HDTN_GUI to On (default is Off)
+* Set the Cmake cache variable USE_WEB_INTERFACE to On (default is Off)
 * Set the Cmake variables to point to your civetweb installation: civetweb_INCLUDE, civetweb_LIB, civetwebcpp_LIB
 
 ## Optional X86 Hardware Acceleration ## 
@@ -148,8 +148,8 @@ Download the Civetweb repository. This MUST be a release version of the software
 * make build
 * make clean lib WITH_WEBSOCKET=1 WITH_CPP=1
 *
-Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_HDTN_GUI" section:
-* Set "USE_HDTN_GUI" to ON
+Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_WEB_INTERFACE" section:
+* Set "USE_WEB_INTERFACE" to ON
 * Move the CivetServer.h and civetweb.h files from the Civetweb directory to the civetweb_INCLUDE location for Linux.
 * Move the libcivetweb.a file to the corresponding civetweb_LIB location.
 

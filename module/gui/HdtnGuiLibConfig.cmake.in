@@ -13,6 +13,6 @@ set(civetweb_INCLUDE @civetweb_INCLUDE@)
 set(civetweb_LIB @civetweb_LIB@)
 set(civetwebcpp_LIB @civetwebcpp_LIB@)
 
-add_compile_definitions(USE_HDTN_GUI)
+add_compile_definitions(USE_WEB_INTERFACE)
 
 set(HDTNGUILIB_LIBRARIES HDTN::HdtnGuiLib)
