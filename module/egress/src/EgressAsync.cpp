@@ -23,8 +23,8 @@
 #include <boost/date_time.hpp>
 #include <boost/shared_ptr.hpp>
 #include <fstream>
-
 #include <sstream>
+
 
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
     //m_flags = 0;
@@ -86,8 +86,11 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 	    //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        }
-        else {
+            //socket for sending LinkStatus events from Egress to Scheduler
+	    m_zmqPushSock_connectingEgressToBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqPushSock_connectingEgressToBoundSchedulerPtr->connect(std::string("inproc://connecting_egress_to_bound_scheduler"));
+	
+	} else {
             // socket for cut-through mode straight to egress
             m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
             const std::string connect_boundIngressToConnectingEgressPath(
@@ -96,7 +99,8 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
                 std::string(":") +
                 boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
             m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(connect_boundIngressToConnectingEgressPath);
-            m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            
+	    m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
             const std::string connect_connectingEgressToBoundIngressPath(
                 std::string("tcp://") +
                 m_hdtnConfig.m_zmqIngressAddress +
@@ -123,7 +127,16 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
-            
+           
+            //socket for sending LinkStatus events from Egress to Scheduler
+            m_zmqPushSock_connectingEgressToBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+            const std::string connect_connectingEgressToBoundSchedulerPath(
+                std::string("tcp://") +
+                m_hdtnConfig.m_zmqSchedulerAddress +
+                std::string(":") +
+                boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+            m_zmqPushSock_connectingEgressToBoundSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
+
         }
 
         // socket for receiving events from router
@@ -215,6 +228,30 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
         }
      }
 }
+
+void hdtn::HegrManagerAsync::LinkStatusUpdate(const boost::system::error_code& e, uint64_t outductId,
+                                             uint8_t event, zmq::socket_t * ptrSocket) {
+
+    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << timeLocal << ": [Egress] Sending LinkStatus update event to Egress " << std::endl;
+
+        hdtn::LinkStatusHdr linkStatusMsg;
+        memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+        linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+        linkStatusMsg.event = event;
+        linkStatusMsg.uuid = outductId;
+        ptrSocket->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)),
+                        zmq::send_flags::none);
+
+    } else {
+        std::cout << "timer dt cancelled\n";
+    }
+}
+
+
+
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 

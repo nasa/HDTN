@@ -34,6 +34,7 @@ HdtnConfig::HdtnConfig() :
     m_zmqRouterAddress("localhost"),
     m_zmqBoundIngressToConnectingEgressPortPath(10100),
     m_zmqConnectingEgressToBoundIngressPortPath(10160),
+    m_zmqConnectingEgressToBoundSchedulerPortPath(10162),
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(10161),
     m_zmqBoundIngressToConnectingStoragePortPath(10110),
     m_zmqConnectingStorageToBoundIngressPortPath(10150),
@@ -76,6 +77,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_zmqRouterAddress(o.m_zmqRouterAddress),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
     m_zmqConnectingEgressToBoundIngressPortPath(o.m_zmqConnectingEgressToBoundIngressPortPath),
+    m_zmqConnectingEgressToBoundSchedulerPortPath(o.m_zmqConnectingEgressToBoundSchedulerPortPath),
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath),
     m_zmqBoundIngressToConnectingStoragePortPath(o.m_zmqBoundIngressToConnectingStoragePortPath),
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
@@ -115,6 +117,7 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_zmqRouterAddress(std::move(o.m_zmqRouterAddress)),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
     m_zmqConnectingEgressToBoundIngressPortPath(o.m_zmqConnectingEgressToBoundIngressPortPath),
+    m_zmqConnectingEgressToBoundSchedulerPortPath(o.m_zmqConnectingEgressToBoundSchedulerPortPath),
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath(o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath),
     m_zmqBoundIngressToConnectingStoragePortPath(o.m_zmqBoundIngressToConnectingStoragePortPath),
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
@@ -154,6 +157,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_zmqRouterAddress = o.m_zmqRouterAddress;
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
     m_zmqConnectingEgressToBoundIngressPortPath = o.m_zmqConnectingEgressToBoundIngressPortPath;
+    m_zmqConnectingEgressToBoundSchedulerPortPath = o.m_zmqConnectingEgressToBoundSchedulerPortPath;
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
     m_zmqBoundIngressToConnectingStoragePortPath = o.m_zmqBoundIngressToConnectingStoragePortPath;
     m_zmqConnectingStorageToBoundIngressPortPath = o.m_zmqConnectingStorageToBoundIngressPortPath;
@@ -194,6 +198,7 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_zmqRouterAddress = std::move(o.m_zmqRouterAddress);
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
     m_zmqConnectingEgressToBoundIngressPortPath = o.m_zmqConnectingEgressToBoundIngressPortPath;
+    m_zmqConnectingEgressToBoundSchedulerPortPath = o.m_zmqConnectingEgressToBoundSchedulerPortPath;
     m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath;
     m_zmqBoundIngressToConnectingStoragePortPath = o.m_zmqBoundIngressToConnectingStoragePortPath;
     m_zmqConnectingStorageToBoundIngressPortPath = o.m_zmqConnectingStorageToBoundIngressPortPath;
@@ -233,6 +238,7 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_zmqRouterAddress == o.m_zmqRouterAddress) &&
 	(m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
         (m_zmqConnectingEgressToBoundIngressPortPath == o.m_zmqConnectingEgressToBoundIngressPortPath) &&
+	(m_zmqConnectingEgressToBoundSchedulerPortPath == o.m_zmqConnectingEgressToBoundSchedulerPortPath) &&
         (m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath == o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath) &&
         (m_zmqBoundIngressToConnectingStoragePortPath == o.m_zmqBoundIngressToConnectingStoragePortPath) &&
         (m_zmqConnectingStorageToBoundIngressPortPath == o.m_zmqConnectingStorageToBoundIngressPortPath) &&
@@ -281,7 +287,8 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_zmqRouterAddress = pt.get<std::string>("zmqRouterAddress");
         m_zmqBoundIngressToConnectingEgressPortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingEgressPortPath");
         m_zmqConnectingEgressToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundIngressPortPath");
-        m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath");
+        m_zmqConnectingEgressToBoundSchedulerPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundSchedulerPortPath");
+	m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath");
         m_zmqBoundIngressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingStoragePortPath");
         m_zmqConnectingStorageToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundIngressPortPath");
         m_zmqConnectingStorageToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundEgressPortPath");
@@ -376,6 +383,7 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("zmqRouterAddress", m_zmqRouterAddress);
     pt.put("zmqBoundIngressToConnectingEgressPortPath", m_zmqBoundIngressToConnectingEgressPortPath);
     pt.put("zmqConnectingEgressToBoundIngressPortPath", m_zmqConnectingEgressToBoundIngressPortPath);
+    pt.put("zmqConnectingEgressToBoundSchedulerPortPath", m_zmqConnectingEgressToBoundSchedulerPortPath);
     pt.put("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath", m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath);
     pt.put("zmqBoundIngressToConnectingStoragePortPath", m_zmqBoundIngressToConnectingStoragePortPath);
     pt.put("zmqConnectingStorageToBoundIngressPortPath", m_zmqConnectingStorageToBoundIngressPortPath);
