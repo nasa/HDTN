@@ -11,7 +11,6 @@
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/tokenizer.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 #include "SignalHandler.h"
 #include <boost/program_options.hpp>
@@ -35,12 +34,12 @@ bool ExitHandler::handleGet(CivetServer *server, struct mg_connection *conn) {
 
 
 
-WebSocketHandler::WebSocketHandler() : CivetWebSocketHandler() {
+WebSocketHandler::WebSocketHandler(zmq::context_t * hdtnOneProcessZmqInprocContextPtr) : CivetWebSocketHandler() {
 
     //start zmq thread
     m_running = true;
     m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
-        boost::bind(&WebSocketHandler::ReadZmqThreadFunc, this)); //create and start the worker thread
+        boost::bind(&WebSocketHandler::ReadZmqThreadFunc, this, hdtnOneProcessZmqInprocContextPtr)); //create and start the worker thread
 
 }
 
@@ -123,13 +122,122 @@ void WebSocketHandler::handleClose(CivetServer *server, const struct mg_connecti
     printf("WS closed\n");
 }
 
-void WebSocketHandler::ReadZmqThreadFunc() {
+void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
+    std::unique_ptr<zmq::context_t> zmqCtxPtr;
+    std::unique_ptr<zmq::socket_t> zmqPushSock_connectingGuiToBoundIngressPtr;
+    std::unique_ptr<zmq::socket_t> zmqPullSock_boundIngressToConnectingGuiPtr;
+
+    const uint8_t guiByteSignal = 1;
+    const zmq::const_buffer guiByteSignalBuf(&guiByteSignal, sizeof(guiByteSignal));
+    
+    try {
+        if (hdtnOneProcessZmqInprocContextPtr) {
+
+            // socket for cut-through mode straight to egress
+            //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
+            //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one. 
+
+            
+            zmqPushSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            zmqPushSock_connectingGuiToBoundIngressPtr->connect(std::string("inproc://connecting_gui_to_bound_ingress"));
+
+            zmqPullSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            zmqPullSock_boundIngressToConnectingGuiPtr->connect(std::string("inproc://bound_ingress_to_connecting_gui"));
+            
+        }
+        else {
+            zmqCtxPtr = boost::make_unique<zmq::context_t>();
+            
+            zmqPushSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::push);
+            const std::string connect_connectingGuiToBoundIngressPath("tcp://localhost:10301");
+            zmqPushSock_connectingGuiToBoundIngressPtr->connect(connect_connectingGuiToBoundIngressPath);
+            
+            zmqPullSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::pull);
+            const std::string connect_boundIngressToConnectingGuiPath("tcp://localhost:10302");
+            zmqPullSock_boundIngressToConnectingGuiPtr->connect(connect_boundIngressToConnectingGuiPath);
+        }
+    }
+    catch (const zmq::error_t & ex) {
+        std::cerr << "error: gui cannot connect zmq socket: " << ex.what() << std::endl;
+        return;
+    }
+
+    //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
+    //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
+    zmqPushSock_connectingGuiToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+
+    boost::asio::io_service ioService;
+    boost::posix_time::time_duration sleepValTimeDuration = boost::posix_time::milliseconds(1000);
+    boost::asio::deadline_timer deadlineTimer(ioService, sleepValTimeDuration);
+
+    static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
+    static constexpr unsigned int NUM_SOCKETS = 1;
+
+    zmq::pollitem_t items[NUM_SOCKETS] = {
+        {zmqPullSock_boundIngressToConnectingGuiPtr->handle(), 0, ZMQ_POLLIN, 0}
+    };
+    
+    
     while (m_running) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
+        //sleep for 1 second
+        boost::system::error_code ec;
+        deadlineTimer.wait(ec);
+        if (ec) {
+            std::cout << "timer error: " << ec.message() << std::endl;
+            return;
+        }
+        deadlineTimer.expires_at(deadlineTimer.expires_at() + sleepValTimeDuration);
+
         std::cout << "loop\n";
+        //send signals to all hdtn modules
+        if (!zmqPushSock_connectingGuiToBoundIngressPtr->send(guiByteSignalBuf ,zmq::send_flags::dontwait)) {
+            std::cerr << "gui can't send signal to ingress" << std::endl;
+        }
+
+        //wait for telemetry from all modules
+        unsigned int moduleMask = 0;
+        for (unsigned int attempt = 0; attempt < 4; ++attempt) {
+            if (moduleMask == 0x1) { //ingress only for now
+                break; //got all telemetry
+            }
+            int rc = 0;
+            try {
+                rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
+            }
+            catch (zmq::error_t & e) {
+                std::cout << "caught zmq::error_t in WebSocketHandler::ReadZmqThreadFunc: " << e.what() << std::endl;
+                continue;
+            }
+            if (rc > 0) {
+                if (items[0].revents & ZMQ_POLLIN) { //ingress telemetry received
+                    uint64_t telem;
+                    const zmq::recv_buffer_result_t res = zmqPullSock_boundIngressToConnectingGuiPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
+                    if (!res) {
+                        std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read ingress telemetry" << std::endl;
+                    }
+                    else if ((res->truncated()) || (res->size != sizeof(telem))) {
+                        std::cerr << "ingress telemetry message mismatch: untruncated = " << res->untruncated_size
+                            << " truncated = " << res->size << " expected = " << sizeof(telem) << std::endl;
+                    }
+                    else {
+                        //process ingress telemetry
+                        moduleMask |= 0x1;
+                        std::cout << "ingress rx telem=" << telem << "\n";
+                    }
+                }
+            }
+        }
+
+        //process all telemetry
+        if (moduleMask != 0x1) { //ingress only for now
+            std::cout << "did not get telemetry from all modules\n";
+        }
     }
     std::cout << "ReadZmqThreadFunc exiting\n";
+    zmqPullSock_boundIngressToConnectingGuiPtr.reset();
+    zmqPushSock_connectingGuiToBoundIngressPtr.reset();
+    zmqCtxPtr.reset();
 }
 
 
@@ -139,6 +247,29 @@ WebsocketServer::WebsocketServer() {}
 void WebsocketServer::MonitorExitKeypressThreadFunction() {
     std::cout << "Keyboard Interrupt.. exiting\n";
     m_runningFromSigHandler = false; //do this first
+}
+
+bool WebsocketServer::Init(const std::string & documentRoot, const std::string & portNumberAsString, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+    std::cout << "starting websocket server\n";
+    const char *options[] = {
+    "document_root", documentRoot.c_str(), "listening_ports", portNumberAsString.c_str(), 0 };
+
+    std::vector<std::string> cpp_options;
+    for (int i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); i++) {
+        cpp_options.push_back(options[i]);
+    }
+
+    m_civetServerPtr = boost::make_unique<CivetServer>(cpp_options);
+    m_exitHandlerPtr = boost::make_unique<ExitHandler>();
+    m_websocketHandlerPtr = boost::make_unique<WebSocketHandler>(hdtnOneProcessZmqInprocContextPtr);
+
+    m_civetServerPtr->addHandler(EXIT_URI, *m_exitHandlerPtr);
+    m_civetServerPtr->addWebSocketHandler("/websocket", *m_websocketHandlerPtr);
+
+    std::cout << "Run server at http://localhost:" << portNumberAsString << std::endl;
+    std::cout << "Exit at http://localhost:" << portNumberAsString << EXIT_URI << std::endl;
+
+    return true;
 }
 
 bool WebsocketServer::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
@@ -201,25 +332,8 @@ bool WebsocketServer::Run(int argc, const char* const argv[], volatile bool & ru
             return false;
         }
 
-
-        std::cout << "starting websocket server\n";
-        const char *options[] = {
-        "document_root", DOCUMENT_ROOT.c_str(), "listening_ports", PORT_NUMBER_AS_STRING.c_str(), 0 };
-
-        std::vector<std::string> cpp_options;
-        for (int i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); i++) {
-            cpp_options.push_back(options[i]);
-        }
-
-        m_civetServerSharedPtr = boost::shared_ptr<CivetServer>(new CivetServer(cpp_options));
-        m_exitHandlerSharedPtr = boost::shared_ptr<ExitHandler>(new ExitHandler());
-        m_websocketHandlerSharedPtr = boost::shared_ptr<WebSocketHandler>(new WebSocketHandler());
-
-        m_civetServerSharedPtr->addHandler(EXIT_URI, *m_exitHandlerSharedPtr);
-        m_civetServerSharedPtr->addWebSocketHandler("/websocket", *m_websocketHandlerSharedPtr);
-
-        std::cout << "Run server at http://localhost:" << PORT_NUMBER_AS_STRING << std::endl;
-        std::cout << "Exit at http://localhost:" << PORT_NUMBER_AS_STRING << EXIT_URI << std::endl;
+        Init(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING, NULL);
+        
 
         if (useSignalHandler) {
             sigHandler.Start(false);
@@ -242,27 +356,27 @@ bool WebsocketServer::Run(int argc, const char* const argv[], volatile bool & ru
 }
 
 bool WebsocketServer::RequestsExit() {
-    return m_exitHandlerSharedPtr->m_exitNow;
+    return m_exitHandlerPtr->m_exitNow;
 }
 
 void WebsocketServer::SendNewBinaryData(const char* data, std::size_t size) {
-    m_websocketHandlerSharedPtr->SendBinaryDataToActiveWebsockets(data, size);
+    m_websocketHandlerPtr->SendBinaryDataToActiveWebsockets(data, size);
 }
 
 void WebsocketServer::SendNewTextData(const char* data, std::size_t size) {
-    m_websocketHandlerSharedPtr->SendTextDataToActiveWebsockets(data, size);
+    m_websocketHandlerPtr->SendTextDataToActiveWebsockets(data, size);
 }
 
 void WebsocketServer::SendNewTextData(const std::string & data) {
-    m_websocketHandlerSharedPtr->SendTextDataToActiveWebsockets(data.c_str(), data.size());
+    m_websocketHandlerPtr->SendTextDataToActiveWebsockets(data.c_str(), data.size());
 }
 
 WebsocketServer::~WebsocketServer() {
     //m_civetServerSharedPtr->removeHandler(EXIT_URI);
     //m_civetServerSharedPtr->removeWebSocketHandler("/websocket");
-    m_civetServerSharedPtr = boost::shared_ptr<CivetServer>(); //delete main server before handlers to prevent crash
-    m_exitHandlerSharedPtr = boost::shared_ptr<ExitHandler>();
-    m_websocketHandlerSharedPtr = boost::shared_ptr<WebSocketHandler>();
+    m_civetServerPtr.reset(); //delete main server before handlers to prevent crash
+    m_exitHandlerPtr.reset();
+    m_websocketHandlerPtr.reset();
 }
 
 

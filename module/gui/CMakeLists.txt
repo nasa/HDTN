@@ -9,7 +9,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 set(MY_PUBLIC_HEADERS
     include/WebsocketServer.h
-	${CMAKE_CURRENT_BINARY_DIR}/hdtn_gui_export.h
+	${CMAKE_CURRENT_BINARY_DIR}/gui_lib_export.h
 )
 set_target_properties(gui_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 target_link_libraries(gui_lib

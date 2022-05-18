@@ -95,6 +95,12 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
                 // socket for receiving bundles from egress via tcpcl outduct opportunistic link (because tcpcl can be bidirectional)
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(std::string("inproc://connecting_egress_bundles_only_to_bound_ingress"));
+
+                m_zmqPullSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+                m_zmqPullSock_connectingGuiToBoundIngressPtr->bind(std::string("inproc://connecting_gui_to_bound_ingress"));
+
+                m_zmqPushSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+                m_zmqPushSock_boundIngressToConnectingGuiPtr->bind(std::string("inproc://bound_ingress_to_connecting_gui"));
             }
             else {
                 // socket for cut-through mode straight to egress
@@ -122,6 +128,14 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
                 const std::string bind_connectingEgressBundlesOnlyToBoundIngressPath(
                     std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath));
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(bind_connectingEgressBundlesOnlyToBoundIngressPath);
+
+                m_zmqPullSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+                const std::string bind_connectingGuiToBoundIngressPath("tcp://*:10301");
+                m_zmqPullSock_connectingGuiToBoundIngressPtr->bind(bind_connectingGuiToBoundIngressPath);
+
+                m_zmqPushSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
+                const std::string bind_boundIngressToConnectingGuiPath("tcp://*:10302");
+                m_zmqPushSock_boundIngressToConnectingGuiPtr->bind(bind_boundIngressToConnectingGuiPath);
             }
         }
         catch (const zmq::error_t & ex) {
@@ -168,12 +182,13 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
 
 void Ingress::ReadZmqAcksThreadFunc() {
 
-    static constexpr unsigned int NUM_SOCKETS = 3;
+    static constexpr unsigned int NUM_SOCKETS = 4;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSock_connectingGuiToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     std::size_t totalAcksFromStorage = 0;
@@ -269,6 +284,28 @@ void Ingress::ReadZmqAcksThreadFunc() {
             }
             if (items[2].revents & ZMQ_POLLIN) { //events from Scheduler
                 SchedulerEventHandler();
+            }
+            if (items[3].revents & ZMQ_POLLIN) { //gui requests data
+                uint8_t guiMsgByte;
+                const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingGuiToBoundIngressPtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
+                if (!res) {
+                    std::cerr << "error in Ingress::ReadZmqAcksThreadFunc: cannot read guiMsgByte" << std::endl;
+                }
+                else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
+                    std::cerr << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte) << std::endl;
+                }
+                else if (guiMsgByte != 1) {
+                    std::cerr << "error guiMsgByte not 1\n";
+                }
+                else {
+                    //send telemetry
+                    std::cout << "ingress send telem\n";
+                    uint64_t telem = 9100;
+                    if (!m_zmqPushSock_boundIngressToConnectingGuiPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+                        std::cerr << "ingress can't send telemetry to gui" << std::endl;
+                    }
+                }
             }
         }
     }
