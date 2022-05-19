@@ -50,6 +50,9 @@ public:
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
 
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingGuiToBoundEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingGuiPtr;
+
     std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
     EGRESS_ASYNC_LIB_EXPORT void RouterEventHandler();
