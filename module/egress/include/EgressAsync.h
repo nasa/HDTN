@@ -50,8 +50,7 @@ public:
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingGuiToBoundEgressPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingGuiPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundEgressPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;

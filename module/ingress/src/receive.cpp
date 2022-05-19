@@ -97,11 +97,9 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(std::string("inproc://connecting_egress_bundles_only_to_bound_ingress"));
 
                 //from gui socket
-                m_zmqPullSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPullSock_connectingGuiToBoundIngressPtr->bind(std::string("inproc://connecting_gui_to_bound_ingress"));
-                //to gui socket
-                m_zmqPushSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-                m_zmqPushSock_boundIngressToConnectingGuiPtr->bind(std::string("inproc://bound_ingress_to_connecting_gui"));
+                m_zmqRepSock_connectingGuiToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+                m_zmqRepSock_connectingGuiToFromBoundIngressPtr->bind(std::string("inproc://connecting_gui_to_from_bound_ingress"));
+
             }
             else {
                 // socket for cut-through mode straight to egress
@@ -131,13 +129,10 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
                 m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->bind(bind_connectingEgressBundlesOnlyToBoundIngressPath);
 
                 //from gui socket
-                m_zmqPullSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
-                const std::string bind_connectingGuiToBoundIngressPath("tcp://*:10301");
-                m_zmqPullSock_connectingGuiToBoundIngressPtr->bind(bind_connectingGuiToBoundIngressPath);
-                //to gui socket
-                m_zmqPushSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
-                const std::string bind_boundIngressToConnectingGuiPath("tcp://*:10302");
-                m_zmqPushSock_boundIngressToConnectingGuiPtr->bind(bind_boundIngressToConnectingGuiPath);
+                m_zmqRepSock_connectingGuiToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
+                const std::string bind_connectingGuiToFromBoundIngressPath("tcp://*:10301");
+                m_zmqRepSock_connectingGuiToFromBoundIngressPtr->bind(bind_connectingGuiToFromBoundIngressPath);
+                
             }
         }
         catch (const zmq::error_t & ex) {
@@ -147,7 +142,7 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
 
         //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
         //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
-        m_zmqPushSock_boundIngressToConnectingGuiPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqRepSock_connectingGuiToFromBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundIngressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
@@ -198,7 +193,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
         {m_zmqPullSock_connectingEgressToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundSchedulerToConnectingIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqPullSock_connectingGuiToBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqRepSock_connectingGuiToFromBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
     std::size_t totalAcksFromStorage = 0;
@@ -297,7 +292,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
             }
             if (items[3].revents & ZMQ_POLLIN) { //gui requests data
                 uint8_t guiMsgByte;
-                const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingGuiToBoundIngressPtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundIngressPtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
                     std::cerr << "error in Ingress::ReadZmqAcksThreadFunc: cannot read guiMsgByte" << std::endl;
                 }
@@ -312,7 +307,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                     //send telemetry
                     //std::cout << "ingress send telem\n";
                     uint64_t telem = 9100;
-                    if (!m_zmqPushSock_boundIngressToConnectingGuiPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+                    if (!m_zmqRepSock_connectingGuiToFromBoundIngressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
                         std::cerr << "ingress can't send telemetry to gui" << std::endl;
                     }
                 }

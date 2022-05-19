@@ -100,8 +100,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingGuiToBoundIngressPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingGuiPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundIngressPtr;
 
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;

@@ -62,7 +62,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundStoragePtr;
 
     hdtn::StorageStats storageStats;
     HdtnConfig m_hdtnConfig;

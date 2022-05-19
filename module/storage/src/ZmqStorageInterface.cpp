@@ -55,29 +55,20 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
     //{
 
     m_zmqContextPtr = boost::make_unique<zmq::context_t>();
-
-    //telemetry not implemnted yet
-    m_telemetrySockPtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
-    try {
-        m_telemetrySockPtr->bind(HDTN_STORAGE_TELEM_PATH);
-    }
-    catch (const zmq::error_t & ex) {
-        std::cerr << "error: cannot bind telemetry socket: " << ex.what() << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "Error: cannot bind telemetry socket: " + std::string(ex.what()));
-        return false;
-    }
     
 
     if (hdtnOneProcessZmqInprocContextPtr) {
         m_zmqPushSock_connectingStorageToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPullSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         m_zmqPushSock_connectingStorageToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-        m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqPullSock_boundIngressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+        m_zmqRepSock_connectingGuiToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(std::string("inproc://connecting_storage_to_bound_egress")); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(std::string("inproc://bound_egress_to_connecting_storage")); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(std::string("inproc://connecting_storage_to_bound_ingress"));
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(std::string("inproc://bound_ingress_to_connecting_storage"));
+            m_zmqRepSock_connectingGuiToFromBoundStoragePtr->bind(std::string("inproc://connecting_gui_to_from_bound_storage"));
         }
         catch (const zmq::error_t & ex) {
             std::cerr << "error in ZmqStorageInterface::Init: cannot connect inproc socket: " << ex.what() << std::endl;
@@ -114,11 +105,16 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
             std::string(":") +
             boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingStoragePortPath));
 
+        //from gui socket
+        m_zmqRepSock_connectingGuiToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
+        const std::string bind_connectingGuiToFromBoundStoragePath("tcp://*:10303");
+
         try {
             m_zmqPushSock_connectingStorageToBoundEgressPtr->connect(connect_connectingStorageToBoundEgressPath); // egress should bind
             m_zmqPullSock_boundEgressToConnectingStoragePtr->connect(connect_boundEgressToConnectingStoragePath); // egress should bind
             m_zmqPushSock_connectingStorageToBoundIngressPtr->connect(connect_connectingStorageToBoundIngressPath);
             m_zmqPullSock_boundIngressToConnectingStoragePtr->connect(connect_boundIngressToConnectingStoragePath);
+            m_zmqRepSock_connectingGuiToFromBoundStoragePtr->bind(bind_connectingGuiToFromBoundStoragePath);
         }
         catch (const zmq::error_t & ex) {
             std::cerr << "error: cannot connect socket: " << ex.what() << std::endl;
@@ -632,7 +628,7 @@ void ZmqStorageInterface::ThreadFunc() {
         {m_zmqPullSock_boundEgressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_telemetrySockPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqRepSock_connectingGuiToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
@@ -806,25 +802,26 @@ void ZmqStorageInterface::ThreadFunc() {
 		}
                 PrintReleasedLinks(availableDestLinksSet);
             }
-            if (pollItems[3].revents & ZMQ_POLLIN) { //telemetry messages
-                hdtn::CommonHdr commonHeader;
-                const zmq::recv_buffer_result_t res = m_telemetrySockPtr->recv(zmq::mutable_buffer(&commonHeader, sizeof(hdtn::CommonHdr)), zmq::recv_flags::none);
+            if (pollItems[3].revents & ZMQ_POLLIN) { //gui requests data
+                uint8_t guiMsgByte;
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) message hdr not received" << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) message hdr not received");
-                    continue;
+                    std::cerr << "error in ZmqStorageInterface::ThreadFunc: cannot read guiMsgByte" << std::endl;
                 }
-                else if ((res->truncated()) || (res->size != sizeof(hdtn::CommonHdr))) {
-                    std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) size != sizeof(hdtn::CommonHdr)" << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from telemetry sock) size != sizeof(hdtn::CommonHdr)");
-                    continue;
+                else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
+                    std::cerr << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte) << std::endl;
                 }
-                
-                switch (commonHeader.type) {
-                case HDTN_MSGTYPE_CSCHED_REQ:
-                    break;
-                case HDTN_MSGTYPE_CTELEM_REQ:
-                    break;
+                else if (guiMsgByte != 1) {
+                    std::cerr << "error guiMsgByte not 1\n";
+                }
+                else {
+                    //send telemetry
+                    //std::cout << "storage send telem\n";
+                    uint64_t telem = 9300;
+                    if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+                        std::cerr << "storage can't send telemetry to gui" << std::endl;
+                    }
                 }
             }
         }

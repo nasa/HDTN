@@ -126,11 +126,11 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
 
     std::unique_ptr<zmq::context_t> zmqCtxPtr;
     //ingress
-    std::unique_ptr<zmq::socket_t> zmqPushSock_connectingGuiToBoundIngressPtr;
-    std::unique_ptr<zmq::socket_t> zmqPullSock_boundIngressToConnectingGuiPtr;
+    std::unique_ptr<zmq::socket_t> zmqReqSock_connectingGuiToFromBoundIngressPtr;
     //egress
-    std::unique_ptr<zmq::socket_t> zmqPushSock_connectingGuiToBoundEgressPtr;
-    std::unique_ptr<zmq::socket_t> zmqPullSock_boundEgressToConnectingGuiPtr;
+    std::unique_ptr<zmq::socket_t> zmqReqSock_connectingGuiToFromBoundEgressPtr;
+    //storage
+    std::unique_ptr<zmq::socket_t> zmqReqSock_connectingGuiToFromBoundStoragePtr;
 
     const uint8_t guiByteSignal = 1;
     const zmq::const_buffer guiByteSignalBuf(&guiByteSignal, sizeof(guiByteSignal));
@@ -141,40 +141,31 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
             // socket for cut-through mode straight to egress
             //The io_threads argument specifies the size of the 0MQ thread pool to handle I/O operations.
             //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one. 
+            zmqReqSock_connectingGuiToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            zmqReqSock_connectingGuiToFromBoundIngressPtr->connect(std::string("inproc://connecting_gui_to_from_bound_ingress"));
 
+            zmqReqSock_connectingGuiToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            zmqReqSock_connectingGuiToFromBoundEgressPtr->connect(std::string("inproc://connecting_gui_to_from_bound_egress"));
             
-            zmqPushSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            zmqPushSock_connectingGuiToBoundIngressPtr->connect(std::string("inproc://connecting_gui_to_bound_ingress"));
-
-            zmqPullSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            zmqPullSock_boundIngressToConnectingGuiPtr->connect(std::string("inproc://bound_ingress_to_connecting_gui"));
-
-            zmqPushSock_connectingGuiToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            zmqPushSock_connectingGuiToBoundEgressPtr->connect(std::string("inproc://connecting_gui_to_bound_egress"));
-
-            zmqPullSock_boundEgressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            zmqPullSock_boundEgressToConnectingGuiPtr->connect(std::string("inproc://bound_egress_to_connecting_gui"));
-            
+            zmqReqSock_connectingGuiToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            zmqReqSock_connectingGuiToFromBoundStoragePtr->connect(std::string("inproc://connecting_gui_to_from_bound_storage"));
         }
         else {
             zmqCtxPtr = boost::make_unique<zmq::context_t>();
             //ingress
-            zmqPushSock_connectingGuiToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::push);
-            const std::string connect_connectingGuiToBoundIngressPath("tcp://localhost:10301");
-            zmqPushSock_connectingGuiToBoundIngressPtr->connect(connect_connectingGuiToBoundIngressPath);
+            zmqReqSock_connectingGuiToFromBoundIngressPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::req);
+            const std::string connect_connectingGuiToFromBoundIngressPath("tcp://localhost:10301");
+            zmqReqSock_connectingGuiToFromBoundIngressPtr->connect(connect_connectingGuiToFromBoundIngressPath);
             
-            zmqPullSock_boundIngressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::pull);
-            const std::string connect_boundIngressToConnectingGuiPath("tcp://localhost:10302");
-            zmqPullSock_boundIngressToConnectingGuiPtr->connect(connect_boundIngressToConnectingGuiPath);
-
             //egress
-            zmqPushSock_connectingGuiToBoundEgressPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::push);
-            const std::string connect_connectingGuiToBoundEgressPath("tcp://localhost:10303");
-            zmqPushSock_connectingGuiToBoundEgressPtr->connect(connect_connectingGuiToBoundEgressPath);
+            zmqReqSock_connectingGuiToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::req);
+            const std::string connect_connectingGuiToFromBoundEgressPath("tcp://localhost:10302");
+            zmqReqSock_connectingGuiToFromBoundEgressPtr->connect(connect_connectingGuiToFromBoundEgressPath);
 
-            zmqPullSock_boundEgressToConnectingGuiPtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::pull);
-            const std::string connect_boundEgressToConnectingGuiPath("tcp://localhost:10304");
-            zmqPullSock_boundEgressToConnectingGuiPtr->connect(connect_boundEgressToConnectingGuiPath);
+            //storage
+            zmqReqSock_connectingGuiToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*zmqCtxPtr, zmq::socket_type::req);
+            const std::string connect_connectingGuiToFromBoundStoragePath("tcp://localhost:10303");
+            zmqReqSock_connectingGuiToFromBoundStoragePtr->connect(connect_connectingGuiToFromBoundStoragePath);
         }
     }
     catch (const zmq::error_t & ex) {
@@ -184,10 +175,9 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
 
     //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
     //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
-    zmqPushSock_connectingGuiToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-    zmqPushSock_connectingGuiToBoundEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-    zmqPullSock_boundIngressToConnectingGuiPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
-    zmqPullSock_boundEgressToConnectingGuiPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+    zmqReqSock_connectingGuiToFromBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+    zmqReqSock_connectingGuiToFromBoundEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+    zmqReqSock_connectingGuiToFromBoundStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
 
 
@@ -196,11 +186,12 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
     boost::asio::deadline_timer deadlineTimer(ioService, sleepValTimeDuration);
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
-    static constexpr unsigned int NUM_SOCKETS = 2;
+    static constexpr unsigned int NUM_SOCKETS = 3;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
-        {zmqPullSock_boundIngressToConnectingGuiPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {zmqPullSock_boundEgressToConnectingGuiPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {zmqReqSock_connectingGuiToFromBoundIngressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {zmqReqSock_connectingGuiToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {zmqReqSock_connectingGuiToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     
     while (m_running) {
@@ -213,19 +204,39 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
         }
         deadlineTimer.expires_at(deadlineTimer.expires_at() + sleepValTimeDuration);
 
-        std::cout << "loop\n";
+        //std::cout << "loop\n";
         //send signals to all hdtn modules
-        if (!zmqPushSock_connectingGuiToBoundIngressPtr->send(guiByteSignalBuf, zmq::send_flags::dontwait)) {
-            std::cerr << "gui can't send signal to ingress" << std::endl;
+        try {
+            if (!zmqReqSock_connectingGuiToFromBoundIngressPtr->send(guiByteSignalBuf, zmq::send_flags::dontwait)) {
+                std::cerr << "gui can't send signal to ingress" << std::endl;
+            }
         }
-        if (!zmqPushSock_connectingGuiToBoundEgressPtr->send(guiByteSignalBuf, zmq::send_flags::dontwait)) {
-            std::cerr << "gui can't send signal to egress" << std::endl;
+        catch (zmq::error_t &) {
+            std::cout << "request already sent to ingress\n";
+        }
+
+        try {
+            if (!zmqReqSock_connectingGuiToFromBoundEgressPtr->send(guiByteSignalBuf, zmq::send_flags::dontwait)) {
+                std::cerr << "gui can't send signal to egress" << std::endl;
+            }
+        }
+        catch (zmq::error_t &) {
+            std::cout << "request already sent to egress\n";
+        }
+
+        try {
+            if (!zmqReqSock_connectingGuiToFromBoundStoragePtr->send(guiByteSignalBuf, zmq::send_flags::dontwait)) {
+                std::cerr << "gui can't send signal to storage" << std::endl;
+            }
+        }
+        catch (zmq::error_t &) {
+            std::cout << "request already sent to storage\n";
         }
 
         //wait for telemetry from all modules
         unsigned int moduleMask = 0;
         for (unsigned int attempt = 0; attempt < 4; ++attempt) {
-            if (moduleMask == 0x3) { //ingress and egress only for now
+            if (moduleMask == 0x7) { //ingress=bit0, egress=bit1, storage=bit2
                 break; //got all telemetry
             }
             int rc = 0;
@@ -239,7 +250,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
             if (rc > 0) {
                 if (items[0].revents & ZMQ_POLLIN) { //ingress telemetry received
                     uint64_t telem;
-                    const zmq::recv_buffer_result_t res = zmqPullSock_boundIngressToConnectingGuiPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
+                    const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundIngressPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
                     if (!res) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read ingress telemetry" << std::endl;
                     }
@@ -255,7 +266,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                 }
                 if (items[1].revents & ZMQ_POLLIN) { //egress telemetry received
                     uint64_t telem;
-                    const zmq::recv_buffer_result_t res = zmqPullSock_boundEgressToConnectingGuiPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
+                    const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundEgressPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
                     if (!res) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read egress telemetry" << std::endl;
                     }
@@ -269,19 +280,34 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                         std::cout << "egress rx telem=" << telem << "\n";
                     }
                 }
+                if (items[2].revents & ZMQ_POLLIN) { //storage telemetry received
+                    uint64_t telem;
+                    const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
+                    if (!res) {
+                        std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read storage telemetry" << std::endl;
+                    }
+                    else if ((res->truncated()) || (res->size != sizeof(telem))) {
+                        std::cerr << "storage telemetry message mismatch: untruncated = " << res->untruncated_size
+                            << " truncated = " << res->size << " expected = " << sizeof(telem) << std::endl;
+                    }
+                    else {
+                        //process egress telemetry
+                        moduleMask |= 0x4;
+                        std::cout << "storage rx telem=" << telem << "\n";
+                    }
+                }
             }
         }
 
         //process all telemetry
-        if (moduleMask != 0x3) { //ingress and egress only for now
+        if (moduleMask != 0x7) {
             std::cout << "did not get telemetry from all modules\n";
         }
     }
     std::cout << "ReadZmqThreadFunc exiting\n";
-    zmqPullSock_boundIngressToConnectingGuiPtr.reset();
-    zmqPushSock_connectingGuiToBoundIngressPtr.reset();
-    zmqPullSock_boundEgressToConnectingGuiPtr.reset();
-    zmqPushSock_connectingGuiToBoundEgressPtr.reset();
+    zmqReqSock_connectingGuiToFromBoundIngressPtr.reset();
+    zmqReqSock_connectingGuiToFromBoundEgressPtr.reset();
+    zmqReqSock_connectingGuiToFromBoundStoragePtr.reset();
     zmqCtxPtr.reset();
 }
 
