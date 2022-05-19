@@ -22,7 +22,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 #include <boost/make_unique.hpp>
-#ifdef USE_HDTN_GUI
+#ifdef USE_WEB_INTERFACE
 #include "WebsocketServer.h"
  //since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
  //and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
@@ -53,6 +53,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
         bool isCutThroughOnlyTest = false;
 
+#ifdef USE_WEB_INTERFACE
+        std::string DOCUMENT_ROOT;
+        const std::string HTML_FILE_NAME = "web_gui.html";
+        std::string PORT_NUMBER_AS_STRING;
+#endif //USE_WEB_INTERFACE
+
         HdtnConfig_ptr hdtnConfig;
 
         boost::program_options::options_description desc("Allowed options");
@@ -61,6 +67,10 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
                 ("help", "Produce help message.")
                 ("cut-through-only-test", "Always send to egress.  Assume all links always available.")
                 ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
+#ifdef USE_WEB_INTERFACE
+                ("gui-document-root", boost::program_options::value<std::string>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src").string()), "Web Interface Document Root.")
+                ("gui-port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Web Interface Port number.")
+#endif //USE_WEB_INTERFACE
     	        ;
 
             boost::program_options::variables_map vm;
@@ -83,6 +93,21 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
+
+#ifdef USE_WEB_INTERFACE
+            DOCUMENT_ROOT = vm["gui-document-root"].as<std::string>();
+            const uint16_t portNumberAsUi16 = vm["gui-port-number"].as<uint16_t>();
+            PORT_NUMBER_AS_STRING = boost::lexical_cast<std::string>(portNumberAsUi16);
+
+            const boost::filesystem::path htmlMainFilePath = boost::filesystem::path(DOCUMENT_ROOT) / boost::filesystem::path(HTML_FILE_NAME);
+            if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
+                std::cout << "found " << htmlMainFilePath.string() << std::endl;
+            }
+            else {
+                std::cout << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml" << std::endl;
+                return false;
+            }
+#endif //USE_WEB_INTERFACE
 
         }
         catch (boost::bad_any_cast & e) {
@@ -131,6 +156,14 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         if (!storagePtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
+
+#ifdef USE_WEB_INTERFACE
+        std::unique_ptr<WebsocketServer> websocketServerPtr;
+        if (hdtnConfig->m_userInterfaceOn) {
+            websocketServerPtr = boost::make_unique<WebsocketServer>();
+            websocketServerPtr->Init(DOCUMENT_ROOT, PORT_NUMBER_AS_STRING, hdtnOneProcessZmqInprocContextPtr.get());
+        }
+#endif //USE_WEB_INTERFACE
         
 
         if (useSignalHandler) {
@@ -198,7 +231,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         }
         else {
 #endif //USE_HDTN_GUI
+
+#ifdef USE_WEB_INTERFACE
+            while (running && m_runningFromSigHandler && ((websocketServerPtr) ? (!websocketServerPtr->RequestsExit()) : true) ) {
+#else
             while (running && m_runningFromSigHandler) {
+#endif //USE_WEB_INTERFACE
                 boost::this_thread::sleep(boost::posix_time::milliseconds(250));
                 if (useSignalHandler) {
                     sigHandler.PollOnce();
