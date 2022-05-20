@@ -110,6 +110,7 @@ endif()
 include(${CMAKE_SOURCE_DIR}/add_hdtn_package_export.cmake)
 
 add_subdirectory(common/bpcodec)
+add_subdirectory(common/telemetry)
 add_subdirectory(common/logger)
 add_subdirectory(common/util)
 add_subdirectory(common/config)

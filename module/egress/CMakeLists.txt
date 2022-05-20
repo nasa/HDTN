@@ -20,6 +20,7 @@ target_link_libraries(egress_async_lib
 		log_lib
 		outduct_manager_lib
 		bpcodec
+		telemetry_definitions
 		Boost::program_options
 )
 target_include_directories(egress_async_lib

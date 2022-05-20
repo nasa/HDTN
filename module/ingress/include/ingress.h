@@ -17,6 +17,7 @@
 #include <boost/atomic.hpp>
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "Telemetry.h"
 #include "ingress_async_lib_export.h"
 
 namespace hdtn {

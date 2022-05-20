@@ -29,6 +29,7 @@
 #include "stats.hpp"
 #include "zmq.hpp"
 #include "codec/bpv6.h"
+#include "Telemetry.h"
 #include "storage_lib_export.h"
 
 //addresses for ZMQ IPC transport

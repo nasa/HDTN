@@ -15,6 +15,7 @@
 #include "OutductManager.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "Logger.h"
+#include "Telemetry.h"
 #include "egress_async_lib_export.h"
 
 #define HEGR_NAME_SZ (32)
