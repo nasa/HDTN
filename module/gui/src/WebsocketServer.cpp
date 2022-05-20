@@ -239,7 +239,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
             if (moduleMask == 0x7) { //ingress=bit0, egress=bit1, storage=bit2
                 break; //got all telemetry
             }
-            int rc = 0;
+            int rc = 0; //return code
             try {
                 rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
             }
@@ -302,6 +302,9 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
         //process all telemetry
         if (moduleMask != 0x7) {
             std::cout << "did not get telemetry from all modules\n";
+        }
+        else {
+            //do websocket send of data from ingress, egress, and storage
         }
     }
     std::cout << "ReadZmqThreadFunc exiting\n";
