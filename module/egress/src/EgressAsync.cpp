@@ -180,6 +180,27 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     }
 }
 
+void hdtn::HegrManagerAsync::LinkStatusUpdate(const boost::system::error_code& e, 
+		                              uint64_t outductId,
+                                              uint64_t event, zmq::socket_t * ptrSocket) {
+    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << timeLocal << ": [Egress] Sending LinkStatus update event to Scheduler" << std::endl;
+
+        hdtn::LinkStatusHdr linkStatusMsg;
+        memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+        linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+        linkStatusMsg.event = event;
+        linkStatusMsg.uuid = outductId;
+        ptrSocket->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)),
+                        zmq::send_flags::none);
+
+    } else {
+        std::cout << "timer dt cancelled\n";
+    }
+}
+
 void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
     //m_conditionVariableProcessZmqMessages.notify_one();
     if (m_needToSendSignal && m_mutexPushSignal.try_lock()) {
@@ -212,8 +233,7 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
         return;
     }
     CommonHdr *common = (CommonHdr *)message.data();
-    switch (common->type) {
-        case HDTN_MSGTYPE_ROUTEUPDATE:
+    if (common->type == HDTN_MSGTYPE_ROUTEUPDATE) {
         hdtn::RouteUpdateHdr * routeUpdateHdr = (hdtn::RouteUpdateHdr *)message.data();
         cbhe_eid_t nextHopEid = routeUpdateHdr->nextHopEid;
         cbhe_eid_t finalDestEid = routeUpdateHdr->finalDestEid;
@@ -226,9 +246,10 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
             m_outductManager.SetOutductForFinalDestinationEid_ThreadSafe(finalDestEid, outductPtr);
             std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outductId1 << std::endl;
         }
-     }
+    }
 }
 
+/*
 void hdtn::HegrManagerAsync::LinkStatusUpdate(const boost::system::error_code& e, uint64_t outductId,
                                              uint8_t event, zmq::socket_t * ptrSocket) {
 
@@ -250,8 +271,7 @@ void hdtn::HegrManagerAsync::LinkStatusUpdate(const boost::system::error_code& e
     }
 }
 
-
-
+*/
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
@@ -413,6 +433,54 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                         std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
                         hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
                     }
+
+        zmq::context_t ctx;
+        zmq::socket_t socket(ctx, zmq::socket_type::pub);
+        const std::string bind_boundEgressPubSubPath(
+        std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+        try {
+            socket.bind(bind_boundEgressPubSubPath);
+	    std::cout << "[Egress] socket bound successfully to " << bind_boundEgressPubSubPath << std::endl;
+        } catch (const zmq::error_t & ex) {
+            std::cerr << "[Egress] socket failed to bind: " << ex.what() << std::endl;
+            continue;
+        }
+
+
+        //sending Link Status events to Scheduler 
+        boost::asio::io_service service;
+        SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(service);
+
+    dt->expires_from_now(boost::posix_time::seconds(10));
+    dt->async_wait(boost::bind(&HegrManagerAsync::LinkStatusUpdate, boost::asio::placeholders::error, 0, 1, &socket));
+    
+    service.run();
+    socket.close();
+
+
+	//zmq::socket_t * ptrSocket) {
+//    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+
+     // Timer was not cancelled, take necessary action.
+       // std::cout << timeLocal << ": [Egress] Sending LinkStatus update event to Scheduler" << std::endl;
+/*
+        hdtn::LinkStatusHdr linkStatusMsg;
+        memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+        linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+        linkStatusMsg.event = 1;
+        linkStatusMsg.uuid = 1;
+        socket.send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)), zmq::send_flags::none);
+
+	
+*/
+/*    
+	boost::asio::deadline_timer dt(service, boost::posix_time::seconds(15));
+	dt.async_wait(boost::bind(hdtn::HegrManagerAsync::LinkStatusUpdate,
+                                  boost::asio::placeholders::error, &dt,
+                                  1, 1, &socket));
+	service.run();
+        socket.close();
+*/	
                 }
                 else {
                     std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: no outduct for " 
@@ -420,9 +488,23 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
 
             }
+	   
+
+
             if (items[NUM_SOCKETS - 2].revents & ZMQ_POLLIN) { //events from Router
-                std::cout << "[Egress] Received RouteUpdate event!!" << std::endl;
-                RouterEventHandler();
+               //std::cout << "[Egress] Received RouteUpdate event!!" << std::endl;
+
+ //std::cout << ": [Egress] Sending LinkStatus update event to Scheduler " << std::endl;
+/*
+        hdtn::LinkStatusHdr linkStatusMsg;
+        memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+        linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+        linkStatusMsg.event = 0;
+        linkStatusMsg.uuid = 0;
+        m_zmqPushSock_connectingEgressToBoundSchedulerPtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)),
+                        zmq::send_flags::none);
+*/
+		RouterEventHandler();
             }
 
             if ((items[NUM_SOCKETS - 1].revents & ZMQ_POLLIN)) { //m_zmqPullSignalInprocSockPtr                

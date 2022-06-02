@@ -28,6 +28,8 @@
 #define HEGR_FLAG_LTP (0x0040)
 #define HEGR_FLAG_TCPCLv3 (0x0080)
 
+typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
+
 namespace hdtn {
 
 
@@ -54,13 +56,14 @@ public:
     std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
     EGRESS_ASYNC_LIB_EXPORT void RouterEventHandler();
-    EGRESS_ASYNC_LIB_EXPORT void LinkStatusUpdate(const boost::system::error_code& e, 
-		                                  uint64_t outductId, uint8_t event, 
-						  zmq::socket_t * ptrSocket);
 private:
     EGRESS_ASYNC_LIB_NO_EXPORT void ReadZmqThreadFunc();
     EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
     EGRESS_ASYNC_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+
+    EGRESS_ASYNC_LIB_EXPORT static void LinkStatusUpdate(const boost::system::error_code& e,
+                                                         uint64_t outductId, uint64_t event,
+                                                         zmq::socket_t * ptrSocket);
 
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;

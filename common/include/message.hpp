@@ -165,7 +165,7 @@ struct RouteUpdateHdr {
 
 struct LinkStatusHdr {
     CommonHdr base;
-    uint8_t event;
+    uint64_t event;
     uint64_t uuid;
 };
  
