@@ -25,7 +25,6 @@
 #include <fstream>
 #include <sstream>
 
-
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
     //m_flags = 0;
     //_next = NULL;
@@ -44,7 +43,7 @@ void hdtn::HegrManagerAsync::Stop() {
 }
 
 void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
-
+    
     if (m_running) {
         std::cerr << "error: HegrManagerAsync::Init called while Egress is already running" << std::endl;
         return;
@@ -59,7 +58,6 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
     m_outductManager.SetOutductManagerOnSuccessfulOutductAckCallback(boost::bind(&HegrManagerAsync::OnSuccessfulBundleAck, this, boost::placeholders::_1));
 
-    
     m_bundleCount = 0;
     m_bundleData = 0;
     m_messageCount = 0;
@@ -86,7 +84,8 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 	    //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            //socket for sending LinkStatus events from Egress to Scheduler
+       
+       	    //socket for sending LinkStatus events from Egress to Scheduler
 	    m_zmqPushSock_connectingEgressToBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSock_connectingEgressToBoundSchedulerPtr->connect(std::string("inproc://connecting_egress_to_bound_scheduler"));
 	
@@ -136,7 +135,6 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
                 std::string(":") +
                 boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
             m_zmqPushSock_connectingEgressToBoundSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
-
         }
 
         // socket for receiving events from router
@@ -195,7 +193,6 @@ void hdtn::HegrManagerAsync::LinkStatusUpdate(const boost::system::error_code& e
         linkStatusMsg.uuid = outductId;
         ptrSocket->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)),
                         zmq::send_flags::none);
-
     } else {
         std::cout << "timer dt cancelled\n";
     }
@@ -350,7 +347,6 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 ++m_messageCount;
                 
-                
                 zmq::message_t zmqMessageBundle;
                 //message guaranteed to be there due to the zmq::send_flags::sndmore
                 if (!sockets[itemIndex]->recv(zmqMessageBundle, zmq::recv_flags::none)) {
@@ -498,7 +494,6 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     const std::string msgInprocTx = "m_totalEgressInprocSignalsSent: " + boost::lexical_cast<std::string>(m_totalEgressInprocSignalsSent);
     std::cout << msgInprocTx << std::endl;
     hdtn::Logger::getInstance()->logInfo("egress", msgInprocTx);
-    //
 }
 
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
