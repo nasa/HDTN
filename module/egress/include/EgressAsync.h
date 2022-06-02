@@ -28,8 +28,6 @@
 #define HEGR_FLAG_LTP (0x0040)
 #define HEGR_FLAG_TCPCLv3 (0x0080)
 
-typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
-
 namespace hdtn {
 
 
