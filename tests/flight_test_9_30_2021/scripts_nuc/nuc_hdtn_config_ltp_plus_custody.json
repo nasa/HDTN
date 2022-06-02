@@ -21,6 +21,7 @@
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
+    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
