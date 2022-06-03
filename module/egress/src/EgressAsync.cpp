@@ -84,11 +84,6 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 	    //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-       
-       	    //socket for sending LinkStatus events from Egress to Scheduler
-	    m_zmqPushSock_connectingEgressToBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
-            m_zmqPushSock_connectingEgressToBoundSchedulerPtr->connect(std::string("inproc://connecting_egress_to_bound_scheduler"));
-	
 	} else {
             // socket for cut-through mode straight to egress
             m_zmqPullSock_boundIngressToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
@@ -126,15 +121,19 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
-           
-            //socket for sending LinkStatus events from Egress to Scheduler
-            m_zmqPushSock_connectingEgressToBoundSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
-            const std::string connect_connectingEgressToBoundSchedulerPath(
-                std::string("tcp://") +
-                m_hdtnConfig.m_zmqSchedulerAddress +
-                std::string(":") +
-                boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
-            m_zmqPushSock_connectingEgressToBoundSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
+        }
+
+	//socket for sending LinkStatus events from Egress to Scheduler
+	zmq::context_t ctx;
+        zmq::socket_t socket(ctx, zmq::socket_type::pub);
+        const std::string bind_boundEgressPubSubPath(
+        std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+        try {
+            socket.bind(bind_boundEgressPubSubPath);
+            std::cout << "[Egress] socket bound successfully to " << bind_boundEgressPubSubPath << std::endl;
+        } catch (const zmq::error_t & ex) {
+            std::cerr << "[Egress] socket failed to bind: " << ex.what() << std::endl;
+            return;
         }
 
         // socket for receiving events from router
