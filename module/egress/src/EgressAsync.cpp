@@ -165,10 +165,10 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
         m_zmqPushSignalInprocSockPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         
         //The ZMQ_SNDHWM option shall set the high water mark for outbound messages on the specified socket.
-        //The high water mark is a hard limit on the maximum number of outstanding messages ØMQ shall queue 
+        //The high water mark is a hard limit on the maximum number of outstanding messages ï¿½MQ shall queue 
         //in memory for any single peer that the specified socket is communicating with.
         //If this limit has been reached the socket shall enter an exceptional state and depending on the socket type,
-        //ØMQ shall take appropriate action such as blocking or dropping sent messages.
+        //ï¿½MQ shall take appropriate action such as blocking or dropping sent messages.
         const int hwm = 5; //todo
         m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::sndhwm, hwm); //flow control
     }
@@ -438,8 +438,11 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 else {
                     //send telemetry
-                    //std::cout << "egress send telem\n";
-                    uint64_t telem = 9200;
+                    std::cout << "egress send telem\n";
+                    EgressTelemetry_t telem;;
+                    telem.egressBundleCount = m_bundleCount;
+                    telem.egressBundleData = static_cast<double>(m_bundleData/1000);
+                    telem.egressMessageCount = m_messageCount;
                     if (!m_zmqRepSock_connectingGuiToFromBoundEgressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
                         std::cerr << "egress can't send telemetry to gui" << std::endl;
                     }

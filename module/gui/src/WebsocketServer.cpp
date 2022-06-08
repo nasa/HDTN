@@ -15,6 +15,7 @@
 #include "SignalHandler.h"
 #include <boost/program_options.hpp>
 #include "Environment.h"
+#include "Telemetry.h"
 
 #define EXIT_URI "/exit"
 static const std::string CONNECT_MESSAGE = "hyxifwtd";
@@ -193,7 +194,14 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
         {zmqReqSock_connectingGuiToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {zmqReqSock_connectingGuiToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
     };
-    
+
+    boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
+    boost::posix_time::ptime lastTime = startTime;  
+    double lastData = 0;
+    double rate = 0;
+    double averageRate = 0;
+
+
     while (m_running) {
         //sleep for 1 second
         boost::system::error_code ec;
@@ -249,7 +257,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
             }
             if (rc > 0) {
                 if (items[0].revents & ZMQ_POLLIN) { //ingress telemetry received
-                    uint64_t telem;
+                    IngressTelemetry_t telem;
                     const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundIngressPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
                     if (!res) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read ingress telemetry" << std::endl;
@@ -261,11 +269,22 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                     else {
                         //process ingress telemetry
                         moduleMask |= 0x1;
-                        std::cout << "ingress rx telem=" << telem << "\n";
+ 
+                        boost::posix_time::ptime newTime = boost::posix_time::microsec_clock::universal_time();
+                        boost::posix_time::time_duration elapsedTime = newTime - lastTime;
+                        lastTime=newTime;
+                        boost::posix_time::time_duration totalTime = newTime - startTime; 
+                        rate = (8.0 * (telem.totalData - lastData)) / elapsedTime.total_microseconds();
+                        averageRate = (8.0 * telem.totalData) / totalTime.total_microseconds();
+                        lastData = telem.totalData;
+                        std::cout << "Ingress Rate: " << rate << "\n";
+                        telem.bundleDataRate = rate;
+                        telem.averageDataRate = averageRate;
+                        //SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
                     }
                 }
                 if (items[1].revents & ZMQ_POLLIN) { //egress telemetry received
-                    uint64_t telem;
+                    EgressTelemetry_t telem;
                     const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundEgressPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
                     if (!res) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read egress telemetry" << std::endl;
@@ -277,11 +296,11 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                     else {
                         //process egress telemetry
                         moduleMask |= 0x2;
-                        std::cout << "egress rx telem=" << telem << "\n";
+                        //std::cout << "egress rx telem=" << telem << "\n";
                     }
                 }
                 if (items[2].revents & ZMQ_POLLIN) { //storage telemetry received
-                    uint64_t telem;
+                    StorageTelemetry_t telem;
                     const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
                     if (!res) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read storage telemetry" << std::endl;
@@ -291,9 +310,9 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                             << " truncated = " << res->size << " expected = " << sizeof(telem) << std::endl;
                     }
                     else {
-                        //process egress telemetry
+                        //process storage telemetry
                         moduleMask |= 0x4;
-                        std::cout << "storage rx telem=" << telem << "\n";
+                        //std::cout << "storage rx telem=" << telem << "\n";
                     }
                 }
             }

@@ -23,6 +23,7 @@
 #include "telemetry_definitions_export.h"
 
 struct IngressTelemetry_t{
+    uint64_t type = 1;
     double bundleDataRate;
     double averageDataRate;
     double totalData;
@@ -34,6 +35,7 @@ struct IngressTelemetry_t{
 };
 
 struct EgressTelemetry_t{
+    uint64_t type = 2;
     uint64_t egressBundleCount;
     double egressBundleData;
     uint64_t egressMessageCount;
@@ -44,6 +46,7 @@ struct EgressTelemetry_t{
 };
 
 struct StorageTelemetry_t{
+    uint64_t type = 3;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
 

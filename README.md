@@ -147,11 +147,11 @@ Download the Civetweb repository. This MUST be a release version of the software
 * cd civetweb
 * make build
 * make clean lib WITH_WEBSOCKET=1 WITH_CPP=1
-*
+
 Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_WEB_INTERFACE" section:
 * Set "USE_WEB_INTERFACE" to ON
-* Move the CivetServer.h and civetweb.h files from the Civetweb directory to the civetweb_INCLUDE location for Linux.
-* Move the libcivetweb.a file to the corresponding civetweb_LIB location.
+* Move the CivetServer.h and civetweb.h (located at civetweb/include/) files from the Civetweb directory to the civetweb_INCLUDE location for Linux (hdtn/external/include/).
+* Move the libcivetweb.a file to the corresponding civetweb_LIB location (hdtn/external/lib).
 
 Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
 

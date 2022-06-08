@@ -99,12 +99,70 @@ function UpdateData(objJson){
 
 }
 
+
+function UpdateDataBinary(telemetry){
+
+    //way to run through data without hardcoding
+    //Not sure how endian plays with double
+
+    var byteIndex = 0;
+    var type = telemetry.getUint64(byteIndex);
+    byteIndex += 1;
+
+    if(type == 1){
+        //Ingress
+        var rate = telemetry.getFloat64(byteIndex);
+        byteIndex += 1;
+        var averageRate = telemetry.getFloat64(byteIndex);
+        byteIndex += 1;
+        var totalData = telemetry.getFloat64(byteIndex);
+        byteIndex += 1;
+        var bundleCountEgress = telemetry.getUint64(byteIndex);
+        byteIndex += 1;
+        var bundleCountStorage = telemetry.getUint64(byteIndex);
+
+
+        rate_data[0]['x'].push(rateCount++);
+        rate_data[0]['y'].push(rate);
+        console.log(rate_data[0]['y']);
+        Plotly.update(GRAPH, rate_data, layout);
+        document.getElementById("rate_data").innerHTML = rate.toFixed(3);
+        document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data[0].y).toFixed(3);
+        document.getElementById("avg_data").innerHTML = averageRate.toFixed(3);
+        document.getElementById("ingressBundleData").innerHTML = totalData.toFixed(2);
+        pie_data[0]['values'] = [bundleCountStorage, bundleCountEgress];
+        Plotly.update('storage_egress_chart', pie_data, pie_layout);
+        document.getElementById("ingressBundleCountStorage").innerHTML = bundleCountStorage;
+        document.getElementById("ingressBundleCountEgress").innerHTML = bundleCountEgress;
+        document.getElementById("ingressBundleCount").innerHTML = bundleCountStorage + bundleCountEgress;
+    }
+    else if(type == 2){
+        //Egress
+        var egressBundleCount = telemetry.getUint64(byteIndex);
+        byteIndex += 1;
+        var egressBundleData = telemetry.getFloat64(byteIndex);
+        byteIndex += 1;
+        var egressMessageCount = telemetry.getUint64(byteIndex);
+
+        document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
+        document.getElementById("egressBundleData").innerHTML = egressBundleData.toFixed(2);
+        document.getElementById("egressMessageCount").innerHTML = egressMessageCount;
+    }
+    else if(type == 3){
+        //Storage
+        var totalBundlesErasedFromStorage = telemetry.getUint64(byteIndex);
+        byteIndex += 1;
+        var totalBundlesSentToEgressFromStorage = telemetry.getUint64(byteIndex);
+    }
+
+}
+
 window.addEventListener("load", function(event){
     if(!("WebSocket" in window)){
         alert("WebSocket is not supported by your Browser!");
     }
 
-var wsproto = (location.protocol === 'http:') ? 'ws:' : 'ws:';
+var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
 connection = new WebSocket(wsproto + '//' + window.location.host + '/websocket');
 connection.binaryType = "arraybuffer";
 
@@ -123,7 +181,26 @@ connection.onmessage = function(e){
     console.log("rcvd");
     //if binary data
     if(e.data instanceof ArrayBuffer){
-        var dv = new DataView(e.data);
+        console.log("Binary Data Received");
+
+
+    //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
+    DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
+        // split 64-bit number into two 32-bit (4-byte) parts
+        const left =  this.getUint32(byteOffset, littleEndian);
+        const right = this.getUint32(byteOffset+4, littleEndian);
+
+        // combine the two 32-bit values
+        const combined = littleEndian? left + 2**32*right : 2**32*left + right;
+
+        if (!Number.isSafeInteger(combined))
+            console.warn(combined, 'exceeds MAX_SAFE_INTEGER. Precision may be lost');
+
+        return combined;
+    }
+
+    var telemetry = new DataView(e.data);
+    UpdateDataBinary(telemetry);
     }
     //else this is text data
     else{

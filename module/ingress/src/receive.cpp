@@ -305,8 +305,11 @@ void Ingress::ReadZmqAcksThreadFunc() {
                 }
                 else {
                     //send telemetry
-                    //std::cout << "ingress send telem\n";
-                    uint64_t telem = 9100;
+                    std::cout << "ingress send telem\n";
+                    IngressTelemetry_t telem;
+                    telem.totalData = static_cast<double>(m_bundleData/1000);
+                    telem.bundleCountEgress = m_bundleCountEgress;
+                    telem.bundleCountStorage = m_bundleCountStorage;
                     if (!m_zmqRepSock_connectingGuiToFromBoundIngressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
                         std::cerr << "ingress can't send telemetry to gui" << std::endl;
                     }

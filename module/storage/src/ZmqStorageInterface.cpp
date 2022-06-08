@@ -2,7 +2,7 @@
  * @file ZmqStorageInterface.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -817,8 +817,10 @@ void ZmqStorageInterface::ThreadFunc() {
                 }
                 else {
                     //send telemetry
-                    //std::cout << "storage send telem\n";
-                    uint64_t telem = 9300;
+                    std::cout << "storage send telem\n";
+                    StorageTelemetry_t telem;
+                    telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
+                    telem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorage;
                     if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
                         std::cerr << "storage can't send telemetry to gui" << std::endl;
                     }

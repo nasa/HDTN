@@ -17,6 +17,7 @@ target_link_libraries(gui_lib
 		hdtn_util
 		log_lib
 		bpcodec
+		telemetry_definitions
 		Boost::program_options
 		${civetweb_LIB}
 		${civetwebcpp_LIB}
