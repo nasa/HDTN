@@ -20,6 +20,7 @@ target_link_libraries(ingress_async_lib
 		log_lib
 		induct_manager_lib
 		bpcodec
+		telemetry_definitions
 		Boost::program_options
 )
 target_include_directories(ingress_async_lib

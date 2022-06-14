@@ -29,6 +29,7 @@
 #include "stats.hpp"
 #include "zmq.hpp"
 #include "codec/bpv6.h"
+#include "Telemetry.h"
 #include "storage_lib_export.h"
 
 //addresses for ZMQ IPC transport
@@ -62,7 +63,7 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingStorageToBoundIngressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_telemetrySockPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundStoragePtr;
 
     hdtn::StorageStats storageStats;
     HdtnConfig m_hdtnConfig;

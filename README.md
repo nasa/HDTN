@@ -22,7 +22,7 @@ HDTN build environment requires:
 HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
 * Can be obtained from https://github.com/civetweb/civetweb
 * User must build its C and C++ libraries using cmake with websocket support enabled.
-* Set the Cmake cache variable USE_HDTN_GUI to On (default is Off)
+* Set the Cmake cache variable USE_WEB_INTERFACE to On (default is Off)
 * Set the Cmake variables to point to your civetweb installation: civetweb_INCLUDE, civetweb_LIB, civetwebcpp_LIB
 
 ## Optional X86 Hardware Acceleration ## 
@@ -142,13 +142,16 @@ To generate the Diffie-Hellman parameters PEM file (which is installed on an ind
 Web User Interface
 =========
 This repository comes equiped with code to launch a web-based user interface to display statistics for the HDTN engine. However it relies on a dependency called CivetWeb which must be installed.
-CivetWeb can be found here: https://github.com/civetweb/civetweb
-Follow the installation instructions. 
-Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_HDTN_GUI" section:
-* Set "USE_HDTN_GUI" to ON
-* Move the CivetServer.h and civetweb.h files to the civetweb_INCLUDE location based on whether the operating system is Windows or Linux/MacOS.
-* Move the civetweb.lib file on Windows or libcivetweb.so file on Linux/MacOS to the corresponding civetweb_LIB location.
-* If on Windows, move the civetweb-cpp.lib file to the civetwebcpp_LIB location.
+CivetWeb can be found here: https://sourceforge.net/projects/civetweb/
+Download and extract the Civetweb repository. Then use the following instructions to create a moveable library on Linux:
+* cd civetweb
+* make build
+* make clean lib WITH_WEBSOCKET=1 WITH_CPP=1
+
+Then open the CMakeLists.txt file in the hdtn directory and make the following edits under the "USE_WEB_INTERFACE" section:
+* Set "USE_WEB_INTERFACE" to ON
+* Move the CivetServer.h and civetweb.h (located at civetweb/include/) files from the Civetweb directory to the civetweb_INCLUDE location for Linux (hdtn/external/include/).
+* Move the libcivetweb.a file to the corresponding civetweb_LIB location (hdtn/external/lib).
 
 Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
 

@@ -82,8 +82,12 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             m_zmqPullSock_connectingStorageToBoundEgressPtr->bind(std::string("inproc://connecting_storage_to_bound_egress"));
             m_zmqPushSock_boundEgressToConnectingStoragePtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSock_boundEgressToConnectingStoragePtr->bind(std::string("inproc://bound_egress_to_connecting_storage"));
-	    
-	    //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
+
+            //from gui socket
+            m_zmqRepSock_connectingGuiToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
+            m_zmqRepSock_connectingGuiToFromBoundEgressPtr->bind(std::string("inproc://connecting_gui_to_from_bound_egress"));
+    
+            //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*hdtnOneProcessZmqInprocContextPtr, zmq::socket_type::pair);
         }
@@ -123,8 +127,19 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             //socket for interrupt to zmq_poll (acts as condition_variable.notify_one())
             m_zmqPullSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
             m_zmqPushSignalInprocSockPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
-            
+
+            //from gui socket
+            m_zmqRepSock_connectingGuiToFromBoundEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::rep);
+            const std::string bind_connectingGuiToFromBoundEgressPath("tcp://*:10302");
+            m_zmqRepSock_connectingGuiToFromBoundEgressPtr->bind(bind_connectingGuiToFromBoundEgressPath);
         }
+
+        //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
+        //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
+        m_zmqRepSock_connectingGuiToFromBoundEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqPushSock_boundEgressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqPushSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
         // socket for receiving events from router
         m_zmqSubSock_boundRouterToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
@@ -147,12 +162,13 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
 
         m_zmqPullSignalInprocSockPtr->bind(std::string("inproc://egress_condition_variable_notify_one"));
         m_zmqPushSignalInprocSockPtr->connect(std::string("inproc://egress_condition_variable_notify_one"));
+        m_zmqPushSignalInprocSockPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         
         //The ZMQ_SNDHWM option shall set the high water mark for outbound messages on the specified socket.
-        //The high water mark is a hard limit on the maximum number of outstanding messages ØMQ shall queue 
+        //The high water mark is a hard limit on the maximum number of outstanding messages ï¿½MQ shall queue 
         //in memory for any single peer that the specified socket is communicating with.
         //If this limit has been reached the socket shall enter an exceptional state and depending on the socket type,
-        //ØMQ shall take appropriate action such as blocking or dropping sent messages.
+        //ï¿½MQ shall take appropriate action such as blocking or dropping sent messages.
         const int hwm = 5; //todo
         m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::sndhwm, hwm); //flow control
     }
@@ -247,19 +263,22 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
-    static constexpr unsigned int NUM_SOCKETS = 4;
-    m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
-    m_zmqPullSock_connectingStorageToBoundEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+    static constexpr unsigned int NUM_SOCKETS = 5;
+
+    //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
+    //m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+    //m_zmqPullSock_connectingStorageToBoundEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
+
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
-	{m_zmqSubSock_boundRouterToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqPullSignalInprocSockPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqSubSock_boundRouterToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPullSignalInprocSockPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqRepSock_connectingGuiToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
-    zmq::socket_t * const sockets[NUM_SOCKETS-1] = {
+    zmq::socket_t * const firstTwoSockets[2] = {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
-        m_zmqPullSock_connectingStorageToBoundEgressPtr.get(),
-	m_zmqSubSock_boundRouterToConnectingEgressPtr.get(),
+        m_zmqPullSock_connectingStorageToBoundEgressPtr.get()
     };
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
@@ -273,13 +292,13 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
             continue;
         }
         if (rc > 0) {
-            for (unsigned int itemIndex = 0; itemIndex < (NUM_SOCKETS - 2); ++itemIndex) { //skip m_zmqPullSignalInprocSockPtr in this loop
+            for (unsigned int itemIndex = 0; itemIndex < 2; ++itemIndex) { //skip m_zmqPullSignalInprocSockPtr in this loop
                 if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                     continue;
                 }
 
                 hdtn::ToEgressHdr toEgressHeader;
-                const zmq::recv_buffer_result_t res = sockets[itemIndex]->recv(zmq::mutable_buffer(&toEgressHeader, sizeof(hdtn::ToEgressHdr)), zmq::recv_flags::none);
+                const zmq::recv_buffer_result_t res = firstTwoSockets[itemIndex]->recv(zmq::mutable_buffer(&toEgressHeader, sizeof(hdtn::ToEgressHdr)), zmq::recv_flags::none);
                 if (!res) {
                     std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr" << std::endl;
                     hdtn::Logger::getInstance()->logError("egress", "Error in HegrManagerAsync::ReadZmqThreadFunc: cannot read BlockHdr");
@@ -320,7 +339,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 
                 zmq::message_t zmqMessageBundle;
                 //message guaranteed to be there due to the zmq::send_flags::sndmore
-                if (!sockets[itemIndex]->recv(zmqMessageBundle, zmq::recv_flags::none)) {
+                if (!firstTwoSockets[itemIndex]->recv(zmqMessageBundle, zmq::recv_flags::none)) {
                     std::cerr << "error on sockets[itemIndex]->recv\n";
                     continue;
                 }
@@ -383,12 +402,12 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
 
             }
-            if (items[NUM_SOCKETS - 2].revents & ZMQ_POLLIN) { //events from Router
+            if (items[2].revents & ZMQ_POLLIN) { //events from Router
                 std::cout << "[Egress] Received RouteUpdate event!!" << std::endl;
                 RouterEventHandler();
             }
 
-            if ((items[NUM_SOCKETS - 1].revents & ZMQ_POLLIN)) { //m_zmqPullSignalInprocSockPtr                
+            if ((items[3].revents & ZMQ_POLLIN)) { //m_zmqPullSignalInprocSockPtr                
                 const zmq::recv_buffer_result_t res = m_zmqPullSignalInprocSockPtr->recv(signalRxBufferJunk, zmq::recv_flags::none);
                 if (!res) {
                     std::cerr << "error in HegrManagerAsync::ReadZmqThreadFunc: signal not received" << std::endl;
@@ -402,6 +421,32 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 m_needToSendSignal = true;
                 
+            }
+
+            if (items[4].revents & ZMQ_POLLIN) { //gui requests data
+                uint8_t guiMsgByte;
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundEgressPtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
+                if (!res) {
+                    std::cerr << "error in egress ReadZmqThreadFunc: cannot read guiMsgByte" << std::endl;
+                }
+                else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
+                    std::cerr << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte) << std::endl;
+                }
+                else if (guiMsgByte != 1) {
+                    std::cerr << "error guiMsgByte not 1\n";
+                }
+                else {
+                    //send telemetry
+                    //std::cout << "egress send telem\n";
+                    EgressTelemetry_t telem;;
+                    telem.egressBundleCount = m_bundleCount;
+                    telem.egressBundleData = static_cast<double>(m_bundleData/1000);
+                    telem.egressMessageCount = m_messageCount;
+                    if (!m_zmqRepSock_connectingGuiToFromBoundEgressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+                        std::cerr << "egress can't send telemetry to gui" << std::endl;
+                    }
+                }
             }
         }
         //Check for tcpcl acks from a bpsink-like program.

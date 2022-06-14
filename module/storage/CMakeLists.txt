@@ -68,6 +68,7 @@ target_link_libraries(storage_lib
 		log_lib
 		config_lib
 		bpcodec
+		telemetry_definitions
 		Boost::program_options
 )
 target_include_directories(storage_lib

@@ -17,6 +17,7 @@
 #include <boost/atomic.hpp>
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
+#include "Telemetry.h"
 #include "ingress_async_lib_export.h"
 
 namespace hdtn {
@@ -99,6 +100,8 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundIngressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundSchedulerToConnectingIngressPtr;
+
+    std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundIngressPtr;
 
     //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
     //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
