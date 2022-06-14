@@ -29,4 +29,4 @@ storage_PID=$!
 sleep 3
 
 #Web Interface
-gdb ./build/module/gui/web_interface
+./build/module/gui/web_interface
