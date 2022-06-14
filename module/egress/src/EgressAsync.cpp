@@ -438,7 +438,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 else {
                     //send telemetry
-                    std::cout << "egress send telem\n";
+                    //std::cout << "egress send telem\n";
                     EgressTelemetry_t telem;;
                     telem.egressBundleCount = m_bundleCount;
                     telem.egressBundleData = static_cast<double>(m_bundleData/1000);

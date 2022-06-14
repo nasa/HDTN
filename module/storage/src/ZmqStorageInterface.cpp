@@ -817,7 +817,7 @@ void ZmqStorageInterface::ThreadFunc() {
                 }
                 else {
                     //send telemetry
-                    std::cout << "storage send telem\n";
+                    //std::cout << "storage send telem\n";
                     StorageTelemetry_t telem;
                     telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
                     telem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorage;

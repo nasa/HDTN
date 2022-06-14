@@ -82,7 +82,7 @@ else()
 	set(libzmq_LIB zmq)
 endif()
 
-OPTION(USE_WEB_INTERFACE "Use CivetWeb HDTN Web Interface" ON)
+OPTION(USE_WEB_INTERFACE "Use CivetWeb HDTN Web Interface" OFF)
 if(USE_WEB_INTERFACE)
 	add_compile_definitions(USE_WEB_INTERFACE)
 	if (WIN32)
