@@ -18,6 +18,7 @@ BOOST_AUTO_TEST_CASE(DijkstraSimpleTestCase)
 	BOOST_REQUIRE(&rootContact);
 	rootContact.arrival_time = 0;
 
+	std::cout << "Finding best path using dijkstra's..." << std::endl;
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
 	BOOST_REQUIRE(&bestRoute);
 	int nextHop = bestRoute.next_node;
