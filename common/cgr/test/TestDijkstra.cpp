@@ -6,7 +6,7 @@
 BOOST_AUTO_TEST_CASE(DijkstraSimpleTestCase)
 {
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "cgr" / "test";
-	const std::string = contactFile = (contactRootDir / "contactPlan.json").string();
+	const std::string contactFile = (contactRootDir / "contactPlan.json").string();
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 	BOOST_REQUIRE(contactPlan);
 
