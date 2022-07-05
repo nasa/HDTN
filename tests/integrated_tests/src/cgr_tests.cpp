@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE(cgrTest)
 {
     CgrServer server;
     std::cout << "starting server" << std::endl;
-    server.init("tcp://localhost:4555");
+    server.init("module/scheduler/src/contactPlan.json");
     std::cout << "sending cgr request" << std::endl;
     int nextHop = server.requestNextHop(1, 4, 0);
     std::cout << "Next hop is: " << std::to_string(nextHop) << std::endl;

@@ -4,12 +4,15 @@
 #include "JsonSerializable.h"
 #include <boost/make_unique.hpp>
 #include <zmq.hpp>
+#include "libcgr.h"
 
 class CgrServer
 {
     public:
     std::unique_ptr<zmq::context_t> cgrCtx;
     std::unique_ptr<zmq::socket_t> cgrSock;
+    std::string contactFile;
+    std::vector<cgr::Contact> contactPlan;
 
     /*
     Initializes server and establishes socket connection to py_cgr
