@@ -47,6 +47,7 @@ target_link_libraries(unit-tests
 	ltp_lib
 	storage_lib
 	config_lib
+	cgr_lib
 	ingress_async_lib
 	bpcodec
 	Boost::unit_test_framework
