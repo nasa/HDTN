@@ -30,6 +30,7 @@ add_executable(unit-tests
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
+	../../common/cgr/test/TestDijkstra.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
 	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp
