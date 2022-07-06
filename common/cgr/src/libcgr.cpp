@@ -139,7 +139,7 @@ void Route::refresh_metrics() {
         
         int effective_start_time = contact.first_byte_tx_time;
         int min_succ_stop_time = MAX_SIZE;
-        auto it = std::find(get_hops().begin(), get_hops().end(), contact);
+        std::vector<Contact>::iterator it = std::find(get_hops().begin(), get_hops().end(), contact);
         for (it; it < get_hops().end(); ++it) {
             Contact successor = *it;
             if (successor.end < min_succ_stop_time) {
@@ -184,7 +184,7 @@ std::vector<Contact> cp_load(std::string filename, int max_contacts) {
     boost::property_tree::read_json(filename, pt);
     const boost::property_tree::ptree & contactsPt
         = pt.get_child("contacts", boost::property_tree::ptree());
-    for (auto &eventPt : contactsPt) {
+    for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
         Contact new_contact = Contact(eventPt.second.get<int>("source", 0),
                                       eventPt.second.get<int>("dest", 0),
                                       eventPt.second.get<int>("startTime", 0),
@@ -329,7 +329,7 @@ Route dijkstra(Contact *root_contact, int destination, std::vector<Contact> cont
  */
 template <typename T>
 bool vector_contains(std::vector<T> vec, T ele) {
-    auto it = std::find(vec.begin(), vec.end(), ele);
+    typename std::vector<T>::iterator it = std::find(vec.begin(), vec.end(), ele);
     return it != std::end(vec);
 }
 
