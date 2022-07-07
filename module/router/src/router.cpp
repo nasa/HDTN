@@ -20,7 +20,7 @@
 #include <boost/date_time.hpp>
 #include <boost/shared_ptr.hpp>
 #include <fstream>
-#include "cgrServer.h"
+#include "libcgr.h"
 
 using namespace std;
 
@@ -178,11 +178,13 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
 {
     m_timersFinished = false;
 
-    CgrServer server;
-    std::cout << "[Router] Starting CGR server" << std::endl;
-    server.init("tcp://localhost:4555");
-    
-    const uint64_t nextHop = server.requestNextHop(sourceNode, finalDestEid.nodeId, 0);
+    std::cout << "[Router] Reading contact plan and computing next hop" << std::endl;
+    std::vector<cgr::Contact> contactPlan = cgr::cp_load(*jsonEventFileName);
+
+    cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+    rootContact.arrival_time = 0;
+    cgr::Route bestRoute = cgr::dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
+    const uint64_t nextHop = bestRoute.next_node;
     
     std::cout << "[Router] CGR computed next hop: " << nextHop << std::endl;
     
