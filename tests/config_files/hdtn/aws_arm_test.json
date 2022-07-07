@@ -2,7 +2,7 @@
     "hdtnConfigName": "my hdtn config",
     "userInterfaceOn": true,
     "mySchemeName": "unused_scheme_name",
-    "myNodeId": 10,
+    "myNodeId": ,
     "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
@@ -37,8 +37,8 @@
             {
                 "name": "tcpcl_ingress",
                 "convergenceLayer": "tcpcl_v4",
-                "myEndpointId": "ipn:10.1",
-                "boundPort": 4556,
+                "myEndpointId": "",
+                "boundPort": ,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
                 "keepAliveIntervalSeconds": 15,
@@ -56,9 +56,9 @@
             {
                 "name": "tcpcl_egress",
                 "convergenceLayer": "tcpcl_v4",
-                "nextHopEndpointId": "ipn:2.1",
-                "remoteHostname": "PUT REMOTE IP ADDRESS OR HOSTNAME HERE",
-                "remotePort": 4558,
+                "nextHopEndpointId": "",
+                "remoteHostname": "",
+                "remotePort": ,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
                     "ipn:2.1",
