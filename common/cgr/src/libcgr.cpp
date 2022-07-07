@@ -111,13 +111,14 @@ void Route::append(Contact contact) {
 
 void Route::refresh_metrics() {
     assert(!hops.empty());
-    to_node = get_hops().back().to;
-    next_node = get_hops()[0].to;
-    from_time = get_hops()[0].start;
+    std::vector<Contact> allHops = get_hops();
+    to_node = allHops.back().to;
+    next_node = allHops[0].to;
+    from_time = allHops[0].start;
     to_time = MAX_SIZE;
     best_delivery_time = 0;
     confidence = 1;
-    for (Contact contact : get_hops()) {
+    for (Contact contact : allHops) {
         to_time = std::min(to_time, contact.end);
         best_delivery_time = std::max(best_delivery_time + contact.owlt, contact.start + contact.owlt);
         confidence *= contact.confidence;
@@ -126,8 +127,8 @@ void Route::refresh_metrics() {
     // volume
     int prev_last_byte_arr_time = 0;
     int min_effective_volume_limit = MAX_SIZE;
-    for (Contact& contact : get_hops()) {
-        if (contact == get_hops()[0]) {
+    for (Contact& contact : allHops) {
+        if (contact == allHops[0]) {
             contact.first_byte_tx_time = contact.start;
         } else {
             contact.first_byte_tx_time = std::max(contact.start, prev_last_byte_arr_time);
@@ -139,8 +140,8 @@ void Route::refresh_metrics() {
         
         int effective_start_time = contact.first_byte_tx_time;
         int min_succ_stop_time = MAX_SIZE;
-        std::vector<Contact>::iterator it = std::find(get_hops().begin(), get_hops().end(), contact);
-        for (it; it < get_hops().end(); ++it) {
+        std::vector<Contact>::iterator it = std::find(allHops.begin(), allHops.end(), contact);
+        for (it; it < allHops.end(); ++it) {
             Contact successor = *it;
             if (successor.end < min_succ_stop_time) {
                 min_succ_stop_time = successor.end;
@@ -308,8 +309,8 @@ Route dijkstra(Contact *root_contact, int destination, std::vector<Contact> cont
 
     if (final_contact != NULL) {
         std::vector<Contact> hops;
-        Contact contact = *final_contact;
-        for (Contact contact = *final_contact; contact != *root_contact; contact = *contact.predecessor) {
+        Contact contact;
+        for (contact = *final_contact; contact != *root_contact; contact = *contact.predecessor) {
             hops.push_back(contact);
         }
         
