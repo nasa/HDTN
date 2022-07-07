@@ -64,6 +64,8 @@ std::vector<Contact> cp_load(std::string filename, int max_contacts=MAX_SIZE);
 
 Route dijkstra(Contact *root_contact, int destination, std::vector<Contact> contact_plan);
 
+std::vector<Route> yen(int source, int destination, int currTime, std::vector<Contact> contactPlan, int numRoutes);
+
 template <typename T>
 bool vector_contains(std::vector<T> vec, T ele);
 
