@@ -5,9 +5,9 @@
 
 BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 {
-	// Route from node 1 to 4 using the "RoutingTest" contact plan
+	// Route from node 1 to node 4 using the "RoutingTest" contact plan
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "cgr" / "test";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
 	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 {
 	// Route from node 1 to node 5 using the contact plan from the pyCGR tutorial
 	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "cgr" / "test";
+	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
 	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
