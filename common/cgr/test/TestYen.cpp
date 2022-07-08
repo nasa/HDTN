@@ -2,6 +2,7 @@
 #include "libcgr.h"
 #include "Environment.h"
 #include <boost/algorithm/string.hpp>
+#include <iostream>
 
 BOOST_AUTO_TEST_CASE(YenPyCGRTutorialTestCase)
 {
