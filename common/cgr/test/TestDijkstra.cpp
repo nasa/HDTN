@@ -11,7 +11,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-	int numContacts = contactPlan.size();
+	size_t numContacts = contactPlan.size();
 	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
 	BOOST_CHECK(numContacts == 8);
 
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-	int numContacts = contactPlan.size();
+	size_t numContacts = contactPlan.size();
 	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
 	BOOST_CHECK(numContacts == 16);
 
