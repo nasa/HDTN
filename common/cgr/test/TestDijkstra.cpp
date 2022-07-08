@@ -23,7 +23,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 
 	// Todo: need to finalize what a failed dijkstra search should return
 	//BOOST_REQUIRE(&bestRoute);
-	int nextHop = bestRoute.next_node;
+	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 2);
 
 	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 5, contactPlan);
 	
 	//BOOST_REQUIRE(&bestRoute);
-	int nextHop = bestRoute.next_node;
+	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 3);
 
 	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;

@@ -10,10 +10,13 @@ namespace cgr {
 
 const int MAX_SIZE = std::numeric_limits<int>::max();
 
+typedef uint64_t nodeId_t;
+
 class Contact {
 public:
     // Fixed parameters
-    int frm, to, start, end, rate, volume;
+    nodeId_t frm, to;
+    int start, end, rate, volume;
     int owlt;
     // int id = -1;
     float confidence;
@@ -23,14 +26,14 @@ public:
     int arrival_time;
     bool visited;
     Contact *predecessor;
-    std::vector<int> visited_nodes;
+    std::vector<nodeId_t> visited_nodes;
     // Route management working area
     bool suppressed;
     std::vector<Contact> suppressed_next_hop;
     // Forwarding working area
     int first_byte_tx_time, last_byte_tx_time, last_byte_arr_time, effective_volume_limit;
     void clear_dijkstra_working_area();
-    Contact(int frm, int to, int start, int end, int rate, float confidence=1, int owlt=1);
+    Contact(nodeId_t frm, nodeId_t to, int start, int end, int rate, float confidence=1, int owlt=1);
     Contact();
     ~Contact();
     bool operator==(const Contact) const;
@@ -41,7 +44,8 @@ public:
 
 class Route {
 public:
-    int to_node, next_node, from_time, to_time, best_delivery_time, volume;
+    nodeId_t to_node, next_node;
+    int from_time, to_time, best_delivery_time, volume;
     float confidence;
     Route(Contact, Route *parent=NULL);
     Route();
@@ -49,10 +53,10 @@ public:
 private:
     Route *parent;
     std::vector<Contact> hops;
-    std::map<int, bool> __visited;
+    std::map<nodeId_t, bool> __visited;
 public:
     Contact get_last_contact();
-    bool visited(int node);
+    bool visited(nodeId_t node);
     void append(Contact contact);
     void refresh_metrics();
     bool eligible(Contact contact);
@@ -62,9 +66,9 @@ public:
 
 std::vector<Contact> cp_load(std::string filename, int max_contacts=MAX_SIZE);
 
-Route dijkstra(Contact *root_contact, int destination, std::vector<Contact> contact_plan);
+Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
 
-std::vector<Route> yen(int source, int destination, int currTime, std::vector<Contact> contactPlan, int numRoutes);
+std::vector<Route> yen(nodeId_t source, nodeId_t destination, int currTime, std::vector<Contact> contactPlan, int numRoutes);
 
 template <typename T>
 bool vector_contains(std::vector<T> vec, T ele);

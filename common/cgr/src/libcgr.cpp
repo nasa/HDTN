@@ -29,7 +29,7 @@ bool Contact::operator!=(const Contact contact) const {
     return !(*this == contact);
 }
 
-Contact::Contact(int frm, int to, int start, int end, int rate, float confidence, int owlt)
+Contact::Contact(nodeId_t frm, nodeId_t to, int start, int end, int rate, float confidence, int owlt)
     : frm(frm), to(to), start(start), end(end), rate(rate), confidence(confidence), owlt(owlt)
 {
     // fixed parameters
@@ -41,7 +41,7 @@ Contact::Contact(int frm, int to, int start, int end, int rate, float confidence
     // route search working area
     arrival_time = MAX_SIZE;
     visited = false;
-    visited_nodes = std::vector<int>();
+    visited_nodes = std::vector<nodeId_t>();
     predecessor = NULL;
 
     // route management working area
@@ -55,10 +55,16 @@ Contact::Contact(int frm, int to, int start, int end, int rate, float confidence
     // effective_volume_limit = NULL;
 }
     
-Contact::Contact() {}
+Contact::Contact()
+{
+}
+
 Contact::~Contact() {}
 
-Route::Route() {}
+Route::Route()
+{
+}
+
 Route::~Route() {}
 
 Route::Route(Contact contact, Route *parent)
@@ -73,7 +79,7 @@ Route::Route(Contact contact, Route *parent)
         best_delivery_time = 0;
         volume = MAX_SIZE;
         confidence = 1;
-        __visited = std::map<int, bool>();
+        __visited = std::map<nodeId_t, bool>();
     } else {
         to_node = parent->to_node;
         next_node = parent->next_node;
@@ -82,7 +88,7 @@ Route::Route(Contact contact, Route *parent)
         best_delivery_time = parent->best_delivery_time;
         volume = parent->volume;
         confidence = parent->confidence;
-        __visited = std::map<int, bool>(parent->__visited); // copy
+        __visited = std::map<nodeId_t, bool>(parent->__visited); // copy
     }
 
     append(contact);
@@ -96,7 +102,8 @@ Contact Route::get_last_contact() {
     }
 }
 
-bool Route::visited(int node) {
+bool Route::visited(nodeId_t node) {
+    //const int id = node;
     return __visited.count(node) && __visited[node];
 }
 
@@ -200,7 +207,7 @@ std::vector<Contact> cp_load(std::string filename, int max_contacts) {
     return contactsVector;
 }
 
-Route dijkstra(Contact *root_contact, int destination, std::vector<Contact> contact_plan) {
+Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
     // Need to clear the real contacts in the contact plan
     // so we loop using Contact& instead of Contact
     for (Contact &contact : contact_plan) {
@@ -211,7 +218,7 @@ Route dijkstra(Contact *root_contact, int destination, std::vector<Contact> cont
 
     // Make sure we map to pointers so we can modify the underlying contact_plan
     // using the hashmap. The hashmap helps us find the neighbors of a node.
-    std::map<int, std::vector<Contact*>> contact_plan_hash;
+    std::map<nodeId_t, std::vector<Contact*>> contact_plan_hash;
     for (Contact &contact : contact_plan ) {
         if (!contact_plan_hash.count(contact.frm)) {
             contact_plan_hash[contact.frm] = std::vector<Contact*>();
@@ -357,7 +364,7 @@ std::ostream& operator<<(std::ostream &out, const Contact &obj) {
     boost::format fmt(fmtTemplate);
 
     int min_vol = *std::min_element(obj.mav.begin(), obj.mav.end());
-    float volume = 100 * min_vol / obj.volume;
+    double volume = 100.0 * min_vol / obj.volume;
     fmt % obj.frm % obj.to % obj.start % obj.end % obj.owlt % volume;
     const std::string message(std::move(fmt.str()));
 
