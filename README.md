@@ -90,7 +90,7 @@ To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is
 
 Configuring HDTN
 ================
-Configuration setup of HDTN between one sender and one receiver.    
+Configuration setup of HDTN between one sender and one receiver. File Path: /HDTN/tests/config_files/hdtn/aws_arm_test.json     
 Sender Configuration:
 * Change "myNodeId:" to "myNodeId: 10"
 * Change "myEndpointId:" to "myEndpointId: ipn:10.1"
