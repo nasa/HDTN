@@ -92,20 +92,20 @@ Configuring HDTN
 ================
 Configuration setup of HDTN between one sender and one receiver.
 Sender Configuration:
-1.) Change "myNodeId:" to "myNodeId: 10"
-2.) Change "myEndpointId:" to "myEndpointId: ipn:10.1"
-3.) Change "boundPort:" to "boundPort: 4556"
-4.) Change "nextHopEndpointId": to "nextHopEndpointId: ipn:20.1"
-5.) Change "remoteHostname:" to "remoteHostname: Private IP Address of Reciever"
-6.) Change "remotePort:" to "remotePort: 4557"
+* Change "myNodeId:" to "myNodeId: 10"
+* Change "myEndpointId:" to "myEndpointId: ipn:10.1"
+* Change "boundPort:" to "boundPort: 4556"
+* Change "nextHopEndpointId": to "nextHopEndpointId: ipn:20.1"
+* Change "remoteHostname:" to "remoteHostname: Private IP Address of Reciever"
+* Change "remotePort:" to "remotePort: 4557"
 
 Reciever Configuration:
-1.) Change "myNodeId:" to "myNodeId: 20"
-2.) Change "myEndpointId:" to "myEndpointId: ipn:20.1"
-3.) Change "boundPort:" to "boundPort: 4557"
-4.) Change "nextHopEndpointId": to "nextHopEndpointId: ipn:2.1"
-5.) Change "remoteHostname:" to "remoteHostname: localhost"
-6.) Change "remotePort:" to "remotePort: 4558"
+* Change "myNodeId:" to "myNodeId: 20"
+* Change "myEndpointId:" to "myEndpointId: ipn:20.1"
+* Change "boundPort:" to "boundPort: 4557"
+* Change "nextHopEndpointId": to "nextHopEndpointId: ipn:2.1"
+* Change "remoteHostname:" to "remoteHostname: localhost"
+* Change "remotePort:" to "remotePort: 4558"
 
 Run HDTN
 =========
