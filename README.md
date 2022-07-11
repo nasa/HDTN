@@ -88,6 +88,25 @@ To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is
 * make -j8
 * make install
 
+Configuring HDTN
+================
+Configuration setup of HDTN between one sender and one receiver.
+Sender Configuration:
+1.) Change "myNodeId:" to "myNodeId: 10"
+2.) Change "myEndpointId:" to "myEndpointId: ipn:10.1"
+3.) Change "boundPort:" to "boundPort: 4556"
+4.) Change "nextHopEndpointId": to "nextHopEndpointId: ipn:20.1"
+5.) Change "remoteHostname:" to "remoteHostname: Private IP Address of Reciever"
+6.) Change "remotePort:" to "remotePort: 4557"
+
+Reciever Configuration:
+1.) Change "myNodeId:" to "myNodeId: 20"
+2.) Change "myEndpointId:" to "myEndpointId: ipn:20.1"
+3.) Change "boundPort:" to "boundPort: 4557"
+4.) Change "nextHopEndpointId": to "nextHopEndpointId: ipn:2.1"
+5.) Change "remoteHostname:" to "remoteHostname: localhost"
+6.) Change "remotePort:" to "remotePort: 4558"
+
 Run HDTN
 =========
 Note: Ensure your config files are correct, e.g., The outduct remotePort is the same as the induct boundPort, a consistant convergenceLayer, and the outducts remoteHostname is pointed to the correct IP adress.
