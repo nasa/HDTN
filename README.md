@@ -88,9 +88,14 @@ To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is
 * make -j8
 * make install
 
-Configuring HDTN using tcpcl_v4 as the convergence layer
+Configuring HDTN 
 ================
-Configuration setup of HDTN between one sender and one receiver using tcpcl_v4 as the convergence layer. File Path: /HDTN/tests/config_files/hdtn/aws_arm_test.json     
+1. ### **TCPCL Version 4** as The Convergence Layer ###
+
+Configuration setup of HDTN between one sender and one receiver using tcpcl_v4 as the convergence layer.  
+
+File Path: /HDTN/tests/config_files/hdtn/aws_arm_test.json  
+
 Sender Configuration:
 * Change "myNodeId:" to "myNodeId: 10"
 * Change "myEndpointId:" to "myEndpointId: ipn:10.1"
