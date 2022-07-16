@@ -186,6 +186,6 @@ Automating Output Retrival from bp_sink.sh
 3.) Inside the HDTN folder, paste this command: ./test_scripts_linux/aws_arm_tests/bp_sink.sh > output.txt    
 4.) Terminate the Script Using Ctrl + C   
 5.) Open the the output.txt file and copy the contents to your local machine  
-5.) On your local machine, create a folder and put bpSinkOutputToExcel.py and the output.txt file in one folder  
+5.) On your local machine, create a folder and put bpSinkOutputToExcel.py and the output.txt file in the same folder  
 6.) Run the bpSinkOutputToExcel.py file  
-7.) A new file will be created inside the HDTN folder called "bpSinkOutputs.xlsx". This is the file that contains the necessary data.  
+7.) A new file will be created inside the folder called "bpSinkOutputs.xlsx". This is the file that contains the necessary data.  
