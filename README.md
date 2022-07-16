@@ -184,6 +184,8 @@ Automating Output Retrival from bp_sink.sh
 1.) install python pip3  
 2.) *pip3 install openpyxl   
 3.) Inside the HDTN folder, paste this command: ./test_scripts_linux/aws_arm_tests/bp_sink.sh > output.txt    
-4.) Terminate the Script Using Ctrl + C    
-5.) Stay Inside the HDTN folder and paste this command to run python script: bpSinkOutputToExcel.py    
+4.) Terminate the Script Using Ctrl + C 
+5.) Open the the output.txt file and copy the contents to your local machine
+5.) On your local machine, create a folder and put bpSinkOutputToExcel.py and the output.txt file in one folder  
+6.) Run the bpSinkOutputToExcel.py file  
 6.) A new file will be created inside the HDTN folder called "bpSinkOutputs.xlsx". This is the file that contains the necessary data.  
