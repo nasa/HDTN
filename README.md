@@ -124,7 +124,7 @@ In another terminal, run:
 
 Note: The contact Plan which has a list of all forthcoming contacts for each node is located under module/scheduler/src/contactPlan.json and includes source/destination nodes, start/end time and data rate. Based on the schedule in the contactPlan the scheduler sends events on link availability to Ingress and Storage. When the Ingress receives Link Available event for a given destination, it sends the bundles directly to egress and when the Link is Unavailable it sends the bundles to storage. Upon receiving Link Available event, Storage releases the bundles for the corresponding destination  and when receiving Link Available event it stops releasing the budles. 
 
-There are additional test scripts located under the directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.   
+There are additional test scripts located under the directories test_scripts_linux and test_scripts_windows that can be used to test different scenarios for all convergence layers.
 
 Run Unit Tests
 ===============
@@ -179,3 +179,11 @@ Then open the CMakeLists.txt file in the hdtn directory and make the following e
 
 Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
 
+Automating Output Retrival from bp_sink.sh
+=========================================
+1.) install python pip3
+2.) *pip3 install openpyxl*
+3.) Inside the HDTN folder, paste this command:*./test_scripts_linux/aws_arm_tests/bp_sink.sh > output.txt *
+4.) Terminate the Script Using Ctrl + C
+5.) Stay Inside the HDTN folder and paste this command to run python script" *bpSinkOutputToExcel.py*
+6.) A new file will be created inside the HDTN folder called "bpSinkOutputs.xlsx". This is the file that contains the necessary data.
