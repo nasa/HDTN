@@ -181,7 +181,7 @@ Now anytime that HDTNOneProcess is ran, the web page will be accessible at http:
 
 Automating Output Retrival from bp_sink.sh
 =========================================
-** Python and pip need to be installed in order for this to work **
+**Python and pip need to be installed in order for this to work**
 1. `pip install openpyxl`   
 2. Navigate inside the HDTN folder and run the following command: `./test_scripts_linux/aws_arm_tests/bp_sink.sh > output.txt`. **This will dump the output of the bp_sink script into a .txt file called "output"**    
 3. The script has to be terminated manually using Ctrl + C   
