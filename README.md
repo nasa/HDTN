@@ -181,11 +181,12 @@ Now anytime that HDTNOneProcess is ran, the web page will be accessible at http:
 
 Automating Output Retrival from bp_sink.sh
 =========================================
-1.) install python pip3  
-2.) *pip3 install openpyxl   
-3.) Inside the HDTN folder, paste this command: ./test_scripts_linux/aws_arm_tests/bp_sink.sh > output.txt    
-4.) Terminate the Script Using Ctrl + C   
-5.) Open the the output.txt file and copy the contents to your local machine  
-5.) On your local machine, create a folder and put bpSinkOutputToExcel.py and the output.txt file in the same folder  
-6.) Run the bpSinkOutputToExcel.py file  
-7.) A new file will be created inside the folder called "bpSinkOutputs.xlsx". This is the file that contains the necessary data.  
+** Python and pip need to be installed in order for this to work **
+1. `pip install openpyxl`   
+2. Navigate inside the HDTN folder and run the following command: `./test_scripts_linux/aws_arm_tests/bp_sink.sh > output.txt`. **This will dump the output of the bp_sink script into a .txt file called "output"**    
+3. The script has to be terminated manually using Ctrl + C   
+4. Copy the contents of output.txt to your local machine
+5. On your local machine, retrieve the bpSinkOutputToExcel.py file from this gitHub
+6. On your local machine, create a new folder and put bpSinkOutputToExcel.py and the output.txt file in the same folder. **It should be noted, the .txt file has to be named "output", otherwise the python program will not work**   
+7. Run the bpSinkOutputToExcel.py file  
+8. After the program has executed, a new file will be created inside the folder named "bpSinkOutputs.xlsx". **This is the file that contains the necessary output data.**  
