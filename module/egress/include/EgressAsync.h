@@ -39,9 +39,8 @@ public:
     EGRESS_ASYNC_LIB_EXPORT void Stop();
     EGRESS_ASYNC_LIB_EXPORT void Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 
-    uint64_t m_bundleCount;
-    uint64_t m_bundleData;
-    uint64_t m_messageCount;
+    //telemetry
+    EgressTelemetry_t m_telemetry;
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;

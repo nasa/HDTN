@@ -291,3 +291,14 @@ boost::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(cons
 
     return NULL;
 }
+
+uint64_t OutductManager::GetAllOutductTelemetry(uint8_t* serialization, uint64_t bufferSize) const {
+    const uint8_t* const serializationBase = serialization;
+    for (std::vector<boost::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
+        const boost::shared_ptr<Outduct>& o = (*it);
+        const uint64_t sizeSerialized = o->GetOutductTelemetry(serialization, bufferSize);
+        serialization += sizeSerialized;
+        bufferSize -= sizeSerialized;
+    }
+    return serialization - serializationBase;
+}

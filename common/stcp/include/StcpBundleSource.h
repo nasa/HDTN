@@ -30,6 +30,7 @@
 #include <queue>
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
+#include "Telemetry.h"
 #include "stcp_lib_export.h"
 
 class StcpBundleSource {
@@ -100,11 +101,7 @@ private:
 
 public:
     //stcp stats
-    std::size_t m_totalDataSegmentsAckedByTcpSendCallback;
-    std::size_t m_totalBytesAckedByTcpSendCallback;
-    std::size_t m_totalDataSegmentsSent;
-    std::size_t m_totalBundleBytesSent;
-    std::size_t m_totalStcpBytesSent;
+    StcpOutductTelemetry_t m_stcpOutductTelemetry;
 };
 
 

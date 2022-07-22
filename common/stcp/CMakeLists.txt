@@ -17,6 +17,7 @@ set_target_properties(stcp_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") 
 target_link_libraries(stcp_lib
 	PUBLIC
 		hdtn_util
+		telemetry_definitions
 )
 target_include_directories(stcp_lib
 	PUBLIC

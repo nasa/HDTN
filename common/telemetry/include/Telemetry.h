@@ -23,35 +23,63 @@
 #include "telemetry_definitions_export.h"
 
 struct IngressTelemetry_t{
-    uint64_t type = 1;
+    TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
+
+    uint64_t type;
     double bundleDataRate;
     double averageDataRate;
     double totalData;
     uint64_t bundleCountEgress;
     uint64_t bundleCountStorage;
 
-    TELEMETRY_DEFINITIONS_EXPORT void ToLittleEndianInplace();
-    TELEMETRY_DEFINITIONS_EXPORT void ToNativeEndianInplace();
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t * data, uint64_t bufferSize) const;
 };
 
 struct EgressTelemetry_t{
-    uint64_t type = 2;
+    TELEMETRY_DEFINITIONS_EXPORT EgressTelemetry_t();
+
+    uint64_t type;
     uint64_t egressBundleCount;
-    double egressBundleData;
+    uint64_t egressBundleData;
     uint64_t egressMessageCount;
 
-    TELEMETRY_DEFINITIONS_EXPORT void ToLittleEndianInplace();
-    TELEMETRY_DEFINITIONS_EXPORT void ToNativeEndianInplace();
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 
 };
 
 struct StorageTelemetry_t{
-    uint64_t type = 3;
+    TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
+
+    uint64_t type;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
 
-    TELEMETRY_DEFINITIONS_EXPORT void ToLittleEndianInplace();
-    TELEMETRY_DEFINITIONS_EXPORT void ToNativeEndianInplace();
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };
+
+struct OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT OutductTelemetry_t();
+
+    uint64_t type;
+    uint64_t convergenceLayerType;
+    uint64_t totalBundlesAcked;
+    uint64_t totalBundleBytesAcked;
+    uint64_t totalBundlesSent;
+    uint64_t totalBundleBytesSent;
+    
+
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundleBytesQueued() const;
+};
+
+struct StcpOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
+
+    uint64_t totalStcpBytesSent;
+
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+};
+
+TELEMETRY_DEFINITIONS_EXPORT bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size);
 
 #endif // HDTN_TELEMETRY_H

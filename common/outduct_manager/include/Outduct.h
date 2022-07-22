@@ -43,6 +43,7 @@ public:
     virtual bool ReadyToForward() = 0;
     virtual void Stop() = 0;
     virtual void GetOutductFinalStats(OutductFinalStats & finalStats) = 0;
+    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) const;
 
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductUuid() const;
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxBundlesInPipeline() const;
