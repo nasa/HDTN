@@ -21,7 +21,7 @@ file.close() # closes file
 excelWorkbookName = "bpSinkOutputs.xlsx"
 
 if os.path.isfile(excelWorkbookName) == True:
-    workbook = load_workbook("bpSink Outputs.xlsx")
+    workbook = load_workbook(excelWorkbookName)
     worksheet = workbook.create_sheet(worksheetName())
     header()
     fileParser()
