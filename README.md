@@ -104,7 +104,7 @@ Sender Configuration:
 * Change "remoteHostname:" to "remoteHostname: Private IP Address of Reciever"
 * Change "remotePort:" to "remotePort: 4557"
 
-Reciever Configuration:
+Receiver Configuration:
 * Change "myNodeId:" to "myNodeId: 20"
 * Change "myEndpointId:" to "myEndpointId: ipn:20.1"
 * Change "boundPort:" to "boundPort: 4557"
