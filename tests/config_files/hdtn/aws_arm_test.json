@@ -2,7 +2,7 @@
     "hdtnConfigName": "my hdtn config",
     "userInterfaceOn": true,
     "mySchemeName": "unused_scheme_name",
-    "myNodeId": ,
+    "myNodeId": 10,
     "myBpEchoServiceId": 2047,
     "myCustodialSsp": "unused_custodial_ssp",
     "myCustodialServiceId": 0,
@@ -36,17 +36,11 @@
         "inductVector": [
             {
                 "name": "tcpcl_ingress",
-                "convergenceLayer": "tcpcl_v4",
-                "myEndpointId": "",
-                "boundPort": ,
+                "convergenceLayer": "stcp",
+                "myEndpointId": "ipn:10.1",
+                "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
-                "numRxCircularBufferBytesPerElement": 20000,
-                "keepAliveIntervalSeconds": 15,
-                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
-                "tlsIsRequired": false,
-                "certificatePemFile": "",
-                "privateKeyPemFile": "",
-                "diffieHellmanParametersPemFile": ""
+                "keepAliveIntervalSeconds": 15
             }
         ]
     },
@@ -55,24 +49,28 @@
         "outductVector": [
             {
                 "name": "tcpcl_egress",
-                "convergenceLayer": "tcpcl_v4",
-                "nextHopEndpointId": "",
-                "remoteHostname": "",
-                "remotePort": ,
+                "convergenceLayer": "ltp_over_udp",
+                "nextHopEndpointId": "ipn:20.1",
+                "remoteHostname": "10.52.88.216",
+                "remotePort": 4557,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
                     "ipn:2.1",
                     "ipn:2.2047"
                 ],
-                "keepAliveIntervalSeconds": 17,
-                "tcpclAllowOpportunisticReceiveBundles": true,
-                "tcpclV4MyMaxRxSegmentSizeBytes": 200000,
-                "tryUseTls": false,
-                "tlsIsRequired": false,
-                "useTlsVersion1_3": false,
-                "doX509CertificateVerification": false,
-                "verifySubjectAltNameInX509Certificate": false,
-                "certificationAuthorityPemFileForVerification": ""
+
+                 "thisLtpEngineId": 10,
+                 "remoteLtpEngineId": 20,
+                 "ltpDataSegmentMtu": 1360,
+                 "oneWayLightTimeMs": 1000,
+                 "oneWayMarginTimeMs": 200,
+                 "clientServiceId": 1,
+                 "numRxCircularBufferElements": 200,
+                 "ltpMaxRetriesPerSerialNumber": 500,
+                 "ltpCheckpointEveryNthDataSegment": 0,
+                 "ltpRandomNumberSizeBits": 64,
+                 "ltpSenderBoundPort": 4557,
+                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0
             }
         ]
     },
