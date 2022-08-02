@@ -51,7 +51,7 @@
                 "name": "tcpcl_egress",
                 "convergenceLayer": "ltp_over_udp",
                 "nextHopEndpointId": "ipn:20.1",
-                "remoteHostname": "PRIVATE IP ADDRESS OF RECEIVER",
+                "remoteHostname": "PRIVATE IPV4 ADDRESS OF RECEIVER",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 5,
                 "finalDestinationEidUris": [
@@ -72,6 +72,7 @@
                  "ltpSenderBoundPort": 4557,
                  "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0
             }
+
         ]
     },
     "storageConfig": {
