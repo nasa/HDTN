@@ -316,6 +316,7 @@ Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact>
 
     if (final_contact != NULL) {
         std::vector<Contact> hops;
+        std::vector<Contact> hops;
         Contact contact;
         for (contact = *final_contact; contact != *root_contact; contact = *contact.predecessor) {
             hops.push_back(contact);
@@ -330,6 +331,8 @@ Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact>
     }
 
     return route;
+
+
 }
 
 /*
@@ -385,5 +388,119 @@ std::ostream& operator<<(std::ostream &out, const Route &obj) {
     out << message;
     return out;
 }
+
+/*
+ * Multigraph Routing
+ */
+
+Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
+    // Construct Contact Multigraph from Contact Plan
+    ContactMultigraph CM = construct_contact_multigraph(contact_plan)
+    
+    // Set each non-source vertex's arrival time to infinity, visited to false, predecessor to null
+    for (Vertex& v : CM) {
+        // source vertex to initial time, everything else to inf
+        v.arrival_time = (v.id == root_contact.frm ? root_contact.start : MAX_SIZE);
+        v.visited = false;
+        v.predecessor = NULL;
+    }
+    
+    // Construct min PQ ordered by arrival time
+    std::priority_queue<Vertex, Vector<Vertex>, CompareArrivals> PQ;
+    for (Vertex& v : CM) {
+        PQ.push(v);
+    }
+    v_curr = V.pop();
+    while (true) {
+        MRP(CM, PQ, v_curr); //eventually make inline - separated for clarity now
+        v_next = PQ.pop();
+        if (v_next.id = destination) {
+            break;
+        }
+        else {
+            v_curr = v_next;
+        }
+    }
+    // construct route from contact predecessors
+    // can use Timothy's code because we are storing contacts as predecessors
+    // removed case to check if the final contact is null - I think exiting the above loop verifies that
+    // Raises the question: how to exit if path isn't found
+    std::vector<Contact> hops;
+    Contact contact;
+    for (contact = v_curr.predecessor; contact != *root_contact; contact = *contact.predecessor) {
+        hops.push_back(contact);
+    }
+    route Route;
+    route = Route(hops.back()); // combine with line below?
+    hops.pop_back();
+    while (!hops.empty()) {
+        route.append(hops.back());
+        hops.pop_back();
+    }
+    return route;
+}
+
+
+// multigraph review procedure
+// modifies PQ
+void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
+    for (Vertex u : v_curr.neighbors) {
+        if (u.visited) {
+            continue;
+        }
+        // find earliest usable contact from v_curr to u
+        Contact best_contact = ; // use binary search for efficiency
+        // what is owlt_mgn? is it confidence?
+        int best_arr_time = std::max(best_contact.start, v_curr.arrival_time) + best_contact.owlt;
+        if (best_arr_time < u.arrival_time) {
+            u.arrival_time = best_arr_time;
+            // update PQ
+            // will probably need to implement own priority queue to make this possible in a more efficient way
+            // because you cannot modify the underlying container with the stl priority queue
+            u->arrival_time = best_arr_time;
+            PQ.push(u);
+            u.predecessor = best_contact;
+        }
+    }
+    v_curr.visited = true;
+}
+
+
+Contact 
+
+
+
+
+
+// make sure contacts are sorted in contact multigraph
+ContactMultigraph construct_contact_multigraph(contact_plan) {
+    ContactMultigraph cm;
+    for (Contact& contact : contact_plan) {
+        if (cm.adj.find(contact.src) != cm.adj.end()) {
+            // TODO
+        }
+        else {
+            if (_________) { // get cm.adj[contact.src]
+                // Add contact to adjacency list
+            } 
+            else {
+                // insert contact into list
+                // use a better search - Michael's algorithm uses linear search
+            }
+        }
+        if (cm.adj.find(contact.dst) != cm.adj.end()) {
+            // TODO
+        }
+        if () { // contact source not in vertex_list
+            // append to vertex_list
+        }
+        if () { // contact destination not in vertex_list
+            // append to vertex_list
+        }
+    }
+}
+
+
+
 
 }
