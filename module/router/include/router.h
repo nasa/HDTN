@@ -28,7 +28,7 @@ public:
                             uint64_t sourceNode, cbhe_eid_t finalDestEid);
 
     static std::string GetFullyQualifiedFilename(std::string filename) {
-        return (Environment::GetPathHdtnSourceRoot() / "module/router/src/").string() + filename;
+        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/").string() + filename;
     }
     volatile bool m_timersFinished;
 private:

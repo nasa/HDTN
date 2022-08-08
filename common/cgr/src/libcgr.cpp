@@ -193,11 +193,14 @@ std::vector<Contact> cp_load(std::string filename, int max_contacts) {
     const boost::property_tree::ptree & contactsPt
         = pt.get_child("contacts", boost::property_tree::ptree());
     for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
-        Contact new_contact = Contact(eventPt.second.get<int>("source", 0),
-                                      eventPt.second.get<int>("dest", 0),
-                                      eventPt.second.get<int>("startTime", 0),
-                                      eventPt.second.get<int>("endTime", 0),
-                                      eventPt.second.get<int>("rate", 0));
+        Contact new_contact = Contact(
+            eventPt.second.get<int>("source", 0),
+            eventPt.second.get<int>("dest", 0),
+            eventPt.second.get<int>("startTime", 0),
+            eventPt.second.get<int>("endTime", 0),
+            eventPt.second.get<int>("rate", 0),
+            1.0, // confidence
+            eventPt.second.get<int>("owlt", 0));
         // new_contact.id = eventPt.second.get<int>("contact", 0);
         contactsVector.push_back(new_contact);
         if (contactsVector.size() == max_contacts) {
