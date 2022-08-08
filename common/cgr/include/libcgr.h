@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <ostream>
 #include <limits>
 #include "cgr_lib_export.h"
@@ -64,6 +65,38 @@ public:
     CGR_LIB_EXPORT std::vector<Contact> get_hops();
 };
 
+
+// Vertex for Multigraph Routing
+class Vertex {
+public:
+    nodeId_t id;
+    std::unordered_map<nodeId_t, vector<Contact>> adjacencies;
+    float arrival_time;
+    bool visited;
+    Contact predecessor;
+    CGR_LIB_EXPORT Vertex(nodeId_t id);
+};
+
+
+class ContactMultigraph {
+public:
+    std::unordered_map<nodeId_t, Vertex> vertices;
+    CGR_LIB_EXPORT ContactMultigraph();
+};
+
+
+
+class CompareArrivals
+{
+public:
+    bool operator()(Vertex v1, Vertex v2)
+    {
+        return v1.arrival_time < v2.arrival_time;
+    }
+};
+
+
+
 CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, int max_contacts=MAX_SIZE);
 
 CGR_LIB_EXPORT Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
@@ -80,6 +113,7 @@ class EmptyContainerError: public std::exception {
 CGR_LIB_EXPORT std::ostream& operator<<(std::ostream &out, const std::vector<Contact> &obj);
 CGR_LIB_EXPORT std::ostream& operator<<(std::ostream &out, const Contact &obj);
 CGR_LIB_EXPORT std::ostream& operator<<(std::ostream &out, const Route &obj);
+
 
 } // namespace cgr
 

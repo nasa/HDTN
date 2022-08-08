@@ -398,7 +398,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     ContactMultigraph CM = construct_contact_multigraph(contact_plan)
     
     // Set each non-source vertex's arrival time to infinity, visited to false, predecessor to null
-    for (Vertex& v : CM) {
+    for (Vertex v : CM) {
         // source vertex to initial time, everything else to inf
         v.arrival_time = (v.id == root_contact.frm ? root_contact.start : MAX_SIZE);
         v.visited = false;
@@ -407,9 +407,10 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     
     // Construct min PQ ordered by arrival time
     std::priority_queue<Vertex, Vector<Vertex>, CompareArrivals> PQ;
-    for (Vertex& v : CM) {
-        PQ.push(v);
+    for (Vertex v : CM) {
+        PQ.push(v); // put the pointers not the references in here
     }
+    *Vertex v_curr;
     v_curr = V.pop();
     while (true) {
         MRP(CM, PQ, v_curr); //eventually make inline - separated for clarity now
@@ -443,7 +444,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
 
 // multigraph review procedure
 // modifies PQ
-void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
+void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, *Vertex v_curr) {
     for (Vertex u : v_curr.neighbors) {
         if (u.visited) {
             continue;
@@ -466,41 +467,69 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
 }
 
 
-Contact 
+// finds contact C in contacts s.t. C.end >= arrival_time && C.start <= arrival time
+// assumes non-overlapping intervals - would want to optimize if they do overlap
+Contact contact_search(Vector<Contact> contacts, float arrival_time) {
+    return contact_search_helper(contacts, arrival_time, 0, contacts.size() - 1);
+}
 
-
-
-
-
-// make sure contacts are sorted in contact multigraph
-ContactMultigraph construct_contact_multigraph(contact_plan) {
-    ContactMultigraph cm;
-    for (Contact& contact : contact_plan) {
-        if (cm.adj.find(contact.src) != cm.adj.end()) {
-            // TODO
+Contact contact_search_helper(Vector<Contact> contacts, float arrival_time, int left, int right) {
+    while (left <= right) {
+        int mid = (left + right) / 2;
+        int c = vector[mid];
+        if (c.start > arrival_time) {
+            right = mid - 1;
+        }
+        else if (c.end < arrival_time) {
+            left = mid + 1;
         }
         else {
-            if (_________) { // get cm.adj[contact.src]
-                // Add contact to adjacency list
-            } 
-            else {
-                // insert contact into list
-                // use a better search - Michael's algorithm uses linear search
-            }
-        }
-        if (cm.adj.find(contact.dst) != cm.adj.end()) {
-            // TODO
-        }
-        if () { // contact source not in vertex_list
-            // append to vertex_list
-        }
-        if () { // contact destination not in vertex_list
-            // append to vertex_list
+            return c;
         }
     }
 }
 
 
-
-
+ContactMultigraph construct_contact_multigraph(Vector<Contact> contact_plan, nodeId_t dest_id) {
+    ContactMultigraph cm;
+    std::unordered_map nodes = cm.nodes;
+    auto nodes_end = cm.nodes.end();
+    for (Contact& contact : contact_plan) {
+        if (nodes.find(contact.frm) == nodes_end) {
+            Vertex frm(contact.frm);
+            Vector<Contact> adj = frm.adjacencies[contact.to]
+            adj = vector<Contact>();
+            adj.push_back(contact);
+            nodes.insert({contact.frm, frm});
+        }
+        else {
+            Vertex frm = nodes[contact.frm];
+            Vector<Contact> adj = frm.adjacencies[contact.to];
+            if (adj& == nullptr) {
+                adj = vector<Contact>();
+            }
+            if (adj.empty() || contact.start > adj[adj.size() - 1].start) {
+                adj.push_back(contact);
+            }
+            else {
+                // insert contact sorted by start time
+                // assuming non-overlapping contacts. what is the best way to do this if there are overlapping contacts?
+                for (int i = 0; i < adj.size(); i++) {
+                    if (contact.start < adj[i].start) {
+                        adj.insert(i, contact);
+                    }
+                }
+            }
+            
+        }
+    }
+    // only need to check if a vertex hasn't been made for the destination
+    // if any other node is only "to" and never "frm" it has no path to the destination
+    if (nodes.find(dest) == nodes_end) {
+        Vertex dest(dest_id);
+        nodes.insert({ dest_id, dest });
+    }
 }
+
+
+} // namespace cgr
