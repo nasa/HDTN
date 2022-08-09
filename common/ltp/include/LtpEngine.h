@@ -125,6 +125,8 @@ private:
     LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
     LTP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer(const boost::posix_time::ptime & nowPtime);
     LTP_LIB_NO_EXPORT void OnTokenRefresh_TimerExpired(const boost::system::error_code& e);
+
+    LTP_LIB_NO_EXPORT void OnHousekeeping_TimerExpired(const boost::system::error_code& e);
 private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;
@@ -135,6 +137,8 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
+    const boost::posix_time::time_duration M_HOUSEKEEPING_INTERVAL;
+    const boost::posix_time::time_duration M_STAGNANT_RX_SESSION_TIME;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
@@ -167,6 +171,7 @@ private:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
     LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
+    boost::asio::deadline_timer m_housekeepingTimer;
     TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;
     uint64_t m_maxSendRateBitsPerSecOrZeroToDisable;

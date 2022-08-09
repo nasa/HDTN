@@ -443,7 +443,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 else {
                     //send telemetry
-                    std::cout << "egress send telem\n";
+                    //std::cout << "egress send telem\n";
 
                     std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
                     uint8_t* telemPtr = vecUint8RawPointer->data();

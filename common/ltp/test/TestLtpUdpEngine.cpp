@@ -1037,6 +1037,57 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr->SetMtuReportSegment(UINT64_MAX); //restore to default unlimited reception claims
         }
         
+        //test receiver stagnant session timeout
+        void DoTestDropGreenEobSrcToDest() {
+            struct DropOneSimulation {
+                int count;
+                DropOneSimulation() : count(0) {}
+                bool DoSim(const uint8_t ltpHeaderByte) {
+                    const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
+                    if (type == LTP_SEGMENT_TYPE_FLAGS::GREENDATA_ENDOFBLOCK) {
+                        //std::cout << "drop green eob\n";
+                        return true;
+                    }
+                    return false;
+                }
+            };
+            Reset();
+            AssertNoActiveSendersAndReceivers();
+            DropOneSimulation sim;
+            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1);
+            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
+            tReq->destinationLtpEngineId = ENGINE_ID_DEST;
+            tReq->clientServiceDataToSend = std::vector<uint8_t>(DESIRED_FULLY_GREEN_DATA_TO_SEND.data(), DESIRED_FULLY_GREEN_DATA_TO_SEND.data() + DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //copy
+            tReq->lengthOfRedPart = 0;
+            std::shared_ptr<MyTransmissionUserData> myUserData = std::make_shared<MyTransmissionUserData>(123);
+            tReq->userDataPtr = myUserData; //keep a copy
+            ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
+            for (unsigned int i = 0; i < 60; ++i) {
+                if (numTransmissionSessionCompletedCallbacks && numReceptionSessionCancelledCallbacks && (numGreenPartReceptionCallbacks >= (DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1))) {
+                    break;
+                }
+                //std::cout << "delay" << i << "\n";
+                cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+            }
+            TryWaitForNoActiveSendersAndReceivers();
+            AssertNoActiveSendersAndReceivers();
+            BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
+            BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numGreenPartReceptionCallbacks, DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1);
+            BOOST_REQUIRE_EQUAL(numReceptionSessionCancelledCallbacks, 1);
+            BOOST_REQUIRE(lastReasonCode_receptionSessionCancelledCallback == CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
+            BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
+
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_FULLY_GREEN_DATA_TO_SEND.size() + 1); //+1 for 1 (last) dropped packet
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, 1); //1 for housekeeping sending CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
+        }
+
     };
 
     LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
@@ -1044,13 +1095,18 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     t.DoTest();
     t.DoTestRedAndGreenData();
     t.DoTestFullyGreenData();
+    std::cout << "-----START LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
+    t.DoTestDropGreenEobSrcToDest();
+    std::cout << "-----END LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
     t.DoTestOneDropDataSegmentSrcToDest();
     t.DoTestTwoDropDataSegmentSrcToDest();
     t.DoTestTwoDropDataSegmentSrcToDestRegularCheckpoints();
     t.DoTestDropOneCheckpointDataSegmentSrcToDest();
     t.DoTestDropEOBCheckpointDataSegmentSrcToDest();
     t.DoTestDropRaSrcToDest();
+    std::cout << "-----START LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
     t.DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest();
+    std::cout << "-----END LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
     t.DoTestDropRaAlwaysSrcToDest();
     t.DoTestReceiverCancelSession();
     t.DoTestSenderCancelSession();

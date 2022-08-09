@@ -62,7 +62,7 @@ private:
     std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsSet;
     std::map<uint64_t, Ltp::report_segment_t> m_mapAllReportSegmentsSent;
     std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
-    std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
+    //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
     std::queue<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
     LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
@@ -85,6 +85,9 @@ private:
     const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
 
 public:
+    //stagnant rx session detection in ltp engine with periodic housekeeping timer
+    boost::posix_time::ptime m_lastDataSegmentReceivedTimestamp;
+
     //stats
     uint64_t m_numReportSegmentTimerExpiredCallbacks;
     uint64_t m_numReportSegmentsUnableToBeIssued;
