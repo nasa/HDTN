@@ -457,8 +457,13 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
         if (u.visited) {
             continue;
         }
+        // check if there is any viable contact
+        Vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
+        if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
+                break;
+        }
         // find earliest usable contact from v_curr to u
-        Contact best_contact = contact_search(v_curr.adjacencies[u.id], v_curr.arrival_time);
+        Contact best_contact = contact_search(v_curr_to_u, v_curr.arrival_time);
         // should owlt_mgn be included in best arrival time?
         int best_arr_time = std::max(best_contact.start, v_curr.arrival_time) + best_contact.owlt;
         if (best_arr_time < u.arrival_time) {
@@ -477,9 +482,13 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
 // finds contact C in contacts with smallest arrival time
 // s.t. C.end >= arrival_time && C.start <= arrival time
 // assumes non-overlapping intervals - would want to optimize if they do overlap
+// double check this with Michael
 Contact contact_search(Vector<Contact> contacts, float arrival_time) {
     int left = 0;
     int right = contacts.size() - 1;
+    if (vector[left].start > arrival_time) {
+        return vector[left]
+    }
     while (left <= right) {
         int mid = (left + right) / 2;
         int c = vector[mid];
