@@ -66,6 +66,7 @@ struct OutductTelemetry_t {
     uint64_t totalBundleBytesAcked;
     uint64_t totalBundlesSent;
     uint64_t totalBundleBytesSent;
+    uint64_t totalBundlesFailedToSend;
     
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t GetTotalBundlesQueued() const;
@@ -76,6 +77,22 @@ struct StcpOutductTelemetry_t : public OutductTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StcpOutductTelemetry_t();
 
     uint64_t totalStcpBytesSent;
+
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+};
+
+struct LtpOutductTelemetry_t : public OutductTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT LtpOutductTelemetry_t();
+
+    //ltp engine session sender stats
+    uint64_t numCheckpointsExpired;
+    uint64_t numDiscretionaryCheckpointsNotResent;
+
+    //ltp udp engine
+    uint64_t countUdpPacketsSent;
+    uint64_t countRxUdpCircularBufferOverruns;
+
+    uint64_t countTxUdpPacketsLimitedByRate;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };

@@ -45,3 +45,7 @@ void LtpOverUdpOutduct::GetOutductFinalStats(OutductFinalStats & finalStats) {
     finalStats.m_totalDataSegmentsOrPacketsAcked = m_ltpBundleSource.GetTotalDataSegmentsAcked();
     finalStats.m_totalDataSegmentsOrPacketsSent = m_ltpBundleSource.GetTotalDataSegmentsSent();
 }
+uint64_t LtpOverUdpOutduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
+    m_ltpBundleSource.SyncTelemetry();
+    return m_ltpBundleSource.m_ltpOutductTelemetry.SerializeToLittleEndian(data, bufferSize);
+}

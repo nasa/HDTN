@@ -19,6 +19,6 @@ uint64_t Outduct::GetOutductMaxBundlesInPipeline() const {
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;
 }
-uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) const {
+uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
     return 0;
 }

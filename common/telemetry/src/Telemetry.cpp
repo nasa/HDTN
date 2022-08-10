@@ -32,14 +32,19 @@ static double LittleToNativeDouble(const uint64_t* doubleAsUint64Little) {
 IngressTelemetry_t::IngressTelemetry_t() : type(1) {}
 EgressTelemetry_t::EgressTelemetry_t() : type(2) {}
 StorageTelemetry_t::StorageTelemetry_t() : type(3) {}
-OutductTelemetry_t::OutductTelemetry_t() : type(4), totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0) {}
+OutductTelemetry_t::OutductTelemetry_t() : type(4), totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0), totalBundlesFailedToSend(0) {}
 StcpOutductTelemetry_t::StcpOutductTelemetry_t() : OutductTelemetry_t(), totalStcpBytesSent(0) {
     convergenceLayerType = 1;
 }
+LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
+    numCheckpointsExpired(0), numDiscretionaryCheckpointsNotResent(0), countUdpPacketsSent(0), countRxUdpCircularBufferOverruns(0), countTxUdpPacketsLimitedByRate(0)
+{
+    convergenceLayerType = 2;
+}
 
 uint64_t IngressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_ELEMENTS = sizeof(IngressTelemetry_t) / sizeof(uint64_t);
     static constexpr uint64_t NUM_BYTES = sizeof(IngressTelemetry_t);
+    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
     if (bufferSize < NUM_BYTES) {
         return 0; //failure
     }
@@ -48,8 +53,8 @@ uint64_t IngressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t buf
 }
 
 uint64_t EgressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_ELEMENTS = sizeof(EgressTelemetry_t) / sizeof(uint64_t);
     static constexpr uint64_t NUM_BYTES = sizeof(EgressTelemetry_t);
+    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
     if (bufferSize < NUM_BYTES) {
         return 0; //failure
     }
@@ -58,8 +63,8 @@ uint64_t EgressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t buff
 }
 
 uint64_t StorageTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_ELEMENTS = sizeof(StorageTelemetry_t) / sizeof(uint64_t);
     static constexpr uint64_t NUM_BYTES = sizeof(StorageTelemetry_t);
+    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
     if (bufferSize < NUM_BYTES) {
         return 0; //failure
     }
@@ -68,8 +73,18 @@ uint64_t StorageTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t buf
 }
 
 uint64_t StcpOutductTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
-    static constexpr uint64_t NUM_ELEMENTS = sizeof(StcpOutductTelemetry_t) / sizeof(uint64_t);
     static constexpr uint64_t NUM_BYTES = sizeof(StcpOutductTelemetry_t);
+    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
+    if (bufferSize < NUM_BYTES) {
+        return 0; //failure
+    }
+    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
+    return NUM_BYTES;
+}
+
+uint64_t LtpOutductTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
+    static constexpr uint64_t NUM_BYTES = sizeof(LtpOutductTelemetry_t);
+    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
     if (bufferSize < NUM_BYTES) {
         return 0; //failure
     }
@@ -152,6 +167,11 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
                 if (size < sizeof(StcpOutductTelemetry_t)) return false;
                 size -= sizeof(StcpOutductTelemetry_t);
             }
+            else if (convergenceLayerType == 2) { //a single ltp outduct
+                std::cout << "LTP Outduct Telem:\n";
+                if (size < sizeof(LtpOutductTelemetry_t)) return false;
+                size -= sizeof(LtpOutductTelemetry_t);
+            }
             //else if (convergenceLayerType == 2) { //a single tcpclv3 outduct
             //else if (convergenceLayerType == 3) { //a single tcpclv4 outduct
             //else if (convergenceLayerType == 4) { //a single ltp outduct
@@ -170,12 +190,15 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             serialized += sizeof(uint64_t);
             const uint64_t totalBundleBytesSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
+            const uint64_t totalBundlesFailedToSend = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            serialized += sizeof(uint64_t);
             const uint64_t totalBundlesQueued = totalBundlesSent - totalBundlesAcked;
             const uint64_t totalBundleBytessQueued = totalBundleBytesSent - totalBundleBytesAcked;
             std::cout << " totalBundlesAcked: " << totalBundlesAcked << "\n";
             std::cout << " totalBundleBytesAcked: " << totalBundleBytesAcked << "\n";
             std::cout << " totalBundlesSent: " << totalBundlesSent << "\n";
             std::cout << " totalBundleBytesSent: " << totalBundleBytesSent << "\n";
+            std::cout << " totalBundlesFailedToSend: " << totalBundlesFailedToSend << "\n";
             std::cout << " totalBundlesQueued: " << totalBundlesQueued << "\n";
             std::cout << " totalBundleBytessQueued: " << totalBundleBytessQueued << "\n";
             
@@ -185,7 +208,24 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
                 std::cout << "  Specific to STCP:\n";
                 std::cout << "  totalStcpBytesSent: " << totalStcpBytesSent << "\n";
             }
-            //else if (convergenceLayerType == 2) { //a single tcpclv3 outduct
+            else if (convergenceLayerType == 2) { //a single ltp outduct
+                const uint64_t numCheckpointsExpired = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                const uint64_t numDiscretionaryCheckpointsNotResent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                const uint64_t countUdpPacketsSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                const uint64_t countRxUdpCircularBufferOverruns = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                const uint64_t countTxUdpPacketsLimitedByRate = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                std::cout << "  Specific to LTP:\n";
+                std::cout << "  numCheckpointsExpired: " << numCheckpointsExpired << "\n";
+                std::cout << "  numDiscretionaryCheckpointsNotResent: " << numDiscretionaryCheckpointsNotResent << "\n";
+                std::cout << "  countUdpPacketsSent: " << countUdpPacketsSent << "\n";
+                std::cout << "  countRxUdpCircularBufferOverruns: " << countRxUdpCircularBufferOverruns << "\n";
+                std::cout << "  countTxUdpPacketsLimitedByRate: " << countTxUdpPacketsLimitedByRate << "\n";
+            }
             //else if (convergenceLayerType == 3) { //a single tcpclv4 outduct
             //else if (convergenceLayerType == 4) { //a single ltp outduct
             //else if (convergenceLayerType == 5) { //a single udp outduct
