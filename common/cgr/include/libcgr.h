@@ -70,8 +70,8 @@ public:
 class Vertex {
 public:
     nodeId_t id;
-    std::unordered_map<nodeId_t, vector<Contact>> adjacencies;
-    float arrival_time;
+    std::unordered_map<nodeId_t, std::vector<Contact>> adjacencies;
+    int arrival_time;
     bool visited;
     Contact predecessor;
     CGR_LIB_EXPORT Vertex(nodeId_t id);
