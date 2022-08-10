@@ -3,6 +3,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <queue>
+
 namespace cgr {
 
 /*
@@ -185,7 +187,7 @@ std::vector<Contact> Route::get_hops() {
 
 Vertex::Vertex(nodeId_t node_id) {
     id = node_id;
-    adjencies = std::unordered_map<nodeId_t, std::vector<Contact>>();
+    adjacencies = std::unordered_map<nodeId_t, std::vector<Contact>>();
     arrival_time = MAX_SIZE;
     visited = false;
     predecessor = NULL;
@@ -407,15 +409,15 @@ std::ostream& operator<<(std::ostream &out, const Route &obj) {
 
 Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
     // Construct Contact Multigraph from Contact Plan
-    ContactMultigraph CM = construct_contact_multigraph(contact_plan)
+    ContactMultigraph CM = construct_contact_multigraph(contact_plan, destination);
 
     // Default construction for each vertex sets arrival time to infinity,
     // visited to false, predecessor to null
     CM.nodes[root_contact.frm].arrival_time = root_contact.start;
     
     // Construct min PQ ordered by arrival time
-    std::priority_queue<Vertex, Vector<Vertex>, CompareArrivals> PQ;
-    for (auto v : CM.nodes) {
+    std::priority_queue<Vertex, vector<Vertex>, CompareArrivals> PQ;
+    for (auto v : CM.vertices) {
         PQ.push(v.second);
     }
     Vertex *v_curr;
@@ -436,11 +438,12 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     // Raises the question: how to exit if path isn't found
     std::vector<Contact> hops;
     Contact contact;
-    for (contact = v_curr.predecessor; contact != *root_contact; contact = CM.nodes[contact.frm].predecessor) {
+    for (contact = v_curr.predecessor; contact != *root_contact; contact = CM.vertices[contact.frm].predecessor) {
         hops.push_back(contact);
     }
     Route route;
-    route = Route(hops.pop_back());
+    route = Route(hops.back());
+    hops.pop_back()
     while (!hops.empty()) {
         route.append(hops.back());
         hops.pop_back();
@@ -458,7 +461,7 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
             continue;
         }
         // check if there is any viable contact
-        Vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
+        vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
         if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
                 continue;
         }
@@ -507,7 +510,7 @@ int contact_search_index(vector<Contact> contacts, int arrival_time) {
 }
 
 
-ContactMultigraph construct_contact_multigraph(Vector<Contact> contact_plan, nodeId_t dest_id) {
+ContactMultigraph construct_contact_multigraph(vector<Contact> contact_plan, nodeId_t dest_id) {
     ContactMultigraph cm;
     std::unordered_map nodes = cm.nodes;
     auto nodes_end = cm.nodes.end();

@@ -73,7 +73,7 @@ public:
     std::unordered_map<nodeId_t, std::vector<Contact>> adjacencies;
     int arrival_time;
     bool visited;
-    Contact predecessor;
+    Contact *predecessor;
     CGR_LIB_EXPORT Vertex(nodeId_t id);
 };
 
