@@ -460,7 +460,7 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
         // check if there is any viable contact
         Vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
         if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
-                break;
+                continue;
         }
         // find earliest usable contact from v_curr to u
         Contact best_contact = contact_search(v_curr_to_u, v_curr.arrival_time);
@@ -479,29 +479,31 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
 }
 
 
-// finds contact C in contacts with smallest arrival time
+// finds contact C in contacts with smallest end time
 // s.t. C.end >= arrival_time && C.start <= arrival time
 // assumes non-overlapping intervals - would want to optimize if they do overlap
-// double check this with Michael
-Contact contact_search(Vector<Contact> contacts, float arrival_time) {
+Contact contact_search(vector<Contact> contacts, int arrival_time) {
+    int index = contact_search(contacts, arrival_time);
+    return contacts[index];
+}
+
+int contact_search_index(vector<Contact> contacts, int arrival_time) {
     int left = 0;
     int right = contacts.size() - 1;
-    if (vector[left].start > arrival_time) {
-        return vector[left]
+    if (contacts[left].end > arrival_time) {
+        return vector[left];
     }
-    while (left <= right) {
-        int mid = (left + right) / 2;
-        int c = vector[mid];
-        if (c.start > arrival_time) {
-            right = mid - 1;
-        }
-        else if (c.end < arrival_time) {
-            left = mid + 1;
+    int mid;
+    while (left < right - 1) {
+        mid = (left + right) / 2;
+        if (contacts[mid].end > arrival_time) {
+            right = mid;
         }
         else {
-            return c;
+            left = mid;
         }
     }
+    return right;  
 }
 
 
@@ -528,14 +530,10 @@ ContactMultigraph construct_contact_multigraph(Vector<Contact> contact_plan, nod
             }
             else {
                 // insert contact sorted by start time
-                // assuming non-overlapping contacts. what is the best way to do this if there are overlapping contacts?
-                for (int i = 0; i < adj.size(); i++) {
-                    if (contact.start < adj[i].start) {
-                        adj.insert(i, contact);
-                    }
-                }
-            }
-            
+                // assuming non-overlapping contacts
+                int index = contact_search_index(adj, contact.start);
+                adj.insert(index, contact);
+            }           
         }
     }
     // only need to check if a vertex hasn't been made for the destination
