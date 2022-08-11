@@ -76,9 +76,29 @@ jobs:
           cd build
           ./tests/unit_tests/unit-tests
 
-      #- name: Integration Tests
+      # - name: Integration Tests
       #  run: |
       #    export HDTN_SOURCE_ROOT=$PWD
       #    cd $HDTN_SOURCE_ROOT
       #    cd build
       #    ./tests/integrated_tests/integrated-tests
+      
+  debian-amd-test:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Display Test Start
+        run: |
+          echo "============================================================="
+          echo "Run #${GITHUB_RUN_NUMBER}"
+          echo "Run ID: ${GITHUB_RUN_ID}"
+          echo "Testing: ${GITHUB_REPOSITORY}"
+          echo "Triggered by: ${GITHUB_EVENT_NAME}"
+          echo "Initiated by: ${GITHUB_ACTOR}"
+          echo "============================================================="
+
+      - name: Check Test Runs
+        run: |
+          echo "Running"
