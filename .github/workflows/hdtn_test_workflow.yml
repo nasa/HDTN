@@ -76,12 +76,12 @@ jobs:
           cd build
           ./tests/unit_tests/unit-tests
 
-      - name: Integration Tests
-       run: |
-         export HDTN_SOURCE_ROOT=$PWD
-         cd $HDTN_SOURCE_ROOT
-         cd build
-         ./tests/integrated_tests/integrated-tests
+      # - name: Integration Tests
+      #  run: |
+      #    export HDTN_SOURCE_ROOT=$PWD
+      #    cd $HDTN_SOURCE_ROOT
+      #    cd build
+      #    ./tests/integrated_tests/integrated-tests
       
   debian-amd-test:
     runs-on: self-hosted
