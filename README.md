@@ -82,11 +82,13 @@ To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
-* cmake -DCMAKE_BUILD_TYPE=Release ..
-* Edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=[ON|OFF], set Boost_USE_STATIC_LIBS:UNINITIALIZED=[ON|OFF], set CMAKE_INSTALL_PREFIX
-* cmake -DCMAKE_BUILD_TYPE=Release ..
+* cmake ..
 * make -j8
 * make install
+
+Note: By Default, BUILD_SHARED_LIBS is OFF and hdtn is built as static
+To use shared libs, edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=ON and add fPIC to the Cmakecache variable:
+CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC
 
 Run HDTN
 =========
