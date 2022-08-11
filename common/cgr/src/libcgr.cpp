@@ -193,8 +193,38 @@ Vertex::Vertex(nodeId_t node_id) {
     predecessor = NULL;
 }
 
-ContactMultigraph::ContactMultigraph() {
+ContactMultigraph::ContactMultigraph(vector<Contact> contact_plan, nodeId_t dest_id) {
     vertices = std::unordered_map<nodeId_t, Vertex>();
+    auto vertices_end = vertices.end();
+    for (Contact& contact : contact_plan) {
+        if (vertices.find(contact.frm) == vertices_end) {
+            Vertex frm(contact.frm);
+            vector<Contact> adj = frm.adjacencies[contact.to]; // get the right list of contacts to this adjacency
+            adj = vector<Contact>(); // instantiate it
+            adj.push_back(contact);
+            vertices.insert({ contact.frm, frm });
+        }
+        else {
+            Vertex frm = nodes[contact.frm];
+            vector<Contact> adj = frm.adjacencies[contact.to];
+            // if the map can't find the key it creates a default constructed element for it
+            // https://stackoverflow.com/questions/10124679/what-happens-if-i-read-a-maps-value-where-the-key-does-not-exist
+            if (adj.empty() || contact.start > adj.back().start) {
+                adj.push_back(contact);
+            }
+            else {
+                // insert contact sorted by start time
+                // assuming non-overlapping contacts
+                int index = contact_search_index(adj, contact.start);
+                adj.insert(index, contact);
+            }
+        }
+    }
+    if (vertices.find(dest) == vertices_end) {
+        Vertex dest(dest_id);
+        vertices.insert({ dest_id, dest });
+    }
+
 }
 
 
@@ -409,11 +439,11 @@ std::ostream& operator<<(std::ostream &out, const Route &obj) {
 
 Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
     // Construct Contact Multigraph from Contact Plan
-    ContactMultigraph CM = construct_contact_multigraph(contact_plan, destination);
+    ContactMultigraph CM(contact_plan, destination);
 
     // Default construction for each vertex sets arrival time to infinity,
     // visited to false, predecessor to null
-    CM.nodes[root_contact.frm].arrival_time = root_contact.start;
+    CM.vertices[root_contact.frm].arrival_time = root_contact.start;
     
     // Construct min PQ ordered by arrival time
     std::priority_queue<Vertex, vector<Vertex>, CompareArrivals> PQ;
@@ -508,44 +538,5 @@ int contact_search_index(vector<Contact> contacts, int arrival_time) {
     }
     return right;  
 }
-
-
-ContactMultigraph construct_contact_multigraph(vector<Contact> contact_plan, nodeId_t dest_id) {
-    ContactMultigraph cm;
-    std::unordered_map nodes = cm.nodes;
-    auto nodes_end = cm.nodes.end();
-    for (Contact& contact : contact_plan) {
-        if (nodes.find(contact.frm) == nodes_end) {
-            Vertex frm(contact.frm);
-            Vector<Contact> adj = frm.adjacencies[contact.to]
-            adj = vector<Contact>();
-            adj.push_back(contact);
-            nodes.insert({contact.frm, frm});
-        }
-        else {
-            Vertex frm = nodes[contact.frm];
-            Vector<Contact> adj = frm.adjacencies[contact.to];
-            if (adj& == nullptr) {
-                adj = vector<Contact>();
-            }
-            if (adj.empty() || contact.start > adj[adj.size() - 1].start) {
-                adj.push_back(contact);
-            }
-            else {
-                // insert contact sorted by start time
-                // assuming non-overlapping contacts
-                int index = contact_search_index(adj, contact.start);
-                adj.insert(index, contact);
-            }           
-        }
-    }
-    // only need to check if a vertex hasn't been made for the destination
-    // if any other node is only "to" and never "frm" it has no path to the destination
-    if (nodes.find(dest) == nodes_end) {
-        Vertex dest(dest_id);
-        nodes.insert({ dest_id, dest });
-    }
-}
-
 
 } // namespace cgr
