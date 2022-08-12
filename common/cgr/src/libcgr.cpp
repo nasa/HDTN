@@ -436,84 +436,9 @@ std::ostream& operator<<(std::ostream &out, const Route &obj) {
  * Multigraph Routing
  */
 
-Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
-    // Construct Contact Multigraph from Contact Plan
-    ContactMultigraph CM(contact_plan, destination);
-
-    // Default construction for each vertex sets arrival time to infinity,
-    // visited to false, predecessor to null
-    CM.vertices[root_contact->frm].arrival_time = root_contact->start;
-    
-    // Construct min PQ ordered by arrival time
-    std::priority_queue<Vertex, std::vector<Vertex>, CompareArrivals> PQ;
-    for (auto v : CM.vertices) {
-        PQ.push(v.second);
-    }
-    Vertex *v_curr;
-    v_curr = PQ.pop();
-    while (true) {
-        MRP(CM, PQ, *v_curr); // want to make inline?
-        v_next = &(PQ.pop());
-        if (v_next->id == destination) {
-            break;
-        }
-        else {
-            v_curr = v_next;
-        }
-    }
-    // construct route from contact predecessors
-    // can use parts of Timothy's code because we are storing predecessors as contacts
-    // removed case to check if the final contact is null - I think exiting the above loop verifies that
-    // Raises the question: how to exit if path isn't found
-    std::vector<Contact> hops;
-    Contact contact;
-    for (contact = v_curr.predecessor; contact != *root_contact; contact = CM.vertices[contact.frm].predecessor) {
-        hops.push_back(contact);
-    }
-    Route route;
-    route = Route(hops.back());
-    hops.pop_back();
-    while (!hops.empty()) {
-        route.append(hops.back());
-        hops.pop_back();
-    }
-    return route;
-}
-
-
-// multigraph review procedure
-// modifies PQ
-void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
-    for (auto adj : v_curr.adjacencies) {
-        Vertex u = CM.vertices[adj.first];
-        if (u.visited) {
-            continue;
-        }
-        // check if there is any viable contact
-        std::vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
-        if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
-                continue;
-        }
-        // find earliest usable contact from v_curr to u
-        Contact best_contact = contact_search(v_curr_to_u, v_curr.arrival_time);
-        // should owlt_mgn be included in best arrival time?
-        int best_arr_time = std::max(best_contact.start, v_curr.arrival_time) + best_contact.owlt;
-        if (best_arr_time < u.arrival_time) {
-            u.arrival_time = best_arr_time;
-            // update PQ
-            // using "lazy deletion"
-            // Source: https://stackoverflow.com/questions/9209323/easiest-way-of-using-min-priority-queue-with-key-update-in-c
-            PQ.push(u); // c++ priority_queue allows duplicate values
-            u.predecessor = &best_contact;
-        }
-    }
-    v_curr.visited = true;
-}
-
-
-// finds contact C in contacts with smallest end time
-// s.t. C.end >= arrival_time && C.start <= arrival time
-// assumes non-overlapping intervals - would want to optimize if they do overlap
+ // finds contact C in contacts with smallest end time
+ // s.t. C.end >= arrival_time && C.start <= arrival time
+ // assumes non-overlapping intervals - would want to optimize if they do overlap
 Contact contact_search(std::vector<Contact> contacts, int arrival_time) {
     int index = contact_search(contacts, arrival_time);
     return contacts[index];
@@ -535,7 +460,84 @@ int contact_search_index(std::vector<Contact> contacts, int arrival_time) {
             left = mid;
         }
     }
-    return right;  
+    return right;
 }
+
+ // multigraph review procedure
+ // modifies PQ
+void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
+    for (auto adj : v_curr.adjacencies) {
+        Vertex u = CM.vertices[adj.first];
+        if (u.visited) {
+            continue;
+        }
+        // check if there is any viable contact
+        std::vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
+            if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
+                continue;
+            }
+        // find earliest usable contact from v_curr to u
+        Contact best_contact = contact_search(v_curr_to_u, v_curr.arrival_time);
+        // should owlt_mgn be included in best arrival time?
+        int best_arr_time = std::max(best_contact.start, v_curr.arrival_time) + best_contact.owlt;
+        if (best_arr_time < u.arrival_time) {
+            u.arrival_time = best_arr_time;
+            // update PQ
+            // using "lazy deletion"
+            // Source: https://stackoverflow.com/questions/9209323/easiest-way-of-using-min-priority-queue-with-key-update-in-c
+            PQ.push(u); // c++ priority_queue allows duplicate values
+            u.predecessor = &best_contact;
+        }
+    }
+    v_curr.visited = true;
+}
+
+Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
+    // Construct Contact Multigraph from Contact Plan
+    ContactMultigraph CM(contact_plan, destination);
+
+    // Default construction for each vertex sets arrival time to infinity,
+    // visited to false, predecessor to null
+    CM.vertices[root_contact->frm].arrival_time = root_contact->start;
+    
+    // Construct min PQ ordered by arrival time
+    std::priority_queue<Vertex, std::vector<Vertex>, CompareArrivals> PQ;
+    for (auto v : CM.vertices) {
+        PQ.push(v.second);
+    }
+    Vertex *v_curr;
+    Vertex* v_next;
+    v_curr = PQ.top();
+    PQ.pop();
+    while (true) {
+        MRP(CM, PQ, *v_curr); // want to make inline?
+        v_next = PQ.top();
+        PQ.pop();
+        if (v_next->id == destination) {
+            break;
+        }
+        else {
+            v_curr = v_next;
+        }
+    }
+    // construct route from contact predecessors
+    // can use parts of Timothy's code because we are storing predecessors as contacts
+    // removed case to check if the final contact is null - I think exiting the above loop verifies that
+    // Raises the question: how to exit if path isn't found
+    std::vector<Contact> hops;
+    Contact contact;
+    for (contact = v_curr->predecessor; contact != *root_contact; contact = CM.vertices[contact.frm].predecessor) {
+        hops.push_back(contact);
+    }
+    Route route;
+    route = Route(hops.back());
+    hops.pop_back();
+    while (!hops.empty()) {
+        route.append(hops.back());
+        hops.pop_back();
+    }
+    return route;
+}
+
 
 } // namespace cgr

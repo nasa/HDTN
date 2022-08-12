@@ -95,7 +95,7 @@ public:
     }
 };
 
-
+CGR_LIB_EXPORT int contact_search_index(std::vector<Contact> contacts, int arrival_time);
 
 CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, int max_contacts=MAX_SIZE);
 
