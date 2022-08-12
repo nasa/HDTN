@@ -204,7 +204,7 @@ ContactMultigraph::ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t
             vertices.insert({ contact.frm, frm });
         }
         else {
-            Vertex frm = nodes[contact.frm];
+            Vertex frm = vertices[contact.frm];
             std::vector<Contact> adj = frm.adjacencies[contact.to];
             // if the map can't find the key it creates a default constructed element for it
             // https://stackoverflow.com/questions/10124679/what-happens-if-i-read-a-maps-value-where-the-key-does-not-exist
@@ -214,12 +214,12 @@ ContactMultigraph::ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t
             else {
                 // insert contact sorted by start time
                 // assuming non-overlapping contacts
-                int index = contact_search_index(adj, contact.start);
-                adj.insert(index, contact);
+                int index = cgr::contact_search_index(adj, contact.start);
+                adj.insert(adj.begin() + index, contact);
             }
         }
     }
-    if (vertices.find(dest) == vertices_end) {
+    if (vertices.find(dest_id) == vertices_end) {
         Vertex dest(dest_id);
         vertices.insert({ dest_id, dest });
     }
@@ -450,7 +450,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
         PQ.push(v.second);
     }
     Vertex *v_curr;
-    v_curr = &(PQ.pop());
+    v_curr = PQ.pop();
     while (true) {
         MRP(CM, PQ, *v_curr); // want to make inline?
         v_next = &(PQ.pop());
