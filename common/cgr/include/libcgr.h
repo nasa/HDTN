@@ -75,6 +75,7 @@ public:
     bool visited;
     Contact *predecessor;
     CGR_LIB_EXPORT Vertex(nodeId_t id);
+    CGR_LIB_EXPORT bool operator<(const Vertex& v) const;
 };
 
 
@@ -85,11 +86,10 @@ public:
 };
 
 
-
 class CompareArrivals
 {
 public:
-    bool operator()(Vertex v1, Vertex v2)
+    bool operator()(const Vertex& v1, const Vertex& v2)
     {
         return v1.arrival_time < v2.arrival_time;
     }

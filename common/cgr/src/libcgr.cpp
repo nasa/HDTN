@@ -193,6 +193,10 @@ Vertex::Vertex(nodeId_t node_id) {
     predecessor = NULL;
 }
 
+bool Vertex::operator<(const Vertex& v) const {
+    return arrival_time < v.arrival_time;
+}
+
 ContactMultigraph::ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id) {
     vertices = std::unordered_map<nodeId_t, Vertex>();
     auto vertices_end = vertices.end();
@@ -440,7 +444,7 @@ std::ostream& operator<<(std::ostream &out, const Route &obj) {
  // s.t. C.end >= arrival_time && C.start <= arrival time
  // assumes non-overlapping intervals - would want to optimize if they do overlap
 Contact contact_search(std::vector<Contact> contacts, int arrival_time) {
-    int index = contact_search(contacts, arrival_time);
+    int index = contact_search_index(contacts, arrival_time);
     return contacts[index];
 }
 
@@ -448,7 +452,7 @@ int contact_search_index(std::vector<Contact> contacts, int arrival_time) {
     int left = 0;
     int right = contacts.size() - 1;
     if (contacts[left].end > arrival_time) {
-        return vector[left];
+        return contacts[left];
     }
     int mid;
     while (left < right - 1) {
@@ -465,17 +469,17 @@ int contact_search_index(std::vector<Contact> contacts, int arrival_time) {
 
  // multigraph review procedure
  // modifies PQ
-void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
+void MRP(ContactMultigraph CM, std::priority_queue<Vertex, std::vector<Vertex>, CompareArrivals> PQ, Vertex v_curr) {
     for (auto adj : v_curr.adjacencies) {
         Vertex u = CM.vertices[adj.first];
         if (u.visited) {
             continue;
         }
         // check if there is any viable contact
-        std::vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
-            if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
-                continue;
-            }
+        std::vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id];
+        if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
+            continue;
+        }
         // find earliest usable contact from v_curr to u
         Contact best_contact = contact_search(v_curr_to_u, v_curr.arrival_time);
         // should owlt_mgn be included in best arrival time?
@@ -507,11 +511,11 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     }
     Vertex *v_curr;
     Vertex* v_next;
-    v_curr = PQ.top();
+    v_curr = &PQ.top();
     PQ.pop();
     while (true) {
         MRP(CM, PQ, *v_curr); // want to make inline?
-        v_next = PQ.top();
+        v_next = &PQ.top();
         PQ.pop();
         if (v_next->id == destination) {
             break;
@@ -525,7 +529,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     // removed case to check if the final contact is null - I think exiting the above loop verifies that
     // Raises the question: how to exit if path isn't found
     std::vector<Contact> hops;
-    Contact contact;
+    Contact *contact;
     for (contact = v_curr->predecessor; contact != *root_contact; contact = CM.vertices[contact.frm].predecessor) {
         hops.push_back(contact);
     }
