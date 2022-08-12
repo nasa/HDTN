@@ -193,7 +193,7 @@ Vertex::Vertex(nodeId_t node_id) {
     predecessor = NULL;
 }
 
-ContactMultigraph::ContactMultigraph(vector<Contact> contact_plan, nodeId_t dest_id) {
+ContactMultigraph::ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id) {
     vertices = std::unordered_map<nodeId_t, Vertex>();
     auto vertices_end = vertices.end();
     for (Contact& contact : contact_plan) {
