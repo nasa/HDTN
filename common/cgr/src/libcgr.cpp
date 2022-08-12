@@ -443,10 +443,10 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
 
     // Default construction for each vertex sets arrival time to infinity,
     // visited to false, predecessor to null
-    CM.vertices[root_contact.frm].arrival_time = root_contact.start;
+    CM.vertices[root_contact->frm].arrival_time = root_contact->start;
     
     // Construct min PQ ordered by arrival time
-    std::priority_queue<Vertex, vector<Vertex>, CompareArrivals> PQ;
+    std::priority_queue<Vertex, std::vector<Vertex>, CompareArrivals> PQ;
     for (auto v : CM.vertices) {
         PQ.push(v.second);
     }
@@ -473,7 +473,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     }
     Route route;
     route = Route(hops.back());
-    hops.pop_back()
+    hops.pop_back();
     while (!hops.empty()) {
         route.append(hops.back());
         hops.pop_back();
@@ -486,12 +486,12 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
 // modifies PQ
 void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
     for (auto adj : v_curr.adjacencies) {
-        Vertex u = CM.nodes[adj.first];
+        Vertex u = CM.vertices[adj.first];
         if (u.visited) {
             continue;
         }
         // check if there is any viable contact
-        vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
+        std::vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id]
         if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
                 continue;
         }
@@ -505,7 +505,7 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
             // using "lazy deletion"
             // Source: https://stackoverflow.com/questions/9209323/easiest-way-of-using-min-priority-queue-with-key-update-in-c
             PQ.push(u); // c++ priority_queue allows duplicate values
-            u.predecessor = best_contact;
+            u.predecessor = &best_contact;
         }
     }
     v_curr.visited = true;
@@ -515,12 +515,12 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex> PQ, Vertex v_curr) {
 // finds contact C in contacts with smallest end time
 // s.t. C.end >= arrival_time && C.start <= arrival time
 // assumes non-overlapping intervals - would want to optimize if they do overlap
-Contact contact_search(vector<Contact> contacts, int arrival_time) {
+Contact contact_search(std::vector<Contact> contacts, int arrival_time) {
     int index = contact_search(contacts, arrival_time);
     return contacts[index];
 }
 
-int contact_search_index(vector<Contact> contacts, int arrival_time) {
+int contact_search_index(std::vector<Contact> contacts, int arrival_time) {
     int left = 0;
     int right = contacts.size() - 1;
     if (contacts[left].end > arrival_time) {
