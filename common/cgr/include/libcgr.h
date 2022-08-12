@@ -81,7 +81,7 @@ public:
 class ContactMultigraph {
 public:
     std::unordered_map<nodeId_t, Vertex> vertices;
-    CGR_LIB_EXPORT ContactMultigraph(vector<Contact> contact_plan, nodeId_t dest_id);
+    CGR_LIB_EXPORT ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id);
 };
 
 
