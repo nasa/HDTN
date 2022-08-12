@@ -199,14 +199,13 @@ ContactMultigraph::ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t
     for (Contact& contact : contact_plan) {
         if (vertices.find(contact.frm) == vertices_end) {
             Vertex frm(contact.frm);
-            vector<Contact> adj = frm.adjacencies[contact.to]; // get the right list of contacts to this adjacency
-            adj = vector<Contact>(); // instantiate it
+            std::vector<Contact> adj = frm.adjacencies[contact.to]; // get the right list of contacts to this adjacency, will instantiate it as well
             adj.push_back(contact);
             vertices.insert({ contact.frm, frm });
         }
         else {
             Vertex frm = nodes[contact.frm];
-            vector<Contact> adj = frm.adjacencies[contact.to];
+            std::vector<Contact> adj = frm.adjacencies[contact.to];
             // if the map can't find the key it creates a default constructed element for it
             // https://stackoverflow.com/questions/10124679/what-happens-if-i-read-a-maps-value-where-the-key-does-not-exist
             if (adj.empty() || contact.start > adj.back().start) {
