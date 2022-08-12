@@ -452,7 +452,7 @@ int contact_search_index(std::vector<Contact> contacts, int arrival_time) {
     int left = 0;
     int right = contacts.size() - 1;
     if (contacts[left].end > arrival_time) {
-        return contacts[left];
+        return left;
     }
     int mid;
     while (left < right - 1) {
@@ -477,7 +477,7 @@ void MRP(ContactMultigraph CM, std::priority_queue<Vertex, std::vector<Vertex>, 
         }
         // check if there is any viable contact
         std::vector<Contact> v_curr_to_u = v_curr.adjacencies[u.id];
-        if (v_curr_to_u[v_curr_to_u.size() - 1] < v_curr.arrival_time) {
+        if (v_curr_to_u.back().end < v_curr.arrival_time) {
             continue;
         }
         // find earliest usable contact from v_curr to u
@@ -511,11 +511,11 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     }
     Vertex *v_curr;
     Vertex* v_next;
-    v_curr = &PQ.top();
+    v_curr = PQ.top();
     PQ.pop();
     while (true) {
         MRP(CM, PQ, *v_curr); // want to make inline?
-        v_next = &PQ.top();
+        v_next = PQ.top();
         PQ.pop();
         if (v_next->id == destination) {
             break;
@@ -530,8 +530,8 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     // Raises the question: how to exit if path isn't found
     std::vector<Contact> hops;
     Contact *contact;
-    for (contact = v_curr->predecessor; contact != *root_contact; contact = CM.vertices[contact.frm].predecessor) {
-        hops.push_back(contact);
+    for (contact = v_curr->predecessor; contact != root_contact; contact = CM.vertices[contact->frm].predecessor) {
+        hops.push_back(*contact);
     }
     Route route;
     route = Route(hops.back());
