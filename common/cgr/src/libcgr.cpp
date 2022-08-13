@@ -185,7 +185,7 @@ std::vector<Contact> Route::get_hops() {
     }
 }
 Vertex::Vertex() {
-    cout << "This should never be used.";
+    // this should never be used
 }
 
 Vertex::Vertex(nodeId_t node_id) {
@@ -512,8 +512,8 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     for (auto v : CM.vertices) {
         PQ.push(v.second);
     }
-    Vertex *v_curr;
-    Vertex *v_next;
+    const Vertex *v_curr;
+    const Vertex *v_next;
     v_curr = &(PQ.top());
     PQ.pop();
     while (true) {
