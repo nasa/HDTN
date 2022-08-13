@@ -75,6 +75,7 @@ public:
     bool visited;
     Contact *predecessor;
     CGR_LIB_EXPORT Vertex(nodeId_t id);
+    CGR_LIB_EXPORT Vertex();
     CGR_LIB_EXPORT bool operator<(const Vertex& v) const;
 };
 

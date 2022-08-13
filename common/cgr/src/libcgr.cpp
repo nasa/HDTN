@@ -512,13 +512,13 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     for (auto v : CM.vertices) {
         PQ.push(v.second);
     }
-    Vertex v_curr;
-    Vertex v_next;
-    v_curr = PQ.top();
+    Vertex *v_curr;
+    Vertex *v_next;
+    v_curr = &(PQ.top());
     PQ.pop();
     while (true) {
         MRP(CM, PQ, *v_curr); // want to make inline?
-        v_next = PQ.top();
+        v_next = &(PQ.top());
         PQ.pop();
         if (v_next->id == destination) {
             break;
