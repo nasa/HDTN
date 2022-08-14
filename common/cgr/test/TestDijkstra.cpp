@@ -92,17 +92,17 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraTestMultigraphConstruction)
 
 	int dest_id = 5;
 
-	cgr::ContactMultigraph cm = cgr::construct_contact_multigraph(contactPlan, dest_id);
+	cgr::ContactMultigraph cm(contactPlan, dest_id);
 	
-	BOOST_CHECK(cm.nodes.size() == 5);
-	BOOST_CHECK(cm.nodes[1].adjacencies.size() == 3);
-	BOOST_CHECK(cm.nodes[2].adjacencies.size() == 2);
-	BOOST_CHECK(cm.nodes[3].adjacencies.size() == 3);
-	BOOST_CHECK(cm.nodes[4].adjacencies.size() == 2);
-	BOOST_CHECK(cm.nodes[5].adjacencies.size() == 1);
+	BOOST_CHECK(cm.vertices.size() == 5);
+	BOOST_CHECK(cm.vertices[1].adjacencies.size() == 3);
+	BOOST_CHECK(cm.vertices[2].adjacencies.size() == 2);
+	BOOST_CHECK(cm.vertices[3].adjacencies.size() == 3);
+	BOOST_CHECK(cm.vertices[4].adjacencies.size() == 2);
+	BOOST_CHECK(cm.vertices[5].adjacencies.size() == 1);
 
 	// check that contacts are sorted correctly
-	Vector<cgr::Contact> five_to_four = cm.nodes[5].adjacencies;
+	Vector<cgr::Contact> five_to_four = cm.vertices[5].adjacencies[4];
 	BOOST_CHECK(five_to_four[0].start = 0);
 	BOOST_CHECK(five_to_four[1].start = 30);
 	BOOST_CHECK(five_to_four[2].start = 50);
