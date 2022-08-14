@@ -102,6 +102,8 @@ CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, int max_contac
 
 CGR_LIB_EXPORT Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
 
+CGR_LIB_EXPORT Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
+
 CGR_LIB_EXPORT std::vector<Route> yen(nodeId_t source, nodeId_t destination, int currTime, std::vector<Contact> contactPlan, int numRoutes);
 
 template <typename T>
