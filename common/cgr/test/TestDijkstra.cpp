@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraTestMultigraphConstruction)
 	BOOST_CHECK(cm.vertices[5].adjacencies.size() == 1);
 
 	// check that contacts are sorted correctly
-	std::Vector<cgr::Contact> five_to_four = cm.vertices[5].adjacencies[4];
+	std::vector<cgr::Contact> five_to_four = cm.vertices[5].adjacencies[4];
 	BOOST_CHECK(five_to_four[0].start = 0);
 	BOOST_CHECK(five_to_four[1].start = 30);
 	BOOST_CHECK(five_to_four[2].start = 50);
