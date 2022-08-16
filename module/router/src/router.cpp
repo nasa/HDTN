@@ -183,7 +183,9 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
 
     cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_SIZE, 100, 1.0, 0);
     rootContact.arrival_time = 0;
-    cgr::Route bestRoute = cgr::dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
+    //cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
+    cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
+
     const uint64_t nextHop = bestRoute.next_node;
     
     std::cout << "[Router] CGR computed next hop: " << nextHop << std::endl;
