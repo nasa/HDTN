@@ -219,7 +219,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 	long cmr_times = 0;
 	for (int i = 0; i < 100; ++i) {
 		auto cmr_start = std::chrono::high_resolution_clock::now();
-		cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 5, contactPlan);
+		cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
 		auto cmr_end = std::chrono::high_resolution_clock::now();
 		auto cmr_duration = duration_cast<microseconds>(cmr_end - cmr_start);
 
@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 	long times = 0;
 	for (int i = 0; i < 100; ++i) {
 		auto start = std::chrono::high_resolution_clock::now();
-		cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 5, contactPlan);
+		cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
 		auto end = std::chrono::high_resolution_clock::now();
 		auto duration = duration_cast<microseconds>(end - start);
 
@@ -252,14 +252,14 @@ BOOST_AUTO_TEST_CASE(TimingTest_Starlink)
 	rootContact.arrival_time = 0;
 
 	auto cmr_start = std::chrono::high_resolution_clock::now();
-	cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 5, contactPlan);
+	cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 2110, contactPlan);
 	auto cmr_end = std::chrono::high_resolution_clock::now();
 	auto cmr_duration = duration_cast<microseconds>(cmr_end - cmr_start);
 	cout << "Time taken by function: "
 		<< cmr_duration.count() << " microseconds" << endl;
 
 	auto start = std::chrono::high_resolution_clock::now();
-	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 5, contactPlan);
+	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 2110, contactPlan);
 	auto end = std::chrono::high_resolution_clock::now();
 	auto duration = duration_cast<microseconds>(end - start);
 	cout << "Time taken by function: "
