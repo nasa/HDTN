@@ -138,6 +138,8 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
 	for (int i = 0; i < expectedHops; ++i) {
+		std::cout << "Expected contact " << i << ": " << expectedContacts[i] << std::endl;
+		std::cout << "Actual contact " << i << ": " << hops[i] << std::endl;
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
 	};
 }
