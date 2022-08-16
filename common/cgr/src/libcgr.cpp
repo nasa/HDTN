@@ -615,7 +615,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
                 // using "lazy deletion"
                 // Source: https://stackoverflow.com/questions/9209323/easiest-way-of-using-min-priority-queue-with-key-update-in-c
                 //u.predecessor = contact_search_predecessor(v_curr_to_u, v_curr.arrival_time); old way
-                int p_i = contact_search_predecessor(v_curr_to_u_ind, v_curr.arrival_time, contact_plan);
+                int p_i = contact_search_predecessor(v_curr_to_u_ind, CM.arrival_time[v_curr.id], contact_plan);
                 CM.predecessors[u.id] = p_i;
 
                 // still want to update u node's arrival time for sake of pq
