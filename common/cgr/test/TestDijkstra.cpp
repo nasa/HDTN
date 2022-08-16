@@ -4,6 +4,8 @@
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 
+#include <chrono>
+
 BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 {
 	// Route from node 1 to node 4 using the "RoutingTest" contact plan
@@ -19,8 +21,16 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
+
+	
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	cout << "Time taken by function: "
+		<< duration.count() << " microseconds" << endl;
+
 
 	// Todo: need to finalize what a failed dijkstra search should return
 	//BOOST_REQUIRE(&bestRoute);
@@ -54,8 +64,16 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 5, contactPlan);
-	
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	cout << "Time taken by function: "
+		<< duration.count() << " microseconds" << endl;
+
+
+
+
 	//BOOST_REQUIRE(&bestRoute);
 	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 3);
@@ -124,7 +142,12 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	cout << "Time taken by function: "
+		<< duration.count() << " microseconds" << endl;
 
 	// Todo: need to finalize what a failed dijkstra search should return
 	//BOOST_REQUIRE(&bestRoute);
@@ -160,7 +183,12 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
+	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 5, contactPlan);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = duration_cast<microseconds>(stop - start);
+	cout << "Time taken by function: "
+		<< duration.count() << " microseconds" << endl;
 
 	//BOOST_REQUIRE(&bestRoute);
 	cgr::nodeId_t nextHop = bestRoute.next_node;
