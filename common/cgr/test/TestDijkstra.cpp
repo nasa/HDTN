@@ -6,6 +6,9 @@
 
 #include <chrono>
 
+using namespace std;
+using namespace std::chrono;
+
 BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 {
 	// Route from node 1 to node 4 using the "RoutingTest" contact plan
