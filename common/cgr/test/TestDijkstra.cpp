@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 		auto cmr_end = std::chrono::high_resolution_clock::now();
 		auto cmr_duration = duration_cast<microseconds>(cmr_end - cmr_start);
 
-		cmr_times = cmr_times + duration.count();
+		cmr_times = cmr_times + cmr_duration.count();
 	}
 
 	long times = 0;
