@@ -278,7 +278,7 @@ std::vector<Contact> cp_load(std::string filename, int max_contacts) {
     for (const boost::property_tree::ptree::value_type& eventPt : contactsPt) {
         Contact new_contact = Contact(eventPt.second.get<int>("source", 0),
             eventPt.second.get<int>("dest", 0),
-            eventPt.second.get<int>("startTime", 0),
+            static_cast<int>(eventPt.second.get<int>("startTime", 0)),
             eventPt.second.get<int>("endTime", 0),
             eventPt.second.get<int>("rate", 0));
         // new_contact.id = eventPt.second.get<int>("contact", 0);
