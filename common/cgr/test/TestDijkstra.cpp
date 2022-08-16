@@ -74,39 +74,39 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 // Multigraph Routing Tests
 // Runs	cmr_dijkstra instead of dijkstra
 
-// test for correct multigraph construction
-BOOST_AUTO_TEST_CASE(CMR_DijkstraTestMultigraphConstruction)
-{
-	// Route from node 1 to node 5 using the contact plan from the pyCGR tutorial
-	std::cout << "Reading contact plan..." << std::endl;
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
-	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
-
-	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-	size_t numContacts = contactPlan.size();
-	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
-	BOOST_CHECK(numContacts == 16);
-
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
-	rootContact.arrival_time = 0;
-
-	int dest_id = 5;
-
-	cgr::ContactMultigraph cm(contactPlan, dest_id);
-	
-	BOOST_CHECK(cm.vertices.size() == 5);
-	BOOST_CHECK(cm.vertices[1].adjacencies.size() == 3);
-	BOOST_CHECK(cm.vertices[2].adjacencies.size() == 2);
-	BOOST_CHECK(cm.vertices[3].adjacencies.size() == 3);
-	BOOST_CHECK(cm.vertices[4].adjacencies.size() == 2);
-	BOOST_CHECK(cm.vertices[5].adjacencies.size() == 1);
-
-	// check that contacts are sorted correctly
-	std::vector<cgr::Contact> five_to_four = cm.vertices[5].adjacencies[4];
-	BOOST_CHECK(five_to_four[0].start = 0);
-	BOOST_CHECK(five_to_four[1].start = 30);
-	BOOST_CHECK(five_to_four[2].start = 50);
-}
+// test for correct multigraph construction - outdated test
+//BOOST_AUTO_TEST_CASE(CMR_DijkstraTestMultigraphConstruction)
+//{
+//	// Route from node 1 to node 5 using the contact plan from the pyCGR tutorial
+//	std::cout << "Reading contact plan..." << std::endl;
+//	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+//	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
+//
+//	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+//	size_t numContacts = contactPlan.size();
+//	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+//	BOOST_CHECK(numContacts == 16);
+//
+//	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+//	rootContact.arrival_time = 0;
+//
+//	int dest_id = 5;
+//
+//	cgr::ContactMultigraph cm(contactPlan, dest_id);
+//	
+//	BOOST_CHECK(cm.vertices.size() == 5);
+//	BOOST_CHECK(cm.vertices[1].adjacencies.size() == 3);
+//	BOOST_CHECK(cm.vertices[2].adjacencies.size() == 2);
+//	BOOST_CHECK(cm.vertices[3].adjacencies.size() == 3);
+//	BOOST_CHECK(cm.vertices[4].adjacencies.size() == 2);
+//	BOOST_CHECK(cm.vertices[5].adjacencies.size() == 1);
+//
+//	// check that contacts are sorted correctly
+//	std::vector<cgr::Contact> five_to_four = cm.vertices[5].adjacencies[4];
+//	BOOST_CHECK(five_to_four[0].start = 0);
+//	BOOST_CHECK(five_to_four[1].start = 30);
+//	BOOST_CHECK(five_to_four[2].start = 50);
+//}
 
 BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 {
