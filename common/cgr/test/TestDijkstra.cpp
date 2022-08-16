@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
 	auto end = std::chrono::high_resolution_clock::now();
-	auto duration = duration_cast<microseconds>(stop - start);
+	auto duration = duration_cast<microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 5, contactPlan);
 	auto end = std::chrono::high_resolution_clock::now();
-	auto duration = duration_cast<microseconds>(stop - start);
+	auto duration = duration_cast<microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
 	auto end = std::chrono::high_resolution_clock::now();
-	auto duration = duration_cast<microseconds>(stop - start);
+	auto duration = duration_cast<microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 5, contactPlan);
 	auto end = std::chrono::high_resolution_clock::now();
-	auto duration = duration_cast<microseconds>(stop - start);
+	auto duration = duration_cast<microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
