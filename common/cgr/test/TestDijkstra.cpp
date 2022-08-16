@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 {
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
-	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
+	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
@@ -236,8 +236,8 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 		times = times + duration.count();
 	}
 
-	std::cout << "Dijkstra avg: " << times << std::endl;
-	std::cout << "CMR_Dijkstra avg: " << cmr_times << std::endl;
+	std::cout << "Dijkstra avg: " << times / 100 << std::endl;
+	std::cout << "CMR_Dijkstra avg: " << cmr_times / 100 << std::endl;
 
 }
 
@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_Starlink)
 BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 {
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
-	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
+	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
