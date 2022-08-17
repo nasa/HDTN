@@ -50,7 +50,7 @@ private:
                          int dest, cbhe_eid_t finalDestinationEid,
 			 std::string event, zmq::socket_t * ptrSocket);
 
-    static void PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* t, 
+     static void PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* t, int* src, 
 		            const cbhe_eid_t* finalDestinationEid, zmq::socket_t * ptrSocket, const char* command);
      
     HdtnConfig m_hdtnConfig;

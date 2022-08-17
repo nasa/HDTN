@@ -416,7 +416,7 @@ void Ingress::SchedulerEventHandler() {
         m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid);
 	m_finalDestEidAvailableSet.insert(iReleaseStartHdr->nextHopEid);
         m_eidAvailableSetMutex.unlock();
-        std::cout << "Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
+        std::cout << "****Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
             << "," << iReleaseStartHdr->finalDestinationEid.serviceId << ")" << std::endl;
     }
     else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
@@ -430,7 +430,7 @@ void Ingress::SchedulerEventHandler() {
         m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->finalDestinationEid);
 	m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->nextHopEid);
         m_eidAvailableSetMutex.unlock();
-        std::cout << "Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
+        std::cout << "*****Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
             << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ") " << std::endl;
     }
 }

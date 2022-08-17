@@ -40,37 +40,75 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false;
 }
 
-void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const cbhe_eid_t* finalDestEid,
-                                   zmq::socket_t * socket, const char* command)
+void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, int *src, const cbhe_eid_t* finalDestEid,
+                                   zmq::socket_t * ptrSocket, const char* command)
 {
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+ 
+
     if (!e) {
         if (system(command) ) {
+
             std::cout <<   "Ping Failed  ==> Send Link Down Event \n" << std::endl << std::flush;
             std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
-             hdtn::IreleaseStopHdr stopMsg;
-             memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
-             stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-             stopMsg.finalDestinationEid = *finalDestEid;
-             socket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-             std::cout << " -- LINK DOWN Event sent for destination: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
+            
+
+
+         hdtn::IreleaseStopHdr stopMsg;
+         cbhe_eid_t nextHopEid;
+         nextHopEid.nodeId = finalDestEid->nodeId;
+         nextHopEid.serviceId = 1;
+
+         cbhe_eid_t prevHopEid;
+         prevHopEid.nodeId = *src;
+         prevHopEid.serviceId = 1;
+
+         memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
+
+         stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
+         stopMsg.nextHopEid = nextHopEid;
+         stopMsg.prevHopEid = prevHopEid;
+         stopMsg.finalDestinationEid = *finalDestEid;
+         ptrSocket->send(zmq::const_buffer(&stopMsg,
+         sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
+
+         std::cout << " -- LINK DOWN Event sent sent for Link " <<
+                prevHopEid.nodeId << " ===> " << nextHopEid.nodeId << "" <<  std::endl;
+
 
         } else {
             std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
             std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationEid: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
-            hdtn::IreleaseStartHdr releaseMsg;
-            memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-            releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-            releaseMsg.finalDestinationEid = *finalDestEid;
-            socket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-            std::cout << " -- LINK UP Event sent for destination: (" << finalDestEid->nodeId << "," << finalDestEid->serviceId << ")" << std::endl;
+
+            // Timer was not cancelled, take necessary action.
+
+        hdtn::IreleaseStartHdr releaseMsg;
+        memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+        cbhe_eid_t nextHopEid;
+        nextHopEid.nodeId = finalDestEid->nodeId;
+        nextHopEid.serviceId = 1;
+
+        cbhe_eid_t prevHopEid;
+        prevHopEid.nodeId = *src;
+        prevHopEid.serviceId = 1;
+
+        releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
+        releaseMsg.nextHopEid = nextHopEid;
+        releaseMsg.prevHopEid = prevHopEid;
+        releaseMsg.finalDestinationEid = *finalDestEid;
+        ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)),
+                        zmq::send_flags::none);
+
+        std::cout << " -- LINK UP Event sent sent for Link " <<
+                prevHopEid.nodeId << " ===> " << nextHopEid.nodeId << "" <<  std::endl;
+
         }
 
         dt->expires_at(dt->expires_at() + boost::posix_time::seconds(5));
         dt->async_wait(boost::bind(Scheduler::PingCommand,
                        boost::asio::placeholders::error,
-                       dt, finalDestEid, socket, command));
+                       dt, src, finalDestEid, ptrSocket, command));
     } else {
         std::cout << "timer dt cancelled\n";
     }
@@ -120,6 +158,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
+
+	    //int src = m_hdtnConfig.m_myNodeId;
 
 	    contactsFile = vm["contact-plan-file"].as<std::string>();
             if (contactsFile.length() < 1) {
@@ -196,8 +236,11 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         str = "ping -c1 -s1 " + str;
 
         const char *command = str.c_str();
-	
-	dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, &finalDestEid, &socket, command));
+
+        //`int src = m_hdtnConfig.m_myNodeId;     
+        int src = 32769;	
+	std::cout << "src Node  " << src << std::endl;
+	dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, &src, &finalDestEid, &socket, command));
 	service.run();
 
 	while (running && m_runningFromSigHandler) {
