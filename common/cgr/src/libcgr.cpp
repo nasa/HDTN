@@ -16,6 +16,7 @@ void Contact::clear_dijkstra_working_area() {
 }
 
 bool Contact::operator==(const Contact contact) const {
+    // alternatively, just check that id == contact.id ?
     return (frm == contact.frm &&
             to == contact.to &&
             start == contact.start &&
@@ -29,14 +30,14 @@ bool Contact::operator!=(const Contact contact) const {
     return !(*this == contact);
 }
 
-Contact::Contact(nodeId_t frm, nodeId_t to, int start, int end, int rate, float confidence, int owlt)
+Contact::Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence, time_t owlt)
     : frm(frm), to(to), start(start), end(end), rate(rate), confidence(confidence), owlt(owlt)
 {
     // fixed parameters
     volume = rate * (end - start);
 
     // variable parameters
-    mav = std::vector<int>({volume, volume, volume});
+    mav = std::vector<uint64_t>({volume, volume, volume});
 
     // route search working area
     arrival_time = MAX_SIZE;
@@ -67,7 +68,7 @@ Route::Route()
 
 Route::~Route() {}
 
-Route::Route(Contact contact, Route *parent)
+Route::Route(const Contact &contact, Route *parent)
     : parent(parent)
 {
     hops = std::vector<Contact>();
@@ -103,11 +104,10 @@ Contact Route::get_last_contact() {
 }
 
 bool Route::visited(nodeId_t node) {
-    //const int id = node;
     return __visited.count(node) && __visited[node];
 }
 
-void Route::append(Contact contact) {
+void Route::append(const Contact &contact) {
     assert(eligible(contact));
     hops.push_back(contact);
     __visited[contact.frm] = true;
@@ -125,28 +125,28 @@ void Route::refresh_metrics() {
     to_time = MAX_SIZE;
     best_delivery_time = 0;
     confidence = 1;
-    for (Contact contact : allHops) {
+    for (const Contact& contact : allHops) {
         to_time = std::min(to_time, contact.end);
         best_delivery_time = std::max(best_delivery_time + contact.owlt, contact.start + contact.owlt);
         confidence *= contact.confidence;
     }
 
     // volume
-    int prev_last_byte_arr_time = 0;
-    int min_effective_volume_limit = MAX_SIZE;
+    time_t prev_last_byte_arr_time = 0;
+    uint64_t min_effective_volume_limit = MAX_SIZE;
     for (Contact& contact : allHops) {
         if (contact == allHops[0]) {
             contact.first_byte_tx_time = contact.start;
         } else {
             contact.first_byte_tx_time = std::max(contact.start, prev_last_byte_arr_time);
         }
-        int bundle_tx_time = 0;
+        time_t bundle_tx_time = 0;
         contact.last_byte_tx_time = contact.first_byte_tx_time + bundle_tx_time;
         contact.last_byte_arr_time = contact.last_byte_tx_time + contact.owlt;
         prev_last_byte_arr_time = contact.last_byte_arr_time;
         
-        int effective_start_time = contact.first_byte_tx_time;
-        int min_succ_stop_time = MAX_SIZE;
+        time_t effective_start_time = contact.first_byte_tx_time;
+        time_t min_succ_stop_time = MAX_SIZE;
         std::vector<Contact>::iterator it = std::find(allHops.begin(), allHops.end(), contact);
         for (it; it < allHops.end(); ++it) {
             Contact successor = *it;
@@ -154,8 +154,8 @@ void Route::refresh_metrics() {
                 min_succ_stop_time = successor.end;
             }
         }
-        int effective_stop_time = std::min(contact.end, min_succ_stop_time);
-        int effective_duration = effective_stop_time - effective_start_time;
+        time_t effective_stop_time = std::min(contact.end, min_succ_stop_time);
+        time_t effective_duration = effective_stop_time - effective_start_time;
         contact.effective_volume_limit = std::min(effective_duration * contact.rate, contact.volume);
         if (contact.effective_volume_limit < min_effective_volume_limit) {
             min_effective_volume_limit = contact.effective_volume_limit;
@@ -164,7 +164,7 @@ void Route::refresh_metrics() {
     volume = min_effective_volume_limit;
 }
 
-bool Route::eligible(Contact contact) {
+bool Route::eligible(const Contact &contact) {
     try {
         Contact last = get_last_contact();
         return (!visited(contact.to) && contact.end > last.start + last.owlt);
@@ -186,19 +186,22 @@ std::vector<Contact> Route::get_hops() {
 /*
  * Library function implementations, e.g. loading, routing algorithms, etc.
  */
-std::vector<Contact> cp_load(std::string filename, int max_contacts) {
+std::vector<Contact> cp_load(std::string filename, uint64_t max_contacts) {
     std::vector<Contact> contactsVector;
     boost::property_tree::ptree pt;
     boost::property_tree::read_json(filename, pt);
     const boost::property_tree::ptree & contactsPt
         = pt.get_child("contacts", boost::property_tree::ptree());
     for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
-        Contact new_contact = Contact(eventPt.second.get<int>("source", 0),
-                                      eventPt.second.get<int>("dest", 0),
-                                      eventPt.second.get<int>("startTime", 0),
-                                      eventPt.second.get<int>("endTime", 0),
-                                      eventPt.second.get<int>("rate", 0));
-        // new_contact.id = eventPt.second.get<int>("contact", 0);
+        Contact new_contact = Contact(
+            eventPt.second.get<nodeId_t>("source", 0),
+            eventPt.second.get<nodeId_t>("dest", 0),
+            eventPt.second.get<time_t>("startTime", 0),
+            eventPt.second.get<time_t>("endTime", 0),
+            eventPt.second.get<uint64_t>("rate", 0),
+            1.0, // confidence
+            eventPt.second.get<time_t>("owlt", 0));
+        new_contact.id = eventPt.second.get<int>("contact", 0);
         contactsVector.push_back(new_contact);
         if (contactsVector.size() == max_contacts) {
             break;
@@ -207,7 +210,7 @@ std::vector<Contact> cp_load(std::string filename, int max_contacts) {
     return contactsVector;
 }
 
-Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
+std::shared_ptr<Route> dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
     // Need to clear the real contacts in the contact plan
     // so we loop using Contact& instead of Contact
     for (Contact &contact : contact_plan) {
@@ -229,10 +232,10 @@ Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact>
         contact_plan_hash[contact.frm].push_back(&contact);
     }
 
-    Route route;
+    std::shared_ptr<Route> route(nullptr);
     Contact *final_contact = NULL;
-    int earliest_fin_arr_t = MAX_SIZE;
-    int arrvl_time;
+    time_t earliest_fin_arr_t = MAX_SIZE;
+    time_t arrvl_time;
 
     Contact *current = root_contact;
 
@@ -288,7 +291,7 @@ Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact>
         current->visited = true;
 
         // determine next best contact
-        int earliest_arr_t = MAX_SIZE;
+        time_t earliest_arr_t = MAX_SIZE;
         Contact *next_contact = NULL;
         // @source DtnSim
         // "Warning: we need to point finalContact to
@@ -321,10 +324,10 @@ Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact>
             hops.push_back(contact);
         }
         
-        route = Route(hops.back());
+        route = std::make_shared<Route>(hops.back());
         hops.pop_back();
         while (!hops.empty()) {
-            route.append(hops.back());
+            route->append(hops.back());
             hops.pop_back();
         }
     }
@@ -363,7 +366,7 @@ std::ostream& operator<<(std::ostream &out, const Contact &obj) {
     static const boost::format fmtTemplate("%d->%d(%d-%d,d%d)[mav%.0f%%]");
     boost::format fmt(fmtTemplate);
 
-    int min_vol = *std::min_element(obj.mav.begin(), obj.mav.end());
+    uint64_t min_vol = *std::min_element(obj.mav.begin(), obj.mav.end());
     double volume = 100.0 * min_vol / obj.volume;
     fmt % obj.frm % obj.to % obj.start % obj.end % obj.owlt % volume;
     const std::string message(std::move(fmt.str()));
