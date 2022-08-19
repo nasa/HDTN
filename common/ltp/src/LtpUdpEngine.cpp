@@ -37,16 +37,32 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     m_printedCbTooSmallNotice(false),
     m_countAsyncSendCalls(0),
     m_countAsyncSendCallbackCalls(0),
+    m_countBatchSendCalls(0),
+    m_countBatchSendCallbackCalls(0),
+    m_countBatchUdpPacketsSent(0),
     m_countCircularBufferOverruns(0)
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(maxUdpRxPacketSizeBytes);
     }
+
+    if (M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) { //need a dedicated connected sender socket
+        m_udpBatchSenderConnected.SetOnSentPacketsCallback(boost::bind(&LtpUdpEngine::OnSentPacketsCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
+        if (!m_udpBatchSenderConnected.Init(m_remoteEndpoint)) {
+            std::cout << "Error in LtpUdpEngine::LtpUdpEngine: could not init dedicated udp batch sender socket\n";
+        }
+        else {
+            std::cout << "LtpUdpEngine successfully initialized dedicated udp batch sender socket\n";
+        }
+    }
 }
 
 LtpUdpEngine::~LtpUdpEngine() {
     //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
-    std::cout << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
+    std::cout << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls 
+        << " m_countBatchSendCalls " << m_countBatchSendCalls
+        << " m_countBatchUdpPacketsSent " << m_countBatchUdpPacketsSent
+        << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
 }
 
 
@@ -54,6 +70,9 @@ void LtpUdpEngine::Reset() {
     LtpEngine::Reset();
     m_countAsyncSendCalls = 0;
     m_countAsyncSendCallbackCalls = 0;
+    m_countBatchSendCalls = 0;
+    m_countBatchSendCallbackCalls = 0;
+    m_countBatchUdpPacketsSent = 0;
     m_countCircularBufferOverruns = 0;
 }
 
@@ -74,7 +93,7 @@ void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packe
     }
 }
 
-void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId) {
+void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
     if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(*((uint8_t*)constBufferVec[0].data()))) {
@@ -88,6 +107,23 @@ void LtpUdpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBuff
     }
 }
 
+void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)
+{
+    //called by LtpEngine Thread
+    ++m_countBatchSendCalls;
+    
+    if (m_udpDropSimulatorFunction) {
+        for (std::size_t i = 0; i < constBufferVecs.size(); ++i) {
+            if (m_udpDropSimulatorFunction(*((uint8_t*)constBufferVecs[i][0].data()))) { //dropped
+                constBufferVecs[i].clear(); //this packet will be skipped by the UdpBatchSender
+            }
+        }
+    }
+    m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallback); //data gets stolen
+    //LtpUdpEngine::OnSentPacketsCallback will be called next
+}
+
 
 void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
     //Called by LTP Engine thread
@@ -98,6 +134,7 @@ void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
 
 
 void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred) {
+    //Called by m_ioServiceUdpRef thread
     ++m_countAsyncSendCallbackCalls;
     if (error) {
         std::cerr << "error in LtpUdpEngine::HandleUdpSend: " << error.message() << std::endl;
@@ -108,6 +145,26 @@ void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8
         //std::cout << "sent " << bytes_transferred << std::endl;
 
         if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
+            SignalReadyForSend_ThreadSafe();
+        }
+    }
+}
+
+void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)
+{
+    //Called by UdpBatchSender thread
+    ++m_countBatchSendCallbackCalls;
+    m_countBatchUdpPacketsSent += constBufferVecs.size();
+    if (!success) {
+        std::cerr << "error in LtpUdpEngine::OnSentPacketsCallback\n";
+        //DoUdpShutdown();
+    }
+    else {
+        //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
+        //std::cout << "sent " << bytes_transferred << std::endl;
+
+        if (m_countBatchSendCallbackCalls == m_countBatchSendCalls) { //prevent too many sends from stacking up in UdpBatchSender queue
             SignalReadyForSend_ThreadSafe();
         }
     }

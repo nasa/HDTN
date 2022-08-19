@@ -253,7 +253,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
             const double rateBps = rateMbps * 1e6;
             printf("Sent data at %0.4f Mbits/sec\n", rateMbps);
-            std::cout << "udp packets sent: " << ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls << std::endl;
+            std::cout << "udp packets sent: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent) << std::endl;
+            std::cout << "system calls for send: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls) << std::endl;
         }
         else { //receive file
             struct ReceiverHelper {
@@ -325,7 +326,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 
             }
             boost::this_thread::sleep(boost::posix_time::seconds(2));
-            std::cout << "udp packets sent: " << ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls << std::endl;
+            std::cout << "udp packets sent: " << (ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent) << std::endl;
+            std::cout << "system calls for send: " << (ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls) << std::endl;
         }
 
         std::cout << "LtpFileTransferRunner::Run: exiting cleanly..\n";

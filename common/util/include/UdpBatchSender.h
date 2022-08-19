@@ -30,20 +30,22 @@
 
 class UdpBatchSender {
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
+    typedef boost::function<void(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)> OnSentPacketsCallback_t;
     HDTN_UTIL_EXPORT UdpBatchSender();
     HDTN_UTIL_EXPORT ~UdpBatchSender();
     HDTN_UTIL_EXPORT void Stop();
     HDTN_UTIL_EXPORT bool Init(const std::string& remoteHostname, const std::string& remotePort);
+    HDTN_UTIL_EXPORT bool Init(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint);
 
     HDTN_UTIL_EXPORT void QueueSendPacketsOperation_ThreadSafe(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        boost::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback);
-
+        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback);
+    HDTN_UTIL_EXPORT void SetOnSentPacketsCallback(const OnSentPacketsCallback_t& callback);
 
 private:
     HDTN_UTIL_NO_EXPORT void PerformSendPacketsOperation(
         std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        boost::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback);
+        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback);
     HDTN_UTIL_NO_EXPORT void DoUdpShutdown();
     HDTN_UTIL_NO_EXPORT void DoHandleSocketShutdown();
 private:
@@ -54,12 +56,15 @@ private:
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
 #ifdef _WIN32
+//# define UDP_BATCH_SENDER_USE_OVERLAPPED 1
     LPFN_TRANSMITPACKETS m_transmitPacketsFunctionPointer;
+# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
     WSAOVERLAPPED m_sendOverlappedAutoReset;
+# endif
     std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
 #endif
     
-    //OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
+    OnSentPacketsCallback_t m_onSentPacketsCallback;
 };
 
 

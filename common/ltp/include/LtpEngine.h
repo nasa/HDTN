@@ -98,8 +98,10 @@ public:
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
 protected:
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
-    LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
+    LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
     LTP_LIB_EXPORT void SignalReadyForSend_ThreadSafe();
+    LTP_LIB_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback);
 private:
     LTP_LIB_NO_EXPORT void TrySendPacketIfAvailable();
 
@@ -134,6 +136,9 @@ private:
     const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_MTU_CLIENT_SERVICE_DATA;
+protected:
+    const uint64_t M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
+private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;

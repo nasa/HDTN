@@ -21,6 +21,17 @@ static boost::asio::ip::udp::endpoint g_remoteEndpoint;
 static void HandleUdpReceive(const boost::system::error_code& error, std::size_t bytesTransferred);
 static boost::asio::ip::udp::socket* g_udpSocketPtr;
 static boost::asio::deadline_timer* g_deadlineTimerPtr;
+static uint64_t g_constBufferVecsCallbackSize;
+static uint64_t g_underlyingDataToDeleteOnSentCallbackSize;
+static bool g_sentCallbackWasSuccessful;
+
+static void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)
+{
+    g_sentCallbackWasSuccessful = success;
+    g_constBufferVecsCallbackSize = constBufferVecs.size();
+    g_underlyingDataToDeleteOnSentCallbackSize = underlyingDataToDeleteOnSentCallback.size();
+}
 
 static void StartUdpReceive() {
     g_udpReceiveBuffer.resize(100);
@@ -86,6 +97,7 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         }
 
         UdpBatchSender ubs;
+        ubs.SetOnSentPacketsCallback(boost::bind(&OnSentPacketsCallback, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
         BOOST_REQUIRE(ubs.Init("localhost", "1113"));
         std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
         constBufferVecs.resize(3);
@@ -106,9 +118,14 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         constBufferVecs[2][2] = boost::asio::buffer("six", 3);
 
 
-        boost::shared_ptr<std::vector<std::vector<uint8_t> > > underlyingDataToDeleteOnSentCallback; //null not needed
+        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallback; //null not needed
+        underlyingDataToDeleteOnSentCallback.resize(10); //for testing
 
         BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 3);
+        BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallback.size(), 10);
+        g_constBufferVecsCallbackSize = 0; //modified after callback
+        g_underlyingDataToDeleteOnSentCallbackSize = 0; //modified after callback
+        g_sentCallbackWasSuccessful = false; //modified after callback
 
         deadlineTimer.expires_from_now(boost::posix_time::seconds(5)); //fail after 5 seconds
         deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error));
@@ -119,6 +136,7 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         ioService.run();
 
         BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 0); //stolen and empty
+        BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallback.size(), 0); //stolen and empty
         BOOST_REQUIRE_EQUAL(g_udpPacketsReceived.size(), 3);
 
         BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[0].size(), 3);
@@ -132,5 +150,9 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         BOOST_REQUIRE_EQUAL(p0, "one");
         BOOST_REQUIRE_EQUAL(p1, "twothree");
         BOOST_REQUIRE_EQUAL(p2, "fourfivesix");
+
+        BOOST_REQUIRE_EQUAL(g_constBufferVecsCallbackSize, 3);
+        BOOST_REQUIRE_EQUAL(g_underlyingDataToDeleteOnSentCallbackSize, 10);
+        BOOST_REQUIRE(g_sentCallbackWasSuccessful);
     }
 }
