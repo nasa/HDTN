@@ -25,7 +25,7 @@ def main(argv):
     __contact_plan = {"contacts": contacts}
     print(__contact_plan)
     with open(str(sys.argv[2]), 'w') as outfile:
-        json.dump(__contact_plan, outfile, default=set_default)
+        json.dump(__contact_plan, outfile, default=set_default, indent=4)
 
 def set_default(obj):
     if isinstance(obj, set):
