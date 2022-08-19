@@ -150,3 +150,8 @@ Then open the CMakeLists.txt file in the hdtn directory and make the following e
 
 Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
 
+Simulations
+=========
+HDTN can be simulated using
+* DtnSim, a simulator for delay tolerant networks built on the OMNeT++ simulation framework. Use the "support-hdtn" branch of DtnSim which can be found in the official DtnSim repository: https://bitbucket.org/lcd-unc-ar/dtnsim/src/master/. Currently the HDTN simulation has only been tested on Linux (specifically Debian).
+
