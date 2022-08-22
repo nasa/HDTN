@@ -17,6 +17,7 @@
  * https://github.com/microsoft/Windows-classic-samples/blob/main/Samples/Win7Samples/netds/Qos/Qos2/qossample.c
  * This UdpBatchSender class encapsulates the appropriate UDP functionality
  * to send multiple UDP packets in one system call in order to increase UDP throughput.
+ * It also benefits in performance because the UDP socket must be "connected".
  */
 
 #ifndef _UDP_BATCH_SENDER_H
@@ -62,6 +63,8 @@ private:
     WSAOVERLAPPED m_sendOverlappedAutoReset;
 # endif
     std::vector<TRANSMIT_PACKETS_ELEMENT> m_transmitPacketsElementVec;
+#else //not #ifdef _WIN32
+    std::vector<struct mmsghdr> m_transmitPacketsElementVec;
 #endif
     
     OnSentPacketsCallback_t m_onSentPacketsCallback;

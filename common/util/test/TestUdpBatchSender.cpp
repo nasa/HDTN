@@ -14,6 +14,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include "UdpBatchSender.h"
+#include <iostream>
 
 static std::vector<uint8_t> g_udpReceiveBuffer;
 static std::vector<std::vector<uint8_t> > g_udpPacketsReceived;
@@ -56,7 +57,7 @@ static void HandleUdpReceive(const boost::system::error_code& error, std::size_t
     }
     else if (error != boost::asio::error::operation_aborted) {
         g_deadlineTimerPtr->cancel();
-        std::cout << "unknown error in UdpBatchSenderTestCase HandleUdpReceive: " << error.what() << "\n";
+        std::cout << "unknown error in UdpBatchSenderTestCase HandleUdpReceive: " << error.message() << "\n";
         BOOST_ERROR("");
     }
 }

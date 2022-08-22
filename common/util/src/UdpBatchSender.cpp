@@ -51,6 +51,13 @@ bool UdpBatchSender::Init(const std::string& remoteHostname, const std::string& 
     return Init(udpDestinationEndpoint);
 }
 bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEndpoint) {
+#ifndef _WIN32
+    if (sizeof(boost::asio::const_buffer) != sizeof(struct iovec)) {
+        std::cout << "Error in UdpBatchSender::Init: sizeof(boost::asio::const_buffer) != sizeof(struct iovec)\n";
+        return false;
+    }
+#endif
+
     if (m_ioServiceThreadPtr) {
         std::cout << "Error in UdpBatchSender::Init: already initialized\n";
         return false;
@@ -182,7 +189,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
     std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
     std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)
 {
-#ifdef _WIN32
+
     m_transmitPacketsElementVec.resize(0); //reserved 100 elements in Init()
     
 
@@ -190,6 +197,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
         std::vector<boost::asio::const_buffer>& currentPacketConstBuffers = constBufferVecs[i];
         const std::size_t currentPacketConstBuffersSize = currentPacketConstBuffers.size();
         if (currentPacketConstBuffersSize) {
+#ifdef _WIN32
             std::size_t j = 0;
             while(true) {
                 m_transmitPacketsElementVec.emplace_back();
@@ -204,68 +212,130 @@ void UdpBatchSender::PerformSendPacketsOperation(
                 }
             }
             m_transmitPacketsElementVec.back().dwElFlags |= TP_ELEMENT_EOP;
+#else //not _WIN32
+            /*
+            the following two data structures are equivalent so a cast will work
+            struct iovec {
+                ptr_t iov_base; // Starting address
+                size_t iov_len; // Length in bytes
+            };
+            class const_buffer
+            {
+            private:
+                const void* data_;
+                std::size_t size_;
+            };
+            */
+            m_transmitPacketsElementVec.emplace_back();
+            struct mmsghdr & mmsgHeader = m_transmitPacketsElementVec.back();
+            /*
+            struct msghdr {
+                void    *   msg_name;   // Socket name
+                int     msg_namelen;    // Length of name
+                struct iovec* msg_iov;    // Data blocks
+                __kernel_size_t msg_iovlen; // Number of blocks
+                void* msg_control;    // Per protocol magic (eg BSD file descriptor passing)
+                __kernel_size_t msg_controllen; // Length of cmsg list
+                unsigned int    msg_flags;
+            };
+        
+            // For recvmmsg/sendmmsg
+            struct mmsghdr {
+                struct msghdr msg_hdr;
+                unsigned int  msg_len; //The msg_len field is used to return the number of
+                                       //bytes sent from the message in msg_hdr (i.e., the same as the
+                                       //return value from a single sendmsg(2) call).
+            };
+            */
+            memset(&mmsgHeader, 0, sizeof(struct mmsghdr));
+            mmsgHeader.msg_hdr.msg_iov = reinterpret_cast<struct iovec*>(currentPacketConstBuffers.data());
+            mmsgHeader.msg_hdr.msg_iovlen = currentPacketConstBuffersSize;
+                
+#endif //#ifdef _WIN32
         }
         else {
             //std::cout << "UdpBatchSender skip one\n";
         }
     }
 
-    if (m_transmitPacketsElementVec.size() == 0) { //nothing to send (succeed and don't call OS routine)
-        if (m_onSentPacketsCallback) {
-            m_onSentPacketsCallback(true, constBufferVecs, underlyingDataToDeleteOnSentCallback);
-        }
-        return;
-    }
-    
+    bool successfulSend = true;
 
-    // Send the first burst of packets
-    SOCKET nativeSocketHandle = m_udpSocketConnectedSenderOnly.native_handle();
-    LPTRANSMIT_PACKETS_ELEMENT lpPacketArray = m_transmitPacketsElementVec.data();
-    bool result = (*m_transmitPacketsFunctionPointer)(nativeSocketHandle,
-        lpPacketArray,
-        (DWORD)m_transmitPacketsElementVec.size(),
-        0xFFFFFFFF, //TODO DETERMINE NUMBER OF F'S (7 OR 8).. Setting nSendSize to 0xFFFFFFF enables the caller to control the size and content of each send request,
-                    // achieved by using the TP_ELEMENT_EOP flag in the TRANSMIT_PACKETS_ELEMENT array pointed to in the lpPacketArray parameter.
+    if (m_transmitPacketsElementVec.size()) { //there is data to send.. however if there is nothing to send then succeed with callback function and don't call OS routine
+#ifdef _WIN32
+        // Send the first burst of packets
+        SOCKET nativeSocketHandle = m_udpSocketConnectedSenderOnly.native_handle();
+        LPTRANSMIT_PACKETS_ELEMENT lpPacketArray = m_transmitPacketsElementVec.data();
+        bool result = (*m_transmitPacketsFunctionPointer)(nativeSocketHandle,
+            lpPacketArray,
+            (DWORD)m_transmitPacketsElementVec.size(),
+            0xFFFFFFFF, //TODO DETERMINE NUMBER OF F'S (7 OR 8).. Setting nSendSize to 0xFFFFFFF enables the caller to control the size and content of each send request,
+                        // achieved by using the TP_ELEMENT_EOP flag in the TRANSMIT_PACKETS_ELEMENT array pointed to in the lpPacketArray parameter.
 # ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
-        &m_sendOverlappedAutoReset,
+            & m_sendOverlappedAutoReset,
 # else
-        NULL,
-#endif
-        /*TF_USE_KERNEL_APC*/TF_USE_DEFAULT_WORKER); //Directs Winsock to use kernel Asynchronous Procedure Calls (APCs) instead of worker threads to process long TransmitPackets requests.
-                            // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
-                            // the long request definition therefore depends on the size of the file and the specified length of the send packet.
-
-    if (!result) {
-        DWORD lastError = WSAGetLastError();
-        if (lastError != ERROR_IO_PENDING) {
-            printf("%s:%d - TransmitPackets failed (%d)\n", __FILE__, __LINE__, GetLastError());
-            return;
-        }
-    }
-    
-# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
-    DWORD waitResult = WaitForSingleObject(m_sendOverlappedAutoReset.hEvent, 2000); //2 second timeout
-    if (waitResult == WAIT_OBJECT_0) { //success
-        if (m_onSentPacketsCallback) {
-            m_onSentPacketsCallback(true, constBufferVecs, underlyingDataToDeleteOnSentCallback);
-        }
-    }
-    else if (waitResult == WAIT_TIMEOUT) { //fail
-        if (m_onSentPacketsCallback) {
-            m_onSentPacketsCallback(false, constBufferVecs, underlyingDataToDeleteOnSentCallback);
-        }
-    }
-    else { //unknown error
-        if (m_onSentPacketsCallback) {
-            m_onSentPacketsCallback(false, constBufferVecs, underlyingDataToDeleteOnSentCallback);
-        }
-    }
-# else
-    if (m_onSentPacketsCallback) {
-        m_onSentPacketsCallback(true, constBufferVecs, underlyingDataToDeleteOnSentCallback);
-    }
+            NULL,
 # endif
+            TF_USE_DEFAULT_WORKER); //TF_USE_KERNEL_APC Directs Winsock to use kernel Asynchronous Procedure Calls (APCs) instead of worker threads to process
+                                    // long TransmitPackets requests.
+                                    // Long TransmitPackets requests are defined as requests that require more than a single read from the file or a cache;
+                                    // the long request definition therefore depends on the size of the file and the specified length of the send packet.
 
-#endif
+        if (!result) {
+            DWORD lastError = WSAGetLastError();
+            if (lastError != ERROR_IO_PENDING) {
+                printf("%s:%d - TransmitPackets failed (%d)\n", __FILE__, __LINE__, GetLastError());
+                successfulSend = false;
+            }
+        }
+
+# ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
+        DWORD waitResult = WaitForSingleObject(m_sendOverlappedAutoReset.hEvent, 2000); //2 second timeout
+        if (waitResult == WAIT_OBJECT_0) { //success
+            //successfulSend = true; //already initialized to true
+        }
+        else if (waitResult == WAIT_TIMEOUT) { //fail
+            successfulSend = false;
+        }
+        else { //unknown error
+            successfulSend = false;
+        }
+# endif //ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
+
+#else //not #ifdef _WIN32
+        const int sockfd = m_udpSocketConnectedSenderOnly.native_handle();
+        const unsigned int vlen = static_cast<unsigned int>(m_transmitPacketsElementVec.size());
+
+        
+        //A blocking sendmmsg() call (WHICH THIS IS) blocks until vlen messages have been
+        //sent.  A nonblocking call sends as many messages as possible (up
+        //to the limit specified by vlen) and returns immediately.
+        const int retval = sendmmsg(sockfd, m_transmitPacketsElementVec.data(), vlen, 0);
+
+        //On success, sendmmsg() returns the number of messages sent from
+        //msgvec; if this is less than vlen, the caller can retry with a
+        //further sendmmsg() call to send the remaining messages.
+        //
+        //On error, -1 is returned, and errno is set to indicate the error.
+        if (retval == -1) {
+            successfulSend = false;
+            printf("%s:%d - sendmmsg failed with errno %d\n", __FILE__, __LINE__, errno);
+            perror("sendmmsg()");
+        }
+        else if (retval != vlen) {
+            //On return from sendmmsg(), the msg_len fields of successive
+            //elements of msgvec are updated to contain the number of bytes
+            //transmitted from the corresponding msg_hdr.  The return value of
+            //the call indicates the number of elements of msgvec that have
+            //been updated.
+            successfulSend = false;
+            printf("%s:%d - sendmmsg failed by only sending %d out of %d udp packets\n", __FILE__, __LINE__, retval, vlen);
+        }
+
+#endif //#ifdef _WIN32
+    }
+
+    if (m_onSentPacketsCallback) {
+        m_onSentPacketsCallback(successfulSend, constBufferVecs, underlyingDataToDeleteOnSentCallback);
+    }
 }
 
