@@ -105,7 +105,7 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
         std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
             //std::cout << "found!\n";
-            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 in case of trailer extensions
+            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
             Ltp::GenerateReportSegmentLtpPacket((*underlyingDataToDeleteOnSentCallback)[0],
                 M_SESSION_ID, reportSegmentIt->second, NULL, NULL);
             constBufferVec.resize(1);

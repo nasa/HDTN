@@ -145,10 +145,10 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
         }
-        underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(2); //2 in case of trailer extensions
+        underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
         Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
             M_SESSION_ID, meta, NULL, 0);
-        constBufferVec.resize(3); //3 in case of trailer
+        constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
         //std::cout << "rf o: " << resendFragment.offset << " l: " << resendFragment.length << " flags: " << (int)resendFragment.flags << std::endl;
         //std::cout << (int)(*(m_dataToSend.data() + resendFragment.offset)) << std::endl;
@@ -197,10 +197,10 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             meta.length = bytesToSendRed;
             meta.checkpointSerialNumber = checkpointSerialNumber;
             meta.reportSerialNumber = reportSerialNumber;
-            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(2); //2 in case of trailer extensions
+            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
-            constBufferVec.resize(3); //3 in case of trailer
+            constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
             constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendRed);
             m_dataIndexFirstPass += bytesToSendRed;
@@ -218,11 +218,12 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             meta.length = bytesToSendGreen;
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
-            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(2); //2 in case of trailer extensions
+            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
             Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
-            constBufferVec.resize(3); //3 in case of trailer
+            constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
+            //std::cout << "green m_dataToSend[" << m_dataIndexFirstPass << "]=" << (int)(m_dataToSend.data()[m_dataIndexFirstPass]) << "\n";
             constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendGreen);
             m_dataIndexFirstPass += bytesToSendGreen;
         }

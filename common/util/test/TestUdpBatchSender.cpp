@@ -100,60 +100,68 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         UdpBatchSender ubs;
         ubs.SetOnSentPacketsCallback(boost::bind(&OnSentPacketsCallback, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3));
         BOOST_REQUIRE(ubs.Init("localhost", "1113"));
-        std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
-        constBufferVecs.resize(3);
+        unsigned int successfulTests = 0;
+        for (unsigned int count = 0; count < 10; ++count) {
+            g_udpPacketsReceived.clear();
+            std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
+            constBufferVecs.resize(3);
 
-        //send packet with "one"
-        constBufferVecs[0].resize(1);
-        constBufferVecs[0][0] = boost::asio::buffer("one", 3);
+            //send packet with "one"
+            constBufferVecs[0].resize(1);
+            constBufferVecs[0][0] = boost::asio::buffer("one", 3);
 
-        //send packet with "twothree"
-        constBufferVecs[1].resize(2);
-        constBufferVecs[1][0] = boost::asio::buffer("two", 3);
-        constBufferVecs[1][1] = boost::asio::buffer("three", 5);
+            //send packet with "twothree"
+            constBufferVecs[1].resize(2);
+            constBufferVecs[1][0] = boost::asio::buffer("two", 3);
+            constBufferVecs[1][1] = boost::asio::buffer("three", 5);
 
-        //send packet with "fourfivesix"
-        constBufferVecs[2].resize(3);
-        constBufferVecs[2][0] = boost::asio::buffer("four", 4);
-        constBufferVecs[2][1] = boost::asio::buffer("five", 4);
-        constBufferVecs[2][2] = boost::asio::buffer("six", 3);
+            //send packet with "fourfivesix"
+            constBufferVecs[2].resize(3);
+            constBufferVecs[2][0] = boost::asio::buffer("four", 4);
+            constBufferVecs[2][1] = boost::asio::buffer("five", 4);
+            constBufferVecs[2][2] = boost::asio::buffer("six", 3);
 
 
-        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallback; //null not needed
-        underlyingDataToDeleteOnSentCallback.resize(10); //for testing
+            std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallback; //null not needed
+            underlyingDataToDeleteOnSentCallback.resize(10); //for testing
 
-        BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 3);
-        BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallback.size(), 10);
-        g_constBufferVecsCallbackSize = 0; //modified after callback
-        g_underlyingDataToDeleteOnSentCallbackSize = 0; //modified after callback
-        g_sentCallbackWasSuccessful = false; //modified after callback
+            BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 3);
+            BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallback.size(), 10);
+            g_constBufferVecsCallbackSize = 0; //modified after callback
+            g_underlyingDataToDeleteOnSentCallbackSize = 0; //modified after callback
+            g_sentCallbackWasSuccessful = false; //modified after callback
 
-        deadlineTimer.expires_from_now(boost::posix_time::seconds(5)); //fail after 5 seconds
-        deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error));
-        StartUdpReceive();
+            deadlineTimer.expires_from_now(boost::posix_time::seconds(5)); //fail after 5 seconds
+            deadlineTimer.async_wait(boost::bind(&DurationEndedThreadFunction, boost::asio::placeholders::error));
+            StartUdpReceive();
 
-        std::cout << "starting UdpBatchSenderTestCase send/receive operation\n";
-        ubs.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallback); //data gets stolen
-        ioService.run();
+            //std::cout << "starting UdpBatchSenderTestCase send/receive operation\n";
+            ubs.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallback); //data gets stolen
+            ioService.run();
+            ioService.reset();
 
-        BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 0); //stolen and empty
-        BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallback.size(), 0); //stolen and empty
-        BOOST_REQUIRE_EQUAL(g_udpPacketsReceived.size(), 3);
+            BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 0); //stolen and empty
+            BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallback.size(), 0); //stolen and empty
+            BOOST_REQUIRE_EQUAL(g_udpPacketsReceived.size(), 3);
 
-        BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[0].size(), 3);
-        BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[1].size(), 8);
-        BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[2].size(), 11);
+            BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[0].size(), 3);
+            BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[1].size(), 8);
+            BOOST_REQUIRE_EQUAL(g_udpPacketsReceived[2].size(), 11);
 
-        const std::string p0((const char*)(g_udpPacketsReceived[0].data()), (const char*)(g_udpPacketsReceived[0].data() + g_udpPacketsReceived[0].size()));
-        const std::string p1((const char*)(g_udpPacketsReceived[1].data()), (const char*)(g_udpPacketsReceived[1].data() + g_udpPacketsReceived[1].size()));
-        const std::string p2((const char*)(g_udpPacketsReceived[2].data()), (const char*)(g_udpPacketsReceived[2].data() + g_udpPacketsReceived[2].size()));
+            const std::string p0((const char*)(g_udpPacketsReceived[0].data()), (const char*)(g_udpPacketsReceived[0].data() + g_udpPacketsReceived[0].size()));
+            const std::string p1((const char*)(g_udpPacketsReceived[1].data()), (const char*)(g_udpPacketsReceived[1].data() + g_udpPacketsReceived[1].size()));
+            const std::string p2((const char*)(g_udpPacketsReceived[2].data()), (const char*)(g_udpPacketsReceived[2].data() + g_udpPacketsReceived[2].size()));
 
-        BOOST_REQUIRE_EQUAL(p0, "one");
-        BOOST_REQUIRE_EQUAL(p1, "twothree");
-        BOOST_REQUIRE_EQUAL(p2, "fourfivesix");
+            BOOST_REQUIRE_EQUAL(p0, "one");
+            BOOST_REQUIRE_EQUAL(p1, "twothree");
+            BOOST_REQUIRE_EQUAL(p2, "fourfivesix");
 
-        BOOST_REQUIRE_EQUAL(g_constBufferVecsCallbackSize, 3);
-        BOOST_REQUIRE_EQUAL(g_underlyingDataToDeleteOnSentCallbackSize, 10);
-        BOOST_REQUIRE(g_sentCallbackWasSuccessful);
+            BOOST_REQUIRE_EQUAL(g_constBufferVecsCallbackSize, 3);
+            BOOST_REQUIRE_EQUAL(g_underlyingDataToDeleteOnSentCallbackSize, 10);
+            BOOST_REQUIRE(g_sentCallbackWasSuccessful);
+
+            ++successfulTests;
+        }
+        BOOST_REQUIRE_EQUAL(successfulTests, 10);
     }
 }
