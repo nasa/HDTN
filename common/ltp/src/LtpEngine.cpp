@@ -34,6 +34,8 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
+    M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
+    M_STAGNANT_RX_SESSION_TIME(M_TRANSMISSION_TO_ACK_RECEIVED_TIME * static_cast<int>(maxRetriesPerSerialNumber + 1)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
     M_MAX_SIMULTANEOUS_SESSIONS(maxSimultaneousSessions),
     M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
@@ -41,6 +43,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
     m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_timeManagerOfCancelSegments(m_ioServiceLtpEngine, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
+    m_housekeepingTimer(m_ioServiceLtpEngine),
     m_tokenRefreshTimer(m_ioServiceLtpEngine),
     m_maxSendRateBitsPerSecOrZeroToDisable(maxSendRateBitsPerSecOrZeroToDisable),
     m_tokenRefreshTimerIsRunning(false),
@@ -73,6 +76,10 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
 
     Reset();
 
+    //start housekeeping timer (useful only to rx engines for now)
+    m_housekeepingTimer.expires_at(boost::posix_time::microsec_clock::universal_time() + M_HOUSEKEEPING_INTERVAL);
+    m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
+
     if (startIoServiceThread) {
         m_ioServiceLtpEngineThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioServiceLtpEngine));
     }
@@ -89,6 +96,7 @@ LtpEngine::~LtpEngine() {
     std::cout << "m_countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate << std::endl << std::endl;
 
     if (m_ioServiceLtpEngineThreadPtr) {
+        m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
         boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::Reset, this));
         m_workLtpEnginePtr.reset(); //erase the work object (destructor is thread safe) so that io_service thread will exit when it runs out of work 
         m_ioServiceLtpEngineThreadPtr->join();
@@ -848,5 +856,76 @@ void LtpEngine::OnTokenRefresh_TimerExpired(const boost::system::error_code& e) 
     }
     else {
         //std::cout << "timer cancelled\n";
+    }
+}
+
+void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) {
+    const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+    const boost::posix_time::ptime stagnantRxSessionTimeThreshold = nowPtime - M_STAGNANT_RX_SESSION_TIME;
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+
+        // Check for stagnant rx sessions and delete them
+        //
+        // -----------------
+        // The current LTP engine and session keeping logic does not provide a mechanism
+        // for a session to timeout except for red data checkpoint (and EORP, EOB) reports.
+        // Unfortunately, the LTP spec (both IETF RFC 5326 and CCSDS 734.1-B-1) are silent
+        // about correct engine behavior in the case of a non-checkpoint timeout situation.
+        //
+        // Two simple ways to produce this problem:
+        //
+        // Send an LTP segment type 0 (red non-checkpoint) with a new Session ID and arbitrary data.
+        // Send an LTP segment type 4 (green non-EOB) with a new Session ID and arbitrary data.
+        // In both cases the LTP engine will establish new session state and wait
+        // for all red data (with associated reports and their timeouts) or all green data.
+        // But if these never arrive, for whatever reason, the LTP engine will persist this session
+        // state indefinitely and also never give an indication to the application that this has occurred.
+        //
+        // It would be very helpful to the application to have some kind of "no further data received for the session"
+        // cancelation from the receiver, with its associated API callbacks for RX session cancellation.
+        // The LTP specs don't reserve a cancel reason for this, but the existing code 0 "Client service canceled session" could be used.
+        // I could implement this as a client-service-level timeout for green segments not for red segments,
+        // as the API doesn't indicate individual red segments to the client.
+        // This timeout would be something like "maximum time between receiving any segments associated
+        // with a session before cancelling" with a timer reset any time any segment is received for a given RX Session ID.
+        //
+        //Because this is a housekeeping timeout, it could be considerably larger than the normal round-trip-delay computed timeouts
+        //so it wouldn't conflict with having a simple logic that resets any time a segment is received for an RX session.
+        //The point is to know when to give up on an RX session and discard unneeded state.
+        uint64_t countStagnantRxSessions = 0;
+        for (map_session_id_to_session_receiver_t::const_iterator rxSessionIt = m_mapSessionIdToSessionReceiver.cbegin(); rxSessionIt != m_mapSessionIdToSessionReceiver.cend(); ++rxSessionIt) {
+            if (rxSessionIt->second->m_lastDataSegmentReceivedTimestamp <= stagnantRxSessionTimeThreshold) {
+                ++countStagnantRxSessions;
+
+                //erase session
+                const Ltp::session_id_t & sessionId = rxSessionIt->first;
+                m_queueReceiversNeedingDeleted.emplace(sessionId); //don't want to invalidate iterator in for loop
+                std::cout << "LtpEngine::OnHousekeeping_TimerExpired deleting stagnant receiver session number " << sessionId.sessionNumber << std::endl;
+
+                //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
+                m_queueCancelSegmentTimerInfo.emplace();
+                cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
+                info.sessionId = sessionId;
+                info.retryCount = 1;
+                info.isFromSender = false;
+                info.reasonCode = CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED;
+
+                if (m_receptionSessionCancelledCallback) {
+                    m_receptionSessionCancelledCallback(sessionId, CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+                }
+            }
+        }
+        //dequeue all Cancel Segments to sender
+        for (uint64_t i = 0; i < countStagnantRxSessions; ++i) {
+            TrySendPacketIfAvailable();
+        }
+        //std::cout << "house\n";
+        //restart housekeeping timer
+        m_housekeepingTimer.expires_at(nowPtime + M_HOUSEKEEPING_INTERVAL);
+        m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
+    }
+    else {
+        //std::cout << "housekeeping timer cancelled\n";
     }
 }

@@ -60,9 +60,9 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     m_outductManager.SetOutductManagerOnSuccessfulOutductAckCallback(boost::bind(&HegrManagerAsync::OnSuccessfulBundleAck, this, boost::placeholders::_1));
 
     
-    m_bundleCount = 0;
-    m_bundleData = 0;
-    m_messageCount = 0;
+    m_telemetry.egressBundleCount = 0;
+    m_telemetry.egressBundleData = 0;
+    m_telemetry.egressMessageCount = 0;
 
     m_zmqCtxPtr = boost::make_unique<zmq::context_t>(); //needed at least by router (and if one-process is not used)
     try {
@@ -205,6 +205,11 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
     delete static_cast<hdtn::EgressAckHdr *>(data);
 }
 
+static void CustomCleanupStdVecUint8(void* data, void* hint) {
+    //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
+    delete static_cast<std::vector<uint8_t>*>(hint);
+}
+
 void hdtn::HegrManagerAsync::RouterEventHandler() {
     zmq::message_t message;
     if (!m_zmqSubSock_boundRouterToConnectingEgressPtr->recv(message, zmq::recv_flags::none)) {
@@ -334,7 +339,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     std::cerr << "error: received on ingress socket but cut through flag not set\n";
                     continue;
                 }
-                ++m_messageCount;
+                ++m_telemetry.egressMessageCount;
                 
                 
                 zmq::message_t zmqMessageBundle;
@@ -344,8 +349,8 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     continue;
                 }
                        
-                m_bundleData += zmqMessageBundle.size();
-                ++m_bundleCount;
+                m_telemetry.egressBundleData += zmqMessageBundle.size();
+                ++m_telemetry.egressBundleCount;
 
                 const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
                 if ((itemIndex == 1) && availableDestOpportunisticNodeIdsSet.count(finalDestEid.nodeId)) { //from storage and opportunistic link available in ingress
@@ -439,11 +444,27 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 else {
                     //send telemetry
                     //std::cout << "egress send telem\n";
-                    EgressTelemetry_t telem;;
-                    telem.egressBundleCount = m_bundleCount;
-                    telem.egressBundleData = static_cast<double>(m_bundleData/1000);
-                    telem.egressMessageCount = m_messageCount;
-                    if (!m_zmqRepSock_connectingGuiToFromBoundEgressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+
+                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
+                    uint8_t* telemPtr = vecUint8RawPointer->data();
+                    const uint8_t* const telemSerializationBase = telemPtr;
+                    uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                    //start zmq message with egress telemetry
+                    const uint64_t egressTelemSize = m_telemetry.SerializeToLittleEndian(telemPtr, telemBufferSize);
+                    telemBufferSize -= egressTelemSize;
+                    telemPtr += egressTelemSize;
+
+                    //append all outduct telemetry to same zmq message right after egress telemetry
+                    const uint64_t outductTelemSize = m_outductManager.GetAllOutductTelemetry(telemPtr, telemBufferSize);
+                    telemBufferSize -= outductTelemSize;
+                    telemPtr += outductTelemSize;
+
+                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
+
+                    zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+
+                    if (!m_zmqRepSock_connectingGuiToFromBoundEgressPtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
                         std::cerr << "egress can't send telemetry to gui" << std::endl;
                     }
                 }

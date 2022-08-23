@@ -19,6 +19,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual bool ReadyToForward();
     OUTDUCT_MANAGER_LIB_EXPORT virtual void Stop();
     OUTDUCT_MANAGER_LIB_EXPORT virtual void GetOutductFinalStats(OutductFinalStats & finalStats);
+    OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductTelemetry(uint8_t* data, uint64_t bufferSize);
     
 private:
     StcpOutduct();

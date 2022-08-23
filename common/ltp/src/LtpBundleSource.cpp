@@ -33,10 +33,7 @@ M_THIS_ENGINE_ID(thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
 M_BUNDLE_PIPELINE_LIMIT(bundlePipelineLimit),
 
-m_totalDataSegmentsSentSuccessfullyWithAck(0),
-m_totalDataSegmentsFailedToSend(0),
-m_totalDataSegmentsSent(0),
-m_totalBundleBytesSent(0)
+m_ltpOutductTelemetry()
 {
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
@@ -95,19 +92,20 @@ void LtpBundleSource::Stop() {
         m_ltpUdpEnginePtr = NULL;
 
         //print stats
-        std::cout << "m_totalDataSegmentsSentSuccessfullyWithAck " << m_totalDataSegmentsSentSuccessfullyWithAck << std::endl;
-        std::cout << "m_totalDataSegmentsFailedToSend " << m_totalDataSegmentsFailedToSend << std::endl;
-        std::cout << "m_totalDataSegmentsSent " << m_totalDataSegmentsSent << std::endl;
-        std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
+        std::cout << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.totalBundlesSent << std::endl;
+        std::cout << "m_ltpOutductTelemetry.totalBundlesAcked " << m_ltpOutductTelemetry.totalBundlesAcked << std::endl;
+        std::cout << "m_ltpOutductTelemetry.totalBundleBytesSent " << m_ltpOutductTelemetry.totalBundleBytesSent << std::endl;
+        std::cout << "m_ltpOutductTelemetry.totalBundleBytesAcked " << m_ltpOutductTelemetry.totalBundleBytesAcked << std::endl;
+        std::cout << "m_ltpOutductTelemetry.totalBundlesFailedToSend " << m_ltpOutductTelemetry.totalBundlesFailedToSend << std::endl;
     }
 }
 
 std::size_t LtpBundleSource::GetTotalDataSegmentsAcked() {
-    return m_totalDataSegmentsSentSuccessfullyWithAck + m_totalDataSegmentsFailedToSend;
+    return m_ltpOutductTelemetry.totalBundlesAcked + m_ltpOutductTelemetry.totalBundlesFailedToSend;
 }
 
 std::size_t LtpBundleSource::GetTotalDataSegmentsSent() {
-    return m_totalDataSegmentsSent;
+    return m_ltpOutductTelemetry.totalBundlesSent;
 }
 
 std::size_t LtpBundleSource::GetTotalDataSegmentsUnacked() {
@@ -119,7 +117,7 @@ std::size_t LtpBundleSource::GetTotalDataSegmentsUnacked() {
 //}
 
 std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
-    return m_totalBundleBytesSent;
+    return m_ltpOutductTelemetry.totalBundleBytesSent;
 }
 
 //std::size_t LtpBundleSource::GetTotalBundleBytesUnacked() {
@@ -142,8 +140,8 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
     m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
-    ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += bundleBytesToSend;
+    ++m_ltpOutductTelemetry.totalBundlesSent;
+    m_ltpOutductTelemetry.totalBundleBytesSent += bundleBytesToSend;
     
     return true;
 }
@@ -165,8 +163,8 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
 
     m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
 
-    ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += bundleBytesToSend;
+    ++m_ltpOutductTelemetry.totalBundlesSent;
+    m_ltpOutductTelemetry.totalBundleBytesSent += bundleBytesToSend;
    
     return true;
 }
@@ -188,7 +186,7 @@ void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id
     if (it != m_activeSessionsSet.end()) { //found
         m_activeSessionsSet.erase(it);
         
-        ++m_totalDataSegmentsSentSuccessfullyWithAck;
+        ++m_ltpOutductTelemetry.totalBundlesAcked;
         //m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
         //m_bytesToAckCb.CommitRead();
         if (m_onSuccessfulAckCallback) {
@@ -210,7 +208,7 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
     if (it != m_activeSessionsSet.end()) { //found
         m_activeSessionsSet.erase(it);
 
-        ++m_totalDataSegmentsFailedToSend;
+        ++m_ltpOutductTelemetry.totalBundlesFailedToSend;
         //m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
         //m_bytesToAckCb.CommitRead();
         if (m_onSuccessfulAckCallback) {
@@ -228,4 +226,14 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
 
 void LtpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
     m_onSuccessfulAckCallback = callback;
+}
+
+void LtpBundleSource::SyncTelemetry() {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpOutductTelemetry.numCheckpointsExpired = m_ltpUdpEnginePtr->m_numCheckpointTimerExpiredCallbacks;
+        m_ltpOutductTelemetry.numDiscretionaryCheckpointsNotResent = m_ltpUdpEnginePtr->m_numDiscretionaryCheckpointsNotResent;
+        m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls;
+        m_ltpOutductTelemetry.countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
+        m_ltpOutductTelemetry.countTxUdpPacketsLimitedByRate = m_ltpUdpEnginePtr->m_countAsyncSendsLimitedByRate;
+    }
 }

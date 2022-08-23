@@ -26,6 +26,7 @@ SET(CMAKE_PREFIX_PATH $ENV{HDTN_INSTALL_ROOT} CACHE PATH "Path for find_package 
 
 #import all the libraries from HDTN (just to make sure they import.. unit tests won't need all of them)
 find_package(HDTNUtil REQUIRED)
+find_package(TelemetryDefinitions REQUIRED)
 find_package(LtpLib REQUIRED)
 find_package(BpAppPatternsLib REQUIRED)
 find_package(Bpcodec REQUIRED)
@@ -93,6 +94,7 @@ add_executable(unit-tests-from-install
 
 target_link_libraries(unit-tests-from-install
 	HDTN::HDTNUtil
+	HDTN::TelemetryDefinitions
 	HDTN::LtpLib
 	HDTN::BpAppPatternsLib
 	HDTN::Bpcodec

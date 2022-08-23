@@ -37,11 +37,8 @@ m_stcpShutdownComplete(true),
 m_dataServedAsKeepAlive(true),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
-m_totalDataSegmentsAckedByTcpSendCallback(0),
-m_totalBytesAckedByTcpSendCallback(0),
-m_totalDataSegmentsSent(0),
-m_totalBundleBytesSent(0),
-m_totalStcpBytesSent(0)
+m_stcpOutductTelemetry()
+
 {
     m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
@@ -97,11 +94,11 @@ void StcpBundleSource::Stop() {
     }
 
     //print stats
-    std::cout << "m_totalDataSegmentsSent " << m_totalDataSegmentsSent << std::endl;
-    std::cout << "m_totalDataSegmentsAckedByTcpSendCallback " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
-    std::cout << "m_totalBundleBytesSent " << m_totalBundleBytesSent << std::endl;
-    std::cout << "m_totalStcpBytesSent " << m_totalStcpBytesSent << std::endl;
-    std::cout << "m_totalBytesAckedByTcpSendCallback " << m_totalBytesAckedByTcpSendCallback << std::endl;
+    std::cout << "m_stcpOutductTelemetry.totalBundlesSent " << m_stcpOutductTelemetry.totalBundlesSent << std::endl;
+    std::cout << "m_stcpOutductTelemetry.totalBundlesAcked " << m_stcpOutductTelemetry.totalBundlesAcked << std::endl;
+    std::cout << "m_stcpOutductTelemetry.totalBundleBytesSent " << m_stcpOutductTelemetry.totalBundleBytesSent << std::endl;
+    std::cout << "m_stcpOutductTelemetry.totalStcpBytesSent " << m_stcpOutductTelemetry.totalStcpBytesSent << std::endl;
+    std::cout << "m_stcpOutductTelemetry.totalBundleBytesAcked " << m_stcpOutductTelemetry.totalBundleBytesAcked << std::endl;
 }
 
 //An STCP protocol data unit (SPDU) is simply a serialized bundle
@@ -147,11 +144,11 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
     }
 
 
-    ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += dataZmq.size();
+    ++m_stcpOutductTelemetry.totalBundlesSent;
+    m_stcpOutductTelemetry.totalBundleBytesSent += dataZmq.size();
 
     const uint32_t dataUnitSize = static_cast<uint32_t>(dataZmq.size() + sizeof(uint32_t));
-    m_totalStcpBytesSent += dataUnitSize;
+    m_stcpOutductTelemetry.totalStcpBytesSent += dataUnitSize;
 
 
     m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
@@ -187,11 +184,11 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 
 
 
-    ++m_totalDataSegmentsSent;
-    m_totalBundleBytesSent += dataVec.size();
+    ++m_stcpOutductTelemetry.totalBundlesSent;
+    m_stcpOutductTelemetry.totalBundleBytesSent += dataVec.size();
 
     const uint32_t dataUnitSize = static_cast<uint32_t>(dataVec.size() + sizeof(uint32_t));
-    m_totalStcpBytesSent += dataUnitSize;
+    m_stcpOutductTelemetry.totalStcpBytesSent += dataUnitSize;
 
     m_bytesToAckByTcpSendCallbackCbVec[writeIndexTcpSendCallback] = dataUnitSize;
     m_bytesToAckByTcpSendCallbackCb.CommitWrite(); //pushed
@@ -220,27 +217,27 @@ bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size
 
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsAcked() {
-    return m_totalDataSegmentsAckedByTcpSendCallback;
+    return m_stcpOutductTelemetry.totalBundlesAcked;
 }
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsSent() {
-    return m_totalDataSegmentsSent;
+    return m_stcpOutductTelemetry.totalBundlesSent;
 }
 
 std::size_t StcpBundleSource::GetTotalDataSegmentsUnacked() {
-    return GetTotalDataSegmentsSent() - GetTotalDataSegmentsAcked();
+    return m_stcpOutductTelemetry.GetTotalBundlesQueued();
 }
 
 std::size_t StcpBundleSource::GetTotalBundleBytesAcked() {
-    return m_totalBytesAckedByTcpSendCallback;
+    return m_stcpOutductTelemetry.totalBundleBytesAcked;
 }
 
 std::size_t StcpBundleSource::GetTotalBundleBytesSent() {
-    return m_totalBundleBytesSent;
+    return m_stcpOutductTelemetry.totalBundleBytesSent;
 }
 
 std::size_t StcpBundleSource::GetTotalBundleBytesUnacked() {
-    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
+    return m_stcpOutductTelemetry.GetTotalBundleBytesQueued();
 }
 
 
@@ -324,8 +321,8 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
             std::cerr << "error: AckCallback called with empty queue" << std::endl;
         }
         else if (m_bytesToAckByTcpSendCallbackCbVec[readIndex] == bytes_transferred) {
-            ++m_totalDataSegmentsAckedByTcpSendCallback;
-            m_totalBytesAckedByTcpSendCallback += m_bytesToAckByTcpSendCallbackCbVec[readIndex];
+            ++m_stcpOutductTelemetry.totalBundlesAcked;
+            m_stcpOutductTelemetry.totalBundleBytesAcked += m_bytesToAckByTcpSendCallbackCbVec[readIndex] - sizeof(uint32_t);
             m_bytesToAckByTcpSendCallbackCb.CommitRead();
             
             if (m_onSuccessfulAckCallback) {

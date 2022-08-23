@@ -41,6 +41,7 @@ set_target_properties(ltp_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") #
 target_link_libraries(ltp_lib
 	PUBLIC
 		hdtn_util
+		telemetry_definitions
 		Boost::random
 )
 target_include_directories(ltp_lib

@@ -97,9 +97,9 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         std::cout << "EgressAsyncRunner: exiting cleanly..\n";
         egress.Stop();
-        m_bundleCount = egress.m_bundleCount;
-        m_bundleData = egress.m_bundleData;
-        m_messageCount = egress.m_messageCount;
+        m_bundleCount = egress.m_telemetry.egressBundleCount;
+        m_bundleData = egress.m_telemetry.egressBundleData;
+        m_messageCount = egress.m_telemetry.egressMessageCount;
     }
     std::cout << "EgressAsyncRunner: exited cleanly\n";
     hdtn::Logger::getInstance()->logNotification("egress", "EgressAsyncRunner: Exited cleanly");

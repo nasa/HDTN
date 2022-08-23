@@ -214,9 +214,9 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         std::cout << "EgressAsyncRunner: exiting cleanly..\n";
         egressPtr->Stop();
-        m_egressBundleCount = egressPtr->m_bundleCount;
-        m_egressBundleData = egressPtr->m_bundleData;
-        m_egressMessageCount = egressPtr->m_messageCount;
+        m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
+        m_egressBundleData = egressPtr->m_telemetry.egressBundleData;
+        m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
     }
     std::cout << "HDTN one process: exited cleanly\n";
     return true;

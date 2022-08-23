@@ -285,19 +285,15 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                     }
                 }
                 if (items[1].revents & ZMQ_POLLIN) { //egress telemetry received
-                    EgressTelemetry_t telem;
-                    const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundEgressPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
-                    if (!res) {
+                    zmq::message_t zmqEgressTelemReceived;
+                    if (!zmqReqSock_connectingGuiToFromBoundEgressPtr->recv(zmqEgressTelemReceived, zmq::recv_flags::dontwait)) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read egress telemetry" << std::endl;
-                    }
-                    else if ((res->truncated()) || (res->size != sizeof(telem))) {
-                        std::cerr << "egress telemetry message mismatch: untruncated = " << res->untruncated_size
-                            << " truncated = " << res->size << " expected = " << sizeof(telem) << std::endl;
                     }
                     else {
                         //process egress telemetry
                         moduleMask |= 0x2;
-                        SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
+                        //PrintSerializedTelemetry((const uint8_t*)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
+                        SendBinaryDataToActiveWebsockets((const char *)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
                     }
                 }
                 if (items[2].revents & ZMQ_POLLIN) { //storage telemetry received
