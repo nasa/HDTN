@@ -28,12 +28,13 @@
 #include <boost/asio.hpp>
 #include "hdtn_util_export.h"
 #include "LtpClientServiceDataToSend.h"
+#include <memory>
 
 class UdpBatchSender {
 public:
     typedef boost::function<void(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)> OnSentPacketsCallback_t;
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)> OnSentPacketsCallback_t;
     HDTN_UTIL_EXPORT UdpBatchSender();
     HDTN_UTIL_EXPORT ~UdpBatchSender();
     HDTN_UTIL_EXPORT void Stop();
@@ -41,15 +42,15 @@ public:
     HDTN_UTIL_EXPORT bool Init(const boost::asio::ip::udp::endpoint & udpDestinationEndpoint);
 
     HDTN_UTIL_EXPORT void QueueSendPacketsOperation_ThreadSafe(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
     HDTN_UTIL_EXPORT void SetOnSentPacketsCallback(const OnSentPacketsCallback_t& callback);
 
 private:
     HDTN_UTIL_NO_EXPORT void PerformSendPacketsOperation(
         std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-        std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-        std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
     HDTN_UTIL_NO_EXPORT void DoUdpShutdown();
     HDTN_UTIL_NO_EXPORT void DoHandleSocketShutdown();
 private:

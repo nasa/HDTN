@@ -28,8 +28,8 @@ static volatile uint64_t g_underlyingCsDataToDeleteOnSentCallbackSize;
 static volatile bool g_sentCallbackWasSuccessful;
 
 static void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
     g_sentCallbackWasSuccessful = success;
     g_constBufferVecsCallbackSize = constBufferVecs.size();
@@ -125,9 +125,9 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
             constBufferVecs[2][2] = boost::asio::buffer("six", 3);
 
 
-            std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallbackVec; //null not needed
+            std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallbackVec; //null not needed
             underlyingDataToDeleteOnSentCallbackVec.resize(10); //for testing
-            std::vector<boost::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec; //null not needed
+            std::vector<std::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec; //null not needed
             underlyingCsDataToDeleteOnSentCallbackVec.resize(5); //for testing
 
             BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 3);

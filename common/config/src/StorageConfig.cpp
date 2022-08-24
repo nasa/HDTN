@@ -6,7 +6,7 @@
  */
 
 #include "StorageConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
 
@@ -178,7 +178,7 @@ StorageConfig_ptr StorageConfig::CreateFromJsonFile(const std::string & jsonFile
 
 StorageConfig_ptr StorageConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {
 
-    StorageConfig_ptr ptrStorageConfig = boost::make_shared<StorageConfig>();
+    StorageConfig_ptr ptrStorageConfig = std::make_shared<StorageConfig>();
     if (!ptrStorageConfig->SetValuesFromPropertyTree(pt)) {
         ptrStorageConfig = StorageConfig_ptr(); //failed, so delete and set it NULL
     }

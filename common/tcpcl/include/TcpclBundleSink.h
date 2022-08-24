@@ -36,7 +36,7 @@ public:
 
     TCPCL_LIB_EXPORT TcpclBundleSink(
         const uint16_t desiredKeepAliveIntervalSeconds,
-        boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+        std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
         boost::asio::io_service & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,

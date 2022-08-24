@@ -27,7 +27,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "PaddedVectorUint8.h"
 #include "udp_lib_export.h"

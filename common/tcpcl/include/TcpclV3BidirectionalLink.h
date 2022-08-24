@@ -28,6 +28,7 @@
 #include <boost/asio.hpp>
 #include <map>
 #include <vector>
+#include <memory>
 #include "Tcpcl.h"
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
@@ -92,7 +93,7 @@ protected:
     CONTACT_HEADER_FLAGS m_base_contactHeaderFlags;
     std::string m_base_tcpclRemoteEidString;
     uint64_t m_base_tcpclRemoteNodeId;
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
+    std::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
     std::unique_ptr<TcpAsyncSender> m_base_tcpAsyncSenderPtr;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendShutdownCallback;

@@ -18,7 +18,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <fstream>
 #include "cgrServer.h"
 

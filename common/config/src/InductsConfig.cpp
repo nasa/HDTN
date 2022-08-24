@@ -6,7 +6,7 @@
  */
 
 #include "InductsConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
 
@@ -393,7 +393,7 @@ InductsConfig_ptr InductsConfig::CreateFromJsonFile(const std::string & jsonFile
 
 InductsConfig_ptr InductsConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {
 
-    InductsConfig_ptr ptrInductsConfig = boost::make_shared<InductsConfig>();
+    InductsConfig_ptr ptrInductsConfig = std::make_shared<InductsConfig>();
     if (!ptrInductsConfig->SetValuesFromPropertyTree(pt)) {
         ptrInductsConfig = InductsConfig_ptr(); //failed, so delete and set it NULL
     }

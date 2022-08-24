@@ -22,7 +22,7 @@
 #include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #ifdef _WIN32
 #include <windows.h> //must be included after boost

@@ -16,7 +16,6 @@
 #include <iostream>
 #include <inttypes.h>
 #include <boost/bind/bind.hpp>
-#include <boost/make_shared.hpp>
 
 LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
@@ -95,7 +94,7 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
     }
 }
 
-bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
+bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
 
     if (!m_reportSerialNumbersToSendQueue.empty()) {
         
@@ -105,7 +104,7 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
         std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
             //std::cout << "found!\n";
-            underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
+            underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
             Ltp::GenerateReportSegmentLtpPacket((*underlyingDataToDeleteOnSentCallback)[0],
                 M_SESSION_ID, reportSegmentIt->second, NULL, NULL);
             constBufferVec.resize(1);

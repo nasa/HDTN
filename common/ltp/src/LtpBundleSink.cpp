@@ -13,7 +13,7 @@
  */
 
 #include <boost/bind/bind.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <iostream>
 #include "LtpBundleSink.h"
 #include <boost/make_unique.hpp>

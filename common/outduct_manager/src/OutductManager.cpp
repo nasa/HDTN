@@ -1,7 +1,7 @@
 #include "OutductManager.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include "TcpclOutduct.h"
 #include "TcpclV4Outduct.h"
 #include "StcpOutduct.h"
@@ -42,14 +42,14 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
     m_outductsVec.reserve(configsVec.size());
     for (outduct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {
         const outduct_element_config_t & thisOutductConfig = *it;
-        boost::shared_ptr<Outduct> outductSharedPtr;
+        std::shared_ptr<Outduct> outductSharedPtr;
         const uint64_t uuidIndex = nextOutductUuidIndex;
         if (thisOutductConfig.convergenceLayer == "tcpcl_v3") {
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
-                outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
+                outductSharedPtr = std::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
             }
             else {
-                outductSharedPtr = boost::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex);
+                outductSharedPtr = std::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex);
             }
         }
         else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
@@ -60,20 +60,20 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             }
 #endif
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
-                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback);
+                outductSharedPtr = std::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback);
             }
             else {
-                outductSharedPtr = boost::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes);
+                outductSharedPtr = std::make_shared<TcpclV4Outduct>(thisOutductConfig, myNodeId, uuidIndex, maxOpportunisticRxBundleSizeBytes);
             }
         }
         else if (thisOutductConfig.convergenceLayer == "stcp") {
-            outductSharedPtr = boost::make_shared<StcpOutduct>(thisOutductConfig, uuidIndex);
+            outductSharedPtr = std::make_shared<StcpOutduct>(thisOutductConfig, uuidIndex);
         }
         else if (thisOutductConfig.convergenceLayer == "udp") {
-            outductSharedPtr = boost::make_shared<UdpOutduct>(thisOutductConfig, uuidIndex);
+            outductSharedPtr = std::make_shared<UdpOutduct>(thisOutductConfig, uuidIndex);
         }
         else if (thisOutductConfig.convergenceLayer == "ltp_over_udp") {
-            outductSharedPtr = boost::make_shared<LtpOverUdpOutduct>(thisOutductConfig, uuidIndex);
+            outductSharedPtr = std::make_shared<LtpOverUdpOutduct>(thisOutductConfig, uuidIndex);
         }
 
         if (outductSharedPtr) {
@@ -119,8 +119,8 @@ void OutductManager::Clear() {
 }
 
 bool OutductManager::AllReadyToForward() const {
-    for (std::vector<boost::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
-        const boost::shared_ptr<Outduct> & outductPtr = *it;
+    for (std::vector<std::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
+        const std::shared_ptr<Outduct> & outductPtr = *it;
         if (!outductPtr->ReadyToForward()) {
             return false;
         }
@@ -129,8 +129,8 @@ bool OutductManager::AllReadyToForward() const {
 }
 
 void OutductManager::StopAllOutducts() {
-    for (std::vector<boost::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
-        const boost::shared_ptr<Outduct> & outductPtr = *it;
+    for (std::vector<std::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
+        const std::shared_ptr<Outduct> & outductPtr = *it;
         outductPtr->Stop();
     }
 }
@@ -246,7 +246,7 @@ bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vect
     }
 }
 
-void OutductManager::SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr) {
+void OutductManager::SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, std::shared_ptr<Outduct> & outductPtr) {
     m_finalDestEidToOutductMapMutex.lock();
     m_finalDestEidToOutductMap[finalDestEid] = outductPtr;
     m_finalDestEidToOutductMapMutex.unlock();
@@ -254,7 +254,7 @@ void OutductManager::SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_
 
 Outduct * OutductManager::GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid) {
     m_finalDestEidToOutductMapMutex.lock();
-    std::map<cbhe_eid_t, boost::shared_ptr<Outduct> >::iterator it = m_finalDestEidToOutductMap.find(finalDestEid);
+    std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator it = m_finalDestEidToOutductMap.find(finalDestEid);
     Outduct * const retVal = (it != m_finalDestEidToOutductMap.end()) ? it->second.get() : NULL;
     m_finalDestEidToOutductMapMutex.unlock();
     return retVal;
@@ -262,7 +262,7 @@ Outduct * OutductManager::GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_
 
 Outduct * OutductManager::GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid) {
     try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_nextHopEidToOutductMap.at(nextHopEid)) {
+        if (std::shared_ptr<Outduct> & outductPtr = m_nextHopEidToOutductMap.at(nextHopEid)) {
             return outductPtr.get();
         }
     }
@@ -272,7 +272,7 @@ Outduct * OutductManager::GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid) 
 
 Outduct * OutductManager::GetOutductByOutductUuid(const uint64_t uuid) {
     try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
+        if (std::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
             return outductPtr.get();
         }
     }
@@ -281,9 +281,9 @@ Outduct * OutductManager::GetOutductByOutductUuid(const uint64_t uuid) {
     return NULL;
 }
 
-boost::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(const uint64_t uuid) {
+std::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(const uint64_t uuid) {
     try {
-        if (boost::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
+        if (std::shared_ptr<Outduct> & outductPtr = m_outductsVec.at(uuid)) {
             return outductPtr;
         }
     }
@@ -294,8 +294,8 @@ boost::shared_ptr<Outduct> OutductManager::GetOutductSharedPtrByOutductUuid(cons
 
 uint64_t OutductManager::GetAllOutductTelemetry(uint8_t* serialization, uint64_t bufferSize) const {
     const uint8_t* const serializationBase = serialization;
-    for (std::vector<boost::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
-        const boost::shared_ptr<Outduct>& o = (*it);
+    for (std::vector<std::shared_ptr<Outduct> >::const_iterator it = m_outductsVec.cbegin(); it != m_outductsVec.cend(); ++it) {
+        const std::shared_ptr<Outduct>& o = (*it);
         const uint64_t sizeSerialized = o->GetOutductTelemetry(serialization, bufferSize);
         serialization += sizeSerialized;
         bufferSize -= sizeSerialized;

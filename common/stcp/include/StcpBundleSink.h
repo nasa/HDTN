@@ -27,7 +27,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <boost/function.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "PaddedVectorUint8.h"
 #include "stcp_lib_export.h"
@@ -39,7 +39,7 @@ public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> WholeBundleReadyCallback_t;
     typedef boost::function<void()> NotifyReadyToDeleteCallback_t;
 
-    STCP_LIB_EXPORT StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
+    STCP_LIB_EXPORT StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
         boost::asio::io_service & tcpSocketIoServiceRef,
         const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
         const unsigned int numCircularBufferVectors,
@@ -59,7 +59,7 @@ private:
     const WholeBundleReadyCallback_t m_wholeBundleReadyCallback;
     const NotifyReadyToDeleteCallback_t m_notifyReadyToDeleteCallback;
 
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    std::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     boost::asio::io_service & m_tcpSocketIoServiceRef;
 
     const unsigned int M_NUM_CIRCULAR_BUFFER_VECTORS;

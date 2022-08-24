@@ -28,6 +28,7 @@
 #include <boost/asio.hpp>
 #include <map>
 #include <queue>
+#include <memory>
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "Telemetry.h"
@@ -82,7 +83,7 @@ private:
     boost::asio::deadline_timer m_needToSendKeepAliveMessageTimer;
     boost::asio::deadline_timer m_reconnectAfterShutdownTimer;
     boost::asio::deadline_timer m_reconnectAfterOnConnectErrorTimer;
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    std::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     boost::asio::ip::tcp::resolver::results_type m_resolverResults;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     boost::condition_variable m_localConditionVariableAckReceived;

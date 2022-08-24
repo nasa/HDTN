@@ -16,7 +16,7 @@
 #include <iostream>
 #include "UdpBatchSender.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
 
@@ -178,8 +178,8 @@ void UdpBatchSender::SetOnSentPacketsCallback(const OnSentPacketsCallback_t& cal
 
 void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(
     std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
     boost::asio::post(m_ioService,
         boost::bind(&UdpBatchSender::PerformSendPacketsOperation, this,
@@ -188,8 +188,8 @@ void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(
 
 void UdpBatchSender::PerformSendPacketsOperation(
     std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
 
     m_transmitPacketsElementVec.resize(0); //reserved 100 elements in Init()

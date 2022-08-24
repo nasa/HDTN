@@ -7,6 +7,7 @@
 #include <boost/uuid/detail/sha1.hpp>
 #include <boost/endian/conversion.hpp>
 #include "LtpUdpEngineManager.h"
+#include <memory>
 
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
 
@@ -229,7 +230,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             const double totalBitsToSend = totalBytesToSend * 8.0;
 
 
-            boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+            std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = clientServiceId;
             tReq->destinationLtpEngineId = remoteLtpEngineId;
             tReq->clientServiceDataToSend = std::move(fileContentsInMemory);

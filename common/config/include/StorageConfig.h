@@ -2,7 +2,7 @@
 #define STORAGE_CONFIG_H 1
 
 #include <string>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/integer.hpp>
 #include <map>
 #include <vector>
@@ -41,7 +41,7 @@ typedef std::vector<storage_disk_config_t> storage_disk_config_vector_t;
 
 
 class StorageConfig;
-typedef boost::shared_ptr<StorageConfig> StorageConfig_ptr;
+typedef std::shared_ptr<StorageConfig> StorageConfig_ptr;
 
 class StorageConfig : public JsonSerializable {
 

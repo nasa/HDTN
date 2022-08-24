@@ -36,7 +36,7 @@
 #include <utility>
 #include <string>
 #include <cstdio>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread.hpp>
 #include <boost/bimap.hpp>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"

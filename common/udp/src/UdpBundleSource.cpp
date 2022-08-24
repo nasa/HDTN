@@ -16,7 +16,7 @@
 #include <iostream>
 #include "UdpBundleSource.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
 
@@ -142,7 +142,7 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataVec.size();
     m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
-    boost::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = boost::make_shared<std::vector<uint8_t> >(std::move(dataVec));
+    std::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = std::make_shared<std::vector<uint8_t> >(std::move(dataVec));
     //dataVec invalid after this point
     boost::asio::post(m_ioService, boost::bind(&UdpBundleSource::HandlePostForUdpSendVecMessage, this, std::move(udpDataToSendPtr)));
     
@@ -168,7 +168,7 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataZmq.size();
     m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
-    boost::shared_ptr<zmq::message_t> zmqDataToSendPtr = boost::make_shared<zmq::message_t>(std::move(dataZmq));
+    std::shared_ptr<zmq::message_t> zmqDataToSendPtr = std::make_shared<zmq::message_t>(std::move(dataZmq));
     //dataZmq invalid after this point
     boost::asio::post(m_ioService, boost::bind(&UdpBundleSource::HandlePostForUdpSendZmqMessage, this, std::move(zmqDataToSendPtr)));
     return true;
@@ -238,10 +238,10 @@ void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asi
     }
 }
 
-void UdpBundleSource::HandlePostForUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr) {
+void UdpBundleSource::HandlePostForUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr) {
     //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
     m_queueVecDataToSendPtrs.emplace(std::move(vecDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
-    boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendFrontOfQueuePtr = m_queueVecDataToSendPtrs.front();
+    std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendFrontOfQueuePtr = m_queueVecDataToSendPtrs.front();
     //try to remove the front of the queue if tokens available
     if (m_tokenRateLimiter.TakeTokens(vecDataToSendFrontOfQueuePtr->size())) { //there are tokens available for the packet at the front of the queue, send this now
         boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendFrontOfQueuePtr);
@@ -257,10 +257,10 @@ void UdpBundleSource::HandlePostForUdpSendVecMessage(boost::shared_ptr<std::vect
     TryRestartTokenRefreshTimer(); //start the token refresh timer if and only if it is not already running
 }
 
-void UdpBundleSource::HandlePostForUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & zmqDataToSendPtr) {
+void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & zmqDataToSendPtr) {
     //now that the token rate limiter can be used entirely in one thread (the io_service thread), take tokens
     m_queueZmqDataToSendPtrs.emplace(std::move(zmqDataToSendPtr)); //put on the queue first (there might be other packets in there that need to be sent first)
-    boost::shared_ptr<zmq::message_t> & zmqDataToSendFrontOfQueuePtr = m_queueZmqDataToSendPtrs.front();
+    std::shared_ptr<zmq::message_t> & zmqDataToSendFrontOfQueuePtr = m_queueZmqDataToSendPtrs.front();
     //try to remove the front of the queue if tokens available
     if (m_tokenRateLimiter.TakeTokens(zmqDataToSendFrontOfQueuePtr->size())) { //there are tokens available, send this now
         boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendFrontOfQueuePtr->data(), zmqDataToSendFrontOfQueuePtr->size());
@@ -277,7 +277,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(boost::shared_ptr<zmq::mess
 }
 
 
-void UdpBundleSource::HandleUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in UdpBundleSource::HandleUdpSend: " << error.message() << std::endl;
         DoUdpShutdown();
@@ -287,7 +287,7 @@ void UdpBundleSource::HandleUdpSendVecMessage(boost::shared_ptr<std::vector<boos
     }
 }
 
-void UdpBundleSource::HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
+void UdpBundleSource::HandleUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
         std::cerr << "error in UdpBundleSource::HandleUdpSendZmqMessage: " << error.message() << std::endl;
         DoUdpShutdown();
@@ -390,7 +390,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         while (!m_queueVecDataToSendPtrs.empty()) {
-            boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr = m_queueVecDataToSendPtrs.front();
+            std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr = m_queueVecDataToSendPtrs.front();
             //empty the queue of rate limited packets
             if (m_tokenRateLimiter.TakeTokens(vecDataToSendPtr->size())) { //there are tokens available, send this now
                 boost::asio::const_buffer bufToSend = boost::asio::buffer(*vecDataToSendPtr);
@@ -407,7 +407,7 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
             }
         }
         while (!m_queueZmqDataToSendPtrs.empty()) {
-            boost::shared_ptr<zmq::message_t> & zmqDataToSendPtr = m_queueZmqDataToSendPtrs.front();
+            std::shared_ptr<zmq::message_t> & zmqDataToSendPtr = m_queueZmqDataToSendPtrs.front();
             //empty the queue of rate limited packets
             if (m_tokenRateLimiter.TakeTokens(zmqDataToSendPtr->size())) { //there are tokens available, send this now
                 boost::asio::const_buffer bufToSend = boost::asio::buffer(zmqDataToSendPtr->data(), zmqDataToSendPtr->size());

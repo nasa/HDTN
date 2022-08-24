@@ -13,7 +13,7 @@
  */
 
 #include "Tcpcl.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <boost/endian/conversion.hpp>
 #include <iostream>

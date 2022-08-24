@@ -16,7 +16,6 @@
 #include <iostream>
 #include "TcpAsyncSender.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 
 TcpAsyncSenderElement::TcpAsyncSenderElement() : m_onSuccessfulSendCallbackByIoServiceThreadPtr(NULL) {}
@@ -29,7 +28,7 @@ void TcpAsyncSenderElement::DoCallback(const boost::system::error_code& error, s
 }
 
 
-TcpAsyncSender::TcpAsyncSender(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef) :
+TcpAsyncSender::TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef) :
     m_ioServiceRef(ioServiceRef),
     m_tcpSocketPtr(tcpSocketPtr),
     m_writeInProgress(false)

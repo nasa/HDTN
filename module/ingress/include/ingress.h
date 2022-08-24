@@ -103,8 +103,8 @@ private:
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundIngressPtr;
 
-    //boost::shared_ptr<zmq::context_t> m_zmqTelemCtx;
-    //boost::shared_ptr<zmq::socket_t> m_zmqTelemSock;
+    //std::shared_ptr<zmq::context_t> m_zmqTelemCtx;
+    //std::shared_ptr<zmq::socket_t> m_zmqTelemSock;
 
     InductManager m_inductManager;
     HdtnConfig m_hdtnConfig;

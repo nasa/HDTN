@@ -96,8 +96,8 @@ void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packe
 
 void LtpUdpEngine::SendPacket(
     std::vector<boost::asio::const_buffer> & constBufferVec,
-    boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-    boost::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
+    std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
 {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
@@ -113,8 +113,8 @@ void LtpUdpEngine::SendPacket(
 }
 
 void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
-    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
     //called by LtpEngine Thread
     ++m_countBatchSendCalls;
@@ -139,8 +139,8 @@ void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
 
 
 
-void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    boost::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
+void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
     const boost::system::error_code& error, std::size_t bytes_transferred)
 {
     //Called by m_ioServiceUdpRef thread
@@ -160,8 +160,8 @@ void LtpUdpEngine::HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8
 }
 
 void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback)
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback)
 {
     //Called by UdpBatchSender thread
     ++m_countBatchSendCallbackCalls;

@@ -13,13 +13,13 @@
  */
 
 #include <boost/bind/bind.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <iostream>
 #include "StcpBundleSink.h"
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
 
-StcpBundleSink::StcpBundleSink(boost::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
+StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
     boost::asio::io_service & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     const unsigned int numCircularBufferVectors,
@@ -207,7 +207,7 @@ void StcpBundleSink::HandleSocketShutdown() {
         if (m_tcpSocketPtr.use_count() != 1) {
             std::cerr << "error m_tcpSocketPtr.use_count() != 1" << std::endl;
         }
-        m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+        m_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_safeToDelete = true;
     if (m_notifyReadyToDeleteCallback) {

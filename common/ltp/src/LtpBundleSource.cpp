@@ -16,8 +16,7 @@
 #include <iostream>
 #include "LtpBundleSource.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/make_unique.hpp>
+#include <memory>
 
 LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
@@ -131,7 +130,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         return false;
     }
 
-    boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+    std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataVec.size();
@@ -154,7 +153,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
         return false;
     }
 
-    boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+    std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataZmq.size();

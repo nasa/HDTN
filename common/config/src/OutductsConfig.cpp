@@ -6,7 +6,7 @@
  */
 
 #include "OutductsConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <boost/lexical_cast.hpp>
@@ -457,7 +457,7 @@ OutductsConfig_ptr OutductsConfig::CreateFromJsonFile(const std::string & jsonFi
 
 OutductsConfig_ptr OutductsConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {
 
-    OutductsConfig_ptr ptrOutductsConfig = boost::make_shared<OutductsConfig>();
+    OutductsConfig_ptr ptrOutductsConfig = std::make_shared<OutductsConfig>();
     if (!ptrOutductsConfig->SetValuesFromPropertyTree(pt)) {
         ptrOutductsConfig = OutductsConfig_ptr(); //failed, so delete and set it NULL
     }

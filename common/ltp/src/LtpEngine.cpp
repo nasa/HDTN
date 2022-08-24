@@ -189,8 +189,8 @@ void LtpEngine::TrySendPacketIfAvailable() {
         }
         if (M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) {
             std::vector<boost::asio::const_buffer> constBufferVec;
-            boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
-            boost::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
+            std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
+            std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
             uint64_t sessionOriginatorEngineId;
             if (GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
                 if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
@@ -206,14 +206,14 @@ void LtpEngine::TrySendPacketIfAvailable() {
         }
         else {
             std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
-            std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallbackVec;
-            std::vector<boost::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec;
+            std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallbackVec;
+            std::vector<std::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec;
             uint64_t sessionOriginatorEngineId;
             std::size_t bytesToSend = 0;
             for (std::size_t packetI = 0; packetI < M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL; ++packetI) {
                 std::vector<boost::asio::const_buffer> constBufferVec;
-                boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
-                boost::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
+                std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
+                std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
                 if (GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
                     if (packetI == 0) {
                         constBufferVecs.reserve(M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
@@ -246,16 +246,16 @@ void LtpEngine::TrySendPacketIfAvailable() {
 void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
 
 void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
-    boost::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    boost::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) {}
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) {}
 
 void LtpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
-    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) {}
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) {}
 
 bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
-    boost::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    boost::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
     uint64_t& sessionOriginatorEngineId)
 {
     while (!m_queueSendersNeedingDeleted.empty()) {
@@ -312,7 +312,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
         
 
         //send Cancel Segment
-        underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
         Ltp::GenerateCancelSegmentLtpPacket((*underlyingDataToDeleteOnSentCallback)[0],
             info.sessionId, info.reasonCode, info.isFromSender, NULL, NULL);
         constBufferVec.resize(1);
@@ -328,7 +328,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
 
     if (!m_queueClosedSessionDataToSend.empty()) { //includes report ack segments and cancel ack segments from closed sessions (which do not require timers)
         //highest priority
-        underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
         (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_queueClosedSessionDataToSend.front().second);
         sessionOriginatorEngineId = m_queueClosedSessionDataToSend.front().first;
         m_queueClosedSessionDataToSend.pop();
@@ -440,7 +440,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         std::move(std::shared_ptr<LtpTransmissionRequestUserData>()), lengthOfRedPart
     );
 }
-void LtpEngine::TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest) {
+void LtpEngine::TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest) {
     TransmissionRequest(transmissionRequest->destinationClientServiceId, transmissionRequest->destinationLtpEngineId,
         std::move(transmissionRequest->clientServiceDataToSend),
         std::move(transmissionRequest->userDataPtr),
@@ -448,7 +448,7 @@ void LtpEngine::TransmissionRequest(boost::shared_ptr<transmission_request_t> & 
     );
     TrySendPacketIfAvailable();
 }
-void LtpEngine::TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest) {
+void LtpEngine::TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest) {
     //The arguments to bind are copied or moved, and are never passed by reference unless wrapped in std::ref or std::cref.
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TransmissionRequest, this, std::move(transmissionRequest)));
 }

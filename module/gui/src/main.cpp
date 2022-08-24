@@ -1,5 +1,5 @@
 #include <boost/thread.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include "WebsocketServer.h"
 #include "Environment.h"
 #include <iostream>

@@ -13,7 +13,7 @@
  */
 
 #include <boost/bind/bind.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <iostream>
 #include "TcpclBundleSink.h"
 #include <boost/make_unique.hpp>
@@ -21,7 +21,7 @@
 
 TcpclBundleSink::TcpclBundleSink(
     const uint16_t desiredKeepAliveIntervalSeconds, //new
-    boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+    std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
     boost::asio::io_service & tcpSocketIoServiceRef,
     const WholeBundleReadyCallback_t & wholeBundleReadyCallback,
     //ConnectionClosedCallback_t connectionClosedCallback,

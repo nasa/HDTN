@@ -16,7 +16,7 @@
 #include <iostream>
 #include "StcpBundleSource.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
 
@@ -255,7 +255,7 @@ void StcpBundleSource::OnResolve(const boost::system::error_code & ec, boost::as
     }
     else {
         std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
-        m_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
+        m_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
         m_resolverResults = results;
         boost::asio::async_connect(
             *m_tcpSocketPtr,
@@ -426,7 +426,7 @@ void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySeco
         //don't delete the tcp socket because the Forward function is multi-threaded without a mutex to
         //increase speed, so prevent a race condition that would cause a null pointer exception
         //std::cout << "deleting tcp socket" << std::endl;
-        //m_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+        //m_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();
     if (reconnectionDelaySecondsIfNotZero) {
@@ -440,7 +440,7 @@ void StcpBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::
         // Timer was not cancelled, take necessary action.
         std::cout << "Trying to reconnect..." << std::endl;
         m_tcpAsyncSenderPtr.reset();
-        m_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
+        m_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
         boost::asio::async_connect(
             *m_tcpSocketPtr,
             m_resolverResults,

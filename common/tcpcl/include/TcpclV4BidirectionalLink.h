@@ -29,6 +29,7 @@
 #include <boost/asio.hpp>
 #include <map>
 #include <vector>
+#include <memory>
 #include "TcpclV4.h"
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
@@ -173,10 +174,10 @@ protected:
     std::string m_base_tcpclRemoteEidString;
     uint64_t m_base_tcpclRemoteNodeId;
 #ifdef OPENSSL_SUPPORT_ENABLED
-    boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > m_base_sslStreamSharedPtr;
+    std::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > m_base_sslStreamSharedPtr;
     std::unique_ptr<TcpAsyncSenderSsl> m_base_tcpAsyncSenderSslPtr;
 #else
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
+    std::shared_ptr<boost::asio::ip::tcp::socket> m_base_tcpSocketPtr;
     std::unique_ptr<TcpAsyncSender> m_base_tcpAsyncSenderPtr;
 #endif
     TcpAsyncSenderElement::OnSuccessfulSendCallbackByIoServiceThread_t m_base_handleTcpSendCallback;

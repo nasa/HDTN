@@ -25,7 +25,7 @@
 #define TCPCLV4_H 1
 
 #include <string>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/integer.hpp>
 #include <boost/function.hpp>
 #include <vector>

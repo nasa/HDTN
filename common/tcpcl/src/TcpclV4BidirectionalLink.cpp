@@ -16,7 +16,7 @@
 #include <iostream>
 #include "TcpclV4BidirectionalLink.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include <boost/endian/conversion.hpp>
@@ -610,12 +610,12 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
             if (m_base_sslStreamSharedPtr.use_count() != 1) {
                 std::cerr << "error m_base_sslStreamSharedPtr.use_count() != 1" << std::endl;
             }
-            m_base_sslStreamSharedPtr = boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >();
+            m_base_sslStreamSharedPtr = std::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >();
 #else
             if (m_base_tcpSocketPtr.use_count() != 1) {
                 std::cerr << "error m_base_tcpSocketPtr.use_count() != 1" << std::endl;
         }
-            m_base_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+            m_base_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
 #endif
         }
         else {

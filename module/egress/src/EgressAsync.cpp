@@ -9,7 +9,6 @@
 
 #include "EgressAsync.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
@@ -21,7 +20,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <fstream>
 
 #include <sstream>
@@ -230,7 +229,7 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
         Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid);
         const uint64_t outductId2 = outduct2->GetOutductUuid();
         if (outductId2 != outductId1) {
-            boost::shared_ptr<Outduct> outductPtr = m_outductManager.GetOutductSharedPtrByOutductUuid(outductId1);
+            std::shared_ptr<Outduct> outductPtr = m_outductManager.GetOutductSharedPtrByOutductUuid(outductId1);
             m_outductManager.SetOutductForFinalDestinationEid_ThreadSafe(finalDestEid, outductPtr);
             std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outductId1 << std::endl;
         }
