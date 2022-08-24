@@ -14,6 +14,7 @@ add_library(hdtn_util
 	src/BinaryConversions.cpp
 	src/TokenRateLimiter.cpp
 	src/UdpBatchSender.cpp
+	src/LtpClientServiceDataToSend.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -53,6 +54,7 @@ set(MY_PUBLIC_HEADERS
     include/Environment.h
 	include/FragmentSet.h
 	include/JsonSerializable.h
+	include/LtpClientServiceDataToSend.h
 	include/PaddedVectorUint8.h
 	#include/RateManagerAsync.h
 	include/Sdnv.h

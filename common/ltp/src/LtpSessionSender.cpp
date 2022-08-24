@@ -32,7 +32,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_timeManagerOfCheckpointSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
     m_receptionClaimIndex(0),
     m_nextCheckpointSerialNumber(randomInitialSenderCheckpointSerialNumber),
-    m_dataToSend(std::move(dataToSend)),
+    m_dataToSendSharedPtr(boost::make_shared<LtpClientServiceDataToSend>(std::move(dataToSend))),
     m_userDataPtr(std::move(userDataPtrToTake)),
     M_LENGTH_OF_RED_PART(lengthOfRedPart),
     m_dataIndexFirstPass(0),
@@ -103,7 +103,10 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     }
 }
 
-bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback) {
+bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
+    boost::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    boost::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
+{
     if (!m_nonDataToSend.empty()) { //includes report ack segments
         //std::cout << "sender dequeue\n";
         //highest priority
@@ -152,12 +155,17 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
         //std::cout << "rf o: " << resendFragment.offset << " l: " << resendFragment.length << " flags: " << (int)resendFragment.flags << std::endl;
         //std::cout << (int)(*(m_dataToSend.data() + resendFragment.offset)) << std::endl;
-        constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + resendFragment.offset, resendFragment.length);
+        constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + resendFragment.offset, resendFragment.length);
+        //Increase the reference count of the LtpClientServiceDataToSend shared_ptr
+        //so that the LtpClientServiceDataToSend won't get deleted before the UDP send operation completes.
+        //This event would be caused by the LtpSessionSender getting deleted before the UDP send operation completes,
+        //which would almost always happen with green data and could happen with red data.
+        underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
         m_resendFragmentsQueue.pop();
         return true;
     }
 
-    if (m_dataIndexFirstPass < m_dataToSend.size()) {
+    if (m_dataIndexFirstPass < m_dataToSendSharedPtr->size()) {
         if (m_dataIndexFirstPass < M_LENGTH_OF_RED_PART) { //first pass of red data send
             uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, M_MTU);
             const bool isEndOfRedPart = ((bytesToSendRed + m_dataIndexFirstPass) == M_LENGTH_OF_RED_PART);
@@ -180,7 +188,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                 reportSerialNumber = &rsn;
                 if (isEndOfRedPart) {
                     flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART;
-                    const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSend.size());
+                    const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSendSharedPtr->size());
                     if (isEndOfBlock) {
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }
@@ -202,12 +210,12 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
                 M_SESSION_ID, meta, NULL, 0);
             constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-            constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendRed);
+            constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendRed);
             m_dataIndexFirstPass += bytesToSendRed;
         }
         else { //first pass of green data send
-            uint64_t bytesToSendGreen = std::min(m_dataToSend.size() - m_dataIndexFirstPass, M_MTU);
-            const bool isEndOfBlock = ((bytesToSendGreen + m_dataIndexFirstPass) == m_dataToSend.size());
+            uint64_t bytesToSendGreen = std::min(m_dataToSendSharedPtr->size() - m_dataIndexFirstPass, M_MTU);
+            const bool isEndOfBlock = ((bytesToSendGreen + m_dataIndexFirstPass) == m_dataToSendSharedPtr->size());
             LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::GREENDATA;
             if (isEndOfBlock) {
                 flags = LTP_DATA_SEGMENT_TYPE_FLAGS::GREENDATA_ENDOFBLOCK;
@@ -224,10 +232,16 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer> & c
             constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
             //std::cout << "green m_dataToSend[" << m_dataIndexFirstPass << "]=" << (int)(m_dataToSend.data()[m_dataIndexFirstPass]) << "\n";
-            constBufferVec[1] = boost::asio::buffer(m_dataToSend.data() + m_dataIndexFirstPass, bytesToSendGreen);
+            constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendGreen);
             m_dataIndexFirstPass += bytesToSendGreen;
         }
-        if (m_dataIndexFirstPass == m_dataToSend.size()) { //only ever enters here once
+        if (m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) { //only ever enters here once
+            //Increase the reference count of the LtpClientServiceDataToSend shared_ptr
+            //so that the LtpClientServiceDataToSend won't get deleted before the UDP send operation completes.
+            //This event would be caused by the LtpSessionSender getting deleted before the UDP send operation completes,
+            //which would almost always happen with green data and could happen with red data.
+            underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
+
             m_initialTransmissionCompletedCallback(M_SESSION_ID, m_userDataPtr);
             if (M_LENGTH_OF_RED_PART == 0) { //fully green case complete (notify engine for deletion)
                 if (!m_didNotifyForDeletion) {
@@ -307,7 +321,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //invoked.
     //std::cout << "M_LENGTH_OF_RED_PART " << M_LENGTH_OF_RED_PART << " m_dataFragmentsAckedByReceiver.size() " << m_dataFragmentsAckedByReceiver.size() << std::endl;
     //std::cout << "m_dataIndexFirstPass " << m_dataIndexFirstPass << " m_dataToSend.size() " << m_dataToSend.size() << std::endl;
-    if ((m_dataIndexFirstPass == m_dataToSend.size()) && (m_dataFragmentsAckedByReceiver.size() == 1)) {
+    if ((m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) && (m_dataFragmentsAckedByReceiver.size() == 1)) {
         std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
         //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
         if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
@@ -357,7 +371,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                 checkpointSerialNumber = m_nextCheckpointSerialNumber++; //now we care since this is now a checkpoint
                 if (isEndOfRedPart) {
                     flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART;
-                    const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSend.size());
+                    const bool isEndOfBlock = (M_LENGTH_OF_RED_PART == m_dataToSendSharedPtr->size());
                     if (isEndOfBlock) {
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }

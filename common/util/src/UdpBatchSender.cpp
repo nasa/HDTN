@@ -178,16 +178,18 @@ void UdpBatchSender::SetOnSentPacketsCallback(const OnSentPacketsCallback_t& cal
 
 void UdpBatchSender::QueueSendPacketsOperation_ThreadSafe(
     std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)
+    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
     boost::asio::post(m_ioService,
         boost::bind(&UdpBatchSender::PerformSendPacketsOperation, this,
-            std::move(constBufferVecs), std::move(underlyingDataToDeleteOnSentCallback)));
+            std::move(constBufferVecs), std::move(underlyingDataToDeleteOnSentCallbackVec), std::move(underlyingCsDataToDeleteOnSentCallbackVec)));
 }
 
 void UdpBatchSender::PerformSendPacketsOperation(
     std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
-    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback)
+    std::vector<boost::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+    std::vector<boost::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
 
     m_transmitPacketsElementVec.resize(0); //reserved 100 elements in Init()
@@ -335,7 +337,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
     }
 
     if (m_onSentPacketsCallback) {
-        m_onSentPacketsCallback(successfulSend, constBufferVecs, underlyingDataToDeleteOnSentCallback);
+        m_onSentPacketsCallback(successfulSend, constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec);
     }
 }
 
