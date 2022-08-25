@@ -14,7 +14,8 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
         inductConfig.boundPort, inductConfig.numRxCircularBufferElements,
         inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber,
         (inductConfig.ltpRandomNumberSizeBits == 32), inductConfig.ltpRemoteUdpHostname, inductConfig.ltpRemoteUdpPort, maxBundleSizeBytes,
-        inductConfig.ltpMaxExpectedSimultaneousSessions, inductConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
+        inductConfig.ltpMaxExpectedSimultaneousSessions, inductConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize,
+        inductConfig.ltpMaxUdpPacketsToSendPerSystemCall);
 
 }
 LtpOverUdpInduct::~LtpOverUdpInduct() {

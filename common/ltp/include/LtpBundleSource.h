@@ -49,7 +49,8 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint32_t bundlePipelineLimit);
+        const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
+        const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall);
 
     LTP_LIB_EXPORT ~LtpBundleSource();
     LTP_LIB_EXPORT void Stop();

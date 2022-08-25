@@ -8,6 +8,9 @@
 #include <boost/endian/conversion.hpp>
 #include "LtpUdpEngineManager.h"
 #include <memory>
+#ifndef _WIN32
+#include <sys/socket.h> //for maxUdpPacketsToSendPerSystemCall checks
+#endif
 
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
 
@@ -65,6 +68,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         uint32_t checkpointEveryNthTxPacket;
         uint32_t maxRetriesPerSerialNumber;
         uint64_t maxSendRateBitsPerSecOrZeroToDisable;
+        uint64_t maxUdpPacketsToSendPerSystemCall;
         unsigned int numUdpRxPacketsCircularBufferSize;
         unsigned int maxRxUdpPacketSizeBytes;
 
@@ -93,6 +97,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 ("checkpoint-every-nth-tx-packet", boost::program_options::value<uint32_t>()->default_value(0), "Make every nth packet a checkpoint. (default 0 = disabled).")
                 ("max-retries-per-serial-number", boost::program_options::value<uint32_t>()->default_value(5), "Try to resend a serial number up to this many times. (default 5).")
                 ("max-send-rate-bits-per-sec", boost::program_options::value<uint64_t>()->default_value(0), "Send rate in bits-per-second FOR SENDERS ONLY (zero disables). (default 0)")
+                ("max-udp-packets-to-send-per-system-call", boost::program_options::value<uint64_t>()->default_value(1), "Max udp packets to send per system call (senders and receivers). (default 1)")
                 ;
 
             boost::program_options::variables_map vm;
@@ -141,6 +146,20 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 std::cout << "error: maxSendRateBitsPerSecOrZeroToDisable was specified for a receiver\n";
                 return false;
             }
+            maxUdpPacketsToSendPerSystemCall = vm["max-udp-packets-to-send-per-system-call"].as<uint64_t>();
+            if (maxUdpPacketsToSendPerSystemCall == 0) {
+                std::cerr << "error: max-udp-packets-to-send-per-system-call ("
+                    << maxUdpPacketsToSendPerSystemCall << ") must be non-zero.\n";
+                return false;
+            }
+#ifdef UIO_MAXIOV
+            //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
+            if (maxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
+                std::cerr << "error: max-udp-packets-to-send-per-system-call ("
+                    << maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").\n";
+                return false;
+            }
+#endif //UIO_MAXIOV
             numUdpRxPacketsCircularBufferSize = vm["num-rx-udp-packets-buffer-size"].as<unsigned int>();
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
@@ -217,7 +236,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, false, ltpDataSegmentMtu, 80, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, 5, 0);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, 0, 0, checkpointEveryNthTxPacket, maxRetriesPerSerialNumber,
+                    force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, 5, 0, maxUdpPacketsToSendPerSystemCall);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
             }
 
@@ -285,7 +305,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(thisLtpEngineId, remoteLtpEngineId, true, 1, ltpReportSegmentMtu, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive, 0, maxRetriesPerSerialNumber, force32BitRandomNumbers, 0, 5, 10);
+                    remoteUdpHostname, remoteUdpPort, numUdpRxPacketsCircularBufferSize, estimatedFileSizeToReceive, estimatedFileSizeToReceive,
+                    0, maxRetriesPerSerialNumber, force32BitRandomNumbers, 0, 5, 10, maxUdpPacketsToSendPerSystemCall);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true); //remote is expectedSessionOriginatorEngineId
             }
             

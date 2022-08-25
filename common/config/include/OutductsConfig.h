@@ -35,6 +35,7 @@ struct outduct_element_config_t {
     uint32_t ltpRandomNumberSizeBits;
     uint16_t ltpSenderBoundPort;
     uint64_t ltpMaxSendRateBitsPerSecOrZeroToDisable;
+    uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
 
     //specific to udp
     uint64_t udpRateBps;

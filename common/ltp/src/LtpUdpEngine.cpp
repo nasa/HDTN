@@ -23,10 +23,12 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
     uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable) :
+    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+    const uint64_t maxUdpPacketsToSendPerSystemCall) :
     LtpEngine(thisEngineId, engineIndexForEncodingIntoRandomSessionNumber, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
         ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber,
-        force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions, rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
+        force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
+        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall),
     m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
@@ -46,14 +48,14 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
         m_udpReceiveBuffersCbVec[i].resize(maxUdpRxPacketSizeBytes);
     }
 
-    if (M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) { //need a dedicated connected sender socket
+    if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) { //need a dedicated connected sender socket
         m_udpBatchSenderConnected.SetOnSentPacketsCallback(boost::bind(&LtpUdpEngine::OnSentPacketsCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
         if (!m_udpBatchSenderConnected.Init(m_remoteEndpoint)) {
             std::cout << "Error in LtpUdpEngine::LtpUdpEngine: could not init dedicated udp batch sender socket\n";
         }
         else {
             std::cout << "LtpUdpEngine successfully initialized dedicated udp batch sender socket to send up to "
-                << M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL << " udp packets per system call\n";
+                << M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL << " udp packets per system call\n";
         }
     }
 }

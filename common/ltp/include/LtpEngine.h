@@ -56,7 +56,8 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
+        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+        const uint64_t maxUdpPacketsToSendPerSystemCall);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -144,7 +145,7 @@ private:
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_MTU_CLIENT_SERVICE_DATA;
 protected:
-    const uint64_t M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
+    const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
 private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;

@@ -34,6 +34,7 @@ struct induct_element_config_t {
     uint16_t ltpRemoteUdpPort;
     uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     uint64_t ltpMaxExpectedSimultaneousSessions;
+    uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;

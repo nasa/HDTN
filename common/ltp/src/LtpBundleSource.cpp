@@ -22,7 +22,8 @@ LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t 
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint32_t bundlePipelineLimit) :
+    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
+    const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
@@ -37,7 +38,8 @@ m_ltpOutductTelemetry()
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0);
+            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
+            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     }
 

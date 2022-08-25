@@ -52,7 +52,8 @@
                 "ltpRemoteUdpHostname": "nuc3",
                 "ltpRemoteUdpPort": 1113,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
-                "ltpMaxExpectedSimultaneousSessions": 500
+                "ltpMaxExpectedSimultaneousSessions": 500,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1
             },
             {
                 "name": "from localhost custody",
@@ -100,7 +101,8 @@
                 "ltpCheckpointEveryNthDataSegment": 10,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 1113,
-                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0
+                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1
             }
         ]
     },

@@ -52,7 +52,8 @@
                 "ltpRemoteUdpHostname": "xi",
                 "ltpRemoteUdpPort": 1115,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
-                "ltpMaxExpectedSimultaneousSessions": 500
+                "ltpMaxExpectedSimultaneousSessions": 500,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1
             }
         ]
     },

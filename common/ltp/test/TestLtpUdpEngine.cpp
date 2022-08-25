@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         CANCEL_SEGMENT_REASON_CODES lastReasonCode_transmissionSessionCancelledCallback;
         Ltp::session_id_t lastSessionId_sessionStartSenderCallback;
 
-        Test() :
+        Test(const uint64_t maxUdpPacketsToSendPerSystemCall) :
             ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(250)),
             ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(250)),
             ENGINE_ID_SRC(100),
@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_SRC, 100, 0, 10000000, 0, 5, false, 0, 5, 1000);
+                    "localhost", BOUND_UDP_PORT_SRC, 100, 0, 10000000, 0, 5, false, 0, 5, 1000, maxUdpPacketsToSendPerSystemCall);
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
             ltpUdpEngineDestPtr->SetSessionStartCallback(boost::bind(&Test::SessionStartReceiverCallback, this, boost::placeholders::_1));
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, ENGINE_ID_DEST, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 0, 5, false, 0, 5, 0);
+                    "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 0, 5, false, 0, 5, 0, maxUdpPacketsToSendPerSystemCall);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             }
 
@@ -1124,25 +1124,39 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 
     };
 
-    LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
-    Test t;
-    t.DoTest();
-    t.DoTestRedAndGreenData();
-    t.DoTestFullyGreenData();
-    std::cout << "-----START LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
-    t.DoTestDropGreenEobSrcToDest();
-    std::cout << "-----END LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
-    t.DoTestOneDropDataSegmentSrcToDest();
-    t.DoTestTwoDropDataSegmentSrcToDest();
-    t.DoTestTwoDropDataSegmentSrcToDestRegularCheckpoints();
-    t.DoTestDropOneCheckpointDataSegmentSrcToDest();
-    t.DoTestDropEOBCheckpointDataSegmentSrcToDest();
-    t.DoTestDropRaSrcToDest();
-    std::cout << "-----START LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
-    t.DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest();
-    std::cout << "-----END LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
-    t.DoTestDropRaAlwaysSrcToDest();
-    t.DoTestReceiverCancelSession();
-    t.DoTestSenderCancelSession();
-    t.DoTestDropOddDataSegmentWithRsMtu();
+    //TEST WITH 1 maxUdpPacketsToSendPerSystemCall (NO BATCH SEND)
+    std::cout << "+++START 1 PACKET PER SYSTEM CALL+++\n";
+    {
+        LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
+        Test t(1); //1 => maxUdpPacketsToSendPerSystemCall
+        t.DoTest();
+        t.DoTestRedAndGreenData();
+        t.DoTestFullyGreenData();
+        std::cout << "-----START LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
+        t.DoTestDropGreenEobSrcToDest();
+        std::cout << "-----END LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
+        t.DoTestOneDropDataSegmentSrcToDest();
+        t.DoTestTwoDropDataSegmentSrcToDest();
+        t.DoTestTwoDropDataSegmentSrcToDestRegularCheckpoints();
+        t.DoTestDropOneCheckpointDataSegmentSrcToDest();
+        t.DoTestDropEOBCheckpointDataSegmentSrcToDest();
+        t.DoTestDropRaSrcToDest();
+        std::cout << "-----START LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
+        t.DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest();
+        std::cout << "-----END LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
+        t.DoTestDropRaAlwaysSrcToDest();
+        t.DoTestReceiverCancelSession();
+        t.DoTestSenderCancelSession();
+        t.DoTestDropOddDataSegmentWithRsMtu();
+    }
+    std::cout << "+++END 1 PACKET PER SYSTEM CALL+++\n";
+    std::cout << "+++START 500 PACKETS PER SYSTEM CALL+++\n";
+    {
+        LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
+        Test t(500); //500 => maxUdpPacketsToSendPerSystemCall
+        t.DoTest();
+        t.DoTestRedAndGreenData();
+        t.DoTestFullyGreenData();
+    }
+    std::cout << "+++END 500 PACKETS PER SYSTEM CALL+++\n";
 }

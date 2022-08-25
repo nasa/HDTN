@@ -26,12 +26,13 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable) :
+    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+    const uint64_t maxUdpPacketsToSendPerSystemCall) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
-    M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(500),
+    M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(maxUdpPacketsToSendPerSystemCall),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
@@ -187,7 +188,7 @@ void LtpEngine::TrySendPacketIfAvailable() {
                 return;
             }
         }
-        if (M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) {
+        if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) {
             std::vector<boost::asio::const_buffer> constBufferVec;
             std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
             std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
@@ -210,14 +211,14 @@ void LtpEngine::TrySendPacketIfAvailable() {
             std::vector<std::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec;
             uint64_t sessionOriginatorEngineId;
             std::size_t bytesToSend = 0;
-            for (std::size_t packetI = 0; packetI < M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL; ++packetI) {
+            for (std::size_t packetI = 0; packetI < M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL; ++packetI) {
                 std::vector<boost::asio::const_buffer> constBufferVec;
                 std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
                 std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
                 if (GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
                     if (packetI == 0) {
-                        constBufferVecs.reserve(M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
-                        underlyingDataToDeleteOnSentCallbackVec.reserve(M_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
+                        constBufferVecs.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
+                        underlyingDataToDeleteOnSentCallbackVec.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
                         //don't reserve underlyingCsDataToDeleteOnSentCallbackVec as more than 1 push_back should be uncommon
                     }
                     if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
