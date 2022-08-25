@@ -275,11 +275,14 @@ BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
+	long times = 0;
+	for (int i = 0; i < 100; ++1) {
+		auto start = std::chrono::high_resolution_clock::now();
+		cgr::ContactMultigraph cm(contactPlan, 4);
+		auto end = std::chrono::high_resolution_clock::now();
+		auto duration = duration_cast<microseconds>(end - start);
+		times = times + duration.count();
+	}
 
-	auto start = std::chrono::high_resolution_clock::now();
-	cgr::ContactMultigraph cm(contactPlan, 4);
-	auto end = std::chrono::high_resolution_clock::now();
-	auto duration = duration_cast<microseconds>(end - start);
-	cout << "Time taken by function: "
-		<< duration.count() << " microseconds" << endl;
+	std::cout << "Construction avg: " << times / 100 << std::endl;
 }
