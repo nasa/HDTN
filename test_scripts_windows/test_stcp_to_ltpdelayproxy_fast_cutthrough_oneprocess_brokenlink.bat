@@ -1,0 +1,13 @@
+@Echo off
+
+REM INITIALIZE ANACONDA PYTHON NEXT LINE (requires activate.bat in PATH)
+REM CALL activate.bat
+START "UDP delay sim For Sender" /D "C:/hdtn_tmp" "cmd /k" "%HDTN_BUILD_ROOT%\module\udp_delay_sim\udp-delay-sim.exe" "--remote-udp-hostname=localhost" "--remote-udp-port=4558" "--my-bound-udp-port=1114" "--num-rx-udp-packets-buffer-size=10000" "--max-rx-udp-packet-size-bytes=65000" "--send-delay-ms=100000"
+timeout /t 3
+START "UDP delay sim For Receiver" /D "C:/hdtn_tmp" "cmd /k" "%HDTN_BUILD_ROOT%\module\udp_delay_sim\udp-delay-sim.exe" "--remote-udp-hostname=localhost" "--remote-udp-port=1113" "--my-bound-udp-port=4556" "--num-rx-udp-packets-buffer-size=100" "--max-rx-udp-packet-size-bytes=65000" "--send-delay-ms=0"
+timeout /t 3
+START "BpSink" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpsink-async.exe" "--my-uri-eid=ipn:2.1" "--inducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\inducts\bpsink_one_ltp_delaysim.json"
+timeout /t 3
+START "HDTN One Process" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\module\hdtn_one_process\hdtn-one-process.exe" "--cut-through-only-test" "--hdtn-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\hdtn\hdtn_ingress1stcp_port4556_egress1ltpdelayproxy_flowid2.json"
+timeout /t 3
+START "BpGen" /D "%HDTN_BUILD_ROOT%" "cmd /k" "%HDTN_BUILD_ROOT%\common\bpcodec\apps\bpgen-async.exe" "--bundle-rate=0" "--my-uri-eid=ipn:1.1" "--dest-uri-eid=ipn:2.1" "--duration=10" "--bundle-size=100000" "--outducts-config-file=%HDTN_SOURCE_ROOT%\tests\config_files\outducts\bpgen_one_stcp_port4556.json"

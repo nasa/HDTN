@@ -28,7 +28,9 @@ void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const Outdu
 
 bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
     const uint64_t maxOpportunisticRxBundleSizeBytes,
-    const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback)
+    const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback,
+    const OnFailedBundleVecSendCallback_t& outductOnFailedBundleVecSendCallback,
+    const OnFailedBundleZmqSendCallback_t& outductOnFailedBundleZmqSendCallback)
 {
     LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
     m_finalDestEidToOutductMap.clear();
@@ -102,6 +104,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             m_nextHopEidToOutductMap[nextHopEid] = outductSharedPtr;
 
             outductSharedPtr->SetOnSuccessfulAckCallback(boost::bind(&OutductManager::OnSuccessfulBundleAck, this, uuidIndex));
+            outductSharedPtr->SetOnFailedBundleVecSendCallback(outductOnFailedBundleVecSendCallback);
+            outductSharedPtr->SetOnFailedBundleZmqSendCallback(outductOnFailedBundleZmqSendCallback);
             outductSharedPtr->Connect();
             m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
         }

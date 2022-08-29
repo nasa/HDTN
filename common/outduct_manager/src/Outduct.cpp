@@ -22,3 +22,6 @@ std::string Outduct::GetConvergenceLayerName() const {
 uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
     return 0;
 }
+
+void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
+void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}

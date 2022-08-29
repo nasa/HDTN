@@ -9,6 +9,7 @@
 #include <boost/thread.hpp>
 #include "codec/bpv6.h"
 #include "TcpclBundleSource.h" //for OutductOpportunisticProcessReceivedBundleCallback_t
+#include "BundleCallbackFunctionDefines.h"
 
 class OutductManager {
 public:
@@ -17,7 +18,9 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT OutductManager();
     OUTDUCT_MANAGER_LIB_EXPORT ~OutductManager();
     OUTDUCT_MANAGER_LIB_EXPORT bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxOpportunisticRxBundleSizeBytes,
-        const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
+        const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t(),
+        const OnFailedBundleVecSendCallback_t & outductOnFailedBundleVecSendCallback = OnFailedBundleVecSendCallback_t(),
+        const OnFailedBundleZmqSendCallback_t & outductOnFailedBundleZmqSendCallback = OnFailedBundleZmqSendCallback_t());
     OUTDUCT_MANAGER_LIB_EXPORT void Clear();
     OUTDUCT_MANAGER_LIB_EXPORT bool AllReadyToForward() const;
     OUTDUCT_MANAGER_LIB_EXPORT void StopAllOutducts();

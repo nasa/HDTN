@@ -59,6 +59,8 @@ private:
     EGRESS_ASYNC_LIB_NO_EXPORT void ReadZmqThreadFunc();
     EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
     EGRESS_ASYNC_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
+    EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, uint64_t outductUuid);
+    EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid);
 
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;

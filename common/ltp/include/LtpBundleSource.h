@@ -64,6 +64,8 @@ public:
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
     //std::size_t GetTotalBundleBytesUnacked();
     LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+    LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     LTP_LIB_EXPORT void SyncTelemetry();
 private:
     LTP_LIB_NO_EXPORT void RemoveCallback();
