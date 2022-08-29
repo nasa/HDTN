@@ -106,6 +106,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             outductSharedPtr->SetOnSuccessfulAckCallback(boost::bind(&OutductManager::OnSuccessfulBundleAck, this, uuidIndex));
             outductSharedPtr->SetOnFailedBundleVecSendCallback(outductOnFailedBundleVecSendCallback);
             outductSharedPtr->SetOnFailedBundleZmqSendCallback(outductOnFailedBundleZmqSendCallback);
+            outductSharedPtr->SetUserAssignedUuid(uuidIndex);
             outductSharedPtr->Connect();
             m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
         }

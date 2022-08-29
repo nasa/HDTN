@@ -238,6 +238,11 @@ void LtpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSe
         m_ltpUdpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
     }
 }
+void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetUserAssignedUuid(userAssignedUuid);
+    }
+}
 
 void LtpBundleSource::SyncTelemetry() {
     if (m_ltpUdpEnginePtr) {

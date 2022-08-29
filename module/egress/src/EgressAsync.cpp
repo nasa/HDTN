@@ -566,8 +566,8 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(padded_vector_uint8_t & wh
 }
 
 void hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, uint64_t outductUuid) {
-    std::cout << "OnFailedBundleVecSendCallback size " << movableBundle.size() << "\n";
+    std::cout << "OnFailedBundleVecSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
 }
 void hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid) {
-    std::cout << "OnFailedBundleZmqSendCallback size " << movableBundle.size() << "\n";
+    std::cout << "OnFailedBundleZmqSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
 }
