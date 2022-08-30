@@ -31,7 +31,8 @@ void TcpAsyncSenderElement::DoCallback(const boost::system::error_code& error, s
 TcpAsyncSender::TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef) :
     m_ioServiceRef(ioServiceRef),
     m_tcpSocketPtr(tcpSocketPtr),
-    m_writeInProgress(false)
+    m_writeInProgress(false),
+    m_sendErrorOccurred(false)
 {
 
 }
@@ -41,13 +42,20 @@ TcpAsyncSender::~TcpAsyncSender() {
 }
 
 void TcpAsyncSender::AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted) {
-    m_queueTcpAsyncSenderElements.push(std::unique_ptr<TcpAsyncSenderElement>(senderElementNeedingDeleted));
-    if (!m_writeInProgress) {
-        m_writeInProgress = true;
-        boost::asio::async_write(*m_tcpSocketPtr, senderElementNeedingDeleted->m_constBufferVec,
-            boost::bind(&TcpAsyncSender::HandleTcpSend, this,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
+    std::unique_ptr<TcpAsyncSenderElement> elUniquePtr(senderElementNeedingDeleted);
+    if (m_sendErrorOccurred) {
+        //prevent bundle from being queued
+        DoFailedBundleCallback(elUniquePtr);
+    }
+    else {
+        m_queueTcpAsyncSenderElements.push(std::move(elUniquePtr));
+        if (!m_writeInProgress) {
+            m_writeInProgress = true;
+            boost::asio::async_write(*m_tcpSocketPtr, senderElementNeedingDeleted->m_constBufferVec,
+                boost::bind(&TcpAsyncSender::HandleTcpSend, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+        }
     }
 }
 
@@ -57,10 +65,18 @@ void TcpAsyncSender::AsyncSend_ThreadSafe(TcpAsyncSenderElement * senderElementN
 
 
 void TcpAsyncSender::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
-    m_queueTcpAsyncSenderElements.front()->DoCallback(error, bytes_transferred);
+    std::unique_ptr<TcpAsyncSenderElement> elPtr = std::move(m_queueTcpAsyncSenderElements.front());
+    elPtr->DoCallback(error, bytes_transferred);
     m_queueTcpAsyncSenderElements.pop();
     if (error) {
+        m_sendErrorOccurred = true;
         std::cerr << "error in TcpAsyncSender::HandleTcpSend: " << error.message() << std::endl;
+        //empty the queue
+        DoFailedBundleCallback(elPtr);
+        while (!m_queueTcpAsyncSenderElements.empty()) {
+            DoFailedBundleCallback(m_queueTcpAsyncSenderElements.front());
+            m_queueTcpAsyncSenderElements.pop();
+        }
     }
     else if (m_queueTcpAsyncSenderElements.empty()) {
         m_writeInProgress = false;
@@ -73,11 +89,30 @@ void TcpAsyncSender::HandleTcpSend(const boost::system::error_code& error, std::
     }
 }
 
+void TcpAsyncSender::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_onFailedBundleVecSendCallback = callback;
+}
+void TcpAsyncSender::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_onFailedBundleZmqSendCallback = callback;
+}
+void TcpAsyncSender::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_userAssignedUuid = userAssignedUuid;
+}
+void TcpAsyncSender::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el) {
+    if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
+        m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, m_userAssignedUuid);
+    }
+    else if ((el->m_underlyingDataZmq) && (m_onFailedBundleZmqSendCallback)) {
+        m_onFailedBundleZmqSendCallback(*(el->m_underlyingDataZmq), m_userAssignedUuid);
+    }
+}
+
 #ifdef OPENSSL_SUPPORT_ENABLED
 TcpAsyncSenderSsl::TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef) :
     m_ioServiceRef(ioServiceRef),
     m_sslStreamSharedPtr(sslStreamSharedPtr),
-    m_writeInProgress(false)
+    m_writeInProgress(false),
+    m_sendErrorOccurred(false)
 {
 
 }
@@ -87,13 +122,20 @@ TcpAsyncSenderSsl::~TcpAsyncSenderSsl() {
 }
 
 void TcpAsyncSenderSsl::AsyncSendSecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted) {
-    m_queueTcpAsyncSenderElements.push(std::unique_ptr<TcpAsyncSenderElement>(senderElementNeedingDeleted));
-    if (!m_writeInProgress) {
-        m_writeInProgress = true;
-        boost::asio::async_write(*m_sslStreamSharedPtr, senderElementNeedingDeleted->m_constBufferVec,
-            boost::bind(&TcpAsyncSenderSsl::HandleTcpSendSecure, this,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
+    std::unique_ptr<TcpAsyncSenderElement> elUniquePtr(senderElementNeedingDeleted);
+    if (m_sendErrorOccurred) {
+        //prevent bundle from being queued
+        DoFailedBundleCallback(elUniquePtr);
+    }
+    else {
+        m_queueTcpAsyncSenderElements.push(std::move(elUniquePtr));
+        if (!m_writeInProgress) {
+            m_writeInProgress = true;
+            boost::asio::async_write(*m_sslStreamSharedPtr, senderElementNeedingDeleted->m_constBufferVec,
+                boost::bind(&TcpAsyncSenderSsl::HandleTcpSendSecure, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+        }
     }
 }
 
@@ -103,10 +145,18 @@ void TcpAsyncSenderSsl::AsyncSendSecure_ThreadSafe(TcpAsyncSenderElement * sende
 
 
 void TcpAsyncSenderSsl::HandleTcpSendSecure(const boost::system::error_code& error, std::size_t bytes_transferred) {
-    m_queueTcpAsyncSenderElements.front()->DoCallback(error, bytes_transferred);
+    std::unique_ptr<TcpAsyncSenderElement> elPtr = std::move(m_queueTcpAsyncSenderElements.front());
+    elPtr->DoCallback(error, bytes_transferred);
     m_queueTcpAsyncSenderElements.pop();
     if (error) {
+        m_sendErrorOccurred = true;
         std::cerr << "error in TcpAsyncSenderSsl::HandleTcpSendSecure: " << error.message() << std::endl;
+        //empty the queue
+        DoFailedBundleCallback(elPtr);
+        while (!m_queueTcpAsyncSenderElements.empty()) {
+            DoFailedBundleCallback(m_queueTcpAsyncSenderElements.front());
+            m_queueTcpAsyncSenderElements.pop();
+        }
     }
     else if (m_queueTcpAsyncSenderElements.empty()) {
         m_writeInProgress = false;
@@ -120,14 +170,21 @@ void TcpAsyncSenderSsl::HandleTcpSendSecure(const boost::system::error_code& err
 }
 
 void TcpAsyncSenderSsl::AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted) {
-    m_queueTcpAsyncSenderElements.push(std::unique_ptr<TcpAsyncSenderElement>(senderElementNeedingDeleted));
-    if (!m_writeInProgress) {
-        m_writeInProgress = true;
-        //lowest_layer does not compile https://stackoverflow.com/a/32584870
-        boost::asio::async_write(m_sslStreamSharedPtr->next_layer(), senderElementNeedingDeleted->m_constBufferVec, //https://stackoverflow.com/a/4726475
-            boost::bind(&TcpAsyncSenderSsl::HandleTcpSendUnsecure, this,
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
+    std::unique_ptr<TcpAsyncSenderElement> elUniquePtr(senderElementNeedingDeleted);
+    if (m_sendErrorOccurred) {
+        //prevent bundle from being queued
+        DoFailedBundleCallback(elUniquePtr);
+    }
+    else {
+        m_queueTcpAsyncSenderElements.push(std::move(elUniquePtr));
+        if (!m_writeInProgress) {
+            m_writeInProgress = true;
+            //lowest_layer does not compile https://stackoverflow.com/a/32584870
+            boost::asio::async_write(m_sslStreamSharedPtr->next_layer(), senderElementNeedingDeleted->m_constBufferVec, //https://stackoverflow.com/a/4726475
+                boost::bind(&TcpAsyncSenderSsl::HandleTcpSendUnsecure, this,
+                    boost::asio::placeholders::error,
+                    boost::asio::placeholders::bytes_transferred));
+        }
     }
 }
 
@@ -137,10 +194,18 @@ void TcpAsyncSenderSsl::AsyncSendUnsecure_ThreadSafe(TcpAsyncSenderElement * sen
 
 
 void TcpAsyncSenderSsl::HandleTcpSendUnsecure(const boost::system::error_code& error, std::size_t bytes_transferred) {
-    m_queueTcpAsyncSenderElements.front()->DoCallback(error, bytes_transferred);
+    std::unique_ptr<TcpAsyncSenderElement> elPtr = std::move(m_queueTcpAsyncSenderElements.front());
+    elPtr->DoCallback(error, bytes_transferred);
     m_queueTcpAsyncSenderElements.pop();
     if (error) {
+        m_sendErrorOccurred = true;
         std::cerr << "error in TcpAsyncSenderSsl::HandleTcpSendUnsecure: " << error.message() << std::endl;
+        //empty the queue
+        DoFailedBundleCallback(elPtr);
+        while (!m_queueTcpAsyncSenderElements.empty()) {
+            DoFailedBundleCallback(m_queueTcpAsyncSenderElements.front());
+            m_queueTcpAsyncSenderElements.pop();
+        }
     }
     else if (m_queueTcpAsyncSenderElements.empty()) {
         m_writeInProgress = false;
@@ -150,6 +215,24 @@ void TcpAsyncSenderSsl::HandleTcpSendUnsecure(const boost::system::error_code& e
             boost::bind(&TcpAsyncSenderSsl::HandleTcpSendUnsecure, this,
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
+    }
+}
+
+void TcpAsyncSenderSsl::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_onFailedBundleVecSendCallback = callback;
+}
+void TcpAsyncSenderSsl::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_onFailedBundleZmqSendCallback = callback;
+}
+void TcpAsyncSenderSsl::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_userAssignedUuid = userAssignedUuid;
+}
+void TcpAsyncSenderSsl::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el) {
+    if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
+        m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, m_userAssignedUuid);
+    }
+    else if ((el->m_underlyingDataZmq) && (m_onFailedBundleZmqSendCallback)) {
+        m_onFailedBundleZmqSendCallback(*(el->m_underlyingDataZmq), m_userAssignedUuid);
     }
 }
 #endif

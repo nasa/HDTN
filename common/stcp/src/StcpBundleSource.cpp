@@ -37,8 +37,9 @@ m_stcpShutdownComplete(true),
 m_dataServedAsKeepAlive(true),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
-m_stcpOutductTelemetry()
+m_stcpOutductTelemetry(),
 
+m_userAssignedUuid(0)
 {
     m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
     m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
@@ -161,9 +162,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
     el->m_underlyingData.resize(1);
     StcpBundleSource::GenerateDataUnitHeaderOnly(el->m_underlyingData[0], static_cast<uint32_t>(dataZmq.size()));
     el->m_underlyingDataZmq = boost::make_unique<zmq::message_t>(std::move(dataZmq));
-    el->m_constBufferVec.resize(2);
-    el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
-    el->m_constBufferVec[1] = boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size());
+    el->m_constBufferVec = { boost::asio::buffer(el->m_underlyingData[0]), boost::asio::buffer(el->m_underlyingDataZmq->data(), el->m_underlyingDataZmq->size()) };
     el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 
@@ -197,12 +196,10 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     m_dataServedAsKeepAlive = true;
 
     TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-    el->m_underlyingData.resize(2);
+    el->m_underlyingData.resize(1);
     StcpBundleSource::GenerateDataUnitHeaderOnly(el->m_underlyingData[0], static_cast<uint32_t>(dataVec.size()));
-    el->m_underlyingData[1] = std::move(dataVec);
-    el->m_constBufferVec.resize(2);
-    el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
-    el->m_constBufferVec[1] = boost::asio::buffer(el->m_underlyingData[1]);
+    el->m_underlyingDataVecBundle = std::move(dataVec);
+    el->m_constBufferVec = { boost::asio::buffer(el->m_underlyingData[0]), boost::asio::buffer(el->m_underlyingDataVecBundle) };
     el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_handleTcpSendCallback;
     m_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
 
@@ -289,7 +286,9 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if(m_tcpSocketPtr) {
         m_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_tcpSocketPtr, m_ioService);
-
+        m_tcpAsyncSenderPtr->SetOnFailedBundleVecSendCallback(m_onFailedBundleVecSendCallback);
+        m_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_onFailedBundleZmqSendCallback);
+        m_tcpAsyncSenderPtr->SetUserAssignedUuid(m_userAssignedUuid);
         StartTcpReceive();
     }
 }
@@ -457,4 +456,14 @@ bool StcpBundleSource::ReadyToForward() {
 
 void StcpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
     m_onSuccessfulAckCallback = callback;
+}
+
+void StcpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_onFailedBundleVecSendCallback = callback;
+}
+void StcpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_onFailedBundleZmqSendCallback = callback;
+}
+void StcpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_userAssignedUuid = userAssignedUuid;
 }

@@ -39,6 +39,7 @@
 #include <memory>
 #include <boost/function.hpp>
 #include <zmq.hpp>
+#include "BundleCallbackFunctionDefines.h"
 #ifdef OPENSSL_SUPPORT_ENABLED
 #include <boost/asio/ssl.hpp>
 #endif
@@ -53,7 +54,8 @@ struct TcpAsyncSenderElement {
 
     std::vector<boost::asio::const_buffer> m_constBufferVec;
     std::vector<std::vector<boost::uint8_t> > m_underlyingData;
-    std::unique_ptr<zmq::message_t>  m_underlyingDataZmq;
+    std::vector<boost::uint8_t> m_underlyingDataVecBundle;
+    std::unique_ptr<zmq::message_t> m_underlyingDataZmq;
     OnSuccessfulSendCallbackByIoServiceThread_t * m_onSuccessfulSendCallbackByIoServiceThreadPtr;
 };
 
@@ -69,7 +71,12 @@ public:
     HDTN_UTIL_EXPORT void AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     HDTN_UTIL_EXPORT void AsyncSend_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+
+    HDTN_UTIL_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    HDTN_UTIL_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    HDTN_UTIL_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 private:
+    HDTN_UTIL_EXPORT void DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement> & el);
     
     HDTN_UTIL_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
 
@@ -80,6 +87,11 @@ private:
 
     
     volatile bool m_writeInProgress;
+    volatile bool m_sendErrorOccurred;
+
+    OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    uint64_t m_userAssignedUuid;
 
 };
 
@@ -99,7 +111,12 @@ public:
     HDTN_UTIL_EXPORT void AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     HDTN_UTIL_EXPORT void AsyncSendUnsecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+
+    HDTN_UTIL_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    HDTN_UTIL_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    HDTN_UTIL_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 private:
+    HDTN_UTIL_EXPORT void DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el);
 
     HDTN_UTIL_EXPORT void HandleTcpSendSecure(const boost::system::error_code& error, std::size_t bytes_transferred);
     HDTN_UTIL_EXPORT void HandleTcpSendUnsecure(const boost::system::error_code& error, std::size_t bytes_transferred);
@@ -111,6 +128,11 @@ private:
 
 
     volatile bool m_writeInProgress;
+    volatile bool m_sendErrorOccurred;
+
+    OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    uint64_t m_userAssignedUuid;
 
 };
 #endif

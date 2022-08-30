@@ -30,6 +30,7 @@
 #include <vector>
 #include "Telemetry.h"
 #include "LtpUdpEngineManager.h"
+#include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
 
 class LtpBundleSource {
