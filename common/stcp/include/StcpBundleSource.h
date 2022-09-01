@@ -58,6 +58,7 @@ public:
     STCP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     STCP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    STCP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     STCP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 private:
     STCP_LIB_NO_EXPORT static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
@@ -106,6 +107,7 @@ private:
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
 public:

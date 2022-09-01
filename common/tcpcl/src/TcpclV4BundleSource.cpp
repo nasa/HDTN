@@ -221,6 +221,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure(const boost::system::erro
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
         std::cerr << "Error in TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure: " << error.message() << std::endl;
+        BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
 }
 
@@ -248,6 +249,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeSecure(const boost::system::error_
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
         std::cerr << "Error in TcpclV4BundleSource::HandleTcpReceiveSomeSecure: " << error.message() << std::endl;
+        BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
 }
 

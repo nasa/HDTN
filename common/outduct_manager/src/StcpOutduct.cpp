@@ -32,6 +32,9 @@ void StcpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCa
 void StcpOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_stcpBundleSource.SetOnFailedBundleZmqSendCallback(callback);
 }
+void StcpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_stcpBundleSource.SetOnOutductLinkStatusChangedCallback(callback);
+}
 void StcpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_stcpBundleSource.SetUserAssignedUuid(userAssignedUuid);
 }

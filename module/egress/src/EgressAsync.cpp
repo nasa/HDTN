@@ -54,7 +54,8 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
         boost::bind(&hdtn::HegrManagerAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
         boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-        boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback, this, boost::placeholders::_1, boost::placeholders::_2)
+        boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)
     ))
     {
         return;
@@ -570,4 +571,7 @@ void hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback(std::vector<uint8_t>&
 }
 void hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid) {
     std::cout << "OnFailedBundleZmqSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
+}
+void hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
+    std::cout << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid << "\n";
 }

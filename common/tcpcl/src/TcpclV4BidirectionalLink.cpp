@@ -461,6 +461,9 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
         // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
 
         m_base_readyToForward = false;
+        if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link down event
+            m_base_onOutductLinkStatusChangedCallback(true, m_base_userAssignedUuid);
+        }
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (doCleanShutdown && m_base_tcpAsyncSenderSslPtr && m_base_sslStreamSharedPtr) {
 #else
@@ -1083,6 +1086,9 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
 
     m_base_readyToForward = true;
     Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
+    if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link up event
+        m_base_onOutductLinkStatusChangedCallback(false, m_base_userAssignedUuid);
+    }
 }
 
 void TcpclV4BidirectionalLink::Virtual_OnSessionInitReceivedAndProcessedSuccessfully() {}
@@ -1092,6 +1098,9 @@ void TcpclV4BidirectionalLink::BaseClass_SetOnFailedBundleVecSendCallback(const 
 }
 void TcpclV4BidirectionalLink::BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_base_onFailedBundleZmqSendCallback = callback;
+}
+void TcpclV4BidirectionalLink::BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_base_onOutductLinkStatusChangedCallback = callback;
 }
 void TcpclV4BidirectionalLink::BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_base_userAssignedUuid = userAssignedUuid;

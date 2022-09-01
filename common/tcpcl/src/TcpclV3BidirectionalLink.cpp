@@ -362,6 +362,9 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
         // Called from post() to keep socket shutdown within io_service thread.
 
         m_base_readyToForward = false;
+        if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link down event
+            m_base_onOutductLinkStatusChangedCallback(true, m_base_userAssignedUuid);
+        }
         //if (!m_base_sinkIsSafeToDelete) { this is unnecessary if statement
         if (sendShutdownMessage && m_base_tcpAsyncSenderPtr && m_base_tcpSocketPtr) {
             std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
@@ -688,6 +691,9 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
 
     m_base_readyToForward = true;
     Virtual_OnContactHeaderCompletedSuccessfully();
+    if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link up event
+        m_base_onOutductLinkStatusChangedCallback(false, m_base_userAssignedUuid);
+    }
 }
 
 void TcpclV3BidirectionalLink::Virtual_OnContactHeaderCompletedSuccessfully() {}
@@ -697,6 +703,9 @@ void TcpclV3BidirectionalLink::BaseClass_SetOnFailedBundleVecSendCallback(const 
 }
 void TcpclV3BidirectionalLink::BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_base_onFailedBundleZmqSendCallback = callback;
+}
+void TcpclV3BidirectionalLink::BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_base_onOutductLinkStatusChangedCallback = callback;
 }
 void TcpclV3BidirectionalLink::BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_base_userAssignedUuid = userAssignedUuid;

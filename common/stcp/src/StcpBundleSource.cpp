@@ -295,6 +295,9 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
         m_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_onFailedBundleZmqSendCallback);
         m_tcpAsyncSenderPtr->SetUserAssignedUuid(m_userAssignedUuid);
         StartTcpReceive();
+        if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
+            m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
+        }
     }
 }
 
@@ -373,6 +376,7 @@ void StcpBundleSource::HandleTcpReceiveSome(const boost::system::error_code & er
     }
     else if (error != boost::asio::error::operation_aborted) {
         std::cerr << "Error in StcpBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+        DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
     }
 }
 
@@ -412,6 +416,9 @@ void StcpBundleSource::DoStcpShutdown(unsigned int reconnectionDelaySecondsIfNot
 void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySecondsIfNotZero) {
     //final code to shut down tcp sockets
     m_readyToForward = false;
+    if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+        m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+    }
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
         try {
             std::cout << "shutting down StcpBundleSource TCP socket.." << std::endl;
@@ -468,6 +475,9 @@ void StcpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecS
 }
 void StcpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_onFailedBundleZmqSendCallback = callback;
+}
+void StcpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_onOutductLinkStatusChangedCallback = callback;
 }
 void StcpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;

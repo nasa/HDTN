@@ -181,6 +181,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
         std::cerr << "Error in TcpclBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+        BaseClass_DoTcpclShutdown(false, false);
     }
 }
 

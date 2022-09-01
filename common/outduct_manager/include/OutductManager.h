@@ -20,7 +20,8 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxOpportunisticRxBundleSizeBytes,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t(),
         const OnFailedBundleVecSendCallback_t & outductOnFailedBundleVecSendCallback = OnFailedBundleVecSendCallback_t(),
-        const OnFailedBundleZmqSendCallback_t & outductOnFailedBundleZmqSendCallback = OnFailedBundleZmqSendCallback_t());
+        const OnFailedBundleZmqSendCallback_t & outductOnFailedBundleZmqSendCallback = OnFailedBundleZmqSendCallback_t(),
+        const OnOutductLinkStatusChangedCallback_t& onOutductLinkStatusChangedCallback = OnOutductLinkStatusChangedCallback_t());
     OUTDUCT_MANAGER_LIB_EXPORT void Clear();
     OUTDUCT_MANAGER_LIB_EXPORT bool AllReadyToForward() const;
     OUTDUCT_MANAGER_LIB_EXPORT void StopAllOutducts();

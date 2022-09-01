@@ -84,6 +84,9 @@ void TcpclV4Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSen
 void TcpclV4Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleZmqSendCallback(callback);
 }
+void TcpclV4Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnOutductLinkStatusChangedCallback(callback);
+}
 void TcpclV4Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_tcpclV4BundleSource.BaseClass_SetUserAssignedUuid(userAssignedUuid);
 }

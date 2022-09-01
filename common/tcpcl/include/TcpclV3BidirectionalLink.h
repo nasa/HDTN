@@ -68,6 +68,7 @@ public:
 
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    TCPCL_LIB_EXPORT void BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
 
 protected:
@@ -114,6 +115,7 @@ protected:
 
     OnFailedBundleVecSendCallback_t m_base_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_base_onFailedBundleZmqSendCallback;
+    OnOutductLinkStatusChangedCallback_t m_base_onOutductLinkStatusChangedCallback;
     uint64_t m_base_userAssignedUuid;
 
 protected:
