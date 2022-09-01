@@ -45,10 +45,12 @@ public:
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundSchedulerPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPubSock_boundEgressToConnectingSchedulerPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundEgressPtr;
 
@@ -63,11 +65,14 @@ private:
     EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid);
     EGRESS_ASYNC_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 
+    EGRESS_ASYNC_LIB_EXPORT void DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid);
+
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
 
     boost::mutex m_mutexPushSignal;
     boost::mutex m_mutexPushBundleToIngress;
+    boost::mutex m_mutexLinkStatusUpdate;
     volatile bool m_needToSendSignal;
     volatile std::size_t m_totalEgressInprocSignalsSent;
 

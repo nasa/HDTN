@@ -69,6 +69,8 @@ public:
     std::string m_zmqRouterAddress;
     uint16_t m_zmqBoundIngressToConnectingEgressPortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
     uint16_t m_zmqConnectingEgressToBoundIngressPortPath; //#define HDTN_CONNECTING_EGRESS_TO_BOUND_INGRESS_PATH "tcp://127.0.0.1:10160"
+    uint16_t m_zmqConnectingEgressToBoundSchedulerPortPath; //#define HDTN_CONNECTING_EGRESS_TO_BOUND_SCHEDULER_PATH "tcp://127.0.0.1:10162"
+
     uint16_t m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath; //"tcp://127.0.0.1:10161"
     //push-pull from ingress to storage 
     //#define HDTN_STORAGE_PATH "tcp://0.0.0.0:10110"

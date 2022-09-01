@@ -46,6 +46,8 @@
 
 #define HDTN_MSGTYPE_ROUTEUPDATE (0xFC07) //Route Update Event from Router process
 
+#define HDTN_MSGTYPE_LINKSTATUS (0xFC08) //Link Status Update Event from Egress process 
+
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE (0x5555)
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
@@ -159,6 +161,17 @@ struct RouteUpdateHdr {
     cbhe_eid_t nextHopEid;
     cbhe_eid_t finalDestEid;
     uint64_t route[20]; //optimal route
+};
+
+struct LinkStatusHdr {
+    CommonHdr base;
+    uint64_t event;
+    uint64_t uuid;
+};
+ 
+struct ContactsUpdateHdr {
+    CommonHdr base;
+    std::string* jsonEventFileName;
 };
 
 };  // namespace hdtn

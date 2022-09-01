@@ -2,11 +2,11 @@
     "contacts": [
        {
             "contact": 0,
-            "source": 10,
-            "dest": 1,
-            "finalDestination": 1,
+            "source": 1,
+            "dest": 10,
+            "finalDestination": 2,
 	    "startTime": 10,
-            "endTime": 20,
+            "endTime": 1000,
             "rate": 1000
         },
 	{
@@ -14,8 +14,17 @@
             "source": 10,
             "dest": 2,
 	    "finalDestination": 2,
-            "startTime": 25,
-            "endTime": 38,
+            "startTime": 10,
+            "endTime": 1000,
+            "rate": 1000
+        },
+	{
+            "contact": 3,
+            "source": 1,
+            "dest": 2,
+            "finalDestination": 2,
+            "startTime": 10,
+            "endTime": 1000,
             "rate": 1000
         }
     ]
