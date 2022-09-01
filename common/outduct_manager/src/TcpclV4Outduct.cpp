@@ -78,6 +78,15 @@ bool TcpclV4Outduct::Forward(std::vector<uint8_t> & movableDataVec) {
 void TcpclV4Outduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
     m_tcpclV4BundleSource.SetOnSuccessfulAckCallback(callback);
 }
+void TcpclV4Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleVecSendCallback(callback);
+}
+void TcpclV4Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleZmqSendCallback(callback);
+}
+void TcpclV4Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_tcpclV4BundleSource.BaseClass_SetUserAssignedUuid(userAssignedUuid);
+}
 
 void TcpclV4Outduct::Connect() {
     m_tcpclV4BundleSource.Connect(m_outductConfig.remoteHostname, boost::lexical_cast<std::string>(m_outductConfig.remotePort));

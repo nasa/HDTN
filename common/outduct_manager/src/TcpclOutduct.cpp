@@ -28,6 +28,15 @@ bool TcpclOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
 void TcpclOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
     m_tcpclBundleSource.SetOnSuccessfulAckCallback(callback);
 }
+void TcpclOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_tcpclBundleSource.BaseClass_SetOnFailedBundleVecSendCallback(callback);
+}
+void TcpclOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_tcpclBundleSource.BaseClass_SetOnFailedBundleZmqSendCallback(callback);
+}
+void TcpclOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_tcpclBundleSource.BaseClass_SetUserAssignedUuid(userAssignedUuid);
+}
 
 void TcpclOutduct::Connect() {
     m_tcpclBundleSource.Connect(m_outductConfig.remoteHostname, boost::lexical_cast<std::string>(m_outductConfig.remotePort));

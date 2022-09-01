@@ -99,11 +99,13 @@ void TcpAsyncSender::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;
 }
 void TcpAsyncSender::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el) {
+    //std::cout << "in TcpAsyncSender::DoFailedBundleCallback\n";
+    //std::cout << el->m_underlyingDataVecBundle.size() << " " << (m_onFailedBundleVecSendCallback) << " " << (el->m_underlyingDataZmqBundle) << " " << (m_onFailedBundleZmqSendCallback) << "\n";
     if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
         m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, m_userAssignedUuid);
     }
-    else if ((el->m_underlyingDataZmq) && (m_onFailedBundleZmqSendCallback)) {
-        m_onFailedBundleZmqSendCallback(*(el->m_underlyingDataZmq), m_userAssignedUuid);
+    else if ((el->m_underlyingDataZmqBundle) && (m_onFailedBundleZmqSendCallback)) {
+        m_onFailedBundleZmqSendCallback(*(el->m_underlyingDataZmqBundle), m_userAssignedUuid);
     }
 }
 
@@ -231,8 +233,8 @@ void TcpAsyncSenderSsl::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderEle
     if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
         m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, m_userAssignedUuid);
     }
-    else if ((el->m_underlyingDataZmq) && (m_onFailedBundleZmqSendCallback)) {
-        m_onFailedBundleZmqSendCallback(*(el->m_underlyingDataZmq), m_userAssignedUuid);
+    else if ((el->m_underlyingDataZmqBundle) && (m_onFailedBundleZmqSendCallback)) {
+        m_onFailedBundleZmqSendCallback(*(el->m_underlyingDataZmqBundle), m_userAssignedUuid);
     }
 }
 #endif

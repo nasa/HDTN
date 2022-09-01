@@ -66,6 +66,7 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_fragmentVectorIndexCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     M_BASE_MAX_FRAGMENT_SIZE(maxFragmentSize),
 
+    m_base_userAssignedUuid(0),
 
     //stats
     m_base_totalBundlesAcked(0),
@@ -211,9 +212,9 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     if ((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS)) & (static_cast<unsigned int>(m_base_contactHeaderFlags))) {
         if (m_base_tcpSocketPtr) {
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
-            Tcpcl::GenerateAckSegment(el->m_underlyingData[0], bytesToAck);
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_underlyingDataVecHeaders.resize(1);
+            Tcpcl::GenerateAckSegment(el->m_underlyingDataVecHeaders[0], bytesToAck);
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
             m_base_dataSentServedAsKeepaliveSent = true; //sending acks can also be used in lieu of keepalives
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
@@ -319,9 +320,9 @@ void TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpir
         if (m_base_tcpSocketPtr) {
             if (!m_base_dataSentServedAsKeepaliveSent) {
                 TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-                el->m_underlyingData.resize(1);
-                Tcpcl::GenerateKeepAliveMessage(el->m_underlyingData[0]);
-                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+                el->m_underlyingDataVecHeaders.resize(1);
+                Tcpcl::GenerateKeepAliveMessage(el->m_underlyingDataVecHeaders[0]);
+                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
                 el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
                 m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
             }
@@ -365,17 +366,17 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
         if (sendShutdownMessage && m_base_tcpAsyncSenderPtr && m_base_tcpSocketPtr) {
             std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
+            el->m_underlyingDataVecHeaders.resize(1);
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
             //i.e., that the connecting node MUST NOT re - establish the connection.
             if (reasonWasTimeOut) {
-                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND);
+                Tcpcl::GenerateShutdownMessage(el->m_underlyingDataVecHeaders[0], true, SHUTDOWN_REASON_CODES::IDLE_TIMEOUT, true, M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND);
             }
             else {
-                Tcpcl::GenerateShutdownMessage(el->m_underlyingData[0], false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND);
+                Tcpcl::GenerateShutdownMessage(el->m_underlyingDataVecHeaders[0], false, SHUTDOWN_REASON_CODES::UNASSIGNED, true, M_BASE_SHUTDOWN_MESSAGE_RECONNECTION_DELAY_SECONDS_TO_SEND);
             }
 
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendShutdownCallback;
             m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //HandleSocketShutdown runs in same thread as socket so special thread safety not needed
 
@@ -511,21 +512,22 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             const bool isEndSegment = ((bytesToSend + dataIndex) == dataSize);
 
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+            el->m_underlyingDataVecHeaders.resize(1);
             if (usingZmqData) {
-                el->m_underlyingData.resize(1);
+                //el->m_underlyingDataVecHeaders.resize(1);
                 if (isEndSegment) {
-                    el->m_underlyingDataZmq = std::move(zmqMessageUniquePtr);
+                    el->m_underlyingDataZmqBundle = std::move(zmqMessageUniquePtr);
                 }
             }
             else {
-                el->m_underlyingData.resize(1 + isEndSegment);
+                //el->m_underlyingDataVecHeaders.resize(1 + isEndSegment);
                 if (isEndSegment) {
-                    el->m_underlyingData[1] = std::move(vecMessage);
+                    el->m_underlyingDataVecBundle = std::move(vecMessage);
                 }
             }
-            Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], isStartSegment, isEndSegment, bytesToSend);
+            Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingDataVecHeaders[0], isStartSegment, isEndSegment, bytesToSend);
             el->m_constBufferVec.resize(2);
-            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingDataVecHeaders[0]);
             el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr + dataIndex, bytesToSend);
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
             elements.push_back(el);
@@ -556,9 +558,9 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     //with the right bundle.
     if ((static_cast<unsigned int>(CONTACT_HEADER_FLAGS::REQUEST_SENDING_OF_LENGTH_MESSAGES)) & (static_cast<unsigned int>(m_base_contactHeaderFlags))) {
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-        el->m_underlyingData.resize(1);
-        Tcpcl::GenerateBundleLength(el->m_underlyingData[0], dataSize);
-        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_underlyingDataVecHeaders.resize(1);
+        Tcpcl::GenerateBundleLength(el->m_underlyingDataVecHeaders[0], dataSize);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
         m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
     }
@@ -571,17 +573,16 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     }
     else {
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingDataVecHeaders.resize(1);
         if (usingZmqData) {
-            el->m_underlyingData.resize(1);
-            el->m_underlyingDataZmq = std::move(zmqMessageUniquePtr);
+            el->m_underlyingDataZmqBundle = std::move(zmqMessageUniquePtr);
         }
         else {
-            el->m_underlyingData.resize(2);
-            el->m_underlyingData[1] = std::move(vecMessage);
+            el->m_underlyingDataVecBundle = std::move(vecMessage);
         }
-        Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingData[0], true, true, dataSize);
+        Tcpcl::GenerateDataSegmentHeaderOnly(el->m_underlyingDataVecHeaders[0], true, true, dataSize);
         el->m_constBufferVec.resize(2);
-        el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+        el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingDataVecHeaders[0]);
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
         m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
@@ -670,9 +671,9 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
         //use the same keepalive interval
         if (m_base_tcpSocketPtr) {
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
-            Tcpcl::GenerateContactHeader(el->m_underlyingData[0], CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, m_base_keepAliveIntervalSeconds, M_BASE_THIS_TCPCL_EID_STRING);
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_underlyingDataVecHeaders.resize(1);
+            Tcpcl::GenerateContactHeader(el->m_underlyingDataVecHeaders[0], CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, m_base_keepAliveIntervalSeconds, M_BASE_THIS_TCPCL_EID_STRING);
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
             m_base_tcpAsyncSenderPtr->AsyncSend_ThreadSafe(el);
         }
@@ -690,3 +691,13 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
 }
 
 void TcpclV3BidirectionalLink::Virtual_OnContactHeaderCompletedSuccessfully() {}
+
+void TcpclV3BidirectionalLink::BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_base_onFailedBundleVecSendCallback = callback;
+}
+void TcpclV3BidirectionalLink::BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_base_onFailedBundleZmqSendCallback = callback;
+}
+void TcpclV3BidirectionalLink::BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_base_userAssignedUuid = userAssignedUuid;
+}

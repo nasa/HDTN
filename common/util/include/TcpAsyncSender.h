@@ -53,9 +53,9 @@ struct TcpAsyncSenderElement {
     HDTN_UTIL_EXPORT void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
 
     std::vector<boost::asio::const_buffer> m_constBufferVec;
-    std::vector<std::vector<boost::uint8_t> > m_underlyingData;
+    std::vector<std::vector<boost::uint8_t> > m_underlyingDataVecHeaders;
     std::vector<boost::uint8_t> m_underlyingDataVecBundle;
-    std::unique_ptr<zmq::message_t> m_underlyingDataZmq;
+    std::unique_ptr<zmq::message_t> m_underlyingDataZmqBundle;
     OnSuccessfulSendCallbackByIoServiceThread_t * m_onSuccessfulSendCallbackByIoServiceThreadPtr;
 };
 

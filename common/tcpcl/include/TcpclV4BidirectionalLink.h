@@ -34,6 +34,7 @@
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
+#include "BundleCallbackFunctionDefines.h"
 #ifdef OPENSSL_SUPPORT_ENABLED
 #include <boost/asio/ssl.hpp>
 
@@ -98,6 +99,10 @@ public:
     TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
 
     TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
+
+    TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
 
 protected:
     TCPCL_LIB_EXPORT void BaseClass_SendContactHeader();
@@ -197,6 +202,10 @@ protected:
     uint64_t m_base_remoteMaxRxSegmentsPerBundle;
     uint64_t m_base_maxUnackedSegments;
     uint64_t m_base_ackCbSize;
+
+    OnFailedBundleVecSendCallback_t m_base_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_base_onFailedBundleZmqSendCallback;
+    uint64_t m_base_userAssignedUuid;
 
 public:
     //tcpcl stats

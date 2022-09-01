@@ -33,6 +33,7 @@
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "BidirectionalLink.h"
+#include "BundleCallbackFunctionDefines.h"
 
 class CLASS_VISIBILITY_TCPCL_LIB TcpclV3BidirectionalLink : public BidirectionalLink {
 public:
@@ -64,6 +65,10 @@ public:
     TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundleBytesUnacked();
 
     TCPCL_LIB_EXPORT virtual unsigned int Virtual_GetMaxTxBundlesInPipeline();
+
+    TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
 
 protected:
     const std::string M_BASE_IMPLEMENTATION_STRING_FOR_COUT;
@@ -107,7 +112,9 @@ protected:
     std::vector<uint64_t> m_base_fragmentVectorIndexCbVec;
     const uint64_t M_BASE_MAX_FRAGMENT_SIZE;
 
-    
+    OnFailedBundleVecSendCallback_t m_base_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_base_onFailedBundleZmqSendCallback;
+    uint64_t m_base_userAssignedUuid;
 
 protected:
     
