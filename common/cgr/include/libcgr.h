@@ -5,6 +5,7 @@
 #include <map>
 #include <ostream>
 #include <limits>
+#include <memory>
 #include "cgr_lib_export.h"
 
 namespace cgr {
