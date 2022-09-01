@@ -19,7 +19,8 @@
             "ltpRemoteUdpHostname": "localhost",
             "ltpRemoteUdpPort": 4556,
             "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
-            "ltpMaxExpectedSimultaneousSessions": 500
+            "ltpMaxExpectedSimultaneousSessions": 500,
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1
         },
         {
             "name": "i2",

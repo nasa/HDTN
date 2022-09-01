@@ -36,9 +36,9 @@ public:
 
     TCPCL_LIB_EXPORT TcpclV4BundleSink(
 #ifdef OPENSSL_SUPPORT_ENABLED
-        boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
+        std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
 #else
-        boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+        std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
 #endif
         const bool tlsSuccessfullyConfigured,
         const bool tlsIsRequired,

@@ -13,7 +13,7 @@
  */
 
 #include <boost/bind/bind.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <iostream>
 #include "LtpBundleSink.h"
 #include <boost/make_unique.hpp>
@@ -26,7 +26,8 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
     uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
     const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxBundleSizeBytes, const uint64_t maxSimultaneousSessions,
-    const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable) :
+    const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+    const uint64_t maxUdpPacketsToSendPerSystemCall) :
 
     m_ltpWholeBundleReadyCallback(ltpWholeBundleReadyCallback),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -39,7 +40,8 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
         static constexpr uint64_t maxSendRateBitsPerSecOrZeroToDisable = 0; //always disable rate for report segments, etc
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, expectedSessionOriginatorEngineId, true, 1, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxBundleSizeBytes, 0,
-            ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions, rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
+            ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
+            rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(expectedSessionOriginatorEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
     }
     

@@ -13,7 +13,7 @@
  */
 
 #include <boost/bind/bind.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <iostream>
 #include "TcpclV4BundleSink.h"
 #include <boost/make_unique.hpp>
@@ -21,9 +21,9 @@
 
 TcpclV4BundleSink::TcpclV4BundleSink(
 #ifdef OPENSSL_SUPPORT_ENABLED
-    boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
+    std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & sslStreamSharedPtr,
 #else
-    boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
+    std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr,
 #endif
     const bool tlsSuccessfullyConfigured,
     const bool tlsIsRequired,

@@ -16,14 +16,14 @@
 #include <iostream>
 #include "LtpBundleSource.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/make_unique.hpp>
+#include <memory>
 
 LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
-    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint32_t bundlePipelineLimit) :
+    const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
+    const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
@@ -38,7 +38,8 @@ m_ltpOutductTelemetry()
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
-            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0);
+            remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
+            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     }
 
@@ -131,7 +132,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         return false;
     }
 
-    boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+    std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataVec.size();
@@ -154,7 +155,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
         return false;
     }
 
-    boost::shared_ptr<LtpEngine::transmission_request_t> tReq = boost::make_shared<LtpEngine::transmission_request_t>();
+    std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataZmq.size();
@@ -232,7 +233,7 @@ void LtpBundleSource::SyncTelemetry() {
     if (m_ltpUdpEnginePtr) {
         m_ltpOutductTelemetry.numCheckpointsExpired = m_ltpUdpEnginePtr->m_numCheckpointTimerExpiredCallbacks;
         m_ltpOutductTelemetry.numDiscretionaryCheckpointsNotResent = m_ltpUdpEnginePtr->m_numDiscretionaryCheckpointsNotResent;
-        m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls;
+        m_ltpOutductTelemetry.countUdpPacketsSent = m_ltpUdpEnginePtr->m_countAsyncSendCallbackCalls + m_ltpUdpEnginePtr->m_countBatchUdpPacketsSent;
         m_ltpOutductTelemetry.countRxUdpCircularBufferOverruns = m_ltpUdpEnginePtr->m_countCircularBufferOverruns;
         m_ltpOutductTelemetry.countTxUdpPacketsLimitedByRate = m_ltpUdpEnginePtr->m_countAsyncSendsLimitedByRate;
     }

@@ -6,9 +6,12 @@
  */
 
 #include "InductsConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
+#ifndef _WIN32
+#include <sys/socket.h> //for ltpMaxUdpPacketsToSendPerSystemCall checks
+#endif
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
@@ -32,6 +35,7 @@ induct_element_config_t::induct_element_config_t() :
     ltpRemoteUdpPort(0),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(0),
     ltpMaxExpectedSimultaneousSessions(0),
+    ltpMaxUdpPacketsToSendPerSystemCall(0),
 
     keepAliveIntervalSeconds(0),
 
@@ -67,6 +71,7 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     ltpMaxExpectedSimultaneousSessions(o.ltpMaxExpectedSimultaneousSessions),
+    ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
@@ -99,6 +104,7 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     ltpRemoteUdpPort(o.ltpRemoteUdpPort),
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize(o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize),
     ltpMaxExpectedSimultaneousSessions(o.ltpMaxExpectedSimultaneousSessions),
+    ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
 
     keepAliveIntervalSeconds(o.keepAliveIntervalSeconds),
 
@@ -131,6 +137,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     ltpMaxExpectedSimultaneousSessions = o.ltpMaxExpectedSimultaneousSessions;
+    ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -165,6 +172,7 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
     ltpRemoteUdpPort = o.ltpRemoteUdpPort;
     ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     ltpMaxExpectedSimultaneousSessions = o.ltpMaxExpectedSimultaneousSessions;
+    ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
 
     keepAliveIntervalSeconds = o.keepAliveIntervalSeconds;
 
@@ -198,6 +206,7 @@ bool induct_element_config_t::operator==(const induct_element_config_t & o) cons
         (ltpRemoteUdpPort == o.ltpRemoteUdpPort) &&
         (ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize == o.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize) &&
         (ltpMaxExpectedSimultaneousSessions == o.ltpMaxExpectedSimultaneousSessions) &&
+        (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
 
         (keepAliveIntervalSeconds == o.keepAliveIntervalSeconds) &&
         
@@ -304,6 +313,20 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.ltpRemoteUdpPort = inductElementConfigPt.second.get<uint16_t>("ltpRemoteUdpPort");
                 inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize = inductElementConfigPt.second.get<uint64_t>("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize");
                 inductElementConfig.ltpMaxExpectedSimultaneousSessions = inductElementConfigPt.second.get<uint64_t>("ltpMaxExpectedSimultaneousSessions");
+                inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = inductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
+                if (inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
+                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be non-zero.\n";
+                    return false;
+                }
+#ifdef UIO_MAXIOV
+                //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
+                if (inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
+                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").\n";
+                    return false;
+                }
+#endif //UIO_MAXIOV
             }
             else {
                 static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpReportSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
@@ -393,7 +416,7 @@ InductsConfig_ptr InductsConfig::CreateFromJsonFile(const std::string & jsonFile
 
 InductsConfig_ptr InductsConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {
 
-    InductsConfig_ptr ptrInductsConfig = boost::make_shared<InductsConfig>();
+    InductsConfig_ptr ptrInductsConfig = std::make_shared<InductsConfig>();
     if (!ptrInductsConfig->SetValuesFromPropertyTree(pt)) {
         ptrInductsConfig = InductsConfig_ptr(); //failed, so delete and set it NULL
     }
@@ -429,6 +452,7 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
             inductElementConfigPt.put("ltpRemoteUdpPort", inductElementConfig.ltpRemoteUdpPort);
             inductElementConfigPt.put("ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize", inductElementConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
             inductElementConfigPt.put("ltpMaxExpectedSimultaneousSessions", inductElementConfig.ltpMaxExpectedSimultaneousSessions);
+            inductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
         }
         if ((inductElementConfig.convergenceLayer == "stcp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {
             inductElementConfigPt.put("keepAliveIntervalSeconds", inductElementConfig.keepAliveIntervalSeconds);

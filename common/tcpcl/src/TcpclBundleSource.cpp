@@ -16,7 +16,7 @@
 #include <iostream>
 #include "TcpclBundleSource.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
@@ -95,7 +95,7 @@ void TcpclBundleSource::OnResolve(const boost::system::error_code & ec, boost::a
     }
     else {
         std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
-        m_base_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
+        m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         m_resolverResults = results;
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,
@@ -224,7 +224,7 @@ void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost:
         // Timer was not cancelled, take necessary action.
         std::cout << "Trying to reconnect..." << std::endl;
         m_base_tcpAsyncSenderPtr.reset();
-        m_base_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
+        m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         m_base_shutdownCalled = false;
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,

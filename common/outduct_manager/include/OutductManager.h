@@ -3,7 +3,7 @@
 
 #include "Outduct.h"
 #include <map>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <vector>
 #include <zmq.hpp>
 #include <boost/thread.hpp>
@@ -23,8 +23,8 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT void StopAllOutducts();
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid);
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByOutductUuid(const uint64_t uuid);
-    OUTDUCT_MANAGER_LIB_EXPORT void SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, boost::shared_ptr<Outduct> & outductPtr);
-    OUTDUCT_MANAGER_LIB_EXPORT boost::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
+    OUTDUCT_MANAGER_LIB_EXPORT void SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, std::shared_ptr<Outduct> & outductPtr);
+    OUTDUCT_MANAGER_LIB_EXPORT std::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid);
     OUTDUCT_MANAGER_LIB_EXPORT void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
 
@@ -54,10 +54,10 @@ private:
         }
     };
 
-    std::map<cbhe_eid_t, boost::shared_ptr<Outduct> > m_finalDestEidToOutductMap;
+    std::map<cbhe_eid_t, std::shared_ptr<Outduct> > m_finalDestEidToOutductMap;
     boost::mutex m_finalDestEidToOutductMapMutex;
-    std::map<cbhe_eid_t, boost::shared_ptr<Outduct> > m_nextHopEidToOutductMap;
-    std::vector<boost::shared_ptr<Outduct> > m_outductsVec;
+    std::map<cbhe_eid_t, std::shared_ptr<Outduct> > m_nextHopEidToOutductMap;
+    std::vector<std::shared_ptr<Outduct> > m_outductsVec;
     std::vector<std::unique_ptr<thread_communication_t> > m_threadCommunicationVec;
     uint64_t m_numEventsTooManyUnackedBundles;
     OutductManager_OnSuccessfulOutductAckCallback_t m_outductManager_onSuccessfulOutductAckCallback;

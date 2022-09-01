@@ -36,6 +36,7 @@
 #include <boost/asio.hpp>
 #include <vector>
 #include <queue>
+#include <memory>
 #include <boost/function.hpp>
 #include <zmq.hpp>
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -61,7 +62,7 @@ private:
     TcpAsyncSender();
 public:
     
-    HDTN_UTIL_EXPORT TcpAsyncSender(boost::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef);
+    HDTN_UTIL_EXPORT TcpAsyncSender(std::shared_ptr<boost::asio::ip::tcp::socket> & tcpSocketPtr, boost::asio::io_service & ioServiceRef);
 
     HDTN_UTIL_EXPORT ~TcpAsyncSender();
     
@@ -74,7 +75,7 @@ private:
 
 
     boost::asio::io_service & m_ioServiceRef;
-    boost::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
+    std::shared_ptr<boost::asio::ip::tcp::socket> m_tcpSocketPtr;
     std::queue<std::unique_ptr<TcpAsyncSenderElement> > m_queueTcpAsyncSenderElements;
 
     
@@ -87,7 +88,7 @@ class TcpAsyncSenderSsl {
 private:
     TcpAsyncSenderSsl();
 public:
-    typedef boost::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > ssl_stream_sharedptr_t;
+    typedef std::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > ssl_stream_sharedptr_t;
 
     HDTN_UTIL_EXPORT TcpAsyncSenderSsl(ssl_stream_sharedptr_t & sslStreamSharedPtr, boost::asio::io_service & ioServiceRef);
 

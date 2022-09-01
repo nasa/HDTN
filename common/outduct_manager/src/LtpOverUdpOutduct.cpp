@@ -1,7 +1,7 @@
 #include "LtpOverUdpOutduct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/lexical_cast.hpp>
 
 LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
@@ -10,7 +10,8 @@ LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductCon
         boost::posix_time::milliseconds(outductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(outductConfig.oneWayMarginTimeMs),
         outductConfig.ltpSenderBoundPort, outductConfig.numRxCircularBufferElements,
         outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber, (outductConfig.ltpRandomNumberSizeBits == 32),
-        m_outductConfig.remoteHostname, m_outductConfig.remotePort, m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable, m_outductConfig.bundlePipelineLimit)
+        m_outductConfig.remoteHostname, m_outductConfig.remotePort, m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable, m_outductConfig.bundlePipelineLimit,
+        m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall)
 {}
 LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 

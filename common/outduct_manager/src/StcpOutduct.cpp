@@ -1,7 +1,7 @@
 #include "StcpOutduct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/lexical_cast.hpp>
 
 StcpOutduct::StcpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :

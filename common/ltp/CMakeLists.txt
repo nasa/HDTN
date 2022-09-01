@@ -11,7 +11,6 @@ add_library(ltp_lib
 	src/LtpUdpEngineManager.cpp
 	src/LtpBundleSink.cpp
 	src/LtpBundleSource.cpp
-	src/LtpClientServiceDataToSend.cpp
 )
 target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_RDSEED_COMPILE_FLAG} ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(ltp_lib)
@@ -24,7 +23,6 @@ set(MY_PUBLIC_HEADERS
     include/Ltp.h
 	include/LtpBundleSink.h
 	include/LtpBundleSource.h
-	include/LtpClientServiceDataToSend.h
 	include/LtpEngine.h
 	include/LtpFragmentSet.h
 	include/LtpNoticesToClientService.h

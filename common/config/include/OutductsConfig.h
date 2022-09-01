@@ -2,7 +2,7 @@
 #define OUTDUCTS_CONFIG_H 1
 
 #include <string>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/integer.hpp>
 #include <set>
 #include <vector>
@@ -35,6 +35,7 @@ struct outduct_element_config_t {
     uint32_t ltpRandomNumberSizeBits;
     uint16_t ltpSenderBoundPort;
     uint64_t ltpMaxSendRateBitsPerSecOrZeroToDisable;
+    uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
 
     //specific to udp
     uint64_t udpRateBps;
@@ -81,7 +82,7 @@ typedef std::vector<outduct_element_config_t> outduct_element_config_vector_t;
 
 
 class OutductsConfig;
-typedef boost::shared_ptr<OutductsConfig> OutductsConfig_ptr;
+typedef std::shared_ptr<OutductsConfig> OutductsConfig_ptr;
 
 class OutductsConfig : public JsonSerializable {
 

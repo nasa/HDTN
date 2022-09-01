@@ -1,7 +1,7 @@
 #include "InductManager.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include "TcpclInduct.h"
 #include "TcpclV4Induct.h"
 #include "StcpInduct.h"

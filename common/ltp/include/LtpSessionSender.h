@@ -25,7 +25,7 @@
 #include "LtpRandomNumberGenerator.h"
 #include <queue>
 #include <boost/asio.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include "LtpTimerManager.h"
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
@@ -63,7 +63,9 @@ public:
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
         const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
-    LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
     
 
     
@@ -78,7 +80,7 @@ private:
     LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
-    LtpClientServiceDataToSend m_dataToSend;
+    std::shared_ptr<LtpClientServiceDataToSend> m_dataToSendSharedPtr;
 public:
     std::shared_ptr<LtpTransmissionRequestUserData> m_userDataPtr;
 private:

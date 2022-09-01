@@ -2,7 +2,7 @@
 #define INDUCTS_CONFIG_H 1
 
 #include <string>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/integer.hpp>
 #include <map>
 #include <vector>
@@ -34,6 +34,7 @@ struct induct_element_config_t {
     uint16_t ltpRemoteUdpPort;
     uint64_t ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize;
     uint64_t ltpMaxExpectedSimultaneousSessions;
+    uint64_t ltpMaxUdpPacketsToSendPerSystemCall;
 
     //specific to stcp and tcpcl
     uint32_t keepAliveIntervalSeconds;
@@ -72,7 +73,7 @@ typedef std::vector<induct_element_config_t> induct_element_config_vector_t;
 
 
 class InductsConfig;
-typedef boost::shared_ptr<InductsConfig> InductsConfig_ptr;
+typedef std::shared_ptr<InductsConfig> InductsConfig_ptr;
 
 class InductsConfig : public JsonSerializable {
 

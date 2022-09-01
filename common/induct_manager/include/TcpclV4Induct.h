@@ -6,6 +6,7 @@
 #include "TcpclV4BundleSink.h"
 #include <list>
 #include <boost/make_unique.hpp>
+#include <memory>
 
 class CLASS_VISIBILITY_INDUCT_MANAGER_LIB TcpclV4Induct : public Induct {
 public:
@@ -21,9 +22,9 @@ private:
     INDUCT_MANAGER_LIB_EXPORT void StartTcpAccept();
 #ifdef OPENSSL_SUPPORT_ENABLED
     boost::asio::ssl::context m_shareableSslContext;
-    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error);
+    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error);
 #else
-    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code & error);
+    INDUCT_MANAGER_LIB_EXPORT void HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code & error);
 #endif
     INDUCT_MANAGER_LIB_EXPORT void ConnectionReadyToBeDeletedNotificationReceived();
     INDUCT_MANAGER_LIB_EXPORT void RemoveInactiveTcpConnections();

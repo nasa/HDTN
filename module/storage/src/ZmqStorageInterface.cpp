@@ -583,12 +583,12 @@ void ZmqStorageInterface::ThreadFunc() {
     if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "stdio_multi_threaded") {
         std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... " << std::endl;
         hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... ");
-        bsmPtr = boost::make_unique<BundleStorageManagerMT>(boost::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
+        bsmPtr = boost::make_unique<BundleStorageManagerMT>(std::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
     }
     else if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "asio_single_threaded") {
         std::cout << "[ZmqStorageInterface] Initializing BundleStorageManagerAsio ... " << std::endl;
         hdtn::Logger::getInstance()->logNotification("storage", "[ZmqStorageInterface] Initializing BundleStorageManagerAsio ... ");
-        bsmPtr = boost::make_unique<BundleStorageManagerAsio>(boost::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
+        bsmPtr = boost::make_unique<BundleStorageManagerAsio>(std::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
     }
     else {
         std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc: invalid storage implementation " << m_hdtnConfig.m_storageConfig.m_storageImplementation << std::endl;

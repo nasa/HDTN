@@ -2,7 +2,7 @@
 #include <iostream>
 #include "app_patterns/BpSourcePattern.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 

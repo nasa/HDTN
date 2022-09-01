@@ -2,7 +2,7 @@
 #define HDTN_CONFIG_H 1
 
 #include <string>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/integer.hpp>
 #include <set>
 #include <vector>
@@ -15,7 +15,7 @@
 #include "config_lib_export.h"
 
 class HdtnConfig;
-typedef boost::shared_ptr<HdtnConfig> HdtnConfig_ptr;
+typedef std::shared_ptr<HdtnConfig> HdtnConfig_ptr;
 
 class HdtnConfig : public JsonSerializable {
 

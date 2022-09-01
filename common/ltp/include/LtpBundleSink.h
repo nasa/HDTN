@@ -42,7 +42,8 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION,
         uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
         const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxBundleSizeBytes, const uint64_t maxSimultaneousSessions,
-        const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
+        const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+        const uint64_t maxUdpPacketsToSendPerSystemCall);
     LTP_LIB_EXPORT ~LtpBundleSink();
     LTP_LIB_EXPORT bool ReadyToBeDeleted();
 private:

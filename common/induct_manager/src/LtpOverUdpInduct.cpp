@@ -1,7 +1,7 @@
 #include "LtpOverUdpInduct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 
 
 LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes) :
@@ -14,7 +14,8 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
         inductConfig.boundPort, inductConfig.numRxCircularBufferElements,
         inductConfig.preallocatedRedDataBytes, inductConfig.ltpMaxRetriesPerSerialNumber,
         (inductConfig.ltpRandomNumberSizeBits == 32), inductConfig.ltpRemoteUdpHostname, inductConfig.ltpRemoteUdpPort, maxBundleSizeBytes,
-        inductConfig.ltpMaxExpectedSimultaneousSessions, inductConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize);
+        inductConfig.ltpMaxExpectedSimultaneousSessions, inductConfig.ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize,
+        inductConfig.ltpMaxUdpPacketsToSendPerSystemCall);
 
 }
 LtpOverUdpInduct::~LtpOverUdpInduct() {

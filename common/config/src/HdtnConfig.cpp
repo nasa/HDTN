@@ -6,7 +6,7 @@
  */
 
 #include "HdtnConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <boost/lexical_cast.hpp>
@@ -344,7 +344,7 @@ HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName) 
 
 HdtnConfig_ptr HdtnConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {
 
-    HdtnConfig_ptr ptrHdtnConfig = boost::make_shared<HdtnConfig>();
+    HdtnConfig_ptr ptrHdtnConfig = std::make_shared<HdtnConfig>();
     if (!ptrHdtnConfig->SetValuesFromPropertyTree(pt)) {
         ptrHdtnConfig = HdtnConfig_ptr(); //failed, so delete and set it NULL
     }

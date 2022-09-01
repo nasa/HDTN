@@ -26,11 +26,13 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable) :
+    const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+    const uint64_t maxUdpPacketsToSendPerSystemCall) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
     M_MTU_CLIENT_SERVICE_DATA(mtuClientServiceData),
+    M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(maxUdpPacketsToSendPerSystemCall),
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     M_TRANSMISSION_TO_ACK_RECEIVED_TIME((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
@@ -186,32 +188,81 @@ void LtpEngine::TrySendPacketIfAvailable() {
                 return;
             }
         }
-        std::vector<boost::asio::const_buffer> constBufferVec;
-        boost::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
-        uint64_t sessionOriginatorEngineId;
-        if (GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
-            if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
-                std::size_t bytesToSend = 0;
-                for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
-                    bytesToSend += constBufferVec[i].size();
+        if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL <= 1) {
+            std::vector<boost::asio::const_buffer> constBufferVec;
+            std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
+            std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
+            uint64_t sessionOriginatorEngineId;
+            if (GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
+                if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
+                    std::size_t bytesToSend = 0;
+                    for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
+                        bytesToSend += constBufferVec[i].size();
+                    }
+                    m_tokenRateLimiter.TakeTokens(bytesToSend);
+                    TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
                 }
-                m_tokenRateLimiter.TakeTokens(bytesToSend);
-                TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
+                SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback); // , sessionOriginatorEngineId); //virtual call to child implementation
             }
-            SendPacket(constBufferVec, underlyingDataToDeleteOnSentCallback, sessionOriginatorEngineId); //virtual call to child implementation
+        }
+        else {
+            std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
+            std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > > underlyingDataToDeleteOnSentCallbackVec;
+            std::vector<std::shared_ptr<LtpClientServiceDataToSend> > underlyingCsDataToDeleteOnSentCallbackVec;
+            uint64_t sessionOriginatorEngineId;
+            std::size_t bytesToSend = 0;
+            for (std::size_t packetI = 0; packetI < M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL; ++packetI) {
+                std::vector<boost::asio::const_buffer> constBufferVec;
+                std::shared_ptr<std::vector<std::vector<uint8_t> > >  underlyingDataToDeleteOnSentCallback;
+                std::shared_ptr<LtpClientServiceDataToSend> underlyingCsDataToDeleteOnSentCallback;
+                if (GetNextPacketToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, sessionOriginatorEngineId)) {
+                    if (packetI == 0) {
+                        constBufferVecs.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
+                        underlyingDataToDeleteOnSentCallbackVec.reserve(M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL);
+                        //don't reserve underlyingCsDataToDeleteOnSentCallbackVec as more than 1 push_back should be uncommon
+                    }
+                    if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
+                        for (std::size_t i = 0; i < constBufferVec.size(); ++i) {
+                            bytesToSend += constBufferVec[i].size();
+                        }
+                    }
+                    constBufferVecs.push_back(std::move(constBufferVec));
+                    underlyingDataToDeleteOnSentCallbackVec.push_back(std::move(underlyingDataToDeleteOnSentCallback));
+                    if (underlyingCsDataToDeleteOnSentCallback) {
+                        underlyingCsDataToDeleteOnSentCallbackVec.push_back(std::move(underlyingCsDataToDeleteOnSentCallback));
+                    }
+                }
+            }
+            if (constBufferVecs.size()) { //data to batch send
+                if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
+                    m_tokenRateLimiter.TakeTokens(bytesToSend);
+                    TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
+                }
+                SendPackets(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //virtual call to child implementation
+            }
         }
     }
 }
 
 void LtpEngine::PacketInFullyProcessedCallback(bool success) {}
 
-void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId) {}
+void LtpEngine::SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback) {}
 
-bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId) {
+void LtpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+    std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
+    std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback) {}
+
+bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
+    uint64_t& sessionOriginatorEngineId)
+{
     while (!m_queueSendersNeedingDeleted.empty()) {
         map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingDeleted.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
                 sessionOriginatorEngineId = M_THIS_ENGINE_ID;
                 return true;
             }
@@ -262,7 +313,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer> & con
         
 
         //send Cancel Segment
-        underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
         Ltp::GenerateCancelSegmentLtpPacket((*underlyingDataToDeleteOnSentCallback)[0],
             info.sessionId, info.reasonCode, info.isFromSender, NULL, NULL);
         constBufferVec.resize(1);
@@ -278,7 +329,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer> & con
 
     if (!m_queueClosedSessionDataToSend.empty()) { //includes report ack segments and cancel ack segments from closed sessions (which do not require timers)
         //highest priority
-        underlyingDataToDeleteOnSentCallback = boost::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
         (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_queueClosedSessionDataToSend.front().second);
         sessionOriginatorEngineId = m_queueClosedSessionDataToSend.front().first;
         m_queueClosedSessionDataToSend.pop();
@@ -290,7 +341,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer> & con
     while (!m_queueSendersNeedingDataSent.empty()) {
         map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingDataSent.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
                 sessionOriginatorEngineId = M_THIS_ENGINE_ID;
                 return true;
             }
@@ -390,7 +441,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         std::move(std::shared_ptr<LtpTransmissionRequestUserData>()), lengthOfRedPart
     );
 }
-void LtpEngine::TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest) {
+void LtpEngine::TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest) {
     TransmissionRequest(transmissionRequest->destinationClientServiceId, transmissionRequest->destinationLtpEngineId,
         std::move(transmissionRequest->clientServiceDataToSend),
         std::move(transmissionRequest->userDataPtr),
@@ -398,7 +449,7 @@ void LtpEngine::TransmissionRequest(boost::shared_ptr<transmission_request_t> & 
     );
     TrySendPacketIfAvailable();
 }
-void LtpEngine::TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest) {
+void LtpEngine::TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest) {
     //The arguments to bind are copied or moved, and are never passed by reference unless wrapped in std::ref or std::cref.
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::TransmissionRequest, this, std::move(transmissionRequest)));
 }

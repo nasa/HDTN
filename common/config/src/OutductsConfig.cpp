@@ -6,11 +6,14 @@
  */
 
 #include "OutductsConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
+#ifndef _WIN32
+#include <sys/socket.h> //for ltpMaxUdpPacketsToSendPerSystemCall checks
+#endif
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
@@ -35,6 +38,7 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpRandomNumberSizeBits(0),
     ltpSenderBoundPort(0),
     ltpMaxSendRateBitsPerSecOrZeroToDisable(0),
+    ltpMaxUdpPacketsToSendPerSystemCall(0),
 
     udpRateBps(0),
 
@@ -75,6 +79,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
     ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
+    ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
 
     udpRateBps(o.udpRateBps),
 
@@ -112,6 +117,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpRandomNumberSizeBits(o.ltpRandomNumberSizeBits),
     ltpSenderBoundPort(o.ltpSenderBoundPort),
     ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
+    ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
 
     udpRateBps(o.udpRateBps),
 
@@ -149,6 +155,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
     ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
+    ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
 
     udpRateBps = o.udpRateBps;
 
@@ -189,6 +196,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpRandomNumberSizeBits = o.ltpRandomNumberSizeBits;
     ltpSenderBoundPort = o.ltpSenderBoundPort;
     ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
+    ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
 
     udpRateBps = o.udpRateBps;
 
@@ -228,6 +236,7 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpRandomNumberSizeBits == o.ltpRandomNumberSizeBits) &&
         (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
         (ltpMaxSendRateBitsPerSecOrZeroToDisable == o.ltpMaxSendRateBitsPerSecOrZeroToDisable) &&
+        (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -349,6 +358,20 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 }
                 outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
                 outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("ltpMaxSendRateBitsPerSecOrZeroToDisable");
+                outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = outductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
+                if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
+                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be non-zero.\n";
+                    return false;
+                }
+#ifdef UIO_MAXIOV
+                //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
+                if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
+                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").\n";
+                    return false;
+                }
+#endif //UIO_MAXIOV
             }
             else {
                 static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpDataSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
@@ -457,7 +480,7 @@ OutductsConfig_ptr OutductsConfig::CreateFromJsonFile(const std::string & jsonFi
 
 OutductsConfig_ptr OutductsConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {
 
-    OutductsConfig_ptr ptrOutductsConfig = boost::make_shared<OutductsConfig>();
+    OutductsConfig_ptr ptrOutductsConfig = std::make_shared<OutductsConfig>();
     if (!ptrOutductsConfig->SetValuesFromPropertyTree(pt)) {
         ptrOutductsConfig = OutductsConfig_ptr(); //failed, so delete and set it NULL
     }
@@ -495,6 +518,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("ltpRandomNumberSizeBits", outductElementConfig.ltpRandomNumberSizeBits);
             outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
             outductElementConfigPt.put("ltpMaxSendRateBitsPerSecOrZeroToDisable", outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable);
+            outductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);

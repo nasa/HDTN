@@ -23,7 +23,7 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include <boost/thread.hpp>
 #include "HdtnConfig.h"
 #include "stats.hpp"

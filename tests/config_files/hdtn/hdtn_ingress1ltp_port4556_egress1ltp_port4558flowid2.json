@@ -52,7 +52,8 @@
                 "ltpRemoteUdpHostname": "localhost",
                 "ltpRemoteUdpPort": 1113,
                 "ltpRxDataSegmentSessionNumberRecreationPreventerHistorySize": 1000,
-                "ltpMaxExpectedSimultaneousSessions": 500
+                "ltpMaxExpectedSimultaneousSessions": 500,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1
             }
         ]
     },
@@ -80,7 +81,8 @@
                 "ltpCheckpointEveryNthDataSegment": 0,
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 4556,
-                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0
+                "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1
             }
         ]
     },

@@ -1,7 +1,7 @@
 #include "TcpclOutduct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/lexical_cast.hpp>
 
 TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,

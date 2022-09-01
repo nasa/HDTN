@@ -31,6 +31,7 @@
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "TokenRateLimiter.h"
 #include <zmq.hpp>
+#include <memory>
 #include "udp_lib_export.h"
 
 class UdpBundleSource {
@@ -58,10 +59,10 @@ public:
 private:
     UDP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
     UDP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
-    UDP_LIB_NO_EXPORT void HandlePostForUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr);
-    UDP_LIB_NO_EXPORT void HandlePostForUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & zmqDataToSendPtr);
-    UDP_LIB_NO_EXPORT void HandleUdpSendVecMessage(boost::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
-    UDP_LIB_NO_EXPORT void HandleUdpSendZmqMessage(boost::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_NO_EXPORT void HandlePostForUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & vecDataToSendPtr);
+    UDP_LIB_NO_EXPORT void HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & zmqDataToSendPtr);
+    UDP_LIB_NO_EXPORT void HandleUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
+    UDP_LIB_NO_EXPORT void HandleUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred);
     UDP_LIB_NO_EXPORT bool ProcessPacketSent(std::size_t bytes_transferred);
 
     UDP_LIB_NO_EXPORT void TryRestartTokenRefreshTimer();
@@ -81,8 +82,8 @@ private:
     TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;
     boost::posix_time::ptime m_lastTimeTokensWereRefreshed;
-    std::queue<boost::shared_ptr<std::vector<boost::uint8_t> > > m_queueVecDataToSendPtrs;
-    std::queue<boost::shared_ptr<zmq::message_t> > m_queueZmqDataToSendPtrs;
+    std::queue<std::shared_ptr<std::vector<boost::uint8_t> > > m_queueVecDataToSendPtrs;
+    std::queue<std::shared_ptr<zmq::message_t> > m_queueZmqDataToSendPtrs;
     boost::asio::ip::udp::socket m_udpSocket;
     boost::asio::ip::udp::endpoint m_udpDestinationEndpoint;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;

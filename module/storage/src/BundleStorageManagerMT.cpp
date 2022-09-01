@@ -16,7 +16,7 @@
 #include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 
 

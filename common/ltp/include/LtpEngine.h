@@ -32,6 +32,7 @@
 #include "TokenRateLimiter.h"
 #include <unordered_map>
 #include <queue>
+#include <memory>
 
 class CLASS_VISIBILITY_LTP_LIB LtpEngine {
 private:
@@ -55,7 +56,8 @@ public:
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
+        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+        const uint64_t maxUdpPacketsToSendPerSystemCall);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -63,8 +65,8 @@ public:
     LTP_LIB_EXPORT void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
     LTP_LIB_EXPORT void SetMtuReportSegment(uint64_t mtuReportSegment);
 
-    LTP_LIB_EXPORT void TransmissionRequest(boost::shared_ptr<transmission_request_t> & transmissionRequest);
-    LTP_LIB_EXPORT void TransmissionRequest_ThreadSafe(boost::shared_ptr<transmission_request_t> && transmissionRequest);
+    LTP_LIB_EXPORT void TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest);
+    LTP_LIB_EXPORT void TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest);
     LTP_LIB_EXPORT void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
         LtpClientServiceDataToSend && clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart);
     LTP_LIB_EXPORT void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
@@ -89,7 +91,10 @@ public:
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
-    LTP_LIB_EXPORT bool GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, uint64_t & sessionOriginatorEngineId);
+    LTP_LIB_EXPORT bool GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
+        uint64_t & sessionOriginatorEngineId);
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
@@ -98,8 +103,13 @@ public:
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
 protected:
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
-    LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
+    LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
     LTP_LIB_EXPORT void SignalReadyForSend_ThreadSafe();
+    LTP_LIB_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
 private:
     LTP_LIB_NO_EXPORT void TrySendPacketIfAvailable();
 
@@ -134,6 +144,9 @@ private:
     const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_MTU_CLIENT_SERVICE_DATA;
+protected:
+    const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
+private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;

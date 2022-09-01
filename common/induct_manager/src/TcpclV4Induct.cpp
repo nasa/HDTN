@@ -1,7 +1,6 @@
 #include "TcpclV4Induct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/lexical_cast.hpp>
 
 //TCPCL INDUCT
@@ -79,12 +78,12 @@ TcpclV4Induct::~TcpclV4Induct() {
 void TcpclV4Induct::StartTcpAccept() {
     std::cout << "waiting for tcpclv4 tcp connections" << std::endl;
 #ifdef OPENSSL_SUPPORT_ENABLED
-    boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > newSslStreamPtr =
-        boost::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_ioService, m_shareableSslContext);
+    std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > newSslStreamPtr =
+        std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_ioService, m_shareableSslContext);
     m_tcpAcceptor.async_accept(newSslStreamPtr->next_layer(),
         boost::bind(&TcpclV4Induct::HandleTcpAccept, this, newSslStreamPtr, boost::asio::placeholders::error));
 #else
-    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
+    std::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
     m_tcpAcceptor.async_accept(*newTcpSocketPtr,
         boost::bind(&TcpclV4Induct::HandleTcpAccept, this, newTcpSocketPtr, boost::asio::placeholders::error));
 #endif
@@ -94,13 +93,13 @@ void TcpclV4Induct::StartTcpAccept() {
 }
 
 #ifdef OPENSSL_SUPPORT_ENABLED
-void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error) {
+void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error) {
     if (!error) {
         std::cout << "tcpclv4 tcp connection: " << newSslStreamSharedPtr->next_layer().remote_endpoint().address() << ":" << newSslStreamSharedPtr->next_layer().remote_endpoint().port() << std::endl;
         m_listTcpclV4BundleSinks.emplace_back(
             newSslStreamSharedPtr,
 #else
-void TcpclV4Induct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
+void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         std::cout << "tcpclv4 tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
         m_listTcpclV4BundleSinks.emplace_back(

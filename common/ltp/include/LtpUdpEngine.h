@@ -30,6 +30,7 @@
 #include <queue>
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "LtpEngine.h"
+#include "UdpBatchSender.h"
 
 class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
@@ -43,7 +44,8 @@ public:
         const boost::asio::ip::udp::endpoint & remoteEndpoint, const unsigned int numUdpRxCircularBufferVectors,
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable);
+        const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
+        const uint64_t maxUdpPacketsToSendPerSystemCall);
 
     LTP_LIB_EXPORT virtual ~LtpUdpEngine();
 
@@ -53,13 +55,23 @@ public:
 
 private:
     LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
-    LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec, boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const uint64_t sessionOriginatorEngineId);
-    LTP_LIB_NO_EXPORT void HandleUdpSend(boost::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback, const boost::system::error_code& error, std::size_t bytes_transferred);
+    LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
+    LTP_LIB_NO_EXPORT void HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
+        const boost::system::error_code& error, std::size_t bytes_transferred);
+    LTP_LIB_NO_EXPORT virtual void SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
+    LTP_LIB_NO_EXPORT void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
 
     
 
     
-    
+    UdpBatchSender m_udpBatchSenderConnected;
     boost::asio::io_service & m_ioServiceUdpRef;
     boost::asio::ip::udp::socket & m_udpSocketRef;
     boost::asio::ip::udp::endpoint m_remoteEndpoint;
@@ -74,7 +86,12 @@ private:
 
 public:
     volatile uint64_t m_countAsyncSendCalls;
-    volatile uint64_t m_countAsyncSendCallbackCalls;
+    volatile uint64_t m_countAsyncSendCallbackCalls; //same as udp packets sent
+    volatile uint64_t m_countBatchSendCalls;
+    volatile uint64_t m_countBatchSendCallbackCalls;
+    volatile uint64_t m_countBatchUdpPacketsSent;
+    //total udp packets sent is m_countAsyncSendCallbackCalls + m_countBatchUdpPacketsSent
+
     uint64_t m_countCircularBufferOverruns;
 
     //unit testing drop packet simulation stuff

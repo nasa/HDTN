@@ -1,7 +1,6 @@
 #include "StcpInduct.h"
 #include <iostream>
 #include <boost/make_unique.hpp>
-#include <boost/make_shared.hpp>
 
 
 StcpInduct::StcpInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig, const uint64_t maxBundleSizeBytes) :
@@ -37,13 +36,13 @@ StcpInduct::~StcpInduct() {
 
 void StcpInduct::StartTcpAccept() {
     std::cout << "waiting for stcp tcp connections" << std::endl;
-    boost::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
+    std::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
 
     m_tcpAcceptor.async_accept(*newTcpSocketPtr,
         boost::bind(&StcpInduct::HandleTcpAccept, this, newTcpSocketPtr, boost::asio::placeholders::error));
 }
 
-void StcpInduct::HandleTcpAccept(boost::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
+void StcpInduct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
         std::cout << "stcp tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
         m_listStcpBundleSinks.emplace_back(newTcpSocketPtr, m_ioService,

@@ -16,7 +16,7 @@
 #include <iostream>
 #include "TcpclV4BundleSource.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 
@@ -111,11 +111,11 @@ void TcpclV4BundleSource::OnResolve(const boost::system::error_code & ec, boost:
         std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
         m_resolverResults = results;
 #ifdef OPENSSL_SUPPORT_ENABLED
-        m_base_sslStreamSharedPtr = boost::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_base_ioServiceRef, m_shareableSslContextRef);
+        m_base_sslStreamSharedPtr = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_base_ioServiceRef, m_shareableSslContextRef);
         boost::asio::async_connect(
             m_base_sslStreamSharedPtr->next_layer(),
 #else
-        m_base_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
+        m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,
 #endif
@@ -303,12 +303,12 @@ void TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boos
         m_base_shutdownCalled = false;
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_tcpAsyncSenderSslPtr.reset();
-        m_base_sslStreamSharedPtr = boost::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_base_ioServiceRef, m_shareableSslContextRef);
+        m_base_sslStreamSharedPtr = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_base_ioServiceRef, m_shareableSslContextRef);
         boost::asio::async_connect(
             m_base_sslStreamSharedPtr->next_layer(),
 #else
         m_base_tcpAsyncSenderPtr.reset();
-        m_base_tcpSocketPtr = boost::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
+        m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,
 #endif

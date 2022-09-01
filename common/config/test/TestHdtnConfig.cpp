@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include "HdtnConfig.h"
-#include <boost/make_shared.hpp>
+#include <memory>
 #include "Environment.h"
 #include <boost/algorithm/string.hpp>
 

@@ -16,7 +16,7 @@
 #include <iostream>
 #include "TcpclV3BidirectionalLink.h"
 #include <boost/lexical_cast.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include <boost/endian/conversion.hpp>
@@ -426,7 +426,7 @@ void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpir
             if (m_base_tcpSocketPtr.use_count() != 1) {
                 std::cerr << "error m_base_tcpSocketPtr.use_count() != 1" << std::endl;
             }
-            m_base_tcpSocketPtr = boost::shared_ptr<boost::asio::ip::tcp::socket>();
+            m_base_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
         }
         else {
             //don't delete the tcp socket or async sender because the Forward function is multi-threaded without a mutex to

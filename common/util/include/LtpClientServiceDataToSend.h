@@ -31,27 +31,27 @@
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
 #include <zmq.hpp>
 #endif
-#include "ltp_lib_export.h"
+#include "hdtn_util_export.h"
 
 
 class LtpClientServiceDataToSend {
 public:
-    LTP_LIB_EXPORT LtpClientServiceDataToSend(); //a default constructor: X()
-    LTP_LIB_EXPORT LtpClientServiceDataToSend(std::vector<uint8_t> && vec);
-    LTP_LIB_EXPORT LtpClientServiceDataToSend& operator=(std::vector<uint8_t> && vec); //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(); //a default constructor: X()
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(std::vector<uint8_t> && vec);
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(std::vector<uint8_t> && vec); //a move assignment: operator=(X&&)
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
-    LTP_LIB_EXPORT LtpClientServiceDataToSend(zmq::message_t && zmqMessage);
-    LTP_LIB_EXPORT LtpClientServiceDataToSend& operator=(zmq::message_t && zmqMessage); //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(zmq::message_t && zmqMessage);
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(zmq::message_t && zmqMessage); //a move assignment: operator=(X&&)
 #endif
-    LTP_LIB_EXPORT ~LtpClientServiceDataToSend(); //a destructor: ~X()
-    LTP_LIB_EXPORT LtpClientServiceDataToSend(const LtpClientServiceDataToSend& o) = delete; //disallow copying
-    LTP_LIB_EXPORT LtpClientServiceDataToSend(LtpClientServiceDataToSend&& o); //a move constructor: X(X&&)
-    LTP_LIB_EXPORT LtpClientServiceDataToSend& operator=(const LtpClientServiceDataToSend& o) = delete; //disallow copying
-    LTP_LIB_EXPORT LtpClientServiceDataToSend& operator=(LtpClientServiceDataToSend&& o); //a move assignment: operator=(X&&)
-    LTP_LIB_EXPORT bool operator==(const std::vector<uint8_t> & vec) const; //operator ==
-    LTP_LIB_EXPORT bool operator!=(const std::vector<uint8_t> & vec) const; //operator !=
-    LTP_LIB_EXPORT uint8_t * data() const;
-    LTP_LIB_EXPORT std::size_t size() const;
+    HDTN_UTIL_EXPORT ~LtpClientServiceDataToSend(); //a destructor: ~X()
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(const LtpClientServiceDataToSend& o) = delete; //disallow copying
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend(LtpClientServiceDataToSend&& o); //a move constructor: X(X&&)
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(const LtpClientServiceDataToSend& o) = delete; //disallow copying
+    HDTN_UTIL_EXPORT LtpClientServiceDataToSend& operator=(LtpClientServiceDataToSend&& o); //a move assignment: operator=(X&&)
+    HDTN_UTIL_EXPORT bool operator==(const std::vector<uint8_t> & vec) const; //operator ==
+    HDTN_UTIL_EXPORT bool operator!=(const std::vector<uint8_t> & vec) const; //operator !=
+    HDTN_UTIL_EXPORT uint8_t * data() const;
+    HDTN_UTIL_EXPORT std::size_t size() const;
 
 private:
     std::vector<uint8_t> m_vector;
