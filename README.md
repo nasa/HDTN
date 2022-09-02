@@ -115,7 +115,7 @@ After building HDTN (see above), the integrated tests can be run with the follow
 
 Routing
 =======
-The Router module runs Dijkstra's algorithm on the contact plan to get the next hop for the optimal route leading to the final destination,
+The Router module runs by default Dijkstra's algorithm on the contact plan to get the next hop for the optimal route leading to the final destination,
 then sends a RouteUpdate event to Egress to update its Outduct to the outduct of that nextHop. If the link goes down
 unexpectedly or the contact plan gets updated, the router will be notified and will recalculate the next hop and send
 RouteUpdate events to egress accordingly. 
