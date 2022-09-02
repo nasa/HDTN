@@ -62,6 +62,7 @@ set(MY_PUBLIC_HEADERS
 	include/TokenRateLimiter.h
 	include/TcpAsyncSender.h
 	include/TimestampUtil.h
+	include/UdpBatchSender.h
 	include/Uri.h
 	include/zmq.hpp
 	${CMAKE_CURRENT_BINARY_DIR}/hdtn_util_export.h
