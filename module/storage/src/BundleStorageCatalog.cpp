@@ -346,3 +346,32 @@ uint64_t * BundleStorageCatalog::GetCustodyIdFromUuid(const cbhe_bundle_uuid_t &
 uint64_t * BundleStorageCatalog::GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid) {
     return m_uuidNoFragToCustodyIdHashMap.GetValuePtr(bundleUuid);
 }
+
+bool BundleStorageCatalog::GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t & telem) {
+    const uint64_t priorityIndex = telem.priority;
+    if (priorityIndex >= NUMBER_OF_PRIORITIES) {
+        return false;
+    }
+    const uint64_t expiry = telem.thresholdSecondsSinceStartOfYear2000;
+
+    for (dest_eid_to_priorities_map_t::iterator dmIt = m_destEidToPrioritiesMap.begin(); dmIt != m_destEidToPrioritiesMap.end(); ++dmIt) {
+        const cbhe_eid_t& eid = dmIt->first;
+        priorities_to_expirations_array_t & priorityArray = dmIt->second;
+        expirations_to_custids_map_t& expirationsMap = priorityArray[priorityIndex];
+        for (expirations_to_custids_map_t::iterator expirationsIt = expirationsMap.begin(); expirationsIt != expirationsMap.end(); ++expirationsIt) {
+            const uint64_t thisExpiration = expirationsIt->first;
+            if (thisExpiration <= expiry) {
+                custids_flist_t& cidFlist = expirationsIt->second.first;
+                StorageExpiringBeforeThresholdTelemetry_t::bundle_count_plus_bundle_bytes_pair_t & bundleCountAndBytes = telem.map_node_id_to_expiring_before_threshold_count[eid.nodeId];
+                for (custids_flist_t::iterator cidFlistIt = cidFlist.begin(); cidFlistIt != cidFlist.end(); ++cidFlistIt) {
+                    ++bundleCountAndBytes.first;
+                    const uint64_t custodyId = *cidFlistIt;
+                    catalog_entry_t * catalogEntryPtr = m_custodyIdToCatalogEntryHashmap.GetValuePtr(custodyId);
+                    bundleCountAndBytes.second += catalogEntryPtr->bundleSizeBytes;
+                }
+            }
+        }
+    }
+    
+    return true;
+}

@@ -20,6 +20,7 @@
 #define HDTN_TELEMETRY_H 1
 
 #include <cstdint>
+#include <map>
 #include "telemetry_definitions_export.h"
 
 struct IngressTelemetry_t{
@@ -53,6 +54,18 @@ struct StorageTelemetry_t{
     uint64_t type;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
+
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+};
+
+struct StorageExpiringBeforeThresholdTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
+
+    uint64_t type;
+    uint64_t priority;
+    uint64_t thresholdSecondsSinceStartOfYear2000;
+    typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
+    std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t> map_node_id_to_expiring_before_threshold_count;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };

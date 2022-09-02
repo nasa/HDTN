@@ -812,18 +812,63 @@ void ZmqStorageInterface::ThreadFunc() {
                     std::cerr << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte) << std::endl;
                 }
-                else if (guiMsgByte != 1) {
-                    std::cerr << "error guiMsgByte not 1\n";
-                }
-                else {
+                else if (guiMsgByte == 1) {                    
                     //send telemetry
                     //std::cout << "storage send telem\n";
                     StorageTelemetry_t telem;
                     telem.totalBundlesErasedFromStorage = GetCurrentNumberOfBundlesDeletedFromStorage();
                     telem.totalBundlesSentToEgressFromStorage = m_totalBundlesSentToEgressFromStorage;
-                    if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
+
+                    std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(sizeof(StorageTelemetry_t)); //will be 64-bit aligned
+                    uint8_t* telemPtr = vecUint8RawPointer->data();
+                    const uint8_t* const telemSerializationBase = telemPtr;
+                    uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                    //start zmq message with telemetry
+                    const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
+                    telemBufferSize -= storageTelemSize;
+                    telemPtr += storageTelemSize;
+
+                    vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
+
+                    zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+
+                    if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
                         std::cerr << "storage can't send telemetry to gui" << std::endl;
                     }
+                }
+                else if (guiMsgByte == 2) {
+                    //send telemetry
+                    //std::cout << "storage send telem\n";
+                    StorageExpiringBeforeThresholdTelemetry_t telem;
+                    telem.priority = 2;
+                    telem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(10000));
+                    if (!bsm.GetStorageExpiringBeforeThresholdTelemetry(telem)) {
+                        std::cerr << "storage can't get StorageExpiringBeforeThresholdTelemetry" << std::endl;
+                    }
+                    else {
+                        //send telemetry
+                        std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
+                        uint8_t* telemPtr = vecUint8RawPointer->data();
+                        const uint8_t* const telemSerializationBase = telemPtr;
+                        uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                        //start zmq message with telemetry
+                        const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
+                        telemBufferSize -= storageTelemSize;
+                        telemPtr += storageTelemSize;
+
+                        vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
+
+                        zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+                        std::cout << "send with size " << zmqTelemMessageWithDataStolen.size() << "\n";
+                        if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                            std::cerr << "storage can't send telemetry to gui" << std::endl;
+                        }
+                    }
+                }
+                else {
+                    std::cerr << "error guiMsgByte not 1 or 2\n";
                 }
             }
         }

@@ -32,6 +32,7 @@ static double LittleToNativeDouble(const uint64_t* doubleAsUint64Little) {
 IngressTelemetry_t::IngressTelemetry_t() : type(1) {}
 EgressTelemetry_t::EgressTelemetry_t() : type(2) {}
 StorageTelemetry_t::StorageTelemetry_t() : type(3) {}
+StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t() : type(10) {}
 OutductTelemetry_t::OutductTelemetry_t() : type(4), totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0), totalBundlesFailedToSend(0) {}
 StcpOutductTelemetry_t::StcpOutductTelemetry_t() : OutductTelemetry_t(), totalStcpBytesSent(0) {
     convergenceLayerType = 1;
@@ -70,6 +71,34 @@ uint64_t StorageTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t buf
     }
     SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
     return NUM_BYTES;
+}
+
+uint64_t StorageExpiringBeforeThresholdTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
+    const uint8_t* const dataStartPtr = data;
+    uint64_t* data64Ptr = reinterpret_cast<uint64_t*>(data);
+    if (bufferSize < 32) {
+        return 0; //failure
+    }
+    bufferSize -= 32;
+    *data64Ptr++ = boost::endian::native_to_little(type);
+    *data64Ptr++ = boost::endian::native_to_little(priority);
+    *data64Ptr++ = boost::endian::native_to_little(thresholdSecondsSinceStartOfYear2000);
+    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(map_node_id_to_expiring_before_threshold_count.size()));
+    
+    //typedef std::pair<uint64_t, uint64_t> bundle_count_plus_bundle_bytes_pair_t;
+    for (std::map<uint64_t, bundle_count_plus_bundle_bytes_pair_t>::const_iterator it = map_node_id_to_expiring_before_threshold_count.cbegin();
+        it != map_node_id_to_expiring_before_threshold_count.cend();
+        ++it)
+    {
+        if (bufferSize < 24) {
+            return 0; //failure
+        }
+        bufferSize -= 24;
+        *data64Ptr++ = boost::endian::native_to_little(it->first); //node id
+        *data64Ptr++ = boost::endian::native_to_little(it->second.first); //bundle count
+        *data64Ptr++ = boost::endian::native_to_little(it->second.second); //total bundle bytes
+    }
+    return (reinterpret_cast<uint8_t*>(data64Ptr)) - dataStartPtr;
 }
 
 uint64_t StcpOutductTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
@@ -156,6 +185,33 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
 
             std::cout << " totalBundlesErasedFromStorage: " << totalBundlesErasedFromStorage << "\n";
             std::cout << " totalBundlesSentToEgressFromStorage: " << totalBundlesSentToEgressFromStorage << "\n";
+        }
+        else if (type == 10) { //StorageExpiringBeforeThresholdTelemetry_t
+            std::cout << "StorageExpiringBeforeThreshold Telem:\n";
+            if (size < 32) return false;
+            size -= 32;
+
+            const uint64_t priority = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            serialized += sizeof(uint64_t);
+            const uint64_t thresholdSecondsSinceStartOfYear2000 = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            serialized += sizeof(uint64_t);
+            const uint64_t numNodes = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            serialized += sizeof(uint64_t);
+
+            std::cout << " priority: " << priority << "\n";
+            std::cout << " thresholdSecondsSinceStartOfYear2000: " << thresholdSecondsSinceStartOfYear2000 << "\n";
+            const uint64_t remainingBytes = numNodes * 24;
+            if (size < remainingBytes) return false;
+            size -= remainingBytes;
+            for (uint64_t i = 0; i < numNodes; ++i) {
+                const uint64_t nodeId = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                const uint64_t bundleCount = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                const uint64_t totalBundleBytes = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+                serialized += sizeof(uint64_t);
+                std::cout << " finalDestNode: " << nodeId << " : bundleCount=" << bundleCount << " totalBundleBytes=" << totalBundleBytes << "\n";
+            }
         }
         else if (type == 4) { //a single outduct
             if (size < (2 * sizeof(uint64_t))) return false; //type + convergenceLayerType

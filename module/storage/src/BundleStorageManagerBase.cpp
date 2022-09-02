@@ -409,6 +409,9 @@ uint64_t * BundleStorageManagerBase::GetCustodyIdFromUuid(const cbhe_bundle_uuid
 uint64_t * BundleStorageManagerBase::GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid) {
     return m_bundleStorageCatalog.GetCustodyIdFromUuid(bundleUuid);
 }
+bool BundleStorageManagerBase::GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t& telem) {
+    return m_bundleStorageCatalog.GetStorageExpiringBeforeThresholdTelemetry(telem);
+}
 //uint64_t BundleStorageManagerMT::TopSegmentCount(BundleStorageManagerSession_ReadFromDisk & session) {
 //	return session.chainInfoVecPtr->front().second.size(); //use the front as new writes will be pushed back
 //}
