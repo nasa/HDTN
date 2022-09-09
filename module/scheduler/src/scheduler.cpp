@@ -223,6 +223,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this, running, &socket)); //create and start the worker thread
 
+	boost::this_thread::sleep(boost::posix_time::seconds(2));
+
         if (!isPingTest) {
             scheduler.ProcessContactsFile(&jsonEventFileName, &socket);
         }
