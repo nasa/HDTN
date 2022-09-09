@@ -420,8 +420,9 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
                     outduct->Forward(zmqMessageBundle);
                     if (zmqMessageBundle.size() != 0) {
-                        std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved" << std::endl;
+                        std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved.. sending to storage" << std::endl;
                         hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
+                        OnFailedBundleZmqSendCallback(zmqMessageBundle, outduct->GetOutductUuid()); //todo is this correct?
                     }
                 }
                 else {
@@ -539,6 +540,51 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 std::cerr << "critical error in HegrManagerAsync::ProcessZmqMessagesThreadFunc: cannot find outductUuid " << outductUuid << std::endl;
             }
         }
+
+        //send failed bundles back to storage
+        while(!m_failedBundleQueue.empty()) {
+            m_mutexFailedBundleQueue.lock();
+            if (m_failedBundleQueue.empty()) {
+                m_mutexFailedBundleQueue.unlock();
+                break;
+            }
+            vec8_or_zmq_bundle_pair_t p = std::move(m_failedBundleQueue.front());
+            m_failedBundleQueue.pop();
+            m_mutexFailedBundleQueue.unlock();
+
+            if ((p.second.size() == 0) && (p.first.size() == 0)) {
+                std::cout << "error: queue with empty element\n";
+                continue;
+            }
+
+            hdtn::EgressAckHdr* egressAckPtr = new hdtn::EgressAckHdr();
+            //memset 0 not needed because all values set below
+            egressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE;
+
+            zmq::message_t messageWithDataStolen(egressAckPtr, sizeof(hdtn::EgressAckHdr), CustomCleanupEgressAckHdrNoHint); //storage can be acked right away since bundle transferred
+            if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(messageWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                break;
+            }
+
+            if (p.second.size()) { //zmq
+                if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(p.second), zmq::send_flags::dontwait)) {
+                    std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                    break;
+                }
+            }
+            else { //vec8
+                std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(std::move(p.first));
+                zmq::message_t zmqMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+                if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                    std::cout << "error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send" << std::endl;
+                    hdtn::Logger::getInstance()->logError("egress", "Error: m_zmqPushSock_boundEgressToConnectingStoragePtr could not send");
+                    break;
+                }
+            }
+        }
     }
 
     std::cout << "HegrManagerAsync::ReadZmqThreadFunc thread exiting\n";
@@ -588,10 +634,20 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(padded_vector_uint8_t & wh
 void hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, uint64_t outductUuid) {
     std::cout << "OnFailedBundleVecSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
     DoLinkStatusUpdate(true, outductUuid);
+
+    {
+        boost::mutex::scoped_lock lock(m_mutexFailedBundleQueue);
+        m_failedBundleQueue.emplace(std::move(movableBundle), zmq::message_t());
+    }
 }
 void hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid) {
     std::cout << "OnFailedBundleZmqSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
     DoLinkStatusUpdate(true, outductUuid);
+
+    {
+        boost::mutex::scoped_lock lock(m_mutexFailedBundleQueue);
+        m_failedBundleQueue.emplace(std::vector<uint8_t>(), std::move(movableBundle));
+    }
 }
 void hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     std::cout << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid << "\n";

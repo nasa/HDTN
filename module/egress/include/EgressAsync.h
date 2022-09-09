@@ -69,6 +69,11 @@ private:
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
 
+    typedef std::pair<std::vector<uint8_t>, zmq::message_t> vec8_or_zmq_bundle_pair_t;
+    typedef std::queue<vec8_or_zmq_bundle_pair_t> failed_bundle_queue_t;
+    failed_bundle_queue_t m_failedBundleQueue;
+
+    boost::mutex m_mutexFailedBundleQueue;
     boost::mutex m_mutexPushSignal;
     boost::mutex m_mutexPushBundleToIngress;
     boost::mutex m_mutexLinkStatusUpdate;
