@@ -39,7 +39,6 @@
             {
                 "name": "from bpsendfile",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -47,7 +46,6 @@
             {
                 "name": "custody from tantalus hdtn",
                 "convergenceLayer": "ltp_over_udp",
-                "myEndpointId": "ipn:10.0",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 500,
                 "thisLtpEngineId": 10,
@@ -74,7 +72,7 @@
             {
                 "name": "to tantalus",
                 "convergenceLayer": "ltp_over_udp",
-                "nextHopEndpointId": "ipn:20.1",
+                "nextHopNodeId": 20,
                 "remoteHostname": "tantalus",
                 "remotePort": 1113,
                 "bundlePipelineLimit": 50,
@@ -98,7 +96,7 @@
             {
                 "name": "to localhost bpsendfile custody",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:1.0",
+                "nextHopNodeId": 1,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 50,

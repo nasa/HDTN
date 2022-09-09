@@ -38,7 +38,6 @@
             {
                 "name": "stcp ingress",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:69.1",
                 "boundPort": 4557,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -46,7 +45,6 @@
 	    {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
-                "myEndpointId": "ipn:69.2",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 100,
                 "thisLtpEngineId": 69,
@@ -72,7 +70,7 @@
             {
                 "name": "stcp egress1",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:35.1",
+                "nextHopNodeId": 35,
                 "remoteHostname": "ION_Space_Node",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 500,
@@ -88,7 +86,7 @@
 	    {
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
-                "nextHopEndpointId": "ipn:68.1",
+                "nextHopNodeId": 68,
                 "remoteHostname": "DTNME_Ground_Node",
                 "remotePort": 1113,
                 "bundlePipelineLimit": 500,

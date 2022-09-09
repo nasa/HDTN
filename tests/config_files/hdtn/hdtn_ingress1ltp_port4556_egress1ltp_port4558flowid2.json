@@ -38,7 +38,6 @@
             {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
-                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 100,
                 "thisLtpEngineId": 100,
@@ -64,7 +63,7 @@
             {
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
-                "nextHopEndpointId": "ipn:2.1",
+                "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,

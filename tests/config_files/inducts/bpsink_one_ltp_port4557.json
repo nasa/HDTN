@@ -4,7 +4,6 @@
         {
             "name": "i1",
             "convergenceLayer": "ltp_over_udp",
-            "myEndpointId": "ipn:1.1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 100,
             "thisLtpEngineId": 10004557,

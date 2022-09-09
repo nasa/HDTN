@@ -250,16 +250,13 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
     CommonHdr *common = (CommonHdr *)message.data();
     if (common->type == HDTN_MSGTYPE_ROUTEUPDATE) {
         hdtn::RouteUpdateHdr * routeUpdateHdr = (hdtn::RouteUpdateHdr *)message.data();
-        cbhe_eid_t nextHopEid = routeUpdateHdr->nextHopEid;
-        cbhe_eid_t finalDestEid = routeUpdateHdr->finalDestEid;
-        Outduct * outduct = m_outductManager.GetOutductByNextHopEid(nextHopEid);
-        const uint64_t outductId1 = outduct->GetOutductUuid();
-        Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid);
-        const uint64_t outductId2 = outduct2->GetOutductUuid();
-        if (outductId2 != outductId1) {
-            std::shared_ptr<Outduct> outductPtr = m_outductManager.GetOutductSharedPtrByOutductUuid(outductId1);
-            m_outductManager.SetOutductForFinalDestinationEid_ThreadSafe(finalDestEid, outductPtr);
-            std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outductId1 << std::endl;
+        if (m_outductManager.Reroute_ThreadSafe(routeUpdateHdr->finalDestNodeId, routeUpdateHdr->nextHopNodeId)) {
+            std::cout << "[Egress] Updated the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr->finalDestNodeId
+                << ": New Outduct Next Hop is " << routeUpdateHdr->nextHopNodeId << std::endl;
+        }
+        else {
+            std::cout << "[Egress] Failed to update the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr->finalDestNodeId
+                << " to a next hop outduct node id " << routeUpdateHdr->nextHopNodeId << std::endl;
         }
     }
 }

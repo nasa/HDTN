@@ -38,7 +38,6 @@
             {
                 "name": "from bpgen",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -51,7 +50,7 @@
             {
                 "name": "to xi proxy then to mu",
                 "convergenceLayer": "ltp_over_udp",
-                "nextHopEndpointId": "ipn:20.1",
+                "nextHopNodeId": 20,
                 "remoteHostname": "xi",
                 "remotePort": 1114,
                 "bundlePipelineLimit": 6000,

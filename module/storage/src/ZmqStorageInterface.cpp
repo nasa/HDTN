@@ -777,13 +777,13 @@ void ZmqStorageInterface::ThreadFunc() {
 
                     hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
                     const std::string msg = "finalDestEid (" 
-                        + Uri::GetIpnUriString(iReleaseStartHdr->finalDestinationEid.nodeId, iReleaseStartHdr->finalDestinationEid.serviceId) 
+                        + Uri::GetIpnUriStringAnyServiceNumber(iReleaseStartHdr->finalDestinationNodeId) 
                         + ") will be released from storage";
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
-                    availableDestLinksSet.emplace(iReleaseStartHdr->finalDestinationEid, false); //false => fully qualified service id
-                    availableDestLinksSet.emplace(iReleaseStartHdr->nextHopEid, false);
-		}
+                    availableDestLinksSet.emplace(cbhe_eid_t(iReleaseStartHdr->finalDestinationNodeId, 0), true); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                    availableDestLinksSet.emplace(cbhe_eid_t(iReleaseStartHdr->nextHopNodeId, 0), true); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                }
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                         std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
@@ -791,15 +791,16 @@ void ZmqStorageInterface::ThreadFunc() {
                         continue;
                     }
 
-                    hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
-                    const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
-                        + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
+                    hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
+                    const std::string msg = "finalDestEid (" 
+                        + Uri::GetIpnUriStringAnyServiceNumber(iReleaseStopHdr->finalDestinationNodeId)
+                        + ") will STOP BEING released from storage";
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
-                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
-                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->nextHopEid, false)); //false => fully qualified service id
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(iReleaseStopHdr->finalDestinationNodeId, 0), true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(iReleaseStopHdr->nextHopNodeId, 0), true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
 
-		}
+                }
                 PrintReleasedLinks(availableDestLinksSet);
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //gui requests data

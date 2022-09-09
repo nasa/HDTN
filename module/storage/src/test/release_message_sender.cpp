@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         hdtn::IreleaseStartHdr releaseMsg;
         memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
         releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-        releaseMsg.finalDestinationEid = finalDestEidToRelease;
+        releaseMsg.finalDestinationNodeId = finalDestEidToRelease.nodeId; //todo
         releaseMsg.rate = 0;  //not implemented
         releaseMsg.duration = 20;//not implemented
         socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
         hdtn::IreleaseStopHdr stopMsg;
         memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
         stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-        stopMsg.finalDestinationEid = finalDestEidToRelease;
+        stopMsg.finalDestinationNodeId = finalDestEidToRelease.nodeId;
         socket.send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
         std::cout << "Stop Release message sent \n";
         boost::this_thread::sleep(boost::posix_time::seconds(1));

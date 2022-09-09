@@ -38,7 +38,6 @@
             {
                 "name": "stcp ingress",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:4.1",
                 "boundPort": 4559,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -51,7 +50,7 @@
             {
                 "name": "stcp egress1",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:200.1",
+                "nextHopNodeId": 200,
                 "remoteHostname": "node4",
                 "remotePort": 4560,
                 "bundlePipelineLimit": 500,

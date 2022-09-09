@@ -20,7 +20,7 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 outduct_element_config_t::outduct_element_config_t() :
     name(""),
     convergenceLayer(""),
-    nextHopEndpointId(""),
+    nextHopNodeId(0),
     remoteHostname(""),
     remotePort(0),
     bundlePipelineLimit(0),
@@ -61,7 +61,7 @@ outduct_element_config_t::~outduct_element_config_t() {}
 outduct_element_config_t::outduct_element_config_t(const outduct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
-    nextHopEndpointId(o.nextHopEndpointId),
+    nextHopNodeId(o.nextHopNodeId),
     remoteHostname(o.remoteHostname),
     remotePort(o.remotePort),
     bundlePipelineLimit(o.bundlePipelineLimit),
@@ -99,7 +99,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
 outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
-    nextHopEndpointId(std::move(o.nextHopEndpointId)),
+    nextHopNodeId(o.nextHopNodeId),
     remoteHostname(std::move(o.remoteHostname)),
     remotePort(o.remotePort),
     bundlePipelineLimit(o.bundlePipelineLimit),
@@ -137,7 +137,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
 outduct_element_config_t& outduct_element_config_t::operator=(const outduct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
-    nextHopEndpointId = o.nextHopEndpointId;
+    nextHopNodeId = o.nextHopNodeId;
     remoteHostname = o.remoteHostname;
     remotePort = o.remotePort;
     bundlePipelineLimit = o.bundlePipelineLimit;
@@ -178,7 +178,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
 outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
-    nextHopEndpointId = std::move(o.nextHopEndpointId);
+    nextHopNodeId = o.nextHopNodeId;
     remoteHostname = std::move(o.remoteHostname);
     remotePort = o.remotePort;
     bundlePipelineLimit = o.bundlePipelineLimit;
@@ -218,7 +218,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
 bool outduct_element_config_t::operator==(const outduct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
-        (nextHopEndpointId == o.nextHopEndpointId) &&
+        (nextHopNodeId == o.nextHopNodeId) &&
         (remoteHostname == o.remoteHostname) &&
         (remotePort == o.remotePort) &&
         (bundlePipelineLimit == o.bundlePipelineLimit) &&
@@ -300,7 +300,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
         try {
             outductElementConfig.name = outductElementConfigPt.second.get<std::string>("name");
             outductElementConfig.convergenceLayer = outductElementConfigPt.second.get<std::string>("convergenceLayer");
-            outductElementConfig.nextHopEndpointId = outductElementConfigPt.second.get<std::string>("nextHopEndpointId");
+            outductElementConfig.nextHopNodeId = outductElementConfigPt.second.get<uint64_t>("nextHopNodeId");
             {
                 bool found = false;
                 for (std::vector<std::string>::const_iterator it = VALID_CONVERGENCE_LAYER_NAMES.cbegin(); it != VALID_CONVERGENCE_LAYER_NAMES.cend(); ++it) {
@@ -496,7 +496,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & outductElementConfigPt = (outductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         outductElementConfigPt.put("name", outductElementConfig.name);
         outductElementConfigPt.put("convergenceLayer", outductElementConfig.convergenceLayer);
-        outductElementConfigPt.put("nextHopEndpointId", outductElementConfig.nextHopEndpointId);
+        outductElementConfigPt.put("nextHopNodeId", outductElementConfig.nextHopNodeId);
         outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
         outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
         outductElementConfigPt.put("bundlePipelineLimit", outductElementConfig.bundlePipelineLimit);

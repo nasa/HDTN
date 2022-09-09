@@ -136,11 +136,11 @@ struct IreleaseStartHdr {
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    cbhe_eid_t finalDestinationEid;   // formerly flow ID
+    uint64_t finalDestinationNodeId;   // formerly flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
-    cbhe_eid_t prevHopEid;
-    cbhe_eid_t nextHopEid;
+    uint64_t prevHopNodeId;
+    uint64_t nextHopNodeId;
 };
 
 struct IreleaseStopHdr {
@@ -149,17 +149,17 @@ struct IreleaseStopHdr {
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    cbhe_eid_t finalDestinationEid;
-    cbhe_eid_t prevHopEid;
-    cbhe_eid_t nextHopEid;
+    uint64_t finalDestinationNodeId;
+    uint64_t prevHopNodeId;
+    uint64_t nextHopNodeId;
 };
 
 struct RouteUpdateHdr {
     CommonHdr base;
     uint8_t unused3;
     uint8_t unused4;
-    cbhe_eid_t nextHopEid;
-    cbhe_eid_t finalDestEid;
+    uint64_t nextHopNodeId;
+    uint64_t finalDestNodeId;
     uint64_t route[20]; //optimal route
 };
 

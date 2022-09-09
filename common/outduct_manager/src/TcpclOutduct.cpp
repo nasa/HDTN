@@ -3,11 +3,13 @@
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <boost/lexical_cast.hpp>
+#include "Uri.h"
 
 TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
-    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
+    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId,
+        Uri::GetIpnUriString(outductConfig.nextHopNodeId, 0), //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
         outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclV3MyMaxTxSegmentSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {}
 TcpclOutduct::~TcpclOutduct() {}

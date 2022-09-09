@@ -4,7 +4,6 @@
         {
             "name": "localhost bpsink",
             "convergenceLayer": "stcp",
-            "myEndpointId": "ipn:2.1",
             "boundPort": 4556,
             "numRxCircularBufferElements": 200,
             "keepAliveIntervalSeconds": 15

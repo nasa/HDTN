@@ -38,7 +38,6 @@
             {
                 "name": "tcpcl_ingress",
                 "convergenceLayer": "tcpcl_v3",
-                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
@@ -53,10 +52,10 @@
             {
                 "name": "tcpcl_egress",
                 "convergenceLayer": "tcpcl_v3",
-                "nextHopEndpointId": "ipn:2.1",
+                "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 5,
+                "bundlePipelineLimit": 20,
                 "finalDestinationEidUris": [
                     "ipn:2.1",
                     "ipn:2.2047"

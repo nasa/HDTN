@@ -72,19 +72,17 @@ public:
     zmq::socket_t socket;
 
 private:
-    void SendLinkUp(uint64_t src, uint64_t dest, cbhe_eid_t finalDestinationEid,
+    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId,
                            zmq::socket_t * ptrSocket);
-    void SendLinkDown(uint64_t src, uint64_t dest, cbhe_eid_t finalDestinationEid,
+    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId,
                            zmq::socket_t * ptrSocket);
     void ProcessLinkUp(const boost::system::error_code&, uint64_t src, uint64_t dest,
-		                            cbhe_eid_t finalDestinationEid,
-                                            std::string event, zmq::socket_t * ptrSocket);
+        uint64_t finalDestinationNodeId, std::string event, zmq::socket_t * ptrSocket);
     void ProcessLinkDown(const boost::system::error_code&, uint64_t src,
-        uint64_t dest, cbhe_eid_t finalDestinationEid,
-			 std::string event, zmq::socket_t * ptrSocket);
+        uint64_t dest, uint64_t finalDestinationNodeId, std::string event, zmq::socket_t * ptrSocket);
 
     static void PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* t, 
-		            const cbhe_eid_t* finalDestinationEid, zmq::socket_t * ptrSocket, const char* command);
+		            const uint64_t finalDestinationNodeId, zmq::socket_t * ptrSocket, const char* command);
      
     void MonitorExitKeypressThreadFunction();
     void EgressEventsHandler(zmq::socket_t * socket);

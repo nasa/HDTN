@@ -35,11 +35,11 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
 {
     LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(maxUdpRxPacketSizeBytesForAllLtp); //MUST BE CALLED BEFORE ANY USAGE OF LTP
     m_finalDestEidToOutductMap.clear();
-    m_nextHopEidToOutductMap.clear();
+    m_finalDestNodeIdToOutductMap.clear();
+    m_nextHopNodeIdToOutductMap.clear();
     m_outductsVec.clear();
     m_threadCommunicationVec.clear();
     uint64_t nextOutductUuidIndex = 0;
-    std::set<std::string> usedFinalDestEidSet;
     const outduct_element_config_vector_t & configsVec = outductsConfig.m_outductElementConfigVector;
     m_threadCommunicationVec.reserve(configsVec.size());
     m_outductsVec.reserve(configsVec.size());
@@ -84,25 +84,63 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             m_threadCommunicationVec.push_back(std::move(boost::make_unique<thread_communication_t>())); //uuid will be the array index
             for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin(); itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
                 const std::string & finalDestinationEidUri = *itDestUri;
-                if (usedFinalDestEidSet.insert(finalDestinationEidUri).second == false) { //not inserted, flowId already exists
-                    std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri << " is already in use by another outduct." << std::endl;
-                    return false;
-                }
+                const bool isFirstLoop = (itDestUri == thisOutductConfig.finalDestinationEidUris.cbegin());
                 cbhe_eid_t destEid;
-                if (!Uri::ParseIpnUriString(finalDestinationEidUri, destEid.nodeId, destEid.serviceId)) {
-                    std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri << " is invalid." << std::endl;
+                bool serviceNumberIsWildCard;
+                if (!Uri::ParseIpnUriString(finalDestinationEidUri, destEid.nodeId, destEid.serviceId, &serviceNumberIsWildCard)) {
+                    std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                        << " is invalid." << std::endl;
                     return false;
                 }
-                m_finalDestEidToOutductMap[destEid] = outductSharedPtr;
+                if (serviceNumberIsWildCard) {
+                    if (m_finalDestNodeIdToOutductMap.emplace(destEid.nodeId, outductSharedPtr).second == false) { //not inserted, already exists
+                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                            << " is already in use by another outduct." << std::endl;
+                        return false;
+                    }
+                    //make sure there is nothing in the fully qualified map
+                    const cbhe_eid_t eidStart = cbhe_eid_t(destEid.nodeId, 0);
+                    //lower bound points to equivalent or next greater
+                    std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator eidIt = m_finalDestEidToOutductMap.lower_bound(eidStart);
+                    if ((eidIt != m_finalDestEidToOutductMap.end()) && (eidIt->first.nodeId == destEid.nodeId)) {
+                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri 
+                            << " is already in use by an outduct using the fully qualified eid " << eidIt->first << std::endl;
+                        return false;
+                    }
+                }
+                else { //fully qualified eid
+                    if (isFirstLoop) {
+                        //this is for an outduct that may only want to forward certain service numbers and reject bundles with unknown service numbers
+                        //make sure there is nothing in the fully qualified map
+                        const cbhe_eid_t eidStart = cbhe_eid_t(destEid.nodeId, 0);
+                        //lower bound points to equivalent or next greater
+                        std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator eidIt = m_finalDestEidToOutductMap.lower_bound(eidStart);
+                        if ((eidIt != m_finalDestEidToOutductMap.end()) && (eidIt->first.nodeId == destEid.nodeId)) {
+                            std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                                << " shares a node number that is already in use by an outduct using the fully qualified eid " << eidIt->first 
+                                << ". Please note that HDTN does not support selecting an outduct by service number." << std::endl;
+                            return false;
+                        }
+
+                    }
+                    if (m_finalDestEidToOutductMap.emplace(destEid, outductSharedPtr).second == false) { //not inserted, already exists
+                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                            << " is already in use by another outduct." << std::endl;
+                        return false;
+                    }
+                    if (m_finalDestNodeIdToOutductMap.count(destEid.nodeId)) {
+                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                            << " is already in use by an outduct using the wildcard eid " 
+                            << Uri::GetIpnUriStringAnyServiceNumber(destEid.nodeId) << std::endl;
+                        return false;
+                    }
+                }
             }
-            cbhe_eid_t nextHopEid;
-            if (!Uri::ParseIpnUriString(thisOutductConfig.nextHopEndpointId, nextHopEid.nodeId, nextHopEid.serviceId)) {
-                std::cerr << "error in OutductManager::LoadOutductsFromConfig: nextHopEndpointId " <<
-                    thisOutductConfig.nextHopEndpointId << " is invalid." << std::endl;
+            if (m_nextHopNodeIdToOutductMap.emplace(thisOutductConfig.nextHopNodeId, outductSharedPtr).second == false) { //not inserted, already exists
+                std::cerr << "error in OutductManager::LoadOutductsFromConfig: nextHopNodeId " << thisOutductConfig.nextHopNodeId
+                    << " is already in use by another outduct." << std::endl;
                 return false;
             }
-
-            m_nextHopEidToOutductMap[nextHopEid] = outductSharedPtr;
 
             outductSharedPtr->SetOnSuccessfulAckCallback(boost::bind(&OutductManager::OnSuccessfulBundleAck, this, uuidIndex));
             outductSharedPtr->SetOnFailedBundleVecSendCallback(outductOnFailedBundleVecSendCallback);
@@ -118,11 +156,6 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         }
     }
     return true;
-}
-
-void OutductManager::Clear() {
-    m_finalDestEidToOutductMap.clear();
-    m_nextHopEidToOutductMap.clear();
 }
 
 bool OutductManager::AllReadyToForward() const {
@@ -253,23 +286,65 @@ bool OutductManager::Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vect
     }
 }
 
-void OutductManager::SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, std::shared_ptr<Outduct> & outductPtr) {
-    m_finalDestEidToOutductMapMutex.lock();
-    m_finalDestEidToOutductMap[finalDestEid] = outductPtr;
-    m_finalDestEidToOutductMapMutex.unlock();
+bool OutductManager::Reroute_ThreadSafe(const uint64_t finalDestNodeId, const uint64_t newNextHopNodeId) {
+
+    boost::mutex::scoped_lock lock(m_finalDestNodeIdToOutductMapMutex);
+    boost::mutex::scoped_lock lock2(m_finalDestEidToOutductMapMutex);
+
+    std::map<uint64_t, std::shared_ptr<Outduct> >::iterator itNextHopNodeId = m_nextHopNodeIdToOutductMap.find(newNextHopNodeId);
+    if (itNextHopNodeId == m_nextHopNodeIdToOutductMap.end()) {
+        std::cerr << "error in OutductManager::Reroute_ThreadSafe: newNextHopNodeId " << newNextHopNodeId << " not found in HDTN's outducts\n";
+        return false;
+    }
+    std::shared_ptr<Outduct> & newOutductPtrRef = itNextHopNodeId->second;
+
+    //first check if wild card
+    bool success = false;
+    std::map<uint64_t, std::shared_ptr<Outduct> >::iterator itNodeMap = m_finalDestNodeIdToOutductMap.find(finalDestNodeId);
+    if (itNodeMap != m_finalDestNodeIdToOutductMap.end()) { //this map contains eids to move to another 
+        itNodeMap->second = newOutductPtrRef;
+        success = true;
+    }
+    else { //fully qualified eids
+        const cbhe_eid_t eidStart = cbhe_eid_t(finalDestNodeId, 0);
+        typedef std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator it_t; //for deletion later
+        typedef std::pair<it_t, std::shared_ptr<Outduct> > it_outduct_pair_t;
+        std::queue<it_outduct_pair_t> outductsToMove;
+        //lower bound points to equivalent or next greater
+        for (std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator itEidMap = m_finalDestEidToOutductMap.lower_bound(eidStart);
+            (itEidMap != m_finalDestEidToOutductMap.end()) && (itEidMap->first.nodeId == finalDestNodeId);
+            ++itEidMap)
+        {
+            itEidMap->second = newOutductPtrRef;
+            success = true;
+        }
+    }
+    return success;
 }
 
 Outduct * OutductManager::GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid) {
-    m_finalDestEidToOutductMapMutex.lock();
-    std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator it = m_finalDestEidToOutductMap.find(finalDestEid);
-    Outduct * const retVal = (it != m_finalDestEidToOutductMap.end()) ? it->second.get() : NULL;
-    m_finalDestEidToOutductMapMutex.unlock();
+    Outduct* retVal = NULL;
+    //first try to find by node id (ipn:nodeId.*)
+    m_finalDestNodeIdToOutductMapMutex.lock();
+    std::map<uint64_t, std::shared_ptr<Outduct> >::iterator itNodeIdOutduct = m_finalDestNodeIdToOutductMap.find(finalDestEid.nodeId);
+    if (itNodeIdOutduct != m_finalDestNodeIdToOutductMap.end()) {
+        retVal = itNodeIdOutduct->second.get();
+    }
+    m_finalDestNodeIdToOutductMapMutex.unlock();
+    if (retVal == NULL) { //try to find by fully qualified eid
+        m_finalDestEidToOutductMapMutex.lock();
+        std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator itEidOutduct = m_finalDestEidToOutductMap.find(finalDestEid);
+        if (itEidOutduct != m_finalDestEidToOutductMap.end()) {
+            retVal = itEidOutduct->second.get();
+        }
+        m_finalDestEidToOutductMapMutex.unlock();
+    }
     return retVal;
 }
 
-Outduct * OutductManager::GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid) {
+Outduct * OutductManager::GetOutductByNextHopNodeId(const uint64_t nextHopNodeId) {
     try {
-        if (std::shared_ptr<Outduct> & outductPtr = m_nextHopEidToOutductMap.at(nextHopEid)) {
+        if (std::shared_ptr<Outduct> & outductPtr = m_nextHopNodeIdToOutductMap.at(nextHopNodeId)) {
             return outductPtr.get();
         }
     }

@@ -38,7 +38,6 @@
             {
                 "name": "from nuc3",
                 "convergenceLayer": "ltp_over_udp",
-                "myEndpointId": "ipn:20.1",
                 "boundPort": 1113,
                 "numRxCircularBufferElements": 5000,
                 "thisLtpEngineId": 20,
@@ -64,7 +63,7 @@
             {
                 "name": "to localhost bpsink",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:2.1",
+                "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4556,
                 "bundlePipelineLimit": 50,
