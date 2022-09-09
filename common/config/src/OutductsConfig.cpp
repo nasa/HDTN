@@ -330,7 +330,8 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
                 const std::string uriStr = finalDestinationEidUriValuePt.second.get_value<std::string>();
                 uint64_t node, svc;
-                if (!Uri::ParseIpnUriString(uriStr, node, svc)) {
+                bool serviceNumberIsWildCard;
+                if (!Uri::ParseIpnUriString(uriStr, node, svc, &serviceNumberIsWildCard)) {
                     std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid final destination eid uri " << uriStr << std::endl;
                     return false;
                 }

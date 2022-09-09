@@ -10,7 +10,8 @@
             "bundlePipelineLimit": 5,
             "finalDestinationEidUris": [
                 "ipn:1.1",
-                "ipn:2.1"
+                "ipn:2.1",
+                "ipn:7.*"
             ],
             "thisLtpEngineId": 102,
             "remoteLtpEngineId": 103,
