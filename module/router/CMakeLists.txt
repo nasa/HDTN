@@ -9,6 +9,7 @@ target_link_libraries(hdtn-router
 	hdtn_util
 	config_lib
 	Boost::program_options
+	cgr_lib
 )
 
 target_include_directories(hdtn-router

@@ -4,6 +4,7 @@
 #include "JsonSerializable.h"
 #include <boost/make_unique.hpp>
 #include <zmq.hpp>
+#include "libcgr.h"
 
 class CgrServer
 {

@@ -7,70 +7,78 @@
             "finalDestination": 200,
             "startTime": 0,
             "endTime": 120,
-            "rate": 1000
+            "rate": 1000,
+            "owlt":  1
        },
        {
             "contact": 2,
             "source": 1,
             "dest": 2,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 0,
             "endTime": 120,
-            "rate": 1000
-        },
-	{
+            "rate": 1000,
+            "owlt":  1
+       },
+	     {
             "contact": 3,
             "source": 2,
             "dest": 4,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 11,
             "endTime": 150,
-            "rate": 1000
-        },
-	{
+            "rate": 1000,
+	          "owlt":  1
+       },
+	     {
             "contact": 4,
             "source": 4,
             "dest": 200,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 0,
             "endTime": 150,
-            "rate": 1000
-        },
-	{
+            "rate": 1000,
+            "owlt":  1
+       },
+	     {
             "contact": 5,
             "source": 1,
             "dest": 3,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 11,
             "endTime": 150,
-            "rate": 1000
-        },
-        {
+            "rate": 1000,
+            "owlt":  1
+       },
+       {
             "contact": 6,
             "source": 1,
             "dest": 2,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 17,
             "endTime": 200,
-            "rate": 1000
-        },
-        {
+            "rate": 1000,
+            "owlt":  1
+       },
+       {
             "contact": 7,
             "source": 2,
             "dest": 4,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 20,
             "endTime": 250,
-            "rate": 1000
-        },
-        {
+            "rate": 1000,
+            "owlt":  1
+       },
+       {
             "contact": 8,
             "source": 3,
             "dest": 4,
-	    "finalDestination": 200,
+	          "finalDestination": 200,
             "startTime": 25,
             "endTime": 300,
-            "rate": 1000
-        }
+            "rate": 1000,
+            "owlt":  1
+       }
     ]
 }

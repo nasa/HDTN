@@ -3,7 +3,7 @@ import sys
 import re
 
 def main(argv):
-    file_name = str(argv)
+    file_name = str(sys.argv[1])
     contacts = []
     with open(file_name, 'r') as cf:
         count = 0
@@ -20,12 +20,12 @@ def main(argv):
             #owlt (one-way light time) is in ION ranges, not contacts
             contacts.append({"contact": count, "source": frm, "dest": to, \
                              "startTime": start, "endTime": end, "rate": rate, \
-                             "owlt": 0})
+                             "owlt": 1})
             count += 1
     __contact_plan = {"contacts": contacts}
     print(__contact_plan)
-    with open('cgrTable.json', 'w') as outfile:
-        json.dump(__contact_plan, outfile, default=set_default)
+    with open(str(sys.argv[2]), 'w') as outfile:
+        json.dump(__contact_plan, outfile, default=set_default, indent=4)
 
 def set_default(obj):
     if isinstance(obj, set):

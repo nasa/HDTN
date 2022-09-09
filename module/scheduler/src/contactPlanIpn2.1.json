@@ -6,7 +6,8 @@
             "dest": 3,
             "startTime": 10,
             "endTime": 20,
-            "rate": "1000"
+        "rate": "1000",
+        "owlt":  1
         },
         {
             "contact": 1,
@@ -14,7 +15,8 @@
             "dest": 2,
             "startTime": 30,
             "endTime": 40,
-            "rate": "1000"
+          "rate": "1000",
+          "owlt":  1
         }
 
     ]

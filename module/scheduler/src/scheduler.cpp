@@ -50,22 +50,24 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
 }
 
 void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const uint64_t finalDestinationNodeId,
-                                   zmq::socket_t * socket, const char* command)
+    zmq::socket_t * socket, const char* command)
 {
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+ 
+
     if (!e) {
         if (system(command) ) {
             std::cout <<   "Ping Failed  ==> Send Link Down Event \n" << std::endl << std::flush;
             std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-             hdtn::IreleaseStopHdr stopMsg;
-             memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
-             stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-             stopMsg.finalDestinationNodeId = finalDestinationNodeId;
-             socket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-             std::cout << " -- LINK DOWN Event sent for destination: (" << finalDestinationNodeId << ")" << std::endl;
-
-        } else {
+            hdtn::IreleaseStopHdr stopMsg;
+            memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
+            stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
+            stopMsg.finalDestinationNodeId = finalDestinationNodeId;
+            socket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
+            std::cout << " -- LINK DOWN Event sent for destination: (" << finalDestinationNodeId << ")" << std::endl;
+        }
+        else {
             std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
             std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
             hdtn::IreleaseStartHdr releaseMsg;
@@ -80,13 +82,15 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
         dt->async_wait(boost::bind(Scheduler::PingCommand,
                        boost::asio::placeholders::error,
                        dt, finalDestinationNodeId, socket, command));
-    } else {
+    }
+    else {
         std::cout << "timer dt cancelled\n";
     }
 }
 
 bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, 
-		    std::string jsonEventFileName, bool useSignalHandler) {
+    std::string jsonEventFileName, bool useSignalHandler)
+{
     //Scope to ensure clean exit before return
     {
         running = true;
@@ -106,12 +110,11 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", opt::value<std::string>()->default_value("2dtn.json"), "HDTN Configuration File.")
-		("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
+                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
                 "Contact Plan file that scheudler relies on for link availability.")
                 ("ping-test", "Scheduler only relies on ping results for link availability.")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
-                ("dest-addr", opt::value<std::string>()->default_value("127.0.0.1"), "final destination IP addr to ping for link availability")
-		;
+                ("dest-addr", opt::value<std::string>()->default_value("127.0.0.1"), "final destination IP addr to ping for link availability");
 
             opt::variables_map vm;
             opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -122,32 +125,35 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-	    const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
 
             if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
                 m_hdtnConfig = *ptrConfig;
-            } else {
+            }
+            else {
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
 
-	    contactsFile = vm["contact-plan-file"].as<std::string>();
+            //int src = m_hdtnConfig.m_myNodeId;
+
+            contactsFile = vm["contact-plan-file"].as<std::string>();
             if (contactsFile.length() < 1) {
                 std::cout << desc << "\n";
                 return false;
             }
 
-           std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
-           if ( !boost::filesystem::exists( jsonFileName ) ) {
-               std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
-               return false;
+            std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+            if ( !boost::filesystem::exists( jsonFileName ) ) {
+                std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
+                return false;
             }
             
-	    jsonEventFileName = jsonFileName;
+            jsonEventFileName = jsonFileName;
 
             std::cout << "ContactPlan file: " << jsonEventFileName << std::endl;
-	 
-	    if (vm.count("ping-test")) {
+
+            if (vm.count("ping-test")) {
                 isPingTest = true;
             }
 
@@ -176,9 +182,9 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
         std::cout << "starting Scheduler.." << std::endl;
  
-	//socket for receiving events from Egress
+        //socket for receiving events from Egress
         m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
-	m_zmqSubSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
+        m_zmqSubSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
         const std::string connect_boundEgressPubSubPath(
         std::string("tcp://") +
         m_hdtnConfig.m_zmqEgressAddress +
@@ -188,17 +194,18 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             m_zmqSubSock_boundEgressToConnectingSchedulerPtr->connect(connect_boundEgressPubSubPath);
             m_zmqSubSock_boundEgressToConnectingSchedulerPtr->set(zmq::sockopt::subscribe, "");
             std::cout << "Scheduler connected and listening to events from Egress " << connect_boundEgressPubSubPath << std::endl;
-        } catch (const zmq::error_t & ex) {
+        }
+        catch (const zmq::error_t & ex) {
             std::cerr << "error: scheduler cannot connect to egress socket: " << ex.what() << std::endl;
             return false;
         }
 
-	Scheduler scheduler;
+        Scheduler scheduler;
 
         std::cout << "Scheduler up and running" << std::endl;
 
-	// Socket for sending events to Ingress and Storage
-	zmq::context_t ctx;
+        // Socket for sending events to Ingress and Storage
+        zmq::context_t ctx;
         zmq::socket_t socket(ctx, zmq::socket_type::pub);
         const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
@@ -207,31 +214,32 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             socket.bind(bind_boundSchedulerPubSubPath);
             std::cout << "[Scheduler] socket bound successfully to " << bind_boundSchedulerPubSubPath << std::endl;
 
-        } catch (const zmq::error_t & ex) {
+        }
+        catch (const zmq::error_t & ex) {
             std::cerr << "[Scheduler] socket failed to bind: " << ex.what() << std::endl;
             return false;
         }
 
-	m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-            boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this, running, &socket)); //create and start the worker thread
+        m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
+        boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this, running, &socket)); //create and start the worker thread
 
-
-	if (!isPingTest) {
-	     scheduler.ProcessContactsFile(&jsonEventFileName, &socket);
-        } else {
-	    boost::asio::io_service service;
+        if (!isPingTest) {
+            scheduler.ProcessContactsFile(&jsonEventFileName, &socket);
+        }
+        else {
+            boost::asio::io_service service;
             boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
             string str = finalDestAddr;
             str = "ping -c1 -s1 " + str;
             const char *command = str.c_str();
-	    dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, finalDestEid.nodeId, &socket, command));
-	    service.run();
-	}
+            dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, finalDestEid.nodeId, &socket, command));
+            service.run();
+        }
 
-	if (useSignalHandler) {
+        if (useSignalHandler) {
             sigHandler.Start(false);
         }
-	while (running && m_runningFromSigHandler) {
+        while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
                 sigHandler.PollOnce();
@@ -307,61 +315,61 @@ void Scheduler::ProcessLinkUp(const boost::system::error_code& e, uint64_t src, 
 }
 
 void Scheduler::EgressEventsHandler(zmq::socket_t* socket) {
-	//force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
-	static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + sizeof(hdtn::LinkStatusHdr);
-	m_egressRxBufPtrToStdVec64.resize(minBufSizeBytes / sizeof(uint64_t));
-	uint64_t* rxBufRawPtrAlign64 = &m_egressRxBufPtrToStdVec64[0];
-	const zmq::recv_buffer_result_t res = m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
-	if (!res) {
-		std::cerr << "[Scheduler::EgressEventHandler] message not received" << std::endl;
-		return;
-	}
-	else if (res->size < sizeof(hdtn::CommonHdr)) {
-		std::cerr << "[Scheduler::EgressEventHandler] res->size < sizeof(hdtn::CommonHdr)" << std::endl;
-		return;
-	}
+    //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
+    static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + sizeof(hdtn::LinkStatusHdr);
+    m_egressRxBufPtrToStdVec64.resize(minBufSizeBytes / sizeof(uint64_t));
+    uint64_t* rxBufRawPtrAlign64 = &m_egressRxBufPtrToStdVec64[0];
+    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
+    if (!res) {
+        std::cerr << "[Scheduler::EgressEventHandler] message not received" << std::endl;
+        return;
+    }
+    else if (res->size < sizeof(hdtn::CommonHdr)) {
+        std::cerr << "[Scheduler::EgressEventHandler] res->size < sizeof(hdtn::CommonHdr)" << std::endl;
+        return;
+    }
 
-	hdtn::CommonHdr* common = (hdtn::CommonHdr*)rxBufRawPtrAlign64;
+    hdtn::CommonHdr* common = (hdtn::CommonHdr*)rxBufRawPtrAlign64;
 
-	if (common->type == HDTN_MSGTYPE_LINKSTATUS) {
-		hdtn::LinkStatusHdr* linkStatusMsg = (hdtn::LinkStatusHdr*)rxBufRawPtrAlign64;
-		if (res->size != sizeof(hdtn::LinkStatusHdr)) {
-			std::cerr << "[Scheduler] EgressEventHandler res->size != sizeof(hdtn::LinkStatusHdr" << std::endl;
-			return;
-		}
-		uint64_t event = linkStatusMsg->event;
-		uint64_t outductId = linkStatusMsg->uuid;
+    if (common->type == HDTN_MSGTYPE_LINKSTATUS) {
+        hdtn::LinkStatusHdr* linkStatusMsg = (hdtn::LinkStatusHdr*)rxBufRawPtrAlign64;
+        if (res->size != sizeof(hdtn::LinkStatusHdr)) {
+            std::cerr << "[Scheduler] EgressEventHandler res->size != sizeof(hdtn::LinkStatusHdr" << std::endl;
+            return;
+        }
+        uint64_t event = linkStatusMsg->event;
+        uint64_t outductId = linkStatusMsg->uuid;
 
-		std::cout << "[Scheduler] Received link status event " << event << " from Egress for outduct id " << outductId << std::endl;
+        std::cout << "[Scheduler] Received link status event " << event << " from Egress for outduct id " << outductId << std::endl;
 
-		const outduct_element_config_t& thisOutductConfig = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector[outductId];
+        const outduct_element_config_t& thisOutductConfig = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector[outductId];
 
 
-		const uint64_t srcNode = m_hdtnConfig.m_myNodeId;
-		const uint64_t destNode = thisOutductConfig.nextHopNodeId;
+        const uint64_t srcNode = m_hdtnConfig.m_myNodeId;
+        const uint64_t destNode = thisOutductConfig.nextHopNodeId;
 
-		std::cout << "[Scheduler] EgressEventsHandler nextHopNodeId " << thisOutductConfig.nextHopNodeId << " and srcNode " << srcNode << std::endl;
-		for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin();
-			itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
-			const std::string& finalDestinationEidUri = *itDestUri;
-			cbhe_eid_t finalDestEid;
-			std::cout << "[Scheduler] EgressEventsHandler finalDestinationEidUri " << finalDestinationEidUri << std::endl;
+        std::cout << "[Scheduler] EgressEventsHandler nextHopNodeId " << thisOutductConfig.nextHopNodeId << " and srcNode " << srcNode << std::endl;
+        for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin();
+            itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
+            const std::string& finalDestinationEidUri = *itDestUri;
+            cbhe_eid_t finalDestEid;
+            std::cout << "[Scheduler] EgressEventsHandler finalDestinationEidUri " << finalDestinationEidUri << std::endl;
             bool serviceNumberIsWildCard;
-			if (!Uri::ParseIpnUriString(finalDestinationEidUri, finalDestEid.nodeId, finalDestEid.serviceId, &serviceNumberIsWildCard)) {
-				std::cerr << "error in EgressEventsHandler finalDestinationEidUri " <<
-					finalDestinationEidUri << " is invalid." << std::endl;
-				return;
-			}
-			if (event == 1) {
-				std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
-				SendLinkUp(srcNode, destNode, finalDestEid.nodeId, socket);
-			}
-			else {
-				std::cout << "[Scheduler] EgressEventsHandler Sending Link Down event " << std::endl;
-				SendLinkDown(srcNode, destNode, finalDestEid.nodeId, socket);
-			}
-		}
-	}
+            if (!Uri::ParseIpnUriString(finalDestinationEidUri, finalDestEid.nodeId, finalDestEid.serviceId, &serviceNumberIsWildCard)) {
+                std::cerr << "error in EgressEventsHandler finalDestinationEidUri " <<
+                    finalDestinationEidUri << " is invalid." << std::endl;
+                return;
+            }
+            if (event == 1) {
+                std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
+                SendLinkUp(srcNode, destNode, finalDestEid.nodeId, socket);
+            }
+            else {
+                std::cout << "[Scheduler] EgressEventsHandler Sending Link Down event " << std::endl;
+                SendLinkDown(srcNode, destNode, finalDestEid.nodeId, socket);
+            }
+        }
+    }
 }
 
 void Scheduler::ReadZmqAcksThreadFunc(volatile bool running, zmq::socket_t * socket) {

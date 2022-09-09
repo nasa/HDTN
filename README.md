@@ -13,7 +13,6 @@ HDTN build environment requires:
 * CMake version 3.16.3
 * Boost library version 1.67.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
 * ZeroMQ 
-* Python module for ZeroMQ
 * gcc version 9.3.0 (Debian 8.3.0-6) 
 * Target: x86_64-linux-gnu 
 * Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio 2017) and Mac 
@@ -63,7 +62,7 @@ For more information on how the storage works, see `module/storage/doc/storage.p
 ```
 $ sudo apt-get install cmake
 $ sudo apt-get install build-essential
-$ sudo apt-get install libzmq3-dev python3-zmq
+$ sudo apt-get install libzmq3-dev
 $ sudo apt-get install libboost-dev libboost-all-dev
 $ sudo apt-get install openssl libssl-dev
 ```
@@ -82,11 +81,13 @@ To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is
 * cd $HDTN_SOURCE_ROOT
 * mkdir build
 * cd build
-* cmake -DCMAKE_BUILD_TYPE=Release ..
-* Edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=[ON|OFF], set Boost_USE_STATIC_LIBS:UNINITIALIZED=[ON|OFF], set CMAKE_INSTALL_PREFIX
-* cmake -DCMAKE_BUILD_TYPE=Release ..
+* cmake ..
 * make -j8
 * make install
+
+Note: By Default, BUILD_SHARED_LIBS is OFF and hdtn is built as static
+To use shared libs, edit CMakeCache.txt, set BUILD_SHARED_LIBS:BOOL=ON and add fPIC to the Cmakecache variable:
+CMAKE_CXX_FLAGS_RELEASE:STRING=-03 -DNDEBUG -fPIC
 
 Run HDTN
 =========
@@ -112,15 +113,9 @@ Run Integrated Tests
 After building HDTN (see above), the integrated tests can be run with the following command within the build directory:
 * ./tests/integrated_tests/integrated-tests
 
-Run Contact Graph Routing
-=========================
-HDTN relies on PyCGR for its contact graph routing. We need to specify the location of the contactPlan file as argument. 
-To enable the PyCGR Client, in a separate window run:
-* python3 ./pycgr/py_cgr_client.py -c module/scheduler/src/contactPlan.json
-
 Routing
 =======
-The Router module communicates with the CGR client to get the next hop for the optimal route leading to the final destination,
+The Router module runs by default Dijkstra's algorithm on the contact plan to get the next hop for the optimal route leading to the final destination,
 then sends a RouteUpdate event to Egress to update its Outduct to the outduct of that nextHop. If the link goes down
 unexpectedly or the contact plan gets updated, the router will be notified and will recalculate the next hop and send
 RouteUpdate events to egress accordingly. 
@@ -154,4 +149,9 @@ Then open the CMakeLists.txt file in the hdtn directory and make the following e
 * Move the libcivetweb.a file to the corresponding civetweb_LIB location (hdtn/external/lib).
 
 Now anytime that HDTNOneProcess is ran, the web page will be accessible at http://localhost:8086
+
+Simulations
+=========
+HDTN can be simulated using
+* DtnSim, a simulator for delay tolerant networks built on the OMNeT++ simulation framework. Use the "support-hdtn" branch of DtnSim which can be found in the official DtnSim repository: https://bitbucket.org/lcd-unc-ar/dtnsim/src/master/. Currently the HDTN simulation has only been tested on Linux (specifically Debian).
 

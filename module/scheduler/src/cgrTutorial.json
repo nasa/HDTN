@@ -1,0 +1,148 @@
+{
+  "contacts": [
+    {
+      "contact": 0,
+      "source": 1,
+      "dest": 2,
+      "startTime": 0,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 1,
+      "source": 2,
+      "dest": 1,
+      "startTime": 0,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 2,
+      "source": 2,
+      "dest": 3,
+      "startTime": 0,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 3,
+      "source": 3,
+      "dest": 2,
+      "startTime": 0,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 4,
+      "source": 1,
+      "dest": 3,
+      "startTime": 0,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 5,
+      "source": 3,
+      "dest": 1,
+      "startTime": 0,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 6,
+      "source": 3,
+      "dest": 4,
+      "startTime": 0,
+      "endTime": 30,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 7,
+      "source": 4,
+      "dest": 3,
+      "startTime": 0,
+      "endTime": 30,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 8,
+      "source": 1,
+      "dest": 5,
+      "startTime": 10,
+      "endTime": 20,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 9,
+      "source": 5,
+      "dest": 1,
+      "startTime": 10,
+      "endTime": 20,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 10,
+      "source": 4,
+      "dest": 5,
+      "startTime": 0,
+      "endTime": 10,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 11,
+      "source": 5,
+      "dest": 4,
+      "startTime": 0,
+      "endTime": 10,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 12,
+      "source": 4,
+      "dest": 5,
+      "startTime": 30,
+      "endTime": 40,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 13,
+      "source": 5,
+      "dest": 4,
+      "startTime": 30,
+      "endTime": 40,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 14,
+      "source": 4,
+      "dest": 5,
+      "startTime": 50,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    },
+    {
+      "contact": 15,
+      "source": 5,
+      "dest": 4,
+      "startTime": 50,
+      "endTime": 60,
+      "rate": 1,
+      "owlt": 1
+    }
+  ]
+}

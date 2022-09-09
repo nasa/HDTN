@@ -20,7 +20,7 @@
 #include <boost/date_time.hpp>
 #include <memory>
 #include <fstream>
-#include "cgrServer.h"
+#include "libcgr.h"
 
 using namespace std;
 
@@ -180,42 +180,51 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
 {
     m_timersFinished = false;
 
-    CgrServer server;
-    std::cout << "[Router] Starting CGR server" << std::endl;
-    server.init("tcp://localhost:4555");
-    
-    const uint64_t nextHopNodeId = server.requestNextHop(sourceNode, finalDestNodeId, 0);
-    
-    std::cout << "[Router] CGR computed next hop: " << nextHopNodeId << std::endl;
-    
-    //boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    //std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
+    std::cout << "[Router] Reading contact plan and computing next hop" << std::endl;
+    std::vector<cgr::Contact> contactPlan = cgr::cp_load(*jsonEventFileName);
 
-    zmq::context_t ctx;
-    zmq::socket_t socket(ctx, zmq::socket_type::pub);
+    cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+    rootContact.arrival_time = 0;
+    std::shared_ptr<cgr::Route> bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
     
-    const std::string bind_boundRouterPubSubPath(
-    std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
-    try {
-        socket.bind(bind_boundRouterPubSubPath);
-	std::cout << "[Router] socket bound successfully to  " << bind_boundRouterPubSubPath << std::endl;
-    } catch (const zmq::error_t & ex) {
-        std::cerr << "[Router] socket failed to bind: " << ex.what() << std::endl;
-        return 0;
+    if (bestRoute != nullptr) { // successfully computed a route
+        const uint64_t nextHopNodeId = bestRoute->next_node;
+
+        std::cout << "[Router] CGR computed next hop: " << nextHopNodeId << std::endl;
+
+        //boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+        //std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
+
+        zmq::context_t ctx;
+        zmq::socket_t socket(ctx, zmq::socket_type::pub);
+
+        const std::string bind_boundRouterPubSubPath(
+            std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundRouterPubSubPortPath));
+        try {
+            socket.bind(bind_boundRouterPubSubPath);
+            std::cout << "[Router] socket bound successfully to  " << bind_boundRouterPubSubPath << std::endl;
+        }
+        catch (const zmq::error_t& ex) {
+            std::cerr << "[Router] socket failed to bind: " << ex.what() << std::endl;
+            return 0;
+        }
+
+        boost::asio::io_service ioService;
+
+        SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
+
+        dt->expires_from_now(boost::posix_time::seconds(1));
+        dt->async_wait(boost::bind(&Router::RouteUpdate, this, boost::asio::placeholders::error,
+            nextHopNodeId, finalDestNodeId, "RouteUpdate", &socket));
+        ioService.run();
+
+        socket.close();
+
+        m_timersFinished = true;
     }
-
-    boost::asio::io_service ioService;
-
-    SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
-
-    dt->expires_from_now(boost::posix_time::seconds(1));                     
-    dt->async_wait(boost::bind(&Router::RouteUpdate,this,boost::asio::placeholders::error, 
-        nextHopNodeId, finalDestNodeId, "RouteUpdate", &socket));
-    ioService.run();
-    
-    socket.close();
-
-    m_timersFinished = true;
+    else {
+        // what should we do if no route is found?
+    }
     
     return 0;
 }

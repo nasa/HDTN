@@ -1,0 +1,40 @@
+{
+    "contacts": [
+        {
+            "contact": 0,
+            "source": 1,
+            "dest": 2,
+            "startTime": 100,
+            "endTime": 700,
+            "rate": 10000,
+            "owlt": 0
+        },
+        {
+            "contact": 1,
+            "source": 2,
+            "dest": 3,
+            "startTime": 1000,
+            "endTime": 1600,
+            "rate": 10000,
+            "owlt": 0
+        },
+        {
+            "contact": 2,
+            "source": 3,
+            "dest": 4,
+            "startTime": 2000,
+            "endTime": 2600,
+            "rate": 100000,
+            "owlt": 0
+        },
+        {
+            "contact": 3,
+            "source": 1,
+            "dest": 4,
+            "startTime": 7400,
+            "endTime": 8000,
+            "rate": 100000,
+            "owlt": 0
+        }
+    ]
+}

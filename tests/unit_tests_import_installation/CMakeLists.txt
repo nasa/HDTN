@@ -32,6 +32,7 @@ find_package(BpAppPatternsLib REQUIRED)
 find_package(Bpcodec REQUIRED)
 find_package(EgressLib REQUIRED)
 find_package(HDTNConfigLib REQUIRED)
+find_package(HDTNCgrLib REQUIRED)
 find_package(InductManagerLib REQUIRED)
 find_package(IngressLib REQUIRED)
 find_package(LoggerLib REQUIRED)
@@ -85,6 +86,8 @@ add_executable(unit-tests-from-install
 	../../common/config/test/TestOutductsConfig.cpp
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
+	../../common/cgr/test/TestDijkstra.cpp
+	#../../common/cgr/test/TestYen.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
 	../../module/storage/unit_tests/TestBundleStorageCatalog.cpp
@@ -101,6 +104,7 @@ target_link_libraries(unit-tests-from-install
 	HDTN::Bpcodec
 	HDTN::EgressLib
 	HDTN::HDTNConfigLib
+	HDTN::HDTNCgrLib
 	HDTN::InductManagerLib
 	HDTN::IngressLib
 	HDTN::LoggerLib
