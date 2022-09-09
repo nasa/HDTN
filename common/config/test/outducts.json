@@ -4,13 +4,14 @@
         {
             "name": "o1",
             "convergenceLayer": "ltp_over_udp",
-            "nextHopEndpointId": "ipn:50.1",
+            "nextHopNodeId": 50,
             "remoteHostname": "localhost",
             "remotePort": 1113,
             "bundlePipelineLimit": 5,
             "finalDestinationEidUris": [
                 "ipn:1.1",
-                "ipn:2.1"
+                "ipn:2.1",
+                "ipn:7.*"
             ],
             "thisLtpEngineId": 102,
             "remoteLtpEngineId": 103,
@@ -29,7 +30,7 @@
         {
             "name": "o2",
             "convergenceLayer": "udp",
-            "nextHopEndpointId": "ipn:51.1",
+            "nextHopNodeId": 51,
             "remoteHostname": "localhost",
             "remotePort": 4557,
             "bundlePipelineLimit": 5,
@@ -42,7 +43,7 @@
         {
             "name": "o3",
             "convergenceLayer": "tcpcl_v3",
-            "nextHopEndpointId": "ipn:52.1",
+            "nextHopNodeId": 52,
             "remoteHostname": "localhost",
             "remotePort": 4558,
             "bundlePipelineLimit": 5,
@@ -57,7 +58,7 @@
         {
             "name": "o4",
             "convergenceLayer": "tcpcl_v4",
-            "nextHopEndpointId": "ipn:1.1",
+            "nextHopNodeId": 1,
             "remoteHostname": "localhost",
             "remotePort": 4560,
             "bundlePipelineLimit": 50,
@@ -77,7 +78,7 @@
         {
             "name": "o4",
             "convergenceLayer": "stcp",
-            "nextHopEndpointId": "ipn:53.1",
+            "nextHopNodeId": 53,
             "remoteHostname": "localhost",
             "remotePort": 4559,
             "bundlePipelineLimit": 5,

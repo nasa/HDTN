@@ -267,6 +267,38 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                 return true;
             }
             else {
+                if (txSessionIt->second->m_isFailedSession) { //give the bundle back to the user
+                    std::shared_ptr<LtpClientServiceDataToSend> & csdRef = txSessionIt->second->m_dataToSendSharedPtr;
+                    const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
+                    if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
+                        std::vector<uint8_t> & vecRef = csdRef->GetVecRef();
+                        if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
+                            if (safeToMove) {
+                                std::cout << "Ltp engine moving a send-failed vector bundle back to the user\n";
+                                m_onFailedBundleVecSendCallback(vecRef, m_userAssignedUuid);
+                            }
+                            else {
+                                std::cout << "Ltp engine copying a send-failed vector bundle back to the user\n";
+                                std::vector<uint8_t> vecCopy(vecRef);
+                                m_onFailedBundleVecSendCallback(vecCopy, m_userAssignedUuid);
+                            }
+                        }
+                    }
+                    if (m_onFailedBundleZmqSendCallback) { //if the user wants the data back
+                        zmq::message_t & zmqRef = csdRef->GetZmqRef();
+                        if (zmqRef.size()) { //this session sender is using zmq client service data
+                            if (safeToMove) {
+                                std::cout << "Ltp engine moving a send-failed zmq bundle back to the user\n";
+                                m_onFailedBundleZmqSendCallback(zmqRef, m_userAssignedUuid);
+                            }
+                            else {
+                                std::cout << "Ltp engine copying a send-failed zmq bundle back to the user\n";
+                                zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
+                                m_onFailedBundleZmqSendCallback(zmqCopy, m_userAssignedUuid);
+                            }
+                        }
+                    }
+                }
                 m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
                 m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
@@ -648,7 +680,6 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
 }
 
 void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
-    std::cout << "CancelSegmentTimerExpiredCallback!\n";
     cancel_segment_timer_info_t info;
     if (userData.size() != sizeof(info)) {
         std::cerr << "error in LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)\n";
@@ -657,13 +688,16 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     memcpy(&info, userData.data(), sizeof(info));
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
+        std::cout << "Resend cancel segment!\n";
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         ++info.retryCount;
         m_queueCancelSegmentTimerInfo.push(info);
 
         TrySendPacketIfAvailable();
     }
-    
+    else {
+        std::cout << "Cancel segment unable to send!\n";
+    }
 }
 
 void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
@@ -685,7 +719,6 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
             m_transmissionSessionCompletedCallback(sessionId, userDataPtr);
         }
     }
-
     m_queueSendersNeedingDeleted.push(sessionId.sessionNumber);
     SignalReadyForSend_ThreadSafe(); //posts the TrySendPacketIfAvailable(); so this won't be deleteted during execution
 }
@@ -838,6 +871,16 @@ void LtpEngine::SetInitialTransmissionCompletedCallback(const InitialTransmissio
 }
 void LtpEngine::SetTransmissionSessionCancelledCallback(const TransmissionSessionCancelledCallback_t & callback) {
     m_transmissionSessionCancelledCallback = callback;
+}
+
+void LtpEngine::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_onFailedBundleVecSendCallback = callback;
+}
+void LtpEngine::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_onFailedBundleZmqSendCallback = callback;
+}
+void LtpEngine::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_userAssignedUuid = userAssignedUuid;
 }
 
 std::size_t LtpEngine::NumActiveReceivers() const {

@@ -47,14 +47,14 @@ uint64_t Uri::GetIpnUriCstringLengthRequiredIncludingNullTerminator(const uint64
     return 6 + GetStringLengthOfUint(eidNodeNumber) + GetStringLengthOfUint(eidServiceNumber); //6 => ipn:.\0
 }
 
-bool Uri::ParseIpnUriString(const std::string & uri, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
+bool Uri::ParseIpnUriString(const std::string & uri, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber, bool* serviceNumberIsWildCard) {
     if ((uri.length() < 7) || (uri[0] != 'i') || (uri[1] != 'p') || (uri[2] != 'n') || (uri[3] != ':')) {
         return false;
     }
     //return ParseIpnSspString(uri.cbegin() + 4, uri.cend(), eidNodeNumber, eidServiceNumber);
-    return ParseIpnSspString(uri.data() + 4, uri.length() - 4, eidNodeNumber, eidServiceNumber); //more efficient (no string copies)
+    return ParseIpnSspString(uri.data() + 4, uri.length() - 4, eidNodeNumber, eidServiceNumber, serviceNumberIsWildCard); //more efficient (no string copies)
 }
-bool Uri::ParseIpnUriCstring(const char * data, uint64_t bufferSize, uint64_t & bytesDecodedIncludingNullChar, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
+bool Uri::ParseIpnUriCstring(const char * data, uint64_t bufferSize, uint64_t & bytesDecodedIncludingNullChar, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber, bool* serviceNumberIsWildCard) {
     uint64_t lengthNotIncludingNullChar = 0;
     const char * data2 = data;
     while (true) {
@@ -71,7 +71,7 @@ bool Uri::ParseIpnUriCstring(const char * data, uint64_t bufferSize, uint64_t & 
         return false;
     }
     bytesDecodedIncludingNullChar = lengthNotIncludingNullChar + 1;
-    return ParseIpnSspString(data + 4, lengthNotIncludingNullChar - 4, eidNodeNumber, eidServiceNumber); //more efficient (no string copies)
+    return ParseIpnSspString(data + 4, lengthNotIncludingNullChar - 4, eidNodeNumber, eidServiceNumber, serviceNumberIsWildCard); //more efficient (no string copies)
 }
 //parse just the scheme specific part
 bool Uri::ParseIpnSspString(std::string::const_iterator stringSspCbegin, std::string::const_iterator stringSspCend, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
@@ -102,7 +102,7 @@ bool Uri::ParseIpnSspString(std::string::const_iterator stringSspCbegin, std::st
     return (it == tokens.end()); //should be end at this point
 }
 
-bool Uri::ParseIpnSspString(const char * data, std::size_t length, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber) {
+bool Uri::ParseIpnSspString(const char * data, std::size_t length, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber, bool * serviceNumberIsWildCard) {
     const char * dotPosition = NULL;
     for (std::size_t i = 0; i < length; ++i) {
         if (data[i] == '.') {
@@ -120,10 +120,25 @@ bool Uri::ParseIpnSspString(const char * data, std::size_t length, uint64_t & ei
     const char * const lastChar = &data[length-1];
     const std::size_t sizeStr1 = static_cast<std::size_t>(dotPosition - data);
     const std::size_t sizeStr2 = static_cast<std::size_t>(lastChar - dotPosition);
+    const char* const serviceNumberStartChar = dotPosition + 1;
     if (sizeStr1 && sizeStr2) {
         try {
             eidNodeNumber = boost::lexical_cast<uint64_t>(data, sizeStr1);
-            eidServiceNumber = boost::lexical_cast<uint64_t>(dotPosition + 1, sizeStr2);
+        }
+        catch (boost::bad_lexical_cast&) {
+            return false;
+        }
+
+        if (serviceNumberIsWildCard) { //doing wildcard detection
+            const bool wildDetected = (sizeStr2 == 1) && ((*serviceNumberStartChar) == '*');
+            *serviceNumberIsWildCard = wildDetected;
+            if (wildDetected) {
+                return true;
+            }
+        }
+
+        try {
+            eidServiceNumber = boost::lexical_cast<uint64_t>(serviceNumberStartChar, sizeStr2);
         }
         catch (boost::bad_lexical_cast &) {
             return false;

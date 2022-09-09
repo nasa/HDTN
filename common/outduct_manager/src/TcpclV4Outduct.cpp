@@ -24,7 +24,8 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
     m_tcpclV4BundleSource(
 #endif
         outductConfig.tryUseTls, outductConfig.tlsIsRequired,
-        outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
+        outductConfig.keepAliveIntervalSeconds, myNodeId,
+        Uri::GetIpnUriString(outductConfig.nextHopNodeId, 0), //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
         outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclV4MyMaxRxSegmentSizeBytes, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -42,17 +43,9 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
             std::cout << "error in TcpclV4Outduct constructor: " << e.what() << std::endl;
             return;
         }
-        std::string nextHopEndpointIdWithServiceIdZero;
-        uint64_t remoteNodeId, remoteServiceId;
-        if (!Uri::ParseIpnUriString(outductConfig.nextHopEndpointId, remoteNodeId, remoteServiceId)) {
-            std::cerr << "error in TcpclV4Outduct constructor: error parsing remote EID URI string " << outductConfig.nextHopEndpointId << std::endl;
-            return;
-        }
-        else {
-            //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
-            //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
-            nextHopEndpointIdWithServiceIdZero = Uri::GetIpnUriString(remoteNodeId, 0);
-        }
+        //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
+        //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
+        const std::string nextHopEndpointIdWithServiceIdZero = Uri::GetIpnUriString(outductConfig.nextHopNodeId, 0);
        
         m_shareableSslContext.set_verify_callback(
             boost::bind(&TcpclV4Outduct::VerifyCertificate, this, boost::placeholders::_1, boost::placeholders::_2, nextHopEndpointIdWithServiceIdZero,
@@ -77,6 +70,18 @@ bool TcpclV4Outduct::Forward(std::vector<uint8_t> & movableDataVec) {
 
 void TcpclV4Outduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
     m_tcpclV4BundleSource.SetOnSuccessfulAckCallback(callback);
+}
+void TcpclV4Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleVecSendCallback(callback);
+}
+void TcpclV4Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleZmqSendCallback(callback);
+}
+void TcpclV4Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnOutductLinkStatusChangedCallback(callback);
+}
+void TcpclV4Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_tcpclV4BundleSource.BaseClass_SetUserAssignedUuid(userAssignedUuid);
 }
 
 void TcpclV4Outduct::Connect() {

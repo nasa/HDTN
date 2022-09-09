@@ -80,8 +80,8 @@ private:
     LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
-    std::shared_ptr<LtpClientServiceDataToSend> m_dataToSendSharedPtr;
 public:
+    std::shared_ptr<LtpClientServiceDataToSend> m_dataToSendSharedPtr;
     std::shared_ptr<LtpTransmissionRequestUserData> m_userDataPtr;
 private:
     uint64_t M_LENGTH_OF_RED_PART;
@@ -102,6 +102,7 @@ public:
     //stats
     uint64_t m_numCheckpointTimerExpiredCallbacks;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
+    bool m_isFailedSession;
 };
 
 #endif // LTP_SESSION_SENDER_H

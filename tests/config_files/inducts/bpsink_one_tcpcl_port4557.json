@@ -4,7 +4,6 @@
         {
             "name": "tcpcl_bpsink",
             "convergenceLayer": "tcpcl_v3",
-            "myEndpointId": "ipn:1.1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 200,
             "numRxCircularBufferBytesPerElement": 20000,

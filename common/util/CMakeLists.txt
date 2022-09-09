@@ -47,6 +47,7 @@ target_include_directories(hdtn_util
 )
 set(MY_PUBLIC_HEADERS
     include/BinaryConversions.h
+	include/BundleCallbackFunctionDefines.h
 	include/CborUint.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h

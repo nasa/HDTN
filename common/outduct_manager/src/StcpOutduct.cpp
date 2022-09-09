@@ -26,6 +26,18 @@ bool StcpOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
 void StcpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
     m_stcpBundleSource.SetOnSuccessfulAckCallback(callback);
 }
+void StcpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_stcpBundleSource.SetOnFailedBundleVecSendCallback(callback);
+}
+void StcpOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_stcpBundleSource.SetOnFailedBundleZmqSendCallback(callback);
+}
+void StcpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_stcpBundleSource.SetOnOutductLinkStatusChangedCallback(callback);
+}
+void StcpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_stcpBundleSource.SetUserAssignedUuid(userAssignedUuid);
+}
 
 void StcpOutduct::Connect() {
     m_stcpBundleSource.Connect(m_outductConfig.remoteHostname, boost::lexical_cast<std::string>(m_outductConfig.remotePort));

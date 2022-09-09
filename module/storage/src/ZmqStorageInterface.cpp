@@ -599,7 +599,7 @@ void ZmqStorageInterface::ThreadFunc() {
     
 
     typedef std::set<uint64_t> custodyid_set_t;
-    typedef std::map<cbhe_eid_t, custodyid_set_t> finaldesteid_opencustids_map_t;
+    typedef std::map<uint64_t, custodyid_set_t> finaldestnodeid_opencustids_map_t;
 
     std::vector<eid_plus_isanyserviceid_pair_t> availableDestLinksNotCloggedVec;
     availableDestLinksNotCloggedVec.reserve(100); //todo
@@ -618,7 +618,7 @@ void ZmqStorageInterface::ThreadFunc() {
     std::size_t numCustodyTransferTimeouts = 0;
 
     std::set<eid_plus_isanyserviceid_pair_t> availableDestLinksSet;
-    finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
+    finaldestnodeid_opencustids_map_t finalDestNodeIdToOpenCustIdsMap;
 
     static constexpr std::size_t minBufSizeBytesReleaseMessages = sizeof(uint64_t) + 
         ((sizeof(hdtn::IreleaseStartHdr) > sizeof(hdtn::IreleaseStopHdr)) ? sizeof(hdtn::IreleaseStartHdr) : sizeof(hdtn::IreleaseStopHdr));
@@ -662,7 +662,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE");
                     continue;
                 }
-                custodyid_set_t & custodyIdSet = finalDestEidToOpenCustIdsMap[egressAckHdr.finalDestEid];
+                custodyid_set_t & custodyIdSet = finalDestNodeIdToOpenCustIdsMap[egressAckHdr.finalDestEid.nodeId];
                 custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr.custodyId);
                 if (it != custodyIdSet.end()) {
                     if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
@@ -777,13 +777,13 @@ void ZmqStorageInterface::ThreadFunc() {
 
                     hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
                     const std::string msg = "finalDestEid (" 
-                        + Uri::GetIpnUriString(iReleaseStartHdr->finalDestinationEid.nodeId, iReleaseStartHdr->finalDestinationEid.serviceId) 
+                        + Uri::GetIpnUriStringAnyServiceNumber(iReleaseStartHdr->finalDestinationNodeId) 
                         + ") will be released from storage";
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
-                    availableDestLinksSet.emplace(iReleaseStartHdr->finalDestinationEid, false); //false => fully qualified service id
-                    availableDestLinksSet.emplace(iReleaseStartHdr->nextHopEid, false);
-		}
+                    availableDestLinksSet.emplace(cbhe_eid_t(iReleaseStartHdr->finalDestinationNodeId, 0), true); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                    availableDestLinksSet.emplace(cbhe_eid_t(iReleaseStartHdr->nextHopNodeId, 0), true); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                }
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                         std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
@@ -791,15 +791,16 @@ void ZmqStorageInterface::ThreadFunc() {
                         continue;
                     }
 
-                    hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
-                    const std::string msg = "finalDestEid (" + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.nodeId) + ","
-                        + boost::lexical_cast<std::string>(iReleaseStoptHdr->finalDestinationEid.serviceId) + ") will STOP BEING released from storage";
+                    hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
+                    const std::string msg = "finalDestEid (" 
+                        + Uri::GetIpnUriStringAnyServiceNumber(iReleaseStopHdr->finalDestinationNodeId)
+                        + ") will STOP BEING released from storage";
                     std::cout << msg << std::endl;
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
-                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
-                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->nextHopEid, false)); //false => fully qualified service id
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(iReleaseStopHdr->finalDestinationNodeId, 0), true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(iReleaseStopHdr->nextHopNodeId, 0), true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
 
-		}
+                }
                 PrintReleasedLinks(availableDestLinksSet);
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //gui requests data
@@ -864,7 +865,7 @@ void ZmqStorageInterface::ThreadFunc() {
             for (std::set<eid_plus_isanyserviceid_pair_t>::const_iterator it = availableDestLinksSet.cbegin(); it != availableDestLinksSet.cend(); ++it) {
                 //std::cout << "flow " << flowId << " sz " << flowIdToOpenSessionsMap[flowId].size() << std::endl;
                 //const bool isAnyServiceId = it->second;
-                if (finalDestEidToOpenCustIdsMap[it->first].size() < 5) {//finaldesteid_opencustids_map_t finalDestEidToOpenCustIdsMap;
+                if (finalDestNodeIdToOpenCustIdsMap[it->first.nodeId].size() < 5) {
                     availableDestLinksNotCloggedVec.push_back(*it);
                 }
                 else {
@@ -873,7 +874,7 @@ void ZmqStorageInterface::ThreadFunc() {
             }
             if (availableDestLinksNotCloggedVec.size() > 0) {
                 if (ReleaseOne_NoBlock(sessionRead, availableDestLinksNotCloggedVec, m_zmqPushSock_connectingStorageToBoundEgressPtr.get(), bsm, maxBundleSizeToRead)) { //true => (successfully sent to egress)
-                    if (finalDestEidToOpenCustIdsMap[sessionRead.catalogEntryPtr->destEid].insert(sessionRead.custodyId).second) {
+                    if (finalDestNodeIdToOpenCustIdsMap[sessionRead.catalogEntryPtr->destEid.nodeId].insert(sessionRead.custodyId).second) {
                         if (sessionRead.catalogEntryPtr->HasCustody()) {
                             custodyTimers.StartCustodyTransferTimer(sessionRead.catalogEntryPtr->destEid, sessionRead.custodyId);
                         }
@@ -881,7 +882,7 @@ void ZmqStorageInterface::ThreadFunc() {
                         ++m_totalBundlesSentToEgressFromStorage;
                     }
                     else {
-                        std::cerr << "could not insert custody id into finalDestEidToOpenCustIdsMap\n";
+                        std::cerr << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap\n";
                     }
                 }
                 else if (PeekOne(availableDestLinksCloggedVec, bsm) > 0) { //data available in storage for clogged links

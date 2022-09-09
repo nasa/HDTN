@@ -30,6 +30,7 @@
 #include <vector>
 #include "Telemetry.h"
 #include "LtpUdpEngineManager.h"
+#include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
 
 class LtpBundleSource {
@@ -64,6 +65,9 @@ public:
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
     //std::size_t GetTotalBundleBytesUnacked();
     LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+    LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SyncTelemetry();
 private:
     LTP_LIB_NO_EXPORT void RemoveCallback();

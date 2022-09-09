@@ -70,6 +70,9 @@ TcpclBundleSink::TcpclBundleSink(
     }
 
     m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_tcpSocketIoServiceRef);
+    m_base_tcpAsyncSenderPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
+    m_base_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
+    m_base_tcpAsyncSenderPtr->SetUserAssignedUuid(m_base_userAssignedUuid);
     
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(

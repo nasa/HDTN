@@ -4,7 +4,6 @@
         {
             "name": "i1",
             "convergenceLayer": "ltp_over_udp",
-            "myEndpointId": "ipn:1.1",
             "boundPort": 1113,
             "numRxCircularBufferElements": 101,
             "thisLtpEngineId": 102,
@@ -25,7 +24,6 @@
         {
             "name": "i2",
             "convergenceLayer": "udp",
-            "myEndpointId": "ipn:2.1",
             "boundPort": 4557,
             "numRxCircularBufferElements": 107,
             "numRxCircularBufferBytesPerElement": 65533
@@ -33,7 +31,6 @@
         {
             "name": "i3",
             "convergenceLayer": "tcpcl_v3",
-            "myEndpointId": "ipn:3.1",
             "boundPort": 4558,
             "numRxCircularBufferElements": 1009,
             "numRxCircularBufferBytesPerElement": 2000,
@@ -43,7 +40,6 @@
         {
             "name": "i4",
             "convergenceLayer": "stcp",
-            "myEndpointId": "ipn:4.1",
             "boundPort": 4559,
             "numRxCircularBufferElements": 1000,
             "keepAliveIntervalSeconds": 17

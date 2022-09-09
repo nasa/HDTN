@@ -22,7 +22,6 @@
 #include <boost/date_time.hpp>
 #include <memory>
 #include <fstream>
-
 #include <sstream>
 
 hdtn::HegrManagerAsync::HegrManagerAsync() : m_running(false) {
@@ -43,7 +42,7 @@ void hdtn::HegrManagerAsync::Stop() {
 }
 
 void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
-
+    
     if (m_running) {
         std::cerr << "error: HegrManagerAsync::Init called while Egress is already running" << std::endl;
         return;
@@ -52,7 +51,12 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     m_hdtnConfig = hdtnConfig;
 
     if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
-        boost::bind(&hdtn::HegrManagerAsync::WholeBundleReadyCallback, this, boost::placeholders::_1))) {
+        boost::bind(&hdtn::HegrManagerAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
+        boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)
+    ))
+    {
         return;
     }
 
@@ -99,6 +103,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
                 std::string(":") +
                 boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundIngressToConnectingEgressPortPath));
             m_zmqPullSock_boundIngressToConnectingEgressPtr->connect(connect_boundIngressToConnectingEgressPath);
+            
             m_zmqPushSock_connectingEgressToBoundIngressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::push);
             const std::string connect_connectingEgressToBoundIngressPath(
                 std::string("tcp://") +
@@ -133,12 +138,19 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
             m_zmqRepSock_connectingGuiToFromBoundEgressPtr->bind(bind_connectingGuiToFromBoundEgressPath);
         }
 
+        //socket for sending LinkStatus events from Egress to Scheduler
+        m_zmqPubSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pub);
+        const std::string bind_boundEgressToConnectingSchedulerPath(
+            std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
+        m_zmqPubSock_boundEgressToConnectingSchedulerPtr->bind(bind_boundEgressToConnectingSchedulerPath);
+
         //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
         //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
         m_zmqRepSock_connectingGuiToFromBoundEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_boundEgressToConnectingStoragePtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
         m_zmqPushSock_connectingEgressToBoundIngressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
+        m_zmqPubSock_boundEgressToConnectingSchedulerPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
 
         // socket for receiving events from router
         m_zmqSubSock_boundRouterToConnectingEgressPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
@@ -182,6 +194,23 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
     }
 }
 
+void hdtn::HegrManagerAsync::DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid) {
+    //TODO PREVENT DUPLICATE MESSAGES
+    std::cout << "[Egress] Sending LinkStatus update event to Scheduler" << std::endl;
+
+    hdtn::LinkStatusHdr linkStatusMsg;
+    memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+    linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+    linkStatusMsg.event = (isLinkDownEvent) ? 0 : 1;
+    linkStatusMsg.uuid = outductUuid;
+
+    {
+        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
+        m_zmqPubSock_boundEgressToConnectingSchedulerPtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)), zmq::send_flags::none);
+    }
+    
+}
+
 void hdtn::HegrManagerAsync::OnSuccessfulBundleAck(uint64_t outductUuidIndex) {
     //m_conditionVariableProcessZmqMessages.notify_one();
     if (m_needToSendSignal && m_mutexPushSignal.try_lock()) {
@@ -219,21 +248,17 @@ void hdtn::HegrManagerAsync::RouterEventHandler() {
         return;
     }
     CommonHdr *common = (CommonHdr *)message.data();
-    switch (common->type) {
-        case HDTN_MSGTYPE_ROUTEUPDATE:
+    if (common->type == HDTN_MSGTYPE_ROUTEUPDATE) {
         hdtn::RouteUpdateHdr * routeUpdateHdr = (hdtn::RouteUpdateHdr *)message.data();
-        cbhe_eid_t nextHopEid = routeUpdateHdr->nextHopEid;
-        cbhe_eid_t finalDestEid = routeUpdateHdr->finalDestEid;
-        Outduct * outduct = m_outductManager.GetOutductByNextHopEid(nextHopEid);
-        const uint64_t outductId1 = outduct->GetOutductUuid();
-        Outduct * outduct2 = m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid);
-        const uint64_t outductId2 = outduct2->GetOutductUuid();
-        if (outductId2 != outductId1) {
-            std::shared_ptr<Outduct> outductPtr = m_outductManager.GetOutductSharedPtrByOutductUuid(outductId1);
-            m_outductManager.SetOutductForFinalDestinationEid_ThreadSafe(finalDestEid, outductPtr);
-            std::cout << "[Egress] Updating the outduct based on the optimal Route for finalDestEid " << finalDestEid.nodeId << ": New Outduct Id is " << outductId1 << std::endl;
+        if (m_outductManager.Reroute_ThreadSafe(routeUpdateHdr->finalDestNodeId, routeUpdateHdr->nextHopNodeId)) {
+            std::cout << "[Egress] Updated the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr->finalDestNodeId
+                << ": New Outduct Next Hop is " << routeUpdateHdr->nextHopNodeId << std::endl;
         }
-     }
+        else {
+            std::cout << "[Egress] Failed to update the outduct based on the optimal Route for finalDestNodeId " << routeUpdateHdr->finalDestNodeId
+                << " to a next hop outduct node id " << routeUpdateHdr->nextHopNodeId << std::endl;
+        }
+    }
 }
 
 void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
@@ -340,7 +365,6 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
                 ++m_telemetry.egressMessageCount;
                 
-                
                 zmq::message_t zmqMessageBundle;
                 //message guaranteed to be there due to the zmq::send_flags::sndmore
                 if (!firstTwoSockets[itemIndex]->recv(zmqMessageBundle, zmq::recv_flags::none)) {
@@ -406,6 +430,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                 }
 
             }
+
             if (items[2].revents & ZMQ_POLLIN) { //events from Router
                 std::cout << "[Egress] Received RouteUpdate event!!" << std::endl;
                 RouterEventHandler();
@@ -530,7 +555,6 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     const std::string msgInprocTx = "m_totalEgressInprocSignalsSent: " + boost::lexical_cast<std::string>(m_totalEgressInprocSignalsSent);
     std::cout << msgInprocTx << std::endl;
     hdtn::Logger::getInstance()->logInfo("egress", msgInprocTx);
-    //
 }
 
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
@@ -559,4 +583,17 @@ void hdtn::HegrManagerAsync::WholeBundleReadyCallback(padded_vector_uint8_t & wh
     if (!m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->send(std::move(paddedMessageWithDataStolen), zmq::send_flags::none)) { //blocks if above 5 high water mark
         std::cout << "error in egress WholeBundleReadyCallback: zmq could not forward bundle to ingress" << std::endl;
     }
+}
+
+void hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, uint64_t outductUuid) {
+    std::cout << "OnFailedBundleVecSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
+    DoLinkStatusUpdate(true, outductUuid);
+}
+void hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid) {
+    std::cout << "OnFailedBundleZmqSendCallback size " << movableBundle.size() << " outductUuid " << outductUuid << "\n";
+    DoLinkStatusUpdate(true, outductUuid);
+}
+void hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
+    std::cout << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid << "\n";
+    DoLinkStatusUpdate(isLinkDownEvent, outductUuid);
 }

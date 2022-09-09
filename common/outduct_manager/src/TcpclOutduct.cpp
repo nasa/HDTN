@@ -3,11 +3,13 @@
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <boost/lexical_cast.hpp>
+#include "Uri.h"
 
 TcpclOutduct::TcpclOutduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback) :
     Outduct(outductConfig, outductUuid),
-    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId, outductConfig.nextHopEndpointId,
+    m_tcpclBundleSource(outductConfig.keepAliveIntervalSeconds, myNodeId,
+        Uri::GetIpnUriString(outductConfig.nextHopNodeId, 0), //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
         outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclV3MyMaxTxSegmentSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {}
 TcpclOutduct::~TcpclOutduct() {}
@@ -27,6 +29,18 @@ bool TcpclOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
 
 void TcpclOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
     m_tcpclBundleSource.SetOnSuccessfulAckCallback(callback);
+}
+void TcpclOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_tcpclBundleSource.BaseClass_SetOnFailedBundleVecSendCallback(callback);
+}
+void TcpclOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_tcpclBundleSource.BaseClass_SetOnFailedBundleZmqSendCallback(callback);
+}
+void TcpclOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_tcpclBundleSource.BaseClass_SetOnOutductLinkStatusChangedCallback(callback);
+}
+void TcpclOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_tcpclBundleSource.BaseClass_SetUserAssignedUuid(userAssignedUuid);
 }
 
 void TcpclOutduct::Connect() {

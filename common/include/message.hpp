@@ -46,6 +46,8 @@
 
 #define HDTN_MSGTYPE_ROUTEUPDATE (0xFC07) //Route Update Event from Router process
 
+#define HDTN_MSGTYPE_LINKSTATUS (0xFC08) //Link Status Update Event from Egress process 
+
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE (0x5555)
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
@@ -134,11 +136,11 @@ struct IreleaseStartHdr {
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    cbhe_eid_t finalDestinationEid;   // formerly flow ID
+    uint64_t finalDestinationNodeId;   // formerly flow ID
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
-    cbhe_eid_t prevHopEid;
-    cbhe_eid_t nextHopEid;
+    uint64_t prevHopNodeId;
+    uint64_t nextHopNodeId;
 };
 
 struct IreleaseStopHdr {
@@ -147,18 +149,29 @@ struct IreleaseStopHdr {
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    cbhe_eid_t finalDestinationEid;
-    cbhe_eid_t prevHopEid;
-    cbhe_eid_t nextHopEid;
+    uint64_t finalDestinationNodeId;
+    uint64_t prevHopNodeId;
+    uint64_t nextHopNodeId;
 };
 
 struct RouteUpdateHdr {
     CommonHdr base;
     uint8_t unused3;
     uint8_t unused4;
-    cbhe_eid_t nextHopEid;
-    cbhe_eid_t finalDestEid;
+    uint64_t nextHopNodeId;
+    uint64_t finalDestNodeId;
     uint64_t route[20]; //optimal route
+};
+
+struct LinkStatusHdr {
+    CommonHdr base;
+    uint64_t event;
+    uint64_t uuid;
+};
+ 
+struct ContactsUpdateHdr {
+    CommonHdr base;
+    std::string* jsonEventFileName;
 };
 
 };  // namespace hdtn

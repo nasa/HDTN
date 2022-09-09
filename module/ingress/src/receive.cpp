@@ -413,25 +413,29 @@ void Ingress::SchedulerEventHandler() {
             return;
         }
         m_eidAvailableSetMutex.lock();
-        m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid);
-	m_finalDestEidAvailableSet.insert(iReleaseStartHdr->nextHopEid);
+        //m_finalDestEidAvailableSet.insert(iReleaseStartHdr->finalDestinationEid); //fully qualified eid
+        //m_finalDestEidAvailableSet.insert(iReleaseStartHdr->nextHopEid);
+        m_finalDestNodeIdAvailableSet.insert(iReleaseStartHdr->finalDestinationNodeId); //eid with any service id
+        m_finalDestNodeIdAvailableSet.insert(iReleaseStartHdr->nextHopNodeId);
         m_eidAvailableSetMutex.unlock();
-        std::cout << "****Ingress sending bundles to egress for finalDestinationEid: (" << iReleaseStartHdr->finalDestinationEid.nodeId
-            << "," << iReleaseStartHdr->finalDestinationEid.serviceId << ")" << std::endl;
+        std::cout << "Ingress sending bundles to egress for finalDestinationEid: "
+            << Uri::GetIpnUriStringAnyServiceNumber(iReleaseStartHdr->finalDestinationNodeId) << std::endl;
     }
     else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
-        hdtn::IreleaseStopHdr * iReleaseStoptHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
+        hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
         if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
             std::cerr << "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr" << std::endl;
             hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr");
             return;
         }
         m_eidAvailableSetMutex.lock();
-        m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->finalDestinationEid);
-	m_finalDestEidAvailableSet.erase(iReleaseStoptHdr->nextHopEid);
+        //m_finalDestEidAvailableSet.erase(iReleaseStopHdr->finalDestinationEid);
+        //m_finalDestEidAvailableSet.erase(iReleaseStopHdr->nextHopEid);
+        m_finalDestNodeIdAvailableSet.erase(iReleaseStopHdr->finalDestinationNodeId); //eid with any service id
+        m_finalDestNodeIdAvailableSet.erase(iReleaseStopHdr->nextHopNodeId);
         m_eidAvailableSetMutex.unlock();
-        std::cout << "*****Ingress sending bundles to storage for finalDestinationEid: (" << iReleaseStoptHdr->finalDestinationEid.nodeId
-            << "," << iReleaseStoptHdr->finalDestinationEid.serviceId << ") " << std::endl;
+        std::cout << "Ingress sending bundles to storage for finalDestinationEid: "
+            << Uri::GetIpnUriStringAnyServiceNumber(iReleaseStopHdr->finalDestinationNodeId) << std::endl;
     }
 }
 
@@ -618,7 +622,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
     //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
     //}
     m_eidAvailableSetMutex.lock();
-    const bool linkIsUp = (m_finalDestEidAvailableSet.count(finalDestEid) != 0);
+    const bool linkIsUp = ((m_finalDestEidAvailableSet.count(finalDestEid) != 0) || (m_finalDestNodeIdAvailableSet.count(finalDestEid.nodeId) != 0));
     m_eidAvailableSetMutex.unlock();
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.lock();
     std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);

@@ -31,6 +31,15 @@ bool LtpOverUdpOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
 void LtpOverUdpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
     m_ltpBundleSource.SetOnSuccessfulAckCallback(callback);
 }
+void LtpOverUdpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_ltpBundleSource.SetOnFailedBundleVecSendCallback(callback);
+}
+void LtpOverUdpOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_ltpBundleSource.SetOnFailedBundleZmqSendCallback(callback);
+}
+void LtpOverUdpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_ltpBundleSource.SetUserAssignedUuid(userAssignedUuid);
+}
 
 void LtpOverUdpOutduct::Connect() {
 

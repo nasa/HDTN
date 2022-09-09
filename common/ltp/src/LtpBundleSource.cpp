@@ -228,6 +228,21 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
 void LtpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
     m_onSuccessfulAckCallback = callback;
 }
+void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetOnFailedBundleVecSendCallback(callback);
+    }
+}
+void LtpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
+    }
+}
+void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetUserAssignedUuid(userAssignedUuid);
+    }
+}
 
 void LtpBundleSource::SyncTelemetry() {
     if (m_ltpUdpEnginePtr) {

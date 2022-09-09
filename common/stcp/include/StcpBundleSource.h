@@ -32,6 +32,7 @@
 #include "TcpAsyncSender.h"
 #include "CircularIndexBufferSingleProducerSingleConsumerConfigurable.h"
 #include "Telemetry.h"
+#include "BundleCallbackFunctionDefines.h"
 #include "stcp_lib_export.h"
 
 class StcpBundleSource {
@@ -55,6 +56,10 @@ public:
     STCP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     STCP_LIB_EXPORT bool ReadyToForward();
     STCP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+    STCP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    STCP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    STCP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
+    STCP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 private:
     STCP_LIB_NO_EXPORT static void GenerateDataUnit(std::vector<uint8_t> & dataUnit, const uint8_t * contents, uint32_t sizeContents);
     STCP_LIB_NO_EXPORT static void GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUnit, uint32_t sizeContents);
@@ -99,6 +104,11 @@ private:
     volatile bool m_useLocalConditionVariableAckReceived;
 
     uint8_t m_tcpReadSomeBuffer[10];
+
+    OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
+    uint64_t m_userAssignedUuid;
 
 public:
     //stcp stats

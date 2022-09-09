@@ -47,7 +47,8 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_notifyEngineThatThisSenderHasProducibleDataFunction(notifyEngineThatThisSenderHasProducibleDataFunction),
     m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback),
     m_numCheckpointTimerExpiredCallbacks(0),
-    m_numDiscretionaryCheckpointsNotResent(0)
+    m_numDiscretionaryCheckpointsNotResent(0),
+    m_isFailedSession(false)
 {
     m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //to trigger first pass of red data
 }
@@ -96,6 +97,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(uint64_t checkpointSeri
     }
     else {
         if (!m_didNotifyForDeletion) {
+            m_isFailedSession = true;
             m_didNotifyForDeletion = true;
             m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
         }
