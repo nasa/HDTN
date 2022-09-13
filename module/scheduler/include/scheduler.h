@@ -60,7 +60,9 @@ public:
     Scheduler();
     ~Scheduler();
     bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    int ProcessContactsFile(std::string* jsonEventFileName);
+    int ProcessContacts(const boost::property_tree::ptree & contactsPt, bool useUnixTimestamps);
+    int ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
+    int ProcessContactsFile(const std::string & jsonEventFileName, bool useUnixTimestamps);
     int ProcessComandLine(int argc, const char *argv[],
                           std::string& jsonEventFileName);
 
@@ -82,7 +84,7 @@ private:
     void EgressEventsHandler();
     void ReadZmqAcksThreadFunc(volatile bool & running);
     void TryRestartContactPlanTimer();
-    void OnContactPlan_TimerExpired(const boost::system::error_code& e, const contactplan_islinkup_pair_t& contactPlan);
+    void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(const contactPlan_t& contact);
 
 private:

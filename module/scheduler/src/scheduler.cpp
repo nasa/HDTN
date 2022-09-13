@@ -250,7 +250,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         boost::this_thread::sleep(boost::posix_time::seconds(2));
 
         if (!isPingTest) {
-            ProcessContactsFile(&jsonFileName);
+            ProcessContactsFile(jsonFileName, false); //false => don't use unix timestamps
             TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
         }
         else {
@@ -406,11 +406,39 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
 }
 
 
-int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) 
-{
-    m_epoch = boost::posix_time::microsec_clock::universal_time();
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(*jsonEventFileName);
-    const boost::property_tree::ptree & contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
+int Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonString(jsonText);
+    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
+    return ProcessContacts(contactsPt, useUnixTimestamps);
+}
+int Scheduler::ProcessContactsFile(const std::string& jsonEventFileName, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName);
+    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
+    return ProcessContacts(contactsPt, useUnixTimestamps);
+}
+
+int Scheduler::ProcessContacts(const boost::property_tree::ptree& contactsPt, bool useUnixTimestamps) {
+
+    m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
+
+    //cancel any existing contacts (make them all link down) (ignore link up) in preparation for new contact plan
+    for (ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); it != m_ptimeToContactPlanBimap.left.end(); ++it) {
+        const contactplan_islinkup_pair_t& contactPlan = it->second;
+        const bool isLinkUp = contactPlan.second;
+        if (!isLinkUp) {
+            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+        }
+    }
+
+    m_ptimeToContactPlanBimap.clear(); //clear the map
+
+    if (useUnixTimestamps) {
+        m_epoch = boost::posix_time::ptime(boost::gregorian::date(1970, 1, 1));
+    }
+    else {
+        m_epoch = boost::posix_time::microsec_clock::universal_time();
+    }
+    
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
         contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
@@ -492,8 +520,7 @@ void Scheduler::TryRestartContactPlanTimer() {
         if (it != m_ptimeToContactPlanBimap.left.end()) {
             const boost::posix_time::ptime& expiry = it->first.first;
             m_contactPlanTimer.expires_at(expiry);
-            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error, it->second));
-            m_ptimeToContactPlanBimap.left.erase(it);
+            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error));
             m_contactPlanTimerIsRunning = true;
         }
         else {
@@ -502,18 +529,23 @@ void Scheduler::TryRestartContactPlanTimer() {
     }
 }
 
-void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e, const contactplan_islinkup_pair_t& contactPlan) {
+void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
     m_contactPlanTimerIsRunning = false;
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        const bool isLinkUp = contactPlan.second;
-        if (isLinkUp) {
-            SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+        ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); //get event that started the timer
+        if (it != m_ptimeToContactPlanBimap.left.end()) {
+            const contactplan_islinkup_pair_t& contactPlan = it->second;
+            const bool isLinkUp = contactPlan.second;
+            if (isLinkUp) {
+                SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+            }
+            else {
+                SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+            }
+            m_ptimeToContactPlanBimap.left.erase(it);
+            TryRestartContactPlanTimer(); //wait for next event
         }
-        else {
-            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
-        }
-        TryRestartContactPlanTimer(); //wait for next event
     }
     else {
         //std::cout << "timer cancelled\n";
