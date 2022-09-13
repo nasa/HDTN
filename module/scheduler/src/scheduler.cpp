@@ -22,26 +22,61 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
+#include <boost/make_unique.hpp>
 #include <memory>
 #include <fstream>
-
-using namespace std;
 
 namespace opt = boost::program_options;
 
 const std::string Scheduler::DEFAULT_FILE = "contactPlan.json";
 
-Scheduler::Scheduler() : 
-    m_timersFinished(false) 
-{
+
+bool contactPlan_t::operator<(const contactPlan_t& o) const {
+    if (contact == o.contact) {
+        if (source == o.source) {
+            if (dest == o.dest) {
+                if (finalDest == o.finalDest) {
+                    return (start < o.start);
+                }
+                return (finalDest < o.finalDest);
+            }
+            return (dest < o.dest);
+        }
+        return (source < o.source);
+    }
+    return (contact < o.contact);
 }
 
-Scheduler::~Scheduler() {
-if (m_threadZmqAckReaderPtr) {
+Scheduler::Scheduler() : 
+    m_contactPlanTimer(m_ioService)
+{
+    
+}
+
+void Scheduler::Stop() {
+    if (m_threadZmqAckReaderPtr) {
         m_threadZmqAckReaderPtr->join();
         m_threadZmqAckReaderPtr.reset(); //delete it
     }
 
+    m_contactPlanTimer.cancel();
+
+    m_workPtr.reset();
+    //This function does not block, but instead simply signals the io_service to stop
+    //All invocations of its run() or run_one() member functions should return as soon as possible.
+    //Subsequent calls to run(), run_one(), poll() or poll_one() will return immediately until reset() is called.
+    //if (!m_ioService.stopped()) {
+    //    m_ioService.stop(); //ioservice requires stopping before join because of the m_work object
+    //}
+
+    if (m_ioServiceThreadPtr) {
+        m_ioServiceThreadPtr->join();
+        m_ioServiceThreadPtr.reset(); //delete it
+    }
+}
+
+Scheduler::~Scheduler() {
+    Stop();
 }
 
 void Scheduler::MonitorExitKeypressThreadFunction() {
@@ -50,7 +85,7 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
 }
 
 void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const uint64_t finalDestinationNodeId,
-    zmq::socket_t * socket, const char* command)
+    const char* command)
 {
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
@@ -60,56 +95,44 @@ void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::dea
         if (system(command) ) {
             std::cout <<   "Ping Failed  ==> Send Link Down Event \n" << std::endl << std::flush;
             std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-            hdtn::IreleaseStopHdr stopMsg;
-            memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
-            stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
-            stopMsg.finalDestinationNodeId = finalDestinationNodeId;
-            socket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-            std::cout << " -- LINK DOWN Event sent for destination: (" << finalDestinationNodeId << ")" << std::endl;
+            SendLinkDown(0, 0, finalDestinationNodeId);
         }
         else {
             std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
             std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-            hdtn::IreleaseStartHdr releaseMsg;
-            memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
-            releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
-            releaseMsg.finalDestinationNodeId = finalDestinationNodeId;
-            socket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-            std::cout << " -- LINK UP Event sent for destination: (" << finalDestinationNodeId << ")" << std::endl;
+            SendLinkUp(0, 0, finalDestinationNodeId);
         }
 
         dt->expires_at(dt->expires_at() + boost::posix_time::seconds(5));
-        dt->async_wait(boost::bind(Scheduler::PingCommand,
+        dt->async_wait(boost::bind(&Scheduler::PingCommand, this,
                        boost::asio::placeholders::error,
-                       dt, finalDestinationNodeId, socket, command));
+                       dt, finalDestinationNodeId, command));
     }
     else {
         std::cout << "timer dt cancelled\n";
     }
 }
 
-bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, 
-    std::string jsonEventFileName, bool useSignalHandler)
-{
+bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
+        Stop();
         running = true;
         m_runningFromSigHandler = true;
-        m_timersFinished = false;
-        jsonEventFileName = "";
         std::string contactsFile = Scheduler::DEFAULT_FILE;
 
         SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
         cbhe_eid_t finalDestEid;
-        string finalDestAddr;
+        std::string finalDestAddr;
+        std::string jsonFileName;
         opt::options_description desc("Allowed options");
         bool isPingTest = false; 
 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<std::string>()->default_value("2dtn.json"), "HDTN Configuration File.")
+                ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
                 "Contact Plan file that scheudler relies on for link availability.")
                 ("ping-test", "Scheduler only relies on ping results for link availability.")
@@ -143,27 +166,25 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+            jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
             if ( !boost::filesystem::exists( jsonFileName ) ) {
                 std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
                 return false;
             }
-            
-            jsonEventFileName = jsonFileName;
 
-            std::cout << "ContactPlan file: " << jsonEventFileName << std::endl;
+            std::cout << "ContactPlan file: " << jsonFileName << std::endl;
 
             if (vm.count("ping-test")) {
                 isPingTest = true;
             }
 
-            const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<string>();
+            const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
             if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
                 std::cerr << "error: bad dest uri string: " << myFinalDestUriEid << std::endl;
                 return false;
             }
 
-            finalDestAddr = vm["dest-addr"].as<string>();
+            finalDestAddr = vm["dest-addr"].as<std::string>();
         }
 
         catch (boost::bad_any_cast & e) {
@@ -181,6 +202,12 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         }
 
         std::cout << "starting Scheduler.." << std::endl;
+
+        m_ioService.reset();
+        m_workPtr = boost::make_unique<boost::asio::io_service::work>(m_ioService);
+        m_contactPlanTimerIsRunning = false;
+        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+
  
         //socket for receiving events from Egress
         m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
@@ -200,18 +227,15 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             return false;
         }
 
-        Scheduler scheduler;
-
         std::cout << "Scheduler up and running" << std::endl;
 
         // Socket for sending events to Ingress and Storage
-        zmq::context_t ctx;
-        zmq::socket_t socket(ctx, zmq::socket_type::pub);
+        m_zmqPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pub);
         const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
 
         try {
-            socket.bind(bind_boundSchedulerPubSubPath);
+            m_zmqPubSock_boundSchedulerToConnectingSubsPtr->bind(bind_boundSchedulerPubSubPath);
             std::cout << "[Scheduler] socket bound successfully to " << bind_boundSchedulerPubSubPath << std::endl;
 
         }
@@ -221,20 +245,20 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         }
 
         m_threadZmqAckReaderPtr = boost::make_unique<boost::thread>(
-        boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this, running, &socket)); //create and start the worker thread
+            boost::bind(&Scheduler::ReadZmqAcksThreadFunc, this, boost::ref(running))); //create and start the worker thread
 
-	boost::this_thread::sleep(boost::posix_time::seconds(2));
+        boost::this_thread::sleep(boost::posix_time::seconds(2));
 
         if (!isPingTest) {
-            scheduler.ProcessContactsFile(&jsonEventFileName, &socket);
+            ProcessContactsFile(&jsonFileName);
+            TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
         }
         else {
             boost::asio::io_service service;
             boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
-            string str = finalDestAddr;
-            str = "ping -c1 -s1 " + str;
+            const std::string str = std::string("ping -c1 -s1 ") + finalDestAddr;
             const char *command = str.c_str();
-            dt.async_wait(boost::bind(Scheduler::PingCommand, boost::asio::placeholders::error, &dt, finalDestEid.nodeId, &socket, command));
+            dt.async_wait(boost::bind(&Scheduler::PingCommand, this, boost::asio::placeholders::error, &dt, finalDestEid.nodeId, command));
             service.run();
         }
 
@@ -248,19 +272,17 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             }
         }
 
-        socket.close();
-        m_timersFinished = true;
+        Stop();
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
 
         std::cout << "Scheduler currentTime  " << timeLocal << std::endl << std::flush;
     }
-    std::cout << "Scheduler exiting cleanly..\n";
+    std::cout << "Scheduler exited cleanly..\n";
     return true;
 }
 
-void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId,
-                             zmq::socket_t * ptrSocket) {
+void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId) {
 
     hdtn::IreleaseStopHdr stopMsg;
 
@@ -269,26 +291,17 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinat
     stopMsg.nextHopNodeId = dest;
     stopMsg.prevHopNodeId = src;
     stopMsg.finalDestinationNodeId = finalDestinationNodeId;
-    ptrSocket->send(zmq::const_buffer(&stopMsg,
-    sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
+    {
+        boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+        m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&stopMsg,
+            sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
+    }
+    
 
     std::cout << " -- LINK DOWN Event sent for Link " << src << " ===> " << dest << std::endl;
 }
 
-void Scheduler::ProcessLinkDown(const boost::system::error_code& e, uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId,
-    std::string event, zmq::socket_t * ptrSocket) {
-    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    if (e != boost::asio::error::operation_aborted) {
-        std::cout << timeLocal << ": Processing Event " << event << " from source node " << src << " to next Hop node " << dest << std::endl;
-        SendLinkDown(src, dest, finalDestinationNodeId, ptrSocket);
-    }
-    else {
-        std::cout << "timer dt2 cancelled\n";
-    }
-}
-
-void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId,
-                           zmq::socket_t * ptrSocket) {
+void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId) {
 
     hdtn::IreleaseStartHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -297,26 +310,16 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinatio
     releaseMsg.nextHopNodeId = dest;
     releaseMsg.prevHopNodeId = src;
     releaseMsg.finalDestinationNodeId = finalDestinationNodeId;
-    ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)),
-                    zmq::send_flags::none);
+    {
+        boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
+        m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)),
+            zmq::send_flags::none);
+    }
 
     std::cout << " -- LINK UP Event sent for Link " << src << " ===> " << dest << std::endl;
 }
 
-void Scheduler::ProcessLinkUp(const boost::system::error_code& e, uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId,
-    std::string event, zmq::socket_t * ptrSocket) {
-    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    if (e != boost::asio::error::operation_aborted) {
-        // Timer was not cancelled, take necessary action.
-        std::cout << timeLocal << ": Processing Event " << event << " from source node " << src << " to next Hop node " << dest << std::endl;
-        SendLinkUp(src, dest, finalDestinationNodeId, ptrSocket);
-    }
-    else {
-        std::cout << "timer dt cancelled\n";
-    }
-}
-
-void Scheduler::EgressEventsHandler(zmq::socket_t* socket) {
+void Scheduler::EgressEventsHandler() {
     //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
     static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + sizeof(hdtn::LinkStatusHdr);
     m_egressRxBufPtrToStdVec64.resize(minBufSizeBytes / sizeof(uint64_t));
@@ -364,17 +367,17 @@ void Scheduler::EgressEventsHandler(zmq::socket_t* socket) {
             }
             if (event == 1) {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
-                SendLinkUp(srcNode, destNode, finalDestEid.nodeId, socket);
+                SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
             }
             else {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Down event " << std::endl;
-                SendLinkDown(srcNode, destNode, finalDestEid.nodeId, socket);
+                SendLinkDown(srcNode, destNode, finalDestEid.nodeId);
             }
         }
     }
 }
 
-void Scheduler::ReadZmqAcksThreadFunc(volatile bool running, zmq::socket_t * socket) {
+void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
 
     static constexpr unsigned int NUM_SOCKETS = 1;
 
@@ -385,7 +388,7 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool running, zmq::socket_t * soc
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
 
-    while (running) { //keep thread alive if running
+    while (running && m_runningFromSigHandler) { //keep thread alive if running
         int rc = 0;
         try {
             rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
@@ -396,25 +399,20 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool running, zmq::socket_t * soc
         }
         if (rc > 0) {
             if (items[0].revents & ZMQ_POLLIN) { //events from Egress
-                EgressEventsHandler(socket);
+                EgressEventsHandler();
             }
         }
     }
 }
 
 
-int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, zmq::socket_t * socket) 
+int Scheduler::ProcessContactsFile(std::string* jsonEventFileName) 
 {
-    m_timersFinished = false;
-    contactPlanVector_t contactsVector;
-
+    m_epoch = boost::posix_time::microsec_clock::universal_time();
     boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(*jsonEventFileName);
-    const boost::property_tree::ptree & contactsPt
-            = pt.get_child("contacts", boost::property_tree::ptree());
-    contactsVector.resize(contactsPt.size());
-    unsigned int eventIndex = 0;
+    const boost::property_tree::ptree & contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
-        contactPlan_t & linkEvent = contactsVector[eventIndex++];
+        contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);
@@ -422,45 +420,15 @@ int Scheduler::ProcessContactsFile(std::string* jsonEventFileName, zmq::socket_t
         linkEvent.start = eventPt.second.get<int>("startTime", 0);
         linkEvent.end = eventPt.second.get<int>("endTime", 0);
         linkEvent.rate = eventPt.second.get<int>("rate", 0);
+        if (!AddContact_NotThreadSafe(linkEvent)) {
+            std::cout << "failed to add a contact\n";
+        }
     }
 
-    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    boost::posix_time::ptime epochTime = boost::posix_time::second_clock::local_time();
+    std::cout << "Epoch Time:  " << m_epoch << std::endl << std::flush;
 
-    std::cout << "Epoch Time:  " << epochTime << std::endl << std::flush;
-
-    boost::asio::io_service ioService;
-
-    std::vector<SmartDeadlineTimer> vectorTimers;
-    vectorTimers.reserve(contactsVector.size());
-
-    std::vector<SmartDeadlineTimer> vectorTimers2;
-    vectorTimers2.reserve(contactsVector.size());
-
-    for(std::size_t i=0; i < contactsVector.size(); ++i) {
-        SmartDeadlineTimer dt = boost::make_unique<boost::asio::deadline_timer>(ioService);
-        SmartDeadlineTimer dt2 = boost::make_unique<boost::asio::deadline_timer>(ioService);
-
-        dt->expires_from_now(boost::posix_time::seconds(contactsVector[i].start));
-        dt->async_wait(boost::bind(&Scheduler::ProcessLinkUp,this,boost::asio::placeholders::error, 
-            contactsVector[i].source, contactsVector[i].dest,
-            contactsVector[i].finalDest, "Link Available", socket));
-        vectorTimers.push_back(std::move(dt));
-
-        dt2->expires_from_now(boost::posix_time::seconds(contactsVector[i].end + 1));                     
-        dt2->async_wait(boost::bind(&Scheduler::ProcessLinkDown,this,boost::asio::placeholders::error, 
-            contactsVector[i].source, 
-            contactsVector[i].dest,
-            contactsVector[i].finalDest, "Link Unavailable", socket));
-        vectorTimers2.push_back(std::move(dt2));
-    }
-
-    ioService.run();
-
-    m_timersFinished = true;
     
-    timeLocal = boost::posix_time::second_clock::local_time();
-    std::cout << "End of ProcessEventFile:  " << timeLocal << std::endl << std::flush;
+    
     
     return 0;
 }
@@ -514,4 +482,64 @@ int Scheduler::ProcessComandLine(int argc, const char *argv[], std::string& json
     }
     jsonEventFileName = jsonFileName;
     return 0;
+}
+
+
+//restarts the timer if it is not running
+void Scheduler::TryRestartContactPlanTimer() {
+    if (!m_contactPlanTimerIsRunning) {
+        ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); //get first event expiring
+        if (it != m_ptimeToContactPlanBimap.left.end()) {
+            const boost::posix_time::ptime& expiry = it->first.first;
+            m_contactPlanTimer.expires_at(expiry);
+            m_contactPlanTimer.async_wait(boost::bind(&Scheduler::OnContactPlan_TimerExpired, this, boost::asio::placeholders::error, it->second));
+            m_ptimeToContactPlanBimap.left.erase(it);
+            m_contactPlanTimerIsRunning = true;
+        }
+        else {
+            std::cout << "End of ProcessEventFile\n";
+        }
+    }
+}
+
+void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e, const contactplan_islinkup_pair_t& contactPlan) {
+    m_contactPlanTimerIsRunning = false;
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        const bool isLinkUp = contactPlan.second;
+        if (isLinkUp) {
+            SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+        }
+        else {
+            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+        }
+        TryRestartContactPlanTimer(); //wait for next event
+    }
+    else {
+        //std::cout << "timer cancelled\n";
+    }
+}
+
+bool Scheduler::AddContact_NotThreadSafe(const contactPlan_t& contact) {
+    {
+        ptime_index_pair_t pipStart(m_epoch + boost::posix_time::seconds(contact.start), 0);
+        while (m_ptimeToContactPlanBimap.left.count(pipStart)) {
+            pipStart.second += 1; //in case of events that occur at the same time
+        }
+        contactplan_islinkup_pair_t contactUp(contact, true); //true => add link up event
+        if (!m_ptimeToContactPlanBimap.insert(ptime_to_contactplan_bimap_t::value_type(pipStart, contactUp)).second) {
+            return false;
+        }
+    }
+    {
+        ptime_index_pair_t pipEnd(m_epoch + boost::posix_time::seconds(contact.end), 0);
+        while (m_ptimeToContactPlanBimap.left.count(pipEnd)) {
+            pipEnd.second += 1; //in case of events that occur at the same time
+        }
+        contactplan_islinkup_pair_t contactDown(contact, false); //false => add link down event
+        if (!m_ptimeToContactPlanBimap.insert(ptime_to_contactplan_bimap_t::value_type(pipEnd, contactDown)).second) {
+            return false;
+        }
+    }
+    return true;
 }

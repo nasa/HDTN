@@ -56,7 +56,7 @@ int RunEgressAsync(const char * argv[], int argc, bool & running, uint64_t* ptrB
 int RunBpsinkAsync(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount, FinalStatsBpSink * ptrFinalStatsBpSink);
 int RunIngress(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
 int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundleCount);
-int RunScheduler(const char * argv[], int argc, bool & running, std::string jsonFile);
+int RunScheduler(const char * argv[], int argc, bool & running);
 void Delay(uint64_t seconds);
 
 // Global Test Fixture.  Used to setup Python Registration server.
@@ -132,10 +132,10 @@ int RunStorage(const char * argv[], int argc, bool & running, uint64_t* ptrBundl
     return 0;
 }
 
-int RunScheduler(const char * argv[], int argc, bool & running, std::string jsonFileName) {
+int RunScheduler(const char * argv[], int argc, bool & running) {
     {
         Scheduler runner;
-        runner.Run(argc, argv, running, jsonFileName, true);
+        runner.Run(argc, argv, running, true);
     }
     return 0;
 }
@@ -206,7 +206,7 @@ bool TestSchedulerTcpcl() {
     }
 
     static const char * argsScheduler[] = { "scheduler", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
-    std::thread threadScheduler(&Scheduler::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), jsonFileName, true);
+    std::thread threadScheduler(&Scheduler::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), true);
     Delay(1);
 
     
