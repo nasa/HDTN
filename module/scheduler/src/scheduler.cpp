@@ -227,6 +227,23 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             return false;
         }
 
+        //socket for receiving events from UIS
+        m_zmqSubSock_boundUisToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
+        const std::string connect_boundUisPubSubPath(
+            std::string("tcp://") +
+            std::string("localhost") +
+            std::string(":") +
+            boost::lexical_cast<std::string>(29001)); //TODO
+        try {
+            m_zmqSubSock_boundUisToConnectingSchedulerPtr->connect(connect_boundUisPubSubPath);
+            m_zmqSubSock_boundUisToConnectingSchedulerPtr->set(zmq::sockopt::subscribe, "");
+            std::cout << "Scheduler connected and listening to events from UIS " << connect_boundUisPubSubPath << std::endl;
+        }
+        catch (const zmq::error_t& ex) {
+            std::cerr << "error: scheduler cannot connect to UIS socket: " << ex.what() << std::endl;
+            return false;
+        }
+
         std::cout << "Scheduler up and running" << std::endl;
 
         // Socket for sending events to Ingress and Storage
@@ -377,12 +394,39 @@ void Scheduler::EgressEventsHandler() {
     }
 }
 
+void Scheduler::UisEventsHandler() {
+    hdtn::ContactPlanReloadHdr hdr;
+    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundUisToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&hdr, sizeof(hdr)), zmq::recv_flags::none);
+    if (!res) {
+        std::cerr << "error in Scheduler::UisEventsHandler: cannot read hdr" << std::endl;
+    }
+    else if ((res->truncated()) || (res->size != sizeof(hdr))) {
+        std::cerr << "UisEventsHandler hdr message mismatch: untruncated = " << res->untruncated_size
+            << " truncated = " << res->size << " expected = " << sizeof(hdtn::ToEgressHdr) << std::endl;
+    }
+    else if (hdr.base.type == CPM_NEW_CONTACT_PLAN) {
+        zmq::message_t message;
+        if (!m_zmqSubSock_boundUisToConnectingSchedulerPtr->recv(message, zmq::recv_flags::none)) {
+            std::cerr << "[Scheduler::UisEventsHandler] message not received" << std::endl;
+            return;
+        }
+        std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(JsonSerializable::GetPropertyTreeFromCharArray((char*)message.data(), message.size()));
+        boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), hdr.using_unix_timestamp));
+    }
+    else {
+        std::cerr << "error in Scheduler::UisEventsHandler: unknown hdr " << hdr.base.type << std::endl;
+    }
+
+    
+}
+
 void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
 
-    static constexpr unsigned int NUM_SOCKETS = 1;
+    static constexpr unsigned int NUM_SOCKETS = 2;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
         {m_zmqSubSock_boundEgressToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqSubSock_boundUisToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
 
@@ -391,7 +435,7 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
     while (running && m_runningFromSigHandler) { //keep thread alive if running
         int rc = 0;
         try {
-            rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
+            rc = zmq::poll(items, NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
         }
         catch (zmq::error_t & e) {
             std::cout << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what() << std::endl;
@@ -401,23 +445,31 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
             if (items[0].revents & ZMQ_POLLIN) { //events from Egress
                 EgressEventsHandler();
             }
+            if (items[1].revents & ZMQ_POLLIN) { //events from UIS
+                UisEventsHandler();
+            }
         }
     }
 }
 
-
+int Scheduler::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps) {
+    return ProcessContacts(*contactsPtPtr, useUnixTimestamps);
+}
+int Scheduler::ProcessContactsJsonText(char * jsonText, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromCharArray(jsonText, strlen(jsonText));
+    return ProcessContacts(pt, useUnixTimestamps);
+}
 int Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps) {
     boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonString(jsonText);
-    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
-    return ProcessContacts(contactsPt, useUnixTimestamps);
+    return ProcessContacts(pt, useUnixTimestamps);
 }
 int Scheduler::ProcessContactsFile(const std::string& jsonEventFileName, bool useUnixTimestamps) {
     boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName);
-    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
-    return ProcessContacts(contactsPt, useUnixTimestamps);
+    return ProcessContacts(pt, useUnixTimestamps);
 }
 
-int Scheduler::ProcessContacts(const boost::property_tree::ptree& contactsPt, bool useUnixTimestamps) {
+int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUnixTimestamps) {
+    
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
 
@@ -439,6 +491,7 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& contactsPt, bo
         m_epoch = boost::posix_time::microsec_clock::universal_time();
     }
     
+    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
         contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);

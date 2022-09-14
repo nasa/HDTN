@@ -48,6 +48,8 @@
 
 #define HDTN_MSGTYPE_LINKSTATUS (0xFC08) //Link Status Update Event from Egress process 
 
+#define CPM_NEW_CONTACT_PLAN (0xFC09) //Reload with new contact plan message
+
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE (0x5555)
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
@@ -169,9 +171,9 @@ struct LinkStatusHdr {
     uint64_t uuid;
 };
  
-struct ContactsUpdateHdr {
+struct ContactPlanReloadHdr {
     CommonHdr base;
-    std::string* jsonEventFileName;
+    bool using_unix_timestamp;
 };
 
 };  // namespace hdtn

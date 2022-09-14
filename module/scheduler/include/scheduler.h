@@ -60,7 +60,9 @@ public:
     Scheduler();
     ~Scheduler();
     bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    int ProcessContacts(const boost::property_tree::ptree & contactsPt, bool useUnixTimestamps);
+    int ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps);
+    int ProcessContacts(const boost::property_tree::ptree & pt, bool useUnixTimestamps);
+    int ProcessContactsJsonText(char* jsonText, bool useUnixTimestamps);
     int ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
     int ProcessContactsFile(const std::string & jsonEventFileName, bool useUnixTimestamps);
     int ProcessComandLine(int argc, const char *argv[],
@@ -82,6 +84,7 @@ private:
      
     void MonitorExitKeypressThreadFunction();
     void EgressEventsHandler();
+    void UisEventsHandler();
     void ReadZmqAcksThreadFunc(volatile bool & running);
     void TryRestartContactPlanTimer();
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
@@ -95,6 +98,7 @@ private:
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundUisToConnectingSchedulerPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPubSock_boundSchedulerToConnectingSubsPtr;
     boost::mutex m_mutexZmqPubSock;
 
