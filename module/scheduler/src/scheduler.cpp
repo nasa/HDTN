@@ -268,7 +268,6 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
         if (!isPingTest) {
             ProcessContactsFile(jsonFileName, false); //false => don't use unix timestamps
-            TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
         }
         else {
             boost::asio::io_service service;
@@ -412,6 +411,7 @@ void Scheduler::UisEventsHandler() {
         }
         std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(JsonSerializable::GetPropertyTreeFromCharArray((char*)message.data(), message.size()));
         boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), hdr.using_unix_timestamp));
+       std::cout << "[Scheduler] received Reload contact Plan event with data " << (char*)message.data() << std::endl;
     }
     else {
         std::cerr << "error in Scheduler::UisEventsHandler: unknown hdr " << hdr.base.type << std::endl;
@@ -485,15 +485,17 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
     m_ptimeToContactPlanBimap.clear(); //clear the map
 
     if (useUnixTimestamps) {
+        std::cout << "***Using unix timestamp!" << std::endl;    
         m_epoch = boost::posix_time::ptime(boost::gregorian::date(1970, 1, 1));
     }
     else {
+	std::cout << "using now as epoch" << std::endl; 
         m_epoch = boost::posix_time::microsec_clock::universal_time();
     }
     
     const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
-        contactPlan_t linkEvent;
+	contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);
@@ -508,9 +510,9 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
 
     std::cout << "Epoch Time:  " << m_epoch << std::endl << std::flush;
 
-    
-    
-    
+    m_contactPlanTimerIsRunning = false;
+    TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
+
     return 0;
 }
 

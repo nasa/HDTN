@@ -170,11 +170,12 @@ struct LinkStatusHdr {
     uint64_t event;
     uint64_t uuid;
 };
- 
+
 struct ContactPlanReloadHdr {
     CommonHdr base;
-    bool using_unix_timestamp;
-};
+    uint8_t using_unix_timestamp;
+    uint8_t unusedPadding[3];
+ };
 
 };  // namespace hdtn
 //#pragma pack (pop)
