@@ -18,7 +18,6 @@ static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_ove
 induct_element_config_t::induct_element_config_t() :
     name(""),
     convergenceLayer(""),
-    myEndpointId(""),
     boundPort(0),
     numRxCircularBufferElements(0),
     numRxCircularBufferBytesPerElement(0),
@@ -54,7 +53,6 @@ induct_element_config_t::~induct_element_config_t() {}
 induct_element_config_t::induct_element_config_t(const induct_element_config_t& o) :
     name(o.name),
     convergenceLayer(o.convergenceLayer),
-    myEndpointId(o.myEndpointId),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
@@ -87,7 +85,6 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
 induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
-    myEndpointId(std::move(o.myEndpointId)),
     boundPort(o.boundPort),
     numRxCircularBufferElements(o.numRxCircularBufferElements),
     numRxCircularBufferBytesPerElement(o.numRxCircularBufferBytesPerElement),
@@ -120,7 +117,6 @@ induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
 induct_element_config_t& induct_element_config_t::operator=(const induct_element_config_t& o) {
     name = o.name;
     convergenceLayer = o.convergenceLayer;
-    myEndpointId = o.myEndpointId;
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
@@ -155,7 +151,6 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
 induct_element_config_t& induct_element_config_t::operator=(induct_element_config_t&& o) {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
-    myEndpointId = std::move(o.myEndpointId);
     boundPort = o.boundPort;
     numRxCircularBufferElements = o.numRxCircularBufferElements;
     numRxCircularBufferBytesPerElement = o.numRxCircularBufferBytesPerElement;
@@ -189,7 +184,6 @@ induct_element_config_t& induct_element_config_t::operator=(induct_element_confi
 bool induct_element_config_t::operator==(const induct_element_config_t & o) const {
     return (name == o.name) &&
         (convergenceLayer == o.convergenceLayer) &&
-        (myEndpointId == o.myEndpointId) &&
         (boundPort == o.boundPort) &&
         (numRxCircularBufferElements == o.numRxCircularBufferElements) &&
         (numRxCircularBufferBytesPerElement == o.numRxCircularBufferBytesPerElement) &&
@@ -278,7 +272,6 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     return false;
                 }
             }
-            inductElementConfig.myEndpointId = inductElementConfigPt.second.get<std::string>("myEndpointId");
             inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort");
             if (inductElementConfig.boundPort == 0) {
                 std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero\n";
@@ -432,7 +425,6 @@ boost::property_tree::ptree InductsConfig::GetNewPropertyTree() const {
         boost::property_tree::ptree & inductElementConfigPt = (inductElementConfigVectorPt.push_back(std::make_pair("", boost::property_tree::ptree())))->second; //using "" as key creates json array
         inductElementConfigPt.put("name", inductElementConfig.name);
         inductElementConfigPt.put("convergenceLayer", inductElementConfig.convergenceLayer);
-        inductElementConfigPt.put("myEndpointId", inductElementConfig.myEndpointId);
         inductElementConfigPt.put("boundPort", inductElementConfig.boundPort);
         inductElementConfigPt.put("numRxCircularBufferElements", inductElementConfig.numRxCircularBufferElements);
         if ((inductElementConfig.convergenceLayer == "udp") || (inductElementConfig.convergenceLayer == "tcpcl_v3") || (inductElementConfig.convergenceLayer == "tcpcl_v4")) {

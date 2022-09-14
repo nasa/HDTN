@@ -4,7 +4,6 @@
         {
             "name": "localhost bpsink",
             "convergenceLayer": "tcpcl_v3",
-            "myEndpointId": "ipn:2.1",
             "boundPort": 4556,
             "numRxCircularBufferElements": 200,
             "numRxCircularBufferBytesPerElement": 20000,

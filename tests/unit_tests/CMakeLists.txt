@@ -20,6 +20,7 @@ add_executable(unit-tests
 	../../common/util/test/TestCpuFlagDetection.cpp
 	../../common/util/test/TestTokenRateLimiter.cpp
 	../../common/util/test/TestUdpBatchSender.cpp
+	../../common/util/test/TestJsonSerializable.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp

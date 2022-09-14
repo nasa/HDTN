@@ -25,15 +25,15 @@ public:
     bool Run(int argc, const char* const argv[], volatile bool & running,
                     std::string jsonEventFileName, bool useSignalHandler);
     int ComputeOptimalRoute(std::string* jsonEventFileName,
-                            uint64_t sourceNode, cbhe_eid_t finalDestEid);
+                            uint64_t sourceNode, uint64_t finalDestNodeId);
 
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/").string() + filename;
     }
     volatile bool m_timersFinished;
 private:
-    void RouteUpdate(const boost::system::error_code& e, cbhe_eid_t nextHopEid,
-                     cbhe_eid_t finalDestEid, std::string event, zmq::socket_t * ptrSocket);
+    void RouteUpdate(const boost::system::error_code& e, uint64_t nextHopNodeId,
+        uint64_t finalDestNodeId, std::string event, zmq::socket_t * ptrSocket);
     HdtnConfig m_hdtnConfig;
     void MonitorExitKeypressThreadFunction();
     volatile bool m_runningFromSigHandler;

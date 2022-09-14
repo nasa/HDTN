@@ -46,12 +46,12 @@ scheduler_PID=$!
 sleep 1
 
 # bpgen1
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:101.1 --dest-uri-eid=ipn:1.1 --duration=40 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async  --use-bp-version-7 --bundle-rate=100 --my-uri-eid=ipn:101.1 --dest-uri-eid=ipn:1.1 --duration=40 --outducts-config-file=$gen_config &
 bpgen1_PID=$!
 sleep 1
 
 #bpgen2
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=100 --my-uri-eid=ipn:102.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --use-bp-version-7 --bundle-rate=100 --my-uri-eid=ipn:102.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
 bpgen2_PID=$!
 sleep 8
 

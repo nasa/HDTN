@@ -15,7 +15,7 @@ struct outduct_element_config_t {
     //common to all outducts
     std::string name;
     std::string convergenceLayer;
-    std::string nextHopEndpointId;
+    uint64_t nextHopNodeId;
     std::string remoteHostname;
     uint16_t remotePort;
     uint32_t bundlePipelineLimit;

@@ -79,6 +79,8 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     M_BASE_MAX_FRAGMENT_SIZE(maxFragmentSize),
     */
 
+    m_base_userAssignedUuid(0),
+
     //stats
     m_base_totalBundlesAcked(0),
     m_base_totalBytesAcked(0),
@@ -298,9 +300,9 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     if (m_base_tcpSocketPtr) {
 #endif
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-        el->m_underlyingData.resize(1);
-        TcpclV4::GenerateAckSegment(el->m_underlyingData[0], TcpclV4::tcpclv4_ack_t(isStartFlag, isEndFlag, transferId, bytesToAck));
-        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_underlyingDataVecHeaders.resize(1);
+        TcpclV4::GenerateAckSegment(el->m_underlyingDataVecHeaders[0], TcpclV4::tcpclv4_ack_t(isStartFlag, isEndFlag, transferId, bytesToAck));
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
         m_base_dataSentServedAsKeepaliveSent = true; //sending acks can also be used in lieu of keepalives
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -402,9 +404,9 @@ void TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpir
 #endif
             if (!m_base_dataSentServedAsKeepaliveSent) {
                 TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-                el->m_underlyingData.resize(1);
-                TcpclV4::GenerateKeepAliveMessage(el->m_underlyingData[0]);
-                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+                el->m_underlyingDataVecHeaders.resize(1);
+                TcpclV4::GenerateKeepAliveMessage(el->m_underlyingDataVecHeaders[0]);
+                el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
                 el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 #ifdef OPENSSL_SUPPORT_ENABLED
                 if (m_base_usingTls) {
@@ -459,6 +461,9 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
         // Timer was cancelled as expected.  This method keeps socket shutdown within io_service thread.
 
         m_base_readyToForward = false;
+        if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link down event
+            m_base_onOutductLinkStatusChangedCallback(true, m_base_userAssignedUuid);
+        }
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (doCleanShutdown && m_base_tcpAsyncSenderSslPtr && m_base_sslStreamSharedPtr) {
 #else
@@ -467,7 +472,7 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
         
             std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending session terminination packet to cleanly close tcpcl.. " << std::endl;
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-            el->m_underlyingData.resize(1);
+            el->m_underlyingDataVecHeaders.resize(1);
 
             //To cleanly terminate a session, a SESS_TERM message SHALL be
             //transmitted by either entity at any point following complete
@@ -490,10 +495,10 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
             //incoming transfer is attempted while in the Ending state, the
             //receiving entity SHALL send an XFER_REFUSE with a Reason Code of
             //"Session Terminating".
-            TcpclV4::GenerateSessionTerminationMessage(el->m_underlyingData[0], sessionTerminationReasonCode, isAckOfAnEarlierSessionTerminationMessage);
+            TcpclV4::GenerateSessionTerminationMessage(el->m_underlyingDataVecHeaders[0], sessionTerminationReasonCode, isAckOfAnEarlierSessionTerminationMessage);
 
 
-            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+            el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendShutdownCallback;
 #ifdef OPENSSL_SUPPORT_ENABLED
             if (m_base_usingTls) {
@@ -726,16 +731,17 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_constBufferVec.resize(2);
+            el->m_underlyingDataVecHeaders.resize(1);
             if (usingZmqData) {
-                el->m_underlyingData.resize(1);
+                //el->m_underlyingDataVecHeaders.resize(1);
                 if (isEndSegment) {
-                    el->m_underlyingDataZmq = std::move(zmqMessageUniquePtr);
+                    el->m_underlyingDataZmqBundle = std::move(zmqMessageUniquePtr);
                 }
             }
             else {
-                el->m_underlyingData.resize(1 + isEndSegment);
+                //el->m_underlyingDataVecHeaders.resize(1 + isEndSegment);
                 if (isEndSegment) {
-                    el->m_underlyingData[1] = std::move(vecMessage);
+                    el->m_underlyingDataVecBundle = std::move(vecMessage);
                 }
             }
                 
@@ -747,12 +753,12 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             //The extension does not provide any additional information for single-
             //segment transfers.
             if (isStartSegment) {
-                TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(el->m_underlyingData[0], transferId, bytesToSend, dataSize);
+                TcpclV4::GenerateFragmentedStartDataSegmentWithLengthExtensionHeaderOnly(el->m_underlyingDataVecHeaders[0], transferId, bytesToSend, dataSize);
             }
             else {
-                TcpclV4::GenerateNonStartDataSegmentHeaderOnly(el->m_underlyingData[0], isEndSegment, transferId, bytesToSend);
+                TcpclV4::GenerateNonStartDataSegmentHeaderOnly(el->m_underlyingDataVecHeaders[0], isEndSegment, transferId, bytesToSend);
             }
-            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+            el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingDataVecHeaders[0]);
             el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr + dataIndex, bytesToSend);
             el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
             elements.push_back(el);
@@ -793,17 +799,16 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     }
     else {
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+        el->m_underlyingDataVecHeaders.resize(1);
         if (usingZmqData) {
-            el->m_underlyingData.resize(1);
-            el->m_underlyingDataZmq = std::move(zmqMessageUniquePtr);
+            el->m_underlyingDataZmqBundle = std::move(zmqMessageUniquePtr);
         }
         else {
-            el->m_underlyingData.resize(2);
-            el->m_underlyingData[1] = std::move(vecMessage);
+            el->m_underlyingDataVecBundle = std::move(vecMessage);
         }
-        TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(el->m_underlyingData[0], transferId, dataSize);
+        TcpclV4::GenerateNonFragmentedDataSegmentHeaderOnly(el->m_underlyingDataVecHeaders[0], transferId, dataSize);
         el->m_constBufferVec.resize(2);
-        el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingData[0]);
+        el->m_constBufferVec[0] = boost::asio::buffer(el->m_underlyingDataVecHeaders[0]);
         el->m_constBufferVec[1] = boost::asio::buffer(dataToSendPtr, dataSize);
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 
@@ -917,10 +922,10 @@ void TcpclV4BidirectionalLink::BaseClass_SendSessionInit() {
     if (m_base_tcpSocketPtr) {
 #endif
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-        el->m_underlyingData.resize(1);
-        TcpclV4::GenerateSessionInitMessage(el->m_underlyingData[0], M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
+        el->m_underlyingDataVecHeaders.resize(1);
+        TcpclV4::GenerateSessionInitMessage(el->m_underlyingDataVecHeaders[0], M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES,
             M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES, M_BASE_THIS_TCPCL_EID_STRING, TcpclV4::tcpclv4_extensions_t());
-        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
 
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -943,9 +948,9 @@ void TcpclV4BidirectionalLink::BaseClass_SendContactHeader() {
     if (m_base_tcpSocketPtr) {
 #endif
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-        el->m_underlyingData.resize(1);
-        TcpclV4::GenerateContactHeader(el->m_underlyingData[0], M_BASE_TRY_USE_TLS);
-        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_underlyingDataVecHeaders.resize(1);
+        TcpclV4::GenerateContactHeader(el->m_underlyingDataVecHeaders[0], M_BASE_TRY_USE_TLS);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendContactHeaderCallback;
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_tcpAsyncSenderSslPtr->AsyncSendUnsecure_ThreadSafe(el);
@@ -1081,6 +1086,22 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
 
     m_base_readyToForward = true;
     Virtual_OnSessionInitReceivedAndProcessedSuccessfully();
+    if (m_base_onOutductLinkStatusChangedCallback) { //let user know of link up event
+        m_base_onOutductLinkStatusChangedCallback(false, m_base_userAssignedUuid);
+    }
 }
 
 void TcpclV4BidirectionalLink::Virtual_OnSessionInitReceivedAndProcessedSuccessfully() {}
+
+void TcpclV4BidirectionalLink::BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_base_onFailedBundleVecSendCallback = callback;
+}
+void TcpclV4BidirectionalLink::BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_base_onFailedBundleZmqSendCallback = callback;
+}
+void TcpclV4BidirectionalLink::BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_base_onOutductLinkStatusChangedCallback = callback;
+}
+void TcpclV4BidirectionalLink::BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_base_userAssignedUuid = userAssignedUuid;
+}

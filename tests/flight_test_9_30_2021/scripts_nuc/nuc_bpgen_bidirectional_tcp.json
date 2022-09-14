@@ -4,7 +4,7 @@
         {
             "name": "to hdtn nuc",
             "convergenceLayer": "tcpcl_v3",
-            "nextHopEndpointId": "ipn:10.1",
+            "nextHopNodeId": 10,
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "bundlePipelineLimit": 5,

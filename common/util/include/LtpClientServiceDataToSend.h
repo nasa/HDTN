@@ -52,6 +52,8 @@ public:
     HDTN_UTIL_EXPORT bool operator!=(const std::vector<uint8_t> & vec) const; //operator !=
     HDTN_UTIL_EXPORT uint8_t * data() const;
     HDTN_UTIL_EXPORT std::size_t size() const;
+    HDTN_UTIL_EXPORT std::vector<uint8_t> & GetVecRef();
+    HDTN_UTIL_EXPORT zmq::message_t & GetZmqRef();
 
 private:
     std::vector<uint8_t> m_vector;

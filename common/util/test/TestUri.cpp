@@ -97,22 +97,39 @@ BOOST_AUTO_TEST_CASE(IpnUriTestCase)
     {
         uint64_t eidNodeNumber = 0;
         uint64_t eidServiceNumber = 0;
+        bool serviceNumberIsWildCard;
 
         BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:18446744073709551615.18446744073709551615"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE_EQUAL(eidNodeNumber, UINT64_MAX);
         BOOST_REQUIRE_EQUAL(eidServiceNumber, UINT64_MAX);
+        BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:18446744073709551615.18446744073709551615"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE_EQUAL(eidNodeNumber, UINT64_MAX);
+        BOOST_REQUIRE_EQUAL(eidServiceNumber, UINT64_MAX);
+        BOOST_REQUIRE_EQUAL(serviceNumberIsWildCard, false);
 
         BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:18446744073709551614.18446744073709551613"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE_EQUAL(eidNodeNumber, UINT64_MAX - 1);
         BOOST_REQUIRE_EQUAL(eidServiceNumber, UINT64_MAX - 2);
+        BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:18446744073709551614.18446744073709551613"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE_EQUAL(eidNodeNumber, UINT64_MAX - 1);
+        BOOST_REQUIRE_EQUAL(eidServiceNumber, UINT64_MAX - 2);
+        BOOST_REQUIRE_EQUAL(serviceNumberIsWildCard, false);
 
         BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:1.0"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE_EQUAL(eidNodeNumber, 1);
         BOOST_REQUIRE_EQUAL(eidServiceNumber, 0);
+        BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:1.0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE_EQUAL(eidNodeNumber, 1);
+        BOOST_REQUIRE_EQUAL(eidServiceNumber, 0);
+        BOOST_REQUIRE_EQUAL(serviceNumberIsWildCard, false);
 
         BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:0.1"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE_EQUAL(eidNodeNumber, 0);
         BOOST_REQUIRE_EQUAL(eidServiceNumber, 1);
+        BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:0.1"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE_EQUAL(eidNodeNumber, 0);
+        BOOST_REQUIRE_EQUAL(eidServiceNumber, 1);
+        BOOST_REQUIRE_EQUAL(serviceNumberIsWildCard, false);
 
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("iipn:1.0"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string(""), eidNodeNumber, eidServiceNumber));
@@ -129,6 +146,41 @@ BOOST_AUTO_TEST_CASE(IpnUriTestCase)
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1844674407370955161555.1844674407370955161555"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.1844674407370955161555"), eidNodeNumber, eidServiceNumber));
         BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1844674407370955161555.1"), eidNodeNumber, eidServiceNumber));
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("iipn:1.0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string(""), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn::1.0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:.1.0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1..0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1:0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:.0"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1."), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:."), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:10"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1844674407370955161555.1844674407370955161555"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.1844674407370955161555"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1844674407370955161555.1"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.*"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(Uri::ParseIpnUriString(std::string("ipn:1.*"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+        BOOST_REQUIRE_EQUAL(serviceNumberIsWildCard, true);
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.**"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.**"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.?"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:1.?"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:**.1"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:**.1"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:**.**"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:**.**"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
+
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:*.*"), eidNodeNumber, eidServiceNumber));
+        BOOST_REQUIRE(!Uri::ParseIpnUriString(std::string("ipn:*.*"), eidNodeNumber, eidServiceNumber, &serviceNumberIsWildCard));
     }
 
     //test bool Uri::ParseIpnUriCstring(const char * data, uint64_t bufferSize, uint64_t & bytesDecodedIncludingNullChar, uint64_t & eidNodeNumber, uint64_t & eidServiceNumber)()

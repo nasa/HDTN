@@ -69,3 +69,10 @@ uint8_t * LtpClientServiceDataToSend::data() const {
 std::size_t LtpClientServiceDataToSend::size() const {
     return m_size;
 }
+
+std::vector<uint8_t>& LtpClientServiceDataToSend::GetVecRef() {
+    return m_vector;
+}
+zmq::message_t& LtpClientServiceDataToSend::GetZmqRef() {
+    return m_zmqMessage;
+}

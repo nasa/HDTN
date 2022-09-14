@@ -30,6 +30,7 @@
 #include "LtpClientServiceDataToSend.h"
 #include "LtpSessionRecreationPreventer.h"
 #include "TokenRateLimiter.h"
+#include "BundleCallbackFunctionDefines.h"
 #include <unordered_map>
 #include <queue>
 #include <memory>
@@ -84,6 +85,10 @@ public:
     LTP_LIB_EXPORT void SetTransmissionSessionCompletedCallback(const TransmissionSessionCompletedCallback_t & callback);
     LTP_LIB_EXPORT void SetInitialTransmissionCompletedCallback(const InitialTransmissionCompletedCallback_t & callback);
     LTP_LIB_EXPORT void SetTransmissionSessionCancelledCallback(const TransmissionSessionCancelledCallback_t & callback);
+
+    LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 
     LTP_LIB_EXPORT bool PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     LTP_LIB_EXPORT bool PacketIn(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
@@ -176,6 +181,10 @@ private:
     TransmissionSessionCompletedCallback_t m_transmissionSessionCompletedCallback;
     InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
     TransmissionSessionCancelledCallback_t m_transmissionSessionCancelledCallback;
+
+    OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    uint64_t m_userAssignedUuid;
 
     uint64_t m_checkpointEveryNthDataPacketSender;
     uint64_t m_maxReceptionClaims;

@@ -22,6 +22,7 @@
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
@@ -37,7 +38,6 @@
             {
                 "name": "stcp ingress",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:1.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -50,7 +50,7 @@
             {
                 "name": "stcp egress1",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:3.1",
+                "nextHopNodeId": 3,
                 "remoteHostname": "node3",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 500,
@@ -69,7 +69,7 @@
             {
                 "name": "stcp egress2",
                 "convergenceLayer": "stcp",
-                "nextHopEndpointId": "ipn:2.1",
+                "nextHopNodeId": 2,
                 "remoteHostname": "node2",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 500,

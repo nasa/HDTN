@@ -22,6 +22,7 @@
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
@@ -37,7 +38,6 @@
             {
                 "name": "tcpcl_bidirectional_ingress",
                 "convergenceLayer": "tcpcl_v3",
-                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "numRxCircularBufferBytesPerElement": 20000,
@@ -47,7 +47,6 @@
             {
                 "name": "stcp_ingress_custody",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:10.2",
                 "boundPort": 4557,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -60,7 +59,7 @@
             {
                 "name": "udp_egress",
                 "convergenceLayer": "udp",
-                "nextHopEndpointId": "ipn:2.1",
+                "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "bundlePipelineLimit": 5,

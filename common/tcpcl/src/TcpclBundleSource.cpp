@@ -125,11 +125,14 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
     
     if(m_base_tcpSocketPtr) {
         m_base_tcpAsyncSenderPtr = boost::make_unique<TcpAsyncSender>(m_base_tcpSocketPtr, m_base_ioServiceRef);
+        m_base_tcpAsyncSenderPtr->SetOnFailedBundleVecSendCallback(m_base_onFailedBundleVecSendCallback);
+        m_base_tcpAsyncSenderPtr->SetOnFailedBundleZmqSendCallback(m_base_onFailedBundleZmqSendCallback);
+        m_base_tcpAsyncSenderPtr->SetUserAssignedUuid(m_base_userAssignedUuid);
 
         TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
-        el->m_underlyingData.resize(1);
-        Tcpcl::GenerateContactHeader(el->m_underlyingData[0], CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_THIS_TCPCL_EID_STRING);
-        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingData[0])); //only one element so resize not needed
+        el->m_underlyingDataVecHeaders.resize(1);
+        Tcpcl::GenerateContactHeader(el->m_underlyingDataVecHeaders[0], CONTACT_HEADER_FLAGS::REQUEST_ACK_OF_BUNDLE_SEGMENTS, M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS, M_BASE_THIS_TCPCL_EID_STRING);
+        el->m_constBufferVec.emplace_back(boost::asio::buffer(el->m_underlyingDataVecHeaders[0])); //only one element so resize not needed
         el->m_onSuccessfulSendCallbackByIoServiceThreadPtr = &m_base_handleTcpSendCallback;
         m_base_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //OnConnect runs in ioService thread so no thread safety needed
 
@@ -178,6 +181,7 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
         std::cerr << "Error in TcpclBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+        BaseClass_DoTcpclShutdown(false, false);
     }
 }
 

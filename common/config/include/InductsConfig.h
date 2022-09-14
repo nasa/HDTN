@@ -15,7 +15,6 @@ struct induct_element_config_t {
     //common to all inducts
     std::string name;
     std::string convergenceLayer;
-    std::string myEndpointId;
     uint16_t boundPort;
     uint32_t numRxCircularBufferElements;
     uint32_t numRxCircularBufferBytesPerElement;

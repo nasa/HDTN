@@ -9,6 +9,7 @@
 #include <boost/thread.hpp>
 #include "codec/bpv6.h"
 #include "TcpclBundleSource.h" //for OutductOpportunisticProcessReceivedBundleCallback_t
+#include "BundleCallbackFunctionDefines.h"
 
 class OutductManager {
 public:
@@ -17,15 +18,17 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT OutductManager();
     OUTDUCT_MANAGER_LIB_EXPORT ~OutductManager();
     OUTDUCT_MANAGER_LIB_EXPORT bool LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp, const uint64_t maxOpportunisticRxBundleSizeBytes,
-        const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
-    OUTDUCT_MANAGER_LIB_EXPORT void Clear();
+        const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t(),
+        const OnFailedBundleVecSendCallback_t & outductOnFailedBundleVecSendCallback = OnFailedBundleVecSendCallback_t(),
+        const OnFailedBundleZmqSendCallback_t & outductOnFailedBundleZmqSendCallback = OnFailedBundleZmqSendCallback_t(),
+        const OnOutductLinkStatusChangedCallback_t& onOutductLinkStatusChangedCallback = OnOutductLinkStatusChangedCallback_t());
     OUTDUCT_MANAGER_LIB_EXPORT bool AllReadyToForward() const;
     OUTDUCT_MANAGER_LIB_EXPORT void StopAllOutducts();
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid);
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByOutductUuid(const uint64_t uuid);
-    OUTDUCT_MANAGER_LIB_EXPORT void SetOutductForFinalDestinationEid_ThreadSafe(const cbhe_eid_t finalDestEid, std::shared_ptr<Outduct> & outductPtr);
+    OUTDUCT_MANAGER_LIB_EXPORT bool Reroute_ThreadSafe(const uint64_t finalDestNodeId, const uint64_t newNextHopNodeId);
     OUTDUCT_MANAGER_LIB_EXPORT std::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
-    OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByNextHopEid(const cbhe_eid_t & nextHopEid);
+    OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByNextHopNodeId(const uint64_t nextHopNodeId);
     OUTDUCT_MANAGER_LIB_EXPORT void SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback);
 
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size);
@@ -55,8 +58,10 @@ private:
     };
 
     std::map<cbhe_eid_t, std::shared_ptr<Outduct> > m_finalDestEidToOutductMap;
+    std::map<uint64_t, std::shared_ptr<Outduct> > m_finalDestNodeIdToOutductMap;
     boost::mutex m_finalDestEidToOutductMapMutex;
-    std::map<cbhe_eid_t, std::shared_ptr<Outduct> > m_nextHopEidToOutductMap;
+    boost::mutex m_finalDestNodeIdToOutductMapMutex;
+    std::map<uint64_t, std::shared_ptr<Outduct> > m_nextHopNodeIdToOutductMap;
     std::vector<std::shared_ptr<Outduct> > m_outductsVec;
     std::vector<std::unique_ptr<thread_communication_t> > m_threadCommunicationVec;
     uint64_t m_numEventsTooManyUnackedBundles;

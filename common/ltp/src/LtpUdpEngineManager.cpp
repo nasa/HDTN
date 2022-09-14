@@ -223,7 +223,7 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         const uint8_t segmentTypeFlags = m_udpReceiveBuffer[0]; // & 0x0f; //upper 4 bits must be 0 for version 0
         bool isSenderToReceiver;
         if (!Ltp::GetMessageDirectionFromSegmentFlags(segmentTypeFlags, isSenderToReceiver)) {
-            std::cerr << "critical error in LtpUdpEngine::HandleUdpReceive(): received invalid ltp packet with segment type flag " << (int)segmentTypeFlags << std::endl;
+            std::cerr << "critical error in LtpUdpEngineManager::HandleUdpReceive(): received invalid ltp packet with segment type flag " << (int)segmentTypeFlags << std::endl;
             DoUdpShutdown();
             return;
         }
@@ -291,7 +291,7 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         StartUdpReceive(); //restart operation only if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "critical error in LtpUdpEngine::HandleUdpReceive(): " << error.message() << std::endl;
+        std::cerr << "critical error in LtpUdpEngineManager::HandleUdpReceive(): " << error.message() << std::endl;
         DoUdpShutdown();
     }
 }
@@ -304,11 +304,11 @@ void LtpUdpEngineManager::DoUdpShutdown() {
     m_readyToForward = false;
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "closing LtpUdpEngine UDP socket.." << std::endl;
+            std::cout << "closing LtpUdpEngineManager UDP socket.." << std::endl;
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cout << "notice in LtpUdpEngine::DoUdpShutdown calling udpSocket.close: " << e.what() << std::endl;
+            std::cout << "notice in LtpUdpEngineManager::DoUdpShutdown calling udpSocket.close: " << e.what() << std::endl;
         }
     }
     m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr.clear();

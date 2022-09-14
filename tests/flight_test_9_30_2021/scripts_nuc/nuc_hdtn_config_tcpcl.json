@@ -22,6 +22,7 @@
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
     "zmqConnectingEgressToBoundIngressPortPath": 10160,
     "zmqConnectingEgressBundlesOnlyToBoundIngressPortPath": 10161,
+    "zmqConnectingEgressToBoundSchedulerPortPath": 10162,
     "zmqBoundIngressToConnectingStoragePortPath": 10110,
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
@@ -37,7 +38,6 @@
             {
                 "name": "from bpsendfile",
                 "convergenceLayer": "stcp",
-                "myEndpointId": "ipn:10.1",
                 "boundPort": 4556,
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
@@ -50,7 +50,7 @@
             {
                 "name": "to tantalus",
                 "convergenceLayer": "tcpcl_v3",
-                "nextHopEndpointId": "ipn:20.1",
+                "nextHopNodeId": 20,
                 "remoteHostname": "tantalus",
                 "remotePort": 4557,
                 "bundlePipelineLimit": 15,
