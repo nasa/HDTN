@@ -32,6 +32,7 @@ static double LittleToNativeDouble(const uint64_t* doubleAsUint64Little) {
 IngressTelemetry_t::IngressTelemetry_t() : type(1) {}
 EgressTelemetry_t::EgressTelemetry_t() : type(2) {}
 StorageTelemetry_t::StorageTelemetry_t() : type(3) {}
+StorageTelemetryRequest_t::StorageTelemetryRequest_t() : type(10) {}
 StorageExpiringBeforeThresholdTelemetry_t::StorageExpiringBeforeThresholdTelemetry_t() : type(10) {}
 OutductTelemetry_t::OutductTelemetry_t() : type(4), totalBundlesAcked(0), totalBundleBytesAcked(0), totalBundlesSent(0), totalBundleBytesSent(0), totalBundlesFailedToSend(0) {}
 StcpOutductTelemetry_t::StcpOutductTelemetry_t() : OutductTelemetry_t(), totalStcpBytesSent(0) {
@@ -65,6 +66,16 @@ uint64_t EgressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t buff
 
 uint64_t StorageTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
     static constexpr uint64_t NUM_BYTES = sizeof(StorageTelemetry_t);
+    static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
+    if (bufferSize < NUM_BYTES) {
+        return 0; //failure
+    }
+    SerializeUint64ArrayToLittleEndian(reinterpret_cast<uint64_t*>(data), reinterpret_cast<const uint64_t*>(this), NUM_ELEMENTS);
+    return NUM_BYTES;
+}
+
+uint64_t StorageTelemetryRequest_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
+    static constexpr uint64_t NUM_BYTES = sizeof(StorageTelemetryRequest_t);
     static constexpr uint64_t NUM_ELEMENTS = NUM_BYTES / sizeof(uint64_t);
     if (bufferSize < NUM_BYTES) {
         return 0; //failure

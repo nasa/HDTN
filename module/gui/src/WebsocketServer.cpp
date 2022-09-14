@@ -236,7 +236,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
         }
 
         try {
-            if (!zmqReqSock_connectingGuiToFromBoundStoragePtr->send(guiByteSignal2Buf, zmq::send_flags::dontwait)) {
+            if (!zmqReqSock_connectingGuiToFromBoundStoragePtr->send(guiByteSignalBuf, zmq::send_flags::dontwait)) {
                 std::cerr << "gui can't send signal to storage" << std::endl;
             }
         }
@@ -323,7 +323,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                     else {
                         //process egress telemetry
                         moduleMask |= 0x4;
-                        PrintSerializedTelemetry((const uint8_t*)zmqStorageTelemReceived.data(), zmqStorageTelemReceived.size());
+                        //PrintSerializedTelemetry((const uint8_t*)zmqStorageTelemReceived.data(), zmqStorageTelemReceived.size());
                         //SendBinaryDataToActiveWebsockets((const char*)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
                     }
 #endif

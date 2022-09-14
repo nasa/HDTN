@@ -58,6 +58,17 @@ struct StorageTelemetry_t{
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
 };
 
+struct StorageTelemetryRequest_t {
+    TELEMETRY_DEFINITIONS_EXPORT StorageTelemetryRequest_t();
+
+    uint64_t type; //must be 10
+    uint64_t priority; //0, 1, or 2
+    uint64_t thresholdSecondsFromNow;
+
+
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+};
+
 struct StorageExpiringBeforeThresholdTelemetry_t {
     TELEMETRY_DEFINITIONS_EXPORT StorageExpiringBeforeThresholdTelemetry_t();
 

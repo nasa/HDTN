@@ -141,6 +141,18 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
         return false;
     }
 
+    //uis request
+    m_zmqRepSock_connectingUisToFromBoundStoragePtr = boost::make_unique<zmq::socket_t>(*m_zmqContextPtr, zmq::socket_type::rep);
+    const std::string bind_connectingUisToFromBoundStoragePath("tcp://*:10304");
+    try {
+        m_zmqRepSock_connectingUisToFromBoundStoragePtr->bind(bind_connectingUisToFromBoundStoragePath);// config.releaseWorker);
+        std::cout << "uis sock bound to " << bind_connectingUisToFromBoundStoragePath << std::endl;
+    }
+    catch (const zmq::error_t& ex) {
+        std::cerr << "error: cannot bind uis socket: " << ex.what() << std::endl;
+        return false;
+    }
+
     // Use a form of receive that times out so we can terminate cleanly.
     try {
         static const int timeout = 250;  // milliseconds
@@ -624,11 +636,12 @@ void ZmqStorageInterface::ThreadFunc() {
         ((sizeof(hdtn::IreleaseStartHdr) > sizeof(hdtn::IreleaseStopHdr)) ? sizeof(hdtn::IreleaseStartHdr) : sizeof(hdtn::IreleaseStopHdr));
     uint64_t rxBufReleaseMessagesAlign64[minBufSizeBytesReleaseMessages / sizeof(uint64_t)];
 
-    zmq::pollitem_t pollItems[4] = {
+    zmq::pollitem_t pollItems[5] = {
         {m_zmqPullSock_boundEgressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_boundIngressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundReleaseToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqRepSock_connectingGuiToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqRepSock_connectingGuiToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqRepSock_connectingUisToFromBoundStoragePtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     long timeoutPoll = DEFAULT_BIG_TIMEOUT_POLL; //0 => no blocking
@@ -637,7 +650,7 @@ void ZmqStorageInterface::ThreadFunc() {
     while (m_running) {
         int rc = 0;
         try {
-            rc = zmq::poll(pollItems, 4, timeoutPoll);
+            rc = zmq::poll(pollItems, 5, timeoutPoll);
         }
         catch (zmq::error_t & e) {
             std::cout << "caught zmq::error_t in hdtn::ZmqStorageInterface::ThreadFunc: " << e.what() << std::endl;
@@ -783,7 +796,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     hdtn::Logger::getInstance()->logNotification("storage", msg);
                     availableDestLinksSet.emplace(iReleaseStartHdr->finalDestinationEid, false); //false => fully qualified service id
                     availableDestLinksSet.emplace(iReleaseStartHdr->nextHopEid, false);
-		}
+                }
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
                         std::cerr << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)" << std::endl;
@@ -799,7 +812,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->finalDestinationEid, false)); //false => fully qualified service id
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(iReleaseStoptHdr->nextHopEid, false)); //false => fully qualified service id
 
-		}
+                }
                 PrintReleasedLinks(availableDestLinksSet);
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //gui requests data
@@ -837,6 +850,7 @@ void ZmqStorageInterface::ThreadFunc() {
                         std::cerr << "storage can't send telemetry to gui" << std::endl;
                     }
                 }
+                /*
                 else if (guiMsgByte == 2) {
                     //send telemetry
                     //std::cout << "storage send telem\n";
@@ -867,8 +881,53 @@ void ZmqStorageInterface::ThreadFunc() {
                         }
                     }
                 }
+                */
                 else {
                     std::cerr << "error guiMsgByte not 1 or 2\n";
+                }
+            }
+            if (pollItems[4].revents & ZMQ_POLLIN) { //uis requests data
+                StorageTelemetryRequest_t telemReq;
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemReq, sizeof(telemReq)), zmq::recv_flags::dontwait);
+                if (!res) {
+                    std::cerr << "error in ZmqStorageInterface::ThreadFunc: cannot read telemReq" << std::endl;
+                }
+                else if ((res->truncated()) || (res->size != sizeof(telemReq))) {
+                    std::cerr << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(telemReq) << std::endl;
+                }
+                else if (telemReq.type == 10) {
+                    //send telemetry
+                    //std::cout << "storage send telem\n";
+                    StorageExpiringBeforeThresholdTelemetry_t telem;
+                    telem.priority = telemReq.priority;
+                    telem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
+                    if (!bsm.GetStorageExpiringBeforeThresholdTelemetry(telem)) {
+                        std::cerr << "storage can't get StorageExpiringBeforeThresholdTelemetry" << std::endl;
+                    }
+                    else {
+                        //send telemetry
+                        std::vector<uint8_t>* vecUint8RawPointer = new std::vector<uint8_t>(1000); //will be 64-bit aligned
+                        uint8_t* telemPtr = vecUint8RawPointer->data();
+                        const uint8_t* const telemSerializationBase = telemPtr;
+                        uint64_t telemBufferSize = vecUint8RawPointer->size();
+
+                        //start zmq message with telemetry
+                        const uint64_t storageTelemSize = telem.SerializeToLittleEndian(telemPtr, telemBufferSize);
+                        telemBufferSize -= storageTelemSize;
+                        telemPtr += storageTelemSize;
+
+                        vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
+
+                        zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
+                        std::cout << "send storage telem to uis with size " << zmqTelemMessageWithDataStolen.size() << "\n";
+                        if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                            std::cerr << "storage can't send telemetry to uis" << std::endl;
+                        }
+                    }
+                }
+                else {
+                    std::cerr << "error telemReq.type not 10\n";
                 }
             }
         }
