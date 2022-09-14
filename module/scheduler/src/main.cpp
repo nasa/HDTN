@@ -11,10 +11,9 @@
 
 int main(int argc, char *argv[]) {
     Scheduler scheduler;
-    std::string jsonFileName;
     volatile bool running;
 	
-    int   returnCode = scheduler.Run(argc, argv, running, jsonFileName, true); 
+    int   returnCode = scheduler.Run(argc, argv, running, true); 
 
     return returnCode;
 }

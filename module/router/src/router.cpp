@@ -59,7 +59,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<std::string>()->default_value("2dtn.json"), "HDTN Configuration File.")
+                ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
 		("contact-plan-file", opt::value<std::string>()->default_value(Router::DEFAULT_FILE),
                 "Contact Plan file needed by CGR to compute the optimal route")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")

@@ -53,6 +53,25 @@ bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) {
     return true;
 }
 
+boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromCharArray(char * data, const std::size_t size) {
+    //https://stackoverflow.com/questions/7781898/get-an-istream-from-a-char
+    struct membuf : std::streambuf
+    {
+        membuf(char* begin, char* end) {
+            this->setg(begin, begin, end);
+        }
+    };
+    membuf sbuf(data, data + size);
+    std::istream is(&sbuf);
+    boost::property_tree::ptree pt;
+    try {
+        boost::property_tree::read_json(is, pt);
+    }
+    catch (boost::property_tree::json_parser::json_parser_error e) {
+        std::cerr << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << data << std::endl;
+    }
+    return pt;
+}
 
 boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromJsonString(const std::string & jsonStr) {
     std::istringstream iss(jsonStr);
