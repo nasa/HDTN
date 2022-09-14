@@ -135,6 +135,9 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
 
     const uint8_t guiByteSignal = 1;
     const zmq::const_buffer guiByteSignalBuf(&guiByteSignal, sizeof(guiByteSignal));
+
+    const uint8_t guiByteSignal2 = 2;
+    const zmq::const_buffer guiByteSignal2Buf(&guiByteSignal2, sizeof(guiByteSignal2));
     
     try {
         if (hdtnOneProcessZmqInprocContextPtr) {
@@ -297,6 +300,7 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                     }
                 }
                 if (items[2].revents & ZMQ_POLLIN) { //storage telemetry received
+#if 0
                     StorageTelemetry_t telem;
                     const zmq::recv_buffer_result_t res = zmqReqSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait);
                     if (!res) {
@@ -311,6 +315,18 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                         moduleMask |= 0x4;
                         SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
                     }
+#else
+                    zmq::message_t zmqStorageTelemReceived;
+                    if (!zmqReqSock_connectingGuiToFromBoundStoragePtr->recv(zmqStorageTelemReceived, zmq::recv_flags::dontwait)) {
+                        std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read storage telemetry" << std::endl;
+                    }
+                    else {
+                        //process egress telemetry
+                        moduleMask |= 0x4;
+                        //PrintSerializedTelemetry((const uint8_t*)zmqStorageTelemReceived.data(), zmqStorageTelemReceived.size());
+                        //SendBinaryDataToActiveWebsockets((const char*)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
+                    }
+#endif
                 }
             }
         }

@@ -33,6 +33,7 @@
 #include <boost/bimap.hpp>
 #include <boost/date_time.hpp>
 #include "CatalogEntry.h"
+#include "Telemetry.h"
 #include "storage_lib_export.h"
 
 //Awaiting Send data structures
@@ -70,6 +71,7 @@ public:
     STORAGE_LIB_EXPORT catalog_entry_t * GetEntryFromCustodyId(const uint64_t custodyId);
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_t & bundleUuid);
     STORAGE_LIB_EXPORT uint64_t * GetCustodyIdFromUuid(const cbhe_bundle_uuid_nofragment_t & bundleUuid);
+    STORAGE_LIB_EXPORT bool GetStorageExpiringBeforeThresholdTelemetry(StorageExpiringBeforeThresholdTelemetry_t & telem);
 
 private:
     STORAGE_LIB_NO_EXPORT catalog_entry_t * PopEntryFromAwaitingSend(uint64_t & custodyId,
