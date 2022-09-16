@@ -889,7 +889,7 @@ void ZmqStorageInterface::ThreadFunc() {
             }
             if (pollItems[4].revents & ZMQ_POLLIN) { //uis requests data
                 StorageTelemetryRequest_t telemReq;
-                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemReq, sizeof(telemReq)), zmq::recv_flags::dontwait);
+                const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingUisToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemReq, sizeof(telemReq)), zmq::recv_flags::dontwait);
                 if (!res) {
                     std::cerr << "error in ZmqStorageInterface::ThreadFunc: cannot read telemReq" << std::endl;
                 }
@@ -922,7 +922,7 @@ void ZmqStorageInterface::ThreadFunc() {
 
                         zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
                         std::cout << "send storage telem to uis with size " << zmqTelemMessageWithDataStolen.size() << "\n";
-                        if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
+                        if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
                             std::cerr << "storage can't send telemetry to uis" << std::endl;
                         }
                     }
