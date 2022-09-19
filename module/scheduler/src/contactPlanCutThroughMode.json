@@ -2,9 +2,9 @@
     "contacts": [
        {
             "contact": 0,
-            "source": 1,
-            "dest": 10,
-            "finalDestination": 2,
+            "source": 10,
+            "dest": 1,
+            "finalDestination": 1,
             "startTime": 0,
             "endTime": 2000,
             "rate": 1000,
