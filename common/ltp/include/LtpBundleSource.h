@@ -67,6 +67,7 @@ public:
     LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SyncTelemetry();
 private:

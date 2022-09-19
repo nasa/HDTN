@@ -37,6 +37,9 @@ void LtpOverUdpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVec
 void LtpOverUdpOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_ltpBundleSource.SetOnFailedBundleZmqSendCallback(callback);
 }
+void LtpOverUdpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_ltpBundleSource.SetOnOutductLinkStatusChangedCallback(callback);
+}
 void LtpOverUdpOutduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_ltpBundleSource.SetUserAssignedUuid(userAssignedUuid);
 }

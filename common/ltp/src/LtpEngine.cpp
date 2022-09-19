@@ -27,7 +27,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
     const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall) :
+    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -39,6 +39,10 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
     M_STAGNANT_RX_SESSION_TIME(M_TRANSMISSION_TO_ACK_RECEIVED_TIME * static_cast<int>(maxRetriesPerSerialNumber + 1)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
+    M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(senderPingSecondsOrZeroToDisable),
+    M_SENDER_PING_TIME(boost::posix_time::seconds(senderPingSecondsOrZeroToDisable)),
+    M_NEXT_PING_START_EXPIRY(boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME),
+    m_transmissionRequestServedAsPing(false),
     M_MAX_SIMULTANEOUS_SESSIONS(maxSimultaneousSessions),
     M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
     m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
@@ -78,7 +82,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
 
     Reset();
 
-    //start housekeeping timer (useful only to rx engines for now)
+    //start housekeeping timer (ping for tx engines and session leak detection for rx engines)
     m_housekeepingTimer.expires_at(boost::posix_time::microsec_clock::universal_time() + M_HOUSEKEEPING_INTERVAL);
     m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
 
@@ -432,7 +436,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
 void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
     LtpClientServiceDataToSend && clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
 { //only called directly by unit test (not thread safe)
-
+    m_transmissionRequestServedAsPing = true;
     uint64_t randomSessionNumberGeneratedBySender;
     uint64_t randomInitialSenderCheckpointSerialNumber; //incremented by 1 for new
     if(M_FORCE_32_BIT_RANDOM_NUMBERS) {
@@ -676,6 +680,15 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     if (!m_timeManagerOfCancelSegments.DeleteTimer(sessionId)) {
         std::cout << "LtpEngine::CancelAcknowledgementSegmentReceivedCallback didn't delete timer\n";
     }
+
+    if (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
+        //sender ping is successful
+        std::cout << "sender ping success\n";
+        M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+        if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
+            m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
+        }
+    }
     //std::cout << "CancelAcknowledgementSegmentReceivedCallback2\n";
 }
 
@@ -696,7 +709,17 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
         TrySendPacketIfAvailable();
     }
     else {
-        std::cout << "Cancel segment unable to send!\n";
+        if (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
+            //sender ping failed
+            std::cout << "sender ping failed\n";
+            M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
+            if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+                m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+            }
+        }
+        else {
+            std::cout << "Cancel segment unable to send!\n";
+        }
     }
 }
 
@@ -879,6 +902,9 @@ void LtpEngine::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCall
 void LtpEngine::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_onFailedBundleZmqSendCallback = callback;
 }
+void LtpEngine::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_onOutductLinkStatusChangedCallback = callback;
+}
 void LtpEngine::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;
 }
@@ -1014,6 +1040,33 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         for (uint64_t i = 0; i < countStagnantRxSessions; ++i) {
             TrySendPacketIfAvailable();
         }
+
+        
+        // Start ltp session sender pings during times of zero data segment activity.
+        // An LTP ping is defined as a sender sending a cancel segment of a known non-existent session number to a receiver,
+        // in which the receiver shall respond with a cancel ack in order to determine if the link is active.
+        // A link down callback will be called if a cancel ack is not received after (RTT * maxRetriesPerSerialNumber).
+        // This parameter should be set to zero for a receiver as there is currently no use case for a receiver to detect link-up.
+        if (M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE && (nowPtime >= M_NEXT_PING_START_EXPIRY)) {
+            if (m_transmissionRequestServedAsPing) { //skip this ping
+                M_NEXT_PING_START_EXPIRY = nowPtime + M_SENDER_PING_TIME;
+                m_transmissionRequestServedAsPing = false;
+            }
+            else {
+                M_NEXT_PING_START_EXPIRY = boost::posix_time::special_values::pos_infin; //will be set after ping succeeds or fails
+                //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
+                m_queueCancelSegmentTimerInfo.emplace();
+                cancel_segment_timer_info_t& info = m_queueCancelSegmentTimerInfo.back();
+                info.sessionId.sessionOriginatorEngineId = M_THIS_ENGINE_ID;
+                info.sessionId.sessionNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetPingSession32() : m_rng.GetPingSession64();
+                info.retryCount = 1;
+                info.isFromSender = true;
+                info.reasonCode = CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED;
+
+                TrySendPacketIfAvailable();
+            }
+        }
+        
         //std::cout << "house\n";
         //restart housekeeping timer
         m_housekeepingTimer.expires_at(nowPtime + M_HOUSEKEEPING_INTERVAL);

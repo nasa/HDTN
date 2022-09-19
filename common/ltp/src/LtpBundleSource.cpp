@@ -39,7 +39,7 @@ m_ltpOutductTelemetry()
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
-            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall);
+            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall, 1);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     }
 
@@ -236,6 +236,11 @@ void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSe
 void LtpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     if (m_ltpUdpEnginePtr) {
         m_ltpUdpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
+    }
+}
+void LtpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetOnOutductLinkStatusChangedCallback(callback);
     }
 }
 void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {

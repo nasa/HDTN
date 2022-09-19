@@ -170,6 +170,28 @@ BOOST_AUTO_TEST_CASE(LtpRandomNumberGeneratorTestCase)
             BOOST_REQUIRE_EQUAL(randomNumber >> 31, 0);
         }
     }
+
+    //test ping
+    {
+        
+        {
+            LtpRandomNumberGenerator rng;
+            rng.SetEngineIndex(129);
+            uint32_t randomNumber = rng.GetPingSession32();
+            BOOST_REQUIRE(rng.IsPingSession(randomNumber, true));
+            BOOST_REQUIRE(!rng.IsPingSession(randomNumber, false));
+            const uint64_t engineIndex = rng.GetEngineIndexFromRandomSessionNumber(randomNumber);
+            BOOST_REQUIRE_EQUAL(engineIndex, 129);
+        }
+        {
+            LtpRandomNumberGenerator rng;
+            rng.SetEngineIndex(133);
+            uint64_t randomNumber = rng.GetPingSession64();
+            BOOST_REQUIRE(rng.IsPingSession(randomNumber, false));
+            const uint64_t engineIndex = rng.GetEngineIndexFromRandomSessionNumber(randomNumber);
+            BOOST_REQUIRE_EQUAL(engineIndex, 133);
+        }
+    }
     /*
     {
         volatile uint64_t randomNumber;

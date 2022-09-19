@@ -58,7 +58,7 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
         const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall);
+        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -88,6 +88,7 @@ public:
 
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 
     LTP_LIB_EXPORT bool PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
@@ -158,6 +159,11 @@ private:
     const boost::posix_time::time_duration M_HOUSEKEEPING_INTERVAL;
     const boost::posix_time::time_duration M_STAGNANT_RX_SESSION_TIME;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
+    const uint64_t M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE;
+    const boost::posix_time::time_duration M_SENDER_PING_TIME;
+    boost::posix_time::ptime M_NEXT_PING_START_EXPIRY;
+    bool m_transmissionRequestServedAsPing;
+    ////////bool m_dataServedAsPing;
     const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;
@@ -184,6 +190,7 @@ private:
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 
     uint64_t m_checkpointEveryNthDataPacketSender;
