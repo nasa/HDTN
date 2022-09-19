@@ -65,8 +65,6 @@ public:
     int ProcessContactsJsonText(char* jsonText, bool useUnixTimestamps);
     int ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
     int ProcessContactsFile(const std::string & jsonEventFileName, bool useUnixTimestamps);
-    int ProcessComandLine(int argc, const char *argv[],
-                          std::string& jsonEventFileName);
 
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/").string() + filename;
