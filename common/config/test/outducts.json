@@ -25,7 +25,8 @@
             "ltpRandomNumberSizeBits": 32,
             "ltpSenderBoundPort": 2113,
             "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-            "ltpMaxUdpPacketsToSendPerSystemCall": 1
+            "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+            "ltpSenderPingSecondsOrZeroToDisable": 15
         },
         {
             "name": "o2",

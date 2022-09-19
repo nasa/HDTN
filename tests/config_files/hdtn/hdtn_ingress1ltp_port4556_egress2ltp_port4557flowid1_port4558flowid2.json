@@ -102,7 +102,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             },
             {
                 "name": "for egress",
@@ -126,7 +127,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             }
         ]
     },

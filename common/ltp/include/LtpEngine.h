@@ -163,7 +163,6 @@ private:
     const boost::posix_time::time_duration M_SENDER_PING_TIME;
     boost::posix_time::ptime M_NEXT_PING_START_EXPIRY;
     bool m_transmissionRequestServedAsPing;
-    ////////bool m_dataServedAsPing;
     const uint64_t M_MAX_SIMULTANEOUS_SESSIONS;
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;

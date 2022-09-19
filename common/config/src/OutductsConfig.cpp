@@ -39,6 +39,7 @@ outduct_element_config_t::outduct_element_config_t() :
     ltpSenderBoundPort(0),
     ltpMaxSendRateBitsPerSecOrZeroToDisable(0),
     ltpMaxUdpPacketsToSendPerSystemCall(0),
+    ltpSenderPingSecondsOrZeroToDisable(0),
 
     udpRateBps(0),
 
@@ -80,6 +81,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     ltpSenderBoundPort(o.ltpSenderBoundPort),
     ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
+    ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
 
     udpRateBps(o.udpRateBps),
 
@@ -118,6 +120,7 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     ltpSenderBoundPort(o.ltpSenderBoundPort),
     ltpMaxSendRateBitsPerSecOrZeroToDisable(o.ltpMaxSendRateBitsPerSecOrZeroToDisable),
     ltpMaxUdpPacketsToSendPerSystemCall(o.ltpMaxUdpPacketsToSendPerSystemCall),
+    ltpSenderPingSecondsOrZeroToDisable(o.ltpSenderPingSecondsOrZeroToDisable),
 
     udpRateBps(o.udpRateBps),
 
@@ -156,6 +159,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     ltpSenderBoundPort = o.ltpSenderBoundPort;
     ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
+    ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
 
     udpRateBps = o.udpRateBps;
 
@@ -197,6 +201,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     ltpSenderBoundPort = o.ltpSenderBoundPort;
     ltpMaxSendRateBitsPerSecOrZeroToDisable = o.ltpMaxSendRateBitsPerSecOrZeroToDisable;
     ltpMaxUdpPacketsToSendPerSystemCall = o.ltpMaxUdpPacketsToSendPerSystemCall;
+    ltpSenderPingSecondsOrZeroToDisable = o.ltpSenderPingSecondsOrZeroToDisable;
 
     udpRateBps = o.udpRateBps;
 
@@ -237,6 +242,7 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (ltpSenderBoundPort == o.ltpSenderBoundPort) &&
         (ltpMaxSendRateBitsPerSecOrZeroToDisable == o.ltpMaxSendRateBitsPerSecOrZeroToDisable) &&
         (ltpMaxUdpPacketsToSendPerSystemCall == o.ltpMaxUdpPacketsToSendPerSystemCall) &&
+        (ltpSenderPingSecondsOrZeroToDisable == o.ltpSenderPingSecondsOrZeroToDisable) &&
 
         (udpRateBps == o.udpRateBps) &&
 
@@ -373,6 +379,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     return false;
                 }
 #endif //UIO_MAXIOV
+                outductElementConfig.ltpSenderPingSecondsOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("ltpSenderPingSecondsOrZeroToDisable");
             }
             else {
                 static const std::vector<std::string> LTP_ONLY_VALUES = { "thisLtpEngineId" , "remoteLtpEngineId", "ltpDataSegmentMtu", "oneWayLightTimeMs", "oneWayMarginTimeMs",
@@ -520,6 +527,7 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
             outductElementConfigPt.put("ltpSenderBoundPort", outductElementConfig.ltpSenderBoundPort);
             outductElementConfigPt.put("ltpMaxSendRateBitsPerSecOrZeroToDisable", outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable);
             outductElementConfigPt.put("ltpMaxUdpPacketsToSendPerSystemCall", outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall);
+            outductElementConfigPt.put("ltpSenderPingSecondsOrZeroToDisable", outductElementConfig.ltpSenderPingSecondsOrZeroToDisable);
         }
         if (outductElementConfig.convergenceLayer == "udp") {
             outductElementConfigPt.put("udpRateBps", outductElementConfig.udpRateBps);

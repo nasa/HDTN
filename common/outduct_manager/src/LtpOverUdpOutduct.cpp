@@ -11,7 +11,7 @@ LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductCon
         outductConfig.ltpSenderBoundPort, outductConfig.numRxCircularBufferElements,
         outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber, (outductConfig.ltpRandomNumberSizeBits == 32),
         m_outductConfig.remoteHostname, m_outductConfig.remotePort, m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable, m_outductConfig.bundlePipelineLimit,
-        m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall)
+        m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall, m_outductConfig.ltpSenderPingSecondsOrZeroToDisable)
 {}
 LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 

@@ -683,7 +683,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
 
     if (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
         //sender ping is successful
-        std::cout << "sender ping success\n";
+        //std::cout << "sender ping success\n";
         M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
         if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
             m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
@@ -701,7 +701,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     memcpy(&info, userData.data(), sizeof(info));
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
-        std::cout << "Resend cancel segment!\n";
+        //std::cout << "Resend cancel segment!\n";
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         ++info.retryCount;
         m_queueCancelSegmentTimerInfo.push(info);
@@ -711,7 +711,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     else {
         if (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
             //sender ping failed
-            std::cout << "sender ping failed\n";
+            //std::cout << "sender ping failed\n";
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
             if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
                 m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
