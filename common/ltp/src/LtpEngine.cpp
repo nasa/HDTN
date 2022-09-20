@@ -1076,3 +1076,12 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         //std::cout << "housekeeping timer cancelled\n";
     }
 }
+
+void LtpEngine::DoExternalLinkDownEvent() {
+    if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
+        m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
+    }
+}
+void LtpEngine::PostExternalLinkDownEvent_ThreadSafe() {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::DoExternalLinkDownEvent, this));
+}

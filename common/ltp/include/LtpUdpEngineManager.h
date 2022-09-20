@@ -114,6 +114,8 @@ public:
 private:
     LTP_LIB_NO_EXPORT void StartUdpReceive();
     LTP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
+    LTP_LIB_NO_EXPORT void OnRetryAfterSocketError_TimerExpired(const boost::system::error_code& e);
+    LTP_LIB_NO_EXPORT void SocketRestored_TimerExpired(const boost::system::error_code& e);
 public:
     LTP_LIB_EXPORT static std::shared_ptr<LtpUdpEngineManager> GetOrCreateInstance(const uint16_t myBoundUdpPort, const bool autoStart);
     LTP_LIB_EXPORT static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
@@ -129,6 +131,8 @@ private:
     boost::asio::io_service m_ioServiceUdp;
     boost::asio::ip::udp::resolver m_resolver;
     boost::asio::ip::udp::socket m_udpSocket;
+    boost::asio::deadline_timer m_retryAfterSocketErrorTimer;
+    boost::asio::deadline_timer m_socketRestoredTimer;
     boost::asio::ip::udp::endpoint m_udpDestinationResolvedEndpointDataSourceToDataSink;
     std::unique_ptr<boost::thread> m_ioServiceUdpThreadPtr;
 

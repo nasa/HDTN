@@ -97,6 +97,8 @@ public:
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr = NULL);
     LTP_LIB_EXPORT void PacketIn_ThreadSafe(const std::vector<boost::asio::const_buffer> & constBufferVec); //for testing
 
+    LTP_LIB_EXPORT void PostExternalLinkDownEvent_ThreadSafe();
+
     LTP_LIB_EXPORT bool GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
@@ -143,6 +145,8 @@ private:
     LTP_LIB_NO_EXPORT void OnTokenRefresh_TimerExpired(const boost::system::error_code& e);
 
     LTP_LIB_NO_EXPORT void OnHousekeeping_TimerExpired(const boost::system::error_code& e);
+
+    LTP_LIB_NO_EXPORT void DoExternalLinkDownEvent();
 private:
     Ltp m_ltpRxStateMachine;
     LtpRandomNumberGenerator m_rng;

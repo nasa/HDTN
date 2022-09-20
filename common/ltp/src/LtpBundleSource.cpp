@@ -132,6 +132,12 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
         return false;
     }
 
+    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
+        return false;
+    }
+
+    //TODO? m_ltpUdpEnginePtr->ReadyToForward() if using ping
+
     std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
