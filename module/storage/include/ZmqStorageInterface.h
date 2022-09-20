@@ -48,6 +48,7 @@ public:
     hdtn::WorkerStats stats() { return m_workerStats; }
 
     std::size_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    std::size_t m_totalBundlesRewrittenToStorageFromFailedEgressSend;
     std::size_t m_totalBundlesErasedFromStorageWithCustodyTransfer;
     std::size_t m_totalBundlesSentToEgressFromStorage;
     uint64_t m_numRfc5050CustodyTransfers;

@@ -225,7 +225,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     CustodyIdAllocator & custodyIdAllocator, CustodyTransferManager & ctm,
     CustodyTimers & custodyTimers,
     BundleViewV6 & custodySignalRfc5050RenderedBundleView,
-    cbhe_eid_t & finalDestEidReturned, ZmqStorageInterface * forStats)
+    cbhe_eid_t & finalDestEidReturned, ZmqStorageInterface * forStats, bool dontWriteIfCustodyFlagSet)
 {
     
     
@@ -240,7 +240,13 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
         finalDestEidReturned = primary.m_destinationEid;
-        
+
+        static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
+        const bool bpv6CustodyIsRequested = ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody);
+        if (bpv6CustodyIsRequested && dontWriteIfCustodyFlagSet) { //don't rewrite a bundle because it will already be stored and eventually deleted on a custody signal
+            //this is for bundles that failed to send
+            return true;
+        }
 
         //admin records pertaining to this hdtn node do not get written to disk.. they signal a deletion from disk
         static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForAdminRecord = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::ADMINRECORD;
@@ -359,8 +365,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 
         //write non admin records to disk (unless newly generated below)
         const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
-        static const BPV6_BUNDLEFLAG requiredPrimaryFlagsForCustody = BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
-        if ((primary.m_bundleProcessingControlFlags & requiredPrimaryFlagsForCustody) == requiredPrimaryFlagsForCustody) {
+        if (bpv6CustodyIsRequested) {
             if (!ctm.ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
                 custodySignalRfc5050RenderedBundleView)) {
                 std::cerr << "error unable to process custody\n";
@@ -619,6 +624,7 @@ void ZmqStorageInterface::ThreadFunc() {
     availableDestLinksCloggedVec.reserve(100); //todo
 
     m_totalBundlesErasedFromStorageNoCustodyTransfer = 0;
+    m_totalBundlesRewrittenToStorageFromFailedEgressSend = 0;
     m_totalBundlesErasedFromStorageWithCustodyTransfer = 0;
     m_totalBundlesSentToEgressFromStorage = 0;
     m_numRfc5050CustodyTransfers = 0;
@@ -670,25 +676,42 @@ void ZmqStorageInterface::ThreadFunc() {
                     hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr wrong size received");
                     continue;
                 }
-                else if (egressAckHdr.base.type != HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
-                    std::cerr << "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE, got " << egressAckHdr.base.type << std::endl;
-                    hdtn::Logger::getInstance()->logError("storage", "[storage-worker] EgressAckHdr not type HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE");
-                    continue;
-                }
-                custodyid_set_t & custodyIdSet = finalDestNodeIdToOpenCustIdsMap[egressAckHdr.finalDestEid.nodeId];
-                custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr.custodyId);
-                if (it != custodyIdSet.end()) {
-                    if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
-                        bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr.custodyId);
-                        if (!successRemoveBundle) {
-                            std::cout << "error freeing bundle from disk\n";
-                            hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
+                else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
+                    custodyid_set_t& custodyIdSet = finalDestNodeIdToOpenCustIdsMap[egressAckHdr.finalDestEid.nodeId];
+                    custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr.custodyId);
+                    if (it != custodyIdSet.end()) {
+                        if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                            bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr.custodyId);
+                            if (!successRemoveBundle) {
+                                std::cout << "error freeing bundle from disk\n";
+                                hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
+                            }
+                            else {
+                                ++m_totalBundlesErasedFromStorageNoCustodyTransfer;
+                            }
                         }
-                        else {
-                            ++m_totalBundlesErasedFromStorageNoCustodyTransfer;
-                        }
+                        custodyIdSet.erase(it);
                     }
-                    custodyIdSet.erase(it);
+                }
+                else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE) {
+                    zmq::message_t zmqBundleDataReceived;
+                    if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
+                        std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received" << std::endl;
+                        hdtn::Logger::getInstance()->logError("storage", "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received");
+                        continue;
+                    }
+                    
+                    cbhe_eid_t finalDestEidReturnedFromWrite;
+                    Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, true);
+                    ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+                    finalDestEidReturnedFromWrite.serviceId = 0;
+                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestEidReturnedFromWrite, true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                    std::cout << "bundle send back to storage from egress.. final dest node id " << finalDestEidReturnedFromWrite.nodeId << " is set to down\n";
+                    PrintReleasedLinks(availableDestLinksSet);
+                }
+                else {
+                    std::cerr << "[storage-worker] EgressAckHdr unknown type, got " << egressAckHdr.base.type << std::endl;
+                    continue;
                 }
             }
             if (pollItems[1].revents & ZMQ_POLLIN) { //from ingress bundle data
@@ -744,7 +767,7 @@ void ZmqStorageInterface::ThreadFunc() {
                 storageStats.inBytes += zmqBundleDataReceived.size();
                 
                 cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this);
+                Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, false);
 
                 //send ack message to ingress
                 //force natural/64-bit alignment
@@ -1023,6 +1046,7 @@ void ZmqStorageInterface::ThreadFunc() {
     std::cout << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_totalBundlesErasedFromStorageNoCustodyTransfer << std::endl;
     std::cout << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_totalBundlesErasedFromStorageWithCustodyTransfer << std::endl;
     std::cout << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts << std::endl;
+    std::cout << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_totalBundlesRewrittenToStorageFromFailedEgressSend << std::endl;
     hdtn::Logger::getInstance()->logInfo("storage", "totalEventsAllLinksClogged: " + 
         std::to_string(totalEventsAllLinksClogged));
     hdtn::Logger::getInstance()->logInfo("storage", "totalEventsNoDataInStorageForAvailableLinks: " + 
