@@ -84,35 +84,6 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false;
 }
 
-void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const uint64_t finalDestinationNodeId,
-    const char* command)
-{
-
-    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
- 
-
-    if (!e) {
-        if (system(command) ) {
-            std::cout <<   "Ping Failed  ==> Send Link Down Event \n" << std::endl << std::flush;
-            std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-            SendLinkDown(0, 0, finalDestinationNodeId);
-        }
-        else {
-            std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
-            std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-            SendLinkUp(0, 0, finalDestinationNodeId);
-        }
-
-        dt->expires_at(dt->expires_at() + boost::posix_time::seconds(5));
-        dt->async_wait(boost::bind(&Scheduler::PingCommand, this,
-                       boost::asio::placeholders::error,
-                       dt, finalDestinationNodeId, command));
-    }
-    else {
-        std::cout << "timer dt cancelled\n";
-    }
-}
-
 bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
@@ -126,15 +97,12 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         cbhe_eid_t finalDestEid;
         std::string finalDestAddr;
         opt::options_description desc("Allowed options");
-        bool isPingTest = false; 
 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
-                "Contact Plan file that scheudler relies on for link availability.")
-                ("ping-test", "Scheduler only relies on ping results for link availability.")
+                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
                 ("dest-addr", opt::value<std::string>()->default_value("127.0.0.1"), "final destination IP addr to ping for link availability");
 
@@ -174,10 +142,6 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
             }
 
             std::cout << "ContactPlan file: " << contactsFile << std::endl;
-
-            if (vm.count("ping-test")) {
-                isPingTest = true;
-            }
 
             const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
             if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
@@ -267,17 +231,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
         boost::this_thread::sleep(boost::posix_time::seconds(2));
 
-        if (!isPingTest) {
-            ProcessContactsFile(contactsFile, false); //false => don't use unix timestamps
-        }
-        else {
-            boost::asio::io_service service;
-            boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
-            const std::string str = std::string("ping -c1 -s1 ") + finalDestAddr;
-            const char *command = str.c_str();
-            dt.async_wait(boost::bind(&Scheduler::PingCommand, this, boost::asio::placeholders::error, &dt, finalDestEid.nodeId, command));
-            service.run();
-        }
+        ProcessContactsFile(contactsFile, false); //false => don't use unix timestamps
 
         if (useSignalHandler) {
             sigHandler.Start(false);

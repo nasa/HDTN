@@ -76,9 +76,6 @@ private:
     void Stop();
     void SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId);
     void SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId);
-
-    void PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* t, 
-		            const uint64_t finalDestinationNodeId, const char* command);
      
     void MonitorExitKeypressThreadFunction();
     void EgressEventsHandler();

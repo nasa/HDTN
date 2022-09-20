@@ -40,8 +40,7 @@ public:
     INGRESS_ASYNC_LIB_EXPORT ~Ingress();
     INGRESS_ASYNC_LIB_EXPORT void Stop();
     INGRESS_ASYNC_LIB_EXPORT void SchedulerEventHandler();
-    INGRESS_ASYNC_LIB_EXPORT int Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest,
-             zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    INGRESS_ASYNC_LIB_EXPORT int Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     INGRESS_ASYNC_LIB_NO_EXPORT bool ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
         std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing);
@@ -124,7 +123,6 @@ private:
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
-    bool m_isCutThroughOnlyTest;
     boost::atomic_uint64_t m_ingressToEgressNextUniqueIdAtomic;
     uint64_t m_ingressToStorageNextUniqueId;
     std::set<cbhe_eid_t> m_finalDestEidAvailableSet;

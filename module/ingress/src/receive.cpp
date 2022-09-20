@@ -59,7 +59,7 @@ void Ingress::Stop() {
         "m_eventsTooManyInStorageQueue: " + std::to_string(m_eventsTooManyInStorageQueue));
 }
 
-int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (!m_running) {
         m_running = true;
@@ -173,7 +173,6 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
         m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
 
-        m_isCutThroughOnlyTest = isCutThroughOnlyTest;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
             m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
             boost::bind(&Ingress::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
@@ -628,7 +627,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
     std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
-    bool shouldTryToUseCustThrough = (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+    bool shouldTryToUseCustThrough = ((linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
     bool useStorage = !shouldTryToUseCustThrough;
     if (isOpportunisticLinkUp) {
         if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
@@ -664,21 +663,11 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 std::string msg = "notice in Ingress::Process: cut-through path timed out after " +
                     boost::lexical_cast<std::string>(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds) +
                     " milliseconds because it has too many pending egress acks in the queue for finalDestEid (" +
-                    boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ")";
-                if (m_isCutThroughOnlyTest) {
-                    msg += " ..dropping bundle because \"cut through only test\" was specified (not sending to storage)";
-                    std::cerr << msg << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", msg);
-                    return false;
-                }
-                else {
-                    msg += " ..sending to storage instead";
-                    std::cerr << msg << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", msg);
-                    useStorage = true;
-                    break;
-                }
-
+                    boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ") ..sending to storage instead";
+                std::cerr << msg << std::endl;
+                hdtn::Logger::getInstance()->logError("ingress", msg);
+                useStorage = true;
+                break;
             }
             egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
