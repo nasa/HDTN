@@ -426,7 +426,7 @@ bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<u
     }
     else {
         m_mutexForward.lock();
-        successForward = m_outductManager.Forward_Blocking(destEid, bundleToMoveAndSend, 3);
+        successForward = m_outductManager.Forward_Blocking(destEid, bundleToMoveAndSend, 3, std::vector<uint8_t>());
         m_mutexForward.unlock();
     }
     if (!successForward) {

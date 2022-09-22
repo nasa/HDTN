@@ -271,8 +271,8 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                 return true;
             }
             else {
+                std::shared_ptr<LtpClientServiceDataToSend>& csdRef = txSessionIt->second->m_dataToSendSharedPtr;
                 if (txSessionIt->second->m_isFailedSession) { //give the bundle back to the user
-                    std::shared_ptr<LtpClientServiceDataToSend> & csdRef = txSessionIt->second->m_dataToSendSharedPtr;
                     const bool safeToMove = (csdRef.use_count() == 1); //not also involved in a send operation
                     if (m_onFailedBundleVecSendCallback) { //if the user wants the data back
                         std::vector<uint8_t> & vecRef = csdRef->GetVecRef();
@@ -301,6 +301,11 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                                 m_onFailedBundleZmqSendCallback(zmqCopy, m_userAssignedUuid);
                             }
                         }
+                    }
+                }
+                else { //successful send
+                    if (m_onSuccessfulBundleSendCallback) {
+                        m_onSuccessfulBundleSendCallback(csdRef->m_userData, m_userAssignedUuid);
                     }
                 }
                 m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
@@ -901,6 +906,9 @@ void LtpEngine::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCall
 }
 void LtpEngine::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_onFailedBundleZmqSendCallback = callback;
+}
+void LtpEngine::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_onSuccessfulBundleSendCallback = callback;
 }
 void LtpEngine::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_onOutductLinkStatusChangedCallback = callback;

@@ -25,5 +25,6 @@ uint64_t Outduct::GetOutductTelemetry(uint8_t* data, uint64_t bufferSize) {
 
 void Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {}
 void Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {}
+void Outduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {}
 void Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {}
 void Outduct::SetUserAssignedUuid(uint64_t userAssignedUuid) {}

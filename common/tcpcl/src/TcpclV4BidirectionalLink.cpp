@@ -72,12 +72,6 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     M_BASE_MY_MAX_TX_UNACKED_BUNDLES(myMaxTxUnackedBundles), //bundle sink has MAX_UNACKED(maxUnacked + 5),
     M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES(myMaxRxSegmentSizeBytes),
     M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES(myMaxRxBundleSizeBytes),
-    /*m_base_bytesToAckCb(M_BASE_MAX_UNACKED),
-    m_base_bytesToAckCbVec(M_BASE_MAX_UNACKED),
-    m_base_fragmentBytesToAckCbVec(M_BASE_MAX_UNACKED),
-    m_base_fragmentVectorIndexCbVec(M_BASE_MAX_UNACKED),
-    M_BASE_MAX_FRAGMENT_SIZE(maxFragmentSize),
-    */
 
     m_base_userAssignedUuid(0),
 
@@ -105,9 +99,9 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     m_base_tcpclV4RxStateMachine.SetSessionTerminationMessageCallback(boost::bind(&TcpclV4BidirectionalLink::BaseClass_SessionTerminationMessageCallback, this, boost::placeholders::_1, boost::placeholders::_2));
     
 
-    m_base_handleTcpSendCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    m_base_handleTcpSendContactHeaderCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+    m_base_handleTcpSendCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
+    m_base_handleTcpSendContactHeaderCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
+    m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
 
 
     if (expectedRemoteEidUriStringIfNotEmpty.empty()) {
@@ -185,7 +179,7 @@ unsigned int TcpclV4BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
     return M_BASE_MY_MAX_TX_UNACKED_BUNDLES;
 }
 
-void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSend: " << error.message() << std::endl;
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
@@ -195,7 +189,7 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
     }
 }
 
-void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendContactHeader: " << error.message() << std::endl;
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
@@ -205,7 +199,7 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost:
     }
 }
 
-void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendShutdown: " << error.message() << std::endl;
     }
@@ -327,18 +321,22 @@ void TcpclV4BidirectionalLink::BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_
     }
 
     const TcpclV4::tcpclv4_ack_t & toAckFromQueue = m_base_segmentsToAckCbVec[readIndex];
+    std::vector<uint8_t> & userData = m_base_userDataCbVec[readIndex];
     if (toAckFromQueue == ack) {
-        m_base_segmentsToAckCbPtr->CommitRead();
         const bool isFragment = !(ack.isStartSegment && ack.isEndSegment);
         m_base_totalFragmentedAcked += isFragment;
         if (ack.isEndSegment) { //entire bundle
             ++m_base_totalBundlesAcked;
             m_base_totalBytesAcked += ack.totalBytesAcknowledged;
+            if (m_base_onSuccessfulBundleSendCallback) {
+                m_base_onSuccessfulBundleSendCallback(userData, m_base_userAssignedUuid);
+            }
             Virtual_OnSuccessfulWholeBundleAcknowledged();
             if (m_base_useLocalConditionVariableAckReceived) {
                 m_base_localConditionVariableAckReceived.notify_one();
             }
         }
+        m_base_segmentsToAckCbPtr->CommitRead();
     }
     else {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_AckCallback: wrong ack: expected " << toAckFromQueue << " but got " << ack << std::endl;
@@ -636,18 +634,18 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
     Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThread();
 }
 
-bool TcpclV4BidirectionalLink::BaseClass_Forward(const uint8_t* bundleData, const std::size_t size) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     std::vector<uint8_t> vec(bundleData, bundleData + size);
-    return BaseClass_Forward(vec);
+    return BaseClass_Forward(vec, std::move(userData));
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(std::vector<uint8_t> & dataVec) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
     static std::unique_ptr<zmq::message_t> nullZmqMessagePtr;
-    return BaseClass_Forward(nullZmqMessagePtr, dataVec, false);
+    return BaseClass_Forward(nullZmqMessagePtr, dataVec, false, std::move(userData));
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
     static std::vector<uint8_t> unusedVecMessage;
     std::unique_ptr<zmq::message_t> zmqMessageUniquePtr = boost::make_unique<zmq::message_t>(std::move(dataZmq));
-    const bool success = BaseClass_Forward(zmqMessageUniquePtr, unusedVecMessage, true);
+    const bool success = BaseClass_Forward(zmqMessageUniquePtr, unusedVecMessage, true, std::move(userData));
     if (!success) { //if failure
         //move message back to param
         if (zmqMessageUniquePtr) {
@@ -656,7 +654,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq) {
     }
     return success;
 }
-bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData) {
+bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
     
     if (!m_base_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -772,6 +770,9 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
                 return false;
             }
             m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(isStartSegment, isEndSegment, transferId, dataIndex);
+            if (isEndSegment) {
+                m_base_userDataCbVec[writeIndex] = std::move(userData);
+            }
             m_base_segmentsToAckCbPtr->CommitWrite(); //pushed
 
             if (isEndSegment) {
@@ -818,6 +819,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
             return false;
         }
         m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(true, true, transferId, dataSize);
+        m_base_userDataCbVec[writeIndex] = std::move(userData);
         m_base_segmentsToAckCbPtr->CommitWrite(); //pushed
 
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -1019,6 +1021,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     m_base_ackCbSize = m_base_maxUnackedSegments + 10;
     m_base_segmentsToAckCbPtr = boost::make_unique<CircularIndexBufferSingleProducerSingleConsumerConfigurable>(m_base_ackCbSize);
     m_base_segmentsToAckCbVec.resize(m_base_ackCbSize);
+    m_base_userDataCbVec.resize(m_base_ackCbSize);
 
     if (sessionExtensions.extensionsVec.size()) {
         std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received " << sessionExtensions.extensionsVec.size() << " session extensions\n";
@@ -1098,6 +1101,9 @@ void TcpclV4BidirectionalLink::BaseClass_SetOnFailedBundleVecSendCallback(const 
 }
 void TcpclV4BidirectionalLink::BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_base_onFailedBundleZmqSendCallback = callback;
+}
+void TcpclV4BidirectionalLink::BaseClass_SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_base_onSuccessfulBundleSendCallback = callback;
 }
 void TcpclV4BidirectionalLink::BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_base_onOutductLinkStatusChangedCallback = callback;

@@ -410,7 +410,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
         //send message
         while (m_running) {
             m_isWaitingForRxBundleBeforeNextTx = true;
-            if ((!m_useInductForSendingBundles) && (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, m_bundleSendTimeoutSeconds))) {
+            if ((!m_useInductForSendingBundles) && (!m_outductManager.Forward_Blocking(m_finalDestinationEid, bundleToSend, m_bundleSendTimeoutSeconds, std::vector<uint8_t>()))) {
                 std::cerr << "BpSourcePattern was unable to send a bundle for " << m_bundleSendTimeoutSeconds << " seconds on the outduct.. retrying in 1 second" << std::endl;
                 boost::this_thread::sleep(boost::posix_time::seconds(1));
             }

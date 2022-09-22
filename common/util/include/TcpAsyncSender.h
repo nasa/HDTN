@@ -46,12 +46,13 @@
 #include "hdtn_util_export.h"
 
 struct TcpAsyncSenderElement {
-    typedef boost::function<void(const boost::system::error_code& error, std::size_t bytes_transferred)> OnSuccessfulSendCallbackByIoServiceThread_t;
+    typedef boost::function<void(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement * elPtr)> OnSuccessfulSendCallbackByIoServiceThread_t;
     HDTN_UTIL_EXPORT TcpAsyncSenderElement();
     HDTN_UTIL_EXPORT ~TcpAsyncSenderElement();
     
     HDTN_UTIL_EXPORT void DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred);
 
+    std::vector<uint8_t> m_userData;
     std::vector<boost::asio::const_buffer> m_constBufferVec;
     std::vector<std::vector<boost::uint8_t> > m_underlyingDataVecHeaders;
     std::vector<boost::uint8_t> m_underlyingDataVecBundle;

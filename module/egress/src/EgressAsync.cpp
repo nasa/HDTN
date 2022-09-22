@@ -54,6 +54,7 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
         boost::bind(&hdtn::HegrManagerAsync::WholeBundleReadyCallback, this, boost::placeholders::_1),
         boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
         boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&hdtn::HegrManagerAsync::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
         boost::bind(&hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)
     ))
     {
@@ -418,7 +419,7 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
                     //std::cout << "*****Egress Outduct: " << static_cast<int>(outduct->GetOutductUuid()) << std::endl;
                     outductUuidToNeedAcksQueueMap[outduct->GetOutductUuid()].push(std::move(egressAckPtr));
-                    outduct->Forward(zmqMessageBundle);
+                    outduct->Forward(zmqMessageBundle, std::vector<uint8_t>(1));
                     if (zmqMessageBundle.size() != 0) {
                         std::cout << "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved.. sending to storage" << std::endl;
                         hdtn::Logger::getInstance()->logError("egress", "Error in hdtn::HegrManagerAsync::ProcessZmqMessagesThreadFunc, zmqMessage was not moved");
@@ -648,6 +649,10 @@ void hdtn::HegrManagerAsync::OnFailedBundleZmqSendCallback(zmq::message_t& movab
         boost::mutex::scoped_lock lock(m_mutexFailedBundleQueue);
         m_failedBundleQueue.emplace(std::vector<uint8_t>(), std::move(movableBundle));
     }
+}
+void hdtn::HegrManagerAsync::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
+    std::cout << "OnSuccessfulBundleSendCallback size " << userData.size() << " outductUuid " << outductUuid << "\n";
+    
 }
 void hdtn::HegrManagerAsync::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     std::cout << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid << "\n";

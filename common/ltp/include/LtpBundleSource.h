@@ -55,9 +55,9 @@ public:
 
     LTP_LIB_EXPORT ~LtpBundleSource();
     LTP_LIB_EXPORT void Stop();
-    LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size);
-    LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq);
-    LTP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec);
+    LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
+    LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
+    LTP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
@@ -67,6 +67,7 @@ public:
     LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SyncTelemetry();

@@ -125,7 +125,7 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 //    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 //}
 
-bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
+bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
     
     if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
         std::cerr << "Error in LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
@@ -143,6 +143,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataVec.size();
     tReq->clientServiceDataToSend = std::move(dataVec);
+    tReq->clientServiceDataToSend.m_userData = std::move(userData);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
     m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
@@ -153,7 +154,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     return true;
 }
 
-bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
+bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
 
     if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
@@ -166,6 +167,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataZmq.size();
     tReq->clientServiceDataToSend = std::move(dataZmq);
+    tReq->clientServiceDataToSend.m_userData = std::move(userData);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
     m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
@@ -176,9 +178,9 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
     return true;
 }
 
-bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     std::vector<uint8_t> vec(bundleData, bundleData + size);
-    return Forward(vec);
+    return Forward(vec, std::move(userData));
 }
 
 
@@ -242,6 +244,11 @@ void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSe
 void LtpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     if (m_ltpUdpEnginePtr) {
         m_ltpUdpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
+    }
+}
+void LtpBundleSource::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetOnSuccessfulBundleSendCallback(callback);
     }
 }
 void LtpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {

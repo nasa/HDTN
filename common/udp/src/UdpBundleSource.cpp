@@ -32,9 +32,11 @@ m_udpSocket(m_ioService),
 m_maxPacketsBeingSent(maxUnacked),
 m_bytesToAckBySentCallbackCb(static_cast<uint32_t>(m_maxPacketsBeingSent + 10)),
 m_bytesToAckBySentCallbackCbVec(m_maxPacketsBeingSent + 10),
+m_userDataCbVec(m_maxPacketsBeingSent + 10),
 m_readyToForward(false),
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 m_tokenRefreshTimerIsRunning(false),
+m_userAssignedUuid(0),
 m_totalPacketsSentBySentCallback(0),
 m_totalBytesSentBySentCallback(0),
 m_totalPacketsDequeuedForSend(0),
@@ -123,7 +125,7 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
     );
 }
 
-bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
+bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
 
     if(!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -140,6 +142,7 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     m_totalBytesDequeuedForSend += dataVec.size();
 
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataVec.size();
+    m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
     m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
     std::shared_ptr<std::vector<uint8_t> > udpDataToSendPtr = std::make_shared<std::vector<uint8_t> >(std::move(dataVec));
@@ -149,7 +152,7 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     return true;
 }
 
-bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
+bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
     if (!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -166,6 +169,7 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
     m_totalBytesDequeuedForSend += dataZmq.size();
 
     m_bytesToAckBySentCallbackCbVec[writeIndexSentCallback] = dataZmq.size();
+    m_userDataCbVec[writeIndexSentCallback] = std::move(userData);
     m_bytesToAckBySentCallbackCb.CommitWrite(); //pushed
 
     std::shared_ptr<zmq::message_t> zmqDataToSendPtr = std::make_shared<zmq::message_t>(std::move(dataZmq));
@@ -174,9 +178,9 @@ bool UdpBundleSource::Forward(zmq::message_t & dataZmq) {
     return true;
 }
 
-bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+bool UdpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     std::vector<uint8_t> vec(bundleData, bundleData + size);
-    return Forward(vec);
+    return Forward(vec, std::move(userData));
 }
 
 
@@ -307,10 +311,14 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
     else if (m_bytesToAckBySentCallbackCbVec[readIndex] == bytes_transferred) {
         ++m_totalPacketsSentBySentCallback;
         m_totalBytesSentBySentCallback += m_bytesToAckBySentCallbackCbVec[readIndex];
+        std::vector<uint8_t> userData(std::move(m_userDataCbVec[readIndex]));
         m_bytesToAckBySentCallbackCb.CommitRead();
 
         if (m_onSuccessfulAckCallback) {
             m_onSuccessfulAckCallback();
+        }
+        if (m_onSuccessfulBundleSendCallback) {
+            m_onSuccessfulBundleSendCallback(userData, m_userAssignedUuid);
         }
         if (m_useLocalConditionVariableAckReceived) {
             m_localConditionVariableAckReceived.notify_one();
@@ -432,4 +440,20 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
     else {
         //std::cout << "timer cancelled\n";
     }
+}
+
+void UdpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
+    m_onFailedBundleVecSendCallback = callback;
+}
+void UdpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
+    m_onFailedBundleZmqSendCallback = callback;
+}
+void UdpBundleSource::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_onSuccessfulBundleSendCallback = callback;
+}
+void UdpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    m_onOutductLinkStatusChangedCallback = callback;
+}
+void UdpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {
+    m_userAssignedUuid = userAssignedUuid;
 }

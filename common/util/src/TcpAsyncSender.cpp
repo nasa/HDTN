@@ -23,7 +23,7 @@ TcpAsyncSenderElement::~TcpAsyncSenderElement() {}
 
 void TcpAsyncSenderElement::DoCallback(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if(m_onSuccessfulSendCallbackByIoServiceThreadPtr && (*m_onSuccessfulSendCallbackByIoServiceThreadPtr)) {
-        (*m_onSuccessfulSendCallbackByIoServiceThreadPtr)(error, bytes_transferred);
+        (*m_onSuccessfulSendCallbackByIoServiceThreadPtr)(error, bytes_transferred, this);
     }
 }
 

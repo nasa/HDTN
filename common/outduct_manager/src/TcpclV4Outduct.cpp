@@ -58,14 +58,14 @@ TcpclV4Outduct::~TcpclV4Outduct() {}
 std::size_t TcpclV4Outduct::GetTotalDataSegmentsUnacked() {
     return m_tcpclV4BundleSource.Virtual_GetTotalBundlesUnacked();
 }
-bool TcpclV4Outduct::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return m_tcpclV4BundleSource.BaseClass_Forward(bundleData, size);
+bool TcpclV4Outduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
+    return m_tcpclV4BundleSource.BaseClass_Forward(bundleData, size, std::move(userData));
 }
-bool TcpclV4Outduct::Forward(zmq::message_t & movableDataZmq) {
-    return m_tcpclV4BundleSource.BaseClass_Forward(movableDataZmq);
+bool TcpclV4Outduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
+    return m_tcpclV4BundleSource.BaseClass_Forward(movableDataZmq, std::move(userData));
 }
-bool TcpclV4Outduct::Forward(std::vector<uint8_t> & movableDataVec) {
-    return m_tcpclV4BundleSource.BaseClass_Forward(movableDataVec);
+bool TcpclV4Outduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+    return m_tcpclV4BundleSource.BaseClass_Forward(movableDataVec, std::move(userData));
 }
 
 void TcpclV4Outduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
@@ -76,6 +76,9 @@ void TcpclV4Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSen
 }
 void TcpclV4Outduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleZmqSendCallback(callback);
+}
+void TcpclV4Outduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_tcpclV4BundleSource.BaseClass_SetOnSuccessfulBundleSendCallback(callback);
 }
 void TcpclV4Outduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_tcpclV4BundleSource.BaseClass_SetOnOutductLinkStatusChangedCallback(callback);

@@ -18,14 +18,14 @@ LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 std::size_t LtpOverUdpOutduct::GetTotalDataSegmentsUnacked() {
     return m_ltpBundleSource.GetTotalDataSegmentsUnacked();
 }
-bool LtpOverUdpOutduct::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return m_ltpBundleSource.Forward(bundleData, size);
+bool LtpOverUdpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
+    return m_ltpBundleSource.Forward(bundleData, size, std::move(userData));
 }
-bool LtpOverUdpOutduct::Forward(zmq::message_t & movableDataZmq) {
-    return m_ltpBundleSource.Forward(movableDataZmq);
+bool LtpOverUdpOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
+    return m_ltpBundleSource.Forward(movableDataZmq, std::move(userData));
 }
-bool LtpOverUdpOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
-    return m_ltpBundleSource.Forward(movableDataVec);
+bool LtpOverUdpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+    return m_ltpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 
 void LtpOverUdpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
@@ -36,6 +36,9 @@ void LtpOverUdpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVec
 }
 void LtpOverUdpOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_ltpBundleSource.SetOnFailedBundleZmqSendCallback(callback);
+}
+void LtpOverUdpOutduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_ltpBundleSource.SetOnSuccessfulBundleSendCallback(callback);
 }
 void LtpOverUdpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_ltpBundleSource.SetOnOutductLinkStatusChangedCallback(callback);
