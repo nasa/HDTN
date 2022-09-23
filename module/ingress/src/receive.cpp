@@ -657,8 +657,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             hdtn::Logger::getInstance()->logError("ingress", msg);
         }
     }
-    while (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
-        shouldTryToUseCustThrough = false; //protection to prevent this loop from ever iterating more than once
+    if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
         m_egressAckMapSetMutex.lock();
         EgressToIngressAckingSet & egressToIngressAckingObj = m_egressAckMapSet[finalDestEid.nodeId];
         m_egressAckMapSetMutex.unlock();
@@ -683,43 +682,44 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             ++m_eventsTooManyInEgressQueue;
         }
+        if (!useStorage) {
 
-        const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
+            const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
 
-        //force natural/64-bit alignment
-        hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
-        zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+            //force natural/64-bit alignment
+            hdtn::ToEgressHdr* toEgressHdr = new hdtn::ToEgressHdr();
+            zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
 
-        //memset 0 not needed because all values set below
-        toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
-        toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
-        toEgressHdr->finalDestEid = finalDestEid;
-        toEgressHdr->hasCustody = requestsCustody;
-        toEgressHdr->isCutThroughFromIngress = 1;
-        toEgressHdr->custodyId = ingressToEgressUniqueId;
-        {
-            //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
-            boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
-            if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
-            }
-            else {
-                egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
-
-
-                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
-                    std::cerr << "ingress can't send bundle to egress" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
-
+            //memset 0 not needed because all values set below
+            toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
+            toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
+            toEgressHdr->finalDestEid = finalDestEid;
+            toEgressHdr->hasCustody = requestsCustody;
+            toEgressHdr->isCutThroughFromIngress = 1;
+            toEgressHdr->custodyId = ingressToEgressUniqueId;
+            {
+                //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
+                boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
+                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                    std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
                 }
                 else {
-                    //success                            
-                    m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                    egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
+
+
+                    if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
+                        std::cerr << "ingress can't send bundle to egress" << std::endl;
+                        hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
+
+                    }
+                    else {
+                        //success                            
+                        m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                    }
                 }
             }
         }
-        break;
     }
 
     if (useStorage) { //storage
