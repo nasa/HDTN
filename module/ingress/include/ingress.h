@@ -13,6 +13,7 @@
 #include "HdtnConfig.h"
 #include "InductManager.h"
 #include <list>
+#include <unordered_set>
 #include <queue>
 #include <boost/atomic.hpp>
 #include "TcpclInduct.h"
@@ -58,27 +59,23 @@ public:
     double m_elapsed;
 
 private:
-    struct EgressToIngressAckingQueue {
-        EgressToIngressAckingQueue() {
-
+    struct EgressToIngressAckingSet {
+        EgressToIngressAckingSet() {
+            //By default, unordered_set containers have a max_load_factor of 1.0.
+            m_ingressToEgressCustodyIdSet.reserve(500); //TODO
         }
-        std::size_t GetQueueSize() {
-            return m_ingressToEgressCustodyIdQueue.size();
+        std::size_t GetSetSize() {
+            return m_ingressToEgressCustodyIdSet.size();
         }
         void PushMove_ThreadSafe(const uint64_t ingressToEgressCustody) {
             boost::mutex::scoped_lock lock(m_mutex);
-            m_ingressToEgressCustodyIdQueue.push(ingressToEgressCustody);
+            m_ingressToEgressCustodyIdSet.emplace(ingressToEgressCustody);
         }
         bool CompareAndPop_ThreadSafe(const uint64_t ingressToEgressCustody) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            if (m_ingressToEgressCustodyIdQueue.empty()) {
-                return false;
-            }
-            else if (m_ingressToEgressCustodyIdQueue.front() == ingressToEgressCustody) {
-                m_ingressToEgressCustodyIdQueue.pop();
-                return true;
-            }
-            return false;
+            m_mutex.lock();
+            const std::size_t retVal = m_ingressToEgressCustodyIdSet.erase(ingressToEgressCustody);
+            m_mutex.unlock();
+            return (retVal != 0);
         }
         void WaitUntilNotifiedOr250MsTimeout() {
             boost::mutex::scoped_lock lock(m_mutex);
@@ -89,7 +86,7 @@ private:
         }
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
-        std::queue<uint64_t> m_ingressToEgressCustodyIdQueue;
+        std::unordered_set<uint64_t> m_ingressToEgressCustodyIdSet;
     };
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
@@ -116,8 +113,8 @@ private:
     std::queue<uint64_t> m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;
-    std::map<cbhe_eid_t, EgressToIngressAckingQueue> m_egressAckMapQueue; //final dest id to queue
-    boost::mutex m_egressAckMapQueueMutex;
+    std::map<uint64_t, EgressToIngressAckingSet> m_egressAckMapSet; //final dest node id to set
+    boost::mutex m_egressAckMapSetMutex;
     boost::mutex m_ingressToEgressZmqSocketMutex;
     boost::mutex m_eidAvailableSetMutex;
     std::size_t m_eventsTooManyInStorageQueue;

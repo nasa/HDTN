@@ -279,12 +279,12 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                         if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
                             if (safeToMove) {
                                 std::cout << "Ltp engine moving a send-failed vector bundle back to the user\n";
-                                m_onFailedBundleVecSendCallback(vecRef, m_userAssignedUuid);
+                                m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid);
                             }
                             else {
                                 std::cout << "Ltp engine copying a send-failed vector bundle back to the user\n";
                                 std::vector<uint8_t> vecCopy(vecRef);
-                                m_onFailedBundleVecSendCallback(vecCopy, m_userAssignedUuid);
+                                m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid);
                             }
                         }
                     }
@@ -293,12 +293,12 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                         if (zmqRef.size()) { //this session sender is using zmq client service data
                             if (safeToMove) {
                                 std::cout << "Ltp engine moving a send-failed zmq bundle back to the user\n";
-                                m_onFailedBundleZmqSendCallback(zmqRef, m_userAssignedUuid);
+                                m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid);
                             }
                             else {
                                 std::cout << "Ltp engine copying a send-failed zmq bundle back to the user\n";
                                 zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
-                                m_onFailedBundleZmqSendCallback(zmqCopy, m_userAssignedUuid);
+                                m_onFailedBundleZmqSendCallback(zmqCopy, csdRef->m_userData, m_userAssignedUuid);
                             }
                         }
                     }

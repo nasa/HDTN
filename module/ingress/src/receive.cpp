@@ -229,9 +229,19 @@ void Ingress::ReadZmqAcksThreadFunc() {
                     std::cerr << "error message ack not HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS\n";
                 }
                 else {
-                    m_egressAckMapQueueMutex.lock();
-                    EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[receivedEgressAckHdr.finalDestEid];
-                    m_egressAckMapQueueMutex.unlock();
+                    m_egressAckMapSetMutex.lock();
+                    EgressToIngressAckingSet & egressToIngressAckingObj = m_egressAckMapSet[receivedEgressAckHdr.finalDestEid.nodeId];
+                    m_egressAckMapSetMutex.unlock();
+                    if (receivedEgressAckHdr.error) {
+                        //trigger a link down event in ingress more quickly than waiting for scheduler.
+                        //egress shall send the failed bundle to storage.
+                        m_eidAvailableSetMutex.lock();
+                        const bool erased = (m_finalDestNodeIdAvailableSet.erase(receivedEgressAckHdr.finalDestEid.nodeId) != 0); //eid with any service id
+                        m_eidAvailableSetMutex.unlock();
+                        if (erased) {
+                            std::cout << "Ingress got a link down notification from egress for final dest node id " << receivedEgressAckHdr.finalDestEid.nodeId << "\n";
+                        }
+                    }
                     if (egressToIngressAckingObj.CompareAndPop_ThreadSafe(receivedEgressAckHdr.custodyId)) {
                         egressToIngressAckingObj.NotifyAll();
                         ++totalAcksFromEgress;
@@ -649,13 +659,13 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
     }
     while (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
         shouldTryToUseCustThrough = false; //protection to prevent this loop from ever iterating more than once
-        m_egressAckMapQueueMutex.lock();
-        EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
-        m_egressAckMapQueueMutex.unlock();
+        m_egressAckMapSetMutex.lock();
+        EgressToIngressAckingSet & egressToIngressAckingObj = m_egressAckMapSet[finalDestEid.nodeId];
+        m_egressAckMapSetMutex.unlock();
         boost::posix_time::ptime timeoutExpiry((m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds != 0) ?
             boost::posix_time::special_values::not_a_date_time :
             boost::posix_time::special_values::neg_infin); //allow zero ms to prevent bpgen getting blocked and use storage
-        while (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
+        while (egressToIngressAckingObj.GetSetSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
             if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
                 timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
             }

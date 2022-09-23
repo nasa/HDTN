@@ -680,7 +680,22 @@ void ZmqStorageInterface::ThreadFunc() {
                     custodyid_set_t& custodyIdSet = finalDestNodeIdToOpenCustIdsMap[egressAckHdr.finalDestEid.nodeId];
                     custodyid_set_t::iterator it = custodyIdSet.find(egressAckHdr.custodyId);
                     if (it != custodyIdSet.end()) {
-                        if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                        if (egressAckHdr.error) {
+                            //A bundle that was sent from storage to egress gets an ack back from egress with the error flag set because egress could not send the bundle.
+                            //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
+                            //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
+                            //but the bundle won't be immediately released again from storage because of the immediate link down event.
+                            if (availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(egressAckHdr.finalDestEid.nodeId, 0), true))) { //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                                std::cout << "Storage got a link down notification from egress for final dest "
+                                    << Uri::GetIpnUriStringAnyServiceNumber(egressAckHdr.finalDestEid.nodeId) << " because storage to egress failed\n";
+                                PrintReleasedLinks(availableDestLinksSet);
+                            }
+                            if (!bsm.ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
+                                std::cout << "error returning custody id " << egressAckHdr.custodyId << " to awaiting send\n";
+                            }
+                            custodyTimers.CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
+                        }
+                        else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
                             bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr.custodyId);
                             if (!successRemoveBundle) {
                                 std::cout << "error freeing bundle from disk\n";
@@ -692,8 +707,11 @@ void ZmqStorageInterface::ThreadFunc() {
                         }
                         custodyIdSet.erase(it);
                     }
+                    else {
+                        std::cout << "error: Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find custody id\n";
+                    }
                 }
-                else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE) {
+                else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE) { //bundles sent from ingress to egress but egress could not send
                     zmq::message_t zmqBundleDataReceived;
                     if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
                         std::cerr << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received" << std::endl;
@@ -705,9 +723,13 @@ void ZmqStorageInterface::ThreadFunc() {
                     Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, true);
                     ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                     finalDestEidReturnedFromWrite.serviceId = 0;
-                    availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestEidReturnedFromWrite, true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
-                    std::cout << "bundle send back to storage from egress.. final dest node id " << finalDestEidReturnedFromWrite.nodeId << " is set to down\n";
-                    PrintReleasedLinks(availableDestLinksSet);
+                    if (availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestEidReturnedFromWrite, true))) { //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                        std::cout << "Storage got a link down notification from egress for final dest "
+                            << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId) << " because cut through from ingress failed\n";
+                        PrintReleasedLinks(availableDestLinksSet);
+                    }
+                    std::cout << "Notice in ZmqStorageInterface::ThreadFunc: A bundle was send to storage from egress because cut through from ingress failed\n";
+                    
                 }
                 else {
                     std::cerr << "[storage-worker] EgressAckHdr unknown type, got " << egressAckHdr.base.type << std::endl;
