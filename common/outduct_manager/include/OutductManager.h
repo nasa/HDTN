@@ -36,10 +36,6 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData);
     OUTDUCT_MANAGER_LIB_EXPORT bool Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData);
 
-    OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, const uint32_t timeoutSeconds, std::vector<uint8_t>&& userData);
-    OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, const uint32_t timeoutSeconds, std::vector<uint8_t>&& userData);
-    OUTDUCT_MANAGER_LIB_EXPORT bool Forward_Blocking(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, const uint32_t timeoutSeconds, std::vector<uint8_t>&& userData);
-
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetAllOutductTelemetry(uint8_t* serialization, uint64_t bufferSize) const;
 private:
     OUTDUCT_MANAGER_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t uuidIndex);

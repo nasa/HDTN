@@ -34,6 +34,12 @@ void BpSinkPattern::Stop() {
         m_ioServiceThreadPtr.reset(); //delete it
     }
 
+    m_runningSenderThread = false; //thread stopping criteria
+    if (m_threadSenderReaderPtr) {
+        m_threadSenderReaderPtr->join();
+        m_threadSenderReaderPtr.reset(); //delete it
+    }
+
     m_inductManager.Clear();
 
     std::cout << "totalPayloadBytesRx: " << m_totalPayloadBytesRx << "\n";
@@ -71,8 +77,11 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
 
     m_tcpclInductPtr = NULL;
 
+    m_linkIsDown = false;
+
     M_EXTRA_PROCESSING_TIME_MS = processingLagMs;
     if (inductsConfigPtr) {
+        m_currentlySendingBundleIdSet.reserve(1024); //todo
         m_inductManager.LoadInductsFromConfig(boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
             *inductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
             boost::bind(&BpSinkPattern::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
@@ -82,11 +91,22 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     if (outductsConfigPtr) {
         m_hasSendCapability = true;
         m_hasSendCapabilityOverTcpclBidirectionalInduct = false;
-        m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes, boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1));
+        //m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
+        //    boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1));
+        if (!m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, myEid.nodeId, UINT16_MAX, maxBundleSizeBytes,
+            boost::bind(&BpSinkPattern::WholeBundleReadyCallback, this, boost::placeholders::_1),
+            boost::bind(&BpSinkPattern::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+            OnFailedBundleZmqSendCallback_t(), //BpSinkPattern only sends vec8 bundles (not zmq) so this will never be needed
+            boost::bind(&BpSinkPattern::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+            boost::bind(&BpSinkPattern::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)))
+        {
+            return false;
+        }
         while (!m_outductManager.AllReadyToForward()) {
             std::cout << "waiting for outduct to be ready...\n";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
         }
+        m_currentlySendingBundleIdSet.reserve(outductsConfigPtr->m_outductElementConfigVector[0].bundlePipelineLimit);
     }
     else if ((inductsConfigPtr) && ((inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))) {
         m_hasSendCapability = true;
@@ -109,6 +129,10 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
     m_timerTransferRateStats.expires_from_now(boost::posix_time::seconds(5));
     m_timerTransferRateStats.async_wait(boost::bind(&BpSinkPattern::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
+
+    m_runningSenderThread = true;
+    m_threadSenderReaderPtr = boost::make_unique<boost::thread>(
+        boost::bind(&BpSinkPattern::SenderReaderThreadFunc, this)); //create and start the worker thread
     
     return true;
 }
@@ -407,33 +431,195 @@ void BpSinkPattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNode
 }
 
 bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend) {
-    bool successForward = false;
-    if (m_hasSendCapabilityOverTcpclBidirectionalInduct) {
-        //if (destEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
-        //    std::cerr << "error: node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId << std::endl;
-        //}
-        //else if (m_tcpclInductPtr) {
-        //note BpSink has no routing capability so it must send to the only connection available to it
-        if (m_tcpclInductPtr) {
-            m_mutexForward.lock();
-            //successForward = m_tcpclInductPtr->ForwardOnOpportunisticLink(destEid.nodeId, bundleToMoveAndSend, 3);
-            successForward = m_tcpclInductPtr->ForwardOnOpportunisticLink(m_tcpclOpportunisticRemoteNodeId, bundleToMoveAndSend, 3);
-            m_mutexForward.unlock();
+    if (m_bundleToSendQueue.size() > 2000) { //todo
+        return false;
+    }
+    m_mutexSendBundleQueue.lock();
+    m_bundleToSendQueue.emplace(destEid, std::move(bundleToMoveAndSend));
+    m_mutexSendBundleQueue.unlock();
+    m_conditionVariableSenderReader.notify_one();
+    return true;
+}
+
+void BpSinkPattern::SenderReaderThreadFunc() {
+
+    boost::mutex senderReaderMutex;
+    boost::mutex::scoped_lock senderReaderLock(senderReaderMutex);
+
+    boost::mutex waitingForBundlePipelineFreeMutex;
+    boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(waitingForBundlePipelineFreeMutex);
+
+    uint64_t m_nextBundleId = 0;
+    cbhe_eid_t destEid;
+    std::vector<uint8_t> bundleToSend;
+    Outduct* outduct = NULL;
+    uint64_t outductMaxBundlesInPipeline = 0;
+    
+    const uint64_t TIMEOUT_SECONDS = 3;
+    const boost::posix_time::time_duration TIMEOUT_DURATION = boost::posix_time::seconds(TIMEOUT_SECONDS);
+    uint64_t nextBundleId = 0;
+    uint64_t thisBundleId = 0;
+    if (!m_hasSendCapabilityOverTcpclBidirectionalInduct) { //outduct
+        outduct = m_outductManager.GetOutductByOutductUuid(0);
+        if (outduct) {
+            outductMaxBundlesInPipeline = outduct->GetOutductMaxBundlesInPipeline();
         }
-        else {
-            std::cerr << "error: tcpcl induct does not exist to forward\n";
+    }
+    while (m_runningSenderThread) {
+        
+        if (bundleToSend.size()) { //last bundle didn't send due to timeout, try to resend this
+            //no work to do
+        }
+        else if(m_queueBundlesThatFailedToSend.size()) {
+            boost::mutex::scoped_lock lock(m_mutexQueueBundlesThatFailedToSend);
+            bundle_userdata_pair_t& bup = m_queueBundlesThatFailedToSend.front();
+            bundleid_finaldesteid_pair_t& bfp = bup.second;
+            thisBundleId = bfp.first;
+            destEid = bfp.second;
+            bundleToSend = std::move(bup.first);
+            m_queueBundlesThatFailedToSend.pop();
+        }
+        else if (m_bundleToSendQueue.size()) {
+            {
+                boost::mutex::scoped_lock lock(m_mutexSendBundleQueue);
+                if (m_bundleToSendQueue.empty()) {
+                    continue;
+                }
+                desteid_bundle_pair_t& dbp = m_bundleToSendQueue.front();
+                destEid = dbp.first;
+                bundleToSend = std::move(dbp.second);
+                m_bundleToSendQueue.pop();
+            }
+            thisBundleId = nextBundleId++;
+        }
+        else { //empty
+            m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            continue;
+        }
+
+        if (m_linkIsDown) {
+            //note BpSource has no routing capability so it must send to the only connection available to it
+            std::cerr << "BpSinkPattern waiting for linkup event before sending queued bundles.. retrying in 1 second\n";
+            boost::this_thread::sleep(boost::posix_time::seconds(1));
+            continue;
+        }
+
+        if ((!m_hasSendCapabilityOverTcpclBidirectionalInduct) && (outduct != m_outductManager.GetOutductByFinalDestinationEid_ThreadSafe(destEid))) { //outduct
+            std::cerr << "error: " << destEid << " does not match outduct.. dropping bundle to be sent\n";
+            bundleToSend.clear();
+            continue;
+        }
+
+        std::vector<uint8_t> bundleToSendUserData(sizeof(bundleid_finaldesteid_pair_t));
+        bundleid_finaldesteid_pair_t* bundleToSendUserDataPairPtr = (bundleid_finaldesteid_pair_t*)bundleToSendUserData.data();
+        bundleToSendUserDataPairPtr->first = thisBundleId;
+        bundleToSendUserDataPairPtr->second = destEid;
+
+        if (m_hasSendCapabilityOverTcpclBidirectionalInduct) {
+            if (destEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
+                std::cerr << "error: node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId << std::endl;
+                continue;
+            }
+            //else if (m_tcpclInductPtr) {
+            //note BpSink has no routing capability so it must send to the only connection available to it
+            if (m_tcpclInductPtr) {
+                if (!m_tcpclInductPtr->ForwardOnOpportunisticLink(m_tcpclOpportunisticRemoteNodeId, bundleToSend, 3)) {
+                    std::cerr << "BpSinkPattern was unable to send a bundle for " << TIMEOUT_SECONDS << " seconds on the bidirectional tcpcl induct.. retrying in 1 second\n";
+                    boost::this_thread::sleep(boost::posix_time::seconds(1));
+                    continue;
+                }
+            }
+            else {
+                std::cerr << "error: tcpcl induct does not exist to forward\n";
+            }
+        }
+        else { //outduct for forwarding bundles
+            boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
+            bool timeout = false;
+            while (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) {
+                const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+                if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                    timeoutExpiry = nowTime + TIMEOUT_DURATION;
+                }
+                if (timeoutExpiry <= nowTime) {
+                    timeout = true;
+                    break;
+                }
+                m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(10));
+            }
+            if (timeout) {
+                std::cerr << "BpSinkPattern was unable to send a bundle for " << TIMEOUT_SECONDS << " seconds on the outduct\n";
+                m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(1000)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
+
+            //insert bundleId right before forward
+            m_mutexCurrentlySendingBundleIdSet.lock();
+            m_currentlySendingBundleIdSet.insert(thisBundleId); //ok if already exists
+            m_mutexCurrentlySendingBundleIdSet.unlock();
+
+            if (!outduct->Forward(bundleToSend, std::move(bundleToSendUserData))) {
+                std::cerr << "BpSinkPattern unable to send bundle on the outduct.. retrying in 1 second\n";
+                boost::this_thread::sleep(boost::posix_time::seconds(1));
+            }
         }
     }
-    else {
-        m_mutexForward.lock();
-        successForward = m_outductManager.Forward_Blocking(destEid, bundleToMoveAndSend, 3, std::vector<uint8_t>());
-        m_mutexForward.unlock();
+
+    std::cout << "BpSinkPattern::SenderReaderThreadFunc thread exiting\n";
+
+}
+
+void BpSinkPattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
+    bundleid_finaldesteid_pair_t* p = (bundleid_finaldesteid_pair_t*)userData.data();
+    const uint64_t bundleId = p->first;
+    std::cout << "Bundle failed to send: id=" << bundleId << " bundle size=" << movableBundle.size() << "\n";
+    std::size_t sizeErased;
+    {
+        boost::mutex::scoped_lock lock(m_mutexQueueBundlesThatFailedToSend);
+        boost::mutex::scoped_lock lock2(m_mutexCurrentlySendingBundleIdSet);
+        m_queueBundlesThatFailedToSend.emplace(std::move(movableBundle), std::move(*p));
+        sizeErased = m_currentlySendingBundleIdSet.erase(bundleId);
     }
-    if (!successForward) {
-        std::cerr << "error forwarding for 3 seconds\n";
+    
+    if (sizeErased == 0) {
+        std::cout << "Error in BpSinkPattern::OnFailedBundleVecSendCallback: cannot find bundleId " << bundleId << "\n";
     }
-    else {
-        //std::cout << "success forwarding\n";
+
+    if (!m_linkIsDown) {
+        std::cout << "Setting link status to DOWN\n";
+        m_linkIsDown = true;
     }
-    return successForward;
+    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+}
+void BpSinkPattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
+    bundleid_finaldesteid_pair_t* p = (bundleid_finaldesteid_pair_t*)userData.data();
+    const uint64_t bundleId = p->first;
+    //std::cout << "Bundle sent: id=" << bundleId << "\n";
+
+    m_mutexCurrentlySendingBundleIdSet.lock();
+    const std::size_t sizeErased = m_currentlySendingBundleIdSet.erase(bundleId);
+    m_mutexCurrentlySendingBundleIdSet.unlock();
+    if (sizeErased == 0) {
+        std::cout << "Error in BpSinkPattern::OnSuccessfulBundleSendCallback: cannot find bundleId " << bundleId << "\n";
+    }
+
+    if (m_linkIsDown) {
+        std::cout << "Setting link status to UP\n";
+        m_linkIsDown = false;
+    }
+    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+}
+void BpSinkPattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
+    std::cout << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid << "\n";
+    const bool linkIsAlreadyDown = m_linkIsDown;
+    if (isLinkDownEvent && (!linkIsAlreadyDown)) {
+        std::cout << "Setting link status to DOWN\n";
+    }
+    else if ((!isLinkDownEvent) && linkIsAlreadyDown) {
+        std::cout << "Setting link status to UP\n";
+    }
+    m_linkIsDown = isLinkDownEvent;
+    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
 }

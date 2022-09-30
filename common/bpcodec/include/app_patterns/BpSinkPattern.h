@@ -15,6 +15,8 @@
 #include "codec/CustodyTransferManager.h"
 #include <boost/asio.hpp>
 #include "TcpclInduct.h"
+#include <queue>
+#include <unordered_set>
 
 class CLASS_VISIBILITY_BP_APP_PATTERNS_LIB BpSinkPattern {
 public:
@@ -34,6 +36,10 @@ private:
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr);
     BP_APP_PATTERNS_LIB_NO_EXPORT void OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId);
     BP_APP_PATTERNS_LIB_NO_EXPORT bool Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<uint8_t> & bundleToMoveAndSend);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void SenderReaderThreadFunc();
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
+    BP_APP_PATTERNS_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 public:
 
     uint64_t m_totalPayloadBytesRx;
@@ -65,8 +71,21 @@ private:
     boost::asio::deadline_timer m_timerAcs;
     boost::asio::deadline_timer m_timerTransferRateStats;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
+    std::unique_ptr<boost::thread> m_threadSenderReaderPtr;
+    boost::condition_variable m_conditionVariableSenderReader;
+    typedef std::pair<cbhe_eid_t, std::vector<uint8_t> > desteid_bundle_pair_t;
+    std::queue<desteid_bundle_pair_t> m_bundleToSendQueue;
+    boost::mutex m_mutexCurrentlySendingBundleIdSet;
+    std::unordered_set<uint64_t> m_currentlySendingBundleIdSet;
+    boost::condition_variable m_waitingForBundlePipelineFreeConditionVariable;
+    boost::mutex m_mutexQueueBundlesThatFailedToSend;
+    typedef std::pair<uint64_t, cbhe_eid_t> bundleid_finaldesteid_pair_t;
+    typedef std::pair<std::vector<uint8_t>, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;
+    std::queue<bundle_userdata_pair_t> m_queueBundlesThatFailedToSend;
+    volatile bool m_linkIsDown;
+    volatile bool m_runningSenderThread;
     boost::mutex m_mutexCtm;
-    boost::mutex m_mutexForward;
+    boost::mutex m_mutexSendBundleQueue;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;
 };
