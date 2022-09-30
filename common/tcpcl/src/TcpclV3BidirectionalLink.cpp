@@ -64,6 +64,7 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_bytesToAckCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     m_base_fragmentBytesToAckCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     m_base_fragmentVectorIndexCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
+    m_base_userDataCbVec(M_BASE_UNACKED_BUNDLE_CB_SIZE),
     M_BASE_MAX_FRAGMENT_SIZE(maxFragmentSize),
 
     m_base_userAssignedUuid(0),
@@ -87,8 +88,8 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     m_base_tcpclV3RxStateMachine.SetShutdownMessageCallback(boost::bind(&TcpclV3BidirectionalLink::BaseClass_ShutdownCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
 
 
-    m_base_handleTcpSendCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+    m_base_handleTcpSendCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
+    m_base_handleTcpSendShutdownCallback = boost::bind(&TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
 
     for (unsigned int i = 0; i < M_BASE_UNACKED_BUNDLE_CB_SIZE; ++i) {
         m_base_fragmentBytesToAckCbVec[i].reserve(100);
@@ -169,7 +170,7 @@ unsigned int TcpclV3BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
     return M_BASE_MAX_UNACKED_BUNDLES_IN_PIPELINE;
 }
 
-void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSend: " << error.message() << std::endl;
         BaseClass_DoTcpclShutdown(true, false);
@@ -179,7 +180,7 @@ void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
     }
 }
 
-void TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendShutdown: " << error.message() << std::endl;
     }
@@ -252,6 +253,9 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
             if (m_base_bytesToAckCbVec[readIndex] == totalBytesAcknowledged) {
                 ++m_base_totalBundlesAcked;
                 m_base_totalBytesAcked += m_base_bytesToAckCbVec[readIndex];
+                if (m_base_onSuccessfulBundleSendCallback) {
+                    m_base_onSuccessfulBundleSendCallback(m_base_userDataCbVec[readIndex], m_base_userAssignedUuid);
+                }
                 m_base_bytesToAckCb.CommitRead();
                 Virtual_OnSuccessfulWholeBundleAcknowledged();
                 if (m_base_useLocalConditionVariableAckReceived) {
@@ -446,18 +450,18 @@ void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpir
     
 }
 
-bool TcpclV3BidirectionalLink::BaseClass_Forward(const uint8_t* bundleData, const std::size_t size) {
+bool TcpclV3BidirectionalLink::BaseClass_Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     std::vector<uint8_t> vec(bundleData, bundleData + size);
-    return BaseClass_Forward(vec);
+    return BaseClass_Forward(vec, std::move(userData));
 }
-bool TcpclV3BidirectionalLink::BaseClass_Forward(std::vector<uint8_t> & dataVec) {
+bool TcpclV3BidirectionalLink::BaseClass_Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
     static std::unique_ptr<zmq::message_t> nullZmqMessagePtr;
-    return BaseClass_Forward(nullZmqMessagePtr, dataVec, false);
+    return BaseClass_Forward(nullZmqMessagePtr, dataVec, false, std::move(userData));
 }
-bool TcpclV3BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq) {
+bool TcpclV3BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
     static std::vector<uint8_t> unusedVecMessage;
     std::unique_ptr<zmq::message_t> zmqMessageUniquePtr = boost::make_unique<zmq::message_t>(std::move(dataZmq));
-    const bool success = BaseClass_Forward(zmqMessageUniquePtr, unusedVecMessage, true);
+    const bool success = BaseClass_Forward(zmqMessageUniquePtr, unusedVecMessage, true, std::move(userData));
     if (!success) { //if failure
         //move message back to param
         if (zmqMessageUniquePtr) {
@@ -466,7 +470,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq) {
     }
     return success;
 }
-bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData) {
+bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
 
     if (!m_base_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
@@ -494,7 +498,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
     }
     m_base_dataSentServedAsKeepaliveSent = true;
     m_base_bytesToAckCbVec[writeIndex] = dataSize;
-
+    m_base_userDataCbVec[writeIndex] = std::move(userData);
 
     ++m_base_totalBundlesSent;
     m_base_totalBundleBytesSent += dataSize;
@@ -703,6 +707,9 @@ void TcpclV3BidirectionalLink::BaseClass_SetOnFailedBundleVecSendCallback(const 
 }
 void TcpclV3BidirectionalLink::BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_base_onFailedBundleZmqSendCallback = callback;
+}
+void TcpclV3BidirectionalLink::BaseClass_SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_base_onSuccessfulBundleSendCallback = callback;
 }
 void TcpclV3BidirectionalLink::BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_base_onOutductLinkStatusChangedCallback = callback;

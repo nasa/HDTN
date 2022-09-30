@@ -26,18 +26,18 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
-#include <set>
+#include <unordered_set>
 #include <vector>
 #include "Telemetry.h"
 #include "LtpUdpEngineManager.h"
 #include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
+#include <atomic>
 
 class LtpBundleSource {
 private:
     LtpBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     /*
     const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
         const uint64_t thisEngineId, uint64_t mtuReportSegment,
@@ -51,22 +51,23 @@ public:
         const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
         const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-        const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall);
+        const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable);
 
     LTP_LIB_EXPORT ~LtpBundleSource();
     LTP_LIB_EXPORT void Stop();
-    LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size);
-    LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq);
-    LTP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec);
+    LTP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
+    LTP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
+    LTP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
     LTP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
     //std::size_t GetTotalBundleBytesAcked();
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
     //std::size_t GetTotalBundleBytesUnacked();
-    LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
+    LTP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     LTP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
     LTP_LIB_EXPORT void SyncTelemetry();
 private:
@@ -88,9 +89,8 @@ private:
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_REMOTE_LTP_ENGINE_ID;
     const uint32_t M_BUNDLE_PIPELINE_LIMIT;
-    std::set<Ltp::session_id_t> m_activeSessionsSet;
-
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
+    std::unordered_set<uint64_t> m_activeSessionNumbersSet;
+    std::atomic<unsigned int> m_startingCount;
 
     volatile bool m_removeCallbackCalled;
 public:

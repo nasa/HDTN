@@ -31,7 +31,6 @@ class CLASS_VISIBILITY_TCPCL_LIB TcpclBundleSource : public TcpclV3Bidirectional
 private:
     TcpclBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     TCPCL_LIB_EXPORT TcpclBundleSource(const uint16_t desiredKeepAliveIntervalSeconds, const uint64_t myNodeId,
         const std::string & expectedRemoteEidUri, const unsigned int maxUnacked, const uint64_t maxFragmentSize,
         const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback = OutductOpportunisticProcessReceivedBundleCallback_t());
@@ -42,7 +41,6 @@ public:
     
     TCPCL_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     TCPCL_LIB_EXPORT bool ReadyToForward() const;
-    TCPCL_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
     TCPCL_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     TCPCL_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
@@ -68,17 +66,7 @@ private:
 
     //tcpcl vars
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
+
 
     //opportunistic receive bundles
     const OutductOpportunisticProcessReceivedBundleCallback_t m_outductOpportunisticProcessReceivedBundleCallback;

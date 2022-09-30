@@ -93,12 +93,12 @@
                 "finalDestinationEidUris": [
                     "ipn:68.1",
                     "ipn:52.1",
-		    "ipn:68.64",
+                    "ipn:68.64",
                     "ipn:52.64",
                     "ipn:68.65",
                     "ipn:52.65",
-		    "ipn:68.2047",
-		    "ipn:52.2047"
+                    "ipn:68.2047",
+                    "ipn:52.2047"
                 ],
                 "thisLtpEngineId": 69,
                 "remoteLtpEngineId": 68,
@@ -112,7 +112,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 1113,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             }
         ]
     },

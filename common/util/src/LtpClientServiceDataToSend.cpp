@@ -41,6 +41,7 @@ LtpClientServiceDataToSend& LtpClientServiceDataToSend::operator=(zmq::message_t
 LtpClientServiceDataToSend::~LtpClientServiceDataToSend() { } //a destructor: ~X()
 
 LtpClientServiceDataToSend::LtpClientServiceDataToSend(LtpClientServiceDataToSend && o) : //a move constructor: X(X&&)
+    m_userData(std::move(o.m_userData)),
     m_vector(std::move(o.m_vector)),
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
     m_zmqMessage(std::move(o.m_zmqMessage)),
@@ -48,6 +49,7 @@ LtpClientServiceDataToSend::LtpClientServiceDataToSend(LtpClientServiceDataToSen
     m_ptrData(o.m_ptrData), m_size(o.m_size) { } 
 
 LtpClientServiceDataToSend& LtpClientServiceDataToSend::operator=(LtpClientServiceDataToSend && o) { //a move assignment: operator=(X&&)
+    m_userData = std::move(o.m_userData);
     m_vector = std::move(o.m_vector);
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ
     m_zmqMessage = std::move(o.m_zmqMessage);

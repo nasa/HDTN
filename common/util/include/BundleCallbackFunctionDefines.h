@@ -25,8 +25,9 @@
 #include <boost/function.hpp>
 #include <zmq.hpp>
 
-typedef boost::function<void(std::vector<uint8_t> & movableBundle, uint64_t outductUuid)> OnFailedBundleVecSendCallback_t;
-typedef boost::function<void(zmq::message_t & movableBundle, uint64_t outductUuid)> OnFailedBundleZmqSendCallback_t;
+typedef boost::function<void(std::vector<uint8_t> & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid)> OnFailedBundleVecSendCallback_t;
+typedef boost::function<void(zmq::message_t & movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid)> OnFailedBundleZmqSendCallback_t;
+typedef boost::function<void(std::vector<uint8_t>& userData, uint64_t outductUuid)> OnSuccessfulBundleSendCallback_t;
 typedef boost::function<void(bool isLinkDownEvent, uint64_t outductUuid)> OnOutductLinkStatusChangedCallback_t;
 
 #endif // BUNDLE_CALLBACK_FUNCTION_DEFINES_H

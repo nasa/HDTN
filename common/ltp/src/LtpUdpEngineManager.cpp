@@ -67,6 +67,8 @@ LtpUdpEngineManager::LtpUdpEngineManager(const uint16_t myBoundUdpPort, const bo
     M_MY_BOUND_UDP_PORT(myBoundUdpPort),
     m_resolver(m_ioServiceUdp),
     m_udpSocket(m_ioServiceUdp),
+    m_retryAfterSocketErrorTimer(m_ioServiceUdp),
+    m_socketRestoredTimer(m_ioServiceUdp),
     m_udpReceiveBuffer(M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES),
     m_vecEngineIndexToLtpUdpEngineTransmitterPtr(256, NULL),
     m_nextEngineIndex(1),
@@ -133,7 +135,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
     uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
     const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall)
+    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable)
 {   
     if ((m_nextEngineIndex > 255) && (!isInduct)) {
         std::cerr << "error in LtpUdpEngineManager::AddLtpUdpEngine: a max of 254 engines can be added for one outduct with the same udp port\n";
@@ -151,6 +153,10 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
         return false;
     }
 #endif //UIO_MAXIOV
+    if (senderPingSecondsOrZeroToDisable && isInduct) {
+        std::cerr << "error in LtpUdpEngineManager::AddLtpUdpEngine: senderPingSecondsOrZeroToDisable cannot be used with an induct (must be set to 0).\n";
+        return false;
+    }
     std::map<uint64_t, std::unique_ptr<LtpUdpEngine> > * const whichMap = (isInduct) ? &m_mapRemoteEngineIdToLtpUdpEngineReceiverPtr : &m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr;
     std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = whichMap->find(remoteEngineId);
     if (it != whichMap->end()) {
@@ -175,7 +181,7 @@ bool LtpUdpEngineManager::AddLtpUdpEngine(const uint64_t thisEngineId, const uin
         m_udpSocket, thisEngineId, engineIndex, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
         remoteEndpoint, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, checkpointEveryNthDataPacketSender,
         maxRetriesPerSerialNumber, force32BitRandomNumbers, M_STATIC_MAX_UDP_RX_PACKET_SIZE_BYTES_FOR_ALL_LTP_UDP_ENGINES, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
-        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall);
+        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable);
     if (!isInduct) {
         ++m_nextEngineIndex;
         m_vecEngineIndexToLtpUdpEngineTransmitterPtr[engineIndex] = newLtpUdpEnginePtr.get();
@@ -291,8 +297,37 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
         StartUdpReceive(); //restart operation only if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "critical error in LtpUdpEngineManager::HandleUdpReceive(): " << error.message() << std::endl;
-        DoUdpShutdown();
+        //this happens with windows loopback (localhost) peer udp sockets being terminated
+        m_readyToForward = false;
+        std::cerr << "critical error in LtpUdpEngineManager::HandleUdpReceive(): " << error.message() << std::endl
+            << "Will try to Receive after 2 seconds" << std::endl;
+        for (std::map<uint64_t, std::unique_ptr<LtpUdpEngine> >::iterator it = m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr.begin();
+            it != m_mapRemoteEngineIdToLtpUdpEngineTransmitterPtr.end(); ++it)
+        {
+            it->second->PostExternalLinkDownEvent_ThreadSafe();
+        }
+        m_socketRestoredTimer.cancel();
+        m_retryAfterSocketErrorTimer.expires_from_now(boost::posix_time::seconds(2));
+        m_retryAfterSocketErrorTimer.async_wait(boost::bind(&LtpUdpEngineManager::OnRetryAfterSocketError_TimerExpired, this, boost::asio::placeholders::error));
+        //DoUdpShutdown();
+    }
+}
+
+void LtpUdpEngineManager::OnRetryAfterSocketError_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Trying to receive..." << std::endl;
+        m_socketRestoredTimer.expires_from_now(boost::posix_time::seconds(5));
+        m_socketRestoredTimer.async_wait(boost::bind(&LtpUdpEngineManager::SocketRestored_TimerExpired, this, boost::asio::placeholders::error));
+        StartUdpReceive();
+    }
+}
+
+void LtpUdpEngineManager::SocketRestored_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        std::cout << "Notice: LtpUdpEngineManager socket back to receiving" << std::endl;
+        m_readyToForward = true;
     }
 }
 
@@ -302,6 +337,8 @@ void LtpUdpEngineManager::HandleUdpReceive(const boost::system::error_code & err
 void LtpUdpEngineManager::DoUdpShutdown() {
     //final code to shut down tcp sockets
     m_readyToForward = false;
+    m_retryAfterSocketErrorTimer.cancel();
+    m_socketRestoredTimer.cancel();
     if (m_udpSocket.is_open()) {
         try {
             std::cout << "closing LtpUdpEngineManager UDP socket.." << std::endl;

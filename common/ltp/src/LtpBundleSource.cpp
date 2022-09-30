@@ -23,7 +23,7 @@ LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t 
     const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
     const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall) :
+    const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
@@ -35,11 +35,12 @@ M_BUNDLE_PIPELINE_LIMIT(bundlePipelineLimit),
 
 m_ltpOutductTelemetry()
 {
+    m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
-            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall);
+            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     }
 
@@ -125,18 +126,27 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 //    return GetTotalBundleBytesSent() - GetTotalBundleBytesAcked();
 //}
 
-bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
-    
-    if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
+bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
+
+    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
+        return false;
+    }
+
+    const unsigned int startingCount = m_startingCount.fetch_add(1);
+    if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
+        --m_startingCount;
         std::cerr << "Error in LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
         return false;
     }
+
+    //TODO? m_ltpUdpEnginePtr->ReadyToForward() if using ping
 
     std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
     tReq->destinationClientServiceId = M_CLIENT_SERVICE_ID;
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataVec.size();
     tReq->clientServiceDataToSend = std::move(dataVec);
+    tReq->clientServiceDataToSend.m_userData = std::move(userData);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
     m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
@@ -147,10 +157,15 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     return true;
 }
 
-bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
+bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
+    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
+        return false;
+    }
 
-    if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
+    const unsigned int startingCount = m_startingCount.fetch_add(1);
+    if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
+        --m_startingCount;
         std::cerr << "Error in LtpBundleSource::Forward(zmq::message_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
         return false;
     }
@@ -160,6 +175,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
     tReq->destinationLtpEngineId = M_REMOTE_LTP_ENGINE_ID; //used for the LtpEngine static singleton session number registrar for tx sessions
     const uint64_t bundleBytesToSend = dataZmq.size();
     tReq->clientServiceDataToSend = std::move(dataZmq);
+    tReq->clientServiceDataToSend.m_userData = std::move(userData);
     tReq->lengthOfRedPart = bundleBytesToSend;
 
     m_ltpUdpEnginePtr->TransmissionRequest_ThreadSafe(std::move(tReq));
@@ -170,29 +186,30 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq) {
     return true;
 }
 
-bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     std::vector<uint8_t> vec(bundleData, bundleData + size);
-    return Forward(vec);
+    return Forward(vec, std::move(userData));
 }
 
 
 
 void LtpBundleSource::SessionStartCallback(const Ltp::session_id_t & sessionId) {
-    if (m_activeSessionsSet.insert(sessionId).second == false) { //sessionId was not inserted (already exists)
+    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+        std::cerr << "error in LtpBundleSource::SessionStartCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+    }
+    else if (m_activeSessionNumbersSet.insert(sessionId.sessionNumber).second == false) { //sessionId was not inserted (already exists)
         std::cerr << "error in LtpBundleSource::SessionStartCallback, sessionId " << sessionId << " (already exists)\n";
     }
+    m_startingCount.fetch_sub(1);
 }
 void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
-    std::set<Ltp::session_id_t>::iterator it = m_activeSessionsSet.find(sessionId);
-    if (it != m_activeSessionsSet.end()) { //found
-        m_activeSessionsSet.erase(it);
-        
+    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+        std::cerr << "error in LtpBundleSource::TransmissionSessionCompletedCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+    }
+    else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.totalBundlesAcked;
-        //m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
-        //m_bytesToAckCb.CommitRead();
-        if (m_onSuccessfulAckCallback) {
-            m_onSuccessfulAckCallback();
-        }
         if (m_useLocalConditionVariableAckReceived) {
             m_localConditionVariableAckReceived.notify_one();
         }
@@ -205,16 +222,12 @@ void LtpBundleSource::InitialTransmissionCompletedCallback(const Ltp::session_id
 
 }
 void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
-    std::set<Ltp::session_id_t>::iterator it = m_activeSessionsSet.find(sessionId);
-    if (it != m_activeSessionsSet.end()) { //found
-        m_activeSessionsSet.erase(it);
-
+    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+        std::cerr << "error in LtpBundleSource::TransmissionSessionCancelledCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+    }
+    else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.totalBundlesFailedToSend;
-        //m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
-        //m_bytesToAckCb.CommitRead();
-        if (m_onSuccessfulAckCallback) {
-            m_onSuccessfulAckCallback();
-        }
         if (m_useLocalConditionVariableAckReceived) {
             m_localConditionVariableAckReceived.notify_one();
         }
@@ -222,12 +235,9 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
     else {
         std::cerr << "critical error in LtpBundleSource::TransmissionSessionCancelledCallback: cannot find sessionId " << sessionId << std::endl;
     }
+    //std::cout << "notice in LtpBundleSource: session cancelled with reason code "
 }
 
-
-void LtpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
-    m_onSuccessfulAckCallback = callback;
-}
 void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     if (m_ltpUdpEnginePtr) {
         m_ltpUdpEnginePtr->SetOnFailedBundleVecSendCallback(callback);
@@ -236,6 +246,16 @@ void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSe
 void LtpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     if (m_ltpUdpEnginePtr) {
         m_ltpUdpEnginePtr->SetOnFailedBundleZmqSendCallback(callback);
+    }
+}
+void LtpBundleSource::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetOnSuccessfulBundleSendCallback(callback);
+    }
+}
+void LtpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
+    if (m_ltpUdpEnginePtr) {
+        m_ltpUdpEnginePtr->SetOnOutductLinkStatusChangedCallback(callback);
     }
 }
 void LtpBundleSource::SetUserAssignedUuid(uint64_t userAssignedUuid) {

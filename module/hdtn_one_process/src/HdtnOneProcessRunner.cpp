@@ -51,7 +51,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
-        bool isCutThroughOnlyTest = false;
 
 #ifdef USE_WEB_INTERFACE
         std::string DOCUMENT_ROOT;
@@ -65,7 +64,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("cut-through-only-test", "Always send to egress.  Assume all links always available.")
                 ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
 #ifdef USE_WEB_INTERFACE
                 ("gui-document-root", boost::program_options::value<std::string>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src").string()), "Web Interface Document Root.")
@@ -80,10 +78,6 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             if (vm.count("help")) {
                 std::cout << desc << "\n";
                 return false;
-            }
-
-            if (vm.count("cut-through-only-test")) {
-                isCutThroughOnlyTest = true;
             }
 
             const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
@@ -146,7 +140,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
-        ingressPtr->Init(*hdtnConfig, isCutThroughOnlyTest, hdtnOneProcessZmqInprocContextPtr.get());
+        ingressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
 
 
         //create on heap with unique_ptr to prevent stack overflows

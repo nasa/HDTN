@@ -13,24 +13,24 @@ StcpOutduct::~StcpOutduct() {}
 std::size_t StcpOutduct::GetTotalDataSegmentsUnacked() {
     return m_stcpBundleSource.GetTotalDataSegmentsUnacked();
 }
-bool StcpOutduct::Forward(const uint8_t* bundleData, const std::size_t size) {
-    return m_stcpBundleSource.Forward(bundleData, size);
+bool StcpOutduct::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
+    return m_stcpBundleSource.Forward(bundleData, size, std::move(userData));
 }
-bool StcpOutduct::Forward(zmq::message_t & movableDataZmq) {
-    return m_stcpBundleSource.Forward(movableDataZmq);
+bool StcpOutduct::Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
+    return m_stcpBundleSource.Forward(movableDataZmq, std::move(userData));
 }
-bool StcpOutduct::Forward(std::vector<uint8_t> & movableDataVec) {
-    return m_stcpBundleSource.Forward(movableDataVec);
+bool StcpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
+    return m_stcpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 
-void StcpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
-    m_stcpBundleSource.SetOnSuccessfulAckCallback(callback);
-}
 void StcpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     m_stcpBundleSource.SetOnFailedBundleVecSendCallback(callback);
 }
 void StcpOutduct::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_stcpBundleSource.SetOnFailedBundleZmqSendCallback(callback);
+}
+void StcpOutduct::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_stcpBundleSource.SetOnSuccessfulBundleSendCallback(callback);
 }
 void StcpOutduct::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_stcpBundleSource.SetOnOutductLinkStatusChangedCallback(callback);

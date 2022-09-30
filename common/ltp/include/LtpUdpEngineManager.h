@@ -88,6 +88,11 @@ public:
      * If more than 1 is used, a dedicated sender udp socket is created and bound to a random ephemeral port,
      * the socket is then permanently "UDP connected" to the remoteHostname:remotePort,
      * and packets will be sent using this socket's sendmmsg on POSIX or LPFN_TRANSMITPACKETS on Windows.
+     * @param senderPingSecondsOrZeroToDisable The number of seconds between ltp session sender pings during times of zero data segment activity.
+     * An LTP ping is defined as a sender sending a cancel segment of a known non-existent session number to a receiver,
+     * in which the receiver shall respond with a cancel ack in order to determine if the link is active.
+     * A link down callback will be called if a cancel ack is not received after (RTT * maxRetriesPerSerialNumber).
+     * This parameter should be set to zero for a receiver as there is currently no use case for a receiver to detect link-up.
      * 
      * @return True if the operation completed successfully (or false otherwise).
      */
@@ -97,7 +102,7 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
         const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall);
+        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable);
 
     LTP_LIB_EXPORT LtpUdpEngine * GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct);
     LTP_LIB_EXPORT void RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback);
@@ -109,6 +114,8 @@ public:
 private:
     LTP_LIB_NO_EXPORT void StartUdpReceive();
     LTP_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
+    LTP_LIB_NO_EXPORT void OnRetryAfterSocketError_TimerExpired(const boost::system::error_code& e);
+    LTP_LIB_NO_EXPORT void SocketRestored_TimerExpired(const boost::system::error_code& e);
 public:
     LTP_LIB_EXPORT static std::shared_ptr<LtpUdpEngineManager> GetOrCreateInstance(const uint16_t myBoundUdpPort, const bool autoStart);
     LTP_LIB_EXPORT static void SetMaxUdpRxPacketSizeBytesForAllLtp(const uint64_t maxUdpRxPacketSizeBytesForAllLtp);
@@ -124,6 +131,8 @@ private:
     boost::asio::io_service m_ioServiceUdp;
     boost::asio::ip::udp::resolver m_resolver;
     boost::asio::ip::udp::socket m_udpSocket;
+    boost::asio::deadline_timer m_retryAfterSocketErrorTimer;
+    boost::asio::deadline_timer m_socketRestoredTimer;
     boost::asio::ip::udp::endpoint m_udpDestinationResolvedEndpointDataSourceToDataSink;
     std::unique_ptr<boost::thread> m_ioServiceUdpThreadPtr;
 

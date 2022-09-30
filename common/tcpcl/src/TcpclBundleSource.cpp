@@ -206,9 +206,7 @@ void TcpclBundleSource::Virtual_OnTcpclShutdownComplete_CalledFromIoServiceThrea
 }
 
 void TcpclBundleSource::Virtual_OnSuccessfulWholeBundleAcknowledged() {
-    if (m_onSuccessfulAckCallback) {
-        m_onSuccessfulAckCallback();
-    }
+
 }
 
 //for when tcpclAllowOpportunisticReceiveBundles is set to true (not designed for extremely high throughput)
@@ -242,8 +240,4 @@ void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost:
 
 bool TcpclBundleSource::ReadyToForward() const {
     return m_base_readyToForward;
-}
-
-void TcpclBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
-    m_onSuccessfulAckCallback = callback;
 }

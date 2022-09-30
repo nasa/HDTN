@@ -84,58 +84,25 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false;
 }
 
-void Scheduler::PingCommand(const boost::system::error_code& e, boost::asio::deadline_timer* dt, const uint64_t finalDestinationNodeId,
-    const char* command)
-{
-
-    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
- 
-
-    if (!e) {
-        if (system(command) ) {
-            std::cout <<   "Ping Failed  ==> Send Link Down Event \n" << std::endl << std::flush;
-            std::cout <<  timeLocal << ": Processing Event Link Unavailable for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-            SendLinkDown(0, 0, finalDestinationNodeId);
-        }
-        else {
-            std::cout << "Ping Success ==> Send Link Up Event!  \n" << std::endl << std::flush;
-            std::cout << timeLocal << ": Processing Event  Link Available for finalDestinationNodeId: (" << finalDestinationNodeId << ")" << std::endl;
-            SendLinkUp(0, 0, finalDestinationNodeId);
-        }
-
-        dt->expires_at(dt->expires_at() + boost::posix_time::seconds(5));
-        dt->async_wait(boost::bind(&Scheduler::PingCommand, this,
-                       boost::asio::placeholders::error,
-                       dt, finalDestinationNodeId, command));
-    }
-    else {
-        std::cout << "timer dt cancelled\n";
-    }
-}
-
 bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
         Stop();
         running = true;
         m_runningFromSigHandler = true;
-        std::string contactsFile = Scheduler::DEFAULT_FILE;
+        std::string contactsFile;
 
         SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
         cbhe_eid_t finalDestEid;
         std::string finalDestAddr;
-        std::string jsonFileName;
         opt::options_description desc("Allowed options");
-        bool isPingTest = false; 
 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
-                "Contact Plan file that scheudler relies on for link availability.")
-                ("ping-test", "Scheduler only relies on ping results for link availability.")
+                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
                 ("dest-addr", opt::value<std::string>()->default_value("127.0.0.1"), "final destination IP addr to ping for link availability");
 
@@ -166,17 +133,15 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
-            if ( !boost::filesystem::exists( jsonFileName ) ) {
-                std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
-                return false;
+            if (!boost::filesystem::exists(contactsFile)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
+                contactsFile = Scheduler::GetFullyQualifiedFilename(contactsFile);
+                if (!boost::filesystem::exists(contactsFile)) {
+                    std::cerr << "ContactPlan File not found: " << contactsFile << std::endl << std::flush;
+                    return false;
+                }
             }
 
-            std::cout << "ContactPlan file: " << jsonFileName << std::endl;
-
-            if (vm.count("ping-test")) {
-                isPingTest = true;
-            }
+            std::cout << "ContactPlan file: " << contactsFile << std::endl;
 
             const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
             if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
@@ -266,17 +231,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
         boost::this_thread::sleep(boost::posix_time::seconds(2));
 
-        if (!isPingTest) {
-            ProcessContactsFile(jsonFileName, false); //false => don't use unix timestamps
-        }
-        else {
-            boost::asio::io_service service;
-            boost::asio::deadline_timer dt(service, boost::posix_time::seconds(5));
-            const std::string str = std::string("ping -c1 -s1 ") + finalDestAddr;
-            const char *command = str.c_str();
-            dt.async_wait(boost::bind(&Scheduler::PingCommand, this, boost::asio::placeholders::error, &dt, finalDestEid.nodeId, command));
-            service.run();
-        }
+        ProcessContactsFile(contactsFile, false); //false => don't use unix timestamps
 
         if (useSignalHandler) {
             sigHandler.Start(false);
@@ -513,57 +468,6 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
     m_contactPlanTimerIsRunning = false;
     TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
 
-    return 0;
-}
-
-int Scheduler::ProcessComandLine(int argc, const char *argv[], std::string& jsonEventFileName) {
-    jsonEventFileName = "";
-    std::string contactsFile = Scheduler::DEFAULT_FILE;
-    boost::program_options::options_description desc("Allowed options");
-    try {
-        desc.add_options()
-            ("help", "Produce help message.")
-            ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-            ("contact-plan-file", boost::program_options::value<std::string>()->default_value(Scheduler::DEFAULT_FILE),
-             "Contact Plan file.");
-        boost::program_options::variables_map vm;
-        boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc,
-                boost::program_options::command_line_style::unix_style
-               | boost::program_options::command_line_style::case_insensitive), vm);
-        boost::program_options::notify(vm);
-        if (vm.count("help")) {
-            std::cout << desc << "\n";
-            return 1;
-        }
-        contactsFile = vm["contact-plan-file"].as<std::string>();
-        if (contactsFile.length() < 1) {
-            std::cout << desc << "\n";
-            return 1;
-        }
-        const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
-
-        if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
-            m_hdtnConfig = *ptrConfig;
-        }
-        else {
-            std::cerr << "error loading config file: " << configFileName << std::endl;
-            return false;
-        }
-    }
-    catch (std::exception& e) {
-        std::cerr << "error: " << e.what() << "\n";
-        return 1;
-    }
-    catch (...) {
-        std::cerr << "Exception of unknown type!\n";
-        return 1;
-    }
-    std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
-    if ( !boost::filesystem::exists( jsonFileName ) ) {
-        std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
-        return 1;
-    }
-    jsonEventFileName = jsonFileName;
     return 0;
 }
 

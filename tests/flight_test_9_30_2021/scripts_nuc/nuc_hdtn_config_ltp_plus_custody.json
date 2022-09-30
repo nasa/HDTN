@@ -91,7 +91,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 1113,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             },
             {
                 "name": "to localhost bpsendfile custody",

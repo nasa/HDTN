@@ -66,7 +66,7 @@
                 "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 5,
+                "bundlePipelineLimit": 50,
                 "finalDestinationEidUris": [
                     "ipn:2.1"
                 ],
@@ -82,7 +82,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             }
         ]
     },

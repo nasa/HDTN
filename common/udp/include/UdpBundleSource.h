@@ -32,20 +32,20 @@
 #include "TokenRateLimiter.h"
 #include <zmq.hpp>
 #include <memory>
+#include "BundleCallbackFunctionDefines.h"
 #include "udp_lib_export.h"
 
 class UdpBundleSource {
 private:
     UdpBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     UDP_LIB_EXPORT UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked); //const uint64_t rateBps = 50, const unsigned int maxUnacked = 100
 
     UDP_LIB_EXPORT ~UdpBundleSource();
     UDP_LIB_EXPORT void Stop();
-    UDP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size);
-    UDP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq);
-    UDP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec);
+    UDP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
+    UDP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
+    UDP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
     UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsAcked();
     UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsSent();
     UDP_LIB_EXPORT std::size_t GetTotalUdpPacketsUnacked();
@@ -55,7 +55,12 @@ public:
     UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
     UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     UDP_LIB_EXPORT bool ReadyToForward() const;
-    UDP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
+
+    UDP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
+    UDP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    UDP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
+    UDP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
+    UDP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 private:
     UDP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
     UDP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
@@ -91,11 +96,17 @@ private:
     const uint64_t m_maxPacketsBeingSent;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckBySentCallbackCb;
     std::vector<std::size_t> m_bytesToAckBySentCallbackCbVec;
+    std::vector<std::vector<uint8_t> > m_userDataCbVec;
 
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
     volatile bool m_useLocalConditionVariableAckReceived;
     bool m_tokenRefreshTimerIsRunning;
+
+    OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
+    OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    OnSuccessfulBundleSendCallback_t m_onSuccessfulBundleSendCallback;
+    OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
+    uint64_t m_userAssignedUuid;
 
 public:
     std::size_t m_totalPacketsSentBySentCallback;

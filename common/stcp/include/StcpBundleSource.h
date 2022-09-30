@@ -39,14 +39,13 @@ class StcpBundleSource {
 private:
     StcpBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     STCP_LIB_EXPORT StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds, const unsigned int maxUnacked = 100);
 
     STCP_LIB_EXPORT ~StcpBundleSource();
     STCP_LIB_EXPORT void Stop();
-    STCP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size);
-    STCP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq);
-    STCP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec);
+    STCP_LIB_EXPORT bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
+    STCP_LIB_EXPORT bool Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
+    STCP_LIB_EXPORT bool Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
     STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsAcked();
     STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsSent();
     STCP_LIB_EXPORT std::size_t GetTotalDataSegmentsUnacked();
@@ -55,9 +54,9 @@ public:
     STCP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
     STCP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     STCP_LIB_EXPORT bool ReadyToForward();
-    STCP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     STCP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    STCP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     STCP_LIB_EXPORT void SetUserAssignedUuid(uint64_t userAssignedUuid);
 private:
@@ -66,8 +65,8 @@ private:
     STCP_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     STCP_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
     STCP_LIB_NO_EXPORT void OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e);
-    STCP_LIB_NO_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    STCP_LIB_NO_EXPORT void HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred);
+    STCP_LIB_NO_EXPORT void HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
+    STCP_LIB_NO_EXPORT void HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
     STCP_LIB_NO_EXPORT void StartTcpReceive();
     STCP_LIB_NO_EXPORT void HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred);
 
@@ -97,7 +96,6 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByTcpSendCallbackCb;
     std::vector<uint32_t> m_bytesToAckByTcpSendCallbackCbVec;
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
     volatile bool m_stcpShutdownComplete;
     volatile bool m_dataServedAsKeepAlive;
@@ -107,6 +105,7 @@ private:
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_onFailedBundleZmqSendCallback;
+    OnSuccessfulBundleSendCallback_t m_onSuccessfulBundleSendCallback;
     OnOutductLinkStatusChangedCallback_t m_onOutductLinkStatusChangedCallback;
     uint64_t m_userAssignedUuid;
 

@@ -86,10 +86,10 @@ public:
     );
 
     TCPCL_LIB_EXPORT virtual ~TcpclV4BidirectionalLink();
-    TCPCL_LIB_EXPORT bool BaseClass_Forward(const uint8_t* bundleData, const std::size_t size);
-    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::vector<uint8_t> & dataVec);
-    TCPCL_LIB_EXPORT bool BaseClass_Forward(zmq::message_t & dataZmq);
-    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData);
+    TCPCL_LIB_EXPORT bool BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData);
 
     TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesAcked();
     TCPCL_LIB_EXPORT virtual std::size_t Virtual_GetTotalBundlesSent();
@@ -102,6 +102,7 @@ public:
 
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
+    TCPCL_LIB_EXPORT void BaseClass_SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback);
     TCPCL_LIB_EXPORT void BaseClass_SetUserAssignedUuid(uint64_t userAssignedUuid);
 
@@ -138,9 +139,9 @@ private:
     TCPCL_LIB_NO_EXPORT void BaseClass_RestartNeedToSendKeepAliveMessageTimer();
     TCPCL_LIB_NO_EXPORT void BaseClass_OnNoKeepAlivePacketReceived_TimerExpired(const boost::system::error_code& e);
     TCPCL_LIB_NO_EXPORT void BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired(const boost::system::error_code& e);
-    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred);
-    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred);
-    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
+    TCPCL_LIB_NO_EXPORT void BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr);
     
     TCPCL_LIB_NO_EXPORT void BaseClass_CloseAndDeleteSockets();
 
@@ -194,8 +195,7 @@ protected:
     const unsigned int M_BASE_MY_MAX_TX_UNACKED_BUNDLES;
     std::unique_ptr<CircularIndexBufferSingleProducerSingleConsumerConfigurable> m_base_segmentsToAckCbPtr; //CircularIndexBufferSingleProducerSingleConsumerConfigurable m_base_bytesToAckCb;
     std::vector<TcpclV4::tcpclv4_ack_t> m_base_segmentsToAckCbVec; //std::vector<uint64_t> m_base_bytesToAckCbVec;
-    std::vector<std::vector<uint64_t> > m_base_fragmentBytesToAckCbVec;
-    std::vector<uint64_t> m_base_fragmentVectorIndexCbVec;
+    std::vector<std::vector<uint8_t> > m_base_userDataCbVec;
     const uint64_t M_BASE_MY_MAX_RX_SEGMENT_SIZE_BYTES;
     const uint64_t M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES;
     uint64_t m_base_remoteMaxRxSegmentSizeBytes;
@@ -206,6 +206,7 @@ protected:
 
     OnFailedBundleVecSendCallback_t m_base_onFailedBundleVecSendCallback;
     OnFailedBundleZmqSendCallback_t m_base_onFailedBundleZmqSendCallback;
+    OnSuccessfulBundleSendCallback_t m_base_onSuccessfulBundleSendCallback;
     OnOutductLinkStatusChangedCallback_t m_base_onOutductLinkStatusChangedCallback;
     uint64_t m_base_userAssignedUuid;
 

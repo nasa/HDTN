@@ -63,6 +63,14 @@ uint64_t LtpRandomNumberGenerator::GetRandomSession64(boost::random_device & ran
     additionalRandomness |= (static_cast<uint32_t>(randomDevice()));
     return GetRandomSession64(additionalRandomness);
 }
+//return a ping number with:
+//    - bit 63..56 (8 bits of engineIndex)
+//    - bit 55..0 set to 0xffffff for reserved number deonoting ping
+uint64_t LtpRandomNumberGenerator::GetPingSession64() const {
+    static constexpr uint64_t pingReserved = 0xffffffffffffffu;
+    const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 56);
+    return randomNumber;
+}
 
 //return a hardware random generated number with:
 //    - bit 63 set to 0 to leave room for incrementing without rolling back around to zero
@@ -123,6 +131,14 @@ uint32_t LtpRandomNumberGenerator::GetRandomSession32(const uint32_t additionalR
 uint32_t LtpRandomNumberGenerator::GetRandomSession32(boost::random_device & randomDevice) {
     return GetRandomSession32(static_cast<uint32_t>(randomDevice())); //should already return a 32 bit integer
 }
+//return a ping number with:
+//    - bit 31..24 (8 bits of engineIndex)
+//    - bit 23..0 set to 0xffffff for reserved number deonoting ping
+uint32_t LtpRandomNumberGenerator::GetPingSession32() const {
+    static constexpr uint64_t pingReserved = 0x00ffffffu;
+    const uint64_t randomNumber = pingReserved | ((static_cast<uint64_t>(m_engineIndex)) << 24);
+    return static_cast<uint32_t>(randomNumber);
+}
 
 //return a hardware random generated number with:
 //    - bit 31 set to 0 to leave room for incrementing without rolling back around to zero
@@ -158,4 +174,14 @@ uint8_t LtpRandomNumberGenerator::GetEngineIndexFromRandomSessionNumber(uint64_t
     const bool is32BitSessionNumber = (engineIndexIf64BitSessionNumber == 0);
     const uint8_t engineIndexIf32BitSessionNumber = static_cast<uint8_t>(randomSessionNumber >> 24);
     return (engineIndexIf32BitSessionNumber * is32BitSessionNumber) + engineIndexIf64BitSessionNumber;
+}
+bool LtpRandomNumberGenerator::IsPingSession(const uint64_t sessionNumber, const bool is32Bit) {
+    static constexpr uint64_t pingReserved32 = 0x00ffffffu;
+    static constexpr uint64_t pingReserved64 = 0xffffffffffffffu;
+    if (is32Bit) {
+        return ((pingReserved32 & sessionNumber) == pingReserved32);
+    }
+    else {
+        return ((pingReserved64 & sessionNumber) == pingReserved64);
+    }
 }

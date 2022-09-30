@@ -59,7 +59,7 @@ void Ingress::Stop() {
         "m_eventsTooManyInStorageQueue: " + std::to_string(m_eventsTooManyInStorageQueue));
 }
 
-int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
 
     if (!m_running) {
         m_running = true;
@@ -173,7 +173,6 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, const bool isCutThroughOnlyTest
         m_threadTcpclOpportunisticBundlesFromEgressReaderPtr = boost::make_unique<boost::thread>(
             boost::bind(&Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc, this)); //create and start the worker thread
 
-        m_isCutThroughOnlyTest = isCutThroughOnlyTest;
         m_inductManager.LoadInductsFromConfig(boost::bind(&Ingress::WholeBundleReadyCallback, this, boost::placeholders::_1), m_hdtnConfig.m_inductsConfig,
             m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
             boost::bind(&Ingress::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
@@ -230,9 +229,19 @@ void Ingress::ReadZmqAcksThreadFunc() {
                     std::cerr << "error message ack not HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS\n";
                 }
                 else {
-                    m_egressAckMapQueueMutex.lock();
-                    EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[receivedEgressAckHdr.finalDestEid];
-                    m_egressAckMapQueueMutex.unlock();
+                    m_egressAckMapSetMutex.lock();
+                    EgressToIngressAckingSet & egressToIngressAckingObj = m_egressAckMapSet[receivedEgressAckHdr.finalDestEid.nodeId];
+                    m_egressAckMapSetMutex.unlock();
+                    if (receivedEgressAckHdr.error) {
+                        //trigger a link down event in ingress more quickly than waiting for scheduler.
+                        //egress shall send the failed bundle to storage.
+                        m_eidAvailableSetMutex.lock();
+                        const bool erased = (m_finalDestNodeIdAvailableSet.erase(receivedEgressAckHdr.finalDestEid.nodeId) != 0); //eid with any service id
+                        m_eidAvailableSetMutex.unlock();
+                        if (erased) {
+                            std::cout << "Ingress got a link down notification from egress for final dest node id " << receivedEgressAckHdr.finalDestEid.nodeId << "\n";
+                        }
+                    }
                     if (egressToIngressAckingObj.CompareAndPop_ThreadSafe(receivedEgressAckHdr.custodyId)) {
                         egressToIngressAckingObj.NotifyAll();
                         ++totalAcksFromEgress;
@@ -628,7 +637,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
     std::map<uint64_t, Induct*>::iterator tcpclInductIterator = m_availableDestOpportunisticNodeIdToTcpclInductMap.find(finalDestEid.nodeId);
     const bool isOpportunisticLinkUp = (tcpclInductIterator != m_availableDestOpportunisticNodeIdToTcpclInductMap.end());
     m_availableDestOpportunisticNodeIdToTcpclInductMapMutex.unlock();
-    bool shouldTryToUseCustThrough = (m_isCutThroughOnlyTest || (linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+    bool shouldTryToUseCustThrough = ((linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
     bool useStorage = !shouldTryToUseCustThrough;
     if (isOpportunisticLinkUp) {
         if (tcpclInductIterator->second->ForwardOnOpportunisticLink(finalDestEid.nodeId, *zmqMessageToSendUniquePtr, 3)) { //thread safe forward with 3 second timeout
@@ -648,15 +657,14 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             hdtn::Logger::getInstance()->logError("ingress", msg);
         }
     }
-    while (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
-        shouldTryToUseCustThrough = false; //protection to prevent this loop from ever iterating more than once
-        m_egressAckMapQueueMutex.lock();
-        EgressToIngressAckingQueue & egressToIngressAckingObj = m_egressAckMapQueue[finalDestEid];
-        m_egressAckMapQueueMutex.unlock();
+    if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
+        m_egressAckMapSetMutex.lock();
+        EgressToIngressAckingSet & egressToIngressAckingObj = m_egressAckMapSet[finalDestEid.nodeId];
+        m_egressAckMapSetMutex.unlock();
         boost::posix_time::ptime timeoutExpiry((m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds != 0) ?
             boost::posix_time::special_values::not_a_date_time :
             boost::posix_time::special_values::neg_infin); //allow zero ms to prevent bpgen getting blocked and use storage
-        while (egressToIngressAckingObj.GetQueueSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
+        while (egressToIngressAckingObj.GetSetSize() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
             if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
                 timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
             }
@@ -664,63 +672,54 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 std::string msg = "notice in Ingress::Process: cut-through path timed out after " +
                     boost::lexical_cast<std::string>(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds) +
                     " milliseconds because it has too many pending egress acks in the queue for finalDestEid (" +
-                    boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ")";
-                if (m_isCutThroughOnlyTest) {
-                    msg += " ..dropping bundle because \"cut through only test\" was specified (not sending to storage)";
-                    std::cerr << msg << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", msg);
-                    return false;
-                }
-                else {
-                    msg += " ..sending to storage instead";
-                    std::cerr << msg << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", msg);
-                    useStorage = true;
-                    break;
-                }
-
+                    boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ") ..sending to storage instead";
+                std::cerr << msg << std::endl;
+                hdtn::Logger::getInstance()->logError("ingress", msg);
+                useStorage = true;
+                break;
             }
             egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             ++m_eventsTooManyInEgressQueue;
         }
+        if (!useStorage) {
 
-        const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
+            const uint64_t ingressToEgressUniqueId = m_ingressToEgressNextUniqueIdAtomic.fetch_add(1, boost::memory_order_relaxed);
 
-        //force natural/64-bit alignment
-        hdtn::ToEgressHdr * toEgressHdr = new hdtn::ToEgressHdr();
-        zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+            //force natural/64-bit alignment
+            hdtn::ToEgressHdr* toEgressHdr = new hdtn::ToEgressHdr();
+            zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
 
-        //memset 0 not needed because all values set below
-        toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
-        toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
-        toEgressHdr->finalDestEid = finalDestEid;
-        toEgressHdr->hasCustody = requestsCustody;
-        toEgressHdr->isCutThroughFromIngress = 1;
-        toEgressHdr->custodyId = ingressToEgressUniqueId;
-        {
-            //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
-            boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
-            if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
-            }
-            else {
-                egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
-
-
-                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
-                    std::cerr << "ingress can't send bundle to egress" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
-
+            //memset 0 not needed because all values set below
+            toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
+            toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
+            toEgressHdr->finalDestEid = finalDestEid;
+            toEgressHdr->hasCustody = requestsCustody;
+            toEgressHdr->isCutThroughFromIngress = 1;
+            toEgressHdr->custodyId = ingressToEgressUniqueId;
+            {
+                //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
+                boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
+                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                    std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
+                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
                 }
                 else {
-                    //success                            
-                    m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                    egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
+
+
+                    if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
+                        std::cerr << "ingress can't send bundle to egress" << std::endl;
+                        hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
+
+                    }
+                    else {
+                        //success                            
+                        m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                    }
                 }
             }
         }
-        break;
     }
 
     if (useStorage) { //storage

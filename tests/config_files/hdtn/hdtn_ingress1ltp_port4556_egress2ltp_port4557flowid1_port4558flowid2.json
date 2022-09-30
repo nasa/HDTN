@@ -86,7 +86,7 @@
                 "nextHopNodeId": 1,
                 "remoteHostname": "localhost",
                 "remotePort": 4557,
-                "bundlePipelineLimit": 10,
+                "bundlePipelineLimit": 50,
                 "finalDestinationEidUris": [
                     "ipn:1.1"
                 ],
@@ -102,7 +102,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             },
             {
                 "name": "for egress",
@@ -110,7 +111,7 @@
                 "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 10,
+                "bundlePipelineLimit": 50,
                 "finalDestinationEidUris": [
                     "ipn:2.1"
                 ],
@@ -126,7 +127,8 @@
                 "ltpRandomNumberSizeBits": 64,
                 "ltpSenderBoundPort": 4556,
                 "ltpMaxSendRateBitsPerSecOrZeroToDisable": 0,
-                "ltpMaxUdpPacketsToSendPerSystemCall": 1
+                "ltpMaxUdpPacketsToSendPerSystemCall": 1,
+                "ltpSenderPingSecondsOrZeroToDisable": 15
             }
         ]
     },

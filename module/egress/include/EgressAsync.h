@@ -41,27 +41,28 @@ public:
 
     //telemetry
     EgressTelemetry_t m_telemetry;
+    std::size_t m_totalCustodyTransfersSentToStorage;
+    std::size_t m_totalCustodyTransfersSentToIngress;
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundIngressToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressToBoundIngressPtr;
+    boost::mutex m_mutex_zmqPushSock_connectingEgressToBoundIngress;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPullSock_connectingStorageToBoundEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPushSock_boundEgressToConnectingStoragePtr;
+    boost::mutex m_mutex_zmqPushSock_boundEgressToConnectingStorage;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundRouterToConnectingEgressPtr;
     std::unique_ptr<zmq::socket_t> m_zmqPubSock_boundEgressToConnectingSchedulerPtr;
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundEgressPtr;
 
-    std::unique_ptr<zmq::socket_t> m_zmqPullSignalInprocSockPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPushSignalInprocSockPtr;
     EGRESS_ASYNC_LIB_EXPORT void RouterEventHandler();
 private:
     EGRESS_ASYNC_LIB_NO_EXPORT void ReadZmqThreadFunc();
-    EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleAck(uint64_t outductUuidIndex);
     EGRESS_ASYNC_LIB_NO_EXPORT void WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleVec);
-    EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableBundle, uint64_t outductUuid);
-    EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, uint64_t outductUuid);
+    EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
+    EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     EGRESS_ASYNC_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
 
     EGRESS_ASYNC_LIB_EXPORT void DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid);
@@ -69,11 +70,8 @@ private:
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
 
-    boost::mutex m_mutexPushSignal;
     boost::mutex m_mutexPushBundleToIngress;
     boost::mutex m_mutexLinkStatusUpdate;
-    volatile bool m_needToSendSignal;
-    volatile std::size_t m_totalEgressInprocSignalsSent;
 
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
     volatile bool m_running;

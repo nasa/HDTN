@@ -55,6 +55,9 @@ public:
     HDTN_UTIL_EXPORT std::vector<uint8_t> & GetVecRef();
     HDTN_UTIL_EXPORT zmq::message_t & GetZmqRef();
 
+public:
+    std::vector<uint8_t> m_userData;
+
 private:
     std::vector<uint8_t> m_vector;
 #ifdef LTP_CLIENT_SERVICE_DATA_TO_SEND_SUPPORT_ZMQ

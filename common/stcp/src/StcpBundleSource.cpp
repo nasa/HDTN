@@ -42,8 +42,8 @@ m_stcpOutductTelemetry()
 
 
 {
-    m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
-    m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred);
+    m_handleTcpSendCallback = boost::bind(&StcpBundleSource::HandleTcpSend, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
+    m_handleTcpSendKeepAliveCallback = boost::bind(&StcpBundleSource::HandleTcpSendKeepAlive, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, boost::placeholders::_3);
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
 
@@ -132,7 +132,7 @@ void StcpBundleSource::GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUni
 
 
 
-bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
+bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
     if (!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
@@ -160,6 +160,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
 
 
     TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+    el->m_userData = std::move(userData);
     el->m_underlyingDataVecHeaders.resize(1);
     StcpBundleSource::GenerateDataUnitHeaderOnly(el->m_underlyingDataVecHeaders[0], static_cast<uint32_t>(dataZmq.size()));
     el->m_underlyingDataZmqBundle = boost::make_unique<zmq::message_t>(std::move(dataZmq));
@@ -172,7 +173,7 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq) {
     return true;
 }
 
-bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
+bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
     if (!m_readyToForward) {
         std::cerr << "link not ready to forward yet" << std::endl;
         return false;
@@ -199,6 +200,7 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
     m_dataServedAsKeepAlive = true;
 
     TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
+    el->m_userData = std::move(userData);
     el->m_underlyingDataVecHeaders.resize(1);
     StcpBundleSource::GenerateDataUnitHeaderOnly(el->m_underlyingDataVecHeaders[0], static_cast<uint32_t>(dataVec.size()));
     el->m_underlyingDataVecBundle = std::move(dataVec);
@@ -212,9 +214,9 @@ bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec) {
 }
 
 
-bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size) {
+bool StcpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     std::vector<uint8_t> vec(bundleData, bundleData + size);
-    return Forward(vec);
+    return Forward(vec, std::move(userData));
 }
 
 
@@ -317,7 +319,7 @@ void StcpBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::
 
 
 
-void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << "error in StcpBundleSource::HandleTcpSend: " << error.message() << std::endl;
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
@@ -331,9 +333,9 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
             ++m_stcpOutductTelemetry.totalBundlesAcked;
             m_stcpOutductTelemetry.totalBundleBytesAcked += m_bytesToAckByTcpSendCallbackCbVec[readIndex] - sizeof(uint32_t);
             m_bytesToAckByTcpSendCallbackCb.CommitRead();
-            
-            if (m_onSuccessfulAckCallback) {
-                m_onSuccessfulAckCallback();
+
+            if (m_onSuccessfulBundleSendCallback) {
+                m_onSuccessfulBundleSendCallback(elPtr->m_userData, m_userAssignedUuid);
             }
             if (m_useLocalConditionVariableAckReceived) {
                 m_localConditionVariableAckReceived.notify_one();
@@ -346,7 +348,7 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
     }
 }
 
-void StcpBundleSource::HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred) {
+void StcpBundleSource::HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
         std::cerr << "error in StcpBundleSource::HandleTcpSendKeepAlive: " << error.message() << std::endl;
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
@@ -466,15 +468,14 @@ bool StcpBundleSource::ReadyToForward() {
     return m_readyToForward;
 }
 
-void StcpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
-    m_onSuccessfulAckCallback = callback;
-}
-
 void StcpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     m_onFailedBundleVecSendCallback = callback;
 }
 void StcpBundleSource::SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback) {
     m_onFailedBundleZmqSendCallback = callback;
+}
+void StcpBundleSource::SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback) {
+    m_onSuccessfulBundleSendCallback = callback;
 }
 void StcpBundleSource::SetOnOutductLinkStatusChangedCallback(const OnOutductLinkStatusChangedCallback_t& callback) {
     m_onOutductLinkStatusChangedCallback = callback;
