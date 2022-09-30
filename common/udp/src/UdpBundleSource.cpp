@@ -314,9 +314,6 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
         std::vector<uint8_t> userData(std::move(m_userDataCbVec[readIndex]));
         m_bytesToAckBySentCallbackCb.CommitRead();
 
-        if (m_onSuccessfulAckCallback) {
-            m_onSuccessfulAckCallback();
-        }
         if (m_onSuccessfulBundleSendCallback) {
             m_onSuccessfulBundleSendCallback(userData, m_userAssignedUuid);
         }
@@ -361,9 +358,6 @@ bool UdpBundleSource::ReadyToForward() const {
     return m_readyToForward;
 }
 
-void UdpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
-    m_onSuccessfulAckCallback = callback;
-}
 
 //restarts the token refresh timer if it is not running from now
 void UdpBundleSource::TryRestartTokenRefreshTimer() {

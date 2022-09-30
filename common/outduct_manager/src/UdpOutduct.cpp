@@ -23,9 +23,6 @@ bool UdpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint
     return m_udpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 
-void UdpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
-    m_udpBundleSource.SetOnSuccessfulAckCallback(callback);
-}
 void UdpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     m_udpBundleSource.SetOnFailedBundleVecSendCallback(callback);
 }

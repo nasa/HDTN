@@ -23,9 +23,6 @@ bool StcpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<uin
     return m_stcpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 
-void StcpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
-    m_stcpBundleSource.SetOnSuccessfulAckCallback(callback);
-}
 void StcpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     m_stcpBundleSource.SetOnFailedBundleVecSendCallback(callback);
 }

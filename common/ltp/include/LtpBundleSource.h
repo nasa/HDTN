@@ -26,18 +26,18 @@
 #include <boost/thread.hpp>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
-#include <set>
+#include <unordered_set>
 #include <vector>
 #include "Telemetry.h"
 #include "LtpUdpEngineManager.h"
 #include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
+#include <atomic>
 
 class LtpBundleSource {
 private:
     LtpBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     /*
     const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
         const uint64_t thisEngineId, uint64_t mtuReportSegment,
@@ -64,7 +64,6 @@ public:
     //std::size_t GetTotalBundleBytesAcked();
     LTP_LIB_EXPORT std::size_t GetTotalBundleBytesSent();
     //std::size_t GetTotalBundleBytesUnacked();
-    LTP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     LTP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     LTP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
@@ -90,9 +89,8 @@ private:
     const uint64_t M_THIS_ENGINE_ID;
     const uint64_t M_REMOTE_LTP_ENGINE_ID;
     const uint32_t M_BUNDLE_PIPELINE_LIMIT;
-    std::set<Ltp::session_id_t> m_activeSessionsSet;
-
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
+    std::unordered_set<uint64_t> m_activeSessionNumbersSet;
+    std::atomic<unsigned int> m_startingCount;
 
     volatile bool m_removeCallbackCalled;
 public:

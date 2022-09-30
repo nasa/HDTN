@@ -68,9 +68,6 @@ bool TcpclV4Outduct::Forward(std::vector<uint8_t> & movableDataVec, std::vector<
     return m_tcpclV4BundleSource.BaseClass_Forward(movableDataVec, std::move(userData));
 }
 
-void TcpclV4Outduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
-    m_tcpclV4BundleSource.SetOnSuccessfulAckCallback(callback);
-}
 void TcpclV4Outduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     m_tcpclV4BundleSource.BaseClass_SetOnFailedBundleVecSendCallback(callback);
 }

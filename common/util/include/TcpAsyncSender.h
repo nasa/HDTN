@@ -71,7 +71,6 @@ public:
     
     HDTN_UTIL_EXPORT void AsyncSend_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     HDTN_UTIL_EXPORT void AsyncSend_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
-    //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 
     HDTN_UTIL_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     HDTN_UTIL_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
@@ -111,7 +110,6 @@ public:
     HDTN_UTIL_EXPORT void AsyncSendSecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     HDTN_UTIL_EXPORT void AsyncSendUnsecure_NotThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
     HDTN_UTIL_EXPORT void AsyncSendUnsecure_ThreadSafe(TcpAsyncSenderElement * senderElementNeedingDeleted);
-    //void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 
     HDTN_UTIL_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     HDTN_UTIL_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);

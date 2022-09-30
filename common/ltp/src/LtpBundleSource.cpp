@@ -35,6 +35,7 @@ M_BUNDLE_PIPELINE_LIMIT(bundlePipelineLimit),
 
 m_ltpOutductTelemetry()
 {
+    m_activeSessionNumbersSet.reserve(M_BUNDLE_PIPELINE_LIMIT);
     m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
@@ -126,13 +127,15 @@ std::size_t LtpBundleSource::GetTotalBundleBytesSent() {
 //}
 
 bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
-    
-    if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
-        std::cerr << "Error in LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
+
+    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
         return false;
     }
 
-    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
+    const unsigned int startingCount = m_startingCount.fetch_add(1);
+    if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
+        --m_startingCount;
+        std::cerr << "Error in LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
         return false;
     }
 
@@ -156,8 +159,13 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
 
 bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
+    if (!m_ltpUdpEngineManagerPtr->ReadyToForward()) { //in case there's a general error for the manager's udp receive, stop it here
+        return false;
+    }
 
-    if (m_activeSessionsSet.size() > M_BUNDLE_PIPELINE_LIMIT) {
+    const unsigned int startingCount = m_startingCount.fetch_add(1);
+    if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
+        --m_startingCount;
         std::cerr << "Error in LtpBundleSource::Forward(zmq::message_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
         return false;
     }
@@ -186,21 +194,22 @@ bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
 
 
 void LtpBundleSource::SessionStartCallback(const Ltp::session_id_t & sessionId) {
-    if (m_activeSessionsSet.insert(sessionId).second == false) { //sessionId was not inserted (already exists)
+    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+        std::cerr << "error in LtpBundleSource::SessionStartCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+    }
+    else if (m_activeSessionNumbersSet.insert(sessionId.sessionNumber).second == false) { //sessionId was not inserted (already exists)
         std::cerr << "error in LtpBundleSource::SessionStartCallback, sessionId " << sessionId << " (already exists)\n";
     }
+    m_startingCount.fetch_sub(1);
 }
 void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
-    std::set<Ltp::session_id_t>::iterator it = m_activeSessionsSet.find(sessionId);
-    if (it != m_activeSessionsSet.end()) { //found
-        m_activeSessionsSet.erase(it);
-        
+    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+        std::cerr << "error in LtpBundleSource::TransmissionSessionCompletedCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+    }
+    else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.totalBundlesAcked;
-        //m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
-        //m_bytesToAckCb.CommitRead();
-        if (m_onSuccessfulAckCallback) {
-            m_onSuccessfulAckCallback();
-        }
         if (m_useLocalConditionVariableAckReceived) {
             m_localConditionVariableAckReceived.notify_one();
         }
@@ -213,16 +222,12 @@ void LtpBundleSource::InitialTransmissionCompletedCallback(const Ltp::session_id
 
 }
 void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
-    std::set<Ltp::session_id_t>::iterator it = m_activeSessionsSet.find(sessionId);
-    if (it != m_activeSessionsSet.end()) { //found
-        m_activeSessionsSet.erase(it);
-
+    if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
+        std::cerr << "error in LtpBundleSource::TransmissionSessionCancelledCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+    }
+    else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.totalBundlesFailedToSend;
-        //m_totalBytesAcked += m_bytesToAckCbVec[readIndex];
-        //m_bytesToAckCb.CommitRead();
-        if (m_onSuccessfulAckCallback) {
-            m_onSuccessfulAckCallback();
-        }
         if (m_useLocalConditionVariableAckReceived) {
             m_localConditionVariableAckReceived.notify_one();
         }
@@ -230,12 +235,9 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
     else {
         std::cerr << "critical error in LtpBundleSource::TransmissionSessionCancelledCallback: cannot find sessionId " << sessionId << std::endl;
     }
+    //std::cout << "notice in LtpBundleSource: session cancelled with reason code "
 }
 
-
-void LtpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
-    m_onSuccessfulAckCallback = callback;
-}
 void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     if (m_ltpUdpEnginePtr) {
         m_ltpUdpEnginePtr->SetOnFailedBundleVecSendCallback(callback);

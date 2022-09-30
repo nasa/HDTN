@@ -39,7 +39,6 @@ class UdpBundleSource {
 private:
     UdpBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     UDP_LIB_EXPORT UdpBundleSource(const uint64_t rateBps, const unsigned int maxUnacked); //const uint64_t rateBps = 50, const unsigned int maxUnacked = 100
 
     UDP_LIB_EXPORT ~UdpBundleSource();
@@ -56,7 +55,6 @@ public:
     UDP_LIB_EXPORT void UpdateRate(uint64_t rateBitsPerSec);
     UDP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     UDP_LIB_EXPORT bool ReadyToForward() const;
-    UDP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 
     UDP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     UDP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
@@ -100,7 +98,6 @@ private:
     std::vector<std::size_t> m_bytesToAckBySentCallbackCbVec;
     std::vector<std::vector<uint8_t> > m_userDataCbVec;
 
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
     volatile bool m_useLocalConditionVariableAckReceived;
     bool m_tokenRefreshTimerIsRunning;

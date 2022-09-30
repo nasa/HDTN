@@ -333,10 +333,7 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
             ++m_stcpOutductTelemetry.totalBundlesAcked;
             m_stcpOutductTelemetry.totalBundleBytesAcked += m_bytesToAckByTcpSendCallbackCbVec[readIndex] - sizeof(uint32_t);
             m_bytesToAckByTcpSendCallbackCb.CommitRead();
-            
-            if (m_onSuccessfulAckCallback) {
-                m_onSuccessfulAckCallback();
-            }
+
             if (m_onSuccessfulBundleSendCallback) {
                 m_onSuccessfulBundleSendCallback(elPtr->m_userData, m_userAssignedUuid);
             }
@@ -469,10 +466,6 @@ void StcpBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::
 
 bool StcpBundleSource::ReadyToForward() {
     return m_readyToForward;
-}
-
-void StcpBundleSource::SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback) {
-    m_onSuccessfulAckCallback = callback;
 }
 
 void StcpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {

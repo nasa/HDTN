@@ -30,7 +30,6 @@ class CLASS_VISIBILITY_TCPCL_LIB TcpclV4BundleSource : public TcpclV4Bidirection
 private:
     TcpclV4BundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     TCPCL_LIB_EXPORT TcpclV4BundleSource(
 #ifdef OPENSSL_SUPPORT_ENABLED
         boost::asio::ssl::context & shareableSslContextRef,
@@ -45,7 +44,6 @@ public:
     
     TCPCL_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     TCPCL_LIB_EXPORT bool ReadyToForward() const;
-    TCPCL_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
 private:
     TCPCL_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results);
     TCPCL_LIB_NO_EXPORT void OnConnect(const boost::system::error_code & ec);
@@ -76,8 +74,6 @@ private:
     boost::asio::ip::tcp::resolver::results_type m_resolverResults;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     
-        
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
 
     //opportunistic receive bundles
     const OutductOpportunisticProcessReceivedBundleCallback_t m_outductOpportunisticProcessReceivedBundleCallback;

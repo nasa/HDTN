@@ -28,9 +28,6 @@ bool LtpOverUdpOutduct::Forward(std::vector<uint8_t> & movableDataVec, std::vect
     return m_ltpBundleSource.Forward(movableDataVec, std::move(userData));
 }
 
-void LtpOverUdpOutduct::SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) {
-    m_ltpBundleSource.SetOnSuccessfulAckCallback(callback);
-}
 void LtpOverUdpOutduct::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {
     m_ltpBundleSource.SetOnFailedBundleVecSendCallback(callback);
 }

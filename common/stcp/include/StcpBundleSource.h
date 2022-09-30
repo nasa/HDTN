@@ -39,7 +39,6 @@ class StcpBundleSource {
 private:
     StcpBundleSource();
 public:
-    typedef boost::function<void()> OnSuccessfulAckCallback_t;
     STCP_LIB_EXPORT StcpBundleSource(const uint16_t desiredKeeAliveIntervalSeconds, const unsigned int maxUnacked = 100);
 
     STCP_LIB_EXPORT ~StcpBundleSource();
@@ -55,7 +54,6 @@ public:
     STCP_LIB_EXPORT std::size_t GetTotalBundleBytesUnacked();
     STCP_LIB_EXPORT void Connect(const std::string & hostname, const std::string & port);
     STCP_LIB_EXPORT bool ReadyToForward();
-    STCP_LIB_EXPORT void SetOnSuccessfulAckCallback(const OnSuccessfulAckCallback_t & callback);
     STCP_LIB_EXPORT void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     STCP_LIB_EXPORT void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);
@@ -98,7 +96,6 @@ private:
     const unsigned int MAX_UNACKED;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable m_bytesToAckByTcpSendCallbackCb;
     std::vector<uint32_t> m_bytesToAckByTcpSendCallbackCbVec;
-    OnSuccessfulAckCallback_t m_onSuccessfulAckCallback;
     volatile bool m_readyToForward;
     volatile bool m_stcpShutdownComplete;
     volatile bool m_dataServedAsKeepAlive;

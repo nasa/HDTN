@@ -30,7 +30,6 @@ class CLASS_VISIBILITY_OUTDUCT_MANAGER_LIB Outduct {
 private:
     Outduct();
 public:
-    typedef boost::function<void()> OnSuccessfulOutductAckCallback_t;
 
     OUTDUCT_MANAGER_LIB_EXPORT Outduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid);
     OUTDUCT_MANAGER_LIB_EXPORT virtual ~Outduct();
@@ -38,7 +37,6 @@ public:
     virtual bool Forward(const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t> && userData) = 0;
     virtual bool Forward(zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) = 0;
     virtual bool Forward(std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) = 0;
-    virtual void SetOnSuccessfulAckCallback(const OnSuccessfulOutductAckCallback_t & callback) = 0;
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnFailedBundleZmqSendCallback(const OnFailedBundleZmqSendCallback_t& callback);
     OUTDUCT_MANAGER_LIB_EXPORT virtual void SetOnSuccessfulBundleSendCallback(const OnSuccessfulBundleSendCallback_t& callback);

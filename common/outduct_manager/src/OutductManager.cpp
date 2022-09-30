@@ -15,17 +15,6 @@ OutductManager::~OutductManager() {
     std::cout << "m_numEventsTooManyUnackedBundles " << m_numEventsTooManyUnackedBundles << std::endl;
 }
 
-void OutductManager::OnSuccessfulBundleAck(uint64_t uuidIndex) {
-    m_threadCommunicationVec[uuidIndex]->Notify();
-    if (m_outductManager_onSuccessfulOutductAckCallback) {
-        m_outductManager_onSuccessfulOutductAckCallback(uuidIndex);
-    }
-}
-
-void OutductManager::SetOutductManagerOnSuccessfulOutductAckCallback(const OutductManager_OnSuccessfulOutductAckCallback_t & callback) {
-    m_outductManager_onSuccessfulOutductAckCallback = callback;
-}
-
 bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
     const uint64_t maxOpportunisticRxBundleSizeBytes,
     const OutductOpportunisticProcessReceivedBundleCallback_t & outductOpportunisticProcessReceivedBundleCallback,
@@ -39,10 +28,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
     m_finalDestNodeIdToOutductMap.clear();
     m_nextHopNodeIdToOutductMap.clear();
     m_outductsVec.clear();
-    m_threadCommunicationVec.clear();
     uint64_t nextOutductUuidIndex = 0;
     const outduct_element_config_vector_t & configsVec = outductsConfig.m_outductElementConfigVector;
-    m_threadCommunicationVec.reserve(configsVec.size());
     m_outductsVec.reserve(configsVec.size());
     for (outduct_element_config_vector_t::const_iterator it = configsVec.cbegin(); it != configsVec.cend(); ++it) {
         const outduct_element_config_t & thisOutductConfig = *it;
@@ -82,7 +69,6 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
 
         if (outductSharedPtr) {
             ++nextOutductUuidIndex;
-            m_threadCommunicationVec.push_back(std::move(boost::make_unique<thread_communication_t>())); //uuid will be the array index
             for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin(); itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
                 const std::string & finalDestinationEidUri = *itDestUri;
                 const bool isFirstLoop = (itDestUri == thisOutductConfig.finalDestinationEidUris.cbegin());
@@ -143,7 +129,6 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                 return false;
             }
 
-            outductSharedPtr->SetOnSuccessfulAckCallback(boost::bind(&OutductManager::OnSuccessfulBundleAck, this, uuidIndex));
             outductSharedPtr->SetOnFailedBundleVecSendCallback(outductOnFailedBundleVecSendCallback);
             outductSharedPtr->SetOnFailedBundleZmqSendCallback(outductOnFailedBundleZmqSendCallback);
             outductSharedPtr->SetOnSuccessfulBundleSendCallback(onSuccessfulBundleSendCallback);
