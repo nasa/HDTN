@@ -109,15 +109,15 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     //Otherwise, a new copy of each affected RS segment is queued for
     //transmission to the LTP engine that originated the session.
     ++m_numReportSegmentTimerExpiredCallbacks;
-    if (userData.size() != sizeof(uint8_t)) {
-        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(uint8_t)\n";
+    if (userData.size() != sizeof(M_MAX_RETRIES_PER_SERIAL_NUMBER)) {
+        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(M_MAX_RETRIES_PER_SERIAL_NUMBER)\n";
         return;
     }
-    const uint8_t retryCount = userData[0];
+    const uint32_t * const retryCount = (const uint32_t*)userData.data();
 
-    if (retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+    if ((*retryCount) <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         //resend 
-        m_reportSerialNumbersToSendQueue.emplace(reportSerialNumber, retryCount + 1); //initial retryCount of 1
+        m_reportSerialNumbersToSendQueue.emplace(reportSerialNumber, (*retryCount) + 1); //initial retryCount of 1
         m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
     }
     else {
@@ -134,7 +134,7 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
         
         const uint64_t rsn = m_reportSerialNumbersToSendQueue.front().first;
         //std::cout << "dequeue rsn for send " << rsn << std::endl;
-        const uint8_t retryCount = m_reportSerialNumbersToSendQueue.front().second;
+        const uint32_t retryCount = m_reportSerialNumbersToSendQueue.front().second;
         std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
             //std::cout << "found!\n";
@@ -155,7 +155,10 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
             //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
             const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
 
-            if (m_timeManagerOfReportSerialNumbersRef.StartTimer(reportSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::vector<uint8_t>({ retryCount }))) {
+            std::vector<uint8_t> userData(sizeof(retryCount));
+            uint32_t* userData32Ptr = reinterpret_cast<uint32_t*>(userData.data());
+            *userData32Ptr = retryCount;
+            if (m_timeManagerOfReportSerialNumbersRef.StartTimer(reportSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
                 //keep track of this receiving session's active timers within the shared LtpTimerManager
                 if (!m_reportSerialNumberActiveTimersSet.insert(rsn).second) {
                     std::cout << "error in LtpSessionReceiver::NextDataToSend: did not insert m_reportSerialNumberActiveTimersSet\n";

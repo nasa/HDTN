@@ -67,7 +67,7 @@ private:
     std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
-    std::queue<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
+    std::queue<std::pair<uint64_t, uint32_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
     
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfReportSerialNumbersRef;

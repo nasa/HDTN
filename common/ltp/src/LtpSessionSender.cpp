@@ -112,19 +112,18 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
         std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
         return;
     }
-    resend_fragment_t resendFragment;
-    memcpy(&resendFragment, userData.data(), sizeof(resendFragment));
+    resend_fragment_t * const resendFragmentPtr = (resend_fragment_t*)userData.data(); //userData will be 64-bit aligned
 
-    if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
-        const bool isDiscretionaryCheckpoint = (resendFragment.flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
-        if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentSet::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1))) {
+    if (resendFragmentPtr->retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+        const bool isDiscretionaryCheckpoint = (resendFragmentPtr->flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
+        if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentSet::data_fragment_t(resendFragmentPtr->offset, (resendFragmentPtr->offset + resendFragmentPtr->length) - 1))) {
             //std::cout << "  Discretionary checkpoint not being resent because its data was already received successfully by the receiver." << std::endl;
             ++m_numDiscretionaryCheckpointsNotResent;
         }
         else {
             //resend 
-            ++resendFragment.retryCount;
-            m_resendFragmentsQueue.push(resendFragment);
+            ++(resendFragmentPtr->retryCount);
+            m_resendFragmentsQueue.push(*resendFragmentPtr);
             m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
         }
     }

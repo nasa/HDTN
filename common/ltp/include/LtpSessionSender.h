@@ -53,7 +53,7 @@ public:
         uint64_t checkpointSerialNumber;
         uint64_t reportSerialNumber;
         LTP_DATA_SEGMENT_TYPE_FLAGS flags;
-        uint8_t retryCount;
+        uint32_t retryCount;
     };
     LTP_LIB_EXPORT ~LtpSessionSender();
     LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
