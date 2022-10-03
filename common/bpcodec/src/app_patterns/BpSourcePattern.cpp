@@ -63,7 +63,8 @@ void BpSourcePattern::Stop() {
 }
 
 void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
-    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId, const unsigned int bundleSendTimeoutSeconds,
+    const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
+    const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
     if (m_running) {
         LOG_ERROR(subprocess) << "BpSourcePattern::Start called while BpSourcePattern is already running";
@@ -71,6 +72,8 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     }
     m_bundleSendTimeoutSeconds = bundleSendTimeoutSeconds;
     m_bundleSendTimeoutTimeDuration = boost::posix_time::seconds(m_bundleSendTimeoutSeconds);
+    m_bundleLifetimeMilliseconds = bundleLifetimeMilliseconds;
+    m_bundlePriority = bundlePriority;
     m_finalDestinationEid = finalDestEid;
     m_myEid = myEid;
     m_myCustodianServiceId = myCustodianServiceId;
@@ -320,7 +323,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
                 lastMillisecondsSinceStartOfYear2000 = primary.m_creationTimestamp.millisecondsSinceStartOfYear2000;
                 primary.m_creationTimestamp.sequenceNumber = seq;
-                primary.m_lifetimeMilliseconds = 1000000;
+                primary.m_lifetimeMilliseconds = m_bundleLifetimeMilliseconds;
                 primary.m_crcType = BPV7_CRC_TYPE::CRC32C;
                 bv.m_primaryBlockView.SetManuallyModified();
 
@@ -376,7 +379,12 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 BundleViewV6 bv;
                 Bpv6CbhePrimaryBlock& primary = bv.m_primaryBlockView.header;
                 //primary.SetZero();
-                primary.m_bundleProcessingControlFlags = BPV6_BUNDLEFLAG::PRIORITY_EXPEDITED | BPV6_BUNDLEFLAG::SINGLETON | BPV6_BUNDLEFLAG::NOFRAGMENT;
+
+                primary.m_bundleProcessingControlFlags = 
+                    (BPV6_BUNDLEFLAG(m_bundlePriority << 7) & BPV6_BUNDLEFLAG::PRIORITY_BIT_MASK) |
+                    BPV6_BUNDLEFLAG::SINGLETON |
+                    BPV6_BUNDLEFLAG::NOFRAGMENT;
+
                 if (m_useCustodyTransfer) {
                     primary.m_bundleProcessingControlFlags |= BPV6_BUNDLEFLAG::CUSTODY_REQUESTED;
                     primary.m_custodianEid.Set(m_myEid.nodeId, m_myCustodianServiceId);
@@ -393,7 +401,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 }
                 lastTimeRfc5050 = primary.m_creationTimestamp.secondsSinceStartOfYear2000;
                 primary.m_creationTimestamp.sequenceNumber = seq;
-                primary.m_lifetimeSeconds = 1000;
+                primary.m_lifetimeSeconds = m_bundleLifetimeMilliseconds / 1000;
                 bv.m_primaryBlockView.SetManuallyModified();
 
 
