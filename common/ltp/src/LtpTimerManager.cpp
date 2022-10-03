@@ -95,10 +95,12 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, s
         callbackPtrReturned = timerDataRef.m_callbackPtr;
         m_listTimerData.erase(timerDataListIt);
         m_mapIdToTimerData.erase(mapIt);
-        if (m_isTimerActive && (m_activeSerialNumberBeingTimed == serialNumber)) { //if this is the one running, cancel it (which will automatically start the next)
+        if (m_isTimerActive && (m_activeSerialNumberBeingTimed == serialNumber)) { 
+            // if this is the one running, DO NOT cancel it, let it expire to allow timer deletions before they become active,
+            // reducing the number of async_wait calls.  Then expiration will automatically start the next non-deleted timer.
             //std::cout << "delete is cancelling " << serialNumber << std::endl;
             m_activeSerialNumberBeingTimed = 0; //prevent double delete and callback when cancelled externally after expiration
-            m_deadlineTimerRef.cancel(); 
+            //m_deadlineTimerRef.cancel(); //do not cancel for performance reasons
         }
         return true;
     }
@@ -127,6 +129,9 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
 
             const LtpTimerExpiredCallback_t& callbackRef = *callbackPtr;
             callbackRef(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
+        }
+        else {
+            //std::cout << "expired a deleted timer\n";
         }
     }
     else {

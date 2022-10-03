@@ -127,9 +127,12 @@ void LtpEngine::Reset() {
 
     m_ltpRxStateMachine.InitRx();
     m_queueClosedSessionDataToSend = std::queue<std::pair<uint64_t, std::vector<uint8_t> > >();
+
+    //the following are single threaded resets, but safe because Reset() is called by boost::asio::post(m_ioServiceLtpEngine...
     m_timeManagerOfCancelSegments.Reset();
     m_timeManagerOfCheckpointSerialNumbers.Reset();
     m_timeManagerOfReportSerialNumbers.Reset();
+
     m_queueCancelSegmentTimerInfo = std::queue<cancel_segment_timer_info_t>();
     m_queueSendersNeedingDeleted = std::queue<uint64_t>();
     m_queueSendersNeedingDataSent = std::queue<uint64_t>();
