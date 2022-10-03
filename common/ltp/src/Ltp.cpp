@@ -80,7 +80,7 @@ uint64_t Ltp::session_id_t::Serialize(uint8_t * serialization) const {
     return serialization - serializationBase;
 }
 
-std::size_t Ltp::hash_session_id_t::operator()(const session_id_t& sid) const {
+std::size_t Ltp::hash_session_id_t::operator()(const session_id_t& sid) const noexcept {
 #ifdef USE_CRC32C_FAST
     return static_cast<std::size_t>(_mm_crc32_u64(_mm_crc32_u64(UINT32_MAX, sid.sessionNumber), sid.sessionOriginatorEngineId));
 #else

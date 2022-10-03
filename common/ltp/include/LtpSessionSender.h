@@ -24,6 +24,7 @@
 #include "Ltp.h"
 #include "LtpRandomNumberGenerator.h"
 #include <queue>
+#include <set>
 #include <boost/asio.hpp>
 #include <memory>
 #include "LtpTimerManager.h"
@@ -41,7 +42,7 @@ typedef boost::function<void(const uint64_t sessionNumber)> NotifyEngineThatThis
 class LtpSessionSender {
 private:
     LtpSessionSender();
-    void LtpCheckpointTimerExpiredCallback(uint64_t checkpointSerialNumber, std::vector<uint8_t> & userData);
+    LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
     struct LTP_LIB_EXPORT resend_fragment_t {
         resend_fragment_t() {}
@@ -58,7 +59,8 @@ public:
     LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
         std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
+        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
@@ -77,7 +79,11 @@ private:
     std::queue<std::vector<uint8_t> > m_nonDataToSend;
     std::queue<resend_fragment_t> m_resendFragmentsQueue;
     std::set<uint64_t> m_reportSegmentSerialNumbersReceivedSet;
-    LtpTimerManager<uint64_t> m_timeManagerOfCheckpointSerialNumbers;
+
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
+    std::set<uint64_t> m_checkpointSerialNumberActiveTimersSet;
+
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
 public:
@@ -93,7 +99,6 @@ private:
     const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
     uint64_t m_checkpointEveryNthDataPacketCounter;
     const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
-    boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
     const NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
     const InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
