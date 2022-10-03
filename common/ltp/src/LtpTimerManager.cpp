@@ -58,7 +58,7 @@ bool LtpTimerManager<idType, hashType>::StartTimer(const idType serialNumber, co
     //expiry will always be appended to list (always greater than previous) (duplicate expiries ok)
     const boost::posix_time::ptime expiry = boost::posix_time::microsec_clock::universal_time() + m_transmissionToAckReceivedTimeRef;
     
-    std::pair<typename id_to_data_map_t::iterator, bool> retVal = m_mapIdToTimerData.emplace(serialNumber, timer_data_list_t::iterator());
+    std::pair<typename id_to_data_map_t::iterator, bool> retVal = m_mapIdToTimerData.emplace(serialNumber, typename timer_data_list_t::iterator());
     if (retVal.second) {
         //value was inserted
         m_listTimerData.emplace_back(serialNumber, expiry, callbackPtr, std::move(userData));
@@ -139,7 +139,7 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
     if (it != m_listTimerData.end()) {
         //most recent ptime exists
         
-        m_activeSerialNumberBeingTimed = it->m_idType;
+        m_activeSerialNumberBeingTimed = it->m_id;
         //std::cout << "OnTimerExpired starting next ptime for " << m_activeSerialNumberBeingTimed << std::endl;
         m_deadlineTimerRef.expires_at(it->m_expiry);
         m_deadlineTimerRef.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error, m_timerIsDeletedPtr));

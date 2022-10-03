@@ -58,15 +58,15 @@ private:
     //boost::bimap<idType, boost::posix_time::ptime> m_bimapCheckpointSerialNumberToExpiry;
     //std::map<idType, std::vector<uint8_t> > m_mapSerialNumberToUserData;
     struct timer_data_t {
-        idType m_idType;
+        idType m_id;
         boost::posix_time::ptime m_expiry;
         const LtpTimerExpiredCallback_t * m_callbackPtr;
         std::vector<uint8_t> m_userData;
 
         timer_data_t() = delete;
         //a move constructor: X(X&&)
-        timer_data_t(idType idType, const boost::posix_time::ptime& expiry, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData) :
-            m_idType(idType),
+        timer_data_t(idType id, const boost::posix_time::ptime& expiry, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t>&& userData) :
+            m_id(id),
             m_expiry(expiry),
             m_callbackPtr(callbackPtr),
             m_userData(std::move(userData)) {}

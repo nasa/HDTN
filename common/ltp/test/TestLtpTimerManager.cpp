@@ -17,6 +17,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/timer/timer.hpp>
 #include "Ltp.h"
+#include <iostream>
 
 BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
 {
