@@ -276,6 +276,64 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
             BOOST_REQUIRE_EQUAL(m_numCallbacks, 2);
             BOOST_REQUIRE(m_serialNumbersInCallback == std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(15,16) }));
         }
+
+        void Test5ChangeTimeUp(/*const boost::system::error_code& e*/) {
+            //change RTT from 400ms to 1000ms
+            const boost::posix_time::time_duration oldTransmissionToAckReceivedTime = m_transmissionToAckReceivedTime;
+            m_transmissionToAckReceivedTime = boost::posix_time::milliseconds(1000); //this variable is referenced by all timers, so new timers will use this new value
+            const boost::posix_time::time_duration diffNewMinusOld = m_transmissionToAckReceivedTime - oldTransmissionToAckReceivedTime;
+            const int64_t diffMs = diffNewMinusOld.total_milliseconds();
+            BOOST_REQUIRE_GE(diffMs, 599); //1000 - 400
+            BOOST_REQUIRE_LE(diffMs, 601);
+            std::cout << "increase time by " << diffMs << " milliseconds\n";
+            m_timerManager.AdjustRunningTimers(diffNewMinusOld);
+        }
+        void Test5ChangeTimeDown(/*const boost::system::error_code& e*/) {
+            //change RTT from 400ms to 1000ms
+            const boost::posix_time::time_duration oldTransmissionToAckReceivedTime = m_transmissionToAckReceivedTime;
+            m_transmissionToAckReceivedTime = boost::posix_time::milliseconds(400); //this variable is referenced by all timers, so new timers will use this new value
+            const boost::posix_time::time_duration diffNewMinusOld = m_transmissionToAckReceivedTime - oldTransmissionToAckReceivedTime;
+            const int64_t diffMs = diffNewMinusOld.total_milliseconds();
+            BOOST_REQUIRE_LE(diffMs, -599); //1000 - 400
+            BOOST_REQUIRE_GE(diffMs, -601);
+            std::cout << "increase time by " << diffMs << " milliseconds\n";
+            m_timerManager.AdjustRunningTimers(diffNewMinusOld);
+        }
+        void DoTest5() { //change the time on running timers
+            //first increase time
+            m_testNumber = 1;
+            m_timerManager.Reset();
+            m_ioService.stop();
+            m_ioService.reset();
+            m_numCallbacks = 0;
+            m_serialNumbersInCallback.clear();
+            m_desired_serialNumbers = m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
+            for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
+                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+            }
+            boost::asio::post(m_ioService, boost::bind(&TestWithSessionId::Test5ChangeTimeUp, this));
+            m_ioService.run();
+
+            BOOST_REQUIRE_EQUAL(m_numCallbacks, m_desired_serialNumbers.size());
+            BOOST_REQUIRE(m_desired_serialNumbers == m_serialNumbersInCallback);
+
+            //now decrease time
+            m_testNumber = 1;
+            m_timerManager.Reset();
+            m_ioService.stop();
+            m_ioService.reset();
+            m_numCallbacks = 0;
+            m_serialNumbersInCallback.clear();
+            m_desired_serialNumbers = m_desired_serialNumbers = std::vector<Ltp::session_id_t>({ Ltp::session_id_t(5,6),Ltp::session_id_t(10,11),Ltp::session_id_t(15,16) });
+            for (std::size_t i = 0; i < m_desired_serialNumbers.size(); ++i) {
+                BOOST_REQUIRE(m_timerManager.StartTimer(m_desired_serialNumbers[i], &m_timerExpiredCallback));
+            }
+            boost::asio::post(m_ioService, boost::bind(&TestWithSessionId::Test5ChangeTimeDown, this));
+            m_ioService.run();
+
+            BOOST_REQUIRE_EQUAL(m_numCallbacks, m_desired_serialNumbers.size());
+            BOOST_REQUIRE(m_desired_serialNumbers == m_serialNumbersInCallback);
+        }
     };
 
     TestWithSessionId t2;
@@ -283,5 +341,6 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
     t2.DoTest2();
     t2.DoTest3();
     t2.DoTest4();
+    t2.DoTest5();
     std::cout << "-----END LtpTimerManagerTestCase-----\n";
 }

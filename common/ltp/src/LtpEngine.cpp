@@ -37,7 +37,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     m_transmissionToAckReceivedTime((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
-    M_STAGNANT_RX_SESSION_TIME(m_transmissionToAckReceivedTime* static_cast<int>(maxRetriesPerSerialNumber + 1)),
+    m_stagnantRxSessionTime(m_transmissionToAckReceivedTime* static_cast<int>(maxRetriesPerSerialNumber + 1)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
     M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(senderPingSecondsOrZeroToDisable),
     M_SENDER_PING_TIME(boost::posix_time::seconds(senderPingSecondsOrZeroToDisable)),
@@ -1001,7 +1001,7 @@ void LtpEngine::OnTokenRefresh_TimerExpired(const boost::system::error_code& e) 
 
 void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) {
     const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
-    const boost::posix_time::ptime stagnantRxSessionTimeThreshold = nowPtime - M_STAGNANT_RX_SESSION_TIME;
+    const boost::posix_time::ptime stagnantRxSessionTimeThreshold = nowPtime - m_stagnantRxSessionTime;
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
 
@@ -1104,4 +1104,19 @@ void LtpEngine::DoExternalLinkDownEvent() {
 }
 void LtpEngine::PostExternalLinkDownEvent_ThreadSafe() {
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::DoExternalLinkDownEvent, this));
+}
+
+void LtpEngine::SetDelays_ThreadSafe(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetDelays, this, oneWayLightTime, oneWayMarginTime, updateRunningTimers));
+}
+void LtpEngine::SetDelays(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers) {
+    const boost::posix_time::time_duration oldTransmissionToAckReceivedTime = m_transmissionToAckReceivedTime;
+    m_transmissionToAckReceivedTime = ((oneWayLightTime * 2) + (oneWayMarginTime * 2)); //this variable is referenced by all timers, so new timers will use this new value
+    const boost::posix_time::time_duration diffNewMinusOld = m_transmissionToAckReceivedTime - oldTransmissionToAckReceivedTime;
+    m_stagnantRxSessionTime = (m_transmissionToAckReceivedTime * static_cast<int>(m_maxRetriesPerSerialNumber + 1)); //update this housekeeping variable which was calculated based on RTT
+    if (updateRunningTimers) {
+        m_timeManagerOfReportSerialNumbers.AdjustRunningTimers(diffNewMinusOld);
+        m_timeManagerOfCheckpointSerialNumbers.AdjustRunningTimers(diffNewMinusOld);
+        m_timeManagerOfCancelSegments.AdjustRunningTimers(diffNewMinusOld);
+    }
 }

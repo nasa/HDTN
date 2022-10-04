@@ -110,7 +110,10 @@ public:
 
     LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+    
+    LTP_LIB_EXPORT void SetDelays_ThreadSafe(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
 protected:
+    LTP_LIB_EXPORT void SetDelays(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
@@ -162,7 +165,7 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     boost::posix_time::time_duration m_transmissionToAckReceivedTime;
     const boost::posix_time::time_duration M_HOUSEKEEPING_INTERVAL;
-    const boost::posix_time::time_duration M_STAGNANT_RX_SESSION_TIME;
+    boost::posix_time::time_duration m_stagnantRxSessionTime;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     const uint64_t M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE;
     const boost::posix_time::time_duration M_SENDER_PING_TIME;

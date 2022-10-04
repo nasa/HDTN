@@ -156,6 +156,16 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
 }
 
 template <typename idType, typename hashType>
+void LtpTimerManager<idType, hashType>::AdjustRunningTimers(const boost::posix_time::time_duration& diffNewMinusOld) {
+    if (m_isTimerActive) {
+        for (typename timer_data_list_t::iterator it = m_listTimerData.begin(); it != m_listTimerData.end(); ++it) {
+            it->m_expiry += diffNewMinusOld;
+        }
+        m_deadlineTimerRef.cancel(); //skips over any DeleteTimer calls within OnTimerExpired and readds the timer from m_listTimerData.begin()
+    }
+}
+
+template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::Empty() const {
     return m_listTimerData.empty();
 }
