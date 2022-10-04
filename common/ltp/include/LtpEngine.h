@@ -204,8 +204,9 @@ private:
     uint64_t m_checkpointEveryNthDataPacketSender;
     uint64_t m_maxReceptionClaims;
     uint32_t m_maxRetriesPerSerialNumber;
-
+protected:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
+private:
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
 
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfReportSerialNumbers;

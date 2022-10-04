@@ -102,7 +102,8 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
 
         UdpBatchSender ubs;
         ubs.SetOnSentPacketsCallback(boost::bind(&OnSentPacketsCallback, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
-        BOOST_REQUIRE(ubs.Init("localhost", "1113"));
+        BOOST_REQUIRE(ubs.Init("localhost", 1112)); //intentionally set the wrong port, correct it on the next line
+        ubs.SetEndpointAndReconnect_ThreadSafe("localhost", 1113);
         unsigned int successfulTests = 0;
         for (unsigned int count = 0; count < 10; ++count) {
             g_udpPacketsReceived.clear();

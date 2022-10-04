@@ -53,6 +53,9 @@ public:
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
 
+    LTP_LIB_EXPORT void SetEndpoint_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint);
+    LTP_LIB_EXPORT void SetEndpoint_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort);
+
 private:
     LTP_LIB_NO_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_NO_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer> & constBufferVec,
@@ -67,7 +70,8 @@ private:
     LTP_LIB_NO_EXPORT void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
         std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallback,
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
-
+    LTP_LIB_NO_EXPORT void SetEndpoint(const boost::asio::ip::udp::endpoint& remoteEndpoint);
+    LTP_LIB_NO_EXPORT void SetEndpoint(const std::string& remoteHostname, const uint16_t remotePort);
     
 
     
