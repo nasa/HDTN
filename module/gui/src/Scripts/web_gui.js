@@ -113,6 +113,11 @@ function UpdateData(objJson){
 }
 
 var egressBundleCount = 0;
+var egressRate = 0;
+var startTime = new Date().getTime()/1000;
+var lastEgressData = 0;
+var lastTime = startTime;
+var lastEgressData = 0;
 
 window.addEventListener("load", function(event){
     if(!("WebSocket" in window)){
@@ -185,17 +190,21 @@ window.addEventListener("load", function(event){
             }
             else if(type == 2){
                 //Egress
-                egressBundleCount = dv.getUint64(byteIndex, littleEndian);
+		egressBundleCount = dv.getUint64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var egressBundleData = dv.getFloat64(byteIndex, littleEndian);
                 byteIndex += 8;
                 var egressMessageCount = dv.getUint64(byteIndex, littleEndian);
-                byteIndex += 8;
-                var rate = dv.getUint64(byteIndex, littleEndian);
-                document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
+
+		var newTime = new Date().getTime()/1000;
+		var duration = newTime - lastTime;
+		lastTime = newTime;
+		egressRate = (8.0 * (egressBundleData - lastEgressData))/duration;
+		lastEgressData = egressBundleData;
+		document.getElementById("egressDataRate").innerHTML = egressRate.toFixed(3);
+		document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
                 document.getElementById("egressBundleData").innerHTML = egressBundleData.toFixed(2);
                 document.getElementById("egressMessageCount").innerHTML = egressMessageCount;
-                document.getElementById("egressDataRate").innerHTML = rate;
             }
             else if(type == 3){
                 //Storage
