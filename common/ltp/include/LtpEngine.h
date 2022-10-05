@@ -110,7 +110,10 @@ public:
 
     LTP_LIB_EXPORT void UpdateRate(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
+    
+    LTP_LIB_EXPORT void SetDelays_ThreadSafe(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
 protected:
+    LTP_LIB_EXPORT void SetDelays(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
@@ -160,9 +163,9 @@ protected:
 private:
     const boost::posix_time::time_duration M_ONE_WAY_LIGHT_TIME;
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
-    const boost::posix_time::time_duration M_TRANSMISSION_TO_ACK_RECEIVED_TIME;
+    boost::posix_time::time_duration m_transmissionToAckReceivedTime;
     const boost::posix_time::time_duration M_HOUSEKEEPING_INTERVAL;
-    const boost::posix_time::time_duration M_STAGNANT_RX_SESSION_TIME;
+    boost::posix_time::time_duration m_stagnantRxSessionTime;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
     const uint64_t M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE;
     const boost::posix_time::time_duration M_SENDER_PING_TIME;
@@ -201,10 +204,35 @@ private:
     uint64_t m_checkpointEveryNthDataPacketSender;
     uint64_t m_maxReceptionClaims;
     uint32_t m_maxRetriesPerSerialNumber;
-
+protected:
     boost::asio::io_service m_ioServiceLtpEngine; //for timers and post calls only
+private:
     std::unique_ptr<boost::asio::io_service::work> m_workLtpEnginePtr;
-    LtpTimerManager<Ltp::session_id_t> m_timeManagerOfCancelSegments;
+
+    boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfReportSerialNumbers;
+    // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
+    // but now sharing a single LtpTimerManager among all sessions, so use a
+    // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
+    // such that: 
+    //  sessionOriginatorEngineId = REPORT serial number
+    //  sessionNumber = the session number
+    //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfReportSerialNumbers;
+
+    boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers;
+    // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
+    // but now sharing a single LtpTimerManager among all sessions, so use a
+    // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
+    // such that: 
+    //  sessionOriginatorEngineId = CHECKPOINT serial number
+    //  sessionNumber = the session number
+    //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfCheckpointSerialNumbers;
+
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_cancelSegmentTimerExpiredCallback;
+    boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCancelSegments;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfCancelSegments;
+
     boost::asio::deadline_timer m_housekeepingTimer;
     TokenRateLimiter m_tokenRateLimiter;
     boost::asio::deadline_timer m_tokenRefreshTimer;

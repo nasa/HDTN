@@ -20,11 +20,13 @@
 LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
     const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
+    const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfReportSerialNumbersRef,
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
     const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
     const uint32_t maxRetriesPerSerialNumber) :
-    m_timeManagerOfReportSerialNumbers(ioServiceRef, oneWayLightTime, oneWayMarginTime, boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2)),
+    
+    m_timeManagerOfReportSerialNumbersRef(timeManagerOfReportSerialNumbersRef),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
     M_MAX_RECEPTION_CLAIMS(MAX_RECEPTION_CLAIMS),
     M_ESTIMATED_BYTES_TO_RECEIVE(ESTIMATED_BYTES_TO_RECEIVE),
@@ -38,7 +40,6 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_didRedPartReceptionCallback(false),
     m_didNotifyForDeletion(false),
     m_receivedEobFromGreenOrRed(false),
-    m_ioServiceRef(ioServiceRef),
     m_notifyEngineThatThisReceiverNeedsDeletedCallback(notifyEngineThatThisReceiverNeedsDeletedCallback),
     m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(notifyEngineThatThisSendersTimersHasProducibleDataFunction),
     //m_lastDataSegmentReceivedTimestamp(boost::posix_time::special_values::) //initialization not required because LtpEngine calls DataSegmentReceivedCallback right after emplace
@@ -47,12 +48,45 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_numReportSegmentsTooLargeAndNeedingSplit(0),
     m_numReportSegmentsCreatedViaSplit(0)
 {
+    m_timerExpiredCallback = boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
     m_dataReceivedRed.reserve(ESTIMATED_BYTES_TO_RECEIVE);
 }
 
-LtpSessionReceiver::~LtpSessionReceiver() {}
+LtpSessionReceiver::~LtpSessionReceiver() {
+    //clean up this receiving session's active timers within the shared LtpTimerManager
+    for (std::set<uint64_t>::const_iterator it = m_reportSerialNumberActiveTimersSet.cbegin(); it != m_reportSerialNumberActiveTimersSet.cend(); ++it) {
+        const uint64_t rsn = *it;
 
-void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData) {
+        // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
+        // but now sharing a single LtpTimerManager among all sessions, so use a
+        // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
+        // such that: 
+        //  sessionOriginatorEngineId = report serial number
+        //  sessionNumber = the session number
+        //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
+        const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
+
+        if (!m_timeManagerOfReportSerialNumbersRef.DeleteTimer(reportSerialNumberPlusSessionNumber)) {
+            std::cout << "error in LtpSessionReceiver::~LtpSessionReceiver: did not delete timer\n";
+        }
+    }
+}
+
+void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData) {
+    // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
+    // but now sharing a single LtpTimerManager among all sessions, so use a
+    // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
+    // such that: 
+    //  sessionOriginatorEngineId = REPORT serial number
+    //  sessionNumber = the session number
+    //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
+    const uint64_t reportSerialNumber = reportSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
+
+    //keep track of this receiving session's active timers within the shared LtpTimerManager
+    if (m_reportSerialNumberActiveTimersSet.erase(reportSerialNumber) == 0) {
+        std::cout << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: did not erase m_reportSerialNumberActiveTimersSet\n";
+    }
+
     //std::cout << "LtpReportSegmentTimerExpiredCallback reportSerialNumber " << reportSerialNumber << std::endl;
     
     //6.8.  Retransmit RS
@@ -75,15 +109,15 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(uint64_t reportSer
     //Otherwise, a new copy of each affected RS segment is queued for
     //transmission to the LTP engine that originated the session.
     ++m_numReportSegmentTimerExpiredCallbacks;
-    if (userData.size() != sizeof(uint8_t)) {
-        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(uint8_t)\n";
+    if (userData.size() != sizeof(M_MAX_RETRIES_PER_SERIAL_NUMBER)) {
+        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(M_MAX_RETRIES_PER_SERIAL_NUMBER)\n";
         return;
     }
-    const uint8_t retryCount = userData[0];
+    const uint32_t * const retryCount = (const uint32_t*)userData.data();
 
-    if (retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+    if ((*retryCount) <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
         //resend 
-        m_reportSerialNumbersToSendQueue.emplace(reportSerialNumber, retryCount + 1); //initial retryCount of 1
+        m_reportSerialNumbersToSendQueue.emplace(reportSerialNumber, (*retryCount) + 1); //initial retryCount of 1
         m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
     }
     else {
@@ -100,7 +134,7 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
         
         const uint64_t rsn = m_reportSerialNumbersToSendQueue.front().first;
         //std::cout << "dequeue rsn for send " << rsn << std::endl;
-        const uint8_t retryCount = m_reportSerialNumbersToSendQueue.front().second;
+        const uint32_t retryCount = m_reportSerialNumbersToSendQueue.front().second;
         std::map<uint64_t, Ltp::report_segment_t>::iterator reportSegmentIt = m_mapAllReportSegmentsSent.find(rsn);
         if (reportSegmentIt != m_mapAllReportSegmentsSent.end()) { //found
             //std::cout << "found!\n";
@@ -111,7 +145,25 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
             m_reportSerialNumbersToSendQueue.pop();
             //std::cout << "start rsn " << rsn << std::endl;
-            m_timeManagerOfReportSerialNumbers.StartTimer(rsn, std::vector<uint8_t>({ retryCount }));
+            
+            // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
+            // but now sharing a single LtpTimerManager among all sessions, so use a
+            // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
+            // such that: 
+            //  sessionOriginatorEngineId = report serial number
+            //  sessionNumber = the session number
+            //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
+            const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
+
+            std::vector<uint8_t> userData(sizeof(retryCount));
+            uint32_t* userData32Ptr = reinterpret_cast<uint32_t*>(userData.data());
+            *userData32Ptr = retryCount;
+            if (m_timeManagerOfReportSerialNumbersRef.StartTimer(reportSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+                //keep track of this receiving session's active timers within the shared LtpTimerManager
+                if (!m_reportSerialNumberActiveTimersSet.insert(rsn).second) {
+                    std::cout << "error in LtpSessionReceiver::NextDataToSend: did not insert m_reportSerialNumberActiveTimersSet\n";
+                }
+            }
             return true;
         }
         else {
@@ -142,9 +194,24 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
     //std::cout << "m_receivedEobFromGreenOrRed: " << m_receivedEobFromGreenOrRed << std::endl;
     //std::cout << "m_reportSerialNumbersToSendList.empty(): " << m_reportSerialNumbersToSendList.empty() << std::endl;
     //std::cout << "m_timeManagerOfReportSerialNumbers.empty() b4: " << m_timeManagerOfReportSerialNumbers.Empty() << std::endl;
-    m_timeManagerOfReportSerialNumbers.DeleteTimer(reportSerialNumberBeingAcknowledged);
+
+    // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
+    // but now sharing a single LtpTimerManager among all sessions, so use a
+    // LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> (which has hash map hashing function support)
+    // such that: 
+    //  sessionOriginatorEngineId = report serial number
+    //  sessionNumber = the session number
+    //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
+    const Ltp::session_id_t reportSerialNumberPlusSessionNumber(reportSerialNumberBeingAcknowledged, M_SESSION_ID.sessionNumber);
+
+    if (m_timeManagerOfReportSerialNumbersRef.DeleteTimer(reportSerialNumberPlusSessionNumber)) {
+        //keep track of this receiving session's active timers within the shared LtpTimerManager
+        if (m_reportSerialNumberActiveTimersSet.erase(reportSerialNumberBeingAcknowledged) == 0) {
+            std::cout << "error in LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback: did not erase m_reportSerialNumberActiveTimersSet\n";
+        }
+    }
     //std::cout << "m_timeManagerOfReportSerialNumbers.empty() after: " << m_timeManagerOfReportSerialNumbers.Empty() << std::endl;
-    if (m_reportSerialNumbersToSendQueue.empty() && m_timeManagerOfReportSerialNumbers.Empty()) {
+    if (m_reportSerialNumbersToSendQueue.empty() && m_reportSerialNumberActiveTimersSet.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
         //TODO.. NOT SURE WHAT TO DO WHEN GREEN EOB LOST
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
             if (!m_didNotifyForDeletion) {

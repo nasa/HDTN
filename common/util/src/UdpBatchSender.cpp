@@ -26,7 +26,7 @@ UdpBatchSender::~UdpBatchSender() {
     Stop();
 }
 
-bool UdpBatchSender::Init(const std::string& remoteHostname, const std::string& remotePort) {
+bool UdpBatchSender::Init(const std::string& remoteHostname, const uint16_t remotePort) {
 
     if (m_ioServiceThreadPtr) {
         std::cout << "Error in UdpBatchSender::Init: already initialized\n";
@@ -341,3 +341,40 @@ void UdpBatchSender::PerformSendPacketsOperation(
     }
 }
 
+void UdpBatchSender::SetEndpointAndReconnect_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+    boost::asio::post(m_ioService, boost::bind(&UdpBatchSender::SetEndpointAndReconnect, this, remoteEndpoint));
+}
+void UdpBatchSender::SetEndpointAndReconnect_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort) {
+    boost::asio::post(m_ioService, boost::bind(&UdpBatchSender::SetEndpointAndReconnect, this, remoteHostname, remotePort));
+}
+bool UdpBatchSender::SetEndpointAndReconnect(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+    m_udpDestinationEndpoint = remoteEndpoint;
+    try {
+        m_udpSocketConnectedSenderOnly.connect(m_udpDestinationEndpoint);
+    }
+    catch (const boost::system::system_error& e) {
+        std::cout << "Error connecting socket in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code() << std::endl;
+        return false;
+    }
+    return true;
+}
+bool UdpBatchSender::SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort) {
+    static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
+    std::cout << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort << std::endl;
+
+    boost::asio::ip::udp::endpoint udpDestinationEndpoint;
+    {
+        boost::asio::ip::udp::resolver resolver(m_ioService);
+        try {
+            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+        }
+        catch (const boost::system::system_error& e) {
+            std::cout << "Error resolving in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code() << std::endl;
+            return false;
+        }
+    }
+    return SetEndpointAndReconnect(udpDestinationEndpoint);
+}
+boost::asio::ip::udp::endpoint UdpBatchSender::GetCurrentUdpEndpoint() const {
+    return m_udpDestinationEndpoint;
+}

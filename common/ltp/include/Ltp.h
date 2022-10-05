@@ -152,7 +152,7 @@ public:
         LTP_LIB_EXPORT uint64_t Serialize(uint8_t * serialization) const;
     };
     struct CLASS_VISIBILITY_LTP_LIB hash_session_id_t {
-        LTP_LIB_EXPORT std::size_t operator()(const session_id_t& sid) const;
+        LTP_LIB_EXPORT std::size_t operator()(const session_id_t& sid) const noexcept;
     };
     struct reception_claim_t {
         uint64_t offset;

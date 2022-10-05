@@ -14,7 +14,7 @@
 
 #include "LtpUdpEngine.h"
 #include <boost/make_unique.hpp>
-
+#include <boost/lexical_cast.hpp>
 
 LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef,
     const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
@@ -180,4 +180,35 @@ void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<b
             SignalReadyForSend_ThreadSafe();
         }
     }
+}
+
+void LtpUdpEngine::SetEndpoint_ThreadSafe(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+    //m_ioServiceLtpEngine is the only running thread that uses m_remoteEndpoint
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpUdpEngine::SetEndpoint, this, remoteEndpoint));
+}
+void LtpUdpEngine::SetEndpoint_ThreadSafe(const std::string& remoteHostname, const uint16_t remotePort) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpUdpEngine::SetEndpoint, this, remoteHostname, remotePort));
+}
+void LtpUdpEngine::SetEndpoint(const boost::asio::ip::udp::endpoint& remoteEndpoint) {
+    m_remoteEndpoint = remoteEndpoint;
+    if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) { //using dedicated connected sender socket
+        m_udpBatchSenderConnected.SetEndpointAndReconnect_ThreadSafe(m_remoteEndpoint);
+    }
+}
+void LtpUdpEngine::SetEndpoint(const std::string& remoteHostname, const uint16_t remotePort) {
+    static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
+    std::cout << "LtpUdpEngine resolving " << remoteHostname << ":" << remotePort << std::endl;
+
+    boost::asio::ip::udp::endpoint udpDestinationEndpoint;
+    {
+        boost::asio::ip::udp::resolver resolver(m_ioServiceLtpEngine);
+        try {
+            udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
+        }
+        catch (const boost::system::system_error& e) {
+            std::cout << "Error resolving in LtpUdpEngine::SetEndpoint: " << e.what() << "  code=" << e.code() << std::endl;
+            return;
+        }
+    }
+    SetEndpoint(udpDestinationEndpoint);
 }

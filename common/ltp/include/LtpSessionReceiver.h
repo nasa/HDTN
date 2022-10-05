@@ -26,6 +26,7 @@
 #include "LtpTimerManager.h"
 #include <queue>
 #include <set>
+#include <map>
 #include <boost/asio.hpp>
 #include "LtpNoticesToClientService.h"
 
@@ -37,13 +38,15 @@ class LtpSessionReceiver {
 private:
     LtpSessionReceiver();
 
-    void LtpReportSegmentTimerExpiredCallback(uint64_t reportSerialNumber, std::vector<uint8_t> & userData);
+    LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
     
     
-    LTP_LIB_EXPORT LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS, const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
+    LTP_LIB_EXPORT LtpSessionReceiver(uint64_t randomNextReportSegmentReportSerialNumber, const uint64_t MAX_RECEPTION_CLAIMS,
+        const uint64_t ESTIMATED_BYTES_TO_RECEIVE, const uint64_t maxRedRxBytes,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
-        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime, boost::asio::io_service & ioServiceRef,
+        const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
+        LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfReportSerialNumbersRef,
         const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
         const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
         const uint32_t maxRetriesPerSerialNumber = 5);
@@ -64,8 +67,12 @@ private:
     std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
-    std::queue<std::pair<uint64_t, uint8_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
-    LtpTimerManager<uint64_t> m_timeManagerOfReportSerialNumbers;
+    std::queue<std::pair<uint64_t, uint32_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
+    
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
+    LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfReportSerialNumbersRef;
+    std::set<uint64_t> m_reportSerialNumberActiveTimersSet;
+    
     uint64_t m_nextReportSegmentReportSerialNumber;
     padded_vector_uint8_t m_dataReceivedRed;
     const uint64_t M_MAX_RECEPTION_CLAIMS;
@@ -80,7 +87,6 @@ private:
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
-    boost::asio::io_service & m_ioServiceRef;
     const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
     const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
 
