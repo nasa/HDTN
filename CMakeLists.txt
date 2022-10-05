@@ -48,6 +48,18 @@ if(NOT Boost_USE_STATIC_LIBS)
 	add_compile_definitions(BOOST_ALL_DYN_LINK) 
 endif()
 
+#Log level definitions
+add_compile_definitions(LOG_LEVEL_TRACE=0)
+add_compile_definitions(LOG_LEVEL_DEBUG=1)
+add_compile_definitions(LOG_LEVEL_INFO=2)
+add_compile_definitions(LOG_LEVEL_WARNING=3)
+add_compile_definitions(LOG_LEVEL_ERROR=4)
+add_compile_definitions(LOG_LEVEL_FATAL=5)
+add_compile_definitions(LOG_LEVEL_NONE=6)
+
+#Set log level
+add_compile_definitions(LOG_LEVEL=LOG_LEVEL_TRACE)
+
 #Bundle Storage Manager options
 SET(STORAGE_SEGMENT_ID_SIZE_BITS "32" CACHE STRING "Set word size of storage's segment_id_t to either 32-bit (default recommended) or 64-bit (high memory only systems for greater than 17TB storage).")
 if (STORAGE_SEGMENT_ID_SIZE_BITS STREQUAL "32")

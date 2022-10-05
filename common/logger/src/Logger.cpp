@@ -28,20 +28,8 @@ namespace keywords = boost::log::keywords;
 
 namespace hdtn{
 
-//Representation of severity level to the stream
-std::ostream& operator<< (std::ostream& strm, hdtn::severity_level level)
-{
-    if(static_cast<std::size_t>(level) < sizeof(severity_strings)/sizeof(*severity_strings))
-        strm << severity_strings[level];
-    else
-        strm << static_cast<int>(level);
-
-    return strm;
-}
-
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", hdtn::severity_level)
+BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", std::string)
-
 
 Logger::Logger()
 {
@@ -73,7 +61,7 @@ void Logger::init()
     createLogFileSinkForModule("egress");
     createLogFileSinkForModule("ingress");
     createLogFileSinkForModule("storage");
-    createLogFileSinkForSeverity(hdtn::severity_level::error);
+    createLogFileSinkForSeverity(logging::trivial::severity_level::error);
 
     logging::add_common_attributes(); //necessary for timestamp
 }
@@ -114,7 +102,7 @@ void Logger::createConsoleLogSink()
     );
     typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
     boost::shared_ptr<sink_t> cout_sink(new sink_t(cout_sink_backend));
-    cout_sink->set_filter(severity != hdtn::severity_level::error && severity != hdtn::severity_level::critical);
+    cout_sink->set_filter(severity != logging::trivial::severity_level::error && severity != logging::trivial::severity_level::fatal);
     cout_sink->set_formatter(fmt);
     cout_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(cout_sink);
@@ -127,7 +115,7 @@ void Logger::createConsoleLogSink()
     );
     typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
     boost::shared_ptr<sink_t> cerr_sink(new sink_t(cerr_sink_backend));
-    cout_sink->set_filter(severity == hdtn::severity_level::error || severity == hdtn::severity_level::critical);
+    cout_sink->set_filter(severity == logging::trivial::severity_level::error || severity == logging::trivial::severity_level::fatal);
     cerr_sink->set_formatter(fmt);
     cerr_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(cerr_sink);
@@ -152,7 +140,7 @@ void Logger::createLogFileSinkForModule(const std::string & module)
     logging::core::get()->add_sink(sink);
 }
 
-void Logger::createLogFileSinkForSeverity(hdtn::severity_level level)
+void Logger::createLogFileSinkForSeverity(logging::trivial::severity_level level)
 {
     logging::formatter severity_log_fmt = expr::stream
         << "[" << module_attr << "]["
@@ -173,31 +161,31 @@ void Logger::createLogFileSinkForSeverity(hdtn::severity_level level)
 void Logger::logInfo(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
-    BOOST_LOG_SEV(log_, info) << message;
+    // BOOST_LOG_SEV(log_, info) << message;
 }
 
 void Logger::logNotification(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
-    BOOST_LOG_SEV(log_, notification) << message;
+    // BOOST_LOG_SEV(log_, notification) << message;
 }
 
 void Logger::logWarning(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
-    BOOST_LOG_SEV(log_, warning) << message;
+    // BOOST_LOG_SEV(log_, warning) << message;
 }
 
 void Logger::logError(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
-    BOOST_LOG_SEV(log_, error) << message;
+    // BOOST_LOG_SEV(log_, error) << message;
 }
 
 void Logger::logCritical(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", module);
-    BOOST_LOG_SEV(log_, critical) << message;
+    // BOOST_LOG_SEV(log_, critical) << message;
 }
 
 
