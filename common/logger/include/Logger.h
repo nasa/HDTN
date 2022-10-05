@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <ostream>
 #include <string>
+#include <boost/core/null_deleter.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/attributes.hpp>
 #include <boost/log/attributes/scoped_attribute.hpp>
@@ -72,13 +73,15 @@ private:
     LOG_LIB_EXPORT ~Logger();
 
     LOG_LIB_EXPORT void init();
-    LOG_LIB_EXPORT void createModuleLogFile(const std::string & module);
+    LOG_LIB_EXPORT void createLogFileSinkForModule(const std::string & module);
+    LOG_LIB_EXPORT void createMainLogFileSink();
+    LOG_LIB_EXPORT void createConsoleLogSink();
 
     /**
      * Creates a new log file for the requested severity level.
      * @param level The severity level of the logs stored in this file.
      */ 
-    LOG_LIB_EXPORT void createSeverityLogFile(hdtn::severity_level level);
+    LOG_LIB_EXPORT void createLogFileSinkForSeverity(hdtn::severity_level level);
 
     boost::log::sources::severity_logger_mt<severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance

@@ -17,6 +17,8 @@ static const char* severity_strings[] =
     "Critical"
 };
 
+static const int log_file_rotation_size = 5 * 1024 * 1024; //5 MiB
+
 namespace logging = boost::log;
 namespace src = boost::log::sources;
 namespace expr = boost::log::expressions;
@@ -37,26 +39,6 @@ std::ostream& operator<< (std::ostream& strm, hdtn::severity_level level)
     return strm;
 }
 
-//Meant for logging modules using enums
-/*
-std::ostream& operator<< (std::ostream& strm, hdtn::module mod)
-{
-    static const char* strings[] =
-    {
-        "Egress",
-        "Ingress",
-        "Storage",
-    };
-
-    if(static_cast<std::size_t>(mod) < sizeof(strings)/sizeof(*strings))
-        strm << strings[mod];
-    else
-        strm << static_cast<int>(mod);
-
-    return strm;
-}
-*/
-
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", hdtn::severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", std::string)
 
@@ -65,8 +47,6 @@ Logger::Logger()
 {
     init();
 }
-
-//Logger::Logger(Logger const&){} - may need for singleton
 
 Logger::~Logger(){}
 
@@ -87,36 +67,73 @@ void Logger::init()
     //To prevent crash on termination
     boost::filesystem::path::imbue(std::locale("C"));
 
-    //set format for complete HDTN Log
-    logging::formatter hdtn_log_fmt = expr::stream
+    //Create sinks
+    createConsoleLogSink();
+    createMainLogFileSink();
+    createLogFileSinkForModule("egress");
+    createLogFileSinkForModule("ingress");
+    createLogFileSinkForModule("storage");
+    createLogFileSinkForSeverity(hdtn::severity_level::error);
+
+    logging::add_common_attributes(); //necessary for timestamp
+}
+
+void Logger::createMainLogFileSink()
+{
+    //Set logging format
+    logging::formatter fmt = expr::stream
         << "[" << module_attr << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
         << "][" << severity << "]: \t" << expr::smessage;
 
-    //Create hdtn log backend
+    //Create sink and attach to logger
     boost::shared_ptr<sinks::text_file_backend> sink_backend = 
         boost::make_shared<sinks::text_file_backend>(
             keywords::file_name = "logs/hdtn_%5N.log",
-            keywords::rotation_size = 5 * 1024 * 1024 //5 MiB
+            keywords::rotation_size = log_file_rotation_size
         );
- 
-    //Wrap log backend into frontend
     boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
-    sink->set_formatter(hdtn_log_fmt);
+    sink->set_formatter(fmt);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
-
-    //Add and format module log files
-    createModuleLogFile("egress");
-    createModuleLogFile("ingress");
-    createModuleLogFile("storage");
-    //Add error log
-    createSeverityLogFile(hdtn::severity_level::error);
-    logging::add_common_attributes(); //necessary for timestamp
-
 }
 
-void Logger::createModuleLogFile(const std::string & module)
+void Logger::createConsoleLogSink()
+{
+    //Set logging format
+    logging::formatter fmt = expr::stream
+        << "[" << module_attr << "]["
+        << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
+        << "][" << severity << "]: \t" << expr::smessage;
+
+    //Create sink for cout
+    boost::shared_ptr<sinks::text_ostream_backend> cout_sink_backend =
+        boost::make_shared<sinks::text_ostream_backend>();
+    cout_sink_backend->add_stream(
+        boost::shared_ptr<std::ostream>(&std::cout, boost::null_deleter())
+    );
+    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
+    boost::shared_ptr<sink_t> cout_sink(new sink_t(cout_sink_backend));
+    cout_sink->set_filter(severity != hdtn::severity_level::error && severity != hdtn::severity_level::critical);
+    cout_sink->set_formatter(fmt);
+    cout_sink->locked_backend()->auto_flush(true);
+    logging::core::get()->add_sink(cout_sink);
+
+    //Create sink for cerr
+    boost::shared_ptr<sinks::text_ostream_backend> cerr_sink_backend =
+        boost::make_shared<sinks::text_ostream_backend>();
+    cerr_sink_backend->add_stream(
+        boost::shared_ptr<std::ostream>(&std::cerr, boost::null_deleter())
+    );
+    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
+    boost::shared_ptr<sink_t> cerr_sink(new sink_t(cerr_sink_backend));
+    cout_sink->set_filter(severity == hdtn::severity_level::error || severity == hdtn::severity_level::critical);
+    cerr_sink->set_formatter(fmt);
+    cerr_sink->locked_backend()->auto_flush(true);
+    logging::core::get()->add_sink(cerr_sink);
+}
+
+void Logger::createLogFileSinkForModule(const std::string & module)
 {
     logging::formatter module_log_fmt = expr::stream
         << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
@@ -125,7 +142,7 @@ void Logger::createModuleLogFile(const std::string & module)
     boost::shared_ptr<sinks::text_file_backend> sink_backend =
         boost::make_shared<sinks::text_file_backend>(
             keywords::file_name = "logs/" + module + "_%5N.log",
-            keywords::rotation_size = 5 * 1024 * 1024 //5 MiB
+            keywords::rotation_size = log_file_rotation_size
         );
     boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
 
@@ -135,7 +152,7 @@ void Logger::createModuleLogFile(const std::string & module)
     logging::core::get()->add_sink(sink);
 }
 
-void Logger::createSeverityLogFile(hdtn::severity_level level)
+void Logger::createLogFileSinkForSeverity(hdtn::severity_level level)
 {
     logging::formatter severity_log_fmt = expr::stream
         << "[" << module_attr << "]["
@@ -144,7 +161,7 @@ void Logger::createSeverityLogFile(hdtn::severity_level level)
 
      boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
         keywords::file_name = "logs/" + std::string(severity_strings[level]) + "_%5N.log",
-        keywords::rotation_size = 5 * 1024 * 1024 //5 MiB
+        keywords::rotation_size = log_file_rotation_size
      );
     boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
     sink->set_formatter(severity_log_fmt);
