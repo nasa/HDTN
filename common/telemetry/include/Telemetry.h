@@ -41,7 +41,7 @@ struct EgressTelemetry_t{
 
     uint64_t type;
     uint64_t egressBundleCount;
-    uint64_t egressBundleData;
+    double egressBundleData;
     uint64_t egressMessageCount;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;

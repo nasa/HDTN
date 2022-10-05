@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="charset=UTF-8, width=device-width, initial-scale=1">
+    <title>HDTN CONFIG</title>
+</head>
+<body>
+    <div class="topnav">
+        <a href="../web_gui.html"> <span class="icon"><img src="../resources/home.svg" alt="Home icon" /></span><span class="title"> HDTN</span></a>
+        <a href="../web_gui.html"><img src="../resources/statistics.svg" alt="Pie chart icon" /> Statistics</a>
+        <a href="../config_page.html"><img src="../resources/config.svg" alt="Wrench icon" /> Config</a>
+        <a onclick="toggleModes()"><img src="../resources/sun.svg" alt="Sun icon" /></a>
+    </div>
+    <div class="details">
+        <div class="configParamStats">
+            <div class="cardTitle">
+                <h2>General Paramaters</h2>
+            </div>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>hdtnConfigName</td>
+                        <td class="data" id="hdtnConfigName"></td>
+                    </tr>
+                    <tr>
+                        <td>userInterfaceOn</td>
+                        <td class="data" id="userInterfaceOn"></td>
+                    </tr>
+                    <tr>
+                        <td>mySchemeName</td>
+                        <td class="data" id="mySchemeName"></td>
+                    </tr>
+                    <tr>
+                        <td>myNodeId</td>
+                        <td class="data" id="myNodeId"></td>
+                    </tr>
+                    <tr>
+                        <td>myBpEchoServiceId</td>
+                        <td class="data" id="myBpEchoServiceId"></td>
+                    </tr>
+                    <tr>
+                        <td>myCustodialSsp</td>
+                        <td class="data" id="myCustodialSsp"></td>
+                    </tr>
+                    <tr>
+                        <td>myCustodialServiceId</td>
+                        <td class="data" id="myCustodialServiceId"></td>
+                    </tr>
+                    <tr>
+                        <td>isAcsAware</td>
+                        <td class="data" id="isAcsAware"></td>
+                    </tr>
+                    <tr>
+                        <td>acsMaxFillsPerAcsPacket</td>
+                        <td class="data" id="acsMaxFillsPerAcsPacket"></td>
+                    </tr>
+                    <tr>
+                        <td>acsSendPeriodMilliseconds</td>
+                        <td class="data" id="acsSendPeriodMilliseconds"></td>
+                    </tr>
+                    <tr>
+                        <td>retransmitBundleAfterNoCustodySignalMilliseconds</td>
+                        <td class="data" id="retransmitBundleAfterNoCustodySignalMilliseconds"></td>
+                    </tr>
+                    <tr>
+                        <td>maxBundleSizeBytes</td>
+                        <td class="data" id="maxBundleSizeBytes"></td>
+                    </tr>
+                    <tr>
+                        <td>maxIngressBundleWaitOnEgressMilliseconds</td>
+                        <td class="data" id="maxIngressBundleWaitOnEgressMilliseconds"></td>
+                    </tr>
+                    <tr>
+                        <td>maxLtpReceiveUdpPacketSizeBytes</td>
+                        <td class="data" id="maxLtpReceiveUdpPacketSizeBytes"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqIngressAddress</td>
+                        <td class="data" id="zmqIngressAddress"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqEgressAddress</td>
+                        <td class="data" id="zmqEgressAddress"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqStorageAddress</td>
+                        <td class="data" id="zmqStorageAddress"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqRegistrationServerAddress</td>
+                        <td class="data" id="zmqRegistrationServerAddress"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqSchedulerAddress</td>
+                        <td class="data" id="zmqSchedulerAddress"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqRouterAddress</td>
+                        <td class="data" id="zmqRouterAddress"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqBoundIngressToConnectingEgressPortPath</td>
+                        <td class="data" id="zmqBoundIngressToConnectingEgressPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqConnectingEgressToBoundIngressPortPath</td>
+                        <td class="data" id="zmqConnectingEgressToBoundIngressPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqConnectingEgressBundlesOnlyToBoundIngressPortPath</td>
+                        <td class="data" id="zmqConnectingEgressBundlesOnlyToBoundIngressPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqBoundIngressToConnectingStoragePortPath</td>
+                        <td class="data" id="zmqBoundIngressToConnectingStoragePortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqConnectingStorageToBoundIngressPortPath</td>
+                        <td class="data" id="zmqConnectingStorageToBoundIngressPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqConnectingStorageToBoundEgressPortPath</td>
+                        <td class="data" id="zmqConnectingStorageToBoundEgressPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqBoundEgressToConnectingStoragePortPath</td>
+                        <td class="data" id="zmqBoundEgressToConnectingStoragePortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqRegistrationServerPortPath</td>
+                        <td class="data" id="rate_data"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqBoundSchedulerPubSubPortPath</td>
+                        <td class="data" id="zmqBoundSchedulerPubSubPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqBoundRouterPubSubPortPath</td>
+                        <td class="data" id="zmqBoundRouterPubSubPortPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqMaxMessagesPerPath</td>
+                        <td class="data" id="zmqMaxMessagesPerPath"></td>
+                    </tr>
+                    <tr>
+                        <td>zmqMaxMessageSizeBytes</td>
+                        <td class="data" id="zmqMaxMessageSizeBytes"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="configParamStats">
+            <div class="cardTitle">
+                <h2>Induct Parameters</h2>
+            </div>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>inductConfigName</td>
+                        <td></td>
+                    </tr>
+                    <!--multiple inducts-->
+                    <tr>
+                        <td>inductVector</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>name</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>convergenceLayer</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>myEndpointId</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>boundPort</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>numRxCircularBufferElements</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>numRxCircularBufferBytesPerElement</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>keepAliveIntervalSeconds</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>tcpclV3MyMaxTxSegmentSizeBytes</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="configParamStats">
+            <div class="cardTitle">
+                <h2>Outduct Parameters</h2>
+            </div>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>outductConfigName</td>
+                        <td></td>
+                    </tr>
+                    <!--multiple outducts-->
+                    <tr>
+                        <td>outductVector</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>name</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>convergenceLayer</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>nextHopEndpointId</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>remoteHostname</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>remotePort</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>bundlePipelineLimit</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>finalDestinationEidUris</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>keepAliveIntervalSeconds</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>tcpclV3MyMaxTxSegmentSizeBytes</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>tcpclAllowOpportunisticReceiveBundles</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="configParamStats">
+            <div class="cardTitle">
+                <h2>Storage Parameters</h2>
+            </div>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>storageImplementation</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>autoDeleteFilesOnExit</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>totalStorageCapacityBytes</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td>storageDiskConfigVector</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <link type="text/css" rel="stylesheet" href="../css/style.css" />
+
+    <script>
+        function toggleModes() {
+            var element = document.body;
+            element.classList.toggle("light-mode");
+        }
+    </script>
+</body>
+</html>
