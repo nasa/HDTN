@@ -219,6 +219,12 @@ private:
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfReportSerialNumbers;
 
+    //boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports;
+    //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
+    //  sessionNumber = the session number
+    //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
+    //LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfSendingDelayedReceptionReports;
+
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers;
     // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
     // but now sharing a single LtpTimerManager among all sessions, so use a

@@ -39,6 +39,8 @@ private:
     LtpSessionReceiver();
 
     LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
+    LTP_LIB_NO_EXPORT void HandleGenerateAndSendReportSegment(const uint64_t checkpointSerialNumber,
+        const uint64_t lowerBound, const uint64_t upperBound, const bool checkpointIsResponseToReportSegment);
 public:
     
     

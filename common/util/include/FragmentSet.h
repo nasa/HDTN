@@ -48,12 +48,20 @@ public:
         static bool SimulateSetKeyFind(const data_fragment_t & key, const data_fragment_t & keyInSet);
     };
 
+    struct HDTN_UTIL_EXPORT data_fragment_no_overlap_allow_abut_t : public data_fragment_t { //class which allows searching ignoring whether or not the keys abut
+        bool operator<(const data_fragment_no_overlap_allow_abut_t& o) const;
+    };
+
 public:
-    
-    static void InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
+    //return true if the set was modified, false if unmodified
+    static bool InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key);
+
     static bool ContainsFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
     static bool DoesNotContainFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
-    static void RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+
+    //return true if the set was modified, false if unmodified
+    static bool RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key);
+
     static void PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet);
 };
 

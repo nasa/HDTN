@@ -118,23 +118,28 @@ bool LtpFragmentSet::SplitReportSegment(const Ltp::report_segment_t & originalTo
     return true;
 }
 
-void LtpFragmentSet::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment) {
+//return true if the set was modified, false if unmodified
+bool LtpFragmentSet::AddReportSegmentToFragmentSet(std::set<data_fragment_t> & fragmentSet, const Ltp::report_segment_t & reportSegment) {
     const uint64_t lowerBound = reportSegment.lowerBound;
+    unsigned int numModified = 0;
     for (std::vector<Ltp::reception_claim_t>::const_iterator it = reportSegment.receptionClaims.cbegin(); it != reportSegment.receptionClaims.cend(); ++it) {
         const uint64_t beginIndex = lowerBound + it->offset;
-        InsertFragment(fragmentSet, data_fragment_t(beginIndex, (beginIndex + it->length) - 1));
+        numModified += InsertFragment(fragmentSet, data_fragment_t(beginIndex, (beginIndex + it->length) - 1));
     }
+    return (numModified != 0);
 }
 
-void LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment) {
+//return true if the set was modified, false if unmodified
+bool LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment) {
     const std::vector<Ltp::reception_claim_t> & receptionClaims = reportSegment.receptionClaims;
+    unsigned int numModified = 0;
     if (receptionClaims.empty()) {
-        return;
+        return false;
     }
     const uint64_t lowerBound = reportSegment.lowerBound;
     std::vector<Ltp::reception_claim_t>::const_iterator it = receptionClaims.cbegin();
     if (it->offset > 0) { //add one
-        InsertFragment(fragmentSetNeedingResent, data_fragment_t(lowerBound, (lowerBound + it->offset) - 1));
+        numModified += InsertFragment(fragmentSetNeedingResent, data_fragment_t(lowerBound, (lowerBound + it->offset) - 1));
     }
     //uint64_t nextBeginIndex = lowerBound;
     const Ltp::reception_claim_t * previousReceptionClaim = NULL;
@@ -142,13 +147,14 @@ void LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fr
         if (previousReceptionClaim) {
             const uint64_t beginIndex = lowerBound + previousReceptionClaim->offset + previousReceptionClaim->length;
             const uint64_t endIndex = (lowerBound + it->offset) - 1;
-            InsertFragment(fragmentSetNeedingResent, data_fragment_t(beginIndex, endIndex));
+            numModified += InsertFragment(fragmentSetNeedingResent, data_fragment_t(beginIndex, endIndex));
         }
         //nextBeginIndex = (lowerBound + it->offset + it->length);
         previousReceptionClaim = &(*it);
     }
     const uint64_t beginIndex = lowerBound + previousReceptionClaim->offset + previousReceptionClaim->length;;
     if (beginIndex < reportSegment.upperBound) {
-        InsertFragment(fragmentSetNeedingResent, data_fragment_t(beginIndex, reportSegment.upperBound - 1));
+        numModified += InsertFragment(fragmentSetNeedingResent, data_fragment_t(beginIndex, reportSegment.upperBound - 1));
     }
+    return (numModified != 0);
 }
