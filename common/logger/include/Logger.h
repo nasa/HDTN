@@ -39,35 +39,70 @@
 
 namespace hdtn{
 
-/*
- * Logging macros
+/**
+ * The following macros provide access for logging at various levels
  */
-#define LOG_TRACE(module) \
-    if (LOG_LEVEL > LOG_LEVEL_TRACE) {} \
-    else _LOG_INTERNAL(module, trace)
+#if LOG_LEVEL > LOG_LEVEL_TRACE
+    #define LOG_TRACE(module) _NO_OP
+#else
+    #define LOG_TRACE(module) _LOG_INTERNAL(module, trace)
+#endif
+   
+#if LOG_LEVEL > LOG_LEVEL_DEBUG
+    #define LOG_DEBUG(module) _NO_OP
+#else
+    #define LOG_DEBUG(module) _LOG_INTERNAL(module, debug)
+#endif
 
-#define LOG_DEBUG(module) \
-    if (LOG_LEVEL > LOG_LEVEL_DEBUG) {} \
-    else _LOG_INTERNAL(module, debug)
+#if LOG_LEVEL > LOG_LEVEL_INFO
+    #define LOG_INFO(module) _NO_OP
+#else
+    #define LOG_INFO(module) _LOG_INTERNAL(module, info)
+#endif
 
-#define LOG_INFO(module) \
-    if (LOG_LEVEL > LOG_LEVEL_INFO) {} \
-    else _LOG_INTERNAL(module, info)
+#if LOG_LEVEL > LOG_LEVEL_WARNING
+    #define LOG_WARNING(module) _NO_OP
+#else
+    #define LOG_WARNING(module) _LOG_INTERNAL(module, warning)
+#endif
 
-#define LOG_WARNING(module) \
-    if (LOG_LEVEL > LOG_LEVEL_WARNING) {} \
-    else _LOG_INTERNAL(module, warning)
+#if LOG_LEVEL > LOG_LEVEL_ERROR
+    #define LOG_ERROR(module) _NO_OP
+#else
+    #define LOG_ERROR(module) _LOG_INTERNAL(module, error)
+#endif
 
-#define LOG_ERROR(module) \
-    if (LOG_LEVEL > LOG_LEVEL_ERROR) {} \
-    else _LOG_INTERNAL(module, error)
+#if LOG_LEVEL > LOG_LEVEL_FATAL
+    #define LOG_FATAL(module) _NO_OP
+#else
+    #define LOG_FATAL(module) _LOG_INTERNAL(module, fatal)
+#endif
 
-#define LOG_FATAL(module) \
-    if (LOG_LEVEL > LOG_LEVEL_FATAL) {} \
-    else _LOG_INTERNAL(module, fatal)
+/**
+ * _LOG_INTERNAL performs the actual logging. It should only
+ * be used internally.
+ */
+#define _LOG_INTERNAL(module, lvl)\
+    Logger::ensureInitialized();\
+    _ADD_LOG_ATTRIBUTES(module);\
+    BOOST_LOG_TRIVIAL(lvl)
 
-#define _LOG_INTERNAL(module, level)\
-    BOOST_LOG_TRIVIAL(level)
+/**
+ * _NO_OP is a macro to efficiently discard a streaming expression. Since the "else"
+ * branch is never taken, the compiler should optimize it out.
+ */
+#define _NO_OP if (true) {} else std::cout
+
+/**
+ * _ADD_LOG_ATTRIBUTES adds attributes to the logger
+ */
+#define _ADD_LOG_ATTRIBUTES(module)\
+    boost::log::trivial::logger::get().add_attribute("File",\
+         boost::log::attributes::constant<std::string>(__FILE__));\
+    boost::log::trivial::logger::get().add_attribute("Module",\
+        boost::log::attributes::constant<std::string>(module));\
+    boost::log::trivial::logger::get().add_attribute("Line",\
+        boost::log::attributes::constant<unsigned int>(__LINE__))
 
 typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sink_t;
 
@@ -77,7 +112,13 @@ typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend
 class Logger
 {
 public:
+    /**
+     * Initializes the logger if it hasn't been created yet. This is intended to be called from
+     * the LOG_* macros.
+     */
     LOG_LIB_EXPORT static void ensureInitialized();
+
+    // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static Logger* getInstance();
     LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
     LOG_LIB_EXPORT void logNotification(const std::string & module, const std::string & message);

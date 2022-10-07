@@ -26,47 +26,15 @@ namespace keywords = boost::log::keywords;
 
 namespace hdtn{
 
-//Representation of severity level to the stream
-// std::ostream& operator<< (std::ostream& strm, logging::trivial::severity_level level)
-// {
-//     if(static_cast<std::size_t>(level) < sizeof(severity_strings)/sizeof(*severity_strings))
-//         strm << severity_strings[level];
-//     else
-//         strm << static_cast<int>(level);
-
-//     return strm;
-// }
-
-//Meant for logging modules using enums
-/*
-std::ostream& operator<< (std::ostream& strm, hdtn::module mod)
-{
-    static const char* strings[] =
-    {
-        "Egress",
-        "Ingress",
-        "Storage",
-    };
-
-    if(static_cast<std::size_t>(mod) < sizeof(strings)/sizeof(*strings))
-        strm << strings[mod];
-    else
-        strm << static_cast<int>(mod);
-
-    return strm;
-}
-*/
-
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level)
 BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", std::string)
-
+BOOST_LOG_ATTRIBUTE_KEYWORD(file_attr, "File", std::string)
+BOOST_LOG_ATTRIBUTE_KEYWORD(line_attr, "Line", unsigned int)
 
 Logger::Logger()
 {
     init();
 }
-
-//Logger::Logger(Logger const&){} - may need for singleton
 
 Logger::~Logger(){}
 
@@ -167,9 +135,8 @@ void Logger::createConsoleLogSink()
 {
     //Set logging format
     logging::formatter fmt = expr::stream
-        << "[" << module_attr << "]["
-        << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: \t" << expr::smessage;
+        << "[" << module_attr << "]"
+        << "[" << severity << "]: \t" << expr::smessage;
 
     //Create sink for cout
     boost::shared_ptr<sinks::text_ostream_backend> cout_sink_backend =

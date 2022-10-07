@@ -58,7 +58,7 @@ add_compile_definitions(LOG_LEVEL_FATAL=5)
 add_compile_definitions(LOG_LEVEL_NONE=6)
 
 #Set log level
-add_compile_definitions(LOG_LEVEL=LOG_LEVEL_TRACE)
+add_compile_definitions(LOG_LEVEL=LOG_LEVEL_INFO)
 
 #Bundle Storage Manager options
 SET(STORAGE_SEGMENT_ID_SIZE_BITS "32" CACHE STRING "Set word size of storage's segment_id_t to either 32-bit (default recommended) or 64-bit (high memory only systems for greater than 17TB storage).")
