@@ -280,11 +280,12 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                         rate = (8.0 * (telem.totalData - lastData)) / elapsedTime.total_microseconds();
                         averageRate = (8.0 * telem.totalData) / totalTime.total_microseconds();
                         lastData = telem.totalData;
-                        //std::cout << "Ingress Rate: " << rate << "\n";
+                        std::cout << "Bundles Egress: " << telem.bundleCountEgress << "\n";
+			std::cout << "Bundles Storage: " << telem.bundleCountStorage << "\n";
 
                         telem.bundleDataRate = rate;
                         telem.averageDataRate = averageRate;
-                        SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
+			SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
                     }
                 }
                 if (items[1].revents & ZMQ_POLLIN) { //egress telemetry received

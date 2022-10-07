@@ -27,4 +27,4 @@ sleep 1
 ./build/common/bpcodec/apps/bpgen-async --use-bp-version-7 --bundle-rate=100 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
 sleep 8
 
-
+./build/module/gui/web_interface

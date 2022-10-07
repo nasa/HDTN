@@ -46,7 +46,7 @@ Plotly.newPlot(GRAPH, rate_data_ingress, layout, { displaylogo: false });
 //Struct for Pie Chart of bundle destinations
 var pie_data = [{
     //add variables for storage: egress ratio
-    values: [29,71],
+    values: [0,0],
     labels: ['Storage', 'Egress'], 
     type: 'pie'
 }];
@@ -68,50 +68,6 @@ var pie_layout = {
 Plotly.newPlot('storage_egress_chart', pie_data, pie_layout, { displaylogo: false });
 
 var rateCount = 0;
-//Runs when JSON Message is received
-//Updates Graphs and Tables based on the new data
-function UpdateData(objJson){
-    if("bundleDataRate" in objJson){
-        rate_data[0]['x'].push(rateCount++);
-        rate_data[0]['y'].push(parseFloat(objJson.bundleDataRate));
-        //console.log(rate_data[0]['y']);
-        Plotly.update(GRAPH, rate_data, layout);
-        document.getElementById("rate_data").innerHTML = parseFloat(objJson.bundleDataRate).toFixed(3);
-        document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data[0].y).toFixed(3);
-    }
-    if("averageRate" in objJson){
-        document.getElementById("avg_data").innerHTML = parseFloat(objJson.averageRate).toFixed(3);
-    }
-    if("totalData" in objJson){
-        document.getElementById("ingressBundleData").innerHTML = parseFloat(objJson.totalData).toFixed(2);
-    }
-    if("bundleCountStorage" in objJson && "bundleCountEgress" in objJson){
-        pie_data[0]['values'] = [parseInt(objJson.bundleCountStorage), parseInt(objJson.bundleCountEgress)];
-        Plotly.update('storage_egress_chart', pie_data, pie_layout);
-
-        document.getElementById("ingressBundleCountStorage").innerHTML = objJson.bundleCountStorage;
-        document.getElementById("ingressBundleCountEgress").innerHTML = objJson.bundleCountEgress;
-        document.getElementById("ingressBundleCount").innerHTML = parseInt(objJson.bundleCountStorage) + parseInt(objJson.bundleCountEgress);
-
-    }
-    if("egressBundleCount" in objJson){
-        document.getElementById("egressBundleCount").innerHTML = objJson.egressBundleCount;
-    }
-    if("egressBundleData" in objJson){
-        document.getElementById("egressBundleData").innerHTML = parseFloat(objJson.egressBundleData).toFixed(2);
-    }
-    if("egressMessageCount" in objJson){
-        document.getElementById("egressMessageCount").innerHTML = objJson.egressMessageCount;
-    }
-    if("totalBundlesErasedFromStorage" in objJson){
-        document.getElementById("totalBundlesErasedFromStorage").innerHTML = objJson.totalBundlesErasedFromStorage;
-    }
-    if("totalBundlesSentToEgressFromStorage" in objJson){
-        document.getElementById("totalBundlesSentToEgressFromStorage").innerHTML = objJson.totalBundlesSentToEgressFromStorage;
-    }
-
-}
-
 var egressBundleCount = 0;
 var egressRate = 0;
 var startTime = new Date().getTime()/1000;
@@ -178,16 +134,20 @@ window.addEventListener("load", function(event){
                 byteIndex += 8;
                 var bundleCountStorage = dv.getUint64(byteIndex, littleEndian);
         
-        
                 rate_data_ingress[0]['x'].push(rateCount++);
                 rate_data_ingress[0]['y'].push(rate);
-                console.log(rate_data_ingress[0]['y']);
                 Plotly.update(GRAPH, rate_data_ingress, layout);
+        	pie_data[0]['values'] = [bundleCountStorage, bundleCountEgress];
+		Plotly.update('storage_egress_chart', pie_data, pie_layout);
                 document.getElementById("rate_data").innerHTML = rate.toFixed(3);
                 document.getElementById("max_data").innerHTML = Math.max.apply(Math, rate_data_ingress[0].y).toFixed(3);
                 document.getElementById("avg_data").innerHTML = averageRate.toFixed(3);
                 document.getElementById("ingressBundleData").innerHTML = totalData.toFixed(2);              
-            }
+	        document.getElementById("ingressBundleCountStorage").innerHTML = bundleCountStorage;
+        	document.getElementById("ingressBundleCountEgress").innerHTML = bundleCountEgress;
+        	document.getElementById("ingressBundleCount").innerHTML = bundleCountStorage + bundleCountEgress;
+
+	    }
             else if(type == 2){
                 //Egress
 		egressBundleCount = dv.getUint64(byteIndex, littleEndian);
@@ -201,6 +161,7 @@ window.addEventListener("load", function(event){
 		lastTime = newTime;
 		egressRate = (8.0 * (egressBundleData - lastEgressData))/duration;
 		lastEgressData = egressBundleData;
+
 		document.getElementById("egressDataRate").innerHTML = egressRate.toFixed(3);
 		document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
                 document.getElementById("egressBundleData").innerHTML = egressBundleData.toFixed(2);
