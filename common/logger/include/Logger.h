@@ -67,8 +67,6 @@ namespace hdtn{
     else _LOG_INTERNAL(module, fatal)
 
 #define _LOG_INTERNAL(module, level)\
-    hdtn::Logger::ensureInitialized();\
-    BOOST_LOG_SCOPED_THREAD_TAG("Module", module);\
     BOOST_LOG_TRIVIAL(level)
 
 typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sink_t;
