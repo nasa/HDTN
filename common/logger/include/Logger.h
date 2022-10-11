@@ -137,6 +137,7 @@ public:
     LOG_LIB_EXPORT static std::string toString(Logger::Module module);
 
     // Deprecated -- use LOG_* macros instead.
+    LOG_LIB_EXPORT Module fromString(std::string module);
     LOG_LIB_EXPORT static Logger* getInstance();
     LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
     LOG_LIB_EXPORT void logNotification(const std::string & module, const std::string & message);
