@@ -67,12 +67,14 @@ public:
         const GreenPartSegmentArrivalCallback_t & greenPartSegmentArrivalCallback);
 private:
     std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsSet;
-    std::map<uint64_t, Ltp::report_segment_t> m_mapAllReportSegmentsSent;
-    std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
+    typedef std::map<uint64_t, Ltp::report_segment_t> report_segments_sent_map_t;
+    report_segments_sent_map_t m_mapAllReportSegmentsSent;
+    report_segments_sent_map_t::const_iterator m_itLastitPrimaryReportSegmentsSent; //std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     
     //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
-    std::queue<std::pair<uint64_t, uint32_t> > m_reportSerialNumbersToSendQueue; //pair<reportSerialNumber, retryCount>
+    typedef std::pair<report_segments_sent_map_t::const_iterator, uint32_t> it_retrycount_pair_t; //pair<iterator from m_mapAllReportSegmentsSent, retryCount>
+    std::queue<it_retrycount_pair_t> m_reportsToSendQueue;
     
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfReportSerialNumbersRef;
