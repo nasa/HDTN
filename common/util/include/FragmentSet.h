@@ -49,6 +49,7 @@ public:
     };
 
     struct HDTN_UTIL_EXPORT data_fragment_no_overlap_allow_abut_t : public data_fragment_t { //class which allows searching ignoring whether or not the keys abut
+        data_fragment_no_overlap_allow_abut_t(uint64_t paramBeginIndex, uint64_t paramEndIndex);
         bool operator<(const data_fragment_no_overlap_allow_abut_t& o) const;
     };
 

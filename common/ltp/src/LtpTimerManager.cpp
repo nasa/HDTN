@@ -170,6 +170,11 @@ bool LtpTimerManager<idType, hashType>::Empty() const {
     return m_listTimerData.empty();
 }
 
+template <typename idType, typename hashType>
+const boost::posix_time::time_duration& LtpTimerManager<idType, hashType>::GetTimeDurationRef() const {
+    return m_transmissionToAckReceivedTimeRef;
+}
+
 // Explicit template instantiation
 template class LtpTimerManager<uint64_t, std::hash<uint64_t> >;
 

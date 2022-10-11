@@ -93,6 +93,16 @@ public:
      * in which the receiver shall respond with a cancel ack in order to determine if the link is active.
      * A link down callback will be called if a cancel ack is not received after (RTT * maxRetriesPerSerialNumber).
      * This parameter should be set to zero for a receiver as there is currently no use case for a receiver to detect link-up.
+     * @param delaySendingOfReportSegmentsTimeMsOrZeroToDisable The number of milliseconds the ltp engine
+     * should wait for gaps to be filled.
+     * When red part data is segmented and delivered to the receiving engine out-of-order,
+     * the checkpoint(s) and EORP can be received before the earlier-in-block data segments.
+     * If a synchronous report is sent immediately upon receiving the checkpoint there will be
+     * data segments in-flight and about to be delivered that will be seen as reception gaps in the report.
+     * Instead of sending the synchronous report immediately upon receiving a checkpoint segment
+     * the receiving engine should wait this period of time before sending the report segment.
+     * The delay time will reset upon any data segments which fill gaps.
+     * This parameter should be set to zero for a sender.
      * 
      * @return True if the operation completed successfully (or false otherwise).
      */
@@ -102,7 +112,8 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
         const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable);
+        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
+        const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable);
 
     LTP_LIB_EXPORT LtpUdpEngine * GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct);
     LTP_LIB_EXPORT void RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback);

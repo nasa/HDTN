@@ -45,10 +45,11 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
         const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable);
+        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpUdpEngine();
 
+    LTP_LIB_EXPORT void Reset_ThreadSafe_Blocking();
     LTP_LIB_EXPORT virtual void Reset();
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
@@ -87,6 +88,10 @@ private:
     std::vector<std::vector<boost::uint8_t> > m_udpReceiveBuffersCbVec;
 
     bool m_printedCbTooSmallNotice;
+
+    //for safe unit test resets
+    volatile bool m_resetInProgress;
+    boost::condition_variable m_resetConditionVariable;
 
 public:
     volatile uint64_t m_countAsyncSendCalls;

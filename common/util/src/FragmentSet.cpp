@@ -51,6 +51,8 @@ bool FragmentSet::data_fragment_t::SimulateSetKeyFind(const data_fragment_t & ke
 bool FragmentSet::data_fragment_no_overlap_allow_abut_t::operator<(const data_fragment_no_overlap_allow_abut_t& o) const { //operator < (no overlap allow abut)
     return (endIndex < o.beginIndex);
 }
+FragmentSet::data_fragment_no_overlap_allow_abut_t::data_fragment_no_overlap_allow_abut_t(uint64_t paramBeginIndex, uint64_t paramEndIndex) :
+    data_fragment_t(paramBeginIndex, paramEndIndex) { }
 
 //return true if the set was modified, false if unmodified
 bool FragmentSet::InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key) {

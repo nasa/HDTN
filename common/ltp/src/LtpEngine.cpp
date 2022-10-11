@@ -27,7 +27,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
     const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable) :
+    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -36,8 +36,11 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     M_ONE_WAY_LIGHT_TIME(oneWayLightTime),
     M_ONE_WAY_MARGIN_TIME(oneWayMarginTime),
     m_transmissionToAckReceivedTime((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
+    m_delaySendingOfReportSegmentsTime((delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
+        boost::posix_time::milliseconds(delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
+        boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)), //todo
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
-    m_stagnantRxSessionTime(m_transmissionToAckReceivedTime* static_cast<int>(maxRetriesPerSerialNumber + 1)),
+    m_stagnantRxSessionTime((m_transmissionToAckReceivedTime * static_cast<int>(maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
     M_SENDER_PING_SECONDS_OR_ZERO_TO_DISABLE(senderPingSecondsOrZeroToDisable),
     M_SENDER_PING_TIME(boost::posix_time::seconds(senderPingSecondsOrZeroToDisable)),
@@ -47,9 +50,11 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE(rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable),
     m_checkpointEveryNthDataPacketSender(checkpointEveryNthDataPacketSender),
     m_maxRetriesPerSerialNumber(maxRetriesPerSerialNumber),
-    m_workLtpEnginePtr(boost::make_unique< boost::asio::io_service::work>(m_ioServiceLtpEngine)),
+    m_workLtpEnginePtr(boost::make_unique<boost::asio::io_service::work>(m_ioServiceLtpEngine)),
     m_deadlineTimerForTimeManagerOfReportSerialNumbers(m_ioServiceLtpEngine),
     m_timeManagerOfReportSerialNumbers(m_deadlineTimerForTimeManagerOfReportSerialNumbers, m_transmissionToAckReceivedTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1),
+    m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports(m_ioServiceLtpEngine),
+    m_timeManagerOfSendingDelayedReceptionReports(m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports, m_delaySendingOfReportSegmentsTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1), //TODO
     m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers(m_ioServiceLtpEngine),
     m_timeManagerOfCheckpointSerialNumbers(m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers, m_transmissionToAckReceivedTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1),
     m_deadlineTimerForTimeManagerOfCancelSegments(m_ioServiceLtpEngine),
@@ -132,6 +137,7 @@ void LtpEngine::Reset() {
     m_timeManagerOfCancelSegments.Reset();
     m_timeManagerOfCheckpointSerialNumbers.Reset();
     m_timeManagerOfReportSerialNumbers.Reset();
+    m_timeManagerOfSendingDelayedReceptionReports.Reset();
 
     m_queueCancelSegmentTimerInfo = std::queue<cancel_segment_timer_info_t>();
     m_queueSendersNeedingDeleted = std::queue<uint64_t>();
@@ -871,7 +877,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         const uint64_t randomNextReportSegmentReportSerialNumber = (M_FORCE_32_BIT_RANDOM_NUMBERS) ? m_rng.GetRandomSerialNumber32(m_randomDevice) : m_rng.GetRandomSerialNumber64(m_randomDevice); //incremented by 1 for new
         std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims,
             M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, M_MAX_RED_RX_BYTES_PER_SESSION,
-            sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_timeManagerOfReportSerialNumbers,
+            sessionId, dataSegmentMetadata.clientServiceId, M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_timeManagerOfReportSerialNumbers, m_timeManagerOfSendingDelayedReceptionReports,
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
             boost::bind(&LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData, this, boost::placeholders::_1), m_maxRetriesPerSerialNumber);
 
@@ -1035,7 +1041,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
         //The point is to know when to give up on an RX session and discard unneeded state.
         uint64_t countStagnantRxSessions = 0;
         for (map_session_id_to_session_receiver_t::const_iterator rxSessionIt = m_mapSessionIdToSessionReceiver.cbegin(); rxSessionIt != m_mapSessionIdToSessionReceiver.cend(); ++rxSessionIt) {
-            if (rxSessionIt->second->m_lastDataSegmentReceivedTimestamp <= stagnantRxSessionTimeThreshold) {
+            if ((rxSessionIt->second->m_lastSegmentReceivedTimestamp <= stagnantRxSessionTimeThreshold) && (rxSessionIt->second->GetNumActiveTimers() == 0)) {
                 ++countStagnantRxSessions;
 
                 //erase session
