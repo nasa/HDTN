@@ -48,17 +48,32 @@ if(NOT Boost_USE_STATIC_LIBS)
 	add_compile_definitions(BOOST_ALL_DYN_LINK) 
 endif()
 
-#Log level definitions
-add_compile_definitions(LOG_LEVEL_TRACE=0)
-add_compile_definitions(LOG_LEVEL_DEBUG=1)
-add_compile_definitions(LOG_LEVEL_INFO=2)
-add_compile_definitions(LOG_LEVEL_WARNING=3)
-add_compile_definitions(LOG_LEVEL_ERROR=4)
-add_compile_definitions(LOG_LEVEL_FATAL=5)
-add_compile_definitions(LOG_LEVEL_NONE=6)
+#Log level definitions. These match the Boost trivial log levels.
+SET(LOG_LEVEL_TRACE 0)
+SET(LOG_LEVEL_DEBUG 1)
+SET(LOG_LEVEL_INFO 2)
+SET(LOG_LEVEL_WARNING 3)
+SET(LOG_LEVEL_ERROR 4)
+SET(LOG_LEVEL_FATAL 5)
+SET(LOG_LEVEL_NONE 6)
 
-#Set log level
-add_compile_definitions(LOG_LEVEL=LOG_LEVEL_INFO)
+#Set log level. This line can be updated to change the logging level.
+SET(LOG_LEVEL ${LOG_LEVEL_INFO})
+
+#Add logging compile definitions and validate
+add_compile_definitions(LOG_LEVEL_TRACE=LOG_LEVEL_TRACE)
+add_compile_definitions(LOG_LEVEL_DEBUG=LOG_LEVEL_DEBUG)
+add_compile_definitions(LOG_LEVEL_INFO=LOG_LEVEL_INFO)
+add_compile_definitions(LOG_LEVEL_WARNING=LOG_LEVEL_WARNING)
+add_compile_definitions(LOG_LEVEL_ERROR=LOG_LEVEL_ERROR)
+add_compile_definitions(LOG_LEVEL_FATAL=LOG_LEVEL_FATAL)
+add_compile_definitions(LOG_LEVEL_NONE=LOG_LEVEL_NONE)
+add_compile_definitions(LOG_LEVEL=LOG_LEVEL)
+if (LOG_LEVEL GREATER LOG_LEVEL_INFO)
+	message(WARNING "You are building with a log level of ${LOG_LEVEL}. You may miss important log messages.")
+elseif (LOG_LEVEL LESS LOG_LEVEL_INFO)
+	message(WARNING "You are building with a log level of ${LOG_LEVEL}. This contains extra logging that may be too verbose for production.")
+endif()
 
 #Bundle Storage Manager options
 SET(STORAGE_SEGMENT_ID_SIZE_BITS "32" CACHE STRING "Set word size of storage's segment_id_t to either 32-bit (default recommended) or 64-bit (high memory only systems for greater than 17TB storage).")
