@@ -17,6 +17,21 @@ static const char* severity_strings[] =
     "Critical"
 };
 
+/**
+ * Contains string values that correspond to the "Module" enum
+ * in Logger.h. If a new module is added, a string representation
+ * should be added here.
+ */
+static const std::string module_strings[] =
+{
+    "egress",
+    "ingress",
+    "router",
+    "scheduler",
+    "storage",
+};
+
+// Namespaces recommended by the Boost log library
 namespace logging = boost::log;
 namespace src = boost::log::sources;
 namespace expr = boost::log::expressions;
@@ -27,9 +42,17 @@ namespace keywords = boost::log::keywords;
 namespace hdtn{
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level)
-BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", std::string)
+BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", Logger::Module)
 BOOST_LOG_ATTRIBUTE_KEYWORD(file_attr, "File", std::string)
 BOOST_LOG_ATTRIBUTE_KEYWORD(line_attr, "Line", unsigned int)
+
+/**
+ * Overloads the stream operator to support the Module enum
+ */
+std::ostream& operator<< (std::ostream& strm, Logger::Module module)
+{
+    return strm << Logger::toString(module);
+}
 
 Logger::Logger()
 {
@@ -83,9 +106,9 @@ void Logger::init()
     logging::core::get()->add_sink(sink);
 
     //Add and format module log files
-    createModuleLogFile("egress");
-    createModuleLogFile("ingress");
-    createModuleLogFile("storage");
+    createModuleLogFile(Logger::Module::egress);
+    createModuleLogFile(Logger::Module::ingress);
+    createModuleLogFile(Logger::Module::storage);
 
     //Add error log
     createSeverityLogFile(logging::trivial::severity_level::error);
@@ -94,7 +117,7 @@ void Logger::init()
     createConsoleLogSink();
 }
 
-void Logger::createModuleLogFile(const std::string & module)
+void Logger::createModuleLogFile(const Logger::Module module)
 {
     logging::formatter module_log_fmt = expr::stream
         << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
@@ -102,7 +125,7 @@ void Logger::createModuleLogFile(const std::string & module)
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend =
         boost::make_shared<sinks::text_file_backend>(
-            keywords::file_name = "logs/" + module + "_%5N.log",
+            keywords::file_name = "logs/" + Logger::toString(module) + "_%5N.log",
             keywords::rotation_size = 5 * 1024 * 1024 //5 MiB
         );
     boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
@@ -129,6 +152,15 @@ void Logger::createSeverityLogFile(logging::trivial::severity_level level)
     sink->set_filter(severity == level);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
+}
+
+std::string Logger::toString(Logger::Module module)
+{
+    int num_modules = sizeof(module_strings)/sizeof(*module_strings);
+    if (module > num_modules) {
+        return "";
+    }
+    return module_strings[module];
 }
 
 void Logger::createConsoleLogSink()

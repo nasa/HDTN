@@ -43,37 +43,37 @@ namespace hdtn{
  * The following macros provide access for logging at various levels
  */
 #if LOG_LEVEL > LOG_LEVEL_TRACE
-    #define LOG_TRACE(module) _NO_OP
+    #define LOG_TRACE(module) _NO_OP_STREAM
 #else
     #define LOG_TRACE(module) _LOG_INTERNAL(module, trace)
 #endif
    
 #if LOG_LEVEL > LOG_LEVEL_DEBUG
-    #define LOG_DEBUG(module) _NO_OP
+    #define LOG_DEBUG(module) _NO_OP_STREAM
 #else
     #define LOG_DEBUG(module) _LOG_INTERNAL(module, debug)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_INFO
-    #define LOG_INFO(module) _NO_OP
+    #define LOG_INFO(module) _NO_OP_STREAM
 #else
     #define LOG_INFO(module) _LOG_INTERNAL(module, info)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_WARNING
-    #define LOG_WARNING(module) _NO_OP
+    #define LOG_WARNING(module) _NO_OP_STREAM
 #else
     #define LOG_WARNING(module) _LOG_INTERNAL(module, warning)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_ERROR
-    #define LOG_ERROR(module) _NO_OP
+    #define LOG_ERROR(module) _NO_OP_STREAM
 #else
     #define LOG_ERROR(module) _LOG_INTERNAL(module, error)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_FATAL
-    #define LOG_FATAL(module) _NO_OP
+    #define LOG_FATAL(module) _NO_OP_STREAM
 #else
     #define LOG_FATAL(module) _LOG_INTERNAL(module, fatal)
 #endif
@@ -91,7 +91,7 @@ namespace hdtn{
  * _NO_OP is a macro to efficiently discard a streaming expression. Since the "else"
  * branch is never taken, the compiler should optimize it out.
  */
-#define _NO_OP if (true) {} else std::cout
+#define _NO_OP_STREAM if (true) {} else std::cout
 
 /**
  * _ADD_LOG_ATTRIBUTES adds attributes to the logger
@@ -100,7 +100,7 @@ namespace hdtn{
     boost::log::trivial::logger::get().add_attribute("File",\
          boost::log::attributes::constant<std::string>(__FILE__));\
     boost::log::trivial::logger::get().add_attribute("Module",\
-        boost::log::attributes::constant<std::string>(module));\
+        boost::log::attributes::constant<Logger::Module>(module));\
     boost::log::trivial::logger::get().add_attribute("Line",\
         boost::log::attributes::constant<unsigned int>(__LINE__))
 
@@ -118,6 +118,24 @@ public:
      */
     LOG_LIB_EXPORT static void ensureInitialized();
 
+    /**
+     * Represents modules that Logger supports. New modules using the logger
+     * should be added to this list.
+     */
+    enum Module {
+        egress,
+        ingress,
+        router,
+        scheduler,
+        storage,
+    };
+
+    /**
+     * Converts a Module enum value to its string representation
+     * @param module the Module enum value to convert
+     */
+    LOG_LIB_EXPORT static std::string toString(Logger::Module module);
+
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static Logger* getInstance();
     LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
@@ -125,6 +143,7 @@ public:
     LOG_LIB_EXPORT void logWarning(const std::string & module, const std::string & message);
     LOG_LIB_EXPORT void logError(const std::string & module, const std::string & message);
     LOG_LIB_EXPORT void logCritical(const std::string & module, const std::string & message);
+    // End deprecation.
 
 private:
     LOG_LIB_EXPORT Logger();
@@ -133,7 +152,7 @@ private:
     LOG_LIB_EXPORT ~Logger();
 
     LOG_LIB_EXPORT void init();
-    LOG_LIB_EXPORT void createModuleLogFile(const std::string & module);
+    LOG_LIB_EXPORT void createModuleLogFile(Logger::Module module);
     LOG_LIB_EXPORT void createConsoleLogSink();
 
     /**
