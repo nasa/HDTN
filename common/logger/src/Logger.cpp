@@ -86,7 +86,18 @@ void Logger::init()
     //To prevent crash on termination
     boost::filesystem::path::imbue(std::locale("C"));
 
-    //set format for complete HDTN Log
+    createFileSinkForAll();
+    createFileSinkForModule(Logger::Module::egress);
+    createFileSinkForModule(Logger::Module::ingress);
+    createFileSinkForModule(Logger::Module::storage);
+    createFileSinkForLevel(logging::trivial::severity_level::error);\
+    createConsoleSink();
+
+    logging::add_common_attributes(); //necessary for timestamp
+}
+
+void Logger::createFileSinkForAll()
+{
     logging::formatter hdtn_log_fmt = expr::stream
         << "[" << module_attr << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
@@ -104,20 +115,9 @@ void Logger::init()
     sink->set_formatter(hdtn_log_fmt);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
-
-    //Add and format module log files
-    createModuleLogFile(Logger::Module::egress);
-    createModuleLogFile(Logger::Module::ingress);
-    createModuleLogFile(Logger::Module::storage);
-
-    //Add error log
-    createSeverityLogFile(logging::trivial::severity_level::error);
-    logging::add_common_attributes(); //necessary for timestamp
-
-    createConsoleLogSink();
 }
 
-void Logger::createModuleLogFile(const Logger::Module module)
+void Logger::createFileSinkForModule(const Logger::Module module)
 {
     logging::formatter module_log_fmt = expr::stream
         << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
@@ -136,7 +136,7 @@ void Logger::createModuleLogFile(const Logger::Module module)
     logging::core::get()->add_sink(sink);
 }
 
-void Logger::createSeverityLogFile(logging::trivial::severity_level level)
+void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
 {
     logging::formatter severity_log_fmt = expr::stream
         << "[" << module_attr << "]["
@@ -156,14 +156,14 @@ void Logger::createSeverityLogFile(logging::trivial::severity_level level)
 
 std::string Logger::toString(Logger::Module module)
 {
-    int num_modules = sizeof(module_strings)/sizeof(*module_strings);
+    uint num_modules = sizeof(module_strings)/sizeof(*module_strings);
     if (module > num_modules) {
         return "";
     }
     return module_strings[module];
 }
 
-void Logger::createConsoleLogSink()
+void Logger::createConsoleSink()
 {
     //Set logging format
     logging::formatter fmt = expr::stream

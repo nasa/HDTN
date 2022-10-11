@@ -151,15 +151,29 @@ private:
     LOG_LIB_EXPORT Logger& operator=(Logger const&);
     LOG_LIB_EXPORT ~Logger();
 
-    LOG_LIB_EXPORT void init();
-    LOG_LIB_EXPORT void createModuleLogFile(Logger::Module module);
-    LOG_LIB_EXPORT void createConsoleLogSink();
+    LOG_LIB_EXPORT void init();\
 
     /**
-     * Creates a new log file for the requested severity level.
+     * Creates a new log file sink for storing all logs.
+     */
+    LOG_LIB_EXPORT void createFileSinkForAll();
+
+    /**
+     * Creates a new log file sink for the requested module.
+     * @param module The module of the logs stored in this file.
+     */
+    LOG_LIB_EXPORT void createFileSinkForModule(Logger::Module module);
+
+    /**
+     * Creates a new log file sink for the requested severity level.
      * @param level The severity level of the logs stored in this file.
      */ 
-    LOG_LIB_EXPORT void createSeverityLogFile(boost::log::trivial::severity_level level);
+    LOG_LIB_EXPORT void createFileSinkForLevel(boost::log::trivial::severity_level level);
+
+    /**
+     * Creates a new sink for cout and cerr
+     */
+    LOG_LIB_EXPORT void createConsoleSink();
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance
