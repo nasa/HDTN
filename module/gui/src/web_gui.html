@@ -15,14 +15,8 @@
 
     <div class="cardBox">
         <div class="card">
-            <div class="tab">
-                <button id="defaultOpen" class="tablinks" onclick="openCard(event, 'Ingress')" style="width:50%;height:100%">Ingress</button>
-                <button class="tablinks" onclick="openCard(event, 'Egress')" style="width:50%;height:100%">Egress</button>
-            </div>
-        </div>
-        <div class="card">
             <div>
-                <div class="label">Data Rate (Mbps)</div>
+                <div class="label">Ingress Data Rate (Mbps)</div>
                 <div class="data" id="rate_data"></div>
             </div>
             <span class="onOffIndicator"></span>
@@ -42,8 +36,8 @@
     </div>
 
     <div class="visualizations">
-        <div class="dataRateGraph" id="data_rate_graph"></div>
-
+        <div class="ingressRateGraph" id="ingress_rate_graph"></div>
+	<div class="egressRateGraph" id="egress_rate_graph"></div>
         <div class="dataStorageChart" id="storage_egress_chart"></div>
     </div>
 
@@ -234,7 +228,6 @@
 
             evt.currentTarget.className += " active";
         }
-        document.getElementById("defaultOpen").click();
     </script>
 
     <!--<link type="text/css" rel="stylesheet" href="../css/goldenlayout-base.css" />-->

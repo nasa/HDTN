@@ -20,8 +20,8 @@ var rate_data_egress = [{
 }];
 
 //Style for HDTN Data Rate Graph
-var layout = {
-    title: 'HDTN Data Rate',
+var ingressLayout = {
+    title: 'Ingress Data Rate',
     paper_bgcolor: "#404040",
     plot_bgcolor: "#404040",
     width: 700,
@@ -39,9 +39,29 @@ var layout = {
     }
 };
 
-//Launch Data Graph
-GRAPH = document.getElementById("data_rate_graph");
-Plotly.newPlot(GRAPH, rate_data_ingress, layout, { displaylogo: false });
+var egressLayout = {
+    title: 'Egress Data Rate',
+    paper_bgcolor: "#404040",
+    plot_bgcolor: "#404040",
+    width: 700,
+    height: 450,
+    xaxis: {
+        title: "Timestamp (s)",
+    },
+    yaxis: {
+        title: "Data Rate (Mbps)",
+    },
+    font:{
+        family: "Arial",
+        size: 18,
+        color: "white"
+    }
+};
+
+//Launch Data Graphs
+Plotly.newPlot("ingress_rate_graph", rate_data_ingress, ingressLayout, { displaylogo: false });
+Plotly.newPlot("egress_rate_graph", rate_data_egress, egressLayout, { displaylogo: false });
+
 
 //Struct for Pie Chart of bundle destinations
 var pie_data = [{
@@ -67,10 +87,11 @@ var pie_layout = {
 //Launch Pie Chart
 Plotly.newPlot('storage_egress_chart', pie_data, pie_layout, { displaylogo: false });
 
-var rateCount = 0;
+var ingressRateCount = 0;
+var egressRateCount = 0;
 var egressBundleCount = 0;
 var egressRate = 0;
-var startTime = new Date().getTime()/1000;
+var startTime = new Date().getTime()*1000;
 var lastEgressData = 0;
 var lastTime = startTime;
 var lastEgressData = 0;
@@ -134,9 +155,9 @@ window.addEventListener("load", function(event){
                 byteIndex += 8;
                 var bundleCountStorage = dv.getUint64(byteIndex, littleEndian);
         
-                rate_data_ingress[0]['x'].push(rateCount++);
+                rate_data_ingress[0]['x'].push(ingressRateCount++);
                 rate_data_ingress[0]['y'].push(rate);
-                Plotly.update(GRAPH, rate_data_ingress, layout);
+                Plotly.update("ingress_rate_graph", rate_data_ingress, ingressLayout);
         	pie_data[0]['values'] = [bundleCountStorage, bundleCountEgress];
 		Plotly.update('storage_egress_chart', pie_data, pie_layout);
                 document.getElementById("rate_data").innerHTML = rate.toFixed(3);
@@ -156,11 +177,15 @@ window.addEventListener("load", function(event){
                 byteIndex += 8;
                 var egressMessageCount = dv.getUint64(byteIndex, littleEndian);
 
-		var newTime = new Date().getTime()/1000;
+		var newTime = new Date().getTime()*1000;
 		var duration = newTime - lastTime;
 		lastTime = newTime;
 		egressRate = (8.0 * (egressBundleData - lastEgressData))/duration;
 		lastEgressData = egressBundleData;
+
+		rate_data_egress[0]['x'].push(egressRateCount++);
+                rate_data_egress[0]['y'].push(egressRate);
+                Plotly.update("egress_rate_graph", rate_data_egress, egressLayout);
 
 		document.getElementById("egressDataRate").innerHTML = egressRate.toFixed(3);
 		document.getElementById("egressBundleCount").innerHTML = egressBundleCount;
