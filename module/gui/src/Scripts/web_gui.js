@@ -180,7 +180,7 @@ window.addEventListener("load", function(event){
 		var newTime = new Date().getTime()*1000;
 		var duration = newTime - lastTime;
 		lastTime = newTime;
-		egressRate = (8.0 * (egressBundleData - lastEgressData))/duration;
+		egressRate = (8.0 * (egressBundleData - lastEgressData) * 1000)/duration;
 		lastEgressData = egressBundleData;
 
 		rate_data_egress[0]['x'].push(egressRateCount++);
