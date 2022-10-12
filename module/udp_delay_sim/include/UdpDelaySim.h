@@ -37,6 +37,7 @@ class UdpDelaySim {
 private:
     UdpDelaySim();
 public:
+    typedef boost::function<bool(const std::vector<uint8_t> & udpPacketReceived)> UdpDropSimulatorFunction_t;
     UDP_DELAY_SIM_LIB_EXPORT UdpDelaySim(uint16_t myBoundUdpPort,
         const std::string & remoteHostnameToForwardPacketsTo,
         const std::string & remotePortToForwardPacketsTo,
@@ -48,7 +49,9 @@ public:
     UDP_DELAY_SIM_LIB_EXPORT void Stop();
     UDP_DELAY_SIM_LIB_EXPORT bool StartIfNotAlreadyRunning();
     UDP_DELAY_SIM_LIB_EXPORT void DoUdpShutdown();
+    UDP_DELAY_SIM_LIB_EXPORT void SetUdpDropSimulatorFunction_ThreadSafe(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction);
 private:
+    UDP_DELAY_SIM_LIB_NO_EXPORT void SetUdpDropSimulatorFunction(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction);
     UDP_DELAY_SIM_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);
     UDP_DELAY_SIM_LIB_NO_EXPORT void StartUdpReceive();
     UDP_DELAY_SIM_LIB_NO_EXPORT void HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred);
@@ -87,6 +90,9 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     bool m_printedCbTooSmallNotice;
     bool m_sendDelayTimerIsRunning;
+    volatile bool m_setUdpDropSimulatorFunctionInProgress;
+    boost::condition_variable m_cvSetUdpDropSimulatorFunction;
+    UdpDropSimulatorFunction_t m_udpDropSimulatorFunction;
 
     //stats
     uint64_t m_lastTotalUdpPacketsReceived;

@@ -36,7 +36,6 @@ class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
     LtpUdpEngine();
 public:
-    typedef boost::function<bool(const uint8_t ltpHeaderByte)> UdpDropSimulatorFunction_t;
     
     LTP_LIB_EXPORT LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef, const uint64_t thisEngineId,
         const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
@@ -102,10 +101,6 @@ public:
     //total udp packets sent is m_countAsyncSendCallbackCalls + m_countBatchUdpPacketsSent
 
     uint64_t m_countCircularBufferOverruns;
-
-    //unit testing drop packet simulation stuff
-    UdpDropSimulatorFunction_t m_udpDropSimulatorFunction;
-   // boost::asio::ip::udp::endpoint m_udpDestinationNullEndpoint;
 };
 
 

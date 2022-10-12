@@ -15,6 +15,8 @@
 #include <boost/test/unit_test.hpp>
 #include "LtpUdpEngineManager.h"
 #include <boost/bind/bind.hpp>
+#include "UdpDelaySim.h"
+#include <boost/lexical_cast.hpp>
 
 BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 {
@@ -29,14 +31,20 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     struct Test {
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME;
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME;
+        const boost::posix_time::time_duration ACTUAL_DELAY_SRC_TO_DEST;
+        const boost::posix_time::time_duration ACTUAL_DELAY_DEST_TO_SRC;
         const uint64_t ENGINE_ID_SRC;
         const uint64_t ENGINE_ID_DEST;
         const uint64_t EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
         const uint64_t CLIENT_SERVICE_ID_DEST;
         const uint16_t BOUND_UDP_PORT_SRC;
         const uint16_t BOUND_UDP_PORT_DEST;
+        const uint16_t BOUND_UDP_PORT_DATA_SEGMENT_PROXY;
+        const uint16_t BOUND_UDP_PORT_REPORT_SEGMENT_PROXY;
         std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerSrcPtr;
         std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr;
+        UdpDelaySim udpDelaySimDataSegmentProxy;
+        UdpDelaySim udpDelaySimReportSegmentProxy;
         LtpUdpEngine * ltpUdpEngineSrcPtr;
         LtpUdpEngine * ltpUdpEngineDestPtr;
         const std::string DESIRED_RED_DATA_TO_SEND;
@@ -64,16 +72,22 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         Test(const uint64_t maxUdpPacketsToSendPerSystemCall) :
             ONE_WAY_LIGHT_TIME(boost::posix_time::milliseconds(250)),
             ONE_WAY_MARGIN_TIME(boost::posix_time::milliseconds(250)),
+            ACTUAL_DELAY_SRC_TO_DEST(boost::posix_time::milliseconds(10)),
+            ACTUAL_DELAY_DEST_TO_SRC(boost::posix_time::milliseconds(10)),
             ENGINE_ID_SRC(100),
             ENGINE_ID_DEST(200),
             EXPECTED_SESSION_ORIGINATOR_ENGINE_ID(ENGINE_ID_SRC),
             CLIENT_SERVICE_ID_DEST(300),
             BOUND_UDP_PORT_SRC(12345),
             BOUND_UDP_PORT_DEST(1113),
+            BOUND_UDP_PORT_DATA_SEGMENT_PROXY(12346),
+            BOUND_UDP_PORT_REPORT_SEGMENT_PROXY(12347),
             ltpUdpEngineManagerSrcPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_SRC, true)),
             ltpUdpEngineManagerDestPtr(LtpUdpEngineManager::GetOrCreateInstance(BOUND_UDP_PORT_DEST, true)),
             //engineSrc(ENGINE_ID_SRC, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, false, true),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
             //engineDest(ENGINE_ID_DEST, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 12345, true, true),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+            udpDelaySimDataSegmentProxy(BOUND_UDP_PORT_DATA_SEGMENT_PROXY, "localhost", boost::lexical_cast<std::string>(BOUND_UDP_PORT_DEST), 1000, 100, ACTUAL_DELAY_SRC_TO_DEST, true),
+            udpDelaySimReportSegmentProxy(BOUND_UDP_PORT_REPORT_SEGMENT_PROXY, "localhost", boost::lexical_cast<std::string>(BOUND_UDP_PORT_SRC), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, true),
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
             DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
@@ -85,7 +99,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_SRC, 100, 0, 10000000, 0, 5, false, 0, 5, 1000, maxUdpPacketsToSendPerSystemCall, 0,
+                    "localhost", BOUND_UDP_PORT_REPORT_SEGMENT_PROXY, 100, 0, 10000000, 0, 5, false, 0, 5, 1000, maxUdpPacketsToSendPerSystemCall, 0,
                     10); //const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
@@ -99,7 +113,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, ENGINE_ID_DEST, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_DEST, 100, 0, 0, 0, 5, false, 0, 5, 0, maxUdpPacketsToSendPerSystemCall, 0, 0);
+                    "localhost", BOUND_UDP_PORT_DATA_SEGMENT_PROXY, 100, 0, 0, 0, 5, false, 0, 5, 0, maxUdpPacketsToSendPerSystemCall, 0, 0);
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             }
 
@@ -206,8 +220,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr->Reset_ThreadSafe_Blocking();
             ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(0);
             ltpUdpEngineDestPtr->SetCheckpointEveryNthDataPacketForSenders(0);
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
-            ltpUdpEngineDestPtr->m_udpDropSimulatorFunction = LtpUdpEngine::UdpDropSimulatorFunction_t();
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(UdpDelaySim::UdpDropSimulatorFunction_t());
+            udpDelaySimReportSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(UdpDelaySim::UdpDropSimulatorFunction_t());
             numRedPartReceptionCallbacks = 0;
             numSessionStartSenderCallbacks = 0;
             numSessionStartReceiverCallbacks = 0;
@@ -359,7 +373,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropOneSimulation {
                 int count;
                 DropOneSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t> & udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
                         if (++count == 10) {
@@ -373,7 +388,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropOneSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -415,7 +430,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropTwoSimulation {
                 int count;
                 DropTwoSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
                         ++count;
@@ -430,7 +446,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropTwoSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -470,7 +486,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropTwoSimulation {
                 int count;
                 DropTwoSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA) { //dont skip checkpoints
                         ++count;
@@ -485,7 +502,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropTwoSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropTwoSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -539,7 +556,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropSimulation {
                 int count;
                 DropSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT) { //skip only non-EORP-EOB checkpoints
                         ++count;
@@ -554,7 +572,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -604,7 +622,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropSimulation {
                 int count;
                 DropSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK)) {
                         ++count;
@@ -618,7 +637,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -663,7 +682,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropSimulation {
                 int count;
                 DropSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if ((type == LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT)) {
                         ++count;
@@ -678,7 +698,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -794,7 +814,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest() {
             struct DropSimulation {
                 DropSimulation() {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     return ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK));
                 }
@@ -802,7 +823,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -848,7 +869,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void DoTestDropRaAlwaysSrcToDest() {
             struct DropSimulation {
                 DropSimulation() {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     return ((type == LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT));
                 }
@@ -856,7 +878,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -901,7 +923,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void DoTestReceiverCancelSession() {
             struct DropSimulation {
                 DropSimulation() {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     return ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK));
                 }
@@ -909,7 +932,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -956,7 +979,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         void DoTestSenderCancelSession() {
             struct DropSimulation {
                 DropSimulation() {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     return ((type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART) || (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK));
                 }
@@ -964,7 +988,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -1011,7 +1035,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropSimulation {
                 int count;
                 DropSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA) {
                         ++count;
@@ -1031,7 +1056,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineDestPtr->SetMtuReportSegment(110); // 110 bytes will result in 3 reception claims max
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;
@@ -1074,7 +1099,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             struct DropOneSimulation {
                 int count;
                 DropOneSimulation() : count(0) {}
-                bool DoSim(const uint8_t ltpHeaderByte) {
+                bool DoSim(const std::vector<uint8_t>& udpPacketReceived) {
+                    const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const LTP_SEGMENT_TYPE_FLAGS type = static_cast<LTP_SEGMENT_TYPE_FLAGS>(ltpHeaderByte);
                     if (type == LTP_SEGMENT_TYPE_FLAGS::GREENDATA_ENDOFBLOCK) {
                         //std::cout << "drop green eob\n";
@@ -1086,7 +1112,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             Reset();
             AssertNoActiveSendersAndReceivers();
             DropOneSimulation sim;
-            ltpUdpEngineSrcPtr->m_udpDropSimulatorFunction = boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1);
+            udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropOneSimulation::DoSim, &sim, boost::placeholders::_1));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
             tReq->destinationLtpEngineId = ENGINE_ID_DEST;

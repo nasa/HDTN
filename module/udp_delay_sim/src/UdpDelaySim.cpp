@@ -146,24 +146,29 @@ void UdpDelaySim::StartUdpReceive() {
 
 void UdpDelaySim::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
-        if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
-            ++m_countCircularBufferOverruns;
-            if (!m_printedCbTooSmallNotice) {
-                m_printedCbTooSmallNotice = true;
-                std::cout << "notice in UdpDelaySim::HandleUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!" << std::endl;
-            }
+        if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(m_udpReceiveBuffer)) {
+            //dropped
         }
-        else { //not full.. swap packet in to circular buffer
-            m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
-            m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
-            m_expiriesCbVec[writeIndex] = boost::posix_time::microsec_clock::universal_time() + M_SEND_DELAY;
-            m_circularIndexBuffer.CommitWrite(); //write complete at this point
-            ++m_countTotalUdpPacketsReceived;
-            m_countTotalUdpBytesReceived += bytesTransferred;
-            const uint64_t cbSize = m_circularIndexBuffer.NumInBuffer();
-            m_countMaxCircularBufferSize = std::max(m_countMaxCircularBufferSize, cbSize);
-            TryRestartSendDelayTimer();
+        else {
+            const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
+            if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
+                ++m_countCircularBufferOverruns;
+                if (!m_printedCbTooSmallNotice) {
+                    m_printedCbTooSmallNotice = true;
+                    std::cout << "notice in UdpDelaySim::HandleUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!" << std::endl;
+                }
+            }
+            else { //not full.. swap packet in to circular buffer
+                m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
+                m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
+                m_expiriesCbVec[writeIndex] = boost::posix_time::microsec_clock::universal_time() + M_SEND_DELAY;
+                m_circularIndexBuffer.CommitWrite(); //write complete at this point
+                ++m_countTotalUdpPacketsReceived;
+                m_countTotalUdpBytesReceived += bytesTransferred;
+                const uint64_t cbSize = m_circularIndexBuffer.NumInBuffer();
+                m_countMaxCircularBufferSize = std::max(m_countMaxCircularBufferSize, cbSize);
+                TryRestartSendDelayTimer();
+            }
         }
         StartUdpReceive(); //restart operation only if there was no error
     }
@@ -265,4 +270,19 @@ void UdpDelaySim::TransferRate_TimerExpired(const boost::system::error_code& e) 
     else {
         std::cout << "transfer rate timer stopped\n";
     }
+}
+
+void UdpDelaySim::SetUdpDropSimulatorFunction_ThreadSafe(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction) {
+    boost::mutex cvMutex;
+    boost::mutex::scoped_lock cvLock(cvMutex);
+    m_setUdpDropSimulatorFunctionInProgress = true;
+    boost::asio::post(m_ioService, boost::bind(&UdpDelaySim::SetUdpDropSimulatorFunction, this, udpDropSimulatorFunction));
+    while (m_setUdpDropSimulatorFunctionInProgress) {
+        m_cvSetUdpDropSimulatorFunction.timed_wait(cvLock, boost::posix_time::milliseconds(250));
+    }    
+}
+void UdpDelaySim::SetUdpDropSimulatorFunction(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction) {
+    m_udpDropSimulatorFunction = udpDropSimulatorFunction;
+    m_setUdpDropSimulatorFunctionInProgress = false;
+    m_cvSetUdpDropSimulatorFunction.notify_one();
 }

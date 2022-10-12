@@ -41,6 +41,7 @@ find_package(StcpLib REQUIRED)
 find_package(StorageLib REQUIRED)
 find_package(TcpclLib REQUIRED)
 find_package(UdpLib REQUIRED)
+find_package(UdpDelaySimLib REQUIRED)
 find_package(Boost "1.67.0" REQUIRED timer unit_test_framework)
 # define _WIN32_WINNT to use Windows 10 for boost
 if(WIN32)
@@ -114,6 +115,7 @@ target_link_libraries(unit-tests-from-install
 	HDTN::StorageLib
 	HDTN::TcpclLib
 	HDTN::UdpLib
+	HDTN::UdpDelaySimLib
 	Boost::unit_test_framework
 	Boost::timer
 )

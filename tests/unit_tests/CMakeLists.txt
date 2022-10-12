@@ -53,6 +53,7 @@ target_link_libraries(unit-tests
 	cgr_lib
 	ingress_async_lib
 	bpcodec
+	udp_delay_sim_lib
 	Boost::unit_test_framework
 	Boost::timer
 )

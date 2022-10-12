@@ -115,15 +115,10 @@ void LtpUdpEngine::SendPacket(
 {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
-    if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(*((uint8_t*)constBufferVec[0].data()))) {
-        boost::asio::post(m_ioServiceUdpRef, boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, boost::system::error_code(), 0));
-    }
-    else {
-        m_udpSocketRef.async_send_to(constBufferVec, m_remoteEndpoint,
-            boost::bind(&LtpUdpEngine::HandleUdpSend, this, std::move(underlyingDataToDeleteOnSentCallback), std::move(underlyingCsDataToDeleteOnSentCallback),
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
+    m_udpSocketRef.async_send_to(constBufferVec, m_remoteEndpoint,
+        boost::bind(&LtpUdpEngine::HandleUdpSend, this, std::move(underlyingDataToDeleteOnSentCallback), std::move(underlyingCsDataToDeleteOnSentCallback),
+            boost::asio::placeholders::error,
+            boost::asio::placeholders::bytes_transferred));
 }
 
 void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
@@ -132,14 +127,6 @@ void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer
 {
     //called by LtpEngine Thread
     ++m_countBatchSendCalls;
-    
-    if (m_udpDropSimulatorFunction) {
-        for (std::size_t i = 0; i < constBufferVecs.size(); ++i) {
-            if (m_udpDropSimulatorFunction(*((uint8_t*)constBufferVecs[i][0].data()))) { //dropped
-                constBufferVecs[i].clear(); //this packet will be skipped by the UdpBatchSender
-            }
-        }
-    }
     m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //data gets stolen
     //LtpUdpEngine::OnSentPacketsCallback will be called next
 }
