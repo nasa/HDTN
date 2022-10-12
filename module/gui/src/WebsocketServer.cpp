@@ -277,8 +277,8 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                         boost::posix_time::time_duration elapsedTime = newTime - lastTime;
                         lastTime=newTime;
                         boost::posix_time::time_duration totalTime = newTime - startTime; 
-                        rate = (8.0 * (telem.totalData - lastData)) / (elapsedTime.total_microseconds() * 1000);
-                        averageRate = (8.0 * telem.totalData) / (totalTime.total_microseconds() * 1000);
+                        rate = (8.0 * (telem.totalData - lastData)) / elapsedTime.total_microseconds();
+                        averageRate = (8.0 * telem.totalData) / totalTime.total_microseconds();
                         lastData = telem.totalData;
 
                         telem.bundleDataRate = rate;
