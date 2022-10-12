@@ -35,9 +35,6 @@ namespace keywords = boost::log::keywords;
 namespace hdtn{
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level)
-BOOST_LOG_ATTRIBUTE_KEYWORD(module_attr, "Module", Logger::Module)
-BOOST_LOG_ATTRIBUTE_KEYWORD(file_attr, "File", std::string)
-BOOST_LOG_ATTRIBUTE_KEYWORD(line_attr, "Line", unsigned int)
 
 /**
  * Overloads the stream operator to support the Module enum
@@ -55,13 +52,18 @@ Logger::Logger()
 Logger::~Logger(){}
 
 Logger* Logger::logger_ = nullptr;
+attrs::mutable_constant<Logger::Module> Logger::module_attr(Logger::Module(-1));
+attrs::mutable_constant<std::string> Logger::file_attr("");
+attrs::mutable_constant<int> Logger::line_attr(-1);
 
-void Logger::ensureInitialized()
+bool Logger::ensureInitialized()
 {
     if(Logger::logger_ == nullptr)
     {
         Logger::logger_ = new Logger();
+        return true;
     }
+    return false;
 }
 
 Logger* Logger::getInstance()
@@ -79,6 +81,7 @@ void Logger::init()
     //To prevent crash on termination
     boost::filesystem::path::imbue(std::locale("C"));
 
+    registerAttributes();
     createFileSinkForFullHdtnLog();
     createFileSinkForModule(Logger::Module::egress);
     createFileSinkForModule(Logger::Module::ingress);
@@ -90,10 +93,17 @@ void Logger::init()
     logging::add_common_attributes(); //necessary for timestamp
 }
 
+void Logger::registerAttributes()
+{   
+    boost::log::trivial::logger::get().add_attribute("Module", Logger::module_attr);
+    boost::log::trivial::logger::get().add_attribute("Line", Logger::line_attr);
+    boost::log::trivial::logger::get().add_attribute("File", Logger::file_attr);
+}
+
 void Logger::createFileSinkForFullHdtnLog()
 {
     logging::formatter hdtn_log_fmt = expr::stream
-        << "[" << module_attr << "]["
+        << "[" << expr::attr<Logger::Module>("Module") << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
         << "][" << severity << "]: \t" << expr::smessage;
 
@@ -125,7 +135,7 @@ void Logger::createFileSinkForModule(const Logger::Module module)
     boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
 
     sink->set_formatter(module_log_fmt);
-    sink->set_filter(module_attr == module);
+    sink->set_filter(expr::attr<Logger::Module>("Module") == module);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
 }
@@ -133,9 +143,10 @@ void Logger::createFileSinkForModule(const Logger::Module module)
 void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
 {
     logging::formatter severity_log_fmt = expr::stream
-        << "[" << module_attr << "]["
+        << "[" << expr::attr<Logger::Module>("Module") << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << file_attr << ":" << line_attr << ": \t" << expr::smessage;
+        << "][" << expr::attr<std::string>("File") << ":"
+        << expr::attr<int>("Line") << ": \t" << expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
         keywords::file_name = std::string("logs/") + logging::trivial::to_string(level) + "_%5N.log",
@@ -165,12 +176,12 @@ Logger::Module Logger::fromString(std::string module) {
             return Logger::Module(i);
         }
     }
-    return Logger::Module(num_modules);
+    return Logger::Module(-1);
 }
 
 void Logger::createStdoutSink() {
     logging::formatter fmt = expr::stream
-        << "[" << module_attr << "]"
+        << "[" << expr::attr<Logger::Module>("Module") << "]"
         << "[" << severity << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
@@ -191,7 +202,7 @@ void Logger::createStdoutSink() {
 
 void Logger::createStderrSink() {
     logging::formatter fmt = expr::stream
-        << "[" << module_attr << "]"
+        << "[" << expr::attr<Logger::Module>("Module") << "]"
         << "[" << severity << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_ostream_backend> stderr_sink_backend =

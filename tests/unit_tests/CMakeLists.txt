@@ -33,6 +33,7 @@ add_executable(unit-tests
 	../../common/config/test/TestStorageConfig.cpp
 	../../common/config/test/TestHdtnConfig.cpp
 	../../common/cgr/test/TestDijkstra.cpp
+	../../common/logger/unit_tests/LoggerTests.cpp
 	#../../common/cgr/test/TestYen.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp

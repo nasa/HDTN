@@ -83,7 +83,7 @@ namespace hdtn{
  * be used internally.
  */
 #define _LOG_INTERNAL(module, lvl)\
-    Logger::ensureInitialized();\
+    hdtn::Logger::ensureInitialized();\
     _ADD_LOG_ATTRIBUTES(module);\
     BOOST_LOG_TRIVIAL(lvl)
 
@@ -97,12 +97,9 @@ namespace hdtn{
  * _ADD_LOG_ATTRIBUTES adds attributes to the logger
  */
 #define _ADD_LOG_ATTRIBUTES(module)\
-    boost::log::trivial::logger::get().add_attribute("File",\
-         boost::log::attributes::constant<std::string>(__FILE__));\
-    boost::log::trivial::logger::get().add_attribute("Module",\
-        boost::log::attributes::constant<Logger::Module>(module));\
-    boost::log::trivial::logger::get().add_attribute("Line",\
-        boost::log::attributes::constant<unsigned int>(__LINE__))
+    hdtn::Logger::module_attr.set(module);\
+    hdtn::Logger::file_attr.set(__FILE__);\
+    hdtn::Logger::line_attr.set(__LINE__)
 
 typedef boost::log::sinks::synchronous_sink<boost::log::sinks::text_file_backend> sink_t;
 
@@ -116,7 +113,7 @@ public:
      * Initializes the logger if it hasn't been created yet. This is intended to be called from
      * the LOG_* macros.
      */
-    LOG_LIB_EXPORT static void ensureInitialized();
+    LOG_LIB_EXPORT static bool ensureInitialized();
 
     /**
      * Represents modules that Logger supports. New modules using the logger
@@ -136,8 +133,15 @@ public:
      */
     LOG_LIB_EXPORT static std::string toString(Logger::Module module);
 
+    /**
+     * Attributes to be included in log messages
+     */
+    LOG_LIB_EXPORT static boost::log::attributes::mutable_constant<Module> module_attr;
+    LOG_LIB_EXPORT static boost::log::attributes::mutable_constant<std::string> file_attr;
+    LOG_LIB_EXPORT static boost::log::attributes::mutable_constant<int> line_attr;
+
     // Deprecated -- use LOG_* macros instead.
-    LOG_LIB_EXPORT Module fromString(std::string module);
+    LOG_LIB_EXPORT static Module fromString(std::string module);
     LOG_LIB_EXPORT static Logger* getInstance();
     LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
     LOG_LIB_EXPORT void logNotification(const std::string & module, const std::string & message);
@@ -152,7 +156,12 @@ private:
     LOG_LIB_EXPORT Logger& operator=(Logger const&);
     LOG_LIB_EXPORT ~Logger();
 
-    LOG_LIB_EXPORT void init();\
+    LOG_LIB_EXPORT void init();
+
+    /**
+     * Registers attributes to be used in log messages
+     */
+    LOG_LIB_EXPORT void registerAttributes();
 
     /**
      * Creates a new log file sink for storing all logs.
