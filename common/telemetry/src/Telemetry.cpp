@@ -175,7 +175,7 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
 
             const uint64_t egressBundleCount = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
-            const uint64_t egressBundleData = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
+            const double egressBundleData = LittleToNativeDouble((reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
             const uint64_t egressMessageCount = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
