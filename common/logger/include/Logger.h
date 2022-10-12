@@ -131,7 +131,7 @@ public:
     };
 
     /**
-     * Converts a Module enum value to its string representation
+     * Converts a Module enum value to its string representation.
      * @param module the Module enum value to convert
      */
     LOG_LIB_EXPORT static std::string toString(Logger::Module module);
@@ -157,7 +157,7 @@ private:
     /**
      * Creates a new log file sink for storing all logs.
      */
-    LOG_LIB_EXPORT void createFileSinkForAll();
+    LOG_LIB_EXPORT void createFileSinkForFullHdtnLog();
 
     /**
      * Creates a new log file sink for the requested module.
@@ -172,9 +172,14 @@ private:
     LOG_LIB_EXPORT void createFileSinkForLevel(boost::log::trivial::severity_level level);
 
     /**
-     * Creates a new sink for cout and cerr
+     * Creates a new sink for writing messages to stdout
      */
-    LOG_LIB_EXPORT void createConsoleSink();
+    LOG_LIB_EXPORT void createStdoutSink();
+
+    /**
+     * Creates a new sink for writing messages to stderr
+     */
+    LOG_LIB_EXPORT void createStderrSink();
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static Logger* logger_; //singleton instance

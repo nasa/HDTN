@@ -8,15 +8,6 @@
 
 #include "Logger.h"
 
-static const char* severity_strings[] =
-{
-    "Info",
-    "Notification",
-    "Warning",
-    "Error",
-    "Critical"
-};
-
 /**
  * Contains string values that correspond to the "Module" enum
  * in Logger.h. If a new module is added, a string representation
@@ -88,17 +79,18 @@ void Logger::init()
     //To prevent crash on termination
     boost::filesystem::path::imbue(std::locale("C"));
 
-    createFileSinkForAll();
+    createFileSinkForFullHdtnLog();
     createFileSinkForModule(Logger::Module::egress);
     createFileSinkForModule(Logger::Module::ingress);
     createFileSinkForModule(Logger::Module::storage);
-    createFileSinkForLevel(logging::trivial::severity_level::error);\
-    createConsoleSink();
+    createFileSinkForLevel(logging::trivial::severity_level::error);
+    createStdoutSink();
+    createStderrSink();
 
     logging::add_common_attributes(); //necessary for timestamp
 }
 
-void Logger::createFileSinkForAll()
+void Logger::createFileSinkForFullHdtnLog()
 {
     logging::formatter hdtn_log_fmt = expr::stream
         << "[" << module_attr << "]["
@@ -143,13 +135,14 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
     logging::formatter severity_log_fmt = expr::stream
         << "[" << module_attr << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: \t" << expr::smessage;
+        << "][" << file_attr << ":" << line_attr << ": \t" << expr::smessage;
 
-     boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
-        keywords::file_name = "logs/" + std::string(severity_strings[level]) + "_%5N.log",
+    boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
+        keywords::file_name = std::string("logs/") + logging::trivial::to_string(level) + "_%5N.log",
         keywords::rotation_size = file_rotation_size
-     );
+    );
     boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
+
     sink->set_formatter(severity_log_fmt);
     sink->set_filter(severity == level);
     sink->locked_backend()->auto_flush(true);
@@ -175,49 +168,58 @@ Logger::Module Logger::fromString(std::string module) {
     return Logger::Module(num_modules);
 }
 
-void Logger::createConsoleSink()
-{
-    //Set logging format
+void Logger::createStdoutSink() {
     logging::formatter fmt = expr::stream
         << "[" << module_attr << "]"
-        << "[" << severity << "]: \t" << expr::smessage;
+        << "[" << severity << "]: " << expr::smessage;
 
-    //Create sink for cout
-    boost::shared_ptr<sinks::text_ostream_backend> cout_sink_backend =
+    boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
-    cout_sink_backend->add_stream(
+    stdout_sink_backend->add_stream(
         boost::shared_ptr<std::ostream>(&std::cout, boost::null_deleter())
     );
-    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
-    boost::shared_ptr<sink_t> cout_sink(new sink_t(cout_sink_backend));
-    cout_sink->set_filter(severity != logging::trivial::severity_level::error && severity != logging::trivial::severity_level::fatal);
-    cout_sink->set_formatter(fmt);
-    cout_sink->locked_backend()->auto_flush(true);
-    logging::core::get()->add_sink(cout_sink);
 
-    //Create sink for cerr
-    boost::shared_ptr<sinks::text_ostream_backend> cerr_sink_backend =
+    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
+    boost::shared_ptr<sink_t> stdout_sink(new sink_t(stdout_sink_backend));
+
+    stdout_sink->set_filter(severity != logging::trivial::severity_level::error &&
+        severity != logging::trivial::severity_level::fatal);
+    stdout_sink->set_formatter(fmt);
+    stdout_sink->locked_backend()->auto_flush(true);
+    logging::core::get()->add_sink(stdout_sink);
+}
+
+void Logger::createStderrSink() {
+    logging::formatter fmt = expr::stream
+        << "[" << module_attr << "]"
+        << "[" << severity << "]: " << expr::smessage;
+
+    boost::shared_ptr<sinks::text_ostream_backend> stderr_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
-    cerr_sink_backend->add_stream(
+    stderr_sink_backend->add_stream(
         boost::shared_ptr<std::ostream>(&std::cerr, boost::null_deleter())
     );
-    boost::shared_ptr<sink_t> cerr_sink(new sink_t(cerr_sink_backend));
-    cout_sink->set_filter(severity == logging::trivial::severity_level::error || severity == logging::trivial::severity_level::fatal);
-    cerr_sink->set_formatter(fmt);
-    cerr_sink->locked_backend()->auto_flush(true);
-    logging::core::get()->add_sink(cerr_sink);
+
+    typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
+    boost::shared_ptr<sink_t> stderr_sink(new sink_t(stderr_sink_backend));
+
+    stderr_sink->set_filter(severity == logging::trivial::severity_level::error ||
+        severity == logging::trivial::severity_level::fatal);
+    stderr_sink->set_formatter(fmt);
+    stderr_sink->locked_backend()->auto_flush(true);
+    logging::core::get()->add_sink(stderr_sink);
 }
 
 void Logger::logInfo(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", fromString(module));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::info) << message;
+    BOOST_LOG_SEV(log_, logging::trivial::severity_level::debug) << message;
 }
 
 void Logger::logNotification(const std::string & module, const std::string & message)
 {
     BOOST_LOG_SCOPED_THREAD_TAG("Module", fromString(module));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::debug) << message;
+    BOOST_LOG_SEV(log_, logging::trivial::severity_level::info) << message;
 }
 
 void Logger::logWarning(const std::string & module, const std::string & message)
