@@ -69,7 +69,7 @@ private:
     std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsSet;
     typedef std::map<uint64_t, Ltp::report_segment_t> report_segments_sent_map_t;
     report_segments_sent_map_t m_mapAllReportSegmentsSent;
-    report_segments_sent_map_t::const_iterator m_itLastitPrimaryReportSegmentsSent; //std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
+    report_segments_sent_map_t::const_iterator m_itLastPrimaryReportSegmentSent; //std::map<uint64_t, Ltp::report_segment_t> m_mapPrimaryReportSegmentsSent;
     
     //std::set<LtpFragmentSet::data_fragment_t> m_receivedDataFragmentsThatSenderKnowsAboutSet;
     std::set<uint64_t> m_checkpointSerialNumbersReceivedSet;
@@ -78,7 +78,13 @@ private:
     
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfReportSerialNumbersRef;
-    std::set<uint64_t> m_reportSerialNumberActiveTimersSet;
+    std::list<uint64_t> m_reportSerialNumberActiveTimersList;
+    
+    struct rsntimer_userdata_t {
+        report_segments_sent_map_t::const_iterator itMapAllReportSegmentsSent;
+        std::list<uint64_t>::iterator itReportSerialNumberActiveTimersList;
+        uint32_t retryCount;
+    };
 
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_delayedReceptionReportTimerExpiredCallback;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & m_timeManagerOfSendingDelayedReceptionReportsRef;

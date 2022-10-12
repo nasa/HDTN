@@ -27,7 +27,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
     const uint32_t maxRetriesPerSerialNumber) :
     
-    m_itLastitPrimaryReportSegmentsSent(m_mapAllReportSegmentsSent.end()),
+    m_itLastPrimaryReportSegmentSent(m_mapAllReportSegmentsSent.end()),
     m_timeManagerOfReportSerialNumbersRef(timeManagerOfReportSerialNumbersRef),
     m_timeManagerOfSendingDelayedReceptionReportsRef(timeManagerOfSendingDelayedReceptionReportsRef),
     m_nextReportSegmentReportSerialNumber(randomNextReportSegmentReportSerialNumber),
@@ -58,7 +58,7 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
 
 LtpSessionReceiver::~LtpSessionReceiver() {
     //clean up this receiving session's active timers within the shared LtpTimerManager
-    for (std::set<uint64_t>::const_iterator it = m_reportSerialNumberActiveTimersSet.cbegin(); it != m_reportSerialNumberActiveTimersSet.cend(); ++it) {
+    for (std::list<uint64_t>::const_iterator it = m_reportSerialNumberActiveTimersList.cbegin(); it != m_reportSerialNumberActiveTimersList.cend(); ++it) {
         const uint64_t rsn = *it;
 
         // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfReportSerialNumbers;
@@ -90,11 +90,11 @@ LtpSessionReceiver::~LtpSessionReceiver() {
 }
 
 std::size_t LtpSessionReceiver::GetNumActiveTimers() const {
-    return m_reportSerialNumberActiveTimersSet.size() + m_mapReportSegmentsPendingGeneration.size();
+    return m_reportSerialNumberActiveTimersList.size() + m_mapReportSegmentsPendingGeneration.size();
 }
 
 void LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData) {
-    std::cout << "LtpDelaySendReportSegmentTimerExpiredCallback\n";
+    //std::cout << "LtpDelaySendReportSegmentTimerExpiredCallback\n";
     //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
     //  sessionNumber = the session number
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
@@ -122,10 +122,14 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     const uint64_t reportSerialNumber = reportSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
 
-    //keep track of this receiving session's active timers within the shared LtpTimerManager
-    if (m_reportSerialNumberActiveTimersSet.erase(reportSerialNumber) == 0) {
-        std::cout << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: did not erase m_reportSerialNumberActiveTimersSet\n";
+    if (userData.size() != sizeof(rsntimer_userdata_t)) {
+        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(rsntimer_userdata_t)\n";
+        return;
     }
+    const rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userData.data());
+
+    //keep track of this receiving session's active timers within the shared LtpTimerManager
+    m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
 
     //std::cout << "LtpReportSegmentTimerExpiredCallback reportSerialNumber " << reportSerialNumber << std::endl;
     
@@ -149,17 +153,11 @@ void LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback(const Ltp::session
     //Otherwise, a new copy of each affected RS segment is queued for
     //transmission to the LTP engine that originated the session.
     ++m_numReportSegmentTimerExpiredCallbacks;
-    if (userData.size() != sizeof(it_retrycount_pair_t)) {
-        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(it_retrycount_pair_t)\n";
-        return;
-    }
-    const it_retrycount_pair_t* userDataPairPtr = reinterpret_cast<it_retrycount_pair_t*>(userData.data());
-    const report_segments_sent_map_t::const_iterator reportSegmentIt = userDataPairPtr->first;
-    const uint32_t retryCount = userDataPairPtr->second;
+    
 
-    if (retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
-        //resend 
-        m_reportsToSendQueue.emplace(reportSegmentIt, retryCount + 1); //initial retryCount of 1
+    if (userDataPtr->retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+        //resend
+        m_reportsToSendQueue.emplace(userDataPtr->itMapAllReportSegmentsSent, userDataPtr->retryCount + 1); //initial retryCount of 1
         m_notifyEngineThatThisSendersTimersHasProducibleDataFunction(M_SESSION_ID);
     }
     else {
@@ -198,15 +196,15 @@ bool LtpSessionReceiver::NextDataToSend(std::vector<boost::asio::const_buffer> &
         //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
         const Ltp::session_id_t reportSerialNumberPlusSessionNumber(rsn, M_SESSION_ID.sessionNumber);
 
-        std::vector<uint8_t> userData(sizeof(it_retrycount_pair_t));
-        it_retrycount_pair_t* userDataPairPtr = reinterpret_cast<it_retrycount_pair_t*>(userData.data());
-        userDataPairPtr->first = reportSegmentIt;
-        userDataPairPtr->second = retryCount;
-        if (m_timeManagerOfReportSerialNumbersRef.StartTimer(reportSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
-            //keep track of this receiving session's active timers within the shared LtpTimerManager
-            if (!m_reportSerialNumberActiveTimersSet.insert(rsn).second) {
-                std::cout << "error in LtpSessionReceiver::NextDataToSend: did not insert m_reportSerialNumberActiveTimersSet\n";
-            }
+        std::vector<uint8_t> userData(sizeof(rsntimer_userdata_t));
+        rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userData.data());
+        userDataPtr->itMapAllReportSegmentsSent = reportSegmentIt;
+        m_reportSerialNumberActiveTimersList.emplace_front(rsn); //keep track of this receiving session's active timers within the shared LtpTimerManager
+        userDataPtr->itReportSerialNumberActiveTimersList = m_reportSerialNumberActiveTimersList.begin();
+        userDataPtr->retryCount = retryCount;
+        if (!m_timeManagerOfReportSerialNumbersRef.StartTimer(reportSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+            m_reportSerialNumberActiveTimersList.erase(m_reportSerialNumberActiveTimersList.begin());
+            std::cout << "error in LtpSessionReceiver::NextDataToSend: did not start timer\n";
         }
         return true;
     }
@@ -243,14 +241,19 @@ void LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback(uint64_t r
     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
     const Ltp::session_id_t reportSerialNumberPlusSessionNumber(reportSerialNumberBeingAcknowledged, M_SESSION_ID.sessionNumber);
 
-    if (m_timeManagerOfReportSerialNumbersRef.DeleteTimer(reportSerialNumberPlusSessionNumber)) {
-        //keep track of this receiving session's active timers within the shared LtpTimerManager
-        if (m_reportSerialNumberActiveTimersSet.erase(reportSerialNumberBeingAcknowledged) == 0) {
-            std::cout << "error in LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback: did not erase m_reportSerialNumberActiveTimersSet\n";
+    std::vector<uint8_t> userDataReturned;
+    if (m_timeManagerOfReportSerialNumbersRef.DeleteTimer(reportSerialNumberPlusSessionNumber, userDataReturned)) { //if delete of a timer was successful
+        if (userDataReturned.size() != sizeof(rsntimer_userdata_t)) {
+            std::cout << "error in LtpSessionReceiver::ReportAcknowledgementSegmentReceivedCallback: userDataReturned.size() != sizeof(rsntimer_userdata_t)\n";
+        }
+        else {
+            const rsntimer_userdata_t* userDataPtr = reinterpret_cast<rsntimer_userdata_t*>(userDataReturned.data());
+            //keep track of this receiving session's active timers within the shared LtpTimerManager
+            m_reportSerialNumberActiveTimersList.erase(userDataPtr->itReportSerialNumberActiveTimersList);
         }
     }
     //std::cout << "m_timeManagerOfReportSerialNumbers.empty() after: " << m_timeManagerOfReportSerialNumbers.Empty() << std::endl;
-    if (m_reportsToSendQueue.empty() && m_reportSerialNumberActiveTimersSet.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
+    if (m_reportsToSendQueue.empty() && m_reportSerialNumberActiveTimersList.empty()) { // cannot do within a shared timer: m_timeManagerOfReportSerialNumbers.Empty()) {
         //TODO.. NOT SURE WHAT TO DO WHEN GREEN EOB LOST
         if (m_receivedEobFromGreenOrRed && m_didRedPartReceptionCallback) {
             if (!m_didNotifyForDeletion) {
@@ -421,7 +424,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             else {
                 //- If the checkpoint was not issued in response to a report
                 //segment, this report is a "primary" reception report.
-                if (m_itLastitPrimaryReportSegmentsSent == m_mapAllReportSegmentsSent.end()) { //if (m_mapPrimaryReportSegmentsSent.empty()) {
+                if (m_itLastPrimaryReportSegmentSent == m_mapAllReportSegmentsSent.end()) { //if (m_mapPrimaryReportSegmentsSent.empty()) {
                     //The lower bound of the first primary reception report issued for any session MUST be zero.
                     lowerBound = 0;
                     //std::cout << "primary first LB: " << lowerBound << std::endl;
@@ -431,7 +434,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     //primary reception report issued for the same session SHOULD be
                     //the upper bound of the prior primary reception report issued for
                     //the session, to minimize unnecessary retransmission.
-                    lowerBound = m_itLastitPrimaryReportSegmentsSent->second.upperBound; //m_mapPrimaryReportSegmentsSent.crbegin()->second.upperBound;
+                    lowerBound = m_itLastPrimaryReportSegmentSent->second.upperBound; //m_mapPrimaryReportSegmentsSent.crbegin()->second.upperBound;
                     //std::cout << "primary subsequent LB: " << lowerBound << std::endl;
                 }
                 for (rs_pending_map_t::const_reverse_iterator it = m_mapReportSegmentsPendingGeneration.crbegin(); it != m_mapReportSegmentsPendingGeneration.crend(); ++it) {
@@ -514,7 +517,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                                 << ((checkpointIsResponseToReportSegment) ? "secondary" : "primary") << " reception report\n";
                         }
                         else {
-                            std::cout << "timer started\n";
+                            //std::cout << "timer started\n";
                         }
                     }
                 }
@@ -648,7 +651,7 @@ void LtpSessionReceiver::HandleGenerateAndSendReportSegment(const uint64_t check
         //The emplace_hint function optimizes its insertion time if position points to the element that will follow the inserted element (or to the end, if it would be the last).
         report_segments_sent_map_t::const_iterator itRsSent = m_mapAllReportSegmentsSent.emplace_hint(m_mapAllReportSegmentsSent.end(), rsn, std::move(reportSegment)); //m_mapAllReportSegmentsSent[rsn] = std::move(reportSegment);
         if (!checkpointIsResponseToReportSegment) {
-            m_itLastitPrimaryReportSegmentsSent = itRsSent;
+            m_itLastPrimaryReportSegmentSent = itRsSent;
             //m_mapPrimaryReportSegmentsSent.emplace_hint(m_mapPrimaryReportSegmentsSent.end(), rsn, reportSegment); //m_mapPrimaryReportSegmentsSent[rsn] = reportSegment;
         }
         //std::cout << "queue send rsn " << rsn << "\n";

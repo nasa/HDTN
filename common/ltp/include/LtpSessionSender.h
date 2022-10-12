@@ -44,17 +44,6 @@ private:
     LtpSessionSender();
     LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
-    struct LTP_LIB_EXPORT resend_fragment_t {
-        resend_fragment_t() {}
-        resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
-            offset(paramOffset), length(paramLength), checkpointSerialNumber(paramCheckpointSerialNumber), reportSerialNumber(paramReportSerialNumber), flags(paramFlags), retryCount(1) {}
-        uint64_t offset;
-        uint64_t length;
-        uint64_t checkpointSerialNumber;
-        uint64_t reportSerialNumber;
-        LTP_DATA_SEGMENT_TYPE_FLAGS flags;
-        uint32_t retryCount;
-    };
     LTP_LIB_EXPORT ~LtpSessionSender();
     LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
         std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart, const uint64_t MTU,
@@ -75,6 +64,22 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     
 private:
+    struct resend_fragment_t {
+        resend_fragment_t() {}
+        resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
+            offset(paramOffset), length(paramLength), checkpointSerialNumber(paramCheckpointSerialNumber), reportSerialNumber(paramReportSerialNumber), flags(paramFlags), retryCount(1) {}
+        uint64_t offset;
+        uint64_t length;
+        uint64_t checkpointSerialNumber;
+        uint64_t reportSerialNumber;
+        LTP_DATA_SEGMENT_TYPE_FLAGS flags;
+        uint32_t retryCount;
+    };
+    struct csntimer_userdata_t {
+        std::list<uint64_t>::iterator itCheckpointSerialNumberActiveTimersList;
+        resend_fragment_t resendFragment;
+    };
+
     std::set<LtpFragmentSet::data_fragment_t> m_dataFragmentsAckedByReceiver;
     std::queue<std::vector<uint8_t> > m_nonDataToSend;
     std::queue<resend_fragment_t> m_resendFragmentsQueue;
@@ -82,7 +87,7 @@ private:
 
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
-    std::set<uint64_t> m_checkpointSerialNumberActiveTimersSet;
+    std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
 
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;

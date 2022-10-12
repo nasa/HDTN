@@ -57,7 +57,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
 
 LtpSessionSender::~LtpSessionSender() {
     //clean up this sending session's active timers within the shared LtpTimerManager
-    for (std::set<uint64_t>::const_iterator it = m_checkpointSerialNumberActiveTimersSet.cbegin(); it != m_checkpointSerialNumberActiveTimersSet.cend(); ++it) {
+    for (std::list<uint64_t>::const_iterator it = m_checkpointSerialNumberActiveTimersList.cbegin(); it != m_checkpointSerialNumberActiveTimersList.cend(); ++it) {
         const uint64_t csn = *it;
 
         // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
@@ -85,6 +85,15 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
     const uint64_t checkpointSerialNumber = checkpointSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
 
+    if (userData.size() != sizeof(csntimer_userdata_t)) {
+        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(rsntimer_userdata_t)\n";
+        return;
+    }
+    csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
+
+    //keep track of this sending session's active timers within the shared LtpTimerManager
+    m_checkpointSerialNumberActiveTimersList.erase(userDataPtr->itCheckpointSerialNumberActiveTimersList);
+
     //6.7.  Retransmit Checkpoint
     //This procedure is triggered by the expiration of a countdown timer
     //associated with a CP segment.
@@ -102,28 +111,23 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     //(conceptual) application data queue for the destination LTP engine.
     //std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!! checkpointSerialNumber = " << checkpointSerialNumber << std::endl;
 
-    //keep track of this sending session's active timers within the shared LtpTimerManager
-    if (m_checkpointSerialNumberActiveTimersSet.erase(checkpointSerialNumber) == 0) {
-        std::cout << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: did not erase m_checkpointSerialNumberActiveTimersSet\n";
-    }
-
+    
     ++m_numCheckpointTimerExpiredCallbacks;
-    if (userData.size() != sizeof(resend_fragment_t)) {
-        std::cerr << "error in LtpSessionSender::LtpCheckpointTimerExpiredCallback: userData.size() != sizeof(resend_fragment_t)\n";
-        return;
-    }
-    resend_fragment_t * const resendFragmentPtr = (resend_fragment_t*)userData.data(); //userData will be 64-bit aligned
 
-    if (resendFragmentPtr->retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
-        const bool isDiscretionaryCheckpoint = (resendFragmentPtr->flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
-        if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver, LtpFragmentSet::data_fragment_t(resendFragmentPtr->offset, (resendFragmentPtr->offset + resendFragmentPtr->length) - 1))) {
+    resend_fragment_t & resendFragment = userDataPtr->resendFragment;
+
+    if (resendFragment.retryCount <= M_MAX_RETRIES_PER_SERIAL_NUMBER) {
+        const bool isDiscretionaryCheckpoint = (resendFragment.flags == LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT);
+        if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver,
+            LtpFragmentSet::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1)))
+        {
             //std::cout << "  Discretionary checkpoint not being resent because its data was already received successfully by the receiver." << std::endl;
             ++m_numDiscretionaryCheckpointsNotResent;
         }
         else {
             //resend 
-            ++(resendFragmentPtr->retryCount);
-            m_resendFragmentsQueue.push(*resendFragmentPtr);
+            ++(resendFragment.retryCount);
+            m_resendFragmentsQueue.push(resendFragment);
             m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
         }
     }
@@ -173,7 +177,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             //the remote LTP engine has ceased transmission(Section 6.5), then
             //this timer is immediately suspended, because the computed expected
             //arrival time may require an adjustment that cannot yet be computed.
-            const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
+            
             //std::cout << "resend csn " << resendFragment.checkpointSerialNumber << std::endl;
 
             // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
@@ -185,11 +189,14 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
             const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(resendFragment.checkpointSerialNumber, M_SESSION_ID.sessionNumber);
 
-            if (m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)))) {
-                //keep track of this sending session's active timers within the shared LtpTimerManager
-                if (!m_checkpointSerialNumberActiveTimersSet.insert(resendFragment.checkpointSerialNumber).second) {
-                    std::cout << "error in LtpSessionSender::NextDataToSend: did not insert m_checkpointSerialNumberActiveTimersSet\n";
-                }
+            std::vector<uint8_t> userData(sizeof(csntimer_userdata_t));
+            csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
+            userDataPtr->resendFragment = resendFragment;
+            m_checkpointSerialNumberActiveTimersList.emplace_front(resendFragment.checkpointSerialNumber); //keep track of this sending session's active timers within the shared LtpTimerManager
+            userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
+            if (!m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+                m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
+                std::cout << "error in LtpSessionSender::NextDataToSend: did not start timer\n";
             }
         }
         else {
@@ -242,8 +249,10 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
                     }
                 }
                 //std::cout << "send sync csn " << cp << std::endl;
-                LtpSessionSender::resend_fragment_t resendFragment(m_dataIndexFirstPass, bytesToSendRed, cp, rsn, flags);
-                const uint8_t * const resendFragmentPtr = (uint8_t*)&resendFragment;
+                std::vector<uint8_t> userData(sizeof(csntimer_userdata_t));
+                csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
+                LtpSessionSender::resend_fragment_t & resendFragment = userDataPtr->resendFragment;
+                new (&resendFragment) LtpSessionSender::resend_fragment_t(m_dataIndexFirstPass, bytesToSendRed, cp, rsn, flags); //placement new
 
                 // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
                 // but now sharing a single LtpTimerManager among all sessions, so use a
@@ -254,11 +263,11 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
                 //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
                 const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(cp, M_SESSION_ID.sessionNumber);
 
-                if (m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::vector<uint8_t>(resendFragmentPtr, resendFragmentPtr + sizeof(resendFragment)))) {
-                    //keep track of this sending session's active timers within the shared LtpTimerManager
-                    if (!m_checkpointSerialNumberActiveTimersSet.insert(cp).second) {
-                        std::cout << "error in LtpSessionSender::NextDataToSend: did not insert cp into m_checkpointSerialNumberActiveTimersSet\n";
-                    }
+                m_checkpointSerialNumberActiveTimersList.emplace_front(cp); //keep track of this sending session's active timers within the shared LtpTimerManager
+                userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
+                if (!m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
+                    m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
+                    std::cout << "error in LtpSessionSender::NextDataToSend: did not start timer\n";
                 }
             }
 
@@ -368,10 +377,15 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
         //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(reportSegment.checkpointSerialNumber, M_SESSION_ID.sessionNumber);
 
-        if (m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
-            //keep track of this sending session's active timers within the shared LtpTimerManager
-            if (m_checkpointSerialNumberActiveTimersSet.erase(reportSegment.checkpointSerialNumber) == 0) {
-                std::cout << "error in LtpSessionSender::ReportSegmentReceivedCallback: did not erase m_checkpointSerialNumberActiveTimersSet\n";
+        std::vector<uint8_t> userDataReturned;
+        if (m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber, userDataReturned)) { //if delete of a timer was successful
+            if (userDataReturned.size() != sizeof(csntimer_userdata_t)) {
+                std::cout << "error in LtpSessionSender::ReportSegmentReceivedCallback: userDataReturned.size() != sizeof(csntimer_userdata_t)\n";
+            }
+            else {
+                const csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userDataReturned.data());
+                //keep track of this sending session's active timers within the shared LtpTimerManager
+                m_checkpointSerialNumberActiveTimersList.erase(userDataPtr->itCheckpointSerialNumberActiveTimersList);
             }
         }
     }

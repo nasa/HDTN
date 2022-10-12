@@ -84,6 +84,12 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber) {
 }
 
 template <typename idType, typename hashType>
+bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned) {
+    const LtpTimerExpiredCallback_t* callbackPtrToDiscard;
+    return DeleteTimer(serialNumber, userDataReturned, callbackPtrToDiscard);
+}
+
+template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned, const LtpTimerExpiredCallback_t *& callbackPtrReturned) {
     
     typename id_to_data_map_t::iterator mapIt = m_mapIdToTimerData.find(serialNumber);
