@@ -37,7 +37,7 @@ class UdpDelaySim {
 private:
     UdpDelaySim();
 public:
-    typedef boost::function<bool(const std::vector<uint8_t> & udpPacketReceived)> UdpDropSimulatorFunction_t;
+    typedef boost::function<bool(const std::vector<uint8_t> & udpPacketReceived, std::size_t bytesTransferred)> UdpDropSimulatorFunction_t;
     UDP_DELAY_SIM_LIB_EXPORT UdpDelaySim(uint16_t myBoundUdpPort,
         const std::string & remoteHostnameToForwardPacketsTo,
         const std::string & remotePortToForwardPacketsTo,
@@ -50,6 +50,7 @@ public:
     UDP_DELAY_SIM_LIB_EXPORT bool StartIfNotAlreadyRunning();
     UDP_DELAY_SIM_LIB_EXPORT void DoUdpShutdown();
     UDP_DELAY_SIM_LIB_EXPORT void SetUdpDropSimulatorFunction_ThreadSafe(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction);
+    UDP_DELAY_SIM_LIB_EXPORT void QueuePacketForDelayedSend_NotThreadSafe(std::vector<uint8_t> & udpPacketToSwapIn, std::size_t bytesTransferred);
 private:
     UDP_DELAY_SIM_LIB_NO_EXPORT void SetUdpDropSimulatorFunction(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction);
     UDP_DELAY_SIM_LIB_NO_EXPORT void OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results);

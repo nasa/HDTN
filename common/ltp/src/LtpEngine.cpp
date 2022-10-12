@@ -111,6 +111,11 @@ LtpEngine::~LtpEngine() {
     std::cout << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued << std::endl;
     std::cout << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit << std::endl;
     std::cout << "m_numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplit << std::endl;
+    std::cout << "m_numGapsFilledByOutOfOrderDataSegments: " << m_numGapsFilledByOutOfOrderDataSegments << std::endl;
+    std::cout << "m_numDelayedFullyClaimedPrimaryReportSegmentsSent: " << m_numDelayedFullyClaimedPrimaryReportSegmentsSent << std::endl;
+    std::cout << "m_numDelayedFullyClaimedSecondaryReportSegmentsSent: " << m_numDelayedFullyClaimedSecondaryReportSegmentsSent << std::endl;
+    std::cout << "m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent << std::endl;
+    std::cout << "m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent << std::endl;
     std::cout << "m_countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate << std::endl << std::endl;
 
     if (m_ioServiceLtpEngineThreadPtr) {
@@ -152,6 +157,11 @@ void LtpEngine::Reset() {
     m_numReportSegmentsUnableToBeIssued = 0;
     m_numReportSegmentsTooLargeAndNeedingSplit = 0;
     m_numReportSegmentsCreatedViaSplit = 0;
+    m_numGapsFilledByOutOfOrderDataSegments = 0;
+    m_numDelayedFullyClaimedPrimaryReportSegmentsSent = 0;
+    m_numDelayedFullyClaimedSecondaryReportSegmentsSent = 0;
+    m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent = 0;
+    m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent = 0;
 }
 
 void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender) {
@@ -347,10 +357,16 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
             }
             else {
                 //erase session
-                m_numReportSegmentTimerExpiredCallbacks += rxSessionIt->second->m_numReportSegmentTimerExpiredCallbacks;
-                m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
-                m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
-                m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
+                LtpSessionReceiver * const rxSessionPtr = rxSessionIt->second.get();
+                m_numReportSegmentTimerExpiredCallbacks += rxSessionPtr->m_numReportSegmentTimerExpiredCallbacks;
+                m_numReportSegmentsUnableToBeIssued += rxSessionPtr->m_numReportSegmentsUnableToBeIssued;
+                m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionPtr->m_numReportSegmentsTooLargeAndNeedingSplit;
+                m_numReportSegmentsCreatedViaSplit += rxSessionPtr->m_numReportSegmentsCreatedViaSplit;
+                m_numGapsFilledByOutOfOrderDataSegments += rxSessionPtr->m_numGapsFilledByOutOfOrderDataSegments;
+                m_numDelayedFullyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+                m_numDelayedFullyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+                m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+                m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
                 m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
                 ////std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
             }
@@ -591,10 +607,16 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //sender.
 
             //erase session
-            m_numReportSegmentTimerExpiredCallbacks += rxSessionIt->second->m_numReportSegmentTimerExpiredCallbacks;
-            m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
-            m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
-            m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
+            LtpSessionReceiver* const rxSessionPtr = rxSessionIt->second.get();
+            m_numReportSegmentTimerExpiredCallbacks += rxSessionPtr->m_numReportSegmentTimerExpiredCallbacks;
+            m_numReportSegmentsUnableToBeIssued += rxSessionPtr->m_numReportSegmentsUnableToBeIssued;
+            m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionPtr->m_numReportSegmentsTooLargeAndNeedingSplit;
+            m_numReportSegmentsCreatedViaSplit += rxSessionPtr->m_numReportSegmentsCreatedViaSplit;
+            m_numGapsFilledByOutOfOrderDataSegments += rxSessionPtr->m_numGapsFilledByOutOfOrderDataSegments;
+            m_numDelayedFullyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+            m_numDelayedFullyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+            m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+            m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
             std::cout << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber << std::endl;
 
@@ -626,10 +648,16 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
                 m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
             }
             //erase session
-            m_numReportSegmentTimerExpiredCallbacks += rxSessionIt->second->m_numReportSegmentTimerExpiredCallbacks;
-            m_numReportSegmentsUnableToBeIssued += rxSessionIt->second->m_numReportSegmentsUnableToBeIssued;
-            m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionIt->second->m_numReportSegmentsTooLargeAndNeedingSplit;
-            m_numReportSegmentsCreatedViaSplit += rxSessionIt->second->m_numReportSegmentsCreatedViaSplit;
+            LtpSessionReceiver* const rxSessionPtr = rxSessionIt->second.get();
+            m_numReportSegmentTimerExpiredCallbacks += rxSessionPtr->m_numReportSegmentTimerExpiredCallbacks;
+            m_numReportSegmentsUnableToBeIssued += rxSessionPtr->m_numReportSegmentsUnableToBeIssued;
+            m_numReportSegmentsTooLargeAndNeedingSplit += rxSessionPtr->m_numReportSegmentsTooLargeAndNeedingSplit;
+            m_numReportSegmentsCreatedViaSplit += rxSessionPtr->m_numReportSegmentsCreatedViaSplit;
+            m_numGapsFilledByOutOfOrderDataSegments += rxSessionPtr->m_numGapsFilledByOutOfOrderDataSegments;
+            m_numDelayedFullyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+            m_numDelayedFullyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+            m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+            m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
             std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
             //Send CAx after outer if-else statement

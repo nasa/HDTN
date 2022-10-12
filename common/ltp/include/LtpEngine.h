@@ -265,6 +265,11 @@ public:
     uint64_t m_numReportSegmentsUnableToBeIssued;
     uint64_t m_numReportSegmentsTooLargeAndNeedingSplit;
     uint64_t m_numReportSegmentsCreatedViaSplit;
+    uint64_t m_numGapsFilledByOutOfOrderDataSegments;
+    uint64_t m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+    uint64_t m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+    uint64_t m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+    uint64_t m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
 };
 
 #endif // LTP_ENGINE_H

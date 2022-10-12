@@ -49,7 +49,12 @@ LtpSessionReceiver::LtpSessionReceiver(uint64_t randomNextReportSegmentReportSer
     m_numReportSegmentTimerExpiredCallbacks(0),
     m_numReportSegmentsUnableToBeIssued(0),
     m_numReportSegmentsTooLargeAndNeedingSplit(0),
-    m_numReportSegmentsCreatedViaSplit(0)
+    m_numReportSegmentsCreatedViaSplit(0),
+    m_numGapsFilledByOutOfOrderDataSegments(0),
+    m_numDelayedFullyClaimedPrimaryReportSegmentsSent(0),
+    m_numDelayedFullyClaimedSecondaryReportSegmentsSent(0),
+    m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent(0),
+    m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent(0)
 {
     m_timerExpiredCallback = boost::bind(&LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
     m_delayedReceptionReportTimerExpiredCallback = boost::bind(&LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
@@ -107,6 +112,8 @@ void LtpSessionReceiver::LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp
     const csn_issecondary_pair_t& p = it->second;
     const uint64_t thisRsCheckpointSerialNumber = p.first;
     const bool thisCheckpointIsResponseToReportSegment = p.second;
+    m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += (!thisCheckpointIsResponseToReportSegment);
+    m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
     //std::cout << "SEND NON-GAP FILLED RS " << ((thisCheckpointIsResponseToReportSegment) ? "secondary" : "primary") << " NOW!!!!!!!!!!!!!!!!!!!!!!!!!\n";
     HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
     m_mapReportSegmentsPendingGeneration.erase(it);
@@ -347,6 +354,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
             rs_pending_map_t::iterator it = //search by lower bound
                 m_mapReportSegmentsPendingGeneration.find(LtpFragmentSet::data_fragment_no_overlap_allow_abut_t(dataSegmentMetadata.offset, dataSegmentMetadata.offset));
             if (it != m_mapReportSegmentsPendingGeneration.end()) { //found by lower bound
+                ++m_numGapsFilledByOutOfOrderDataSegments;
                 if (LtpFragmentSet::ContainsFragmentEntirely(m_receivedDataFragmentsSet, LtpFragmentSet::data_fragment_t(it->first.beginIndex, it->first.endIndex))) { //fully claimed (no gaps)
                     
                     const uint64_t thisRsLowerBound = it->first.beginIndex;
@@ -354,6 +362,8 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     const csn_issecondary_pair_t& p = it->second;
                     const uint64_t thisRsCheckpointSerialNumber = p.first;
                     const bool thisCheckpointIsResponseToReportSegment = p.second;
+                    m_numDelayedFullyClaimedPrimaryReportSegmentsSent += (!thisCheckpointIsResponseToReportSegment);
+                    m_numDelayedFullyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
                     //std::cout << "SEND GAP FILLED RS " << ((thisCheckpointIsResponseToReportSegment) ? "secondary" : "primary") << " NOW!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                     HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
                     //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
