@@ -156,6 +156,9 @@ private:
     LOG_LIB_EXPORT Logger& operator=(Logger const&);
     LOG_LIB_EXPORT ~Logger();
 
+    /** 
+     * Initializes the logger
+     */
     LOG_LIB_EXPORT void init();
 
     /**
