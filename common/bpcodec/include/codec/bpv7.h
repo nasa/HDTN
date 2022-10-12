@@ -61,7 +61,8 @@ enum class BPV7_BLOCK_TYPE_CODE : uint8_t {
     BUNDLE_AGE                  = 7,
     HOP_COUNT                   = 10,
     INTEGRITY                   = 11,
-    CONFIDENTIALITY             = 12
+    CONFIDENTIALITY             = 12,
+    PRIORITY                    = 13
 };
 MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_BLOCK_TYPE_CODE);
 
@@ -260,6 +261,17 @@ enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_PARAMETERS {
 enum class BPSEC_BCB_AES_GCM_AAD_SECURITY_RESULTS {
     AUTHENTICATION_TAG = 1
 };
+
+// Bundle priorities used by Bpv7PriorityCanonicalBlock extension block
+enum BPV7_PRIORITY : uint64_t {
+    BULK = 0,
+    NORMAL = 1,
+    EXPEDITED = 2,
+    MAX_PRIORITY = 2,
+    DEFAULT = 2,
+    INVALID = uint64_t(~0)
+};
+MAKE_ENUM_SUPPORT_OSTREAM_OPERATOR(BPV7_PRIORITY);
 
 
 struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
@@ -625,7 +637,24 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7AdministrativeRecord : public Bpv7CanonicalB
     BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
 };
 
+struct CLASS_VISIBILITY_BPCODEC Bpv7PriorityCanonicalBlock : public Bpv7CanonicalBlock {
+    static constexpr uint64_t largestSerializedDataOnlySize = 9;
 
+    BPCODEC_EXPORT Bpv7PriorityCanonicalBlock();
+    BPCODEC_EXPORT virtual ~Bpv7PriorityCanonicalBlock();
+    BPCODEC_EXPORT Bpv7PriorityCanonicalBlock(const Bpv7PriorityCanonicalBlock& o);
+    BPCODEC_EXPORT Bpv7PriorityCanonicalBlock(Bpv7PriorityCanonicalBlock&& o);
+    BPCODEC_EXPORT Bpv7PriorityCanonicalBlock& operator=(const Bpv7PriorityCanonicalBlock& o);
+    BPCODEC_EXPORT Bpv7PriorityCanonicalBlock& operator=(Bpv7PriorityCanonicalBlock&& o);
+    BPCODEC_EXPORT bool operator==(const Bpv7PriorityCanonicalBlock & o) const;
+    BPCODEC_EXPORT bool operator!=(const Bpv7PriorityCanonicalBlock & o) const;
+    BPCODEC_EXPORT virtual void SetZero();
+    BPCODEC_EXPORT virtual uint64_t SerializeBpv7(uint8_t * serialization);
+    BPCODEC_EXPORT virtual uint64_t GetCanonicalBlockTypeSpecificDataSerializationSize() const;
+    BPCODEC_EXPORT virtual bool Virtual_DeserializeExtensionBlockDataBpv7();
+
+    uint64_t m_bundlePriority;
+};
 
 #endif //BPV7_H
 

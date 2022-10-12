@@ -326,6 +326,30 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
         }
 
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PRIORITY, blocks);
+        if (blocks.size() > 1) {
+            std::cout << "error in BpSinkPattern::Process: version 7 bundle received has multiple priority blocks\n";
+            return false;
+        }
+        if (blocks.size() == 1) {
+            if (Bpv7PriorityCanonicalBlock* priorityBlockPtr = dynamic_cast<Bpv7PriorityCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                m_bpv7Priority = BPV7_PRIORITY::INVALID;
+
+                if (priorityBlockPtr->m_bundlePriority > BPV7_PRIORITY::MAX_PRIORITY)
+                {
+                    std::cout << "notice: BpSinkPattern::Process dropping version 7 bundle with priority " << priorityBlockPtr->m_bundlePriority << "\n";
+                    return false;
+                }
+
+                m_bpv7Priority = priorityBlockPtr->m_bundlePriority;
+            }
+            else {
+                std::cout << "error in BpSinkPattern::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
+                return false;
+            }           
+        }
+        else m_bpv7Priority = BPV7_PRIORITY::DEFAULT;
+
         if (m_hasSendCapability) { //has bidirectionality
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;

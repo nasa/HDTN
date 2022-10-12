@@ -340,6 +340,18 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     bv.AppendMoveCanonicalBlock(blockPtr);
                 }
 
+                // Append priority block
+                {
+                    std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PriorityCanonicalBlock>();
+                    Bpv7PriorityCanonicalBlock& block = *(reinterpret_cast<Bpv7PriorityCanonicalBlock*>(blockPtr.get()));
+
+                    block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED; //something for checking against
+                    block.m_blockNumber = 3;
+                    block.m_crcType = BPV7_CRC_TYPE::CRC32C;
+                    block.m_bundlePriority = m_bundlePriority; // MUST be 0 = Bulk, 1 = Normal, or 2 = Expedited
+                    bv.AppendMoveCanonicalBlock(blockPtr);
+                }
+
                 //append payload block (must be last block)
                 {
                     std::unique_ptr<Bpv7CanonicalBlock> payloadBlockPtr = boost::make_unique<Bpv7CanonicalBlock>();
