@@ -209,7 +209,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         std::cout << "EgressAsyncRunner: exiting cleanly..\n";
         egressPtr->Stop();
         m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
-        m_egressBundleData = egressPtr->m_telemetry.egressBundleData;
+        m_egressBundleData = static_cast<uint64_t>(egressPtr->m_telemetry.egressBundleData);
         m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
     }
     std::cout << "HDTN one process: exited cleanly\n";
