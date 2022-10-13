@@ -125,7 +125,7 @@ void Logger::createFileSinkForModule(const Logger::Module module)
 {
     logging::formatter module_log_fmt = expr::stream
         << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: "<< expr::smessage;
+        << "][" << severity << "]: \t"<< expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend =
         boost::make_shared<sinks::text_file_backend>(
