@@ -644,8 +644,12 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     if (isFromSender) { //to receiver
         map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
         if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
-            if (m_receptionSessionCancelledCallback) {
-                m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
+            //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
+            if (rxSessionIt->second->m_calledCancelledCallback == false) {
+                rxSessionIt->second->m_calledCancelledCallback = true;
+                if (m_receptionSessionCancelledCallback) {
+                    m_receptionSessionCancelledCallback(sessionId, reasonCode); //No subsequent delivery notices will be issued for this session.
+                }
             }
             //erase session
             LtpSessionReceiver* const rxSessionPtr = rxSessionIt->second.get();
@@ -675,8 +679,12 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     else { //to sender
         map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            if (m_transmissionSessionCancelledCallback) {
-                m_transmissionSessionCancelledCallback(sessionId, reasonCode, txSessionIt->second->m_userDataPtr);
+            //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
+            if (txSessionIt->second->m_calledCancelledOrCompletedCallback == false) {
+                txSessionIt->second->m_calledCancelledOrCompletedCallback = true;
+                if (m_transmissionSessionCancelledCallback) {
+                    m_transmissionSessionCancelledCallback(sessionId, reasonCode, txSessionIt->second->m_userDataPtr);
+                }
             }
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
@@ -775,6 +783,7 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
 }
 
 void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
+    map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
     if (wasCancelled) {
         //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         m_queueCancelSegmentTimerInfo.emplace();
@@ -784,13 +793,25 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
         info.isFromSender = true;
         info.reasonCode = reasonCode;
 
-        if (m_transmissionSessionCancelledCallback) {
-            m_transmissionSessionCancelledCallback(sessionId, reasonCode, userDataPtr);
+        //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
+        if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
+            if (txSessionIt->second->m_calledCancelledOrCompletedCallback == false) {
+                txSessionIt->second->m_calledCancelledOrCompletedCallback = true;
+                if (m_transmissionSessionCancelledCallback) {
+                    m_transmissionSessionCancelledCallback(sessionId, reasonCode, userDataPtr);
+                }
+            }
         }
     }
     else {
-        if (m_transmissionSessionCompletedCallback) {
-            m_transmissionSessionCompletedCallback(sessionId, userDataPtr);
+        //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
+        if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
+            if (txSessionIt->second->m_calledCancelledOrCompletedCallback == false) {
+                txSessionIt->second->m_calledCancelledOrCompletedCallback = true;
+                if (m_transmissionSessionCompletedCallback) {
+                    m_transmissionSessionCompletedCallback(sessionId, userDataPtr);
+                }
+            }
         }
     }
     m_queueSendersNeedingDeleted.push(sessionId.sessionNumber);
@@ -812,8 +833,15 @@ void LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback(const Ltp::sess
         info.isFromSender = false;
         info.reasonCode = reasonCode;
 
-        if (m_receptionSessionCancelledCallback) {
-            m_receptionSessionCancelledCallback(sessionId, reasonCode);
+        map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
+        if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
+            //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
+            if (rxSessionIt->second->m_calledCancelledCallback == false) {
+                rxSessionIt->second->m_calledCancelledCallback = true;
+                if (m_receptionSessionCancelledCallback) {
+                    m_receptionSessionCancelledCallback(sessionId, reasonCode);
+                }
+            }
         }
     }
     else { //not cancelled
@@ -1085,8 +1113,12 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
                 info.isFromSender = false;
                 info.reasonCode = CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED;
 
-                if (m_receptionSessionCancelledCallback) {
-                    m_receptionSessionCancelledCallback(sessionId, CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+                //Github Issue #31: Multiple TX canceled callbacks are called if multiple cancel segments received
+                if (rxSessionIt->second->m_calledCancelledCallback == false) {
+                    rxSessionIt->second->m_calledCancelledCallback = true;
+                    if (m_receptionSessionCancelledCallback) {
+                        m_receptionSessionCancelledCallback(sessionId, CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED);
+                    }
                 }
             }
         }

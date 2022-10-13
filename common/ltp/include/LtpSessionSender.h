@@ -113,6 +113,7 @@ public:
     uint64_t m_numCheckpointTimerExpiredCallbacks;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
     bool m_isFailedSession;
+    bool m_calledCancelledOrCompletedCallback;
 };
 
 #endif // LTP_SESSION_SENDER_H

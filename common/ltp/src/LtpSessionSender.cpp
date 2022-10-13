@@ -49,7 +49,8 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback),
     m_numCheckpointTimerExpiredCallbacks(0),
     m_numDiscretionaryCheckpointsNotResent(0),
-    m_isFailedSession(false)
+    m_isFailedSession(false),
+    m_calledCancelledOrCompletedCallback(false)
 {
     m_timerExpiredCallback = boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
     m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //to trigger first pass of red data

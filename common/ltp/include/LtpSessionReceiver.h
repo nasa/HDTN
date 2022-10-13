@@ -114,6 +114,8 @@ public:
     //stagnant rx session detection in ltp engine with periodic housekeeping timer
     boost::posix_time::ptime m_lastSegmentReceivedTimestamp;
 
+    bool m_calledCancelledCallback;
+
     //stats
     uint64_t m_numReportSegmentTimerExpiredCallbacks;
     uint64_t m_numReportSegmentsUnableToBeIssued;
