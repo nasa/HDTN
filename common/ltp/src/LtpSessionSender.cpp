@@ -37,6 +37,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_LENGTH_OF_RED_PART(lengthOfRedPart),
     m_dataIndexFirstPass(0),
     m_didNotifyForDeletion(false),
+    m_allRedDataReceivedByRemote(false),
     M_MTU(MTU),
     M_SESSION_ID(sessionId),
     M_CLIENT_SERVICE_ID(clientServiceId),
@@ -156,8 +157,17 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
         return true;
     }
 
-    if (!m_resendFragmentsQueue.empty()) {
+    while (!m_resendFragmentsQueue.empty()) {
         //std::cout << "resend fragment\n";
+        if (m_allRedDataReceivedByRemote) {
+            //Continuation of Github issue 23:
+            //If the sender detects that all Red data has been acknowledged by the remote,
+            //the sender shall remove all Red data segments (checkpoint or non-checkpoint) from the
+            //outgoing transmission queue.
+            //std::cout << "SENDER DEQUEUING RED DATA SINCE ALL RED DATA RECEIVED\n";
+            m_resendFragmentsQueue.pop();
+            continue;
+        }
         LtpSessionSender::resend_fragment_t & resendFragment = m_resendFragmentsQueue.front();
         Ltp::data_segment_metadata_t meta;
         meta.clientServiceId = M_CLIENT_SERVICE_ID;
@@ -200,7 +210,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
                 std::cout << "error in LtpSessionSender::NextDataToSend: did not start timer\n";
             }
         }
-        else {
+        else { //non-checkpoint
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
         }
@@ -414,14 +424,19 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //invoked.
     //std::cout << "M_LENGTH_OF_RED_PART " << M_LENGTH_OF_RED_PART << " m_dataFragmentsAckedByReceiver.size() " << m_dataFragmentsAckedByReceiver.size() << std::endl;
     //std::cout << "m_dataIndexFirstPass " << m_dataIndexFirstPass << " m_dataToSend.size() " << m_dataToSend.size() << std::endl;
-    if ((m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) && (m_dataFragmentsAckedByReceiver.size() == 1)) {
-        std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
-        //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
-        if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
-            if (!m_didNotifyForDeletion) {
-                m_didNotifyForDeletion = true;
-                m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+    if (m_allRedDataReceivedByRemote == false) { //the m_allRedDataReceivedByRemote flag is used to prevent resending of non-checkpoint data (Continuation of Github issue 23)
+        if (m_dataFragmentsAckedByReceiver.size() == 1) {
+            std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
+            //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
+            if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
+                m_allRedDataReceivedByRemote = true;
             }
+        }
+    }
+    if ((m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) && m_allRedDataReceivedByRemote) { //if red and green fully sent and all red data acked
+        if (!m_didNotifyForDeletion) {
+            m_didNotifyForDeletion = true;
+            m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
         }
     }
     

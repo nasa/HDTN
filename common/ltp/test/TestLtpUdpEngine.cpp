@@ -1189,12 +1189,15 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
         }
 
-        void DoTestReverseStartToEOBSrcToDest(bool addTwoDiscretionaryCheckpoints) {
+        void DoTestReverseStartToCpSrcToDest(bool addTwoDiscretionaryCheckpoints, bool reverseOnlyFromEob) {
             struct DropSimulation {
                 typedef std::pair<std::vector<uint8_t>, std::size_t> udppacket_plus_size_pair_t;
                 std::list<udppacket_plus_size_pair_t> m_packetsToReverse;
                 UdpDelaySim & m_udpDelaySimDataSegmentProxyRef;
-                DropSimulation(UdpDelaySim & udpDelaySimDataSegmentProxy) : m_udpDelaySimDataSegmentProxyRef(udpDelaySimDataSegmentProxy) {}
+                bool m_reverseOnlyFromEob;
+                DropSimulation(UdpDelaySim & udpDelaySimDataSegmentProxy, bool paramReverseOnlyFromEob) :
+                    m_udpDelaySimDataSegmentProxyRef(udpDelaySimDataSegmentProxy),
+                    m_reverseOnlyFromEob(paramReverseOnlyFromEob) {}
                 bool DoSim(const std::vector<uint8_t>& udpPacketReceived, std::size_t bytesTransferred) {
                     const uint8_t ltpHeaderByte = udpPacketReceived[0];
                     const bool isRedData = (ltpHeaderByte <= 3);
@@ -1204,7 +1207,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                         m_packetsToReverse.emplace_front(std::move(packetCopy), bytesTransferred);
 
                         const bool isRedCheckpoint = (ltpHeaderByte != 0);
-                        if (isRedCheckpoint) {
+                        const bool isEndOfRedPart = (ltpHeaderByte & 2);
+                        if ((isRedCheckpoint && (!m_reverseOnlyFromEob)) || (isEndOfRedPart && m_reverseOnlyFromEob)) {
                             //send packets out in reverse order
                             for (std::list<udppacket_plus_size_pair_t>::iterator it = m_packetsToReverse.begin(); it != m_packetsToReverse.end(); ++it) {
                                 m_udpDelaySimDataSegmentProxyRef.QueuePacketForDelayedSend_NotThreadSafe(it->first, it->second); //this is safe since callback is called by proxy thread
@@ -1218,7 +1222,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             };
             Reset();
             AssertNoActiveSendersAndReceivers();
-            DropSimulation sim(udpDelaySimDataSegmentProxy);
+            DropSimulation sim(udpDelaySimDataSegmentProxy, reverseOnlyFromEob);
             udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1, boost::placeholders::_2));
             std::shared_ptr<LtpEngine::transmission_request_t> tReq = std::make_shared<LtpEngine::transmission_request_t>();
             tReq->destinationClientServiceId = CLIENT_SERVICE_ID_DEST;
@@ -1244,16 +1248,28 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 //Related to Github issue #22 Defer synchronous reception report with out-of-order data segments:
                 //...In a situation with no loss but lots of out-of-order delivery this will have exactly the same number of reports,
                 //they will just be sent when the full checkpointed bounds of data have been received.
-                BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 3); //+3 for 3 Report acks
-                BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 3); //3 for 3 Report segments
-                BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 3); //-3 to exclude 3 checkpoints
-                BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 3);
+                if (reverseOnlyFromEob) {
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for 1 Report ack
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 for 1 Report segment
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 1); //-1 to exclude only checkpoint
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 1);
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 2);
+                }
+                else {
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 3 Report acks plus 1 ack from async rs
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 4); //4 for 3 Report segments plus 1 async rs
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 3); //-3 to exclude 3 checkpoints
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 3);
+                    BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 0);
+                }
             }
             else {
+                BOOST_REQUIRE(!reverseOnlyFromEob);
                 BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for 1 Report ack
                 BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 for 1 Report segment
                 BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numGapsFilledByOutOfOrderDataSegments, DESIRED_RED_DATA_TO_SEND.size() - 1); //-1 to exclude only checkpoint
                 BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numDelayedFullyClaimedPrimaryReportSegmentsSent, 1);
+                BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_numReportSegmentsUnableToBeIssued, 0);
             }
             
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
@@ -1289,8 +1305,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     {
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
         Test t(1); //1 => maxUdpPacketsToSendPerSystemCall
-        t.DoTestReverseStartToEOBSrcToDest(false);
-        t.DoTestReverseStartToEOBSrcToDest(true);
+        t.DoTestReverseStartToCpSrcToDest(false, false); //the only cp is EOB
+        t.DoTestReverseStartToCpSrcToDest(true, false); //two discretionary cp, reverse from 1st cp
+        t.DoTestReverseStartToCpSrcToDest(true, true); //two discretionary cp, reverse from EOB so those reports cannot be issued
         t.DoTest();
         t.DoTestRedAndGreenData();
         t.DoTestFullyGreenData();

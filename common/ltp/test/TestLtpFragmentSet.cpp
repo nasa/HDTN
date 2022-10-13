@@ -210,6 +210,13 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999) }));
     }
+    { //full reception where rc contains all between upper and lower bounds
+        rs reportSegment(0, 0, 3500, 0, std::vector<rc>({ rc(0,3500) }));
+        std::set<df> fragmentsNeedingResent;
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified (from size 0 to size 0)
+        //LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent);
+        BOOST_REQUIRE_EQUAL(fragmentsNeedingResent.size(), 0);        
+    }
     {
         //added to fix bug:
         //rs: upper bound : 20, lower bound : 15

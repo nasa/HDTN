@@ -345,6 +345,7 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         if (dataReceivedWasNew) {
             memcpy(m_dataReceivedRed.data() + dataSegmentMetadata.offset, clientServiceDataVec.data(), dataSegmentMetadata.length);
         }
+        bool rsWasJustNowSentWithFullRedBounds = false;
         const bool gapsWereFilled = (dataReceivedWasNew && (!neededResize));
         if (gapsWereFilled) {
             //std::cout << "gaps were filled\n";
@@ -367,6 +368,9 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     m_numDelayedFullyClaimedSecondaryReportSegmentsSent += thisCheckpointIsResponseToReportSegment;
                     //std::cout << "SEND GAP FILLED RS " << ((thisCheckpointIsResponseToReportSegment) ? "secondary" : "primary") << " NOW!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                     HandleGenerateAndSendReportSegment(thisRsCheckpointSerialNumber, thisRsLowerBound, thisRsUpperBound, thisCheckpointIsResponseToReportSegment);
+                    if ((thisRsLowerBound == 0) && (thisRsUpperBound == m_lengthOfRedPart)) {
+                        rsWasJustNowSentWithFullRedBounds = true;
+                    }
                     //  sessionOriginatorEngineId = CHECKPOINT serial number to which RS pertains
                     //  sessionNumber = the session number
                     //  since this is a receiver, the real sessionOriginatorEngineId is constant among all receiving sessions and is not needed
@@ -495,6 +499,8 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                 {
                     //std::cout << "SEND NOW!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                     HandleGenerateAndSendReportSegment(*dataSegmentMetadata.checkpointSerialNumber, lowerBound, upperBound, checkpointIsResponseToReportSegment);
+                    // no need to set rsWasJustNowSentWithFullRedBounds because this section is for checkpoints only
+                    
                 }
                 else {
                     //std::cout << "SHOULD WAIT!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -538,9 +544,34 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
         if ((!m_didRedPartReceptionCallback) && (m_lengthOfRedPart != UINT64_MAX) && (m_receivedDataFragmentsSet.size() == 1)) {
             std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_receivedDataFragmentsSet.cbegin();
             //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
-            if ((it->beginIndex == 0) && (it->endIndex == (m_lengthOfRedPart - 1))) {
+            if ((it->beginIndex == 0) && (it->endIndex == (m_lengthOfRedPart - 1))) { //all data fully received by this segment
+
+                if (!isRedCheckpoint) { //Only when the red part data was completed by a non-checkpoint segment is the async. reception report needed.
+                    // Github issue 23: Guarantee reception report when full red part data is received
+                    //
+                    // In the case where data segments arrive out-of-order and with enough delay
+                    // that even a deferred reception report (Github issue 22) has some gap in it,
+                    // there may be a point where the full set of data is received (with no retransmission, 
+                    // only out-of-order in the first flight).
+                    // When this happens the receiving engine must guarantee that an "asynchronous reception report"
+                    // (one not in response to a checkpoint) is sent so that the sender knows to stop any
+                    // data retransmission that hasn't yet gone out.
+                    // This is a report guarantee in the sense that if the last received red segment that completed the
+                    // red part data was a checkpoint there's no need for an async. reception report.
+                    // Only when the red part data was completed by a non-checkpoint segment is the async. reception report needed.
+                    //
+                    // Do not send the async reception report if this non-checkpoint segment filled all the gaps of a pending/delayed reception
+                    // report (thus immediately sending it out) AND that reception report had lowerBound == 0 and upperBound == lengthOfRedPart
+                    if (!rsWasJustNowSentWithFullRedBounds) {
+                        //Send Async reception report (i.e. checkpoint serial number == 0)
+                        // and set lower bound and upper bound to the full range of red data.
+                        //std::cout << "SEND ASYNC RECEPTION REPORT NOW!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+                        HandleGenerateAndSendReportSegment(0, 0, m_lengthOfRedPart, false);
+                    }
+                }
+
+                m_didRedPartReceptionCallback = true;
                 if (redPartReceptionCallback) {
-                    m_didRedPartReceptionCallback = true;
                     redPartReceptionCallback(M_SESSION_ID,
                         m_dataReceivedRed, m_lengthOfRedPart, dataSegmentMetadata.clientServiceId, isEndOfBlock);
                 }
