@@ -134,11 +134,36 @@ public:
     LOG_LIB_EXPORT static std::string toString(Logger::Module module);
 
     /**
+     * Attribute types that can be safely accessed from multiple threads.
+     * Shared lock for read, exclusive lock for write.
+     */
+    typedef boost::log::attributes::mutable_constant<
+        Logger::Module,
+        boost::shared_mutex,
+        boost::unique_lock< boost::shared_mutex >,
+        boost::shared_lock< boost::shared_mutex >
+    > module_attr_t;
+
+    typedef boost::log::attributes::mutable_constant<
+        std::string,
+        boost::shared_mutex,
+        boost::unique_lock< boost::shared_mutex >,
+        boost::shared_lock< boost::shared_mutex >
+    > file_attr_t;
+
+    typedef boost::log::attributes::mutable_constant<
+        int,
+        boost::shared_mutex,
+        boost::unique_lock< boost::shared_mutex >,
+        boost::shared_lock< boost::shared_mutex >
+    > line_attr_t;
+
+    /**
      * Attributes to be included in log messages
      */
-    LOG_LIB_EXPORT static boost::log::attributes::mutable_constant<Module> module_attr;
-    LOG_LIB_EXPORT static boost::log::attributes::mutable_constant<std::string> file_attr;
-    LOG_LIB_EXPORT static boost::log::attributes::mutable_constant<int> line_attr;
+    LOG_LIB_EXPORT static Logger::module_attr_t module_attr;
+    LOG_LIB_EXPORT static Logger::file_attr_t file_attr;
+    LOG_LIB_EXPORT static Logger::line_attr_t line_attr;
 
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static Module fromString(std::string module);

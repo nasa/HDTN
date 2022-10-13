@@ -52,9 +52,9 @@ Logger::Logger()
 Logger::~Logger(){}
 
 Logger* Logger::logger_ = nullptr;
-attrs::mutable_constant<Logger::Module> Logger::module_attr(Logger::Module(-1));
-attrs::mutable_constant<std::string> Logger::file_attr("");
-attrs::mutable_constant<int> Logger::line_attr(-1);
+Logger::module_attr_t Logger::module_attr(Logger::Module(-1));
+Logger::file_attr_t Logger::file_attr("");
+Logger::line_attr_t Logger::line_attr(-1);
 
 bool Logger::ensureInitialized()
 {
