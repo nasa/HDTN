@@ -40,6 +40,16 @@
 namespace hdtn{
 
 /**
+ * Log levels. These match the Boost trivial level definitions
+ */
+#define LOG_LEVEL_TRACE 0
+#define LOG_LEVEL_DEBUG 1
+#define LOG_LEVEL_INFO 2
+#define LOG_LEVEL_WARNING 3
+#define LOG_LEVEL_ERROR 4
+#define LOG_LEVEL_FATAL 5
+
+/**
  * The following macros provide access for logging at various levels
  */
 #if LOG_LEVEL > LOG_LEVEL_TRACE
@@ -119,7 +129,7 @@ public:
      * Represents modules that Logger supports. New modules using the logger
      * should be added to this list.
      */
-    enum Module {
+    enum class Module {
         egress,
         ingress,
         router,

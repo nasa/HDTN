@@ -82,13 +82,25 @@ void Logger::init()
     boost::filesystem::path::imbue(std::locale("C"));
 
     registerAttributes();
-    createFileSinkForFullHdtnLog();
-    createFileSinkForModule(Logger::Module::egress);
-    createFileSinkForModule(Logger::Module::ingress);
-    createFileSinkForModule(Logger::Module::storage);
-    createFileSinkForLevel(logging::trivial::severity_level::error);
-    createStdoutSink();
-    createStderrSink();
+
+    #ifdef LOG_TO_SINGLE_FILE
+        createFileSinkForFullHdtnLog();
+    #endif
+
+    #ifdef LOG_TO_MODULE_FILES
+        createFileSinkForModule(Logger::Module::egress);
+        createFileSinkForModule(Logger::Module::ingress);
+        createFileSinkForModule(Logger::Module::storage);
+    #endif
+
+    #ifdef LOG_TO_ERROR_FILE
+        createFileSinkForLevel(logging::trivial::severity_level::error);
+    #endif
+
+    #ifdef LOG_TO_CONSOLE
+        createStdoutSink();
+        createStderrSink();
+    #endif
 
     logging::add_common_attributes(); //necessary for timestamp
 }
@@ -115,7 +127,7 @@ void Logger::createFileSinkForFullHdtnLog()
         );
  
     //Wrap log backend into frontend
-    boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
+    boost::shared_ptr<sink_t> sink = boost::make_shared<sink_t>(sink_backend);
     sink->set_formatter(hdtn_log_fmt);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
@@ -132,7 +144,7 @@ void Logger::createFileSinkForModule(const Logger::Module module)
             keywords::file_name = "logs/" + Logger::toString(module) + "_%5N.log",
             keywords::rotation_size = file_rotation_size
         );
-    boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
+    boost::shared_ptr<sink_t> sink = boost::make_shared<sink_t>(sink_backend);
 
     sink->set_formatter(module_log_fmt);
     sink->set_filter(expr::attr<Logger::Module>("Module") == module);
@@ -152,7 +164,7 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
         keywords::file_name = std::string("logs/") + logging::trivial::to_string(level) + "_%5N.log",
         keywords::rotation_size = file_rotation_size
     );
-    boost::shared_ptr<sink_t> sink(new sink_t(sink_backend));
+    boost::shared_ptr<sink_t> sink = boost::make_shared<sink_t>(sink_backend);
 
     sink->set_formatter(severity_log_fmt);
     sink->set_filter(severity == level);
@@ -162,11 +174,12 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
 
 std::string Logger::toString(Logger::Module module)
 {
-    uint32_t num_modules = sizeof(module_strings)/sizeof(*module_strings);
-    if (module > num_modules) {
+    static constexpr uint32_t num_modules = sizeof(module_strings)/sizeof(*module_strings);
+    int module_val = static_cast<typename std::underlying_type<Logger::Module>::type>(module);
+    if (module_val > num_modules) {
         return "";
     }
-    return module_strings[module];
+    return module_strings[module_val];
 }
 
 Logger::Module Logger::fromString(std::string module) {
@@ -191,7 +204,7 @@ void Logger::createStdoutSink() {
     );
 
     typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
-    boost::shared_ptr<sink_t> stdout_sink(new sink_t(stdout_sink_backend));
+    boost::shared_ptr<sink_t> stdout_sink = boost::make_shared<sink_t>(stdout_sink_backend);
 
     stdout_sink->set_filter(severity != logging::trivial::severity_level::error &&
         severity != logging::trivial::severity_level::fatal);
@@ -212,7 +225,7 @@ void Logger::createStderrSink() {
     );
 
     typedef sinks::synchronous_sink< sinks::text_ostream_backend > sink_t;
-    boost::shared_ptr<sink_t> stderr_sink(new sink_t(stderr_sink_backend));
+    boost::shared_ptr<sink_t> stderr_sink = boost::make_shared<sink_t>(stderr_sink_backend);
 
     stderr_sink->set_filter(severity == logging::trivial::severity_level::error ||
         severity == logging::trivial::severity_level::fatal);
