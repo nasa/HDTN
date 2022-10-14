@@ -12,9 +12,24 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
+#include <regex>
+#include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
 #include "Logger.h"
+
+/**
+ * Reads a file's contents into a string and returns it
+ */
+std::string file_contents_to_str(std::string path) {
+    std::ifstream in(path);
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    return buffer.str();
+}
+
+const std::string date_regex = "\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
+const std::string anything_regex = "((.|\n)*)";
 
 BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
 {
@@ -44,7 +59,7 @@ BOOST_AUTO_TEST_CASE(LoggerEnsureInitializedTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::ensureInitialized(), false);
 }
 
-BOOST_AUTO_TEST_CASE(LoggerLogInternalTestCaseStdout)
+BOOST_AUTO_TEST_CASE(LoggerLogInternalStdoutTestCase)
 {
     // First, swap out the cout buffer with the boost test stream
     // so we can capture output
@@ -70,9 +85,9 @@ BOOST_AUTO_TEST_CASE(LoggerLogInternalTestCaseStdout)
     ));
 }
 
-BOOST_AUTO_TEST_CASE(LoggerLogInternalTestCaseStderr)
+BOOST_AUTO_TEST_CASE(LoggerLogInternalStderrTestCase)
 {
-    // First, swap out the cout buffer with the boost test stream
+    // First, swap out the cerr buffer with the boost test stream
     // so we can capture output
     std::streambuf *backup = std::cerr.rdbuf();
     boost::test_tools::output_test_stream test_out;
@@ -90,4 +105,46 @@ BOOST_AUTO_TEST_CASE(LoggerLogInternalTestCaseStderr)
         std::string("[egress][error]: Egress foo bar!\n") +
         std::string("[ingress][fatal]: Ingress foo bar!\n")
     ));
+}
+
+BOOST_AUTO_TEST_CASE(LoggerLogInternalFilesTestCase)
+{
+    // First, swap out the cerr + cout buffers with the boost test stream
+    // so we can capture output
+    std::streambuf *cerr_backup = std::cerr.rdbuf();
+    std::streambuf *cout_backup = std::cout.rdbuf();
+    boost::test_tools::output_test_stream cerr_test_out;
+    boost::test_tools::output_test_stream cout_test_out;
+    std::cerr.rdbuf(cerr_test_out.rdbuf());
+    std::cout.rdbuf(cout_test_out.rdbuf()); 
+
+    _LOG_INTERNAL(hdtn::Logger::Module::egress, info) << "Egress files test case";
+    _LOG_INTERNAL(hdtn::Logger::Module::ingress, error) << "Ingress files test case";
+
+    // Put cerr + cout back
+    std::cerr.rdbuf(cerr_backup);
+    std::cout.rdbuf(cout_backup);
+
+    // Assert results
+    BOOST_TEST(boost::filesystem::exists("logs/"));
+    BOOST_TEST(boost::filesystem::exists("logs/egress_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/egress_00000.log"),
+        std::regex(anything_regex + date_regex + "\\[info]: Egress files test case\n$"))
+    );
+    BOOST_TEST(boost::filesystem::exists("logs/ingress_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/ingress_00000.log"),
+        std::regex(anything_regex + date_regex + "\\[error]: Ingress files test case\n$"))
+    );
+    BOOST_TEST(boost::filesystem::exists("logs/error_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/error_00000.log"),
+        std::regex(anything_regex + "\\[ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Ingress files test case\n$"))
+    );
+    BOOST_TEST(boost::filesystem::exists("logs/hdtn_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/hdtn_00000.log"),
+        std::regex(anything_regex + "\\[egress]" + date_regex + "\\[info]: Egress files test case\n\\[ingress]" + date_regex + "\\[error]: Ingress files test case\n$"))
+    );
 }

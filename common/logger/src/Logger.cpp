@@ -105,7 +105,7 @@ void Logger::createFileSinkForFullHdtnLog()
     logging::formatter hdtn_log_fmt = expr::stream
         << "[" << expr::attr<Logger::Module>("Module") << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: \t" << expr::smessage;
+        << "][" << severity << "]: " << expr::smessage;
 
     //Create hdtn log backend
     boost::shared_ptr<sinks::text_file_backend> sink_backend = 
@@ -125,7 +125,7 @@ void Logger::createFileSinkForModule(const Logger::Module module)
 {
     logging::formatter module_log_fmt = expr::stream
         << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: \t"<< expr::smessage;
+        << "][" << severity << "]: "<< expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend =
         boost::make_shared<sinks::text_file_backend>(
@@ -146,7 +146,7 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
         << "[" << expr::attr<Logger::Module>("Module") << "]["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
         << "][" << expr::attr<std::string>("File") << ":"
-        << expr::attr<int>("Line") << ": \t" << expr::smessage;
+        << expr::attr<int>("Line") << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
         keywords::file_name = std::string("logs/") + logging::trivial::to_string(level) + "_%5N.log",
