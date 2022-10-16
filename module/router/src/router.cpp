@@ -186,6 +186,11 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
     cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_SIZE, 100, 1.0, 0);
     rootContact.arrival_time = 0;
     std::shared_ptr<cgr::Route> bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
+    //cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
+
+    const uint64_t nextHop = bestRoute.next_node;
+    
+    std::cout << "[Router] Computed next hop: " << nextHop << std::endl;
     
     if (bestRoute != nullptr) { // successfully computed a route
         const uint64_t nextHopNodeId = bestRoute->next_node;
