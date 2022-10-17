@@ -28,6 +28,32 @@ std::string file_contents_to_str(std::string path) {
     return buffer.str();
 }
 
+/**
+ * OutputTester is used for redirecting cout and cerr
+ * into a test buffer so the data can be used in testing.
+ */
+class OutputTester {
+public:
+    void redirect_cout_cerr() {
+        cerr_backup = std::cerr.rdbuf();
+        cout_backup = std::cout.rdbuf();
+        std::cerr.rdbuf(cerr_test_stream.rdbuf());
+        std::cout.rdbuf(cout_test_stream.rdbuf());
+    }
+
+    void reset_cout_cerr() {
+        std::cout.rdbuf(cout_backup);
+        std::cerr.rdbuf(cerr_backup);
+    }
+
+    boost::test_tools::output_test_stream cerr_test_stream;
+    boost::test_tools::output_test_stream cout_test_stream;
+
+private:
+    std::streambuf *cerr_backup;
+    std::streambuf *cout_backup;
+};
+
 const std::string date_regex = "\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
 const std::string anything_regex = "((.|\n)*)";
 
@@ -71,13 +97,13 @@ BOOST_AUTO_TEST_CASE(LoggerEnsureInitializedTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::ensureInitialized(), false);
 }
 
-BOOST_AUTO_TEST_CASE(LoggerLogInternalStdoutTestCase)
+#ifdef LOG_TO_CONSOLE
+BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
 {
     // First, swap out the cout buffer with the boost test stream
     // so we can capture output
-    std::streambuf *backup = std::cout.rdbuf();
-    boost::test_tools::output_test_stream test_out;
-    std::cout.rdbuf(test_out.rdbuf());
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
 
     // Do logging
     _LOG_INTERNAL(hdtn::Logger::Module::egress, trace) << "Egress foo bar";
@@ -85,78 +111,106 @@ BOOST_AUTO_TEST_CASE(LoggerLogInternalStdoutTestCase)
     _LOG_INTERNAL(hdtn::Logger::Module::router, info) << "Router foo bar";
     _LOG_INTERNAL(hdtn::Logger::Module::scheduler, warning) << "Scheduler foo bar";
 
-    // Put cout back
-    std::cout.rdbuf(backup);
+    // Put buffers back
+    output_tester.reset_cout_cerr();
 
     // Assert results
-    BOOST_TEST(test_out.is_equal(
+    BOOST_TEST(output_tester.cout_test_stream.is_equal(
         std::string("[egress][trace]: Egress foo bar\n") +
         std::string("[ingress][debug]: Ingress foo bar\n") +
         std::string("[router][info]: Router foo bar\n") +
         std::string("[scheduler][warning]: Scheduler foo bar\n")
     ));
 }
+#endif
 
-BOOST_AUTO_TEST_CASE(LoggerLogInternalStderrTestCase)
+#ifdef LOG_TO_CONSOLE
+BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
 {
     // First, swap out the cerr buffer with the boost test stream
     // so we can capture output
-    std::streambuf *backup = std::cerr.rdbuf();
-    boost::test_tools::output_test_stream test_out;
-    std::cerr.rdbuf(test_out.rdbuf());
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
 
     // Do logging
     _LOG_INTERNAL(hdtn::Logger::Module::egress, error) << "Egress foo bar!";
     _LOG_INTERNAL(hdtn::Logger::Module::ingress, fatal) << "Ingress foo bar!";
 
     // Put cout back
-    std::cerr.rdbuf(backup);
+    output_tester.reset_cout_cerr();
 
     // Assert results
-    BOOST_TEST(test_out.is_equal(
+    BOOST_TEST(output_tester.cerr_test_stream.is_equal(
         std::string("[egress][error]: Egress foo bar!\n") +
         std::string("[ingress][fatal]: Ingress foo bar!\n")
     ));
 }
+#endif
 
-BOOST_AUTO_TEST_CASE(LoggerLogInternalFilesTestCase)
+#ifdef LOG_TO_SINGLE_FILE
+BOOST_AUTO_TEST_CASE(LoggerHdtnFileTestCase)
 {
     // First, swap out the cerr + cout buffers with the boost test stream
     // so we can capture output
-    std::streambuf *cerr_backup = std::cerr.rdbuf();
-    std::streambuf *cout_backup = std::cout.rdbuf();
-    boost::test_tools::output_test_stream cerr_test_out;
-    boost::test_tools::output_test_stream cout_test_out;
-    std::cerr.rdbuf(cerr_test_out.rdbuf());
-    std::cout.rdbuf(cout_test_out.rdbuf()); 
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
 
-    _LOG_INTERNAL(hdtn::Logger::Module::egress, info) << "Egress files test case";
-    _LOG_INTERNAL(hdtn::Logger::Module::ingress, error) << "Ingress files test case";
+    _LOG_INTERNAL(hdtn::Logger::Module::egress, info) << "Egress file test case";
+    _LOG_INTERNAL(hdtn::Logger::Module::ingress, error) << "Ingress file test case";
 
     // Put cerr + cout back
-    std::cerr.rdbuf(cerr_backup);
-    std::cout.rdbuf(cout_backup);
+    output_tester.reset_cout_cerr();
 
     // Assert results
     BOOST_TEST(boost::filesystem::exists("logs/"));
-    BOOST_TEST(boost::filesystem::exists("logs/egress_00000.log"));
-    BOOST_TEST(std::regex_match(
-        file_contents_to_str("logs/egress_00000.log"),
-        std::regex(anything_regex + date_regex + "\\[info]: Egress files test case\n$"))
-    );
-    BOOST_TEST(boost::filesystem::exists("logs/ingress_00000.log"));
-    BOOST_TEST(std::regex_match(
-        file_contents_to_str("logs/ingress_00000.log"),
-        std::regex(anything_regex + date_regex + "\\[error]: Ingress files test case\n$"))
-    );
-    BOOST_TEST(boost::filesystem::exists("logs/error_00000.log"));
-    BOOST_TEST(std::regex_match(
-        file_contents_to_str("logs/error_00000.log"),
-        std::regex(anything_regex + "\\[ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Ingress files test case\n$"))
-    );
     BOOST_TEST(boost::filesystem::exists("logs/hdtn_00000.log"));
     BOOST_TEST(std::regex_match(
         file_contents_to_str("logs/hdtn_00000.log"),
-        std::regex(anything_regex + "\\[egress]" + date_regex + "\\[info]: Egress files test case\n\\[ingress]" + date_regex + "\\[error]: Ingress files test case\n$"))
+        std::regex(anything_regex + "\\[egress]" + date_regex + "\\[info]: Egress file test case\n\\[ingress]" + date_regex + "\\[error]: Ingress file test case\n$"))
     );
 }
+#endif
+
+#ifdef LOG_TO_MODULE_FILES
+BOOST_AUTO_TEST_CASE(LoggerModuleFilesTestCase) {
+    // First, swap out the cerr + cout buffers with the boost test stream
+    // so we can capture output
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
+
+    _LOG_INTERNAL(hdtn::Logger::Module::storage, info) << "Storage file test case";
+    _LOG_INTERNAL(hdtn::Logger::Module::egress, error) << "Egress file test case";
+
+    output_tester.reset_cout_cerr();
+
+    BOOST_TEST(boost::filesystem::exists("logs/"));
+    BOOST_TEST(boost::filesystem::exists("logs/storage_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/storage_00000.log"),
+        std::regex(anything_regex + date_regex + "\\[info]: Storage file test case\n$"))
+    );
+    BOOST_TEST(boost::filesystem::exists("logs/egress_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/egress_00000.log"),
+        std::regex(anything_regex + date_regex + "\\[error]: Egress file test case\n$"))
+    );
+}
+#endif
+
+#ifdef LOG_TO_ERROR_FILE
+BOOST_AUTO_TEST_CASE(LoggerErrorFileTestCase) {
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
+
+    _LOG_INTERNAL(hdtn::Logger::Module::ingress, error) << "Error file test case";
+
+    output_tester.reset_cout_cerr();
+
+    BOOST_TEST(boost::filesystem::exists("logs/"));
+    BOOST_TEST(boost::filesystem::exists("logs/error_00000.log"));
+    BOOST_TEST(std::regex_match(
+        file_contents_to_str("logs/error_00000.log"),
+        std::regex(anything_regex + "\\[ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
+    );
+}
+#endif
