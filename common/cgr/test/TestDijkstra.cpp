@@ -27,7 +27,6 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 
 	
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
-	std::shared_ptr<cgr::Route> bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
 	auto start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
 	auto end = std::chrono::high_resolution_clock::now();
@@ -36,19 +35,187 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 		<< duration.count() << " microseconds" << endl;
 
 
-	BOOST_REQUIRE(bestRoute);
-	cgr::nodeId_t nextHop = bestRoute->next_node;
+	// Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 2);
 
-	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << *bestRoute << std::endl;
+	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
 	int expectedHops = 2;
 	std::vector<cgr::Contact> expectedContacts({ contactPlan[1], contactPlan[2]});
-	std::vector<cgr::Contact> hops = bestRoute->get_hops();
+	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
 	for (int i = 0; i < expectedHops; ++i) {
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
 	};
+}
+
+BOOST_AUTO_TEST_CASE(Dijkstra10NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "10Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "10nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 368);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using dijkstra's..." << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 3686);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
+BOOST_AUTO_TEST_CASE(CMR10NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "10Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "10nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 368);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using dijkstra's..." << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 40, contactPlan);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 3686);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
+
+BOOST_AUTO_TEST_CASE(Dijkstra50NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "50Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "50nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 7186);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using dijkstra's..." << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 3545);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
+BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "100Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "100nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 28162);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using dijkstra's..." << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 2374);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
+BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "100Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "200nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 109330);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using dijkstra's..." << std::endl;
+        auto start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 40);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
 }
 
 BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
@@ -66,9 +233,9 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
-	std::shared_ptr<cgr::Route> bestRoute = cgr::dijkstra(&rootContact, 1, contactPlan);
+	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 1, contactPlan);
 
-	BOOST_CHECK(bestRoute == nullptr);
+	//BOOST_CHECK(bestRoute == NULL);
 
 	std::cout << "No path found for 4->1. Dijkstra's returned nullptr." << std::endl;
 }
@@ -107,11 +274,11 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 3);
 
-	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << *bestRoute << std::endl;
+	std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
 	int expectedHops = 3;
 	std::vector<cgr::Contact> expectedContacts({ contactPlan[4], contactPlan[6], contactPlan[10]});
-	std::vector<cgr::Contact> hops = bestRoute->get_hops();
+	std::vector<cgr::Contact> hops = bestRoute.get_hops();
 	BOOST_CHECK(hops.size() == expectedHops);
 	for (int i = 0; i < expectedHops; ++i) {
 		BOOST_CHECK(hops[i] == expectedContacts[i]);
@@ -268,7 +435,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 	rootContact.arrival_time = 0;
 
 	long times = 0;
-	for (int i = 0; i < 100; ++1) {
+	for (int i = 0; i < 100; ++i) {
 		auto start = std::chrono::high_resolution_clock::now();
 		cgr::ContactMultigraph cm(contactPlan, 4);
 		auto end = std::chrono::high_resolution_clock::now();

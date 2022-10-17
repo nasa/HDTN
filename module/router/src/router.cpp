@@ -185,17 +185,22 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
 
     cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_SIZE, 100, 1.0, 0);
     rootContact.arrival_time = 0;
-    std::shared_ptr<cgr::Route> bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
+    cgr::Route bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
     //cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
 
     const uint64_t nextHop = bestRoute.next_node;
     
     std::cout << "[Router] Computed next hop: " << nextHop << std::endl;
     
-    if (bestRoute != nullptr) { // successfully computed a route
-        const uint64_t nextHopNodeId = bestRoute->next_node;
+    //if (bestRoute != NULL) { // successfully computed a route
+        const uint64_t nextHopNodeId = bestRoute.next_node;
 
         std::cout << "[Router] CGR computed next hop: " << nextHopNodeId << std::endl;
+
+        cbhe_eid_t nextHopEid;
+        nextHopEid.nodeId = nextHop;
+        nextHopEid.serviceId= 1;
+
 
         //boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         //std::cout << "[Router] Local Time:  " << timeLocal << std::endl << std::flush;
@@ -226,10 +231,10 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
         socket.close();
 
         m_timersFinished = true;
-    }
-    else {
+    //}
+    //else {
         // what should we do if no route is found?
-    }
+    //}
     
     return 0;
 }

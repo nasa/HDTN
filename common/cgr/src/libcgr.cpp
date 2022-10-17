@@ -138,8 +138,8 @@ void Route::refresh_metrics() {
     }
 
     // volume
-    time_t prev_last_byte_arr_time = 0;
-    uint64_t min_effective_volume_limit = MAX_SIZE;
+    int prev_last_byte_arr_time = 0;
+    int min_effective_volume_limit = MAX_SIZE;
     for (Contact& contact : allHops) {
         if (contact == allHops[0]) {
             contact.first_byte_tx_time = contact.start;
@@ -147,7 +147,7 @@ void Route::refresh_metrics() {
         else {
             contact.first_byte_tx_time = std::max(contact.start, prev_last_byte_arr_time);
         }
-        time_t bundle_tx_time = 0;
+        int bundle_tx_time = 0;
         contact.last_byte_tx_time = contact.first_byte_tx_time + bundle_tx_time;
         contact.last_byte_arr_time = contact.last_byte_tx_time + contact.owlt;
         prev_last_byte_arr_time = contact.last_byte_arr_time;
@@ -161,8 +161,8 @@ void Route::refresh_metrics() {
                 min_succ_stop_time = successor.end;
             }
         }
-        time_t effective_stop_time = std::min(contact.end, min_succ_stop_time);
-        time_t effective_duration = effective_stop_time - effective_start_time;
+        int effective_stop_time = std::min(contact.end, min_succ_stop_time);
+        int effective_duration = effective_stop_time - effective_start_time;
         contact.effective_volume_limit = std::min(effective_duration * contact.rate, contact.volume);
         if (contact.effective_volume_limit < min_effective_volume_limit) {
             min_effective_volume_limit = contact.effective_volume_limit;
@@ -249,26 +249,22 @@ ContactMultigraph::ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t
 
 
 /*
-<<<<<<< HEAD
  * Library function implementations, e.g. loading, routing algorithms, etc.
  */
 std::vector<Contact> cp_load(std::string filename, int max_contacts) {
->>>>>>> mgr
     std::vector<Contact> contactsVector;
     boost::property_tree::ptree pt;
     boost::property_tree::read_json(filename, pt);
     const boost::property_tree::ptree& contactsPt
         = pt.get_child("contacts", boost::property_tree::ptree());
-<<<<<<< HEAD
     for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
         Contact new_contact = Contact(
-            eventPt.second.get<nodeId_t>("source", 0),
-            eventPt.second.get<nodeId_t>("dest", 0),
-            eventPt.second.get<time_t>("startTime", 0),
-            eventPt.second.get<time_t>("endTime", 0),
-            eventPt.second.get<uint64_t>("rate", 0),
-            1.0, // confidence
-            eventPt.second.get<time_t>("owlt", 0));
+            eventPt.second.get<int>("source", 0),
+            eventPt.second.get<int>("dest", 0),
+            eventPt.second.get<int>("startTime", 0),
+            eventPt.second.get<int>("endTime", 0),
+            eventPt.second.get<int>("rate", 0),
+            eventPt.second.get<int>("owlt", 0));
         new_contact.id = eventPt.second.get<int>("contact", 0);
         contactsVector.push_back(new_contact);
         if (contactsVector.size() == max_contacts) {
@@ -300,12 +296,8 @@ Route dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact>
         contact_plan_hash[contact.frm].push_back(&contact);
     }
 
-    std::shared_ptr<Route> route(nullptr);
-    Contact *final_contact = NULL;
-    time_t earliest_fin_arr_t = MAX_SIZE;
-    time_t arrvl_time;
     Route route;
-    Contact* final_contact = NULL;
+    Contact *final_contact = NULL;
     int earliest_fin_arr_t = MAX_SIZE;
     int arrvl_time;
 
@@ -397,19 +389,15 @@ Route dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact>
             hops.push_back(contact);
         }
         
-        route = std::make_shared<Route>(hops.back());
-
         route = Route(hops.back());
         hops.pop_back();
         while (!hops.empty()) {
-            route->append(hops.back());
+            route.append(hops.back());
             hops.pop_back();
         }
     }
 
     return route;
-
-
 }
 
 /*
@@ -594,6 +582,4 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     return route;
 }
 
-
 } // namespace cgr
->>>>>>> mgr
