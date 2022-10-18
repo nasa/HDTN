@@ -11,7 +11,7 @@
 
 namespace cgr {
 
-const int MAX_SIZE = std::numeric_limits<int>::max();
+static constexpr time_t MAX_SIZE = std::numeric_limits<time_t>::max();
 
 typedef uint64_t nodeId_t;
 //typedef uint64_t time_t;
@@ -20,16 +20,16 @@ class Contact {
 public:
     // Fixed parameters
     nodeId_t frm, to;
-    int start, end;
-    int volume;
-    int rate;
-    int owlt;
-    int id;
+    time_t start, end;
+    uint64_t volume;
+    uint64_t rate;
+    time_t owlt;
+    uint64_t id;
     float confidence;
     // Variable parameters
-    std::vector<int> mav;
+    std::vector<uint64_t> mav;
     // Route search working area
-    int arrival_time;
+    time_t arrival_time;
     bool visited;
     Contact* predecessor;
     std::vector<nodeId_t> visited_nodes;
@@ -37,7 +37,8 @@ public:
     bool suppressed;
     std::vector<Contact> suppressed_next_hop;
     // Forwarding working area
-    int first_byte_tx_time, last_byte_tx_time, last_byte_arr_time, effective_volume_limit;
+    time_t first_byte_tx_time, last_byte_tx_time, last_byte_arr_time;
+    uint64_t effective_volume_limit;
     CGR_LIB_EXPORT void clear_dijkstra_working_area();
     CGR_LIB_EXPORT Contact(nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1);
     CGR_LIB_EXPORT Contact();
@@ -51,13 +52,12 @@ public:
 class Route {
 public:
     nodeId_t to_node, next_node;
-    int from_time, to_time, best_delivery_time, volume;
-    //uint64_t volume;
+    time_t from_time, to_time, best_delivery_time;
+    uint64_t volume;
     float confidence;
     CGR_LIB_EXPORT Route(Contact, Route *parent=NULL);
     CGR_LIB_EXPORT Route();
     CGR_LIB_EXPORT ~Route();
-    //Route(Contact, Route* parent = NULL);
 private:
     Route* parent;
     std::vector<Contact> hops;
@@ -77,8 +77,8 @@ public:
 class Vertex {
 public:
     nodeId_t id;
-    std::unordered_map<nodeId_t, std::vector<int> > adjacencies; // now store the index of the contact in the contact plan
-    int arrival_time;
+    std::unordered_map<nodeId_t, std::vector<nodeId_t> > adjacencies; // now store the index of the contact in the contact plan
+    time_t arrival_time;
     bool visited;
     Contact* predecessor;
     CGR_LIB_EXPORT Vertex(nodeId_t id);
@@ -90,8 +90,8 @@ class ContactMultigraph {
 public:
     std::unordered_map<nodeId_t, Vertex> vertices;
     std::unordered_map<nodeId_t, bool> visited;
-    std::unordered_map<nodeId_t, int> predecessors; // Stores the indices of the contacts
-    std::unordered_map<nodeId_t, int> arrival_time;
+    std::unordered_map<nodeId_t, nodeId_t> predecessors; // Stores the indices of the contacts
+    std::unordered_map<nodeId_t, time_t> arrival_time;
     CGR_LIB_EXPORT ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id);
 };
 
@@ -109,11 +109,11 @@ public:
 };
 
 
-CGR_LIB_EXPORT int contact_search_index(std::vector<Contact>& contacts, int arrival_time);
+CGR_LIB_EXPORT int64_t contact_search_index(std::vector<Contact>& contacts, time_t arrival_time);
 
-CGR_LIB_EXPORT Contact* contact_search_predecessor(std::vector<Contact>& contacts, int arrival_time);
+//CGR_LIB_EXPORT Contact* contact_search_predecessor(std::vector<Contact>& contacts, time_t arrival_time);
 
-CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, int max_contacts=MAX_SIZE);
+CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, std::size_t max_contacts= std::numeric_limits<std::size_t>::max());
 
 CGR_LIB_EXPORT Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
 
