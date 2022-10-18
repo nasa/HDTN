@@ -69,6 +69,7 @@ public:
     CGR_LIB_EXPORT void refresh_metrics();
     CGR_LIB_EXPORT bool eligible(const Contact &contact);
     CGR_LIB_EXPORT std::vector<Contact> get_hops();
+    CGR_LIB_EXPORT friend std::ostream& operator<<(std::ostream& out, const Route& obj);
 };
 
 
@@ -80,9 +81,9 @@ public:
     int arrival_time;
     bool visited;
     Contact* predecessor;
-    Vertex(nodeId_t id);
-    Vertex();
-    bool operator<(const Vertex& v) const;
+    CGR_LIB_EXPORT Vertex(nodeId_t id);
+    CGR_LIB_EXPORT Vertex();
+    CGR_LIB_EXPORT bool operator<(const Vertex& v) const;
 };
 
 class ContactMultigraph {
@@ -91,7 +92,7 @@ public:
     std::unordered_map<nodeId_t, bool> visited;
     std::unordered_map<nodeId_t, int> predecessors; // Stores the indices of the contacts
     std::unordered_map<nodeId_t, int> arrival_time;
-    ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id);
+    CGR_LIB_EXPORT ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id);
 };
 
 class CompareArrivals
@@ -123,9 +124,9 @@ CGR_LIB_EXPORT std::vector<Route> yen(nodeId_t source, nodeId_t destination, int
 template <typename T>   bool vector_contains(std::vector<T> vec, T ele);
 
 class EmptyContainerError : public std::exception {
-    virtual const char* what() const throw();
+    CGR_LIB_EXPORT virtual const char* what() const throw();
 };
-std::ostream& operator<<(std::ostream& out, const std::vector<Contact>& obj);  std::ostream& operator<<(std::ostream& out, const Contact& obj); std::ostream& operator<<(std::ostream& out, const Route& obj);
+CGR_LIB_EXPORT std::ostream& operator<<(std::ostream& out, const std::vector<Contact>& obj);
 
 
 } // namespace cgr
