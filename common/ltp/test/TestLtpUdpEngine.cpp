@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             if (ltpUdpEngineDestPtr == NULL) {
                 ltpUdpEngineManagerDestPtr->AddLtpUdpEngine(ENGINE_ID_DEST, EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
                     "localhost", BOUND_UDP_PORT_REPORT_SEGMENT_PROXY, 100, 0, 10000000, 0, 5, false, 0, 5, 1000, maxUdpPacketsToSendPerSystemCall, 0,
-                    10, //const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable
+                    DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS, //const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable
                     0); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable
                 ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(EXPECTED_SESSION_ORIGINATOR_ENGINE_ID, true);
             }
@@ -118,8 +118,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             if (ltpUdpEngineSrcPtr == NULL) {
                 ltpUdpEngineManagerSrcPtr->AddLtpUdpEngine(ENGINE_ID_SRC, ENGINE_ID_DEST, false, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, //1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
-                    "localhost", BOUND_UDP_PORT_DATA_SEGMENT_PROXY, 100, 0, 0, 0, 5, false, 0, 5, 0, maxUdpPacketsToSendPerSystemCall, 0, 0,
-                    10); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable
+                    "localhost", BOUND_UDP_PORT_DATA_SEGMENT_PROXY, 100, 0, 0, 0, 5, false, 0, 5, 0, maxUdpPacketsToSendPerSystemCall, 0,
+                    0, //delaySendingOfReportSegmentsTimeMsOrZeroToDisable
+                    DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable
                 ltpUdpEngineSrcPtr = ltpUdpEngineManagerSrcPtr->GetLtpUdpEnginePtrByRemoteEngineId(ENGINE_ID_DEST, false);
             }
 

@@ -81,7 +81,6 @@ LtpSessionSender::~LtpSessionSender() {
     }
     //clean up this sending session's single active timer within the shared LtpTimerManager
     if (m_mapRsBoundsToRsnPendingGeneration.size()) {
-std::cout << "destructor delete timer\n";
         if (!m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
             std::cout << "error in LtpSessionSender::~LtpSessionSender: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef\n";
         }
