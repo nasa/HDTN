@@ -58,7 +58,8 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
         uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
         const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable);
+        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
+        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpEngine();
 
@@ -112,8 +113,10 @@ public:
     LTP_LIB_EXPORT void UpdateRate_ThreadSafe(const uint64_t maxSendRateBitsPerSecOrZeroToDisable);
     
     LTP_LIB_EXPORT void SetDelays_ThreadSafe(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
+    LTP_LIB_EXPORT void SetDeferDelays_ThreadSafe(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
 protected:
     LTP_LIB_EXPORT void SetDelays(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
+    LTP_LIB_EXPORT void SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
@@ -165,6 +168,7 @@ private:
     const boost::posix_time::time_duration M_ONE_WAY_MARGIN_TIME;
     boost::posix_time::time_duration m_transmissionToAckReceivedTime;
     boost::posix_time::time_duration m_delaySendingOfReportSegmentsTime;
+    boost::posix_time::time_duration m_delaySendingOfDataSegmentsTime;
     const boost::posix_time::time_duration M_HOUSEKEEPING_INTERVAL;
     boost::posix_time::time_duration m_stagnantRxSessionTime;
     const bool M_FORCE_32_BIT_RANDOM_NUMBERS;
@@ -236,6 +240,15 @@ private:
     //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfCheckpointSerialNumbers;
 
+    boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfSendingDelayedDataSegments;
+    // within a session would normally be a single deadline timer;
+    // but now sharing a single LtpTimerManager among all sessions, so use a
+    // LtpTimerManager<uint64_t, std::hash<uint64_t> >
+    // such that: 
+    //  uint64_t = the session number
+    //  since this is a sender, the real sessionOriginatorEngineId is constant among all sending sessions and is not needed
+    LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfSendingDelayedDataSegments;
+
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_cancelSegmentTimerExpiredCallback;
     boost::asio::deadline_timer m_deadlineTimerForTimeManagerOfCancelSegments;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> m_timeManagerOfCancelSegments;
@@ -259,6 +272,7 @@ public:
     //session sender stats
     uint64_t m_numCheckpointTimerExpiredCallbacks;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
+    uint64_t m_numDeletedFullyClaimedPendingReports;
 
     //session receiver stats
     uint64_t m_numReportSegmentTimerExpiredCallbacks;

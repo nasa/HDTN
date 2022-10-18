@@ -54,6 +54,16 @@ bool FragmentSet::data_fragment_no_overlap_allow_abut_t::operator<(const data_fr
 FragmentSet::data_fragment_no_overlap_allow_abut_t::data_fragment_no_overlap_allow_abut_t(uint64_t paramBeginIndex, uint64_t paramEndIndex) :
     data_fragment_t(paramBeginIndex, paramEndIndex) { }
 
+//class which allows everything except identical pairs
+bool FragmentSet::data_fragment_unique_overlapping_t::operator<(const data_fragment_unique_overlapping_t& o) const { //operator < (no overlap allow abut)
+    if (beginIndex == o.beginIndex) {
+        return (endIndex < o.endIndex);
+    }
+    return (beginIndex < o.beginIndex);
+}
+FragmentSet::data_fragment_unique_overlapping_t::data_fragment_unique_overlapping_t(uint64_t paramBeginIndex, uint64_t paramEndIndex) :
+    data_fragment_t(paramBeginIndex, paramEndIndex) { }
+
 //return true if the set was modified, false if unmodified
 bool FragmentSet::InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key) {
     bool modified = false;
@@ -200,4 +210,12 @@ void FragmentSet::PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet
         std::cout << "(" << it->beginIndex << "," << it->endIndex << ") ";
     }
     std::cout << std::endl;
+}
+
+void FragmentSet::GetBoundsMinusFragments(const data_fragment_t bounds, const std::set<data_fragment_t>& fragmentSet, std::set<data_fragment_t>& boundsMinusFragmentsSet) {
+    boundsMinusFragmentsSet.clear();
+    InsertFragment(boundsMinusFragmentsSet, bounds);
+    for (std::set<data_fragment_t>::const_iterator it = fragmentSet.cbegin(); it != fragmentSet.cend(); ++it) {
+        RemoveFragment(boundsMinusFragmentsSet, *it);
+    }
 }

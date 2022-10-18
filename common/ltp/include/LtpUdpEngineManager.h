@@ -103,6 +103,9 @@ public:
      * the receiving engine should wait this period of time before sending the report segment.
      * The delay time will reset upon any data segments which fill gaps.
      * This parameter should be set to zero for a sender.
+     * @param delaySendingOfDataSegmentsTimeMsOrZeroToDisable The number of milliseconds the ltp engine
+     * should wait after receiving a report segment before resending data segments.
+     * This parameter should be set to zero for a receiver.
      * 
      * @return True if the operation completed successfully (or false otherwise).
      */
@@ -113,7 +116,8 @@ public:
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable, const uint64_t maxSimultaneousSessions,
         const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
         const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
-        const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable);
+        const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
+        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
 
     LTP_LIB_EXPORT LtpUdpEngine * GetLtpUdpEnginePtrByRemoteEngineId(const uint64_t remoteEngineId, const bool isInduct);
     LTP_LIB_EXPORT void RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(const uint64_t remoteEngineId, const bool isInduct, const boost::function<void()> & callback);

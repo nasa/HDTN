@@ -152,9 +152,30 @@ bool LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(std::set<data_fr
         //nextBeginIndex = (lowerBound + it->offset + it->length);
         previousReceptionClaim = &(*it);
     }
-    const uint64_t beginIndex = lowerBound + previousReceptionClaim->offset + previousReceptionClaim->length;;
+    const uint64_t beginIndex = lowerBound + previousReceptionClaim->offset + previousReceptionClaim->length;
     if (beginIndex < reportSegment.upperBound) {
         numModified += InsertFragment(fragmentSetNeedingResent, data_fragment_t(beginIndex, reportSegment.upperBound - 1));
     }
     return (numModified != 0);
 }
+
+void LtpFragmentSet::ReduceReportSegments(const std::map<data_fragment_unique_overlapping_t, uint64_t>& rsBoundsToRsnMap,
+    const std::set<data_fragment_t>& allReceivedFragmentsSet,
+    std::list<std::pair<uint64_t, std::set<data_fragment_t> > >& listFragmentSetNeedingResentForEachReport)
+{
+    listFragmentSetNeedingResentForEachReport.clear();
+    std::set<data_fragment_t> allReceivedPlusJustNowSentFragmentsSet = allReceivedFragmentsSet;
+    
+    for (std::map<data_fragment_unique_overlapping_t, uint64_t>::const_iterator it = rsBoundsToRsnMap.cbegin(); it != rsBoundsToRsnMap.cend(); ++it) {
+        const data_fragment_unique_overlapping_t& dfUnique = it->first;
+        const data_fragment_t& bounds = *(reinterpret_cast<const data_fragment_t*>(&dfUnique));
+        const uint64_t & rsn = it->second;
+        std::set<data_fragment_t> boundsMinusFragmentsSet;
+        FragmentSet::GetBoundsMinusFragments(bounds, allReceivedPlusJustNowSentFragmentsSet, boundsMinusFragmentsSet);
+        FragmentSet::InsertFragment(allReceivedPlusJustNowSentFragmentsSet, bounds);
+        if (boundsMinusFragmentsSet.size()) {
+            listFragmentSetNeedingResentForEachReport.emplace_back(rsn, std::move(boundsMinusFragmentsSet));
+        }
+    }
+}
+

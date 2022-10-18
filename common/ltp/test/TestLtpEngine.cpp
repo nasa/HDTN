@@ -53,8 +53,9 @@ BOOST_AUTO_TEST_CASE(LtpEngineTestCase, *boost::unit_test::enabled())
             CLIENT_SERVICE_ID_DEST(300),
             //last parameter 1 in the following two constructors (maxUdpPacketsToSendPerSystemCall) is a don't care since m_ioServiceLtpEngineThreadPtr is NULL for this test
             //delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be 0 for this test
-            engineSrc(ENGINE_ID_SRC, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100, 0, 1, 0, 0),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
-            engineDest(ENGINE_ID_DEST, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100, 1000, 1, 0, 0),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
+            //delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be 0 for this test
+            engineSrc(ENGINE_ID_SRC, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100, 0, 1, 0, 0, 0),//1=> 1 CHARACTER AT A TIME, UINT64_MAX=> unlimited report segment size
+            engineDest(ENGINE_ID_DEST, 1, 1, UINT64_MAX, ONE_WAY_LIGHT_TIME, ONE_WAY_MARGIN_TIME, 0, 50, false, 0, 5, false, 0, 100, 1000, 1, 0, 0, 0),//1=> MTU NOT USED AT THIS TIME, UINT64_MAX=> unlimited report segment size
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_TOO_MUCH_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog! 12345678910"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB

@@ -24,6 +24,8 @@
 #include <boost/function.hpp>
 #include <vector>
 #include <set>
+#include <map>
+#include <list>
 #include "Ltp.h"
 #include "FragmentSet.h"
 
@@ -38,6 +40,10 @@ public:
 
     //return true if the set was modified, false if unmodified
     static bool AddReportSegmentToFragmentSetNeedingResent(std::set<data_fragment_t> & fragmentSetNeedingResent, const Ltp::report_segment_t & reportSegment);
+
+    static void ReduceReportSegments(const std::map<data_fragment_unique_overlapping_t, uint64_t>& rsBoundsToRsnMap,
+        const std::set<data_fragment_t>& allReceivedFragmentsSet,
+        std::list<std::pair<uint64_t, std::set<data_fragment_t> > >& listFragmentSetNeedingResentForEachReport);
 };
 
 #endif // LTP_FRAGMENT_SET_H

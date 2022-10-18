@@ -27,7 +27,8 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, bool startIoServiceThread,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
     const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
+    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
+    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION),
     M_MAX_RED_RX_BYTES_PER_SESSION(maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(thisEngineId),
@@ -38,7 +39,10 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     m_transmissionToAckReceivedTime((oneWayLightTime * 2) + (oneWayMarginTime * 2)),
     m_delaySendingOfReportSegmentsTime((delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
         boost::posix_time::milliseconds(delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
-        boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)), //todo
+        boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)),
+    m_delaySendingOfDataSegmentsTime((delaySendingOfDataSegmentsTimeMsOrZeroToDisable) ?
+        boost::posix_time::milliseconds(delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
+        boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time)),
     M_HOUSEKEEPING_INTERVAL(boost::posix_time::milliseconds(1000)),
     m_stagnantRxSessionTime((m_transmissionToAckReceivedTime * static_cast<int>(maxRetriesPerSerialNumber + 1)) + (M_HOUSEKEEPING_INTERVAL * 2)),
     M_FORCE_32_BIT_RANDOM_NUMBERS(force32BitRandomNumbers),
@@ -57,6 +61,8 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     m_timeManagerOfSendingDelayedReceptionReports(m_deadlineTimerForTimeManagerOfSendingDelayedReceptionReports, m_delaySendingOfReportSegmentsTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1), //TODO
     m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers(m_ioServiceLtpEngine),
     m_timeManagerOfCheckpointSerialNumbers(m_deadlineTimerForTimeManagerOfCheckpointSerialNumbers, m_transmissionToAckReceivedTime, (M_MAX_SIMULTANEOUS_SESSIONS * 2) + 1),
+    m_deadlineTimerForTimeManagerOfSendingDelayedDataSegments(m_ioServiceLtpEngine),
+    m_timeManagerOfSendingDelayedDataSegments(m_deadlineTimerForTimeManagerOfSendingDelayedDataSegments, m_delaySendingOfDataSegmentsTime, M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_deadlineTimerForTimeManagerOfCancelSegments(m_ioServiceLtpEngine),
     m_timeManagerOfCancelSegments(m_deadlineTimerForTimeManagerOfCancelSegments, m_transmissionToAckReceivedTime, M_MAX_SIMULTANEOUS_SESSIONS + 1),
     m_housekeepingTimer(m_ioServiceLtpEngine),
@@ -107,6 +113,7 @@ LtpEngine::~LtpEngine() {
     std::cout << "LtpEngine Stats:" << std::endl; //print before reset
     std::cout << "m_numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacks << std::endl;
     std::cout << "m_numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResent << std::endl;
+    std::cout << "m_numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReports << std::endl;
     std::cout << "m_numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacks << std::endl;
     std::cout << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued << std::endl;
     std::cout << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit << std::endl;
@@ -153,6 +160,7 @@ void LtpEngine::Reset() {
     m_countAsyncSendsLimitedByRate = 0;
     m_numCheckpointTimerExpiredCallbacks = 0;
     m_numDiscretionaryCheckpointsNotResent = 0;
+    m_numDeletedFullyClaimedPendingReports = 0;
     m_numReportSegmentTimerExpiredCallbacks = 0;
     m_numReportSegmentsUnableToBeIssued = 0;
     m_numReportSegmentsTooLargeAndNeedingSplit = 0;
@@ -338,6 +346,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                 }
                 m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
                 m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
+                m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
                 ////std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
             }
@@ -490,7 +499,7 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
     m_mapSessionNumberToSessionSender[randomSessionNumberGeneratedBySender] = boost::make_unique<LtpSessionSender>(
         randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), std::move(userDataPtrToTake),
         lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
-        M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_timeManagerOfCheckpointSerialNumbers,
+        M_ONE_WAY_LIGHT_TIME, M_ONE_WAY_MARGIN_TIME, m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4),
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderHasProducibleData, this, boost::placeholders::_1),
         boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2), m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber);
@@ -577,6 +586,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
+            m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
             std::cout << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber << std::endl;
 
@@ -689,6 +699,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             //erase session
             m_numCheckpointTimerExpiredCallbacks += txSessionIt->second->m_numCheckpointTimerExpiredCallbacks;
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
+            m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
             std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber << std::endl;
             //Send CAx after outer if-else statement
@@ -1185,4 +1196,18 @@ void LtpEngine::SetDelays(const boost::posix_time::time_duration& oneWayLightTim
         m_timeManagerOfCheckpointSerialNumbers.AdjustRunningTimers(diffNewMinusOld);
         m_timeManagerOfCancelSegments.AdjustRunningTimers(diffNewMinusOld);
     }
+}
+
+void LtpEngine::SetDeferDelays_ThreadSafe(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetDeferDelays, this,
+        delaySendingOfReportSegmentsTimeMsOrZeroToDisable, delaySendingOfDataSegmentsTimeMsOrZeroToDisable));
+}
+
+void LtpEngine::SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) {
+    m_delaySendingOfReportSegmentsTime = (delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
+        boost::posix_time::milliseconds(delaySendingOfReportSegmentsTimeMsOrZeroToDisable) :
+        boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time);
+    m_delaySendingOfDataSegmentsTime = (delaySendingOfDataSegmentsTimeMsOrZeroToDisable) ?
+        boost::posix_time::milliseconds(delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
+        boost::posix_time::time_duration(boost::posix_time::special_values::not_a_date_time);
 }

@@ -42,7 +42,8 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxBundleSizeBytes, 0,
             ltpMaxRetriesPerSerialNumber, force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
             rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, 0,
-            delaySendingOfReportSegmentsTimeMsOrZeroToDisable);
+            delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
+            0); //delaySendingOfDataSegmentsTimeMsOrZeroToDisable must be 0
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(expectedSessionOriginatorEngineId, true); //sessionOriginatorEngineId is the remote engine id in the case of an induct
     }
     

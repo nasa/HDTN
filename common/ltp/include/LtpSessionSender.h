@@ -50,6 +50,7 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
+        LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
@@ -64,6 +65,9 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     
 private:
+    LTP_LIB_NO_EXPORT void ResendDataFromReport(const std::set<LtpFragmentSet::data_fragment_t>& fragmentsNeedingResent, const uint64_t reportSerialNumber);
+    LTP_LIB_NO_EXPORT void LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData);
+
     struct resend_fragment_t {
         resend_fragment_t() {}
         resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
@@ -89,6 +93,13 @@ private:
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
     std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
 
+    LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_delayedDataSegmentsTimerExpiredCallback;
+    LtpTimerManager<uint64_t, std::hash<uint64_t> >& m_timeManagerOfSendingDelayedDataSegmentsRef;
+    //(rsLowerBound, rsUpperBound) to (reportSerialNumber) map
+    typedef std::map<FragmentSet::data_fragment_unique_overlapping_t, uint64_t> ds_pending_map_t;
+    ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
+    uint64_t m_largestEndIndexPendingGeneration;
+
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
 public:
@@ -113,6 +124,7 @@ public:
     //stats
     uint64_t m_numCheckpointTimerExpiredCallbacks;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
+    uint64_t m_numDeletedFullyClaimedPendingReports;
     bool m_isFailedSession;
     bool m_calledCancelledOrCompletedCallback;
 };
