@@ -27,9 +27,9 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 
 	
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
-	const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
-	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
-	const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
+	const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
@@ -68,9 +68,9 @@ BOOST_AUTO_TEST_CASE(Dijkstra10NodesTestCase)
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
         cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
@@ -100,10 +100,10 @@ BOOST_AUTO_TEST_CASE(CMR10NodesTestCase)
         cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
-        std::cout << "Finding best path using dijkstra's..." << std::endl;
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+        std::cout << "Finding best path using CMR..." << std::endl;
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
         cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 40, contactPlan);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
@@ -135,9 +135,9 @@ BOOST_AUTO_TEST_CASE(Dijkstra50NodesTestCase)
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
         cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
@@ -151,6 +151,108 @@ BOOST_AUTO_TEST_CASE(Dijkstra50NodesTestCase)
         std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
 }
+
+
+BOOST_AUTO_TEST_CASE(CMR50NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "10Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "50nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 7186);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using CMR..." << std::endl;
+                const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 40, contactPlan);
+                const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+                const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 3686);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
+
+BOOST_AUTO_TEST_CASE(CMR100NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "10Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "100nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 28162);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using CMR..." << std::endl;
+                const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 40, contactPlan);
+                const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+                const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 2374);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
+BOOST_AUTO_TEST_CASE(CMR200NodesTestCase)
+{
+        // Route from node 20 to node 40 using the "10Nodes" contact plan
+        std::cout << "Reading contact plan..." << std::endl;
+        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
+        const std::string contactFile = (contactRootDir / "200nodes.json").string();
+
+        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
+        size_t numContacts = contactPlan.size();
+        std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
+        BOOST_CHECK(numContacts == 109330);
+
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        rootContact.arrival_time = 0;
+
+        std::cout << "Finding best path using CMR..." << std::endl;
+                const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+        cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 40, contactPlan);
+                const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+                const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        cout << "Time taken by function: "
+                << duration.count() << " microseconds" << endl;
+
+        // Todo: need to finalize what a failed dijkstra search should return
+        BOOST_REQUIRE(&bestRoute);
+
+        cgr::nodeId_t nextHop = bestRoute.next_node;
+        BOOST_CHECK(nextHop == 40);
+
+        std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
+
+}
+
 
 BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
 {
@@ -168,9 +270,9 @@ BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
         cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
@@ -201,9 +303,9 @@ BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
         cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         cout << "Time taken by function: "
                 << duration.count() << " microseconds" << endl;
@@ -260,9 +362,9 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	
 //	BOOST_REQUIRE(bestRoute);
 //	cgr::nodeId_t nextHop = bestRoute->next_node;
-	const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 5, contactPlan);
-	const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
@@ -305,9 +407,9 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
-	const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
-	const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
@@ -344,9 +446,9 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
-	const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 5, contactPlan);
-	const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
@@ -377,9 +479,9 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 
 	long long cmr_times = 0;
 	for (int i = 0; i < 100; ++i) {
-		const std::chrono::steady_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
 		cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
-		const std::chrono::steady_clock::time_point cmr_end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point cmr_end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds cmr_duration = std::chrono::duration_cast<std::chrono::microseconds>(cmr_end - cmr_start);
 
 		cmr_times = cmr_times + cmr_duration.count();
@@ -387,9 +489,9 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 
 	long long times = 0;
 	for (int i = 0; i < 100; ++i) {
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 		cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
 		times = times + duration.count();
@@ -410,16 +512,16 @@ BOOST_AUTO_TEST_CASE(TimingTest_Starlink)
 	cgr::Contact rootContact = cgr::Contact(3870, 3870, 0, cgr::MAX_SIZE, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
-	const std::chrono::steady_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
 	cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 2110, contactPlan);
-	const std::chrono::steady_clock::time_point cmr_end = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point cmr_end = std::chrono::high_resolution_clock::now();
 	const std::chrono::microseconds cmr_duration = std::chrono::duration_cast<std::chrono::microseconds>(cmr_end - cmr_start);
 	cout << "Time taken by function: "
 		<< cmr_duration.count() << " microseconds" << endl;
 
-	const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 2110, contactPlan);
-	const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+	const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
@@ -436,9 +538,9 @@ BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 
 	long long times = 0;
 	for (int i = 0; i < 100; ++i) {
-		const std::chrono::steady_clock::time_point start = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
 		cgr::ContactMultigraph cm(contactPlan, 4);
-		const std::chrono::steady_clock::time_point end = std::chrono::high_resolution_clock::now();
+		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 		times = times + duration.count();
 	}
