@@ -34,12 +34,13 @@ namespace keywords = boost::log::keywords;
 
 namespace hdtn{
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level)
+BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_level);
 
 /**
  * Overloads the stream operator to support the Module enum
  */
-std::ostream& operator<< (std::ostream& strm, Logger::Module module)
+
+static std::ostream& operator<< (std::ostream& strm, const Logger::Module& module)
 {
     return strm << Logger::toString(module);
 }
@@ -51,29 +52,29 @@ Logger::Logger()
 
 Logger::~Logger(){}
 
-Logger* Logger::logger_ = nullptr;
+std::unique_ptr<Logger> Logger::logger_; //initialized to "null"
+boost::mutex Logger::mutexSingletonInstance_;
+volatile bool Logger::loggerSingletonFullyInitialized_ = false;
 Logger::module_attr_t Logger::module_attr(Logger::Module(-1));
 Logger::file_attr_t Logger::file_attr("");
 Logger::line_attr_t Logger::line_attr(-1);
 
-bool Logger::ensureInitialized()
+void Logger::ensureInitialized()
 {
-    if(Logger::logger_ == nullptr)
-    {
-        Logger::logger_ = new Logger();
-        return true;
+    if (!loggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
+        //first thread that uses the logger gets to create the logger
+        boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
+        if (!loggerSingletonFullyInitialized_) { //check it again now that mutex is locked
+            logger_.reset(new Logger());
+            loggerSingletonFullyInitialized_ = true;
+        }
     }
-    return false;
 }
 
 Logger* Logger::getInstance()
 {
-    if(Logger::logger_ == nullptr)
-    {
-        Logger::logger_ = new Logger();
-    }
-
-    return Logger::logger_;
+    ensureInitialized();
+    return logger_.get();
 }
 
 void Logger::init()
@@ -183,8 +184,8 @@ std::string Logger::toString(Logger::Module module)
 }
 
 Logger::Module Logger::fromString(std::string module) {
-    uint32_t num_modules = sizeof(module_strings)/sizeof(*module_strings);
-    for (int i=0; i<num_modules; i++) {
+    static constexpr uint32_t num_modules = sizeof(module_strings)/sizeof(*module_strings);
+    for (uint32_t i=0; i<num_modules; i++) {
         if (module.compare(module_strings[i]) == 0) {
             return Logger::Module(i);
         }

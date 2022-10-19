@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <ostream>
 #include <string>
+#include <memory>
 #include <boost/core/null_deleter.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/log/attributes.hpp>
@@ -35,6 +36,7 @@
 #include <boost/log/utility/value_ref.hpp>
 #include <boost/smart_ptr/make_shared_object.hpp>
 #include <boost/smart_ptr/shared_ptr.hpp>
+#include <boost/config/detail/suffix.hpp>
 #include "log_lib_export.h"
 
 namespace hdtn{
@@ -123,7 +125,7 @@ public:
      * Initializes the logger if it hasn't been created yet. This is intended to be called from
      * the LOG_* macros.
      */
-    LOG_LIB_EXPORT static bool ensureInitialized();
+    LOG_LIB_EXPORT static void ensureInitialized();
 
     /**
      * Represents modules that Logger supports. New modules using the logger
@@ -134,8 +136,9 @@ public:
         ingress,
         router,
         scheduler,
-        storage,
+        storage
     };
+
 
     /**
      * Converts a Module enum value to its string representation.
@@ -185,11 +188,12 @@ public:
     LOG_LIB_EXPORT void logCritical(const std::string & module, const std::string & message);
     // End deprecation.
 
+    LOG_LIB_EXPORT ~Logger();
 private:
     LOG_LIB_EXPORT Logger();
-    LOG_LIB_EXPORT Logger(Logger const&);
-    LOG_LIB_EXPORT Logger& operator=(Logger const&);
-    LOG_LIB_EXPORT ~Logger();
+    LOG_LIB_EXPORT Logger(Logger const&) = delete;
+    LOG_LIB_EXPORT Logger& operator=(Logger const&) = delete;
+    
 
     /** 
      * Initializes the logger
@@ -229,7 +233,9 @@ private:
     LOG_LIB_EXPORT void createStderrSink();
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
-    static Logger* logger_; //singleton instance
+    static std::unique_ptr<Logger> logger_; //singleton instance
+    static boost::mutex mutexSingletonInstance_;
+    static volatile bool loggerSingletonFullyInitialized_;
 };
 }
 
