@@ -44,23 +44,13 @@ private:
     LtpSessionSender();
     LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
-    struct LTP_LIB_EXPORT resend_fragment_t {
-        resend_fragment_t() {}
-        resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
-            offset(paramOffset), length(paramLength), checkpointSerialNumber(paramCheckpointSerialNumber), reportSerialNumber(paramReportSerialNumber), flags(paramFlags), retryCount(1) {}
-        uint64_t offset;
-        uint64_t length;
-        uint64_t checkpointSerialNumber;
-        uint64_t reportSerialNumber;
-        LTP_DATA_SEGMENT_TYPE_FLAGS flags;
-        uint32_t retryCount;
-    };
     LTP_LIB_EXPORT ~LtpSessionSender();
     LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
         std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart, const uint64_t MTU,
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
+        LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
@@ -75,6 +65,25 @@ public:
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
     
 private:
+    LTP_LIB_NO_EXPORT void ResendDataFromReport(const std::set<LtpFragmentSet::data_fragment_t>& fragmentsNeedingResent, const uint64_t reportSerialNumber);
+    LTP_LIB_NO_EXPORT void LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData);
+
+    struct resend_fragment_t {
+        resend_fragment_t() {}
+        resend_fragment_t(uint64_t paramOffset, uint64_t paramLength, uint64_t paramCheckpointSerialNumber, uint64_t paramReportSerialNumber, LTP_DATA_SEGMENT_TYPE_FLAGS paramFlags) :
+            offset(paramOffset), length(paramLength), checkpointSerialNumber(paramCheckpointSerialNumber), reportSerialNumber(paramReportSerialNumber), flags(paramFlags), retryCount(1) {}
+        uint64_t offset;
+        uint64_t length;
+        uint64_t checkpointSerialNumber;
+        uint64_t reportSerialNumber;
+        LTP_DATA_SEGMENT_TYPE_FLAGS flags;
+        uint32_t retryCount;
+    };
+    struct csntimer_userdata_t {
+        std::list<uint64_t>::iterator itCheckpointSerialNumberActiveTimersList;
+        resend_fragment_t resendFragment;
+    };
+
     std::set<LtpFragmentSet::data_fragment_t> m_dataFragmentsAckedByReceiver;
     std::queue<std::vector<uint8_t> > m_nonDataToSend;
     std::queue<resend_fragment_t> m_resendFragmentsQueue;
@@ -82,7 +91,14 @@ private:
 
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>::LtpTimerExpiredCallback_t m_timerExpiredCallback;
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& m_timeManagerOfCheckpointSerialNumbersRef;
-    std::set<uint64_t> m_checkpointSerialNumberActiveTimersSet;
+    std::list<uint64_t> m_checkpointSerialNumberActiveTimersList;
+
+    LtpTimerManager<uint64_t, std::hash<uint64_t> >::LtpTimerExpiredCallback_t m_delayedDataSegmentsTimerExpiredCallback;
+    LtpTimerManager<uint64_t, std::hash<uint64_t> >& m_timeManagerOfSendingDelayedDataSegmentsRef;
+    //(rsLowerBound, rsUpperBound) to (reportSerialNumber) map
+    typedef std::map<FragmentSet::data_fragment_unique_overlapping_t, uint64_t> ds_pending_map_t;
+    ds_pending_map_t m_mapRsBoundsToRsnPendingGeneration;
+    uint64_t m_largestEndIndexPendingGeneration;
 
     uint64_t m_receptionClaimIndex;
     uint64_t m_nextCheckpointSerialNumber;
@@ -93,6 +109,7 @@ private:
     uint64_t M_LENGTH_OF_RED_PART;
     uint64_t m_dataIndexFirstPass;
     bool m_didNotifyForDeletion;
+    bool m_allRedDataReceivedByRemote;
     const uint64_t M_MTU;
     const Ltp::session_id_t M_SESSION_ID;
     const uint64_t M_CLIENT_SERVICE_ID;
@@ -107,7 +124,9 @@ public:
     //stats
     uint64_t m_numCheckpointTimerExpiredCallbacks;
     uint64_t m_numDiscretionaryCheckpointsNotResent;
+    uint64_t m_numDeletedFullyClaimedPendingReports;
     bool m_isFailedSession;
+    bool m_calledCancelledOrCompletedCallback;
 };
 
 #endif // LTP_SESSION_SENDER_H

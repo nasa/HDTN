@@ -24,11 +24,13 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
     uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
     const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable) :
+    const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
+    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
     LtpEngine(thisEngineId, engineIndexForEncodingIntoRandomSessionNumber, mtuClientServiceData, mtuReportSegment, oneWayLightTime, oneWayMarginTime,
         ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, maxRedRxBytesPerSession, true, checkpointEveryNthDataPacketSender, maxRetriesPerSerialNumber,
         force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, maxSimultaneousSessions,
-        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable),
+        rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
+        delaySendingOfReportSegmentsTimeMsOrZeroToDisable, delaySendingOfDataSegmentsTimeMsOrZeroToDisable),
     m_ioServiceUdpRef(ioServiceUdpRef),
     m_udpSocketRef(udpSocketRef),
     m_remoteEndpoint(remoteEndpoint),
@@ -68,6 +70,15 @@ LtpUdpEngine::~LtpUdpEngine() {
         << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
 }
 
+void LtpUdpEngine::Reset_ThreadSafe_Blocking() {
+    boost::mutex cvMutex;
+    boost::mutex::scoped_lock cvLock(cvMutex);
+    m_resetInProgress = true;
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpUdpEngine::Reset, this));
+    while (m_resetInProgress) {
+        m_resetConditionVariable.timed_wait(cvLock, boost::posix_time::milliseconds(250));
+    }
+}
 
 void LtpUdpEngine::Reset() {
     LtpEngine::Reset();
@@ -77,6 +88,8 @@ void LtpUdpEngine::Reset() {
     m_countBatchSendCallbackCalls = 0;
     m_countBatchUdpPacketsSent = 0;
     m_countCircularBufferOverruns = 0;
+    m_resetInProgress = false;
+    m_resetConditionVariable.notify_one();
 }
 
 
@@ -103,15 +116,10 @@ void LtpUdpEngine::SendPacket(
 {
     //called by LtpEngine Thread
     ++m_countAsyncSendCalls;
-    if (m_udpDropSimulatorFunction && m_udpDropSimulatorFunction(*((uint8_t*)constBufferVec[0].data()))) {
-        boost::asio::post(m_ioServiceUdpRef, boost::bind(&LtpUdpEngine::HandleUdpSend, this, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback, boost::system::error_code(), 0));
-    }
-    else {
-        m_udpSocketRef.async_send_to(constBufferVec, m_remoteEndpoint,
-            boost::bind(&LtpUdpEngine::HandleUdpSend, this, std::move(underlyingDataToDeleteOnSentCallback), std::move(underlyingCsDataToDeleteOnSentCallback),
-                boost::asio::placeholders::error,
-                boost::asio::placeholders::bytes_transferred));
-    }
+    m_udpSocketRef.async_send_to(constBufferVec, m_remoteEndpoint,
+        boost::bind(&LtpUdpEngine::HandleUdpSend, this, std::move(underlyingDataToDeleteOnSentCallback), std::move(underlyingCsDataToDeleteOnSentCallback),
+            boost::asio::placeholders::error,
+            boost::asio::placeholders::bytes_transferred));
 }
 
 void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
@@ -120,14 +128,6 @@ void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer
 {
     //called by LtpEngine Thread
     ++m_countBatchSendCalls;
-    
-    if (m_udpDropSimulatorFunction) {
-        for (std::size_t i = 0; i < constBufferVecs.size(); ++i) {
-            if (m_udpDropSimulatorFunction(*((uint8_t*)constBufferVecs[i][0].data()))) { //dropped
-                constBufferVecs[i].clear(); //this packet will be skipped by the UdpBatchSender
-            }
-        }
-    }
     m_udpBatchSenderConnected.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //data gets stolen
     //LtpUdpEngine::OnSentPacketsCallback will be called next
 }

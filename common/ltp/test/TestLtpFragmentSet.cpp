@@ -44,96 +44,238 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
     {
         std::set<df> fragmentSet;
         rs reportSegment;
-        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200) }));
         {
             BOOST_REQUIRE(LtpFragmentSet::PopulateReportSegment(fragmentSet, reportSegment));
             BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 201, 100, std::vector<rc>({rc(0,101)})));
         }
-        LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400) }));
         {
             BOOST_REQUIRE(LtpFragmentSet::PopulateReportSegment(fragmentSet, reportSegment));
             BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 401, 100, std::vector<rc>({ rc(0,101), rc(200,101) })));
         }
-        LtpFragmentSet::InsertFragment(fragmentSet, df(99, 200));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(99, 200))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(99, 200), df(300, 400) }));
         {
             BOOST_REQUIRE(LtpFragmentSet::PopulateReportSegment(fragmentSet, reportSegment));
             BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 401, 99, std::vector<rc>({ rc(0,102), rc(201,101) })));
         }
-        LtpFragmentSet::InsertFragment(fragmentSet, df(99, 201));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(99, 201))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(99, 201), df(300, 400) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(98, 202));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(98, 202))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(98, 202), df(300, 400) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        BOOST_REQUIRE(!LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200))); //unmodified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(98, 202), df(300, 400) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(299, 401));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(299, 401))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(98, 202), df(299, 401) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(250, 260));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(250, 260))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(98, 202), df(250, 260), df(299, 401) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(50, 450));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(50, 450))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(50, 450) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(500, 600));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(500, 600))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(50, 450), df(500, 600) }));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(451, 499));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(451, 499))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(50, 600) }));
     }
 
     //test removing fragments (not used in ltp)
     {
         std::set<df> fragmentSet;
-        FragmentSet::InsertFragment(fragmentSet, df(0, 0));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(0, 0))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 0)}));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 0));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 0))); //modified
+        BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+        BOOST_REQUIRE(!FragmentSet::RemoveFragment(fragmentSet, df(0, 0))); //unmodified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
 
-        FragmentSet::InsertFragment(fragmentSet, df(0, 100));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(0, 100))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 100) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 100));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 100))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
 
-        FragmentSet::InsertFragment(fragmentSet, df(0, 100));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(0, 100))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 100) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(100, 100));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(100, 100))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 99) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 0));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 0))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(1, 99) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(50, 50)); //split
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(50, 50))); //split
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(1, 49), df(51, 99) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 3)); //rm left
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 3))); //rm left
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 49), df(51, 99) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(90, 1000)); //rm right
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(90, 1000))); //rm right
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 49), df(51, 89) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(45, 55)); //span across
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(45, 55))); //span across
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 44), df(56, 89) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(10, 12)); //split left
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(10, 12))); //split left
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 9), df(13, 44), df(56, 89) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(60, 70)); //split right
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(60, 70))); //split right
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(4, 9), df(13, 44), df(56, 59), df(71, 89) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 1000)); //delete all
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 1000))); //delete all
         BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
 
-        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(60, 70))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 70));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 70))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
 
-        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(60, 70))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(60, 1000));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(60, 1000))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
 
-        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(60, 70))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(0, 69));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(0, 69))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(70, 70) }));
-        FragmentSet::InsertFragment(fragmentSet, df(60, 70));
+        BOOST_REQUIRE(FragmentSet::InsertFragment(fragmentSet, df(60, 70))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 70) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(61, 1000));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(61, 1000))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(60, 60) }));
-        FragmentSet::RemoveFragment(fragmentSet, df(60, 60));
+        BOOST_REQUIRE(FragmentSet::RemoveFragment(fragmentSet, df(60, 60))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ }));
+    }
+
+    //test void GetBoundsMinusFragments(const data_fragment_t bounds, const std::set<data_fragment_t>& fragmentSet, std::set<data_fragment_t>& boundsMinusFragmentsSet);
+    {
+        std::set<df> fragmentSet;
+        std::set<df> boundsMinusFragmentsSet;
+        fragmentSet = std::set<df>({ df(0, 0) });
+        FragmentSet::GetBoundsMinusFragments(df(0, 0), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 10), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(1, 10) }));
+
+        fragmentSet = std::set<df>({ df(1, 99) });
+        FragmentSet::GetBoundsMinusFragments(df(0, 0), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0) }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 10), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0) }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0), df(100, 100) }));
+
+        fragmentSet = std::set<df>({ df(1, 49), df(51, 99) });
+        FragmentSet::GetBoundsMinusFragments(df(0, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0), df(50, 50), df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(1, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(50, 50), df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(2, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(50, 50), df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(49, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(50, 50), df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(50, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(50, 50), df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(51, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(99, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(100, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(100, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(101, 101), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(101, 101) }));
+        //----
+        FragmentSet::GetBoundsMinusFragments(df(0, 99), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0), df(50, 50)}));
+        FragmentSet::GetBoundsMinusFragments(df(0, 51), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0), df(50, 50) }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 50), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0), df(50, 50) }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 49), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0) }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 1), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0) }));
+        FragmentSet::GetBoundsMinusFragments(df(0, 0), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 0) }));
+        //----
+        FragmentSet::GetBoundsMinusFragments(df(25, 75), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(50, 50) }));
+
+        fragmentSet = std::set<df>({ df(4, 9), df(13, 44), df(56, 89) });
+        FragmentSet::GetBoundsMinusFragments(df(0, 100), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(0, 3), df(10, 12), df(45, 55), df(90, 100) }));
+        FragmentSet::GetBoundsMinusFragments(df(1, 99), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(1, 3), df(10, 12), df(45, 55), df(90, 99) }));
+        FragmentSet::GetBoundsMinusFragments(df(4, 99), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(10, 12), df(45, 55), df(90, 99) }));
+        FragmentSet::GetBoundsMinusFragments(df(4, 89), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(10, 12), df(45, 55)}));
+        FragmentSet::GetBoundsMinusFragments(df(4, 56), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(10, 12), df(45, 55) }));
+        FragmentSet::GetBoundsMinusFragments(df(4, 55), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(10, 12), df(45, 55)}));
+        FragmentSet::GetBoundsMinusFragments(df(10, 55), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(10, 12), df(45, 55) }));
+        FragmentSet::GetBoundsMinusFragments(df(11, 55), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(11, 12), df(45, 55) }));
+        FragmentSet::GetBoundsMinusFragments(df(12, 55), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(12, 12), df(45, 55) }));
+        FragmentSet::GetBoundsMinusFragments(df(13, 55), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(45, 55) }));
+        FragmentSet::GetBoundsMinusFragments(df(49, 51), fragmentSet, boundsMinusFragmentsSet);
+        BOOST_REQUIRE(boundsMinusFragmentsSet == std::set<df>({ df(49, 51) }));
+    }
+
+    //Test void LtpFragmentSet::ReduceReportSegments(const std::map<data_fragment_unique_overlapping_t, uint64_t>& rsBoundsToRsnMap,
+    //                                               const std::set<data_fragment_t>& allReceivedFragmentsSet,
+    //                                               std::list<std::pair<uint64_t, std::set<data_fragment_t> > >& listFragmentSetNeedingResentForEachReport)
+    {
+        typedef LtpFragmentSet::data_fragment_unique_overlapping_t dfBounds;
+        std::map<dfBounds, uint64_t> rsBoundsToRsnMap;
+        typedef std::list<std::pair<uint64_t, std::set<df> > > reportlist;
+        reportlist listFragmentSetNeedingResentForEachReport;
+        std::set<df> allReceivedFragmentsSet;
+
+        //add reports by their bounds
+        rsBoundsToRsnMap.emplace(dfBounds(10, 20), 1);
+        BOOST_REQUIRE(rsBoundsToRsnMap == (std::map<dfBounds, uint64_t>({ {dfBounds(10, 20), 1} })));
+        rsBoundsToRsnMap.emplace(dfBounds(10, 20), 1000);
+        BOOST_REQUIRE(rsBoundsToRsnMap == (std::map<dfBounds, uint64_t>({ {dfBounds(10, 20), 1} }))); //redundant rs
+        rsBoundsToRsnMap.emplace(dfBounds(10, 21), 2);
+        BOOST_REQUIRE(rsBoundsToRsnMap == (std::map<dfBounds, uint64_t>({ {dfBounds(10, 20), 1}, {dfBounds(10, 21), 2} })));
+
+        
+        allReceivedFragmentsSet = std::set<df>({ });
+        LtpFragmentSet::ReduceReportSegments(rsBoundsToRsnMap, allReceivedFragmentsSet, listFragmentSetNeedingResentForEachReport);
+        BOOST_REQUIRE(listFragmentSetNeedingResentForEachReport == (reportlist({
+            {1,std::set<df>({df(10,20)})},
+            {2,std::set<df>({df(21,21)})}
+        })));
+
+        allReceivedFragmentsSet = std::set<df>({ df(1, 99) });
+        LtpFragmentSet::ReduceReportSegments(rsBoundsToRsnMap, allReceivedFragmentsSet, listFragmentSetNeedingResentForEachReport);
+        BOOST_REQUIRE(listFragmentSetNeedingResentForEachReport.empty());
+
+        //add a report segment that will nullify other reports because all others fall within its bounds
+        rsBoundsToRsnMap.emplace(dfBounds(9, 40), 3);
+        BOOST_REQUIRE(rsBoundsToRsnMap == (std::map<dfBounds, uint64_t>({ {dfBounds(9, 40), 3}, {dfBounds(10, 20), 1}, {dfBounds(10, 21), 2} })));
+
+        allReceivedFragmentsSet = std::set<df>({ });
+        LtpFragmentSet::ReduceReportSegments(rsBoundsToRsnMap, allReceivedFragmentsSet, listFragmentSetNeedingResentForEachReport);
+        BOOST_REQUIRE(listFragmentSetNeedingResentForEachReport == (reportlist({
+            {3,std::set<df>({df(9,40)})}
+        })));
+
+        allReceivedFragmentsSet = std::set<df>({ df(11, 13) });
+        LtpFragmentSet::ReduceReportSegments(rsBoundsToRsnMap, allReceivedFragmentsSet, listFragmentSetNeedingResentForEachReport);
+        BOOST_REQUIRE(listFragmentSetNeedingResentForEachReport == (reportlist({
+            {3,std::set<df>({df(9,10), df(14,40)})}
+        })));
+    }
+
+    {
+        //quick sanity check from LtpFragmentSet
+        unsigned int numModified = 0;
+        BOOST_REQUIRE(numModified == 0);
+        numModified += false;
+        BOOST_REQUIRE_EQUAL(numModified, 0);
+        numModified += true;
+        BOOST_REQUIRE_EQUAL(numModified, 1);
+        numModified += true;
+        BOOST_REQUIRE_EQUAL(numModified, 2);
+        numModified += false;
+        BOOST_REQUIRE_EQUAL(numModified, 2);
     }
 
     {
@@ -149,39 +291,57 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         //6000.
         std::set<df> fragmentSet;
         rs reportSegment;
-        LtpFragmentSet::InsertFragment(fragmentSet, df(1000, 2999));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(4000, 4499));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(1000, 2999))); //modified
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(4000, 4499))); //modified
         BOOST_REQUIRE(LtpFragmentSet::PopulateReportSegment(fragmentSet, reportSegment));
         reportSegment.upperBound = 6000; //increase upper bound
         BOOST_REQUIRE_EQUAL(reportSegment, rs(0, 0, 6000, 1000, std::vector<rc>({ rc(0,2000), rc(3000,500) })));
         std::set<df> fragmentSet2;
-        LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet2, reportSegment);
+        BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet2, reportSegment)); //modified
         BOOST_REQUIRE(fragmentSet == fragmentSet2);
         std::set<df> fragmentsNeedingResent;
-        LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //modified
         //LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent);
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(3000,3999), df(4500,5999) }));
-        //LtpFragmentSet::PrintFragmentSet(std::set<df>({ df(3000,3999), df(4500,5999) }));
+        //repeat
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(3000,3999), df(4500,5999) }));
     }
     {
         rs reportSegment(0, 0, 6000, 0, std::vector<rc>({ rc(0,2000), rc(3000,500) }));
         std::set<df> fragmentsNeedingResent;
-        LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //modified
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(2000,2999), df(3500,5999) }));
+        //repeat
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(2000,2999), df(3500,5999) }));
     }
     {
         rs reportSegment(0, 0, 6000, 0, std::vector<rc>({ rc(1,2000), rc(3000,500) }));
         std::set<df> fragmentsNeedingResent;
-        LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //modified
         //LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent);
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999), df(3500,5999) }));
+        //repeat
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999), df(3500,5999) }));
     }
     {
         rs reportSegment(0, 0, 3500, 0, std::vector<rc>({ rc(1,2000), rc(3000,500) }));
         std::set<df> fragmentsNeedingResent;
-        LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //modified
         //LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent);
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999) }));
+        //repeat
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(0,0), df(2001,2999) }));
+    }
+    { //full reception where rc contains all between upper and lower bounds
+        rs reportSegment(0, 0, 3500, 0, std::vector<rc>({ rc(0,3500) }));
+        std::set<df> fragmentsNeedingResent;
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified (from size 0 to size 0)
+        //LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent);
+        BOOST_REQUIRE_EQUAL(fragmentsNeedingResent.size(), 0);        
     }
     {
         //added to fix bug:
@@ -194,8 +354,11 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         //    need resent : nothing, but should be (15,15)
         rs reportSegment(0, 0, 20, 15, std::vector<rc>({ rc(1,4) }));
         std::set<df> fragmentsNeedingResent;
-        LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment);
+        BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //modified
         BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(15,15)}));
+        //repeat
+        BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSetNeedingResent(fragmentsNeedingResent, reportSegment)); //unmodified
+        BOOST_REQUIRE(fragmentsNeedingResent == std::set<df>({ df(15,15) }));
     }
 
     //REPORT SEGMENTS WITH CUSTOM LOWER AND UPPER BOUNDS
@@ -278,7 +441,7 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
     //TEST ContainsFragmentEntirely
     {
         std::set<df> fragmentSet;
-        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200) }));
         //contains
         BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 200)));
@@ -293,7 +456,7 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(150, 250)));
 
         fragmentSet.clear();
-        LtpFragmentSet::InsertFragment(fragmentSet, df(0, 200));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(0, 200))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 200) }));
         //contains
         BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(0, 0)));
@@ -306,8 +469,8 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(!LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(201, 201)));
 
         fragmentSet.clear();
-        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200))); //modified
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400) }));
         //contains
         BOOST_REQUIRE(LtpFragmentSet::ContainsFragmentEntirely(fragmentSet, df(100, 100)));
@@ -343,7 +506,7 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
     //TEST DoesNotContainFragmentEntirely (not used in ltp)
     {
         std::set<df> fragmentSet;
-        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200) }));
         //overlap
         BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(100, 200)));
@@ -368,7 +531,7 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(201, 300)));
 
         fragmentSet.clear();
-        LtpFragmentSet::InsertFragment(fragmentSet, df(0, 200));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(0, 200))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(0, 200) }));
         //overlap
         BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 199)));
@@ -383,8 +546,8 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(1, 2)));
 
         fragmentSet.clear();
-        LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200));
-        LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(100, 200))); //modified
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(300, 400))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400) }));
         //overlap
         BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 100)));
@@ -408,7 +571,7 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
         BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(401, 401)));
         BOOST_REQUIRE(LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(401, 1000)));
 
-        LtpFragmentSet::InsertFragment(fragmentSet, df(500, 600));
+        BOOST_REQUIRE(LtpFragmentSet::InsertFragment(fragmentSet, df(500, 600))); //modified
         BOOST_REQUIRE(fragmentSet == std::set<df>({ df(100, 200), df(300, 400), df(500, 600) }));
         //overlap 
         BOOST_REQUIRE(!LtpFragmentSet::DoesNotContainFragmentEntirely(fragmentSet, df(0, 100)));
@@ -473,7 +636,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
@@ -496,7 +664,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
@@ -518,7 +691,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
@@ -539,7 +717,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
@@ -559,7 +742,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
@@ -579,7 +767,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }
@@ -598,7 +791,12 @@ BOOST_AUTO_TEST_CASE(LtpFragmentSetTestCase)
             BOOST_REQUIRE(expectedRsVec == reportSegmentsVec);
             std::set<df> fragmentSet;
             for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
-                LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i]);
+                BOOST_REQUIRE(LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //modified
+            }
+            BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
+
+            for (std::size_t i = 0; i < reportSegmentsVec.size(); ++i) {
+                BOOST_REQUIRE(!LtpFragmentSet::AddReportSegmentToFragmentSet(fragmentSet, reportSegmentsVec[i])); //unmodified
             }
             BOOST_REQUIRE(originalReceivedFragments == fragmentSet);
         }

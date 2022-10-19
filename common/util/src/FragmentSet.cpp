@@ -47,22 +47,41 @@ bool FragmentSet::data_fragment_t::SimulateSetKeyFind(const data_fragment_t & ke
     return !(key < keyInSet) && !(keyInSet < key);
 }
 
+//class which allows searching ignoring whether or not the keys abut
+bool FragmentSet::data_fragment_no_overlap_allow_abut_t::operator<(const data_fragment_no_overlap_allow_abut_t& o) const { //operator < (no overlap allow abut)
+    return (endIndex < o.beginIndex);
+}
+FragmentSet::data_fragment_no_overlap_allow_abut_t::data_fragment_no_overlap_allow_abut_t(uint64_t paramBeginIndex, uint64_t paramEndIndex) :
+    data_fragment_t(paramBeginIndex, paramEndIndex) { }
 
-void FragmentSet::InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key) {
+//class which allows everything except identical pairs
+bool FragmentSet::data_fragment_unique_overlapping_t::operator<(const data_fragment_unique_overlapping_t& o) const { //operator < (no overlap allow abut)
+    if (beginIndex == o.beginIndex) {
+        return (endIndex < o.endIndex);
+    }
+    return (beginIndex < o.beginIndex);
+}
+FragmentSet::data_fragment_unique_overlapping_t::data_fragment_unique_overlapping_t(uint64_t paramBeginIndex, uint64_t paramEndIndex) :
+    data_fragment_t(paramBeginIndex, paramEndIndex) { }
+
+//return true if the set was modified, false if unmodified
+bool FragmentSet::InsertFragment(std::set<data_fragment_t> & fragmentSet, data_fragment_t key) {
+    bool modified = false;
     while (true) {
         std::pair<std::set<data_fragment_t>::iterator, bool> res = fragmentSet.insert(key);
         if (res.second == true) { //fragment key was inserted with no overlap nor abut
-            return;
+            return true;
         }
         //fragment key not inserted due to overlap or abut.. res.first points to element in the set that may need expanded to fit new key fragment
         const uint64_t keyInMapBeginIndex = res.first->beginIndex;
         const uint64_t keyInMapEndIndex = res.first->endIndex;
         if ((key.beginIndex >= keyInMapBeginIndex) && (key.endIndex <= keyInMapEndIndex)) { //new key fits entirely inside existing key (set needs no modification)
-            return;
+            return modified;
         }
         key.beginIndex = std::min(key.beginIndex, keyInMapBeginIndex);
         key.endIndex = std::max(key.endIndex, keyInMapEndIndex);
         fragmentSet.erase(res.first);
+        modified = true;
     }
 }
 
@@ -80,13 +99,8 @@ bool FragmentSet::ContainsFragmentEntirely(const std::set<data_fragment_t> & fra
 
 bool FragmentSet::DoesNotContainFragmentEntirely(const std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key) {
 #if 1
-    struct data_fragment2_t : public data_fragment_t { //class which allows searching ignoring whether or not the keys abut
-        bool operator<(const data_fragment2_t & o) const { //operator < (no overlap allow abut)
-            return (endIndex < o.beginIndex);
-        }
-    };
-    std::set<data_fragment2_t> * setNoOverlapAllowAbut = (std::set<data_fragment2_t> *) &fragmentSet;
-    return (setNoOverlapAllowAbut->find(*((data_fragment2_t*)&key)) == setNoOverlapAllowAbut->cend());
+    std::set<data_fragment_no_overlap_allow_abut_t> * setNoOverlapAllowAbut = (std::set<data_fragment_no_overlap_allow_abut_t> *) &fragmentSet;
+    return (setNoOverlapAllowAbut->find(*((data_fragment_no_overlap_allow_abut_t*)&key)) == setNoOverlapAllowAbut->cend());
 #else
     std::set<data_fragment_t>::const_iterator res = fragmentSet.find(key);
     if (res == fragmentSet.cend()) { //not found (nothing that overlaps or abuts)
@@ -111,17 +125,19 @@ bool FragmentSet::DoesNotContainFragmentEntirely(const std::set<data_fragment_t>
 #endif
 }
 
-void FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key) {
+//return true if the set was modified, false if unmodified
+bool FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const data_fragment_t & key) {
     const uint64_t deleteBegin = key.beginIndex;
     const uint64_t deleteEnd = key.endIndex;
     if (deleteBegin > deleteEnd) { //invalid, stop
-        return;
+        return false; //unmodified
     }
+    bool modified = false;
     for (std::set<data_fragment_t>::iterator it = fragmentSet.lower_bound(key); it != fragmentSet.end(); ) {
         const uint64_t keyInMapBeginIndex = it->beginIndex;
         const uint64_t keyInMapEndIndex = it->endIndex;
         if (deleteBegin > keyInMapEndIndex) { //stop
-            return;
+            return modified;
         }
         else if (deleteEnd < keyInMapBeginIndex) { //continue
             ++it;
@@ -131,6 +147,7 @@ void FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const 
             std::set<data_fragment_t>::iterator itToErase = it;
             ++it;
             fragmentSet.erase(itToErase);
+            modified = true;
         }
         else if ((deleteBegin > keyInMapBeginIndex) && (deleteEnd < keyInMapEndIndex)) { //split map key in 2 and return
             data_fragment_t replacementKeyLeft(keyInMapBeginIndex, deleteBegin - 1);
@@ -148,6 +165,7 @@ void FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const 
                 std::set<data_fragment_t>::iterator itLeftPrecedingInsertedRight = fragmentSet.insert(replacementKeyLeft).first;
                 fragmentSet.insert(itLeftPrecedingInsertedRight, replacementKeyRight);
             }
+            modified = true;
         }
         else if ((deleteBegin <= keyInMapBeginIndex) && (deleteEnd >= keyInMapBeginIndex)) { //alter left only
             data_fragment_t replacementKey(deleteEnd + 1, keyInMapEndIndex);
@@ -162,6 +180,7 @@ void FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const 
                 fragmentSet.erase(itToErase);
                 fragmentSet.insert(replacementKey);
             }
+            modified = true;
         }
         else if ((deleteBegin <= keyInMapEndIndex) && (deleteEnd >= keyInMapEndIndex)) { //alter right only
             data_fragment_t replacementKey(keyInMapBeginIndex, deleteBegin - 1);
@@ -176,11 +195,13 @@ void FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const 
                 fragmentSet.erase(itToErase);
                 fragmentSet.insert(replacementKey);
             }
+            modified = true;
         }
         else { //??
             ++it;
         }
     }
+    return modified;
 }
 
 
@@ -189,4 +210,12 @@ void FragmentSet::PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet
         std::cout << "(" << it->beginIndex << "," << it->endIndex << ") ";
     }
     std::cout << std::endl;
+}
+
+void FragmentSet::GetBoundsMinusFragments(const data_fragment_t bounds, const std::set<data_fragment_t>& fragmentSet, std::set<data_fragment_t>& boundsMinusFragmentsSet) {
+    boundsMinusFragmentsSet.clear();
+    InsertFragment(boundsMinusFragmentsSet, bounds);
+    for (std::set<data_fragment_t>::const_iterator it = fragmentSet.cbegin(); it != fragmentSet.cend(); ++it) {
+        RemoveFragment(boundsMinusFragmentsSet, *it);
+    }
 }

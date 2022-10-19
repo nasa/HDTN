@@ -36,7 +36,6 @@ class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
     LtpUdpEngine();
 public:
-    typedef boost::function<bool(const uint8_t ltpHeaderByte)> UdpDropSimulatorFunction_t;
     
     LTP_LIB_EXPORT LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef, const uint64_t thisEngineId,
         const uint8_t engineIndexForEncodingIntoRandomSessionNumber, const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
@@ -45,10 +44,12 @@ public:
         const uint64_t ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, const uint64_t maxRedRxBytesPerSession, uint32_t checkpointEveryNthDataPacketSender,
         uint32_t maxRetriesPerSerialNumber, const bool force32BitRandomNumbers, const uint64_t maxUdpRxPacketSizeBytes, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
         const uint64_t maxSimultaneousSessions, const uint64_t rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable,
-        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable);
+        const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable, const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable,
+        const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
 
     LTP_LIB_EXPORT virtual ~LtpUdpEngine();
 
+    LTP_LIB_EXPORT void Reset_ThreadSafe_Blocking();
     LTP_LIB_EXPORT virtual void Reset();
     
     LTP_LIB_EXPORT void PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size);
@@ -88,6 +89,10 @@ private:
 
     bool m_printedCbTooSmallNotice;
 
+    //for safe unit test resets
+    volatile bool m_resetInProgress;
+    boost::condition_variable m_resetConditionVariable;
+
 public:
     volatile uint64_t m_countAsyncSendCalls;
     volatile uint64_t m_countAsyncSendCallbackCalls; //same as udp packets sent
@@ -97,10 +102,6 @@ public:
     //total udp packets sent is m_countAsyncSendCallbackCalls + m_countBatchUdpPacketsSent
 
     uint64_t m_countCircularBufferOverruns;
-
-    //unit testing drop packet simulation stuff
-    UdpDropSimulatorFunction_t m_udpDropSimulatorFunction;
-   // boost::asio::ip::udp::endpoint m_udpDestinationNullEndpoint;
 };
 
 

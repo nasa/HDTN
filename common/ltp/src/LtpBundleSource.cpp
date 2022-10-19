@@ -23,7 +23,8 @@ LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t 
     const uint16_t myBoundUdpPort, const unsigned int numUdpRxCircularBufferVectors,
     uint32_t checkpointEveryNthDataPacketSender, uint32_t ltpMaxRetriesPerSerialNumber, const bool force32BitRandomNumbers,
     const std::string & remoteUdpHostname, const uint16_t remoteUdpPort, const uint64_t maxSendRateBitsPerSecOrZeroToDisable,
-    const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable) :
+    const uint32_t bundlePipelineLimit, const uint64_t maxUdpPacketsToSendPerSystemCall, const uint64_t senderPingSecondsOrZeroToDisable,
+    const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable) :
 
 m_useLocalConditionVariableAckReceived(false), //for destructor only
 
@@ -40,7 +41,9 @@ m_ltpOutductTelemetry()
     if (m_ltpUdpEnginePtr == NULL) {
         m_ltpUdpEngineManagerPtr->AddLtpUdpEngine(thisEngineId, remoteLtpEngineId, false, mtuClientServiceData, 80, oneWayLightTime, oneWayMarginTime,
             remoteUdpHostname, remoteUdpPort, numUdpRxCircularBufferVectors, 0, 0, 0, ltpMaxRetriesPerSerialNumber,
-            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable);
+            force32BitRandomNumbers, maxSendRateBitsPerSecOrZeroToDisable, bundlePipelineLimit, 0, maxUdpPacketsToSendPerSystemCall, senderPingSecondsOrZeroToDisable,
+            0, //delaySendingOfReportSegmentsTimeMsOrZeroToDisable must be 0
+            delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
         m_ltpUdpEnginePtr = m_ltpUdpEngineManagerPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, false);
     }
 

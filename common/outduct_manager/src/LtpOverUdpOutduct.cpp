@@ -4,14 +4,15 @@
 #include <memory>
 #include <boost/lexical_cast.hpp>
 
-LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
+LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t& outductConfig, const uint64_t outductUuid) :
     Outduct(outductConfig, outductUuid),
     m_ltpBundleSource(outductConfig.clientServiceId, outductConfig.remoteLtpEngineId, outductConfig.thisLtpEngineId, outductConfig.ltpDataSegmentMtu,
         boost::posix_time::milliseconds(outductConfig.oneWayLightTimeMs), boost::posix_time::milliseconds(outductConfig.oneWayMarginTimeMs),
         outductConfig.ltpSenderBoundPort, outductConfig.numRxCircularBufferElements,
         outductConfig.ltpCheckpointEveryNthDataSegment, outductConfig.ltpMaxRetriesPerSerialNumber, (outductConfig.ltpRandomNumberSizeBits == 32),
         m_outductConfig.remoteHostname, m_outductConfig.remotePort, m_outductConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable, m_outductConfig.bundlePipelineLimit,
-        m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall, m_outductConfig.ltpSenderPingSecondsOrZeroToDisable)
+        m_outductConfig.ltpMaxUdpPacketsToSendPerSystemCall, m_outductConfig.ltpSenderPingSecondsOrZeroToDisable,
+        20) //todo delaySendingOfDataSegmentsTimeMsOrZeroToDisable
 {}
 LtpOverUdpOutduct::~LtpOverUdpOutduct() {}
 

@@ -47,9 +47,11 @@ public:
        
     LTP_LIB_EXPORT bool StartTimer(const idType serialNumber, const LtpTimerExpiredCallback_t* callbackPtr, std::vector<uint8_t> userData = std::vector<uint8_t>());
     LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber);
+    LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned);
     LTP_LIB_EXPORT bool DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned, const LtpTimerExpiredCallback_t*& callbackPtrReturned);
     LTP_LIB_EXPORT void AdjustRunningTimers(const boost::posix_time::time_duration & diffNewMinusOld);
     LTP_LIB_EXPORT bool Empty() const;
+    LTP_LIB_EXPORT const boost::posix_time::time_duration& GetTimeDurationRef() const;
     //std::vector<uint8_t> & GetUserDataRef(const uint64_t serialNumber);
 private:
     LTP_LIB_NO_EXPORT void OnTimerExpired(const boost::system::error_code& e, bool * isTimerDeleted);

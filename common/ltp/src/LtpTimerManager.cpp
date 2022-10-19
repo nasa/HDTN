@@ -84,6 +84,12 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber) {
 }
 
 template <typename idType, typename hashType>
+bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned) {
+    const LtpTimerExpiredCallback_t* callbackPtrToDiscard;
+    return DeleteTimer(serialNumber, userDataReturned, callbackPtrToDiscard);
+}
+
+template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, std::vector<uint8_t> & userDataReturned, const LtpTimerExpiredCallback_t *& callbackPtrReturned) {
     
     typename id_to_data_map_t::iterator mapIt = m_mapIdToTimerData.find(serialNumber);
@@ -168,6 +174,11 @@ void LtpTimerManager<idType, hashType>::AdjustRunningTimers(const boost::posix_t
 template <typename idType, typename hashType>
 bool LtpTimerManager<idType, hashType>::Empty() const {
     return m_listTimerData.empty();
+}
+
+template <typename idType, typename hashType>
+const boost::posix_time::time_duration& LtpTimerManager<idType, hashType>::GetTimeDurationRef() const {
+    return m_transmissionToAckReceivedTimeRef;
 }
 
 // Explicit template instantiation
