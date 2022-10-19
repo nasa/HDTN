@@ -68,24 +68,12 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
 
 BOOST_AUTO_TEST_CASE(LoggerFromStringTestCase)
 {
-    if (hdtn::Logger::fromString("egress") != hdtn::Logger::Module::egress) {
-        BOOST_FAIL("fromString test failed: egress");
-    }
-    if (hdtn::Logger::fromString("ingress") != hdtn::Logger::Module::ingress) {
-        BOOST_FAIL("fromString test failed: ingress");
-    }
-    if (hdtn::Logger::fromString("router") != hdtn::Logger::Module::router) {
-        BOOST_FAIL("fromString test failed: router");
-    }
-    if (hdtn::Logger::fromString("scheduler") != hdtn::Logger::Module::scheduler) {
-        BOOST_FAIL("fromString test failed: scheduler");
-    }
-    if (hdtn::Logger::fromString("storage") != hdtn::Logger::Module::storage) {
-        BOOST_FAIL("fromString test failed: storage");
-    }
-    if (hdtn::Logger::fromString("foobar") != hdtn::Logger::Module(-1)) {
-        BOOST_FAIL("fromString test failed: foobar");
-    }
+    BOOST_REQUIRE(hdtn::Logger::fromString("egress") == hdtn::Logger::Module::egress);
+    BOOST_REQUIRE(hdtn::Logger::fromString("ingress") == hdtn::Logger::Module::ingress);
+    BOOST_REQUIRE(hdtn::Logger::fromString("router") == hdtn::Logger::Module::router);
+    BOOST_REQUIRE(hdtn::Logger::fromString("scheduler") == hdtn::Logger::Module::scheduler);
+    BOOST_REQUIRE(hdtn::Logger::fromString("storage") == hdtn::Logger::Module::storage);
+    BOOST_REQUIRE(hdtn::Logger::fromString("foobar") == hdtn::Logger::Module(-1));
 }
 
 #ifdef LOG_TO_CONSOLE
