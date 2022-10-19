@@ -72,7 +72,7 @@ Route::Route()
 
 Route::~Route() {}
 
-Route::Route(Contact contact, Route* parent)
+Route::Route(const Contact & contact, Route* parent)
     : parent(parent)
 {
     hops = std::vector<Contact>();
@@ -201,6 +201,41 @@ Vertex::Vertex(nodeId_t node_id) {
     arrival_time = MAX_SIZE;
     visited = false;
     predecessor = NULL;
+}
+//a copy constructor: X(const X&)
+Vertex::Vertex(const Vertex& o) :
+    id(o.id),
+    adjacencies(o.adjacencies),
+    arrival_time(o.arrival_time),
+    visited(o.visited),
+    predecessor(o.predecessor) { }
+
+//a move constructor: X(X&&)
+Vertex::Vertex(Vertex&& o) :
+    id(o.id),
+    adjacencies(std::move(o.adjacencies)),
+    arrival_time(o.arrival_time),
+    visited(o.visited),
+    predecessor(o.predecessor) { }
+
+//a copy assignment: operator=(const X&)
+Vertex& Vertex::operator=(const Vertex& o) {
+    id = o.id;
+    adjacencies = o.adjacencies;
+    arrival_time = o.arrival_time;
+    visited = o.visited;
+    predecessor = o.predecessor;
+    return *this;
+}
+
+//a move assignment: operator=(X&&)
+Vertex& Vertex::operator=(Vertex&& o) {
+    id = o.id;
+    adjacencies = std::move(o.adjacencies);
+    arrival_time = o.arrival_time;
+    visited = o.visited;
+    predecessor = o.predecessor;
+    return *this;
 }
 
 bool Vertex::operator<(const Vertex& v) const {
@@ -507,7 +542,7 @@ uint64_t contact_search_predecessor(const std::vector<uint64_t>& contacts_i, tim
 }
 
 
-Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan) {
+Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vector<Contact> & contact_plan) {
     // Construct Contact Multigraph from Contact Plan
     ContactMultigraph CM(contact_plan, destination);
     // Set root vertex's arrival time
@@ -517,9 +552,12 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
     for (const std::pair<nodeId_t, Vertex> & v : CM.vertices) {
         PQ.push(v.second);
     }
-    Vertex v_curr;
+    if (PQ.empty()) {
+        std::cout << "ERROR in cmr_dijkstra, initial priority queue empty\n";
+        return Route();
+    }
     Vertex v_next;
-    v_curr = PQ.top();
+    Vertex v_curr = std::move(PQ.top());
     PQ.pop();
     while (true) {
         // ---------- MRP ----------
@@ -555,39 +593,74 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Cont
                 CM.predecessors[u.id] = p_i;
                 // still want to update u node's arrival time for sake of pq
                 u.arrival_time = best_arr_time;
-                PQ.push(u); 
+                PQ.push(std::move(u)); //u was a copy from the CM, move it in to the PQ 
             }
         }
         CM.visited[v_curr.id] = true;
         // ---------- MRP ----------
-        v_next = PQ.top();
+        if (PQ.empty()) {
+            std::cout << "ERROR in cmr_dijkstra, priority queue empty\n";
+            return Route();
+        }
+        v_next = std::move(PQ.top());
         PQ.pop();
         if (v_next.id == destination) {
-            break;
+            break; //only exit from while (true)
         }
         else {
-            v_curr = v_next;
+            v_curr = std::move(v_next);
         }
     }
     // construct route from contact predecessors
-    std::vector<Contact> hops;
+    std::vector<const Contact*> hops;
+#if 0
     Contact contact;
     for (contact = contact_plan[CM.predecessors[v_next.id]]; contact.frm != contact.to; contact = contact_plan[CM.predecessors[CM.vertices[contact.frm].id]]) {
-        hops.push_back(contact);
+        hops.push_back(&contact);
         if (contact.frm == root_contact->frm) { 
             break;
         }
     }
+#else
+    nodeId_t predecessorIndex = v_next.id;
+    while (true) {
+        std::unordered_map<nodeId_t, nodeId_t>::const_iterator itPred = CM.predecessors.find(predecessorIndex);
+        if (itPred == CM.predecessors.end()) { //not found
+            std::cout << "error cannot find predecessorIndex " << predecessorIndex << " in CM.predecessors\n";
+            break;
+        }
+        const nodeId_t constactPlanIndex = itPred->second;
+        if (constactPlanIndex >= contact_plan.size()) {
+            std::cout << "error constactPlanIndex(" << constactPlanIndex << ") >= contact_plan.size(" << contact_plan.size() << ")\n";
+            break;
+        }
+        const Contact & contact = contact_plan[constactPlanIndex];
+        if (contact.frm == contact.to) {
+            break;
+        }
+        hops.push_back(&contact);
+        if (contact.frm == root_contact->frm) {
+            break;
+        }
+        std::unordered_map<nodeId_t, Vertex>::const_iterator itVert = CM.vertices.find(contact.frm);
+        if (itVert == CM.vertices.end()) { //not found
+            std::cout << "error cannot find vertex by key contact.frm(" << contact.frm << ") in CM.vertices\n";
+            break;
+        }
+        const Vertex & vertex = itVert->second;
+        predecessorIndex = vertex.id;
+    }
+#endif
     Route route;
     if (hops.empty()) {
         std::cout << "todo: hops is empty.. no route\n";
         route.to_node = std::numeric_limits<nodeId_t>::max();
     }
     else {
-        route = Route(hops.back());
+        route = Route(*(hops.back()));
         hops.pop_back();
         while (!hops.empty()) {
-            route.append(hops.back());
+            route.append(*(hops.back()));
             hops.pop_back();
         }
     }

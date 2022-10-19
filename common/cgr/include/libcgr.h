@@ -55,7 +55,7 @@ public:
     time_t from_time, to_time, best_delivery_time;
     uint64_t volume;
     float confidence;
-    CGR_LIB_EXPORT Route(Contact, Route *parent=NULL);
+    CGR_LIB_EXPORT Route(const Contact &, Route *parent=NULL);
     CGR_LIB_EXPORT Route();
     CGR_LIB_EXPORT ~Route();
 private:
@@ -84,6 +84,18 @@ public:
     CGR_LIB_EXPORT Vertex(nodeId_t id);
     CGR_LIB_EXPORT Vertex();
     CGR_LIB_EXPORT bool operator<(const Vertex& v) const;
+
+    //a copy constructor: X(const X&)
+    CGR_LIB_EXPORT Vertex(const Vertex& o);
+
+    //a move constructor: X(X&&)
+    CGR_LIB_EXPORT Vertex(Vertex&& o);
+
+    //a copy assignment: operator=(const X&)
+    CGR_LIB_EXPORT Vertex& operator=(const Vertex& o);
+
+    //a move assignment: operator=(X&&)
+    CGR_LIB_EXPORT Vertex& operator=(Vertex&& o);
 };
 
 class ContactMultigraph {
@@ -117,7 +129,7 @@ CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, std::size_t ma
 
 CGR_LIB_EXPORT Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
 
-CGR_LIB_EXPORT Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
+CGR_LIB_EXPORT Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vector<Contact> & contact_plan);
 
 CGR_LIB_EXPORT std::vector<Route> yen(nodeId_t source, nodeId_t destination, int currTime, std::vector<Contact> contactPlan, int numRoutes);
     
