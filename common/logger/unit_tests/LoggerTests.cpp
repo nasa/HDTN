@@ -15,7 +15,6 @@
 #include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
-#include <boost/test/tools/output_test_stream.hpp>
 #include "Logger.h"
 
 /**
@@ -46,8 +45,8 @@ public:
         std::cerr.rdbuf(cerr_backup);
     }
 
-    boost::test_tools::output_test_stream cerr_test_stream;
-    boost::test_tools::output_test_stream cout_test_stream;
+    std::stringstream cerr_test_stream;
+    std::stringstream cout_test_stream;
 
 private:
     std::streambuf *cerr_backup;
@@ -88,16 +87,6 @@ BOOST_AUTO_TEST_CASE(LoggerFromStringTestCase)
         BOOST_FAIL("fromString test failed: foobar");
     }
 }
-/*
-// These should probably not be tested in case the logger is initialized by another unit test run before this
-BOOST_AUTO_TEST_CASE(LoggerEnsureInitializedTestCase)
-{
-    // Logger should only get initialized once
-    //BOOST_REQUIRE_EQUAL(hdtn::Logger::ensureInitialized(), true);
-    //BOOST_REQUIRE_EQUAL(hdtn::Logger::ensureInitialized(), false);
-    //BOOST_REQUIRE_EQUAL(hdtn::Logger::ensureInitialized(), false);
-}
-*/
 
 #ifdef LOG_TO_CONSOLE
 BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
@@ -117,12 +106,12 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
     output_tester.reset_cout_cerr();
 
     // Assert results
-    BOOST_TEST(output_tester.cout_test_stream.is_equal(
+    BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
         std::string("[egress][trace]: Egress foo bar\n") +
         std::string("[ingress][debug]: Ingress foo bar\n") +
         std::string("[router][info]: Router foo bar\n") +
         std::string("[scheduler][warning]: Scheduler foo bar\n")
-    ));
+    );
 }
 #endif
 
@@ -142,10 +131,10 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
     output_tester.reset_cout_cerr();
 
     // Assert results
-    BOOST_TEST(output_tester.cerr_test_stream.is_equal(
+    BOOST_REQUIRE_EQUAL(output_tester.cerr_test_stream.str(),
         std::string("[egress][error]: Egress foo bar!\n") +
         std::string("[ingress][fatal]: Ingress foo bar!\n")
-    ));
+    );
 }
 #endif
 
