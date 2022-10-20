@@ -554,7 +554,7 @@ void ZmqStorageInterface::ThreadFunc() {
     
     static const boost::posix_time::time_duration ACS_SEND_PERIOD = boost::posix_time::milliseconds(m_hdtnConfig.m_acsSendPeriodMilliseconds);
     CustodyTransferManager ctm(IS_HDTN_ACS_AWARE, M_HDTN_EID_CUSTODY.nodeId, M_HDTN_EID_CUSTODY.serviceId);
-    LOG_INFO(hdtn::Logger::Module::storage) << "[storage-worker] Worker thread starting up.";
+    LOG_INFO(hdtn::Logger::Module::storage) << "Worker thread starting up.";
 
    
 
@@ -629,11 +629,11 @@ void ZmqStorageInterface::ThreadFunc() {
                 hdtn::EgressAckHdr egressAckHdr;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);
                 if (!res) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "[storage-worker] EgressAckHdr not received";
+                    LOG_ERROR(hdtn::Logger::Module::storage) << "EgressAckHdr not received";
                     continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "[storage-worker] EgressAckHdr wrong size received";
+                    LOG_ERROR(hdtn::Logger::Module::storage) << "EgressAckHdr wrong size received";
                     continue;
                 }
                 else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
@@ -690,7 +690,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     
                 }
                 else {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "[storage-worker] EgressAckHdr unknown type, got " << egressAckHdr.base.type;
+                    LOG_ERROR(hdtn::Logger::Module::storage) << "EgressAckHdr unknown type, got " << egressAckHdr.base.type;
                     continue;
                 }
             }
