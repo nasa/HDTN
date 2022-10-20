@@ -24,12 +24,8 @@ int main(int argc, const char* argv[]) {
     StorageRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
-    std::cout << "totalBundlesErasedFromStorage: " << runner.m_totalBundlesErasedFromStorage << std::endl;
-    std::cout << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage << std::endl;
-    hdtn::Logger::getInstance()->logInfo("storage", "totalBundlesErasedFromStorage: " + 
-        std::to_string(runner.m_totalBundlesErasedFromStorage));
-    hdtn::Logger::getInstance()->logInfo("storage", "totalBundlesSentToEgressFromStorage: " + 
-        std::to_string(runner.m_totalBundlesSentToEgressFromStorage));
+    LOG_DEBUG(hdtn::Logger::Module::storage) << "totalBundlesErasedFromStorage: " << runner.m_totalBundlesErasedFromStorage;
+    LOG_DEBUG(hdtn::Logger::Module::storage) << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage;
     return 0;
 
 }

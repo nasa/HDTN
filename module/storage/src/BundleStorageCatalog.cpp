@@ -2,7 +2,7 @@
  * @file BundleStorageCatalog.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -258,12 +258,10 @@ catalog_entry_t * BundleStorageCatalog::PopEntryFromAwaitingSend(uint64_t & cust
 
         for (std::size_t j = 0; j < destEidPlusPriorityArrayPtrs.size(); ++j) {
             priorities_to_expirations_array_t * priorityArray = destEidPlusPriorityArrayPtrs[j].second;
-            //std::cout << "size " << (*priorityVec).size() << "\n";
             expirations_to_custids_map_t & expirationMap = (*priorityArray)[i];
             expirations_to_custids_map_t::iterator it = expirationMap.begin();
             if (it != expirationMap.end()) {
                 const uint64_t thisExpiration = it->first;
-                //std::cout << "thisexp " << thisExpiration << "\n";
                 if (lowestExpiration > thisExpiration) {
                     lowestExpiration = thisExpiration;
                     expirationMapPtr = &expirationMap;

@@ -2,7 +2,7 @@
  * @file ReleaseSender.cpp
  * @author  Jeff Follo
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -63,7 +63,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
         releaseMessageEvent.message = eventPt.second.get<std::string>("message", "");
         const std::string uriEid = eventPt.second.get<std::string>("finalDestinationEid", "");
         if (!Uri::ParseIpnUriString(uriEid, releaseMessageEvent.finalDestEid.nodeId, releaseMessageEvent.finalDestEid.serviceId)) {
-            std::cerr << "error: bad uri string: " << uriEid << std::endl;
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error: bad uri string: " << uriEid;
             return false;
         }
         releaseMessageEvent.delay = eventPt.second.get<int>("delay",0);
@@ -75,7 +75,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
             errorMessage += " Invalid delay: " + boost::lexical_cast<std::string>(releaseMessageEvent.delay) + ".";
         }
         if (errorMessage.length() > 0) {
-            std::cerr << errorMessage << std::endl << std::flush;
+            LOG_ERROR(hdtn::Logger::Module::storage) << errorMessage;
             return 1;
         }
     }
@@ -124,12 +124,12 @@ int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& 
                | boost::program_options::command_line_style::case_insensitive), vm);
         boost::program_options::notify(vm);
         if (vm.count("help")) {
-            std::cout << desc << "\n";
+            LOG_INFO(hdtn::Logger::Module::storage) << desc;
             return 1;
         }
         eventsFile = vm["events-file"].as<std::string>();
         if (eventsFile.length() < 1) {
-            std::cout << desc << "\n";
+            LOG_INFO(hdtn::Logger::Module::storage) << desc;
             return 1;
         }
         const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
@@ -138,21 +138,21 @@ int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& 
             m_hdtnConfig = *ptrConfig;
         }
         else {
-            std::cerr << "error loading config file: " << configFileName << std::endl;
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error loading config file: " << configFileName;
             return false;
         }
     }
     catch (std::exception& e) {
-        std::cerr << "error: " << e.what() << "\n";
+        LOG_ERROR(hdtn::Logger::Module::storage) << "error: " << e.what();
         return 1;
     }
     catch (...) {
-        std::cerr << "Exception of unknown type!\n";
+        LOG_ERROR(hdtn::Logger::Module::storage) << "Exception of unknown type!";
         return 1;
     }
     std::string jsonFileName =  ReleaseSender::GetFullyQualifiedFilename(eventsFile);
     if ( !boost::filesystem::exists( jsonFileName ) ) {
-        std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
+        LOG_ERROR(hdtn::Logger::Module::storage) << "File not found: " << jsonFileName;
         return 1;
     }
     jsonEventFileName = jsonFileName;

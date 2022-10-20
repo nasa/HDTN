@@ -2,7 +2,7 @@
  * @file StorageRunner.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -24,8 +24,7 @@
 
 
 void StorageRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
-    hdtn::Logger::getInstance()->logNotification("storage", "Keyboard Interrupt.. exiting");
+    LOG_INFO(hdtn::Logger::Module::storage) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -62,7 +61,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(hdtn::Logger::Module::storage) << desc;
                 return false;
             }
 
@@ -70,22 +69,20 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 
             hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
             if (!hdtnConfig) {
-                std::cerr << "error loading config file: " << configFileName << std::endl;
+                LOG_ERROR(hdtn::Logger::Module::storage) << "error loading config file: " << configFileName;
                 return false;
             }
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            hdtn::Logger::getInstance()->logError("storage", "Invalid data error: " + std::string(e.what()));
-            std::cout << desc << "\n";
+            LOG_ERROR(hdtn::Logger::Module::storage) << "invalid data error: " << e.what();
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error: " << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
+            LOG_ERROR(hdtn::Logger::Module::storage) << "Exception of unknown type!";
             return false;
         }
         //double last = 0.0;
@@ -99,8 +96,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
         //config.storePath = storePath;
         m_storagePtr = boost::make_unique<ZmqStorageInterface>();
-        std::cout << "[store] Initializing storage manager ..." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "[store] Initializing storage manager ...");
+        LOG_INFO(hdtn::Logger::Module::storage) << "Initializing storage manager ...";
         if (!m_storagePtr->Init(*hdtnConfig)) {
             return false;
         }
@@ -108,8 +104,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "storage up and running" << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "Storage up and running");
+        LOG_INFO(hdtn::Logger::Module::storage) << "storage up and running";
 
         while (running && m_runningFromSigHandler) {            
             boost::this_thread::sleep(boost::posix_time::milliseconds(250));
@@ -130,7 +125,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
                 printf("[store] Received: %lu msg / %0.2f MB\n", ccount, cbytes / (1024.0 * 1024.0));
             }*/
         }
-        std::cout << "StorageRunner: exiting cleanly..\n";
+        LOG_INFO(hdtn::Logger::Module::storage) << "StorageRunner: exiting cleanly..";
 //        store.Stop();
 //        m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
 //        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
@@ -138,7 +133,6 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         m_totalBundlesErasedFromStorage = m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
         m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
     }
-    std::cout << "StorageRunner: exited cleanly\n";
-    hdtn::Logger::getInstance()->logNotification("storage", "StorageRunner: exited cleanly");
+    LOG_INFO(hdtn::Logger::Module::storage) << "StorageRunner: exited cleanly";
     return true;
 }

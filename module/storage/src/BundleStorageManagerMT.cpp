@@ -2,7 +2,7 @@
  * @file BundleStorageManagerMT.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -24,8 +24,7 @@ BundleStorageManagerMT::BundleStorageManagerMT() : BundleStorageManagerMT("stora
 
 BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFileName) : BundleStorageManagerMT(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
     if (!m_storageConfigPtr) {
-        std::cerr << "cannot open storage json config file: " << jsonConfigFileName << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "cannot open storage json config file: " + jsonConfigFileName);
+        LOG_ERROR(hdtn::Logger::Module::storage) << "cannot open storage json config file: " << jsonConfigFileName;
         return;
     }
 }
@@ -68,7 +67,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
     boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
     const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
-    std::cout << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath << "\n";
+    LOG_INFO(hdtn::Logger::Module::storage) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
     if (m_successfullyRestoredFromDisk)
     {
         hdtn::Logger::getInstance()->logNotification("storage", "Reopening " + std::string(filePath));
@@ -98,8 +97,7 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
         volatile bool * const isReadCompletedPointer = m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
         const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
         if (segmentId == SEGMENT_ID_LAST) {
-            std::cout << "error segmentId is last\n";
-            hdtn::Logger::getInstance()->logError("storage", "Error segmentId is last");
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error segmentId is last";
             m_running = false;
             continue;
         }
@@ -115,14 +113,12 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
         if (isWriteToDisk) {
             if (fwrite(data, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
-                std::cout << "error writing\n";
-                hdtn::Logger::getInstance()->logError("storage", "Error writing");
+                LOG_ERROR(hdtn::Logger::Module::storage) << "error writing";
             }
         }
         else { //read from disk
             if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
-                std::cout << "error reading\n";
-                hdtn::Logger::getInstance()->logError("storage", "Error reading");
+                LOG_ERROR(hdtn::Logger::Module::storage) << "error reading";
             }
             *isReadCompletedPointer = true;
         }

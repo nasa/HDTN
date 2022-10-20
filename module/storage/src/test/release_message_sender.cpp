@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
         boost::program_options::notify(vm);
 
         if (vm.count("help")) {
-            std::cout << desc << "\n";
+            LOG_INFO(hdtn::Logger::Module::storage) << desc;
             return 1;
         }
 
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
 
         hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
         if (!hdtnConfig) {
-            std::cerr << "error loading config file: " << configFileName << std::endl;
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error loading config file: " << configFileName;
             return false;
         }
 
@@ -76,26 +76,26 @@ int main(int argc, char *argv[]) {
             isStartMessage = false;
         }
         else {
-            std::cout << desc << "\n";
+            LOG_INFO(hdtn::Logger::Module::storage) << desc;
             return 1;
         }
 
         const bool hasEid = (vm.count("dest-uri-eid-to-release-or-stop") != 0);
         const bool hasNodeNumber = (vm.count("dest-node-number-to-release-or-stop") != 0);
         if (hasEid && hasNodeNumber) {
-            std::cerr << "error: cannot have both dest-uri-eid-to-release-or-stop and dest-node-number-to-release-or-stop specified\n";
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error: cannot have both dest-uri-eid-to-release-or-stop and dest-node-number-to-release-or-stop specified";
             return false;
         }
         if (!(hasEid || hasNodeNumber)) {
-            std::cerr << "error: must have one of dest-uri-eid-to-release-or-stop and dest-node-number-to-release-or-stop specified\n";
+            LOG_ERROR(hdtn::Logger::Module::storage) << "error: must have one of dest-uri-eid-to-release-or-stop and dest-node-number-to-release-or-stop specified";
             return false;
         }
 
         if (hasEid) {
-            std::cout << "deprecation warning: dest-uri-eid-to-release-or-stop should be replaced with dest-node-number-to-release-or-stop\n";
+            std::cout << "deprecation warning: dest-uri-eid-to-release-or-stop should be replaced with dest-node-number-to-release-or-stop";
             const std::string uriEid = vm["dest-uri-eid-to-release-or-stop"].as<std::string>();
             if (!Uri::ParseIpnUriString(uriEid, finalDestEidToRelease.nodeId, finalDestEidToRelease.serviceId)) {
-                std::cerr << "error: bad uri string: " << uriEid << std::endl;
+                LOG_ERROR(hdtn::Logger::Module::storage) << "error: bad uri string: " << uriEid;
                 return false;
             }
         }
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
             nextHopNodeNumber = vm["next-hop-node-number"].as<uint64_t>();
         }
         else {
-            std::cout << "warning: next-hop-node-number was not specified, assuming final destination node number is the next hop\n";
+            LOG_WARNING(hdtn::Logger::Module::storage) << "next-hop-node-number was not specified, assuming final destination node number is the next hop";
             nextHopNodeNumber = finalDestEidToRelease.nodeId;
         }
 
@@ -116,16 +116,16 @@ int main(int argc, char *argv[]) {
         delayBeforeSendSeconds = vm["delay-before-send"].as<unsigned int>();
     }
     catch (boost::bad_any_cast & e) {
-        std::cout << "invalid data error: " << e.what() << "\n\n";
-        std::cout << desc << "\n";
+        LOG_ERROR(hdtn::Logger::Module::storage) << "invalid data error: " << e.what();
+        std::cout << desc;
         return 1;
     }
     catch (std::exception& e) {
-        std::cerr << "error: " << e.what() << "\n";
+        LOG_ERROR(hdtn::Logger::Module::storage) << "error: " << e.what();
         return 1;
     }
     catch (...) {
-        std::cerr << "Exception of unknown type!\n";
+        LOG_ERROR(hdtn::Logger::Module::storage) << "Exception of unknown type!";
         return 1;
     }
    
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
         std::string("tcp://*:") + boost::lexical_cast<std::string>(hdtnConfig->m_zmqBoundSchedulerPubSubPortPath));
     socket.bind(bind_boundSchedulerPubSubPath);
 
-    std::cout << "waiting " << delayBeforeSendSeconds << " seconds..." << std::endl;
+    LOG_INFO(hdtn::Logger::Module::storage) << "waiting " << delayBeforeSendSeconds << " seconds...";
     boost::this_thread::sleep(boost::posix_time::seconds(delayBeforeSendSeconds));
 
     if (isStartMessage) {
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
         releaseMsg.rate = 0;  //not implemented
         releaseMsg.duration = 20;//not implemented
         socket.send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-        std::cout << "Start Release message sent \n";
+        LOG_INFO(hdtn::Logger::Module::storage) << "Start Release message sent ";
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
     else {
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
         stopMsg.finalDestinationNodeId = finalDestEidToRelease.nodeId;
         stopMsg.nextHopNodeId = nextHopNodeNumber;
         socket.send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-        std::cout << "Stop Release message sent \n";
+        LOG_INFO(hdtn::Logger::Module::storage) << "Stop Release message sent ";
         boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
  
