@@ -13,6 +13,25 @@ add_library(ltp_lib
 	src/LtpBundleSource.cpp
 )
 target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_RDSEED_COMPILE_FLAG} ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
+
+#Github issue 26: Allow same-engine transfers
+#There are currently three places in LtpEngine.cpp that guard against
+#sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID and early-return from processing segments.
+#There is no prohibition against sending segments to your own engine,
+#and for certain purposes some transfers are made to the local BPA.
+#
+#If there is no technical reason to prohibit these, it would be helpful to remove these guards.
+#I did a quick experiment of just removing the three checks and things seem to go through properly.
+OPTION(LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS "Allow sending segments to your own LTP engine." Off)
+if(LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS)
+	#from https://cmake.org/pipermail/cmake/2016-January/062570.html
+	set_property(
+		SOURCE src/LtpEngine.cpp
+		PROPERTY COMPILE_DEFINITIONS
+		  LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
+	)
+endif()
+
 GENERATE_EXPORT_HEADER(ltp_lib)
 get_target_property(target_type ltp_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)

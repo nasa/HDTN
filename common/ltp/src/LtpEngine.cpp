@@ -735,8 +735,18 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     }
     else {//to receiver
         if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
+            //Github issue 26: Allow same-engine transfers
+            //There are currently three places in LtpEngine.cpp that guard against
+            //sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID and early-return from processing segments.
+            //There is no prohibition against sending segments to your own engine,
+            //and for our purposes some transfers are made to the local BPA.
+            //
+            //If there is no technical reason to prohibit these, it would be helpful to remove these guards.
+            //I did a quick experiment of just removing the three checks and things seem to go through properly.
+#ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
             std::cerr << "error in CA received to receiver: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")\n";
             return;
+#endif
         }
     }
 
@@ -878,8 +888,18 @@ void LtpEngine::ReportAcknowledgementSegmentReceivedCallback(const Ltp::session_
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
+        //Github issue 26: Allow same-engine transfers
+        //There are currently three places in LtpEngine.cpp that guard against
+        //sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID and early-return from processing segments.
+        //There is no prohibition against sending segments to your own engine,
+        //and for our purposes some transfers are made to the local BPA.
+        //
+        //If there is no technical reason to prohibit these, it would be helpful to remove these guards.
+        //I did a quick experiment of just removing the three checks and things seem to go through properly.
+#ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
         std::cerr << "error in RA received: sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID\n";
         return;
+#endif
     }
     map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
     if (rxSessionIt != m_mapSessionIdToSessionReceiver.end()) { //found
@@ -923,8 +943,18 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     if (sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID) {
+        //Github issue 26: Allow same-engine transfers
+        //There are currently three places in LtpEngine.cpp that guard against
+        //sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID and early-return from processing segments.
+        //There is no prohibition against sending segments to your own engine,
+        //and for our purposes some transfers are made to the local BPA.
+        //
+        //If there is no technical reason to prohibit these, it would be helpful to remove these guards.
+        //I did a quick experiment of just removing the three checks and things seem to go through properly.
+#ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
         std::cerr << "error in DS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")\n";
         return;
+#endif
     }
 
     map_session_id_to_session_receiver_t::iterator rxSessionIt = m_mapSessionIdToSessionReceiver.find(sessionId);
