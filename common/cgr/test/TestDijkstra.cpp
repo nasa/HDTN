@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingTestCase)
 	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
 	BOOST_CHECK(numContacts == 8);
 
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra10NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 368);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(CMR10NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 368);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using CMR..." << std::endl;
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra50NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 7186);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -165,7 +165,7 @@ BOOST_AUTO_TEST_CASE(CMR50NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 7186);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using CMR..." << std::endl;
@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(CMR100NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 28162);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using CMR..." << std::endl;
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE(CMR200NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 109330);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using CMR..." << std::endl;
@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 28162);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -299,7 +299,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
         BOOST_CHECK(numContacts == 109330);
 
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
 
         std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -331,7 +331,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 
-	cgr::Contact rootContact = cgr::Contact(4, 4, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(4, 4, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
 	BOOST_CHECK(numContacts == 16);
 
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -403,7 +403,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
 	BOOST_CHECK(numContacts == 8);
 
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -442,7 +442,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 	std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
 	BOOST_CHECK(numContacts == 16);
 
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
 	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	long long cmr_times = 0;
@@ -509,7 +509,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_Starlink)
 	const std::string contactFile = (contactRootDir / "starlink.json").string();
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 
-	cgr::Contact rootContact = cgr::Contact(3870, 3870, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(3870, 3870, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	const std::chrono::high_resolution_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
@@ -533,7 +533,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
 	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_SIZE, 100, 1.0, 0);
+	cgr::Contact rootContact = cgr::Contact(1, 1, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
 	rootContact.arrival_time = 0;
 
 	long long times = 0;

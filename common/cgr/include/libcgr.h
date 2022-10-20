@@ -11,7 +11,7 @@
 
 namespace cgr {
 
-static constexpr time_t MAX_SIZE = std::numeric_limits<time_t>::max();
+static constexpr time_t MAX_TIME_T = std::numeric_limits<time_t>::max();
 
 typedef uint64_t nodeId_t;
 //typedef uint64_t time_t;
@@ -78,7 +78,7 @@ class Vertex {
 public:
     nodeId_t id;
     std::unordered_map<nodeId_t, std::vector<nodeId_t> > adjacencies; // now store the index of the contact in the contact plan
-    time_t arrival_time;
+    time_t vertex_arrival_time;
     bool visited;
     Contact* predecessor;
     CGR_LIB_EXPORT Vertex(nodeId_t id);
@@ -104,28 +104,28 @@ public:
     std::unordered_map<nodeId_t, bool> visited;
     std::unordered_map<nodeId_t, nodeId_t> predecessors; // Stores the indices of the contacts
     std::unordered_map<nodeId_t, time_t> arrival_time;
-    CGR_LIB_EXPORT ContactMultigraph(std::vector<Contact> contact_plan, nodeId_t dest_id);
+    CGR_LIB_EXPORT ContactMultigraph(const std::vector<Contact>& contact_plan, nodeId_t dest_id);
 };
 
 class CompareArrivals
 {
 public:
-    bool operator()(const Vertex& v1, const Vertex& v2)
+    bool operator()(const Vertex* v1, const Vertex* v2)
     {
         // smaller id breaks tie
-        if (v1.arrival_time == v2.arrival_time) {
-            return v1.id > v2.id;
+        if (v1->vertex_arrival_time == v2->vertex_arrival_time) {
+            return v1->id > v2->id;
         }
-        return v1.arrival_time > v2.arrival_time;
+        return v1->vertex_arrival_time > v2->vertex_arrival_time;
     }
 };
 
 
-CGR_LIB_EXPORT int64_t contact_search_index(std::vector<Contact>& contacts, time_t arrival_time);
+CGR_LIB_EXPORT int64_t contact_search_index(const std::vector<const Contact*>& contacts, time_t arrival_time);
 
 //CGR_LIB_EXPORT Contact* contact_search_predecessor(std::vector<Contact>& contacts, time_t arrival_time);
 
-CGR_LIB_EXPORT std::vector<Contact> cp_load(std::string filename, std::size_t max_contacts= std::numeric_limits<std::size_t>::max());
+CGR_LIB_EXPORT std::vector<Contact> cp_load(const std::string & filename, std::size_t max_contacts= std::numeric_limits<std::size_t>::max());
 
 CGR_LIB_EXPORT Route dijkstra(Contact *root_contact, nodeId_t destination, std::vector<Contact> contact_plan);
 
