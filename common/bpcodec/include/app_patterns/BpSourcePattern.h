@@ -25,7 +25,7 @@ public:
     BP_APP_PATTERNS_LIB_EXPORT void Stop();
     BP_APP_PATTERNS_LIB_EXPORT void Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfig_ptr & inductsConfigPtr, bool custodyTransferUseAcs,
         const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId,
-        const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeSeconds, const uint64_t bundlePriority,
+        const unsigned int bundleSendTimeoutSeconds, const uint64_t bundleLifetimeMilliseconds, const uint64_t bundlePriority,
         const bool requireRxBundleBeforeNextTx = false, const bool forceDisableCustody = false, const bool useBpVersion7 = false);
 
     uint64_t m_bundleCount;

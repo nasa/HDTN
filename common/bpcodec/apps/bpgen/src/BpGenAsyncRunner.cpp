@@ -138,7 +138,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 durationSeconds = vm["duration"].as<uint32_t>();
                 myCustodianServiceId = vm["my-custodian-service-id"].as<uint64_t>();
                 bundleSendTimeoutSeconds = vm["bundle-send-timeout-seconds"].as<unsigned int>();
-                bundleLifetimeMilliseconds = vm["bundle-lifetime-seconds"].as<uint64_t>();
+                bundleLifetimeMilliseconds = vm["bundle-lifetime-milliseconds"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
                 LOG_ERROR(subprocess) << "invalid data error: " << e.what();
