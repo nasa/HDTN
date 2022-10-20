@@ -12,7 +12,6 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <iostream>
 #include <string>
 #include "BundleStorageManagerMT.h"
 #include "BundleStorageManagerAsio.h"
@@ -217,7 +216,6 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
     if (g_running) {
         LOG_DEBUG(hdtn::Logger::Module::storage) << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / NUM_TESTS;
         LOG_DEBUG(hdtn::Logger::Module::storage) << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / NUM_TESTS;
-        hdtn::Logger::getInstance()->logInfo("storage", "Write avg GBits/sec=" + std::to_string(gigaBitsPerSecWriteDoubleAvg));
     }
     return true;
 

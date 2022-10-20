@@ -19,7 +19,6 @@
 #endif
 
 #include "BundleStorageManagerAsio.h"
-#include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
 #include <memory>

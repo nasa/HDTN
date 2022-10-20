@@ -17,7 +17,6 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <cstdlib>
-#include <iostream>
 #include "HdtnConfig.h"
 #include "Logger.h"
 
@@ -92,7 +91,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (hasEid) {
-            std::cout << "deprecation warning: dest-uri-eid-to-release-or-stop should be replaced with dest-node-number-to-release-or-stop";
+            LOG_WARNING(hdtn::Logger::Module::storage) << "deprecation warning: dest-uri-eid-to-release-or-stop should be replaced with dest-node-number-to-release-or-stop";
             const std::string uriEid = vm["dest-uri-eid-to-release-or-stop"].as<std::string>();
             if (!Uri::ParseIpnUriString(uriEid, finalDestEidToRelease.nodeId, finalDestEidToRelease.serviceId)) {
                 LOG_ERROR(hdtn::Logger::Module::storage) << "error: bad uri string: " << uriEid;
@@ -117,7 +116,7 @@ int main(int argc, char *argv[]) {
     }
     catch (boost::bad_any_cast & e) {
         LOG_ERROR(hdtn::Logger::Module::storage) << "invalid data error: " << e.what();
-        std::cout << desc;
+        LOG_ERROR(hdtn::Logger::Module::storage) << desc;
         return 1;
     }
     catch (std::exception& e) {

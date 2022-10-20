@@ -13,7 +13,6 @@
  */
 
 #include "BundleStorageManagerMT.h"
-#include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
 #include <memory>
@@ -68,14 +67,6 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
     const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
     LOG_INFO(hdtn::Logger::Module::storage) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
-    if (m_successfullyRestoredFromDisk)
-    {
-        hdtn::Logger::getInstance()->logNotification("storage", "Reopening " + std::string(filePath));
-    }
-    else
-    {
-        hdtn::Logger::getInstance()->logNotification("storage", "Creating " + std::string(filePath));
-    }
     FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
     boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
     segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];

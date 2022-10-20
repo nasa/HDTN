@@ -28,7 +28,7 @@ ReleaseSender::~ReleaseSender() {
 
 void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string message, zmq::socket_t * ptrSocket) {
   boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-  std::cout <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
+  LOG_INFO(hdtn::Logger::Module::storage) <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
   if (message == "start") {
       hdtn::IreleaseStartHdr releaseMsg;
       memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -37,7 +37,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
       releaseMsg.rate = 0;  //not implemented
       releaseMsg.duration = 20;  //not implemented
       ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-      std::cout << " -- Start Release message sent.";
+      LOG_INFO(hdtn::Logger::Module::storage) << " -- Start Release message sent.";
   }
   else if (message == "stop") {
       hdtn::IreleaseStopHdr stopMsg;
@@ -45,9 +45,8 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
       stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
       stopMsg.finalDestinationNodeId = finalDestinationEid.nodeId;
       ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-      std::cout << " -- Stop Release message sent.";
+      LOG_INFO(hdtn::Logger::Module::storage) << " -- Stop Release message sent.";
   }
-  std::cout << std::endl << std::flush;
 }
 
 int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
@@ -81,7 +80,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     }
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    std::cout << "Epoch Time:  " << timeLocal << std::endl << std::flush;
+    LOG_INFO(hdtn::Logger::Module::storage) << "Epoch Time:  " << timeLocal;
 
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
@@ -104,7 +103,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     socket.close();
     m_timersFinished = true;
     timeLocal = boost::posix_time::second_clock::local_time();
-    std::cout << "End of ProcessEventFile:  " << timeLocal << std::endl << std::flush;
+    LOG_INFO(hdtn::Logger::Module::storage) << "End of ProcessEventFile:  " << timeLocal << std::endl << std::flush;
     return 0;
 }
 

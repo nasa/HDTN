@@ -13,7 +13,6 @@
  */
 
 #include "BundleStorageCatalog.h"
-#include <iostream>
 #include <string>
 #include <boost/make_unique.hpp>
 

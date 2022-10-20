@@ -12,7 +12,6 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <iostream>
 #include "message.hpp"
 #include "ZmqStorageInterface.h"
 #include "BundleStorageManagerMT.h"
