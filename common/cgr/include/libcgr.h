@@ -107,16 +107,17 @@ public:
     CGR_LIB_EXPORT ContactMultigraph(const std::vector<Contact>& contact_plan, nodeId_t dest_id);
 };
 
+typedef std::pair<Vertex*, time_t> vertex_ptr_plus_arrival_time_pair_t; //for lazy deletion in priority queue
 class CompareArrivals
 {
 public:
-    bool operator()(const Vertex* v1, const Vertex* v2)
+    bool operator()(const vertex_ptr_plus_arrival_time_pair_t & v1, const vertex_ptr_plus_arrival_time_pair_t & v2)
     {
         // smaller id breaks tie
-        if (v1->vertex_arrival_time == v2->vertex_arrival_time) {
-            return v1->id > v2->id;
+        if (v1.second == v2.second) { //original vertex_arrival_time
+            return v1.first->id > v2.first->id;
         }
-        return v1->vertex_arrival_time > v2->vertex_arrival_time;
+        return v1.second > v2.second;
     }
 };
 

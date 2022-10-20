@@ -549,21 +549,21 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     // Set root vertex's arrival time
     CM.arrival_time[root_contact->frm] = root_contact->start;
     // Construct min PQ ordered by arrival time
-    std::priority_queue<Vertex*, std::vector<Vertex*>, CompareArrivals> PQ;
+    std::priority_queue<vertex_ptr_plus_arrival_time_pair_t, std::vector<vertex_ptr_plus_arrival_time_pair_t>, CompareArrivals> PQ;
     for (std::pair<const nodeId_t, Vertex> & v : CM.vertices) {
         //std::cout << "node " << v.first << " add verex " << v.second.id << "\n";
-        PQ.push(&v.second);
+        PQ.emplace(&v.second, v.second.vertex_arrival_time);
     }
     if (PQ.empty()) {
         std::cout << "ERROR in cmr_dijkstra, initial priority queue empty\n";
         return Route();
     }
-    Vertex * v_next;
-    Vertex * v_curr = PQ.top();
+    vertex_ptr_plus_arrival_time_pair_t v_next;
+    vertex_ptr_plus_arrival_time_pair_t v_curr = PQ.top();
     PQ.pop();
     while (true) {
         // ---------- MRP ----------
-        for (const std::pair<const nodeId_t, std::vector<nodeId_t> > & adj : v_curr->adjacencies) {
+        for (const std::pair<const nodeId_t, std::vector<nodeId_t> > & adj : v_curr.first->adjacencies) {
             std::unordered_map<nodeId_t, Vertex>::iterator itVert = CM.vertices.find(adj.first);
             if (itVert == CM.vertices.cend()) {
                 std::cout << "vertex not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
@@ -574,7 +574,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
                 continue;
             }
             // check if there is any viable contact
-            const std::vector<uint64_t> & v_curr_to_u_ind = v_curr->adjacencies[u->id];
+            const std::vector<uint64_t> & v_curr_to_u_ind = v_curr.first->adjacencies[u->id];
             if (v_curr_to_u_ind.empty()) {
                 std::cout << "found error\n";
                 continue;
@@ -584,7 +584,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
                 v_curr_to_u[i] = &(contact_plan[v_curr_to_u_ind[i]]);
             }
             //std::unordered_map<nodeId_t, time_t>
-            std::unordered_map<nodeId_t, time_t>::const_iterator itArrivalVcurr = CM.arrival_time.find(v_curr->id);
+            std::unordered_map<nodeId_t, time_t>::const_iterator itArrivalVcurr = CM.arrival_time.find(v_curr.first->id);
             if (itArrivalVcurr == CM.arrival_time.cend()) {
                 std::cout << "arrival time not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                 return Route();
@@ -631,10 +631,10 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
                 itPredU->second = p_i; //CM.predecessors[u.id] = p_i;
                 // still want to update u node's arrival time for sake of pq
                 u->vertex_arrival_time = best_arr_time; //only modification of a vertex in this loop
-                PQ.push(u);
+                PQ.emplace(u, best_arr_time); //prevent changing the key within the priority queue across identical pointers (lazy deletion) 
             }
         }
-        CM.visited[v_curr->id] = true;
+        CM.visited[v_curr.first->id] = true;
         // ---------- MRP ----------
         if (PQ.empty()) {
             std::cout << "ERROR in cmr_dijkstra, priority queue empty\n";
@@ -642,7 +642,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
         }
         v_next = PQ.top();
         PQ.pop();
-        if (v_next->id == destination) {
+        if (v_next.first->id == destination) {
             break; //only exit from while (true)
         }
         else {
@@ -660,7 +660,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
         }
     }
 #else
-    nodeId_t predecessorIndex = v_next->id;
+    nodeId_t predecessorIndex = v_next.first->id;
     while (true) {
         std::unordered_map<nodeId_t, nodeId_t>::const_iterator itPred = CM.predecessors.find(predecessorIndex);
         if (itPred == CM.predecessors.end()) { //not found
