@@ -103,7 +103,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     socket.close();
     m_timersFinished = true;
     timeLocal = boost::posix_time::second_clock::local_time();
-    LOG_INFO(hdtn::Logger::Module::storage) << "End of ProcessEventFile:  " << timeLocal << std::endl << std::flush;
+    LOG_INFO(hdtn::Logger::Module::storage) << "End of ProcessEventFile:  " << timeLocal;
     return 0;
 }
 

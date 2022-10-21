@@ -320,7 +320,6 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                     }
                     uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
                     uuid.sequence = cs.m_copyOfBundleCreationTimestamp.sequenceNumber;
-                    //std::cout << "uuid: " << "cs " << uuid.creationSeconds << "  seq " << uuid.sequence << "  " << uuid.srcEid.nodeId << "," << uuid.srcEid.serviceId;
                     custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
                 }
                 if (custodyIdPtr == NULL) {
@@ -708,8 +707,8 @@ void ZmqStorageInterface::ThreadFunc() {
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
                     LOG_INFO(hdtn::Logger::Module::storage) << "finalDestEid ("
-                        + Uri::GetIpnUriStringAnyServiceNumber(nodeId)
-                        + ") will be released from storage";
+                        << Uri::GetIpnUriStringAnyServiceNumber(nodeId)
+                        << ") will be released from storage";
                     availableDestLinksSet.emplace(cbhe_eid_t(nodeId, 0), true); //true => any service id.. 0 is don't care
                     PrintReleasedLinks(availableDestLinksSet);
                     continue;
@@ -717,8 +716,8 @@ void ZmqStorageInterface::ThreadFunc() {
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
                     LOG_INFO(hdtn::Logger::Module::storage) << "finalDestEid ("
-                        + Uri::GetIpnUriStringAnyServiceNumber(nodeId)
-                        + ") will STOP being released from storage";
+                        << Uri::GetIpnUriStringAnyServiceNumber(nodeId)
+                        << ") will STOP being released from storage";
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(nodeId, 0), true)); //true => any service id.. 0 is don't care
                     PrintReleasedLinks(availableDestLinksSet);
                     continue;
@@ -859,7 +858,6 @@ void ZmqStorageInterface::ThreadFunc() {
                         vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
 
                         zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                        std::cout << "send with size " << zmqTelemMessageWithDataStolen.size();
                         if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
                         }
                     }

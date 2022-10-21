@@ -301,8 +301,8 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
     memcpy(&storageSegmentHeader, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], SEGMENT_RESERVED_SPACE);
     storageSegmentHeader.ToNativeEndianInplace(); //should optimize out and do nothing
     if ((session.nextLogicalSegment == 0) && (storageSegmentHeader.bundleSizeBytes != session.catalogEntryPtr->bundleSizeBytes)) {// ? chainInfo.first : UINT64_MAX;
-        LOG_ERROR(hdtn::Logger::Module::storage) << "Error: read bundle size bytes = " + boost::lexical_cast<std::string>(storageSegmentHeader.bundleSizeBytes) +
-            " does not match catalog bundleSizeBytes = " + boost::lexical_cast<std::string>(session.catalogEntryPtr->bundleSizeBytes);
+        LOG_ERROR(hdtn::Logger::Module::storage) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes <<
+            " does not match catalog bundleSizeBytes = " << session.catalogEntryPtr->bundleSizeBytes;
     }
     else if (session.nextLogicalSegment != 0 && storageSegmentHeader.bundleSizeBytes != UINT64_MAX) {// ? chainInfo.first : UINT64_MAX;
         LOG_ERROR(hdtn::Logger::Module::storage) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes << " is not UINT64_MAX";
@@ -408,8 +408,8 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
         const boost::filesystem::path p(filePath);
         if (boost::filesystem::exists(p)) {
             fileSizesVec[diskId] = boost::filesystem::file_size(p);
-            LOG_DEBUG(hdtn::Logger::Module::storage) << "diskId " + boost::lexical_cast<std::string>(diskId)
-                + " has file size of " + boost::lexical_cast<std::string>(fileSizesVec[diskId]);
+            LOG_DEBUG(hdtn::Logger::Module::storage) << "diskId " << diskId
+                << " has file size of " << fileSizesVec[diskId];
         }
         else {
             LOG_ERROR(hdtn::Logger::Module::storage) << "Error: " << filePath << " does not exist";
@@ -455,9 +455,9 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
 
             const std::size_t bytesReadFromFread = fread((void*)dataReadBuf, 1, SEGMENT_SIZE, fileHandle);
             if (bytesReadFromFread != SEGMENT_SIZE) {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "Error reading at offset " + boost::lexical_cast<std::string>(offsetBytes) +
-                    " for disk " + boost::lexical_cast<std::string>(diskIndex) + " filesize " + boost::lexical_cast<std::string>(fileSize) + " logical segment "
-                    + boost::lexical_cast<std::string>(session.nextLogicalSegment) + " bytesread " + boost::lexical_cast<std::string>(bytesReadFromFread);
+                LOG_ERROR(hdtn::Logger::Module::storage) << "Error reading at offset " << offsetBytes <<
+                    " for disk " << diskIndex << " filesize " << fileSize << " logical segment "
+                    << session.nextLogicalSegment << " bytesread " << bytesReadFromFread;
                 return false;
             }
 
