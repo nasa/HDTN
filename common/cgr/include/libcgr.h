@@ -100,10 +100,21 @@ public:
 
 class ContactMultigraph {
 public:
-    std::unordered_map<nodeId_t, Vertex> vertices;
-    std::unordered_map<nodeId_t, bool> visited;
-    std::unordered_map<nodeId_t, nodeId_t> predecessors; // Stores the indices of the contacts
-    std::unordered_map<nodeId_t, time_t> arrival_time;
+    struct CmrMapData {
+        CmrMapData();
+        CmrMapData(nodeId_t nodeId);
+        CmrMapData(Vertex&& v);
+        Vertex m_vertex;
+        bool m_visited;
+        nodeId_t m_predecessorNodeId;
+        time_t m_arrivalTime;
+    };
+    typedef std::unordered_map<nodeId_t, CmrMapData> cmr_node_map_t;
+    cmr_node_map_t m_nodeMap;
+    //std::unordered_map<nodeId_t, Vertex> vertices;
+    //std::unordered_map<nodeId_t, bool> visited;
+    //std::unordered_map<nodeId_t, nodeId_t> predecessors; // Stores the indices of the contacts
+    //std::unordered_map<nodeId_t, time_t> arrival_time;
     CGR_LIB_EXPORT ContactMultigraph(const std::vector<Contact>& contact_plan, nodeId_t dest_id);
 };
 

@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 	long long times = 0;
 	for (int i = 0; i < 100; ++i) {
 		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-		cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
+		cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
 		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
