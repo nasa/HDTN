@@ -11,7 +11,7 @@
 #include "dir_monitor_impl.hpp"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp> //don't include <boost/bind.hpp> to force using boost::placeholders::_1 instead of just _1
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -133,7 +133,12 @@ public:
     template <typename Handler>
     void async_monitor(implementation_type &impl, Handler handler)
     {
+//get_io_service was removed in Boost v1.70
+#if (BOOST_VERSION < 107000)
         this->async_monitor_io_service_.post(monitor_operation<Handler>(impl, this->get_io_service(), handler));
+#else
+        this->async_monitor_io_service_.post(monitor_operation<Handler>(impl, this->get_io_context(), handler));
+#endif
     }
 
 private:

@@ -7,7 +7,7 @@
 #pragma once
 
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp> //don't include <boost/bind.hpp> to force using boost::placeholders::_1 instead of just _1
 #include <boost/bimap.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
@@ -44,7 +44,13 @@ public:
         int wd = inotify_add_watch(fd_, dirname.c_str(), IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVED_FROM | IN_MOVED_TO);
         if (wd == -1)
         {
+//As of Boost v1.66.0, get_system_category was deprecated with language: "Boost.System deprecates the old names, but will provide them when the macro BOOST_SYSTEM_ENABLE_DEPRECATED is defined."
+//Prior versions <= 1.65.1 it said: "Boost.System deprecates the old names, but continues to provide them unless macro BOOST_SYSTEM_NO_DEPRECATED is defined."
+#if (BOOST_VERSION < 106600)
             boost::system::system_error e(boost::system::error_code(errno, boost::system::get_system_category()), "boost::asio::dir_monitor_impl::add_directory: inotify_add_watch failed");
+#else
+            boost::system::system_error e(boost::system::error_code(errno, boost::system::system_category()), "boost::asio::dir_monitor_impl::add_directory: inotify_add_watch failed");
+#endif
             boost::throw_exception(e);
         }
 
@@ -131,7 +137,13 @@ private:
         int fd = inotify_init();
         if (fd == -1)
         {
+//As of Boost v1.66.0, get_system_category was deprecated with language: "Boost.System deprecates the old names, but will provide them when the macro BOOST_SYSTEM_ENABLE_DEPRECATED is defined."
+//Prior versions <= 1.65.1 it said: "Boost.System deprecates the old names, but continues to provide them unless macro BOOST_SYSTEM_NO_DEPRECATED is defined."
+#if (BOOST_VERSION < 106600)
             boost::system::system_error e(boost::system::error_code(errno, boost::system::get_system_category()), "boost::asio::dir_monitor_impl::init_fd: init_inotify failed");
+#else
+            boost::system::system_error e(boost::system::error_code(errno, boost::system::system_category()), "boost::asio::dir_monitor_impl::init_fd: init_inotify failed");
+#endif
             boost::throw_exception(e);
         }
         return fd;

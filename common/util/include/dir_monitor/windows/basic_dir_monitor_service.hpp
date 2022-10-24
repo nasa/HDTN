@@ -9,7 +9,7 @@
 #include "dir_monitor_impl.hpp"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp> //don't include <boost/bind.hpp> to force using boost::placeholders::_1 instead of just _1
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
@@ -28,7 +28,13 @@ namespace helper {
             if (condition)
             {
                 DWORD last_error = GetLastError();
+//As of Boost v1.66.0, get_system_category was deprecated with language: "Boost.System deprecates the old names, but will provide them when the macro BOOST_SYSTEM_ENABLE_DEPRECATED is defined."
+//Prior versions <= 1.65.1 it said: "Boost.System deprecates the old names, but continues to provide them unless macro BOOST_SYSTEM_NO_DEPRECATED is defined."
+#if (BOOST_VERSION < 106600)
                 boost::system::system_error e(boost::system::error_code(last_error, boost::system::get_system_category()), msg);
+#else
+                boost::system::system_error e(boost::system::error_code(last_error, boost::system::system_category()), msg);
+#endif
                 boost::throw_exception(e);
             }
         }
@@ -194,7 +200,12 @@ public:
     template <typename Handler>
     void async_monitor(implementation_type &impl, Handler handler)
     {
+//get_io_service was removed in Boost v1.70
+#if (BOOST_VERSION < 107000)
         this->async_monitor_io_service_.post(monitor_operation<Handler>(impl, this->get_io_service(), handler));
+#else
+        this->async_monitor_io_service_.post(monitor_operation<Handler>(impl, this->get_io_context(), handler));
+#endif
     }
 
 private:
@@ -238,7 +249,12 @@ private:
             catch (...)
             {
                 last_work_thread_exception_ptr_ = std::current_exception();
+//get_io_service was removed in Boost v1.70
+#if (BOOST_VERSION < 107000)
                 this->get_io_service().post(boost::bind(&boost::asio::basic_dir_monitor_service<DirMonitorImplementation>::throw_work_exception_handler, this));
+#else
+                this->get_io_context().post(boost::bind(&boost::asio::basic_dir_monitor_service<DirMonitorImplementation>::throw_work_exception_handler, this));
+#endif
             }
         }
     }
