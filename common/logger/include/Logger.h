@@ -128,34 +128,67 @@ public:
     LOG_LIB_EXPORT static void ensureInitialized();
 
     /**
-     * Represents modules that Logger supports. New modules using the logger
+     * Represents processes that Logger supports. New processes using the logger
      * should be added to this list.
      */
-    enum class Module {
+    enum class Process {
+        bpgen,
+        bping,
+        bpreceivefile,
+        bpsendfile,
+        bpsink,
+        ltpfiletransfer,
+        cpuflagdetection,
+        egress,
+        gui,
+        hdtnoneprocess,
+        ingress,
+        router,
+        scheduler,
+        storage,
+        releasemessagesender,
+        storagespeedtest,
+        udpdelaysim
+    };
+
+    /**
+     * Represents sub-processes that Logger supports. New sub-processes using the logger
+     * should be added to this list.
+     */
+    enum class SubProcess {
         egress,
         ingress,
         router,
         scheduler,
-        storage
+        storage,
+        gui
     };
 
 
     /**
-     * Converts a Module enum value to its string representation.
-     * @param module the Module enum value to convert
+     * Converts a Process enum value to its string reresentation.
+     * @param process the Process enum value to convert
      */
-    LOG_LIB_EXPORT static std::string toString(Logger::Module module);
+    LOG_LIB_EXPORT static std::string toString(Logger::Process process);
+
+    /**
+     * Converts a SubProcess enum value to its string representation.
+     * @param subprocess the Process enum value to convert
+     */
+    LOG_LIB_EXPORT static std::string toString(Logger::SubProcess subProcess);
 
     /**
      * Attribute types that can be safely accessed from multiple threads.
      * Shared lock for read, exclusive lock for write.
      */
+    typedef boost::log::attributes::constant<Logger::Process> process_attr_t;
+
     typedef boost::log::attributes::mutable_constant<
-        Logger::Module,
+        Logger::SubProcess,
         boost::shared_mutex,
         boost::unique_lock< boost::shared_mutex >,
         boost::shared_lock< boost::shared_mutex >
-    > module_attr_t;
+    > subprocess_attr_t;
 
     typedef boost::log::attributes::mutable_constant<
         std::string,
@@ -174,12 +207,14 @@ public:
     /**
      * Attributes to be included in log messages
      */
-    LOG_LIB_EXPORT static Logger::module_attr_t module_attr;
+    LOG_LIB_EXPORT static Logger::subprocess_attr_t subprocess_attr;
     LOG_LIB_EXPORT static Logger::file_attr_t file_attr;
     LOG_LIB_EXPORT static Logger::line_attr_t line_attr;
 
+    LOG_LIB_EXPORT static void Logger::initializeProcess(Logger::Process process);
+
     // Deprecated -- use LOG_* macros instead.
-    LOG_LIB_EXPORT static Module fromString(std::string module);
+    LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
     LOG_LIB_EXPORT static Logger* getInstance();
     LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
     LOG_LIB_EXPORT void logNotification(const std::string & module, const std::string & message);
@@ -206,15 +241,16 @@ private:
     LOG_LIB_EXPORT void registerAttributes();
 
     /**
-     * Creates a new log file sink for storing all logs.
+     * Creates a new log file sink for the requested process.
+     * @param process The process of the logs stored in this file.
      */
-    LOG_LIB_EXPORT void createFileSinkForFullHdtnLog();
+    LOG_LIB_EXPORT void createFileSinkForProcess(Logger::Process process);
 
     /**
-     * Creates a new log file sink for the requested module.
-     * @param module The module of the logs stored in this file.
+     * Creates a new log file sink for the requested sub-process.
+     * @param subprocess The sub-process of the logs stored in this file.
      */
-    LOG_LIB_EXPORT void createFileSinkForModule(Logger::Module module);
+    LOG_LIB_EXPORT void createFileSinkForSubProcess(Logger::SubProcess subprocess);
 
     /**
      * Creates a new log file sink for the requested severity level.
