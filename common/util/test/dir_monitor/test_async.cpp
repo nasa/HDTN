@@ -4,22 +4,21 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-#define BOOST_AUTO_TEST_MAIN
-#include <boost/test/auto_unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include "dir_monitor/dir_monitor.hpp"
 #include "check_paths.hpp"
 #include "directory.hpp"
 
-boost::asio::io_service io_service;
+static boost::asio::io_service io_service; //must be declared static
 
-void create_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void create_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::added);
 }
 
-BOOST_AUTO_TEST_CASE(create_file)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_create_file)
 {
     directory dir(TEST_DIR1);
 
@@ -28,26 +27,26 @@ BOOST_AUTO_TEST_CASE(create_file)
 
     auto test_file1 = dir.create_file(TEST_FILE1);
 
-    dm.async_monitor(boost::bind(&create_file_handler, boost::ref(test_file1), _1, _2));
+    dm.async_monitor(boost::bind(&create_file_handler, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 }
 
-void rename_file_handler_old(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void rename_file_handler_old(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_old_name);
 }
 
-void rename_file_handler_new(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void rename_file_handler_new(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::renamed_new_name);
 }
 
-BOOST_AUTO_TEST_CASE(rename_file)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_rename_file)
 {
     directory dir(TEST_DIR1);
     auto test_file1 = dir.create_file(TEST_FILE1);
@@ -57,23 +56,23 @@ BOOST_AUTO_TEST_CASE(rename_file)
 
     auto test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
 
-    dm.async_monitor(boost::bind(&rename_file_handler_old, boost::ref(test_file1), _1, _2));
+    dm.async_monitor(boost::bind(&rename_file_handler_old, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 
-    dm.async_monitor(boost::bind(&rename_file_handler_new, boost::ref(test_file2), _1, _2));
+    dm.async_monitor(boost::bind(&rename_file_handler_new, boost::ref(test_file2), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 }
 
-void modify_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void modify_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::modified);
 }
 
-BOOST_AUTO_TEST_CASE(modify_file)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_modify_file)
 {
     directory dir(TEST_DIR1);
     auto test_file2 = dir.create_file(TEST_FILE2);
@@ -83,19 +82,19 @@ BOOST_AUTO_TEST_CASE(modify_file)
 
     dir.write_file(TEST_FILE2, TEST_FILE1);
 
-    dm.async_monitor(boost::bind(&modify_file_handler, boost::ref(test_file2), _1, _2));
+    dm.async_monitor(boost::bind(&modify_file_handler, boost::ref(test_file2), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 }
 
-void remove_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void remove_file_handler(const boost::filesystem::path& expected_path, const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::system::error_code());
     BOOST_CHECK_THE_SAME_PATHS_RELATIVE(ev.path, expected_path);
     BOOST_CHECK_EQUAL(ev.type, boost::asio::dir_monitor_event::removed);
 }
 
-BOOST_AUTO_TEST_CASE(remove_file)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_remove_file)
 {
     directory dir(TEST_DIR1);
     auto test_file1 = dir.create_file(TEST_FILE1);
@@ -105,12 +104,12 @@ BOOST_AUTO_TEST_CASE(remove_file)
 
     dir.remove_file(TEST_FILE1);
 
-    dm.async_monitor(boost::bind(&remove_file_handler, boost::ref(test_file1), _1, _2));
+    dm.async_monitor(boost::bind(&remove_file_handler, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 }
 
-BOOST_AUTO_TEST_CASE(multiple_events)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_multiple_events)
 {
     directory dir(TEST_DIR1);
 
@@ -120,25 +119,25 @@ BOOST_AUTO_TEST_CASE(multiple_events)
     auto test_file1 = dir.create_file(TEST_FILE1);
     auto test_file2 = dir.rename_file(TEST_FILE1, TEST_FILE2);
 
-    dm.async_monitor(boost::bind(&create_file_handler, boost::ref(test_file1), _1, _2));
+    dm.async_monitor(boost::bind(&create_file_handler, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 
-    dm.async_monitor(boost::bind(&rename_file_handler_old, boost::ref(test_file1), _1, _2));
+    dm.async_monitor(boost::bind(&rename_file_handler_old, boost::ref(test_file1), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 
-    dm.async_monitor(boost::bind(&rename_file_handler_new, boost::ref(test_file2), _1, _2));
+    dm.async_monitor(boost::bind(&rename_file_handler_new, boost::ref(test_file2), boost::placeholders::_1, boost::placeholders::_2));
     io_service.run();
     io_service.reset();
 }
 
-void aborted_async_call_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void aborted_async_call_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
-BOOST_AUTO_TEST_CASE(aborted_async_call)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_aborted_async_call)
 {
     directory dir(TEST_DIR1);
 
@@ -153,12 +152,12 @@ BOOST_AUTO_TEST_CASE(aborted_async_call)
     io_service.reset();
 }
 
-void blocked_async_call_handler_with_local_ioservice(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void blocked_async_call_handler_with_local_ioservice(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
-BOOST_AUTO_TEST_CASE(blocked_async_call)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_blocked_async_call)
 {
     directory dir(TEST_DIR1);
     boost::thread t;
@@ -183,12 +182,12 @@ BOOST_AUTO_TEST_CASE(blocked_async_call)
     t.join();
 }
 
-void unregister_directory_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void unregister_directory_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
-BOOST_AUTO_TEST_CASE(unregister_directory)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_unregister_directory)
 {
     directory dir(TEST_DIR1);
     boost::thread t;
@@ -215,12 +214,12 @@ BOOST_AUTO_TEST_CASE(unregister_directory)
     io_service.reset();
 }
 
-void two_dir_monitors_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
+static void two_dir_monitors_handler(const boost::system::error_code &ec, const boost::asio::dir_monitor_event &ev)
 {
     BOOST_CHECK_EQUAL(ec, boost::asio::error::operation_aborted);
 }
 
-BOOST_AUTO_TEST_CASE(two_dir_monitors)
+BOOST_AUTO_TEST_CASE(dir_monitor_async_two_dir_monitors)
 {
     directory dir1(TEST_DIR1);
     directory dir2(TEST_DIR2);

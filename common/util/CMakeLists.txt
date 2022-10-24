@@ -74,5 +74,7 @@ install(TARGETS hdtn_util
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+#preserve hierarchy of dir_monitor
+install(DIRECTORY include/dir_monitor DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 add_hdtn_package_export(hdtn_util HDTNUtil) #exported target will have the name HDTN::HDTNUtil and not hdtn_util.  Also requires install to EXPORT hdtn_util-targets
