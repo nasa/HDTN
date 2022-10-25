@@ -28,10 +28,11 @@ static const std::string process_strings[] =
     "ingress",
     "router",
     "scheduler",
-    "storage"
+    "storage",
     "releasemessagesender",
     "storagespeedtest",
-    "udpdelaysim"
+    "udpdelaysim",
+    ""
 };
 
 /**
@@ -46,7 +47,8 @@ static const std::string subprocess_strings[] =
     "router",
     "scheduler",
     "storage",
-    "gui"
+    "gui",
+    ""
 };
 
 static const uint32_t file_rotation_size = 5 * 1024 * 1024; //5 MiB
@@ -69,7 +71,11 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_lev
 
 static std::ostream& operator<< (std::ostream& strm, const Logger::Process& process)
 {
-    return strm << Logger::toString(process);
+    std::string output = Logger::toString(process);
+    if (process != Logger::Process::none) {
+        output = "[" + output + "]";
+    }
+    return strm << output;
 }
 
 /**
@@ -78,7 +84,11 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::Process& proc
 
 static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& subprocess)
 {
-    return strm << Logger::toString(subprocess);
+    std::string output = Logger::toString(subprocess);
+    if (subprocess != Logger::SubProcess::none) {
+        output = "[" + output + "]";
+    }
+    return strm << output;
 }
 
 Logger::Logger()
@@ -91,12 +101,14 @@ Logger::~Logger(){}
 std::unique_ptr<Logger> Logger::logger_; //initialized to "null"
 boost::mutex Logger::mutexSingletonInstance_;
 volatile bool Logger::loggerSingletonFullyInitialized_ = false;
+Logger::process_attr_t Logger::process_attr(Logger::Process::none);
 Logger::subprocess_attr_t Logger::subprocess_attr(Logger::SubProcess(-1));
 Logger::file_attr_t Logger::file_attr("");
 Logger::line_attr_t Logger::line_attr(-1);
 
 void Logger::initializeProcess(Logger::Process process) {
-    logging::trivial::logger::get().add_attribute("Process", Logger::process_attr_t(process));
+    Logger::process_attr = process_attr_t(process);
+    logging::trivial::logger::get().add_attribute("Process", Logger::process_attr);
 }
 
 void Logger::ensureInitialized()
@@ -124,14 +136,17 @@ void Logger::init()
 
     registerAttributes();
 
-    #ifdef LOG_TO_SINGLE_FILE
-        createFileSinkForFullHdtnLog();
+    #ifdef LOG_TO_PROCESS_FILE
+        createFileSinkForProcess(getProcessAttributeVal());
     #endif
 
-    #ifdef LOG_TO_MODULE_FILES
-        createFileSinkForModule(Logger::Module::egress);
-        createFileSinkForModule(Logger::Module::ingress);
-        createFileSinkForModule(Logger::Module::storage);
+    #ifdef LOG_TO_SUBPROCESS_FILES
+        createFileSinkForSubProcess(Logger::SubProcess::egress);
+        createFileSinkForSubProcess(Logger::SubProcess::ingress);
+        createFileSinkForSubProcess(Logger::SubProcess::storage);
+        createFileSinkForSubProcess(Logger::SubProcess::router);
+        createFileSinkForSubProcess(Logger::SubProcess::scheduler);
+        createFileSinkForSubProcess(Logger::SubProcess::gui);
     #endif
 
     #ifdef LOG_TO_ERROR_FILE
@@ -156,7 +171,7 @@ void Logger::registerAttributes()
 void Logger::createFileSinkForProcess(Logger::Process process)
 {
     logging::formatter hdtn_log_fmt = expr::stream
-        << "[" << expr::attr<Logger::SubProcess>("SubProcess") << "]["
+        << expr::attr<Logger::SubProcess>("SubProcess") << "["
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
         << "][" << severity << "]: " << expr::smessage;
 
@@ -197,10 +212,10 @@ void Logger::createFileSinkForSubProcess(const Logger::SubProcess subprocess)
 void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
 {
     logging::formatter severity_log_fmt = expr::stream
-        << "[" << expr::attr<Logger::Process>("Process") << "]["
-        << expr::attr<Logger::SubProcess>("SubProcess") << "]["
+        << expr::attr<Logger::Process>("Process")
+        << expr::attr<Logger::SubProcess>("SubProcess")
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << expr::attr<std::string>("File") << ":"
+        << "[" << expr::attr<std::string>("File") << ":"
         << expr::attr<int>("Line") << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
@@ -242,13 +257,13 @@ Logger::SubProcess Logger::fromString(std::string subprocess) {
             return Logger::SubProcess(i);
         }
     }
-    return Logger::SubProcess(-1);
+    return Logger::SubProcess::none;
 }
 
 void Logger::createStdoutSink() {
     logging::formatter fmt = expr::stream
-        << "[" << expr::attr<Logger::Process>("Process") << "]"
-        << "[" << expr::attr<Logger::SubProcess>("SubProcess") << "]"
+        << expr::attr<Logger::Process>("Process")
+        << expr::attr<Logger::SubProcess>("SubProcess")
         << "[" << severity << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
@@ -269,8 +284,8 @@ void Logger::createStdoutSink() {
 
 void Logger::createStderrSink() {
     logging::formatter fmt = expr::stream
-        << "[" << expr::attr<Logger::Process>("Process") << "]"
-        << "[" << expr::attr<Logger::SubProcess>("SubProcess") << "]"
+        << expr::attr<Logger::Process>("Process")
+        << expr::attr<Logger::SubProcess>("SubProcess")
         << "[" << severity << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_ostream_backend> stderr_sink_backend =
@@ -287,6 +302,16 @@ void Logger::createStderrSink() {
     stderr_sink->set_formatter(fmt);
     stderr_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(stderr_sink);
+}
+
+Logger::Process Logger::getProcessAttributeVal()
+{
+    logging::value_ref< Logger::Process > val = logging::extract< Logger::Process >
+        (Logger::process_attr.get_value());
+    if (val) {
+        return val.get();
+    }
+    return Logger::Process::none;
 }
 
 void Logger::logInfo(const std::string & subprocess, const std::string & message)
