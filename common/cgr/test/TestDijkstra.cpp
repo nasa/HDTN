@@ -180,7 +180,7 @@ BOOST_AUTO_TEST_CASE(CMR50NodesTestCase)
         BOOST_REQUIRE(&bestRoute);
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
-        BOOST_CHECK(nextHop == 3686);
+        BOOST_CHECK(nextHop == 3545);
 
         std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE(CMR100NodesTestCase)
         BOOST_REQUIRE(&bestRoute);
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
-        BOOST_CHECK(nextHop == 2374);
+        BOOST_CHECK(nextHop == 1215);
 
         std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE(CMR200NodesTestCase)
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
         size_t numContacts = contactPlan.size();
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
-        BOOST_CHECK(numContacts == 109330);
+        BOOST_CHECK(numContacts == 109329);
 
         cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
@@ -247,12 +247,11 @@ BOOST_AUTO_TEST_CASE(CMR200NodesTestCase)
         BOOST_REQUIRE(&bestRoute);
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
-        BOOST_CHECK(nextHop == 40);
+        BOOST_CHECK(nextHop == 1270);
 
         std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
 }
-
 
 BOOST_AUTO_TEST_CASE(Dijkstra100NodesTestCase)
 {
@@ -297,7 +296,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
         std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
         size_t numContacts = contactPlan.size();
         std::cout << "Contact plan with " << numContacts << " contacts read" << std::endl;
-        BOOST_CHECK(numContacts == 109330);
+        BOOST_CHECK(numContacts == 109329);
 
         cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
         rootContact.arrival_time = 0;
@@ -314,7 +313,7 @@ BOOST_AUTO_TEST_CASE(Dijkstra200NodesTestCase)
         BOOST_REQUIRE(&bestRoute);
 
         cgr::nodeId_t nextHop = bestRoute.next_node;
-        BOOST_CHECK(nextHop == 40);
+        BOOST_CHECK(nextHop == 1546);
 
         std::cout << "Route found (next hop is " << nextHop << "):" << std::endl << bestRoute << std::endl;
 
@@ -337,7 +336,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 1, contactPlan);
 
-	//BOOST_CHECK(bestRoute == NULL);
+	//BOOST_CHECK(&bestRoute);
 
 	std::cout << "No path found for 4->1. Dijkstra's returned nullptr." << std::endl;
 }
@@ -369,9 +368,6 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 	cout << "Time taken by function: "
 		<< duration.count() << " microseconds" << endl;
 
-
-
-
 	//BOOST_REQUIRE(&bestRoute);
 	cgr::nodeId_t nextHop = bestRoute.next_node;
 	BOOST_CHECK(nextHop == 3);
@@ -389,8 +385,6 @@ BOOST_AUTO_TEST_CASE(DijkstraPyCGRTutorialTestCase)
 
 // Multigraph Routing Tests
 // Runs	cmr_dijkstra instead of dijkstra
-
-
 BOOST_AUTO_TEST_CASE(CMR_DijkstraRoutingTestCase)
 {
 	// Route from node 1 to node 4 using the "RoutingTest" contact plan
@@ -490,7 +484,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 	long long times = 0;
 	for (int i = 0; i < 100; ++i) {
 		const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-		cgr::Route bestRoute = cgr::dijkstra(&rootContact, 4, contactPlan);
+		cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, 4, contactPlan);
 		const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 		const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
@@ -502,31 +496,6 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 
 }
 
-
-BOOST_AUTO_TEST_CASE(TimingTest_Starlink)
-{
-	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
-	const std::string contactFile = (contactRootDir / "starlink.json").string();
-	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-
-	cgr::Contact rootContact = cgr::Contact(3870, 3870, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
-	rootContact.arrival_time = 0;
-
-	const std::chrono::high_resolution_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
-	cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 2110, contactPlan);
-	const std::chrono::high_resolution_clock::time_point cmr_end = std::chrono::high_resolution_clock::now();
-	const std::chrono::microseconds cmr_duration = std::chrono::duration_cast<std::chrono::microseconds>(cmr_end - cmr_start);
-	cout << "Time taken by function: "
-		<< cmr_duration.count() << " microseconds" << endl;
-
-	const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 2110, contactPlan);
-	const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
-	const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-	cout << "Time taken by function: "
-		<< duration.count() << " microseconds" << endl;
-
-}
 
 BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 {
