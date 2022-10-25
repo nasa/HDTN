@@ -593,38 +593,6 @@ BOOST_AUTO_TEST_CASE(TimingTest_100nodesTest)
 }
 
 
-BOOST_AUTO_TEST_CASE(TimingTest_200nodesTest)
-{
-        const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
-        const std::string contactFile = (contactRootDir / "200nodes.json").string();
-        std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
-        cgr::Contact rootContact = cgr::Contact(20, 20, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
-        rootContact.arrival_time = 0;
-
-        long long cmr_times = 0;
-        for (int i = 0; i < 100; ++i) {
-                const std::chrono::high_resolution_clock::time_point cmr_start = std::chrono::high_resolution_clock::now();
-                cgr::Route cmr_bestRoute = cgr::cmr_dijkstra(&rootContact, 40, contactPlan);
-                const std::chrono::high_resolution_clock::time_point cmr_end = std::chrono::high_resolution_clock::now();
-                const std::chrono::microseconds cmr_duration = std::chrono::duration_cast<std::chrono::microseconds>(cmr_end - cmr_start);
-
-                cmr_times = cmr_times + cmr_duration.count();
-        }
-
-        long long times = 0;
-        for (int i = 0; i < 100; ++i) {
-                const std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
-                cgr::Route bestRoute = cgr::dijkstra(&rootContact, 40, contactPlan);
-                const std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
-                const std::chrono::microseconds duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-                times = times + duration.count();
-        }
-
-        std::cout << "Dijkstra avg: " << times / 100 << std::endl;
-        std::cout << "CMR_Dijkstra avg: " << cmr_times / 100 << std::endl;
-}
-
 BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
 {
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
