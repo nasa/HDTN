@@ -37,16 +37,15 @@ jobs:
           cd $HDTN_SOURCE_ROOT
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake ..
           make -j8
-          sudo make install
 
-      - name: Unit Tests
-        run: |
-          export HDTN_SOURCE_ROOT=$PWD
-          cd $HDTN_SOURCE_ROOT
-          cd build
-          ./tests/unit_tests/unit-tests
+          # - name: Unit Tests
+          #run: |
+          #export HDTN_SOURCE_ROOT=$PWD
+          #cd $HDTN_SOURCE_ROOT
+          #cd build
+          #./tests/unit_tests/unit-tests
 
       # - name: Integration Tests
       #  run: |
