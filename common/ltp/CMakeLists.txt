@@ -60,6 +60,7 @@ target_link_libraries(ltp_lib
 		hdtn_util
 		telemetry_definitions
 		Boost::random
+		log_lib
 )
 target_include_directories(ltp_lib
 	PUBLIC

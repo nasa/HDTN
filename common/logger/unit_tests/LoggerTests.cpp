@@ -65,7 +65,6 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::bpsendfile), "bpsendfile");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::bpsink), "bpsink");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::ltpfiletransfer), "ltpfiletransfer");
-    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::cpuflagdetection), "cpuflagdetection");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::egress), "egress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::gui), "gui");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::unittest), "unittest");
