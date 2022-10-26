@@ -145,6 +145,7 @@ public:
         releasemessagesender,
         storagespeedtest,
         udpdelaysim,
+        unittest,
         none
     };
 
@@ -210,7 +211,11 @@ public:
     LOG_LIB_EXPORT static Logger::file_attr_t file_attr;
     LOG_LIB_EXPORT static Logger::line_attr_t line_attr;
 
-    LOG_LIB_EXPORT static void initializeProcess(Logger::Process process);
+    /*
+     * Initializes the logger with a process identifier to be
+     * used in all messages
+     */
+    LOG_LIB_EXPORT static void initializeWithProcess(Logger::Process process);
 
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);

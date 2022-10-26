@@ -32,6 +32,7 @@ static const std::string process_strings[] =
     "releasemessagesender",
     "storagespeedtest",
     "udpdelaysim",
+    "unittest"
     ""
 };
 
@@ -106,9 +107,10 @@ Logger::subprocess_attr_t Logger::subprocess_attr(Logger::SubProcess(-1));
 Logger::file_attr_t Logger::file_attr("");
 Logger::line_attr_t Logger::line_attr(-1);
 
-void Logger::initializeProcess(Logger::Process process) {
+void Logger::initializeWithProcess(Logger::Process process) {
     Logger::process_attr = process_attr_t(process);
     logging::trivial::logger::get().add_attribute("Process", Logger::process_attr);
+    ensureInitialized();
 }
 
 void Logger::ensureInitialized()
@@ -214,7 +216,7 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
     logging::formatter severity_log_fmt = expr::stream
         << expr::attr<Logger::Process>("Process")
         << expr::attr<Logger::SubProcess>("SubProcess")
-        << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
+        << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
         << "[" << expr::attr<std::string>("File") << ":"
         << expr::attr<int>("Line") << "]: " << expr::smessage;
 

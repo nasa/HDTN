@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::cpuflagdetection), "cpuflagdetection");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::egress), "egress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::gui), "gui");
-    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::hdtnoneprocess), "hdtnoneprocess");
+    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::unittest), "unittest");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::ingress), "ingress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::router), "router");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::scheduler), "scheduler");
@@ -112,21 +112,15 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
     _LOG_INTERNAL(hdtn::Logger::SubProcess::router, info) << "Router foo bar";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::scheduler, warning) << "Scheduler foo bar";
 
-    // Initialize main process and do more logging
-    hdtn::Logger::initializeProcess(hdtn::Logger::Process::hdtnoneprocess);
-    _LOG_INTERNAL(hdtn::Logger::SubProcess::scheduler, warning) << "Scheduler foo bar";
-
-
     // Put buffers back
     output_tester.reset_cout_cerr();
 
     // Assert results
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
-        std::string("[egress][trace]: Egress foo bar\n") +
-        std::string("[ingress][debug]: Ingress foo bar\n") +
-        std::string("[router][info]: Router foo bar\n") +
-        std::string("[scheduler][warning]: Scheduler foo bar\n") +
-        std::string("[hdtnoneprocess][scheduler][warning]: Scheduler foo bar\n")
+        std::string("[unittest][egress][trace]: Egress foo bar\n") +
+        std::string("[unittest][ingress][debug]: Ingress foo bar\n") +
+        std::string("[unittest][router][info]: Router foo bar\n") +
+        std::string("[unittest][scheduler][warning]: Scheduler foo bar\n")
     );
 }
 #endif
@@ -140,7 +134,6 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
     output_tester.redirect_cout_cerr();
 
     // Do logging
-    hdtn::Logger::initializeProcess(hdtn::Logger::Process::ingress);
     _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, error) << "Egress foo bar!";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, fatal) << "Ingress foo bar!";
 
@@ -149,8 +142,8 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
 
     // Assert results
     BOOST_REQUIRE_EQUAL(output_tester.cerr_test_stream.str(),
-        std::string("[ingress][egress][error]: Egress foo bar!\n") +
-        std::string("[ingress][ingress][fatal]: Ingress foo bar!\n")
+        std::string("[unittest][egress][error]: Egress foo bar!\n") +
+        std::string("[unittest][ingress][fatal]: Ingress foo bar!\n")
     );
 }
 #endif
@@ -163,7 +156,6 @@ BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
     OutputTester output_tester;
     output_tester.redirect_cout_cerr();
 
-     hdtn::Logger::initializeProcess(hdtn::Logger::Process::hdtnoneprocess);
     _LOG_INTERNAL(hdtn::Logger::SubProcess::egress, info) << "Egress file test case";
     _LOG_INTERNAL(hdtn::Logger::SubProcess::ingress, error) << "Ingress file test case";
 
@@ -172,9 +164,9 @@ BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
 
     // Assert results
     BOOST_TEST(boost::filesystem::exists("logs/"));
-    BOOST_TEST(boost::filesystem::exists("logs/hdtnoneprocess_00000.log"));
+    BOOST_TEST(boost::filesystem::exists("logs/unittest_00000.log"));
     BOOST_TEST(std::regex_match(
-        file_contents_to_str("logs/hdtnoneprocess_00000.log"),
+        file_contents_to_str("logs/unittest_00000.log"),
         std::regex(anything_regex + "\\[egress]" + date_regex + "\\[info]: Egress file test case\n\\[ingress]" + date_regex + "\\[error]: Ingress file test case\n$"))
     );
 }
@@ -219,7 +211,7 @@ BOOST_AUTO_TEST_CASE(LoggerErrorFileTestCase) {
     BOOST_TEST(boost::filesystem::exists("logs/error_00000.log"));
     BOOST_TEST(std::regex_match(
         file_contents_to_str("logs/error_00000.log"),
-        std::regex(anything_regex + "\\[hdtnoneprocess][ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
+        std::regex(anything_regex + "\\[unittest]\\[ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
     );
 }
 #endif
