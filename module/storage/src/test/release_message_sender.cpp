@@ -2,7 +2,7 @@
  * @file release_message_sender.cpp
  * @author  Jeff Follo
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <iostream>
 #include "HdtnConfig.h"
+#include "Logger.h"
 
 #include "message.hpp"
 #include "Uri.h"
@@ -31,6 +32,7 @@
 
 int main(int argc, char *argv[]) {
 
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::releasemessagesender);
     bool isStartMessage = false;
     cbhe_eid_t finalDestEidToRelease;
     uint64_t nextHopNodeNumber;

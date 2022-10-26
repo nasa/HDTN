@@ -21,7 +21,6 @@ static const std::string process_strings[] =
     "bpsendfile",
     "bpsink",
     "ltpfiletransfer",
-    "cpuflagdetection",
     "egress",
     "gui",
     "hdtnoneprocess",

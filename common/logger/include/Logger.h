@@ -134,7 +134,6 @@ public:
         bpsendfile,
         bpsink,
         ltpfiletransfer,
-        cpuflagdetection,
         egress,
         gui,
         hdtnoneprocess,
