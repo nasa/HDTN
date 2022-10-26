@@ -55,9 +55,7 @@ jobs:
       #    ./tests/integrated_tests/integrated-tests
 
 coverity:
-    runs-on:
-      - self-hosted
-      - cov-analysis
+    runs-on:  [self-hosted, x64]
     
     steps:
        - uses: actions/checkout@v3
