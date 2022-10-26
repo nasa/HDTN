@@ -152,6 +152,5 @@ Now anytime that HDTNOneProcess is ran, the web page will be accessible at http:
 
 Simulations
 =========
-HDTN can be simulated using
-* DtnSim, a simulator for delay tolerant networks built on the OMNeT++ simulation framework. Use the "support-hdtn" branch of DtnSim which can be found in the official DtnSim repository: https://bitbucket.org/lcd-unc-ar/dtnsim/src/master/. Currently the HDTN simulation has only been tested on Linux (specifically Debian).
+HDTN can be simulated using DtnSim, a simulator for delay tolerant networks built on the OMNeT++ simulation framework. Use the "support-hdtn" branch of DtnSim which can be found in the [official DtnSim repository]. Currently HDTN simulation with DtnSim has only been tested on Linux (Debian and Ubuntu). Follow the readme instructions for HDTN and DtnSim to install the software. Alternatively, a pre-configured Ubuntu VM is available for download [here] (the username is hdtnsim-user and password is grc).
 
