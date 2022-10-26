@@ -54,7 +54,7 @@ jobs:
       #    cd build
       #    ./tests/integrated_tests/integrated-tests
 
-coverity:
+  coverity-test:
     runs-on:  [self-hosted, x64]
     
     steps:
