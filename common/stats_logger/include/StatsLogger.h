@@ -34,18 +34,18 @@ namespace hdtn{
 #endif
 
 #define _LOG_STAT(metric_name)\
-    hdtn::StatsWriter::ensureInitialized();\
-    hdtn::StatsWriter::metric_name_attr.set(metric_name);\
-    BOOST_LOG(hdtn::StatsWriter::logger_)
+    hdtn::StatsLogger::ensureInitialized();\
+    hdtn::StatsLogger::metric_name_attr.set(metric_name);\
+    BOOST_LOG(hdtn::StatsLogger::logger_)
 
 /**
- * @brief StatsWriter class used to create log file for metrics
+ * @brief StatsLogger class used to create log file for metrics
  */
-class StatsWriter
+class StatsLogger
 {
 public:
     /**
-     * Initializes the StatsWriter if it hasn't been created yet
+     * Initializes the StatsLogger if it hasn't been created yet
      */
     STATS_LIB_EXPORT static void ensureInitialized();
 
@@ -67,11 +67,11 @@ public:
     > metric_name_attr_t;
     STATS_LIB_EXPORT static metric_name_attr_t metric_name_attr;
 
-    STATS_LIB_EXPORT ~StatsWriter();
+    STATS_LIB_EXPORT ~StatsLogger();
 private:
-    STATS_LIB_EXPORT StatsWriter();
-    STATS_LIB_EXPORT StatsWriter(StatsWriter const&) = delete;
-    STATS_LIB_EXPORT StatsWriter& operator=(StatsWriter const&) = delete;
+    STATS_LIB_EXPORT StatsLogger();
+    STATS_LIB_EXPORT StatsLogger(StatsLogger const&) = delete;
+    STATS_LIB_EXPORT StatsLogger& operator=(StatsLogger const&) = delete;
 
     /**
      * Registers attributes used for log messages
@@ -87,9 +87,9 @@ private:
     /**
      * Attributes for managing singleton instance 
      */
-    static std::unique_ptr<StatsWriter> statsWriter_; //singleton instance
+    static std::unique_ptr<StatsLogger> StatsLogger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
-    static volatile bool statsWriterSingletonFullyInitialized_;
+    static volatile bool StatsLoggerSingletonFullyInitialized_;
 };
 }
 

@@ -6,41 +6,41 @@
  ****************************************************************************
  */
 
-#include "StatsWriter.h"
+#include "StatsLogger.h"
 
 namespace hdtn{
 
-std::unique_ptr<StatsWriter> StatsWriter::statsWriter_; //initialized to "null"
-boost::mutex StatsWriter::mutexSingletonInstance_;
-volatile bool StatsWriter::statsWriterSingletonFullyInitialized_ = false;
-StatsWriter::metric_name_attr_t StatsWriter::metric_name_attr("");
-boost::log::sources::logger_mt StatsWriter::logger_;
+std::unique_ptr<StatsLogger> StatsLogger::StatsLogger_; //initialized to "null"
+boost::mutex StatsLogger::mutexSingletonInstance_;
+volatile bool StatsLogger::StatsLoggerSingletonFullyInitialized_ = false;
+StatsLogger::metric_name_attr_t StatsLogger::metric_name_attr("");
+boost::log::sources::logger_mt StatsLogger::logger_;
 
-StatsWriter::StatsWriter()
+StatsLogger::StatsLogger()
 {
     registerAttributes();
     createMultiFileLogSinkForMetricNameAttr();
     boost::log::add_common_attributes(); //necessary for timestamp
 }
 
-void StatsWriter::ensureInitialized()
+void StatsLogger::ensureInitialized()
 {
-    if (!statsWriterSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
+    if (!StatsLoggerSingletonFullyInitialized_) { //fast way to bypass a mutex lock all the time
         //first thread that uses the stats writer gets to create the stats writer
         boost::mutex::scoped_lock theLock(mutexSingletonInstance_);
-        if (!statsWriterSingletonFullyInitialized_) { //check it again now that mutex is locked
-            statsWriter_.reset(new StatsWriter());
-            statsWriterSingletonFullyInitialized_ = true;
+        if (!StatsLoggerSingletonFullyInitialized_) { //check it again now that mutex is locked
+            StatsLogger_.reset(new StatsLogger());
+            StatsLoggerSingletonFullyInitialized_ = true;
         }
     }
 }
 
-void StatsWriter::registerAttributes()
+void StatsLogger::registerAttributes()
 {
-    StatsWriter::logger_.add_attribute("MetricName", StatsWriter::metric_name_attr);
+    StatsLogger::logger_.add_attribute("MetricName", StatsLogger::metric_name_attr);
 }
 
-void StatsWriter::createMultiFileLogSinkForMetricNameAttr()
+void StatsLogger::createMultiFileLogSinkForMetricNameAttr()
 {
     boost::shared_ptr< boost::log::sinks::text_multifile_backend > backend =
         boost::make_shared< boost::log::sinks::text_multifile_backend >();
@@ -65,6 +65,6 @@ void StatsWriter::createMultiFileLogSinkForMetricNameAttr()
     boost::log::core::get()->add_sink(sink);
 }
 
-StatsWriter::~StatsWriter(){}
+StatsLogger::~StatsLogger(){}
 
 }

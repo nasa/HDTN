@@ -1,5 +1,5 @@
 /**
- * @file StatsWriterTests.cpp
+ * @file StatsLoggerTests.cpp
  * @author  Ethan Schweinsberg <ethan.e.schweinsberg@nasa.gov>
  *
  * @copyright Copyright � 2021 United States Government as represented by
@@ -16,7 +16,7 @@
 #include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
-#include "StatsWriter.h"
+#include "StatsLogger.h"
 
 static const std::string date_regex = "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}";
 static const std::string anything_regex = "((.|\n)*)";
@@ -32,7 +32,7 @@ static std::string file_contents_to_str(std::string path) {
 }
 
 #ifdef DO_STATS_LOGGING
-BOOST_AUTO_TEST_CASE(StatsWriterLogMetrics)
+BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
 {
     LOG_STAT("foo") << 1;
     LOG_STAT("foo") << "x";
