@@ -18,6 +18,7 @@
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
+#include "NoOpStream.h"
 #include "stats_lib_export.h"
 
 namespace hdtn{

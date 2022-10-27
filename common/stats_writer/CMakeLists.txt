@@ -19,6 +19,7 @@ target_link_libraries(stats_lib
 	PUBLIC
 		Boost::boost #boost headers
 		Boost::log
+		hdtn_util
 )
 target_include_directories(stats_lib
 	PUBLIC

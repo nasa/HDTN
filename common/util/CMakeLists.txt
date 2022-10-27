@@ -59,6 +59,7 @@ set(MY_PUBLIC_HEADERS
 	include/FragmentSet.h
 	include/JsonSerializable.h
 	include/LtpClientServiceDataToSend.h
+	include/NoOpStream.h
 	include/PaddedVectorUint8.h
 	#include/RateManagerAsync.h
 	include/Sdnv.h
