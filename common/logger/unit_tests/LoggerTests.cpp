@@ -20,7 +20,7 @@
 /**
  * Reads a file's contents into a string and returns it
  */
-std::string file_contents_to_str(std::string path) {
+static std::string file_contents_to_str(std::string path) {
     std::ifstream in(path);
     std::stringstream buffer;
     buffer << in.rdbuf();
@@ -53,8 +53,8 @@ private:
     std::streambuf *cout_backup;
 };
 
-const std::string date_regex = "\\[ \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
-const std::string anything_regex = "(?:(?:.|\n)*)";
+static const std::string date_regex = "\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
+static const std::string anything_regex = "((.|\n)*)";
 
 BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
 {

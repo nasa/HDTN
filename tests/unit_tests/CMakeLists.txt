@@ -38,6 +38,7 @@ add_executable(unit-tests
 	../../common/config/test/TestHdtnConfig.cpp
 	../../common/cgr/test/TestDijkstra.cpp
 	../../common/logger/unit_tests/LoggerTests.cpp
+	../../common/stats_writer/unit_tests/StatsWriterTests.cpp
 	#../../common/cgr/test/TestYen.cpp
     ../../module/storage/unit_tests/MemoryManagerTreeArrayTests.cpp
     ../../module/storage/unit_tests/BundleStorageManagerMtTests.cpp
@@ -60,6 +61,7 @@ target_link_libraries(unit-tests
 	bpcodec
 	udp_delay_sim_lib
 	log_lib
+	stats_lib
 	Boost::unit_test_framework
 	Boost::timer
 )

@@ -84,6 +84,12 @@ OPTION(LOG_TO_PROCESS_FILE "Should logger write all messages to a single process
 OPTION(LOG_TO_SUBPROCESS_FILES "Should logger write all sub-process messages to their respective subprocess.log files" Off)
 OPTION(LOG_TO_ERROR_FILE "Should logger write all error messages to an error.log file" Off)
 
+#Stats options
+OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
+if (DO_STATS_LOGGING)
+	add_compile_definitions(DO_STATS_LOGGING)
+endif()
+
 #Bundle Storage Manager options
 SET(STORAGE_SEGMENT_ID_SIZE_BITS "32" CACHE STRING "Set word size of storage's segment_id_t to either 32-bit (default recommended) or 64-bit (high memory only systems for greater than 17TB storage).")
 if (STORAGE_SEGMENT_ID_SIZE_BITS STREQUAL "32")
@@ -157,6 +163,7 @@ add_subdirectory(common/tcpcl)
 add_subdirectory(common/ltp)
 add_subdirectory(common/stcp)
 add_subdirectory(common/udp)
+add_subdirectory(common/stats_writer)
 if(USE_WEB_INTERFACE)
 	add_subdirectory(module/gui)
 endif()

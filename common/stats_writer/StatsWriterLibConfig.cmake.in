@@ -1,0 +1,12 @@
+get_filename_component(STATSWRITERLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+include(CMakeFindDependencyMacro)
+
+#find_dependency seems broken for multiple calls to find_boost, use find_package instead (https://stackoverflow.com/questions/52763112/cmake-boost-find-depedency-config)
+#find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS log)
+find_package(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS log)
+
+if(NOT TARGET HDTN::StatsWriterLibLib)
+    include("${STATSWRITERLIB_CMAKE_DIR}/StatsWriterLibTargets.cmake")
+endif()
+
+set(STATSWRITERLIB_LIBRARIES HDTN::StatsWriterLib)
