@@ -16,7 +16,7 @@
 #include "Uri.h"
 
 const std::string ReleaseSender::DEFAULT_FILE = "releaseMessages1.json";
-
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 ReleaseSender::ReleaseSender() {
     m_timersFinished = false;
@@ -28,7 +28,7 @@ ReleaseSender::~ReleaseSender() {
 
 void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string message, zmq::socket_t * ptrSocket) {
   boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-  LOG_INFO(hdtn::Logger::Module::storage) <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
+  LOG_INFO(subprocess) <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
   if (message == "start") {
       hdtn::IreleaseStartHdr releaseMsg;
       memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -37,7 +37,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
       releaseMsg.rate = 0;  //not implemented
       releaseMsg.duration = 20;  //not implemented
       ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-      LOG_INFO(hdtn::Logger::Module::storage) << " -- Start Release message sent.";
+      LOG_INFO(subprocess) << " -- Start Release message sent.";
   }
   else if (message == "stop") {
       hdtn::IreleaseStopHdr stopMsg;
@@ -45,7 +45,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
       stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
       stopMsg.finalDestinationNodeId = finalDestinationEid.nodeId;
       ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-      LOG_INFO(hdtn::Logger::Module::storage) << " -- Stop Release message sent.";
+      LOG_INFO(subprocess) << " -- Stop Release message sent.";
   }
 }
 
@@ -62,7 +62,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
         releaseMessageEvent.message = eventPt.second.get<std::string>("message", "");
         const std::string uriEid = eventPt.second.get<std::string>("finalDestinationEid", "");
         if (!Uri::ParseIpnUriString(uriEid, releaseMessageEvent.finalDestEid.nodeId, releaseMessageEvent.finalDestEid.serviceId)) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "error: bad uri string: " << uriEid;
+            LOG_ERROR(subprocess) << "error: bad uri string: " << uriEid;
             return false;
         }
         releaseMessageEvent.delay = eventPt.second.get<int>("delay",0);
@@ -74,13 +74,13 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
             errorMessage += " Invalid delay: " + boost::lexical_cast<std::string>(releaseMessageEvent.delay) + ".";
         }
         if (errorMessage.length() > 0) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << errorMessage;
+            LOG_ERROR(subprocess) << errorMessage;
             return 1;
         }
     }
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    LOG_INFO(hdtn::Logger::Module::storage) << "Epoch Time:  " << timeLocal;
+    LOG_INFO(subprocess) << "Epoch Time:  " << timeLocal;
 
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
@@ -103,7 +103,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     socket.close();
     m_timersFinished = true;
     timeLocal = boost::posix_time::second_clock::local_time();
-    LOG_INFO(hdtn::Logger::Module::storage) << "End of ProcessEventFile:  " << timeLocal;
+    LOG_INFO(subprocess) << "End of ProcessEventFile:  " << timeLocal;
     return 0;
 }
 
@@ -123,12 +123,12 @@ int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& 
                | boost::program_options::command_line_style::case_insensitive), vm);
         boost::program_options::notify(vm);
         if (vm.count("help")) {
-            LOG_INFO(hdtn::Logger::Module::storage) << desc;
+            LOG_INFO(subprocess) << desc;
             return 1;
         }
         eventsFile = vm["events-file"].as<std::string>();
         if (eventsFile.length() < 1) {
-            LOG_INFO(hdtn::Logger::Module::storage) << desc;
+            LOG_INFO(subprocess) << desc;
             return 1;
         }
         const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
@@ -137,21 +137,21 @@ int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& 
             m_hdtnConfig = *ptrConfig;
         }
         else {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "error loading config file: " << configFileName;
+            LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
             return false;
         }
     }
     catch (std::exception& e) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "error: " << e.what();
+        LOG_ERROR(subprocess) << "error: " << e.what();
         return 1;
     }
     catch (...) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "Exception of unknown type!";
+        LOG_ERROR(subprocess) << "Exception of unknown type!";
         return 1;
     }
     std::string jsonFileName =  ReleaseSender::GetFullyQualifiedFilename(eventsFile);
     if ( !boost::filesystem::exists( jsonFileName ) ) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "File not found: " << jsonFileName;
+        LOG_ERROR(subprocess) << "File not found: " << jsonFileName;
         return 1;
     }
     jsonEventFileName = jsonFileName;

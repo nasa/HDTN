@@ -27,6 +27,7 @@
 #include "codec/BundleViewV7.h"
 
 typedef std::pair<cbhe_eid_t, bool> eid_plus_isanyserviceid_pair_t;
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 ZmqStorageInterface::ZmqStorageInterface() : m_running(false) {}
 
@@ -70,7 +71,7 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
             m_zmqRepSock_connectingGuiToFromBoundStoragePtr->bind(std::string("inproc://connecting_gui_to_from_bound_storage"));
         }
         catch (const zmq::error_t & ex) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "error in ZmqStorageInterface::Init: cannot connect inproc socket: " << ex.what();
+            LOG_ERROR(subprocess) << "error in ZmqStorageInterface::Init: cannot connect inproc socket: " << ex.what();
             return false;
         }
     }
@@ -115,7 +116,7 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
             m_zmqRepSock_connectingGuiToFromBoundStoragePtr->bind(bind_connectingGuiToFromBoundStoragePath);
         }
         catch (const zmq::error_t & ex) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "error: cannot connect socket: " << ex.what();
+            LOG_ERROR(subprocess) << "error: cannot connect socket: " << ex.what();
             return false;
         }
     }
@@ -129,10 +130,10 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
     try {
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->connect(connect_boundSchedulerPubSubPath);// config.releaseWorker);
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::subscribe, "");
-        LOG_INFO(hdtn::Logger::Module::storage) << "release sock connected to " << connect_boundSchedulerPubSubPath;
+        LOG_INFO(subprocess) << "release sock connected to " << connect_boundSchedulerPubSubPath;
     }
     catch (const zmq::error_t & ex) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "error: cannot connect release socket: " << ex.what();
+        LOG_ERROR(subprocess) << "error: cannot connect release socket: " << ex.what();
         return false;
     }
 
@@ -141,10 +142,10 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
     const std::string bind_connectingUisToFromBoundStoragePath("tcp://*:10304");
     try {
         m_zmqRepSock_connectingUisToFromBoundStoragePtr->bind(bind_connectingUisToFromBoundStoragePath);// config.releaseWorker);
-        LOG_INFO(hdtn::Logger::Module::storage) << "uis sock bound to " << bind_connectingUisToFromBoundStoragePath;
+        LOG_INFO(subprocess) << "uis sock bound to " << bind_connectingUisToFromBoundStoragePath;
     }
     catch (const zmq::error_t& ex) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "error: cannot bind uis socket: " << ex.what();
+        LOG_ERROR(subprocess) << "error: cannot bind uis socket: " << ex.what();
         return false;
     }
 
@@ -156,7 +157,7 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
         m_zmqSubSock_boundReleaseToConnectingStoragePtr->set(zmq::sockopt::rcvtimeo, timeout);
     }
     catch (const zmq::error_t & ex) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "error: cannot set timeout on receive sockets: " << ex.what();
+        LOG_ERROR(subprocess) << "error: cannot set timeout on receive sockets: " << ex.what();
         return false;
     }
     
@@ -164,7 +165,7 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
     
     if (!m_running) {
         m_running = true;
-        LOG_INFO(hdtn::Logger::Module::storage) << "[ZmqStorageInterface] Launching worker thread ...";
+        LOG_INFO(subprocess) << "[ZmqStorageInterface] Launching worker thread ...";
         m_threadStartupComplete = false;
         m_threadPtr = boost::make_unique<boost::thread>(
             boost::bind(&ZmqStorageInterface::ThreadFunc, this)); //create and start the worker thread
@@ -172,15 +173,15 @@ bool ZmqStorageInterface::Init(const HdtnConfig & hdtnConfig, zmq::context_t * h
             if (m_threadStartupComplete) {
                 break;
             }
-            LOG_DEBUG(hdtn::Logger::Module::storage) << "waiting for worker thread to start up...";
+            LOG_DEBUG(subprocess) << "waiting for worker thread to start up...";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
         }
         if (!m_threadStartupComplete) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "error: storage thread took too long to start up.. exiting";
+            LOG_ERROR(subprocess) << "error: storage thread took too long to start up.. exiting";
             return false;
         }
         else {
-            LOG_INFO(hdtn::Logger::Module::storage) << "worker thread started";
+            LOG_INFO(subprocess) << "worker thread started";
         }
     }
     return true;
@@ -196,14 +197,14 @@ static bool WriteAcsBundle(BundleStorageManagerBase & bsm, CustodyIdAllocator & 
     BundleStorageManagerSession_WriteToDisk sessionWrite;
     const uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, acsBundleSerialized.size());
     if (totalSegmentsRequired == 0) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "out of space for acs custody signal";
+        LOG_ERROR(subprocess) << "out of space for acs custody signal";
         return false;
     }
 
     const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary,
         newCustodyIdForAcsCustodySignal, acsBundleSerialized.data(), acsBundleSerialized.size());
     if (totalBytesPushed != acsBundleSerialized.size()) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "totalBytesPushed != acsBundleSerialized.size";
+        LOG_ERROR(subprocess) << "totalBytesPushed != acsBundleSerialized.size";
         return false;
     }
     return true;
@@ -223,7 +224,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     if (isBpVersion6) {
         BundleViewV6 bv;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size())) { //invalid bundle
-            LOG_ERROR(hdtn::Logger::Module::storage) << "malformed bundle";
+            LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
         const Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -242,12 +243,12 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
             bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
             if (blocks.size() != 1) {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error admin record does not have a payload block";
+                LOG_ERROR(subprocess) << "error admin record does not have a payload block";
                 return false;
             }
             Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
             if (adminRecordBlockPtr == NULL) {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error null Bpv6AdministrativeRecord";
+                LOG_ERROR(subprocess) << "error null Bpv6AdministrativeRecord";
                 return false;
             }
             const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
@@ -257,12 +258,12 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                 //check acs
                 Bpv6AdministrativeRecordContentAggregateCustodySignal * acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
                 if (acsPtr == NULL) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error null AggregateCustodySignal";
+                    LOG_ERROR(subprocess) << "error null AggregateCustodySignal";
                     return false;
                 }
                 Bpv6AdministrativeRecordContentAggregateCustodySignal & acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
                 if (!acs.DidCustodyTransferSucceed()) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode());
+                    LOG_ERROR(subprocess) << "custody transfer failed with reason code " << static_cast<unsigned int>(acs.GetReasonCode());
                     return false;
                 }
 
@@ -273,14 +274,14 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                     for (uint64_t currentCustodyId = it->beginIndex; currentCustodyId <= it->endIndex; ++currentCustodyId) {
                         catalog_entry_t * catalogEntryPtr = bsm.GetCatalogEntryPtrFromCustodyId(currentCustodyId);
                         if (catalogEntryPtr == NULL) {
-                            LOG_ERROR(hdtn::Logger::Module::storage) << "error finding catalog entry for bundle identified by acs custody signal";
+                            LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by acs custody signal";
                             continue;
                         }
                         if (!custodyTimers.CancelCustodyTransferTimer(catalogEntryPtr->destEid, currentCustodyId)) {
-                            LOG_WARNING(hdtn::Logger::Module::storage) << "can't find custody timer associated with bundle identified by acs custody signal";
+                            LOG_WARNING(subprocess) << "can't find custody timer associated with bundle identified by acs custody signal";
                         }
                         if (!bsm.RemoveReadBundleFromDisk(catalogEntryPtr, currentCustodyId)) {
-                            LOG_ERROR(hdtn::Logger::Module::storage) << "error freeing bundle identified by acs custody signal from disk";
+                            LOG_ERROR(subprocess) << "error freeing bundle identified by acs custody signal from disk";
                             continue;
                         }
                         ++forStats->m_totalBundlesErasedFromStorageWithCustodyTransfer;
@@ -291,19 +292,19 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                 //check acs
                 Bpv6AdministrativeRecordContentCustodySignal * csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
                 if (csPtr == NULL) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error null CustodySignal";
+                    LOG_ERROR(subprocess) << "error null CustodySignal";
                     return false;
                 }
                 Bpv6AdministrativeRecordContentCustodySignal & cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
                 if (!cs.DidCustodyTransferSucceed()) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "custody transfer failed with reason code " << cs.GetReasonCode();
+                    LOG_ERROR(subprocess) << "custody transfer failed with reason code " << cs.GetReasonCode();
                     return false;
                 }
                 uint64_t * custodyIdPtr;
                 if (cs.m_isFragment) {
                     cbhe_bundle_uuid_t uuid;
                     if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "error custody signal with bad ipn string";
+                        LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
                         return false;
                     }
                     uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
@@ -315,7 +316,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                 else {
                     cbhe_bundle_uuid_nofragment_t uuid;
                     if (!Uri::ParseIpnUriString(cs.m_bundleSourceEid, uuid.srcEid.nodeId, uuid.srcEid.serviceId)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "error custody signal with bad ipn string";
+                        LOG_ERROR(subprocess) << "error custody signal with bad ipn string";
                         return false;
                     }
                     uuid.creationSeconds = cs.m_copyOfBundleCreationTimestamp.secondsSinceStartOfYear2000;
@@ -323,28 +324,28 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                     custodyIdPtr = bsm.GetCustodyIdFromUuid(uuid);
                 }
                 if (custodyIdPtr == NULL) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error custody signal does not match a bundle in the storage database";
+                    LOG_ERROR(subprocess) << "error custody signal does not match a bundle in the storage database";
                     return false;
                 }
                 const uint64_t custodyIdFromRfc5050 = *custodyIdPtr;
                 custodyIdAllocator.FreeCustodyId(custodyIdFromRfc5050);
                 catalog_entry_t * catalogEntryPtr = bsm.GetCatalogEntryPtrFromCustodyId(custodyIdFromRfc5050);
                 if (catalogEntryPtr == NULL) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
+                    LOG_ERROR(subprocess) << "error finding catalog entry for bundle identified by rfc5050 custody signal";
                     return false;
                 }
                 if (!custodyTimers.CancelCustodyTransferTimer(catalogEntryPtr->destEid, custodyIdFromRfc5050)) {
-                    LOG_WARNING(hdtn::Logger::Module::storage) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
+                    LOG_WARNING(subprocess) << "notice: can't find custody timer associated with bundle identified by rfc5050 custody signal";
                 }
                 if (!bsm.RemoveReadBundleFromDisk(catalogEntryPtr, custodyIdFromRfc5050)) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error freeing bundle identified by rfc5050 custody signal from disk";
+                    LOG_ERROR(subprocess) << "error freeing bundle identified by rfc5050 custody signal from disk";
                     return false;
                 }
                 ++forStats->m_totalBundlesErasedFromStorageWithCustodyTransfer;
                 ++forStats->m_numRfc5050CustodyTransfers;
             }
             else {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error unknown admin record type";
+                LOG_ERROR(subprocess) << "error unknown admin record type";
                 return false;
             }
             return true; //do not proceed past this point so that the signal is not written to disk
@@ -355,10 +356,10 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         if (bpv6CustodyIsRequested) {
             if (!ctm.ProcessCustodyOfBundle(bv, true, newCustodyId, BPV6_ACS_STATUS_REASON_INDICES::SUCCESS__NO_ADDITIONAL_INFORMATION,
                 custodySignalRfc5050RenderedBundleView)) {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error unable to process custody";
+                LOG_ERROR(subprocess) << "error unable to process custody";
             }
             else if (!bv.Render(message->size() + 200)) { //hdtn modifies bundle for next hop
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error unable to render new bundle";
+                LOG_ERROR(subprocess) << "error unable to render new bundle";
             }
             else {
                 if (custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
@@ -371,7 +372,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         custodySignalRfc5050RenderedBundleView.m_primaryBlockView.header,
                         custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
                     if (totalSegmentsRequired == 0) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "out of space for custody signal";
+                        LOG_ERROR(subprocess) << "out of space for custody signal";
                         return false;
                     }
 
@@ -379,7 +380,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
                         newCustodyIdFor5050CustodySignal, (const uint8_t*)custodySignalRfc5050RenderedBundleView.m_renderedBundle.data(),
                         custodySignalRfc5050RenderedBundleView.m_renderedBundle.size());
                     if (totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()";
+                        LOG_ERROR(subprocess) << "totalBytesPushed != custodySignalRfc5050RenderedBundleView.m_renderedBundle.size()";
                         return false;
                     }
                 }
@@ -390,7 +391,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         BundleStorageManagerSession_WriteToDisk sessionWrite;
         uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, bv.m_renderedBundle.size());
         if (totalSegmentsRequired == 0) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "out of space";
+            LOG_ERROR(subprocess) << "out of space";
             return false;
         }
         //totalSegmentsStoredOnDisk += totalSegmentsRequired;
@@ -398,7 +399,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
 
         const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
         if (totalBytesPushed != bv.m_renderedBundle.size()) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "totalBytesPushed != size";
+            LOG_ERROR(subprocess) << "totalBytesPushed != size";
             return false;
         }
         return true;
@@ -407,7 +408,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
     else if (isBpVersion7) {
         BundleViewV7 bv;
         if (!bv.LoadBundle((uint8_t *)message->data(), message->size(), true, true)) { //invalid bundle
-            LOG_ERROR(hdtn::Logger::Module::storage) << "malformed bundle";
+            LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
         const Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -417,7 +418,7 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         BundleStorageManagerSession_WriteToDisk sessionWrite;
         uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, bv.m_renderedBundle.size());
         if (totalSegmentsRequired == 0) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "out of space";
+            LOG_ERROR(subprocess) << "out of space";
             return false;
         }
         //totalSegmentsStoredOnDisk += totalSegmentsRequired;
@@ -425,13 +426,13 @@ static bool Write(zmq::message_t *message, BundleStorageManagerBase & bsm,
         const uint64_t newCustodyId = custodyIdAllocator.GetNextCustodyIdForNextHopCtebToSend(primary.m_sourceNodeId);
         const uint64_t totalBytesPushed = bsm.PushAllSegments(sessionWrite, primary, newCustodyId, (const uint8_t*)bv.m_renderedBundle.data(), bv.m_renderedBundle.size());
         if (totalBytesPushed != bv.m_renderedBundle.size()) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "totalBytesPushed != size";
+            LOG_ERROR(subprocess) << "totalBytesPushed != size";
             return false;
         }
         return true;
     }
     else {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "error in ZmqStorageInterface Write: unsupported bundle version detected";
+        LOG_ERROR(subprocess) << "error in ZmqStorageInterface Write: unsupported bundle version detected";
         return false;
     }
     
@@ -474,7 +475,7 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
 
     //IF YOU DECIDE YOU DON'T WANT TO READ THE BUNDLE AFTER PEEKING AT IT (MAYBE IT'S TOO BIG RIGHT NOW)
     if (bytesToReadFromDisk > maxBundleSizeToRead) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "bundle to read from disk is too large right now";
+        LOG_ERROR(subprocess) << "bundle to read from disk is too large right now";
         bsm.ReturnTop(sessionRead);
         return false;
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
@@ -485,7 +486,7 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
     zmq::message_t zmqBundleDataMessageWithDataStolen(vecUint8BundleDataRawPointer->data(), vecUint8BundleDataRawPointer->size(), CustomCleanupStdVecUint8, vecUint8BundleDataRawPointer);
         
     if (!successReadAllSegments) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "unable to read all segments from disk";
+        LOG_ERROR(subprocess) << "unable to read all segments from disk";
         return false;
     }
 
@@ -503,12 +504,12 @@ static bool ReleaseOne_NoBlock(BundleStorageManagerSession_ReadFromDisk & sessio
     toEgressHdr->custodyId = sessionRead.custodyId;
     
     if (!egressSock->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "zmq could not send";
+        LOG_ERROR(subprocess) << "zmq could not send";
         bsm.ReturnTop(sessionRead);
         return false;
     }
     if (!egressSock->send(std::move(zmqBundleDataMessageWithDataStolen), zmq::send_flags::dontwait)) {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "zmq could not send bundle";
+        LOG_ERROR(subprocess) << "zmq could not send bundle";
         bsm.ReturnTop(sessionRead);
         return false;
     }
@@ -538,7 +539,7 @@ static void PrintReleasedLinks(const std::set<eid_plus_isanyserviceid_pair_t> & 
         }
     }
     strVals += "]";
-    LOG_INFO(hdtn::Logger::Module::storage) << "Currently Releasing Final Destination Eids: " << strVals;
+    LOG_INFO(subprocess) << "Currently Releasing Final Destination Eids: " << strVals;
 }
 
 void ZmqStorageInterface::ThreadFunc() {
@@ -553,7 +554,7 @@ void ZmqStorageInterface::ThreadFunc() {
     
     static const boost::posix_time::time_duration ACS_SEND_PERIOD = boost::posix_time::milliseconds(m_hdtnConfig.m_acsSendPeriodMilliseconds);
     CustodyTransferManager ctm(IS_HDTN_ACS_AWARE, M_HDTN_EID_CUSTODY.nodeId, M_HDTN_EID_CUSTODY.serviceId);
-    LOG_INFO(hdtn::Logger::Module::storage) << "Worker thread starting up.";
+    LOG_INFO(subprocess) << "Worker thread starting up.";
 
    
 
@@ -561,15 +562,15 @@ void ZmqStorageInterface::ThreadFunc() {
     
     std::unique_ptr<BundleStorageManagerBase> bsmPtr;
     if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "stdio_multi_threaded") {
-        LOG_INFO(hdtn::Logger::Module::storage) << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... ";
+        LOG_INFO(subprocess) << "[ZmqStorageInterface] Initializing BundleStorageManagerMT ... ";
         bsmPtr = boost::make_unique<BundleStorageManagerMT>(std::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
     }
     else if (m_hdtnConfig.m_storageConfig.m_storageImplementation == "asio_single_threaded") {
-        LOG_INFO(hdtn::Logger::Module::storage) << "[ZmqStorageInterface] Initializing BundleStorageManagerAsio ... ";
+        LOG_INFO(subprocess) << "[ZmqStorageInterface] Initializing BundleStorageManagerAsio ... ";
         bsmPtr = boost::make_unique<BundleStorageManagerAsio>(std::make_shared<StorageConfig>(m_hdtnConfig.m_storageConfig));
     }
     else {
-        LOG_ERROR(hdtn::Logger::Module::storage) << "error in hdtn::ZmqStorageInterface::ThreadFunc: invalid storage implementation " << m_hdtnConfig.m_storageConfig.m_storageImplementation;
+        LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc: invalid storage implementation " << m_hdtnConfig.m_storageConfig.m_storageImplementation;
         return;
     }
     BundleStorageManagerBase & bsm = *bsmPtr;
@@ -620,7 +621,7 @@ void ZmqStorageInterface::ThreadFunc() {
             rc = zmq::poll(pollItems, 5, timeoutPoll);
         }
         catch (zmq::error_t & e) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "caught zmq::error_t in hdtn::ZmqStorageInterface::ThreadFunc: " << e.what();
+            LOG_ERROR(subprocess) << "caught zmq::error_t in hdtn::ZmqStorageInterface::ThreadFunc: " << e.what();
             continue;
         }
         if (rc > 0) {            
@@ -628,11 +629,11 @@ void ZmqStorageInterface::ThreadFunc() {
                 hdtn::EgressAckHdr egressAckHdr;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);
                 if (!res) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "EgressAckHdr not received";
+                    LOG_ERROR(subprocess) << "EgressAckHdr not received";
                     continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "EgressAckHdr wrong size received";
+                    LOG_ERROR(subprocess) << "EgressAckHdr wrong size received";
                     continue;
                 }
                 else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
@@ -645,19 +646,19 @@ void ZmqStorageInterface::ThreadFunc() {
                             //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
                             //but the bundle won't be immediately released again from storage because of the immediate link down event.
                             if (availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(egressAckHdr.finalDestEid.nodeId, 0), true))) { //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
-                                LOG_WARNING(hdtn::Logger::Module::storage) << "Storage got a link down notification from egress for final dest "
+                                LOG_WARNING(subprocess) << "Storage got a link down notification from egress for final dest "
                                     << Uri::GetIpnUriStringAnyServiceNumber(egressAckHdr.finalDestEid.nodeId) << " because storage to egress failed";
                                 PrintReleasedLinks(availableDestLinksSet);
                             }
                             if (!bsm.ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
-                                LOG_ERROR(hdtn::Logger::Module::storage) << "error returning custody id " << egressAckHdr.custodyId << " to awaiting send";
+                                LOG_ERROR(subprocess) << "error returning custody id " << egressAckHdr.custodyId << " to awaiting send";
                             }
                             custodyTimers.CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
                         }
                         else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
                             bool successRemoveBundle = bsm.RemoveReadBundleFromDisk(egressAckHdr.custodyId);
                             if (!successRemoveBundle) {
-                                LOG_ERROR(hdtn::Logger::Module::storage) << "error freeing bundle from disk";
+                                LOG_ERROR(subprocess) << "error freeing bundle from disk";
                             }
                             else {
                                 ++m_totalBundlesErasedFromStorageNoCustodyTransfer;
@@ -666,13 +667,13 @@ void ZmqStorageInterface::ThreadFunc() {
                         custodyIdSet.erase(it);
                     }
                     else {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find custody id";
+                        LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find custody id";
                     }
                 }
                 else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_FAILED_BUNDLE_TO_STORAGE) { //bundles sent from ingress to egress but egress could not send
                     zmq::message_t zmqBundleDataReceived;
                     if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
+                        LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
                         continue;
                     }
                     
@@ -681,15 +682,15 @@ void ZmqStorageInterface::ThreadFunc() {
                     ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
                     finalDestEidReturnedFromWrite.serviceId = 0;
                     if (availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestEidReturnedFromWrite, true))) { //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
-                        LOG_WARNING(hdtn::Logger::Module::storage) << "Storage got a link down notification from egress for final dest "
+                        LOG_WARNING(subprocess) << "Storage got a link down notification from egress for final dest "
                             << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId) << " because cut through from ingress failed";
                         PrintReleasedLinks(availableDestLinksSet);
                     }
-                    LOG_WARNING(hdtn::Logger::Module::storage) << "Notice in ZmqStorageInterface::ThreadFunc: A bundle was send to storage from egress because cut through from ingress failed";
+                    LOG_WARNING(subprocess) << "Notice in ZmqStorageInterface::ThreadFunc: A bundle was send to storage from egress because cut through from ingress failed";
                     
                 }
                 else {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "EgressAckHdr unknown type, got " << egressAckHdr.base.type;
+                    LOG_ERROR(subprocess) << "EgressAckHdr unknown type, got " << egressAckHdr.base.type;
                     continue;
                 }
             }
@@ -697,16 +698,16 @@ void ZmqStorageInterface::ThreadFunc() {
                 hdtn::ToStorageHdr toStorageHeader;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmq::mutable_buffer(&toStorageHeader, sizeof(hdtn::ToStorageHdr)), zmq::recv_flags::none);
                 if (!res) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message hdr not received";
+                    LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message hdr not received";
                     continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::ToStorageHdr))) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)";
+                    LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)";
                     continue;
                 }
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
-                    LOG_INFO(hdtn::Logger::Module::storage) << "finalDestEid ("
+                    LOG_INFO(subprocess) << "finalDestEid ("
                         << Uri::GetIpnUriStringAnyServiceNumber(nodeId)
                         << ") will be released from storage";
                     availableDestLinksSet.emplace(cbhe_eid_t(nodeId, 0), true); //true => any service id.. 0 is don't care
@@ -715,7 +716,7 @@ void ZmqStorageInterface::ThreadFunc() {
                 }
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
-                    LOG_INFO(hdtn::Logger::Module::storage) << "finalDestEid ("
+                    LOG_INFO(subprocess) << "finalDestEid ("
                         << Uri::GetIpnUriStringAnyServiceNumber(nodeId)
                         << ") will STOP being released from storage";
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(nodeId, 0), true)); //true => any service id.. 0 is don't care
@@ -723,7 +724,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     continue;
                 }
                 else if (toStorageHeader.base.type != HDTN_MSGTYPE_STORE) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message type not HDTN_MSGTYPE_STORE";
+                    LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message type not HDTN_MSGTYPE_STORE";
                     continue;
                 }
 
@@ -732,7 +733,7 @@ void ZmqStorageInterface::ThreadFunc() {
 
                 zmq::message_t zmqBundleDataReceived;
                 if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
+                    LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
                     continue;
                 }
                 storageStats.inBytes += zmqBundleDataReceived.size();
@@ -753,7 +754,7 @@ void ZmqStorageInterface::ThreadFunc() {
                 storageAckHdr->ingressUniqueId = toStorageHeader.ingressUniqueId;
 
                 if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(zmqMessageStorageAckHdrWithDataStolen), zmq::send_flags::dontwait)) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error: zmq could not send ingress an ack from storage";
+                    LOG_ERROR(subprocess) << "error: zmq could not send ingress an ack from storage";
                 }
             }
             if (pollItems[2].revents & ZMQ_POLLIN) { //release messages
@@ -761,24 +762,24 @@ void ZmqStorageInterface::ThreadFunc() {
                 const zmq::recv_buffer_result_t res = m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(
                     zmq::mutable_buffer(rxBufReleaseMessagesAlign64, minBufSizeBytesReleaseMessages), zmq::recv_flags::none);
                 if (!res) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "[schedule release] message not received";
+                    LOG_ERROR(subprocess) << "[schedule release] message not received";
                     continue;
                 }
                 else if (res->size < sizeof(hdtn::CommonHdr)) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "[schedule release] res->size < sizeof(hdtn::CommonHdr)";
+                    LOG_ERROR(subprocess) << "[schedule release] res->size < sizeof(hdtn::CommonHdr)";
                     continue;
                 }
 
-                LOG_INFO(hdtn::Logger::Module::storage) << "release message received";
+                LOG_INFO(subprocess) << "release message received";
                 hdtn::CommonHdr *commonHdr = (hdtn::CommonHdr *)rxBufReleaseMessagesAlign64;
                 if (commonHdr->type == HDTN_MSGTYPE_ILINKUP) {
                     if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr)";
+                        LOG_ERROR(subprocess) << "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr)";
                         continue;
                     }
 
                     hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
-                    LOG_INFO(hdtn::Logger::Module::storage) << "finalDestEid (" 
+                    LOG_INFO(subprocess) << "finalDestEid (" 
                         + Uri::GetIpnUriStringAnyServiceNumber(iReleaseStartHdr->finalDestinationNodeId) 
                         + ") will be released from storage";
                     availableDestLinksSet.emplace(cbhe_eid_t(iReleaseStartHdr->finalDestinationNodeId, 0), true); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
@@ -786,12 +787,12 @@ void ZmqStorageInterface::ThreadFunc() {
                 }
                 else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)";
+                        LOG_ERROR(subprocess) << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)";
                         continue;
                     }
 
                     hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
-                    LOG_INFO(hdtn::Logger::Module::storage) << "finalDestEid (" 
+                    LOG_INFO(subprocess) << "finalDestEid (" 
                         + Uri::GetIpnUriStringAnyServiceNumber(iReleaseStopHdr->finalDestinationNodeId)
                         + ") will STOP BEING released from storage";
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(iReleaseStopHdr->finalDestinationNodeId, 0), true)); //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
@@ -804,10 +805,10 @@ void ZmqStorageInterface::ThreadFunc() {
                 uint8_t guiMsgByte;
                 const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundStoragePtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error in ZmqStorageInterface::ThreadFunc: cannot read guiMsgByte";
+                    LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read guiMsgByte";
                 }
                 else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                    LOG_ERROR(subprocess) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte);
                 }
                 else if (guiMsgByte == 1) {                    
@@ -831,7 +832,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
 
                     if (!m_zmqRepSock_connectingGuiToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "storage can't send telemetry to gui";
+                        LOG_ERROR(subprocess) << "storage can't send telemetry to gui";
                     }
                 }
                 /*
@@ -864,17 +865,17 @@ void ZmqStorageInterface::ThreadFunc() {
                 }
                 */
                 else {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error guiMsgByte not 1 or 2";
+                    LOG_ERROR(subprocess) << "error guiMsgByte not 1 or 2";
                 }
             }
             if (pollItems[4].revents & ZMQ_POLLIN) { //uis requests data
                 StorageTelemetryRequest_t telemReq;
                 const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingUisToFromBoundStoragePtr->recv(zmq::mutable_buffer(&telemReq, sizeof(telemReq)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemReq";
+                    LOG_ERROR(subprocess) << "error in ZmqStorageInterface::ThreadFunc: cannot read telemReq";
                 }
                 else if ((res->truncated()) || (res->size != sizeof(telemReq))) {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                    LOG_ERROR(subprocess) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(telemReq);
                 }
                 else if (telemReq.type == 10) {
@@ -883,7 +884,7 @@ void ZmqStorageInterface::ThreadFunc() {
                     telem.priority = telemReq.priority;
                     telem.thresholdSecondsSinceStartOfYear2000 = TimestampUtil::GetSecondsSinceEpochRfc5050(boost::posix_time::microsec_clock::universal_time() + boost::posix_time::seconds(telemReq.thresholdSecondsFromNow));
                     if (!bsm.GetStorageExpiringBeforeThresholdTelemetry(telem)) {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
+                        LOG_ERROR(subprocess) << "storage can't get StorageExpiringBeforeThresholdTelemetry";
                     }
                     else {
                         //send telemetry
@@ -900,14 +901,14 @@ void ZmqStorageInterface::ThreadFunc() {
                         vecUint8RawPointer->resize(telemPtr - telemSerializationBase);
 
                         zmq::message_t zmqTelemMessageWithDataStolen(vecUint8RawPointer->data(), vecUint8RawPointer->size(), CustomCleanupStdVecUint8, vecUint8RawPointer);
-                        LOG_INFO(hdtn::Logger::Module::storage) << "send storage telem to uis with size " << zmqTelemMessageWithDataStolen.size();
+                        LOG_INFO(subprocess) << "send storage telem to uis with size " << zmqTelemMessageWithDataStolen.size();
                         if (!m_zmqRepSock_connectingUisToFromBoundStoragePtr->send(std::move(zmqTelemMessageWithDataStolen), zmq::send_flags::dontwait)) {
-                            LOG_ERROR(hdtn::Logger::Module::storage) << "storage can't send telemetry to uis";
+                            LOG_ERROR(subprocess) << "storage can't send telemetry to uis";
                         }
                     }
                 }
                 else {
-                    LOG_ERROR(hdtn::Logger::Module::storage) << "error telemReq.type not 10";
+                    LOG_ERROR(subprocess) << "error telemReq.type not 10";
                 }
             }
         }
@@ -930,7 +931,7 @@ void ZmqStorageInterface::ThreadFunc() {
                 ++numCustodyTransferTimeouts;
             }
             else {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error unable to return expired custody id " << custodyIdExpiredAndNeedingResent << " to the awaiting send";
+                LOG_ERROR(subprocess) << "error unable to return expired custody id " << custodyIdExpiredAndNeedingResent << " to the awaiting send";
             }
         }
         
@@ -963,7 +964,7 @@ void ZmqStorageInterface::ThreadFunc() {
                         ++m_totalBundlesSentToEgressFromStorage;
                     }
                     else {
-                        LOG_ERROR(hdtn::Logger::Module::storage) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
+                        LOG_ERROR(subprocess) << "could not insert custody id into finalDestNodeIdToOpenCustIdsMap";
                     }
                 }
                 else if (PeekOne(availableDestLinksCloggedVec, bsm) > 0) { //data available in storage for clogged links
@@ -991,16 +992,16 @@ void ZmqStorageInterface::ThreadFunc() {
         m_workerStats.flow.disk_rcount = stats.disk_rcount;*/
         
     }
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "totalEventsAllLinksClogged: " << totalEventsAllLinksClogged;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "m_numAcsCustodyTransfers: " << m_numAcsCustodyTransfers;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "m_numAcsPacketsReceived: " << m_numAcsPacketsReceived;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_totalBundlesErasedFromStorageNoCustodyTransfer;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_totalBundlesErasedFromStorageWithCustodyTransfer;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts;
-    LOG_DEBUG(hdtn::Logger::Module::storage) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+    LOG_DEBUG(subprocess) << "totalEventsAllLinksClogged: " << totalEventsAllLinksClogged;
+    LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks;
+    LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks;
+    LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers;
+    LOG_DEBUG(subprocess) << "m_numAcsCustodyTransfers: " << m_numAcsCustodyTransfers;
+    LOG_DEBUG(subprocess) << "m_numAcsPacketsReceived: " << m_numAcsPacketsReceived;
+    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageNoCustodyTransfer: " << m_totalBundlesErasedFromStorageNoCustodyTransfer;
+    LOG_DEBUG(subprocess) << "m_totalBundlesErasedFromStorageWithCustodyTransfer: " << m_totalBundlesErasedFromStorageWithCustodyTransfer;
+    LOG_DEBUG(subprocess) << "numCustodyTransferTimeouts: " << numCustodyTransferTimeouts;
+    LOG_DEBUG(subprocess) << "m_totalBundlesRewrittenToStorageFromFailedEgressSend: " << m_totalBundlesRewrittenToStorageFromFailedEgressSend;
 }
 
 std::size_t ZmqStorageInterface::GetCurrentNumberOfBundlesDeletedFromStorage() {

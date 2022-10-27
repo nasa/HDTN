@@ -21,9 +21,10 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 void StorageRunner::MonitorExitKeypressThreadFunction() {
-    LOG_INFO(hdtn::Logger::Module::storage) << "Keyboard Interrupt.. exiting";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -60,7 +61,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                LOG_INFO(hdtn::Logger::Module::storage) << desc;
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
 
@@ -68,20 +69,20 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 
             hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
             if (!hdtnConfig) {
-                LOG_ERROR(hdtn::Logger::Module::storage) << "error loading config file: " << configFileName;
+                LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
         }
         catch (boost::bad_any_cast & e) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "invalid data error: " << e.what();
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
             return false;
         }
         catch (std::exception& e) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "error: " << e.what();
+            LOG_ERROR(subprocess) << "error: " << e.what();
             return false;
         }
         catch (...) {
-            LOG_ERROR(hdtn::Logger::Module::storage) << "Exception of unknown type!";
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
         //double last = 0.0;
@@ -95,7 +96,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
         //config.storePath = storePath;
         m_storagePtr = boost::make_unique<ZmqStorageInterface>();
-        LOG_INFO(hdtn::Logger::Module::storage) << "Initializing storage manager ...";
+        LOG_INFO(subprocess) << "Initializing storage manager ...";
         if (!m_storagePtr->Init(*hdtnConfig)) {
             return false;
         }
@@ -103,7 +104,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        LOG_INFO(hdtn::Logger::Module::storage) << "storage up and running";
+        LOG_INFO(subprocess) << "storage up and running";
 
         while (running && m_runningFromSigHandler) {            
             boost::this_thread::sleep(boost::posix_time::milliseconds(250));
@@ -124,7 +125,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
                 printf("[store] Received: %lu msg / %0.2f MB\n", ccount, cbytes / (1024.0 * 1024.0));
             }*/
         }
-        LOG_INFO(hdtn::Logger::Module::storage) << "StorageRunner: exiting cleanly..";
+        LOG_INFO(subprocess) << "StorageRunner: exiting cleanly..";
 //        store.Stop();
 //        m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
 //        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
@@ -132,6 +133,6 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         m_totalBundlesErasedFromStorage = m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
         m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
     }
-    LOG_INFO(hdtn::Logger::Module::storage) << "StorageRunner: exited cleanly";
+    LOG_INFO(subprocess) << "StorageRunner: exited cleanly";
     return true;
 }
