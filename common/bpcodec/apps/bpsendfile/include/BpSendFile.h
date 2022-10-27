@@ -30,6 +30,8 @@ protected:
     virtual uint64_t GetNextPayloadLength_Step1();
     virtual bool CopyPayload_Step2(uint8_t * destinationBuffer);
 private:
+    void Shutdown_NotThreadSafe();
+private:
     const uint64_t M_MAX_BUNDLE_PAYLOAD_SIZE_BYTES;
 
     //unbuffered mode
@@ -39,7 +41,7 @@ private:
     SendFileMetadata m_currentSendFileMetadata;
     boost::asio::io_service m_ioService; //for DirectoryScanner
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
-    DirectoryScanner m_directoryScanner;
+    std::unique_ptr<DirectoryScanner> m_directoryScannerPtr;
 };
 
 #endif //_BP_SEND_FILE_H

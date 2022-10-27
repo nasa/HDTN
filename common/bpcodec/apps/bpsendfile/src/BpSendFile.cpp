@@ -22,32 +22,42 @@ BpSendFile::BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_
     bool uploadExistingFiles, bool uploadNewFiles, unsigned int recurseDirectoriesDepth) :
     BpSourcePattern(),
     M_MAX_BUNDLE_PAYLOAD_SIZE_BYTES(maxBundleSizeBytes),
-    m_directoryScanner(fileOrFolderPath, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth, m_ioService, 3000)
+    m_directoryScannerPtr(boost::make_unique<DirectoryScanner>(fileOrFolderPath, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth, m_ioService, 3000))
 {
 
     if (uploadNewFiles) {
         m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     }
     
-    if ((m_directoryScanner.GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
+    if ((m_directoryScannerPtr->GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
         std::cerr << "error no files to send\n";
     }
     else {
-        std::cout << "sending " << m_directoryScanner.GetNumberOfFilesToSend() << " files now, monitoring "
-            << m_directoryScanner.GetNumberOfCurrentlyMonitoredDirectories() << " directories\n";
+        std::cout << "sending " << m_directoryScannerPtr->GetNumberOfFilesToSend() << " files now, monitoring "
+            << m_directoryScannerPtr->GetNumberOfCurrentlyMonitoredDirectories() << " directories\n";
     }
 }
 
-BpSendFile::~BpSendFile() {}
+BpSendFile::~BpSendFile() {
+    //m_ioService.stop(); //will hang ~m_ioService, delete the directory scanner object to stop it instead
+    if (m_ioServiceThreadPtr) {
+        boost::asio::post(m_ioService, boost::bind(&BpSendFile::Shutdown_NotThreadSafe, this));
+        m_ioServiceThreadPtr->join();
+        m_ioServiceThreadPtr.reset(); //delete it
+    }
+}
+void BpSendFile::Shutdown_NotThreadSafe() { //call within m_ioService thread
+    m_directoryScannerPtr.reset(); //delete it
+}
 
 std::size_t BpSendFile::GetNumberOfFilesToSend() const {
-    return m_directoryScanner.GetNumberOfFilesToSend();
+    return m_directoryScannerPtr->GetNumberOfFilesToSend();
 }
 
 uint64_t BpSendFile::GetNextPayloadLength_Step1() {
     if (m_currentFilePathAbsolute.empty()) {
-        if (!m_directoryScanner.GetNextFilePath(m_currentFilePathAbsolute, m_currentFilePathRelative)) {
-            if (m_directoryScanner.GetNumberOfCurrentlyMonitoredDirectories()) {
+        if (!m_directoryScannerPtr->GetNextFilePath(m_currentFilePathAbsolute, m_currentFilePathRelative)) {
+            if (m_directoryScannerPtr->GetNumberOfCurrentlyMonitoredDirectories()) {
                 return UINT64_MAX; //pending criteria
             }
             else {
@@ -109,7 +119,7 @@ bool BpSendFile::CopyPayload_Step2(uint8_t * destinationBuffer) {
 
 bool BpSendFile::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
     if (m_currentFilePathAbsolute.empty()) {
-        return m_directoryScanner.GetNextFilePathTimeout(m_currentFilePathAbsolute, m_currentFilePathRelative, timeout);
+        return m_directoryScannerPtr->GetNextFilePathTimeout(m_currentFilePathAbsolute, m_currentFilePathRelative, timeout);
     }
     return true;
 }
