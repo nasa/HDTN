@@ -15,6 +15,7 @@ add_library(hdtn_util
 	src/TokenRateLimiter.cpp
 	src/UdpBatchSender.cpp
 	src/LtpClientServiceDataToSend.cpp
+	src/DirectoryScanner.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -51,6 +52,7 @@ set(MY_PUBLIC_HEADERS
 	include/CborUint.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
+	include/DirectoryScanner.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h
 	include/FragmentSet.h
