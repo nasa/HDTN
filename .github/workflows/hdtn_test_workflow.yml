@@ -64,8 +64,9 @@ jobs:
          run: |
           export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
           export HDTN_SOURCE_ROOT=/home/hdtn/HDTN_LATEST/HDTN/
+          cd $HDTN_SOURCE_ROOT
           git pull 
-          cd /home/hdtn/HDTN_LATEST/HDTN/build
+          cd build
           make clean
           # Coverity Build
           cov-build --dir idir make -j8
