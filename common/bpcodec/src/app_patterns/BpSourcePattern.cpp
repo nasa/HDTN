@@ -239,6 +239,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     std::vector<uint8_t> bundleToSend;
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
     bool isGeneratingNewBundles = true;
+    bool inWaitForNewBundlesState = false;
     while (m_running) { //keep thread alive if running
                 
         if(bundleRate) {
@@ -265,11 +266,26 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             m_mutexQueueBundlesThatFailedToSend.unlock();
             bundleLength = bundleToSend.size();
         }
+        else if (inWaitForNewBundlesState) {
+            static const boost::posix_time::time_duration timeout(boost::posix_time::milliseconds(250));
+            inWaitForNewBundlesState = !TryWaitForDataAvailable(timeout);
+            if (!inWaitForNewBundlesState) {
+                std::cout << "data available\n";
+            }
+            //std::cout << ((inWaitForNewBundlesState) ? "in wait\n" : "data available\n");
+            continue;
+        }
         else if (isGeneratingNewBundles) {
             payloadSizeBytes = GetNextPayloadLength_Step1();
             if (payloadSizeBytes == 0) {
                 std::cout << "payloadSizeBytes == 0... out of work.. waiting for all bundles to fully transmit before exiting\n";
                 isGeneratingNewBundles = false;
+                inWaitForNewBundlesState = false;
+                continue;
+            }
+            else if (payloadSizeBytes == UINT64_MAX) {
+                std::cout << "waiting for new bundles to become available...\n";
+                inWaitForNewBundlesState = true;
                 continue;
             }
             bundleId = m_nextBundleId++;
@@ -867,4 +883,11 @@ void BpSourcePattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, u
     }
     m_linkIsDown = isLinkDownEvent;
     m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+}
+
+bool BpSourcePattern::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
+    //default behavior (if not overloaded in child class) is to return true so that
+    //GetNextPayloadLength_Step1() will return 0 and close the class,
+    //although this parent function should never be called.
+    return true;
 }

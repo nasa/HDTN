@@ -44,10 +44,13 @@ public:
     typedef std::queue<ptime_plus_mapit_pair_t> timer_queue_t;
     HDTN_UTIL_EXPORT DirectoryScanner(const boost::filesystem::path & rootFileOrFolderPath,
         bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
-        boost::asio::io_service & ioServiceRef);
+        boost::asio::io_service & ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds);
     HDTN_UTIL_EXPORT ~DirectoryScanner();
     HDTN_UTIL_EXPORT std::size_t GetNumberOfFilesToSend() const;
+    HDTN_UTIL_EXPORT std::size_t GetNumberOfCurrentlyMonitoredDirectories() const;
     HDTN_UTIL_EXPORT bool GetNextFilePath(boost::filesystem::path& nextFilePathAbsolute, boost::filesystem::path& nextFilePathRelative);
+    HDTN_UTIL_EXPORT bool GetNextFilePathTimeout(boost::filesystem::path& nextFilePathAbsolute,
+        boost::filesystem::path& nextFilePathRelative, const boost::posix_time::time_duration & timeout);
     HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const path_list_t& o);
     HDTN_UTIL_EXPORT friend std::ostream& operator<<(std::ostream& os, const path_set_t& o);
     HDTN_UTIL_EXPORT const path_list_t & GetListOfFilesAbsolute() const;
@@ -63,6 +66,7 @@ private:
     HDTN_UTIL_NO_EXPORT void IterateDirectories(const boost::filesystem::path& rootDirectory, const unsigned int startingRecursiveDepthIndex, const bool addFiles);
 private:
     boost::mutex m_pathsOfFilesListMutex;
+    boost::condition_variable m_pathsOfFilesListCv;
     path_list_t m_pathsOfFilesList;
     path_list_t::iterator m_currentFilePathIterator;
     const boost::filesystem::path m_rootFileOrFolderPath;

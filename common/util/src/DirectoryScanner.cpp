@@ -19,7 +19,7 @@
 
 DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFolderPath,
     bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
-    boost::asio::io_service& ioServiceRef) :
+    boost::asio::io_service& ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds) :
     m_currentFilePathIterator(m_pathsOfFilesList.end()),
     m_rootFileOrFolderPath(rootFileOrFolderPath),
     m_includeExistingFiles(includeExistingFiles),
@@ -28,7 +28,7 @@ DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFold
     m_ioServiceRef(ioServiceRef),
     m_dirMonitor(ioServiceRef),
     m_timerNewFileComplete(ioServiceRef),
-    m_timeDurationToRecheckFileSize(boost::posix_time::milliseconds(250))
+    m_timeDurationToRecheckFileSize(boost::posix_time::milliseconds(recheckFileSizeDurationMilliseconds))
 {
     Reload();
 }
@@ -39,6 +39,9 @@ DirectoryScanner::~DirectoryScanner() {
 
 std::size_t DirectoryScanner::GetNumberOfFilesToSend() const {
     return m_pathsOfFilesList.size();
+}
+std::size_t DirectoryScanner::GetNumberOfCurrentlyMonitoredDirectories() const {
+    return m_currentlyMonitoredDirectoryPaths.size();
 }
 
 const DirectoryScanner::path_list_t& DirectoryScanner::GetListOfFilesAbsolute() const {
@@ -92,8 +95,21 @@ bool DirectoryScanner::GetNextFilePath(boost::filesystem::path& nextFilePathAbso
     path_list_t::iterator toEraseIt = m_currentFilePathIterator;
     ++m_currentFilePathIterator;
     m_pathsOfFilesList.erase(toEraseIt);
-    std::cout << "send " << nextFilePathAbsolute << std::endl;
+    //std::cout << "send " << nextFilePathAbsolute << std::endl;
     return true;
+}
+
+bool DirectoryScanner::GetNextFilePathTimeout(boost::filesystem::path& nextFilePathAbsolute,
+    boost::filesystem::path& nextFilePathRelative, const boost::posix_time::time_duration& timeout)
+{
+    if (GetNextFilePath(nextFilePathAbsolute, nextFilePathRelative)) {
+        return true;
+    }
+    {
+        boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
+        m_pathsOfFilesListCv.timed_wait(lock, timeout);
+    }
+    return GetNextFilePath(nextFilePathAbsolute, nextFilePathRelative);
 }
 
 void DirectoryScanner::Clear() {
@@ -136,13 +152,6 @@ void DirectoryScanner::Reload() {
         }
     }
 
-    if ((m_pathsOfFilesList.size() == 0) && (!m_includeNewFiles)) {
-        std::cerr << "error no files to send\n";
-    }
-    else {
-        std::cout << "sending " << m_pathsOfFilesList.size() << " files now, monitoring "
-            << m_currentlyMonitoredDirectoryPaths.size() << " directories\n";
-    }
     m_currentFilePathIterator = m_pathsOfFilesList.begin();
 
     if (!m_currentlyMonitoredDirectoryPaths.empty()) {
@@ -179,10 +188,15 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
         else if (isFile && (p.extension().string().size() > 1)) {
             //std::cout << "FILE depth=" << depth << " p=" << p << "\n";
             if (p.size() <= 255) {
-                if (m_newFilePathsAddedSet.emplace(p).second) { //keep permanent record of found files
-                    if (addFiles) {
-                        m_pathsOfFilesList.emplace_back(p);
+                if (startingRecursiveDepthIndex == 0) { //existing files
+                    if (m_newFilePathsAddedSet.emplace(p).second) { //keep permanent record of found files
+                        if (addFiles) {
+                            m_pathsOfFilesList.emplace_back(p);
+                        }
                     }
+                }
+                else { //new files, use timer scheme to check filesize not changed
+                    TryAddNewFile(p);
                 }
             }
             else {
@@ -191,10 +205,6 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
         }
     }
 }
-
-//bool BpSendFile::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
-//    return true;
-//}
 
 void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& ec, const boost::asio::dir_monitor_event& ev) {
     if (!ec) {
@@ -253,7 +263,7 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
         m_dirMonitor.async_monitor(boost::bind(&DirectoryScanner::OnDirectoryChangeEvent, this, boost::placeholders::_1, boost::placeholders::_2));
     }
     else if (ec == boost::asio::error::operation_aborted) {
-        std::cout << "op abort\n";
+        //std::cout << "op abort\n";
         //m_dirMonitor.async_monitor(boost::bind(&DirectoryScanner::OnDirectoryChangeEvent, this, boost::placeholders::_1, boost::placeholders::_2));
     }
     else {
@@ -297,16 +307,32 @@ void DirectoryScanner::OnRecheckFileSize_TimerExpired(const boost::system::error
             const uintmax_t nowFileSize = boost::filesystem::file_size(thisPath);
             if (prevFileSize == nowFileSize) { //last event for this file and filesize remained same for a period of time
                 //add the new file
-                //std::cout << "add new file " << thisPath << "\n";
-                if (m_newFilePathsAddedSet.emplace(thisPath).second) {
-                    boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
-                    const bool iteratorAtEnd = (m_currentFilePathIterator == m_pathsOfFilesList.end());
-                    m_pathsOfFilesList.emplace_back(thisPath);
-                    if (iteratorAtEnd) {
-                        m_currentFilePathIterator = std::prev(m_pathsOfFilesList.end());
-                    }
+                bool fileIsOpenable;
+                {
+                    boost::filesystem::ifstream ifstr(thisPath, std::ifstream::in | std::ifstream::binary);
+                    fileIsOpenable = ifstr.good();
+                    ifstr.close();
                 }
-                m_currentlyPendingFilesToAddMap.erase(thisExpiredIt); //references now invalid
+                if (fileIsOpenable) {
+                    //std::cout << "add new file " << thisPath << " filesize= " << nowFileSize << "\n";
+                    if (m_newFilePathsAddedSet.emplace(thisPath).second) {
+                        {
+                            boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
+                            const bool iteratorAtEnd = (m_currentFilePathIterator == m_pathsOfFilesList.end());
+                            m_pathsOfFilesList.emplace_back(thisPath);
+                            if (iteratorAtEnd) {
+                                m_currentFilePathIterator = std::prev(m_pathsOfFilesList.end());
+                            }
+                        }
+                        m_pathsOfFilesListCv.notify_one();
+                    }
+                    m_currentlyPendingFilesToAddMap.erase(thisExpiredIt); //references now invalid
+                }
+                else { //file not openable (perhaps permission denied during copy)
+                    std::cout << "file not openable yet: " << thisPath << "\n";
+                    thisFilesizeQueueCount.second = 1;
+                    m_currentlyPendingFilesToAddTimerQueue.emplace(boost::posix_time::microsec_clock::universal_time() + m_timeDurationToRecheckFileSize, thisExpiredIt);
+                }
             }
             else { //file size mismatch.. wait again to see if the file stops changing sizes
                 //std::cout << "file size mismatch " << thisPath << "\n";

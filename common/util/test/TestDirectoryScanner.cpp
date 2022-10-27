@@ -20,6 +20,7 @@
 BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
 {
     boost::asio::io_service ioService;
+    static constexpr uint64_t recheckFileSizeDurationMilliseconds = 250;
     {
         namespace fs = boost::filesystem;
         const boost::filesystem::path rootPath = fs::temp_directory_path() / "DirectoryScannerTest";
@@ -27,7 +28,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
         if (boost::filesystem::is_directory(rootPath)) {
             fs::remove_all(rootPath);
         }
-        std::cout << "rootpath=" << rootPath << "\n";
+        std::cout << "running DirectoryScannerTestCase with rootpath=" << rootPath << "\n";
         fs::create_directories(rootPath / "a/b/c");
         fs::create_directories(rootPath / "a/b/d/e");
         std::ofstream((rootPath / "d0_file1.txt").string());
@@ -84,7 +85,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
         bool includeNewFiles = false;
         for (unsigned int recurseDirectoriesDepth = 0; recurseDirectoriesDepth <= 4; ++recurseDirectoriesDepth) {
             {
-                DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService);
+                DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService, recheckFileSizeDurationMilliseconds);
                 BOOST_REQUIRE(depthIndexToExpectedAbsoluteList[recurseDirectoriesDepth] == ds.GetListOfFilesAbsolute());
                 BOOST_REQUIRE(depthIndexToExpectedRelativeList[recurseDirectoriesDepth] == ds.GetListOfFilesRelativeCopy());
                 BOOST_REQUIRE(ds.GetSetOfMonitoredDirectoriesAbsolute().empty());
@@ -116,7 +117,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
         includeNewFiles = true;
         for (unsigned int recurseDirectoriesDepth = 0; recurseDirectoriesDepth <= 4; ++recurseDirectoriesDepth) {
             {
-                DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService);
+                DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService, recheckFileSizeDurationMilliseconds);
                 BOOST_REQUIRE(ds.GetListOfFilesAbsolute().empty());
                 BOOST_REQUIRE(ds.GetListOfFilesRelativeCopy().empty());
                 BOOST_REQUIRE(depthIndexToExpectedAbsoluteDirectoriesMonitoredSet[recurseDirectoriesDepth] == ds.GetSetOfMonitoredDirectoriesAbsolute());
@@ -139,7 +140,7 @@ BOOST_AUTO_TEST_CASE(DirectoryScannerTestCase)
         {
             {
                 unsigned int recurseDirectoriesDepth = 4;
-                DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService);
+                DirectoryScanner ds(rootPath, includeExistingFiles, includeNewFiles, recurseDirectoriesDepth, ioService, recheckFileSizeDurationMilliseconds);
                 {
                     std::ofstream os((rootPath / "a/b/d/e/d4e_filenew.txt").string());
                     os << "my new file";

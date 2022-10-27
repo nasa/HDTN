@@ -5,6 +5,7 @@
 #include <set>
 #include <map>
 #include "FragmentSet.h"
+#include <boost/filesystem.hpp>
 
 class BpReceiveFile : public BpSinkPattern {
 private:
@@ -20,16 +21,16 @@ public:
         uint8_t unused2;
         uint8_t unused3;
     };
-    typedef std::pair<std::set<FragmentSet::data_fragment_t>, std::unique_ptr<std::ofstream> > fragments_ofstream_pair_t;
-    typedef std::map<std::string, fragments_ofstream_pair_t> filename_to_writeinfo_map_t;
+    typedef std::pair<std::set<FragmentSet::data_fragment_t>, std::unique_ptr<boost::filesystem::ofstream> > fragments_ofstream_pair_t;
+    typedef std::map<boost::filesystem::path, fragments_ofstream_pair_t> filename_to_writeinfo_map_t;
 
-    BpReceiveFile(const std::string & saveDirectory);
+    BpReceiveFile(const boost::filesystem::path & saveDirectory);
     virtual ~BpReceiveFile();
 
 protected:
     virtual bool ProcessPayload(const uint8_t * data, const uint64_t size);
 public:
-    std::string m_saveDirectory;
+    boost::filesystem::path m_saveDirectory;
     filename_to_writeinfo_map_t m_filenameToWriteInfoMap;
 };
 
