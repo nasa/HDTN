@@ -24,6 +24,7 @@
 #include <string>
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
 #include <memory>
 #include <list>
 #include <set>
