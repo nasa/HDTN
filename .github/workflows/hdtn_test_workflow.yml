@@ -68,9 +68,6 @@ jobs:
           git pull 
           cd build
           make clean
-          # Coverity Build
           cov-build --dir idir make -j8
-          #Coverity Analyze
           cov-analyze --dir idir --all --enable-constraint-fpp --enable-fnptr --enable-virtual --strip-path $HDTN_SOURCE_ROOT
-          #Coverity Commit Defects
           cov-commit-defects --dir idir --url  https://10.54.31.120:8443 --stream HDTN-master --auth-key-file /home/hdtn/auth.key
