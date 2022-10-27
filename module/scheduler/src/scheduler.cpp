@@ -47,6 +47,13 @@ bool contactPlan_t::operator<(const contactPlan_t& o) const {
     return (contact < o.contact);
 }
 
+bool contact_t::operator<(const contact_t& o) const {
+    if (source == o.source) {
+        return (dest < o.dest);
+    }
+    return (source < o.source);
+}
+
 Scheduler::Scheduler() : 
     m_contactPlanTimer(m_ioService)
 {
@@ -336,9 +343,15 @@ void Scheduler::EgressEventsHandler() {
                     finalDestinationEidUri << " is invalid." << std::endl;
                 return;
             }
-            if (event == 1) {
+	    contact_t contact;
+            contact.source = srcNode;
+            contact.dest = destNode;
+
+            if (event == 1 && m_mapContactUp[contact]) {
+	     //   if (m_mapContactUp[contact] == true) {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
-                SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
+		SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
+	//	}
             }
             else {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Down event " << std::endl;
@@ -432,8 +445,14 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
     for (ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); it != m_ptimeToContactPlanBimap.left.end(); ++it) {
         const contactplan_islinkup_pair_t& contactPlan = it->second;
         const bool isLinkUp = contactPlan.second;
+        contact_t contact;
+        contact.source = contactPlan.first.source;
+        contact.dest = contactPlan.first.dest;
+
+
         if (!isLinkUp) {
-            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+            m_mapContactUp.insert(std::pair<contact_t, bool>(contact, false));
+	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
         }
     }
 
@@ -496,10 +515,16 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
         if (it != m_ptimeToContactPlanBimap.left.end()) {
             const contactplan_islinkup_pair_t& contactPlan = it->second;
             const bool isLinkUp = contactPlan.second;
+	    contact_t contact;
+	    contact.source = contactPlan.first.source;
+            contact.dest = contactPlan.first.dest;
+
             if (isLinkUp) {
-                SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+                m_mapContactUp.insert(std::pair<contact_t, bool>(contact, true));
+		SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             else {
+		m_mapContactUp.insert(std::pair<contact_t, bool>(contact, false));
                 SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             m_ptimeToContactPlanBimap.left.erase(it);
