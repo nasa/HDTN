@@ -28,14 +28,14 @@ namespace hdtn{
  * an ostream operator 
  */
 #ifdef DO_STATS_LOGGING
-    #define LOG_STAT(name) _LOG_STAT(name)
+    #define LOG_STAT(metric_name) _LOG_STAT(metric_name)
 #else
-    #define LOG_STAT(name) _NO_OP_STREAM
+    #define LOG_STAT(metric_name) _NO_OP_STREAM
 #endif
 
-#define _LOG_STAT(name)\
+#define _LOG_STAT(metric_name)\
     hdtn::StatsWriter::ensureInitialized();\
-    hdtn::StatsWriter::name_attr.set(name);\
+    hdtn::StatsWriter::metric_name_attr.set(metric_name);\
     BOOST_LOG(hdtn::StatsWriter::logger_)
 
 /**
@@ -64,8 +64,8 @@ public:
         boost::shared_mutex,
         boost::unique_lock< boost::shared_mutex >,
         boost::shared_lock< boost::shared_mutex >
-    > name_attr_t;
-    STATS_LIB_EXPORT static name_attr_t name_attr;
+    > metric_name_attr_t;
+    STATS_LIB_EXPORT static metric_name_attr_t metric_name_attr;
 
     STATS_LIB_EXPORT ~StatsWriter();
 private:
@@ -79,10 +79,10 @@ private:
     STATS_LIB_EXPORT void registerAttributes();
 
     /**
-     * Creates a multi-file sink for the name attribute. Used
+     * Creates a multi-file sink for the metric_name attribute. Used
      * to split stats into separate files. 
      */
-    STATS_LIB_EXPORT void createMultiFileLogSinkForNameAttr();
+    STATS_LIB_EXPORT void createMultiFileLogSinkForMetricNameAttr();
 
     /**
      * Attributes for managing singleton instance 

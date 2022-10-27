@@ -13,13 +13,13 @@ namespace hdtn{
 std::unique_ptr<StatsWriter> StatsWriter::statsWriter_; //initialized to "null"
 boost::mutex StatsWriter::mutexSingletonInstance_;
 volatile bool StatsWriter::statsWriterSingletonFullyInitialized_ = false;
-StatsWriter::name_attr_t StatsWriter::name_attr("");
+StatsWriter::metric_name_attr_t StatsWriter::metric_name_attr("");
 boost::log::sources::logger_mt StatsWriter::logger_;
 
 StatsWriter::StatsWriter()
 {
     registerAttributes();
-    createMultiFileLogSinkForNameAttr();
+    createMultiFileLogSinkForMetricNameAttr();
     boost::log::add_common_attributes(); //necessary for timestamp
 }
 
@@ -37,10 +37,10 @@ void StatsWriter::ensureInitialized()
 
 void StatsWriter::registerAttributes()
 {
-    StatsWriter::logger_.add_attribute("Name", StatsWriter::name_attr);
+    StatsWriter::logger_.add_attribute("MetricName", StatsWriter::metric_name_attr);
 }
 
-void StatsWriter::createMultiFileLogSinkForNameAttr()
+void StatsWriter::createMultiFileLogSinkForMetricNameAttr()
 {
     boost::shared_ptr< boost::log::sinks::text_multifile_backend > backend =
         boost::make_shared< boost::log::sinks::text_multifile_backend >();
@@ -49,7 +49,7 @@ void StatsWriter::createMultiFileLogSinkForNameAttr()
     (
         boost::log::sinks::file::as_file_name_composer(
             boost::log::expressions::stream << "stats/" <<
-                boost::log::expressions::attr< std::string > ("Name") << ".csv"
+                boost::log::expressions::attr< std::string > ("MetricName") << ".csv"
         )
     );
 
@@ -58,7 +58,7 @@ void StatsWriter::createMultiFileLogSinkForNameAttr()
     sink->set_formatter
     (
         boost::log::expressions::stream
-            << boost::log::expressions::attr< std::string >("Name")
+            << boost::log::expressions::attr< std::string >("MetricName")
             << "," << boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
             << "," << boost::log::expressions::smessage
     );
