@@ -1,3 +1,20 @@
+# @file hardware_acceleration.cmake
+# @author  Brian Tomko <brian.j.tomko@nasa.gov>
+#
+# @copyright Copyright © 2021 United States Government as represented by
+# the National Aeronautics and Space Administration.
+# No copyright is claimed in the United States under Title 17, U.S.Code.
+# All Other Rights Reserved.
+#
+# @section LICENSE
+# Released under the NASA Open Source Agreement (NOSA)
+# See LICENSE.md in the source root directory for more information.
+#
+# @section DESCRIPTION
+#
+# This script detects if the compiler supports specific hardware acceleration compiler intrinsics,
+# and it detects (if not cross compiling) if the CPU supports hardware accelerated instructions.
+
 if(USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED)
 	check_include_file("immintrin.h" HAVE_IMMINTRIN_H)
 	if(NOT HAVE_IMMINTRIN_H)
