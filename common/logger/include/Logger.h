@@ -55,48 +55,44 @@ namespace hdtn{
  * The following macros provide access for logging at various levels
  */
 #if LOG_LEVEL > LOG_LEVEL_TRACE
-    #define LOG_TRACE(module) _NO_OP_STREAM
+    #define LOG_TRACE(subprocess) _NO_OP_STREAM
 #else
-    #define LOG_TRACE(module) _LOG_INTERNAL(module, trace)
+    #define LOG_TRACE(subprocess) _LOG_INTERNAL(subprocess, trace)
 #endif
    
 #if LOG_LEVEL > LOG_LEVEL_DEBUG
-    #define LOG_DEBUG(module) _NO_OP_STREAM
+    #define LOG_DEBUG(subprocess) _NO_OP_STREAM
 #else
-    #define LOG_DEBUG(module) _LOG_INTERNAL(module, debug)
+    #define LOG_DEBUG(subprocess) _LOG_INTERNAL(subprocess, debug)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_INFO
-    #define LOG_INFO(module) _NO_OP_STREAM
+    #define LOG_INFO(subprocess) _NO_OP_STREAM
 #else
-    #define LOG_INFO(module) _LOG_INTERNAL(module, info)
+    #define LOG_INFO(subprocess) _LOG_INTERNAL(subprocess, info)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_WARNING
-    #define LOG_WARNING(module) _NO_OP_STREAM
+    #define LOG_WARNING(subprocess) _NO_OP_STREAM
 #else
-    #define LOG_WARNING(module) _LOG_INTERNAL(module, warning)
+    #define LOG_WARNING(subprocess) _LOG_INTERNAL(subprocess, warning)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_ERROR
-    #define LOG_ERROR(module) _NO_OP_STREAM
+    #define LOG_ERROR(subprocess) _NO_OP_STREAM
 #else
-    #define LOG_ERROR(module) _LOG_INTERNAL(module, error)
+    #define LOG_ERROR(subprocess) _LOG_INTERNAL(subprocess, error)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_FATAL
-    #define LOG_FATAL(module) _NO_OP_STREAM
+    #define LOG_FATAL(subprocess) _NO_OP_STREAM
 #else
-    #define LOG_FATAL(module) _LOG_INTERNAL(module, fatal)
+    #define LOG_FATAL(subprocess) _LOG_INTERNAL(subprocess, fatal)
 #endif
 
-/**
- * _LOG_INTERNAL performs the actual logging. It should only
- * be used internally.
- */
-#define _LOG_INTERNAL(module, lvl)\
+#define _LOG_INTERNAL(subprocess, lvl)\
     hdtn::Logger::ensureInitialized();\
-    _ADD_LOG_ATTRIBUTES(module);\
+    _ADD_LOG_ATTRIBUTES(subprocess);\
     BOOST_LOG_TRIVIAL(lvl)
 
 /**
@@ -108,8 +104,8 @@ namespace hdtn{
 /**
  * _ADD_LOG_ATTRIBUTES adds attributes to the logger
  */
-#define _ADD_LOG_ATTRIBUTES(module)\
-    hdtn::Logger::module_attr.set(module);\
+#define _ADD_LOG_ATTRIBUTES(subprocess)\
+    hdtn::Logger::subprocess_attr.set(subprocess);\
     hdtn::Logger::file_attr.set(__FILE__);\
     hdtn::Logger::line_attr.set(__LINE__)
 
@@ -128,34 +124,69 @@ public:
     LOG_LIB_EXPORT static void ensureInitialized();
 
     /**
-     * Represents modules that Logger supports. New modules using the logger
+     * Represents processes that Logger supports. New processes using the logger
      * should be added to this list.
      */
-    enum class Module {
+    enum class Process {
+        bpgen,
+        bping,
+        bpreceivefile,
+        bpsendfile,
+        bpsink,
+        ltpfiletransfer,
+        egress,
+        gui,
+        hdtnoneprocess,
+        ingress,
+        router,
+        scheduler,
+        storage,
+        releasemessagesender,
+        storagespeedtest,
+        udpdelaysim,
+        unittest,
+        none
+    };
+
+    /**
+     * Represents sub-processes that Logger supports. New sub-processes using the logger
+     * should be added to this list.
+     */
+    enum class SubProcess {
         egress,
         ingress,
         router,
         scheduler,
-        storage
+        storage,
+        gui,
+        none
     };
 
 
     /**
-     * Converts a Module enum value to its string representation.
-     * @param module the Module enum value to convert
+     * Converts a Process enum value to its string reresentation.
+     * @param process the Process enum value to convert
      */
-    LOG_LIB_EXPORT static std::string toString(Logger::Module module);
+    LOG_LIB_EXPORT static std::string toString(Logger::Process process);
+
+    /**
+     * Converts a SubProcess enum value to its string representation.
+     * @param subprocess the Process enum value to convert
+     */
+    LOG_LIB_EXPORT static std::string toString(Logger::SubProcess subProcess);
 
     /**
      * Attribute types that can be safely accessed from multiple threads.
      * Shared lock for read, exclusive lock for write.
      */
+    typedef boost::log::attributes::constant<Logger::Process> process_attr_t;
+
     typedef boost::log::attributes::mutable_constant<
-        Logger::Module,
+        Logger::SubProcess,
         boost::shared_mutex,
         boost::unique_lock< boost::shared_mutex >,
         boost::shared_lock< boost::shared_mutex >
-    > module_attr_t;
+    > subprocess_attr_t;
 
     typedef boost::log::attributes::mutable_constant<
         std::string,
@@ -174,18 +205,25 @@ public:
     /**
      * Attributes to be included in log messages
      */
-    LOG_LIB_EXPORT static Logger::module_attr_t module_attr;
+    LOG_LIB_EXPORT static Logger::process_attr_t process_attr;
+    LOG_LIB_EXPORT static Logger::subprocess_attr_t subprocess_attr;
     LOG_LIB_EXPORT static Logger::file_attr_t file_attr;
     LOG_LIB_EXPORT static Logger::line_attr_t line_attr;
 
+    /*
+     * Initializes the logger with a process identifier to be
+     * used in all messages
+     */
+    LOG_LIB_EXPORT static void initializeWithProcess(Logger::Process process);
+
     // Deprecated -- use LOG_* macros instead.
-    LOG_LIB_EXPORT static Module fromString(std::string module);
+    LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
     LOG_LIB_EXPORT static Logger* getInstance();
-    LOG_LIB_EXPORT void logInfo(const std::string & module, const std::string & message);
-    LOG_LIB_EXPORT void logNotification(const std::string & module, const std::string & message);
-    LOG_LIB_EXPORT void logWarning(const std::string & module, const std::string & message);
-    LOG_LIB_EXPORT void logError(const std::string & module, const std::string & message);
-    LOG_LIB_EXPORT void logCritical(const std::string & module, const std::string & message);
+    LOG_LIB_EXPORT void logInfo(const std::string & subprocess, const std::string & message);
+    LOG_LIB_EXPORT void logNotification(const std::string & subprocess, const std::string & message);
+    LOG_LIB_EXPORT void logWarning(const std::string & subprocess, const std::string & message);
+    LOG_LIB_EXPORT void logError(const std::string & subprocess, const std::string & message);
+    LOG_LIB_EXPORT void logCritical(const std::string & subprocess, const std::string & message);
     // End deprecation.
 
     LOG_LIB_EXPORT ~Logger();
@@ -206,15 +244,16 @@ private:
     LOG_LIB_EXPORT void registerAttributes();
 
     /**
-     * Creates a new log file sink for storing all logs.
+     * Creates a new log file sink for the requested process.
+     * @param process The process of the logs stored in this file.
      */
-    LOG_LIB_EXPORT void createFileSinkForFullHdtnLog();
+    LOG_LIB_EXPORT void createFileSinkForProcess(Logger::Process process);
 
     /**
-     * Creates a new log file sink for the requested module.
-     * @param module The module of the logs stored in this file.
+     * Creates a new log file sink for the requested sub-process.
+     * @param subprocess The sub-process of the logs stored in this file.
      */
-    LOG_LIB_EXPORT void createFileSinkForModule(Logger::Module module);
+    LOG_LIB_EXPORT void createFileSinkForSubProcess(Logger::SubProcess subprocess);
 
     /**
      * Creates a new log file sink for the requested severity level.
@@ -231,6 +270,11 @@ private:
      * Creates a new sink for writing messages to stderr
      */
     LOG_LIB_EXPORT void createStderrSink();
+
+    /**
+     * Extracts the process attribute value
+     */
+    LOG_LIB_EXPORT Logger::Process getProcessAttributeVal();
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static std::unique_ptr<Logger> logger_; //singleton instance

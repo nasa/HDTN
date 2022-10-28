@@ -2,7 +2,7 @@
  * @file StorageSpeedTestMain.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -21,6 +21,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/timer/timer.hpp>
 #include "SignalHandler.h"
+#include "Logger.h"
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
@@ -242,6 +243,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
 
 int main() {
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::storagespeedtest);
     std::unique_ptr<BundleStorageManagerBase> bsmPtr;
     if (true) {
         boost::make_unique<BundleStorageManagerMT>();
