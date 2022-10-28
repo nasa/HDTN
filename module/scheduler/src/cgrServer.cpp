@@ -1,21 +1,24 @@
 #include "cgrServer.h"
+#include "Logger.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
 void CgrServer::init(std::string address)
 {
-    std::cout << "starting init" << std::endl;
-    std::cout << "socket reset" << std::endl;
+    LOG_INFO(subprocess) << "starting init";
+    LOG_INFO(subprocess) << "socket reset";
     cgrSock.reset(); //delete existing
-    std::cout << "create context" << std::endl;
+    LOG_INFO(subprocess) << "create context";
 
     cgrCtx = boost::make_unique<zmq::context_t>();
-    std::cout << "create socket" << std::endl;
+    LOG_INFO(subprocess) << "create socket";
 
     cgrSock = boost::make_unique<zmq::socket_t>(*cgrCtx, zmq::socket_type::pair);
 
-    std::cout << "set socket" << std::endl;
+    LOG_INFO(subprocess) << "set socket";
     static const int timeout = 2000;
     cgrSock->set(zmq::sockopt::rcvtimeo, timeout);
-    std::cout << "attempting zmq connection" << std::endl;
+    LOG_INFO(subprocess) << "attempting zmq connection";
     cgrSock->connect(address); //"tcp://localhost:5556"
 }
 
@@ -25,17 +28,16 @@ int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTim
         + "|" + std::to_string(startTime);
 
     //cgrSock->send(&msg, zmq::send_flags::none);
-    std::cout << "Sending CGR request" << std::endl;
+    LOG_INFO(subprocess) << "Sending CGR request";
     cgrSock->send(zmq::const_buffer(message.c_str(), strlen(message.c_str())), zmq::send_flags::none);
-    std::cout << "Waiting to receive message back" << std::endl;
+    LOG_INFO(subprocess) << "Waiting to receive message back";
     zmq::message_t recvMessage;
     cgrSock->recv(recvMessage, zmq::recv_flags::none);
 
     std::string myReceivedAsString((const char *)recvMessage.data(), (const char *)recvMessage.data() + recvMessage.size());
 
-    //std::cout << std::to_string((uintptr_t)recvMsg.data()) << std::endl;
     //uintptr_t nextNode = (uintptr_t)recvMsg.data();
-    std::cout << "Next hop is " << myReceivedAsString << std::endl;
+    LOG_INFO(subprocess) << "Next hop is " << myReceivedAsString;
     return stoi(myReceivedAsString); //nextNode;
 }
 
