@@ -26,13 +26,13 @@ HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Serve
 
 ## Notes on C++ Standard Version ##
 HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `On`.
-* If set to `On`, CMake will test if the compiler supports C++17.  If the test fails, CMake will fall back to C++11 and compile HDTN with C++11.
+* If set to `On`, CMake will test if the compiler supports C++17.  If the test fails, CMake will fall back to C++11 and compile HDTN with C++11.  If the test passes, CMake will compile HDTN with C++17.
 * If set to `Off`, CMake will compile HDTN with C++11.
-* With Visual Studio 2017 version 15.7 and later versions, if C++17 is enabled, CMake will set the flag `/Zc:\_\_cplusplus` to make the `\_\_cplusplus` macro accurate.
-* Throughout the HDTN codebase, C++17 optimizations exist, usually within a `\#if(\_\_cplusplus >= 201703L)` block.
+* With Visual Studio 2017 version 15.7 and later versions, if C++17 is enabled, CMake will set the compile option `/Zc:__cplusplus` to make the `__cplusplus` preprocessor macro accurate for Visual Studio.  (Otherwise, without this compile option, by default, Visual Studio always returns the value `199711L` for the `__cplusplus` preprocessor macro.)
+* Throughout the HDTN codebase, C++17 optimizations exist, usually within a `#if(__cplusplus >= 201703L)` block.
 
 ## Optional X86 Hardware Acceleration ## 
-HDTN build environment sets by default two CMake cache variables to `On`": `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED`.
+HDTN build environment sets by default two CMake cache variables to `On`: `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED`.
 * If you are building natively (i.e. not cross-compiling) then the HDTN CMake build environment will check the processor's CPU instruction set
 as well as the compiler to determine which HDTN hardware accelerated functions will both build and run on the native host.  CMake will automatically set various
 compiler defines to enable any supported HDTN hardware accelerated features.
