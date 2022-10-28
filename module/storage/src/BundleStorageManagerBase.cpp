@@ -2,7 +2,7 @@
  * @file BundleStorageManagerBase.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,6 @@
  */
 
 #include "BundleStorageManagerBase.h"
-#include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
 #include <memory>
@@ -27,6 +26,8 @@
  //#else //Lambda Linux tests
  //static const char * FILE_PATHS[NUM_STORAGE_THREADS] = { "/mnt/sda1/test/map0.bin", "/mnt/sdb1/test/map1.bin", "/mnt/sdc1/test/map2.bin", "/mnt/sdd1/test/map3.bin" };
  //#endif
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 struct StorageSegmentHeader {
     StorageSegmentHeader();
@@ -57,9 +58,7 @@ BundleStorageManagerBase::BundleStorageManagerBase() : BundleStorageManagerBase(
 
 BundleStorageManagerBase::BundleStorageManagerBase(const std::string & jsonConfigFileName) : BundleStorageManagerBase(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
     if (!m_storageConfigPtr) {
-        const std::string msg = "cannot open storage json config file: " + jsonConfigFileName;
-        std::cerr << msg << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", msg);
+        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFileName;
         return;
     }
 }
@@ -96,9 +95,7 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
 
 
     if (M_MAX_SEGMENTS > MAX_MEMORY_MANAGER_SEGMENTS) {
-        static const std::string msg = "MAX SEGMENTS GREATER THAN WHAT MEMORY MANAGER CAN HANDLE";
-        std::cerr << msg << "\n";
-        hdtn::Logger::getInstance()->logError("storage", msg);
+        LOG_ERROR(subprocess) << "MAX SEGMENTS GREATER THAN WHAT MEMORY MANAGER CAN HANDLE";
         return;
     }
 
@@ -118,9 +115,7 @@ BundleStorageManagerBase::~BundleStorageManagerBase() {
 
         if (m_autoDeleteFilesOnExit && boost::filesystem::exists(p)) {
             boost::filesystem::remove(p);
-            const std::string msg = "deleted " + p.string();
-            std::cout << msg << "\n";
-            hdtn::Logger::getInstance()->logInfo("storage", msg);
+            LOG_DEBUG(subprocess) << "deleted " << p.string();
         }
     }
 }
@@ -141,7 +136,6 @@ uint64_t BundleStorageManagerBase::Push(BundleStorageManagerSession_WriteToDisk 
 
 
     if (m_memoryManager.AllocateSegments_ThreadSafe(segmentIdChainVec)) {
-        //std::cout << "firstseg " << segmentIdChainVec[0] << "\n";
         return totalSegmentsRequired;
     }
 
@@ -185,10 +179,8 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
 
     cb.CommitWrite();
     NotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
-    //std::cout << "writing " << size << " bytes\n";
     if (session.nextLogicalSegment == segmentIdChainVec.size()) {
         m_bundleStorageCatalog.CatalogIncomingBundleForStore(catalogEntry, bundlePrimaryBlock, custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
-        //std::cout << "write complete\n";
     }
 
     return 1;
@@ -311,28 +303,20 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
     memcpy(&storageSegmentHeader, (void*)&session.readCache[session.cacheReadIndex * SEGMENT_SIZE + 0], SEGMENT_RESERVED_SPACE);
     storageSegmentHeader.ToNativeEndianInplace(); //should optimize out and do nothing
     if ((session.nextLogicalSegment == 0) && (storageSegmentHeader.bundleSizeBytes != session.catalogEntryPtr->bundleSizeBytes)) {// ? chainInfo.first : UINT64_MAX;
-        const std::string msg = "Error: read bundle size bytes = " + boost::lexical_cast<std::string>(storageSegmentHeader.bundleSizeBytes) +
-            " does not match catalog bundleSizeBytes = " + boost::lexical_cast<std::string>(session.catalogEntryPtr->bundleSizeBytes);
-        std::cout << msg << "\n";
-        hdtn::Logger::getInstance()->logError("storage", msg);
+        LOG_ERROR(subprocess) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes <<
+            " does not match catalog bundleSizeBytes = " << session.catalogEntryPtr->bundleSizeBytes;
     }
     else if (session.nextLogicalSegment != 0 && storageSegmentHeader.bundleSizeBytes != UINT64_MAX) {// ? chainInfo.first : UINT64_MAX;
-        const std::string msg = "Error: read bundle size bytes = " + boost::lexical_cast<std::string>(storageSegmentHeader.bundleSizeBytes) + " is not UINT64_MAX";
-        std::cout << msg << "\n";
-        hdtn::Logger::getInstance()->logError("storage", msg);
+        LOG_ERROR(subprocess) << "Error: read bundle size bytes = " << storageSegmentHeader.bundleSizeBytes << " is not UINT64_MAX";
     }
 
     ++session.nextLogicalSegment;
     if ((session.nextLogicalSegment != segments.size()) && (storageSegmentHeader.nextSegmentId != segments[session.nextLogicalSegment])) {
-        const std::string msg = "Error: read nextSegmentId = " + boost::lexical_cast<std::string>(storageSegmentHeader.nextSegmentId) +
-            " does not match segment = " + boost::lexical_cast<std::string>(segments[session.nextLogicalSegment]);
-        std::cout << msg << "\n";
-        hdtn::Logger::getInstance()->logError("storage", msg);
+        LOG_ERROR(subprocess) << "Error: read nextSegmentId = " << (storageSegmentHeader.nextSegmentId) <<
+            " does not match segment = " << segments[session.nextLogicalSegment];
     }
     else if ((session.nextLogicalSegment == segments.size()) && (storageSegmentHeader.nextSegmentId != SEGMENT_ID_LAST)) {
-        const std::string msg = "Error: read nextSegmentId = " + boost::lexical_cast<std::string>(storageSegmentHeader.nextSegmentId) + " is not SEGMENT_ID_LAST";
-        std::cout << msg << "\n";
-        hdtn::Logger::getInstance()->logError("storage", msg);
+        LOG_ERROR(subprocess) << "Error: read nextSegmentId = " << storageSegmentHeader.nextSegmentId << " is not SEGMENT_ID_LAST";
     }
 
     std::size_t size = BUNDLE_STORAGE_PER_SEGMENT_SIZE;
@@ -426,23 +410,17 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
         const boost::filesystem::path p(filePath);
         if (boost::filesystem::exists(p)) {
             fileSizesVec[diskId] = boost::filesystem::file_size(p);
-            const std::string msg = "diskId " + boost::lexical_cast<std::string>(diskId)
-                + " has file size of " + boost::lexical_cast<std::string>(fileSizesVec[diskId]);
-            std::cout << msg << "\n";
-            hdtn::Logger::getInstance()->logInfo("storage", msg);
+            LOG_DEBUG(subprocess) << "diskId " << diskId
+                << " has file size of " << fileSizesVec[diskId];
         }
         else {
-            const std::string msg = "Error: " + boost::lexical_cast<std::string>(filePath) + " does not exist";
-            std::cout << msg << "\n";
-            hdtn::Logger::getInstance()->logError("storage", msg);
+            LOG_ERROR(subprocess) << "Error: " << filePath << " does not exist";
             return false;
         }
         fileHandlesVec[diskId] = fopen(filePath, "rbR");
         if (fileHandlesVec[diskId] == NULL) {
-            const std::string msg = "Error opening file " + std::string(filePath) +
+            LOG_ERROR(subprocess) << "Error opening file " + std::string(filePath) +
                 " for reading and restoring";
-            std::cout << msg << "\n";
-            hdtn::Logger::getInstance()->logError("storage", msg);
             return false;
         }
     }
@@ -465,9 +443,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
             const uint64_t offsetBytes = static_cast<uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;
             const uint64_t fileSize = fileSizesVec[diskIndex];
             if ((session.nextLogicalSegment == 0) && ((offsetBytes + SEGMENT_SIZE) > fileSize)) {
-                static const std::string msg = "end of restore";
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logNotification("storage", msg);
+                LOG_INFO(subprocess) << "end of restore";
                 restoreInProgress = false;
                 break;
             }
@@ -481,11 +457,9 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
 
             const std::size_t bytesReadFromFread = fread((void*)dataReadBuf, 1, SEGMENT_SIZE, fileHandle);
             if (bytesReadFromFread != SEGMENT_SIZE) {
-                const std::string msg = "Error reading at offset " + boost::lexical_cast<std::string>(offsetBytes) +
-                    " for disk " + boost::lexical_cast<std::string>(diskIndex) + " filesize " + boost::lexical_cast<std::string>(fileSize) + " logical segment "
-                    + boost::lexical_cast<std::string>(session.nextLogicalSegment) + " bytesread " + boost::lexical_cast<std::string>(bytesReadFromFread);
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logError("storage", msg);
+                LOG_ERROR(subprocess) << "Error reading at offset " << offsetBytes <<
+                    " for disk " << diskIndex << " filesize " << fileSize << " logical segment "
+                    << session.nextLogicalSegment << " bytesread " << bytesReadFromFread;
                 return false;
             }
 
@@ -505,7 +479,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 const bool isBpVersion7 = (firstByte == ((4U << 5) | 31U));  //CBOR major type 4, additional information 31 (Indefinite-Length Array)
                 if (isBpVersion6) {
                     if (!bv6.LoadBundle(bundleDataBegin, BUNDLE_STORAGE_PER_SEGMENT_SIZE, true)) { //load primary only
-                        std::cerr << "malformed bundle\n";
+                        LOG_ERROR(subprocess) << "malformed bundle";
                         return false;
                     }
                     Bpv6CbhePrimaryBlock & primary = bv6.m_primaryBlockView.header;
@@ -513,46 +487,37 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
                 }
                 else if (isBpVersion7) {
                     if (!bv7.LoadBundle(bundleDataBegin, BUNDLE_STORAGE_PER_SEGMENT_SIZE, true, true)) { //load primary only
-                        std::cerr << "malformed bundle\n";
+                        LOG_ERROR(subprocess) << "malformed bundle";
                         return false;
                     }
                     Bpv7CbhePrimaryBlock & primary = bv7.m_primaryBlockView.header;
                     primaryBasePtr = &primary;
                 }
                 else {
-                    std::cout << "error in BundleStorageManagerBase::RestoreFromDisk: unknown bundle version detected\n";
+                    LOG_ERROR(subprocess) << "error in BundleStorageManagerBase::RestoreFromDisk: unknown bundle version detected";
                     return false;
                 }
                 const uint64_t totalSegmentsRequired = (storageSegmentHeader.bundleSizeBytes / BUNDLE_STORAGE_PER_SEGMENT_SIZE) + ((storageSegmentHeader.bundleSizeBytes % BUNDLE_STORAGE_PER_SEGMENT_SIZE) == 0 ? 0 : 1);
 
-                //std::cout << "tot segs req " << totalSegmentsRequired << "\n";
                 *totalBytesRestored += storageSegmentHeader.bundleSizeBytes;
                 *totalSegmentsRestored += totalSegmentsRequired;
                 catalogEntry.Init(*primaryBasePtr, storageSegmentHeader.bundleSizeBytes, totalSegmentsRequired, NULL); //NULL replaced later at CatalogIncomingBundleForStore
             }
             if (!headSegmentFound) break;
             if (custodyIdHeadSegment != storageSegmentHeader.custodyId) { //shall be the same across all segments
-                static const std::string msg = "error: custodyIdHeadSegment != custodyId";
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logError("storage", msg);
+                LOG_ERROR(subprocess) << "error: custodyIdHeadSegment != custodyId";
                 return false;
             }
             if ((session.nextLogicalSegment) >= segmentIdChainVec.size()) {
-                static const std::string msg = "error: logical segment exceeds total segments required";
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logError("storage", msg);
+                LOG_ERROR(subprocess) << "error: logical segment exceeds total segments required";
                 return false;
             }
             if (!m_memoryManager.IsSegmentFree(segmentId)) { //todo this is redundant per function below
-                static const std::string msg = "error: segmentId is already allocated";
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logError("storage", msg);
+                LOG_ERROR(subprocess) << "error: segmentId is already allocated";
                 return false;
             }
             if (!m_memoryManager.AllocateSegmentId_NotThreadSafe(segmentId)) {
-                static const std::string msg = "error: AllocateSegmentId_NotThreadSafe: segmentId is already allocated";
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logError("storage", msg);
+                LOG_ERROR(subprocess) << "error: AllocateSegmentId_NotThreadSafe: segmentId is already allocated";
                 return false;
             }
             segmentIdChainVec[session.nextLogicalSegment] = segmentId;
@@ -561,21 +526,16 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
 
             if ((session.nextLogicalSegment + 1) >= segmentIdChainVec.size()) { //==
                 if (storageSegmentHeader.nextSegmentId != SEGMENT_ID_LAST) { //there are more segments
-                    static const std::string msg = "error: at the last logical segment but nextSegmentId != SEGMENT_ID_LAST";
-                    std::cout << msg << "\n";
-                    hdtn::Logger::getInstance()->logError("storage", msg);
+                    LOG_ERROR(subprocess) << "error: at the last logical segment but nextSegmentId != SEGMENT_ID_LAST";
                     return false;
                 }
                 m_bundleStorageCatalog.CatalogIncomingBundleForStore(catalogEntry, *primaryBasePtr, storageSegmentHeader.custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
                 *totalBundlesRestored += 1;
                 break;
-                //std::cout << "write complete\n";
             }
 
             if (storageSegmentHeader.nextSegmentId == SEGMENT_ID_LAST) { //there are more segments
-                static const std::string msg = "error: there are more logical segments but nextSegmentId == SEGMENT_ID_LAST";
-                std::cout << msg << "\n";
-                hdtn::Logger::getInstance()->logError("storage", msg);
+                LOG_ERROR(subprocess) << "error: there are more logical segments but nextSegmentId == SEGMENT_ID_LAST";
                 return false;
             }
             segmentId = storageSegmentHeader.nextSegmentId;
