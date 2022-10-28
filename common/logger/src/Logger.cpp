@@ -102,13 +102,12 @@ std::unique_ptr<Logger> Logger::logger_; //initialized to "null"
 boost::mutex Logger::mutexSingletonInstance_;
 volatile bool Logger::loggerSingletonFullyInitialized_ = false;
 Logger::process_attr_t Logger::process_attr(Logger::Process::none);
-Logger::subprocess_attr_t Logger::subprocess_attr(Logger::SubProcess(-1));
+Logger::subprocess_attr_t Logger::subprocess_attr(Logger::SubProcess::none);
 Logger::file_attr_t Logger::file_attr("");
 Logger::line_attr_t Logger::line_attr(-1);
 
 void Logger::initializeWithProcess(Logger::Process process) {
     Logger::process_attr = process_attr_t(process);
-    logging::trivial::logger::get().add_attribute("Process", Logger::process_attr);
     ensureInitialized();
 }
 
@@ -164,6 +163,7 @@ void Logger::init()
 
 void Logger::registerAttributes()
 {   
+    boost::log::trivial::logger::get().add_attribute("Process", Logger::process_attr);
     boost::log::trivial::logger::get().add_attribute("SubProcess", Logger::subprocess_attr);
     boost::log::trivial::logger::get().add_attribute("Line", Logger::line_attr);
     boost::log::trivial::logger::get().add_attribute("File", Logger::file_attr);
