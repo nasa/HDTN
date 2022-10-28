@@ -26,7 +26,9 @@ option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
 set(HDTN_VERSION "1.0")
 project(HDTN VERSION ${HDTN_VERSION})
-set(CMAKE_CXX_STANDARD 11)
+
+#set(CMAKE_CXX_STANDARD 11)
+include(${CMAKE_SOURCE_DIR}/cpp_standard_detection.cmake) # Determine if hardware acceleration can be used
 
 SET(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "HDTN shared and static libraries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_LIBDIR/")
 SET(CMAKE_INSTALL_INCLUDEDIR "include/HDTN" CACHE PATH "HDTN public headers will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_INCLUDEDIR/")

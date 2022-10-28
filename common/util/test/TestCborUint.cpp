@@ -20,6 +20,7 @@
 #include "CborUint.h"
 #include <boost/timer/timer.hpp>
 #include <algorithm>
+#include <random>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
@@ -333,7 +334,12 @@ BOOST_AUTO_TEST_CASE(CborUint64BitSpeedTestCase, *boost::unit_test::disabled())
 #endif
     
     // shuffle to prevent branch prediction
-    std::random_shuffle(testValuesPlusEncodedSizes2.begin(), testValuesPlusEncodedSizes2.end());
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(testValuesPlusEncodedSizes2.begin(), testValuesPlusEncodedSizes2.end(), g);
+    // https://stackoverflow.com/questions/45013977/random-shuffle-is-not-a-member-of-std-error
+    //random_shuffle was deprecated in C++14 and completely removed in C++17.
+    //std::random_shuffle(testValuesPlusEncodedSizes2.begin(), testValuesPlusEncodedSizes2.end());
 
     unsigned int totalExpectedEncodingSize = 0;
     std::vector<uint64_t> allExpectedDecodedValues;
