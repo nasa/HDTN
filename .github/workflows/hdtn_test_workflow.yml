@@ -55,7 +55,7 @@ jobs:
       #    ./tests/integrated_tests/integrated-tests
 
   coverity-test:
-    runs-on:  [self-hosted, ubuntu, x64]
+    runs-on:  [self-hosted, ubuntu, x64, cov-analysis]
     
     steps:
       - uses: actions/checkout@v3
