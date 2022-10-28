@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # path variables
-config_files=$HDTN_SOURCE_ROOT/tests/config_files
+config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_DTNME.json
 
 cd $HDTN_SOURCE_ROOT

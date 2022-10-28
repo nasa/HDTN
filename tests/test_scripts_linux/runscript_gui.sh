@@ -2,7 +2,7 @@
 
 # path variables
 export HDTN_SOURCE_ROOT=$(dirname $(readlink -f $0))
-config_files=$HDTN_SOURCE_ROOT/tests/config_files
+config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json
 sink1_config=$config_files/inducts/bpsink_one_tcpcl_port4557.json
 sink2_config=$config_files/inducts/bpsink_one_tcpcl_port4558.json

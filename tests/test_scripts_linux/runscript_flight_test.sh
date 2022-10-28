@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # path variables
-config_files=$HDTN_SOURCE_ROOT/tests/config_files
+config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_ingress1tcpcl_port4556_egress1tcpcl_port4558flowid2.json
 sink_config=$config_files/inducts/bpsink_one_tcpcl_port4558.json
 gen_config=$config_files/outducts/bpgen_one_tcpcl_port4556.json

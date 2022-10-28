@@ -18,6 +18,3 @@ do
  kill -9 $i
 done
 done
-
-echo "Killing py_cgr server..." && pkill -9 -f py_cgr_client.py
-

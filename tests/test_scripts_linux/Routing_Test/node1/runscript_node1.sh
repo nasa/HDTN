@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # path variables
-config_files=$HDTN_SOURCE_ROOT/tests/config_files
+config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_node1_cfg.json
 gen_config=$config_files/outducts/bpgen_one_stcp_port4556.json
 
