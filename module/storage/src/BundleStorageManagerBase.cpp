@@ -419,7 +419,7 @@ bool BundleStorageManagerBase::RestoreFromDisk(uint64_t * totalBundlesRestored, 
         }
         fileHandlesVec[diskId] = fopen(filePath, "rbR");
         if (fileHandlesVec[diskId] == NULL) {
-            LOG_ERROR(subprocess) << "Error opening file " + std::string(filePath) +
+            LOG_ERROR(subprocess) << "Error opening file " << filePath <<
                 " for reading and restoring";
             return false;
         }

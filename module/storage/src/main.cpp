@@ -24,7 +24,7 @@ int main(int argc, const char* argv[]) {
     volatile bool running;
     runner.Run(argc, argv, running, true);
     LOG_DEBUG(hdtn::Logger::SubProcess::storage) << "totalBundlesErasedFromStorage: " << runner.m_totalBundlesErasedFromStorage;
-    LOG_DEBUG(hdtn::Logger::SubProces::storage) << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage;
+    LOG_DEBUG(hdtn::Logger::SubProcess::storage) << "totalBundlesSentToEgressFromStorage: " << runner.m_totalBundlesSentToEgressFromStorage;
     return 0;
 
 }
