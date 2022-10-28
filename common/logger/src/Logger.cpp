@@ -317,32 +317,32 @@ Logger::Process Logger::getProcessAttributeVal()
 
 void Logger::logInfo(const std::string & subprocess, const std::string & message)
 {
-    BOOST_LOG_SCOPED_THREAD_TAG("SubProcess", fromString(subprocess));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::debug) << message;
+    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
+    BOOST_LOG_TRIVIAL(debug) << message;
 }
 
 void Logger::logNotification(const std::string & subprocess, const std::string & message)
 {
-    BOOST_LOG_SCOPED_THREAD_TAG("SubProcess", fromString(subprocess));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::info) << message;
+    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
+    BOOST_LOG_TRIVIAL(info) << message;
 }
 
 void Logger::logWarning(const std::string & subprocess, const std::string & message)
 {
-    BOOST_LOG_SCOPED_THREAD_TAG("SubProcess", fromString(subprocess));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::warning) << message;
+    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
+    BOOST_LOG_TRIVIAL(warning) << message;
 }
 
 void Logger::logError(const std::string & subprocess, const std::string & message)
 {
-    BOOST_LOG_SCOPED_THREAD_TAG("SubProcess", fromString(subprocess));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::error) << message;
+    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
+    BOOST_LOG_TRIVIAL(error) << message;
 }
 
 void Logger::logCritical(const std::string & subprocess, const std::string & message)
 {
-    BOOST_LOG_SCOPED_THREAD_TAG("SubProcess", fromString(subprocess));
-    BOOST_LOG_SEV(log_, logging::trivial::severity_level::fatal) << message;
+    _ADD_LOG_ATTRIBUTES(fromString(subprocess));
+    BOOST_LOG_TRIVIAL(fatal) << message;
 }
 
 
