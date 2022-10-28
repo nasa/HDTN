@@ -13,7 +13,7 @@
  * in Logger.h. If a new process is added, a string representation
  * should be added here.
  */
-static const std::string process_strings[] =
+static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger::Process::none) + 1] =
 {
     "bpgen",
     "bping",
@@ -31,7 +31,7 @@ static const std::string process_strings[] =
     "releasemessagesender",
     "storagespeedtest",
     "udpdelaysim",
-    "unittest"
+    "unittest",
     ""
 };
 
@@ -40,7 +40,7 @@ static const std::string process_strings[] =
  * in Logger.h. If a new sub-process is added, a string representation
  * should be added here.
  */
-static const std::string subprocess_strings[] =
+static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logger::SubProcess::none) + 1] =
 {
     "egress",
     "ingress",
