@@ -24,7 +24,7 @@ static bool CreateDirectoryRecursivelyVerboseIfNotExist(const boost::filesystem:
     return true;
 }
 
-BpReceiveFile::BpReceiveFile(const std::string & saveDirectory) :
+BpReceiveFile::BpReceiveFile(const boost::filesystem::path& saveDirectory) :
     BpSinkPattern(),
     m_saveDirectory(saveDirectory)
 {
@@ -74,11 +74,11 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
         std::cerr << "error fragment exceeds total file size\n";
         return false;
     }
-    const std::string fileName(data, data + sendFileMetadata.pathLen);
+    const boost::filesystem::path fileName(std::string(data, data + sendFileMetadata.pathLen));
     data += sendFileMetadata.pathLen;
     fragments_ofstream_pair_t & fragmentsOfstreamPair = m_filenameToWriteInfoMap[fileName];
     std::set<FragmentSet::data_fragment_t> & fragmentSet = fragmentsOfstreamPair.first;
-    std::unique_ptr<std::ofstream> & ofstreamPtr = fragmentsOfstreamPair.second;
+    std::unique_ptr<boost::filesystem::ofstream> & ofstreamPtr = fragmentsOfstreamPair.second;
     bool doWriteFragment = false;
     if (sendFileMetadata.totalFileSize == 0) { //0 length file, create an empty file
         if (fragmentSet.empty() && m_saveDirectory.size()) {
@@ -86,14 +86,13 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
             if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullPathFileName.parent_path())) {
                 return false;
             }
-            const std::string fullPathFileNameString = fullPathFileName.string();
             if (boost::filesystem::is_regular_file(fullPathFileName)) {
-                std::cout << "skipping writing zero-length file " << fullPathFileNameString << " because it already exists\n";
+                std::cout << "skipping writing zero-length file " << fullPathFileName << " because it already exists\n";
                 return true;
             }
-            std::ofstream ofs(fullPathFileNameString, std::ofstream::out | std::ofstream::binary);
+            boost::filesystem::ofstream ofs(fullPathFileName, boost::filesystem::ofstream::out | boost::filesystem::ofstream::binary);
             if (!ofs.good()) {
-                std::cout << "error, unable to open file " << fullPathFileNameString << " for writing\n";
+                std::cout << "error, unable to open file " << fullPathFileName << " for writing\n";
                 return false;
             }
             ofs.close();
@@ -104,29 +103,28 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
     }
     else if (fragmentSet.empty()) { //first reception of this file
         boost::filesystem::path fullPathFileName = boost::filesystem::path(m_saveDirectory) / boost::filesystem::path(fileName);
-        const std::string fullPathFileNameString = fullPathFileName.string();
         if (m_saveDirectory.size()) { //if we are actually saving the files
             if (!CreateDirectoryRecursivelyVerboseIfNotExist(fullPathFileName.parent_path())) {
                 return false;
             }
             if (boost::filesystem::is_regular_file(fullPathFileName)) {
                 if (sendFileMetadata.fragmentOffset == 0) {
-                    std::cout << "skipping writing file " << fullPathFileNameString << " because it already exists\n";
+                    std::cout << "skipping writing file " << fullPathFileName << " because it already exists\n";
                 }
                 else {
-                    std::cout << "ignoring fragment for " << fullPathFileNameString << " because file already exists\n";
+                    std::cout << "ignoring fragment for " << fullPathFileName << " because file already exists\n";
                 }
                 return true;
             }
-            std::cout << "creating new file " << fullPathFileNameString << std::endl;
-            ofstreamPtr = boost::make_unique<std::ofstream>(fullPathFileNameString, std::ofstream::out | std::ofstream::binary);
+            std::cout << "creating new file " << fullPathFileName << std::endl;
+            ofstreamPtr = boost::make_unique<boost::filesystem::ofstream>(fullPathFileName, boost::filesystem::ofstream::out | boost::filesystem::ofstream::binary);
             if (!ofstreamPtr->good()) {
-                std::cout << "error, unable to open file " << fullPathFileNameString << " for writing\n";
+                std::cout << "error, unable to open file " << fullPathFileName << " for writing\n";
                 return false;
             }
         }
         else {
-            std::cout << "not creating new file " << fullPathFileNameString << std::endl;
+            std::cout << "not creating new file " << fullPathFileName << std::endl;
         }
         doWriteFragment = true;
     }

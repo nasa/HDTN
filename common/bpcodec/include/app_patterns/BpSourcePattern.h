@@ -43,6 +43,7 @@ public:
     OutductFinalStats m_outductFinalStats;
 
 protected:
+    BP_APP_PATTERNS_LIB_EXPORT virtual bool TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout);
     virtual uint64_t GetNextPayloadLength_Step1() = 0;
     virtual bool CopyPayload_Step2(uint8_t * destinationBuffer) = 0;
     BP_APP_PATTERNS_LIB_EXPORT virtual bool ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint64_t size);
