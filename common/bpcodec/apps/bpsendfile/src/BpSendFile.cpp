@@ -18,85 +18,81 @@ void BpSendFile::SendFileMetadata::ToNativeEndianInplace() {
     boost::endian::little_to_native_inplace(fragmentLength);
 }
 
-BpSendFile::BpSendFile(const std::string & fileOrFolderPathString, uint64_t maxBundleSizeBytes) :
+BpSendFile::BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_t maxBundleSizeBytes,
+    bool uploadExistingFiles, bool uploadNewFiles, unsigned int recurseDirectoriesDepth) :
     BpSourcePattern(),
     M_MAX_BUNDLE_PAYLOAD_SIZE_BYTES(maxBundleSizeBytes),
-    m_currentFileIndex(0)
+    m_directoryScannerPtr(boost::make_unique<DirectoryScanner>(fileOrFolderPath, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth, m_ioService, 3000))
 {
 
-    const boost::filesystem::path fileOrFolderPath(fileOrFolderPathString);
-    if (boost::filesystem::is_directory(fileOrFolderPath)) {
-        boost::filesystem::directory_iterator dirIt(fileOrFolderPath), eod;
-        BOOST_FOREACH(const boost::filesystem::path &p, std::make_pair(dirIt, eod)) {
-            if (boost::filesystem::is_regular_file(p) && (p.extension().string().size() > 1)) {
-                std::string pathStr = p.string();
-                if (pathStr.size() <= 255) {
-                    m_sortedPathStringsOfFiles.push_back(std::move(pathStr));
-                }
-                else {
-                    std::cout << "skipping " << pathStr << std::endl;
-                }
-            }
-        }
-        std::sort(m_sortedPathStringsOfFiles.begin(), m_sortedPathStringsOfFiles.end());
+    if (uploadNewFiles) {
+        m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
     }
-    else if (boost::filesystem::is_regular_file(fileOrFolderPath) && (fileOrFolderPath.extension().string().size() > 1)) { //just one file
-        std::string pathStr = fileOrFolderPath.string();
-        if (pathStr.size() <= 255) {
-            m_sortedPathStringsOfFiles.push_back(std::move(pathStr));
-        }
-        else {
-            std::cout << "error " << pathStr << " is too long" << std::endl;
-        }
-    }
-
-    if (m_sortedPathStringsOfFiles.size() == 0) {
+    
+    if ((m_directoryScannerPtr->GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
         std::cerr << "error no files to send\n";
     }
     else {
-        std::cout << "sending " << m_sortedPathStringsOfFiles.size() << " files\n";
+        std::cout << "sending " << m_directoryScannerPtr->GetNumberOfFilesToSend() << " files now, monitoring "
+            << m_directoryScannerPtr->GetNumberOfCurrentlyMonitoredDirectories() << " directories\n";
     }
 }
 
-BpSendFile::~BpSendFile() {}
+BpSendFile::~BpSendFile() {
+    //m_ioService.stop(); //will hang ~m_ioService, delete the directory scanner object to stop it instead
+    if (m_ioServiceThreadPtr) {
+        boost::asio::post(m_ioService, boost::bind(&BpSendFile::Shutdown_NotThreadSafe, this));
+        m_ioServiceThreadPtr->join();
+        m_ioServiceThreadPtr.reset(); //delete it
+    }
+}
+void BpSendFile::Shutdown_NotThreadSafe() { //call within m_ioService thread
+    m_directoryScannerPtr.reset(); //delete it
+}
 
-std::size_t BpSendFile::GetNumberOfFilesToSend() {
-    return m_sortedPathStringsOfFiles.size();
+std::size_t BpSendFile::GetNumberOfFilesToSend() const {
+    return m_directoryScannerPtr->GetNumberOfFilesToSend();
 }
 
 uint64_t BpSendFile::GetNextPayloadLength_Step1() {
-    if (m_currentFileIndex >= m_sortedPathStringsOfFiles.size()) {
-        return 0; //stopping criteria
+    if (m_currentFilePathAbsolute.empty()) {
+        if (!m_directoryScannerPtr->GetNextFilePath(m_currentFilePathAbsolute, m_currentFilePathRelative)) {
+            if (m_directoryScannerPtr->GetNumberOfCurrentlyMonitoredDirectories()) {
+                return UINT64_MAX; //pending criteria
+            }
+            else {
+                return 0; //stopping criteria
+            }
+        }
     }
-    const std::string & p = m_sortedPathStringsOfFiles[m_currentFileIndex];
     if (!m_currentIfstreamPtr) {
         //std::cout << "loading and sending " << p << "\n";
-        m_currentIfstreamPtr = boost::make_unique<std::ifstream>(p, std::ifstream::in | std::ifstream::binary);
+        m_currentIfstreamPtr = boost::make_unique<boost::filesystem::ifstream>(m_currentFilePathAbsolute, std::ifstream::in | std::ifstream::binary);
         if (m_currentIfstreamPtr->good()) {
             // get length of file:
             m_currentIfstreamPtr->seekg(0, m_currentIfstreamPtr->end);
             m_currentSendFileMetadata.totalFileSize = m_currentIfstreamPtr->tellg();
             m_currentIfstreamPtr->seekg(0, m_currentIfstreamPtr->beg);
             m_currentSendFileMetadata.fragmentOffset = 0;
-            m_currentSendFileMetadata.pathLen = static_cast<uint8_t>(p.size());
-            std::cout << "send " << p << std::endl;
+            m_currentSendFileMetadata.pathLen = static_cast<uint8_t>(m_currentFilePathRelative.size());
+            std::cout << "send " << m_currentFilePathRelative << std::endl;
         }
         else { //file error occurred.. stop
+            std::cout << "error in BpSendFile::GetNextPayloadLength_Step1: failed to read " << m_currentFilePathAbsolute << " : error was : " << std::strerror(errno) << "\n";
             return 0;
         }
-        
     }
     m_currentSendFileMetadata.fragmentLength = static_cast<uint32_t>(std::min(m_currentSendFileMetadata.totalFileSize - m_currentSendFileMetadata.fragmentOffset, M_MAX_BUNDLE_PAYLOAD_SIZE_BYTES));
-    return m_currentSendFileMetadata.fragmentLength + sizeof(SendFileMetadata) + p.size();
+    return m_currentSendFileMetadata.fragmentLength + sizeof(SendFileMetadata) + m_currentSendFileMetadata.pathLen;
 }
 bool BpSendFile::CopyPayload_Step2(uint8_t * destinationBuffer) {
     m_currentSendFileMetadata.ToLittleEndianInplace();
     memcpy(destinationBuffer, &m_currentSendFileMetadata, sizeof(m_currentSendFileMetadata));
     m_currentSendFileMetadata.ToNativeEndianInplace();
     destinationBuffer += sizeof(m_currentSendFileMetadata);
-    const std::string & p = m_sortedPathStringsOfFiles[m_currentFileIndex];
-    memcpy(destinationBuffer, p.data(), p.size());
-    destinationBuffer += p.size();
+    const std::string pRelativeStr = m_currentFilePathRelative.string();
+    memcpy(destinationBuffer, pRelativeStr.data(), pRelativeStr.size());
+    destinationBuffer += m_currentSendFileMetadata.pathLen;
     // read data as a block:
     m_currentIfstreamPtr->read((char*)destinationBuffer, m_currentSendFileMetadata.fragmentLength);
     if (*m_currentIfstreamPtr) {
@@ -111,11 +107,19 @@ bool BpSendFile::CopyPayload_Step2(uint8_t * destinationBuffer) {
     if (isEndOfThisFile) {
         m_currentIfstreamPtr->close();
         m_currentIfstreamPtr.reset();
-        ++m_currentFileIndex;
+        m_currentFilePathAbsolute.clear();
+        m_currentFilePathRelative.clear();
     }
     else {
         m_currentSendFileMetadata.fragmentOffset = nextOffset;
     }
     
+    return true;
+}
+
+bool BpSendFile::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {
+    if (m_currentFilePathAbsolute.empty()) {
+        return m_directoryScannerPtr->GetNextFilePathTimeout(m_currentFilePathAbsolute, m_currentFilePathRelative, timeout);
+    }
     return true;
 }

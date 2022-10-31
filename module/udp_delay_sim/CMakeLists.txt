@@ -18,6 +18,7 @@ target_link_libraries(udp_delay_sim_lib
 	PUBLIC
 		hdtn_util
 		Boost::program_options
+		log_lib
 )
 target_include_directories(udp_delay_sim_lib
 	PUBLIC

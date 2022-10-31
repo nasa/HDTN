@@ -15,6 +15,7 @@
 int main(int argc, const char* argv[]) {
 
 
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::hdtnoneprocess);
     HdtnOneProcessRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

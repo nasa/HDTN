@@ -10,6 +10,7 @@
 #include "EgressAsyncRunner.h"
 
 int main(int argc, const char* argv[]) {
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::egress);
     EgressAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

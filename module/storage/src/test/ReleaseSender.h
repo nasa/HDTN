@@ -2,7 +2,7 @@
  * @file ReleaseSender.h
  * @author  Jeff Follo
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -22,7 +22,6 @@
 #include <boost/program_options.hpp>
 #include <boost/make_unique.hpp>
 #include <cstdlib>
-#include <iostream>
 #include "message.hpp"
 #include "Environment.h"
 #include "JsonSerializable.h"

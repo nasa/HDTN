@@ -2,7 +2,7 @@
  * @file CatalogEntry.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,6 @@
  */
 
 #include "CatalogEntry.h"
-#include <iostream>
 #include <string>
 
 catalog_entry_t::catalog_entry_t() :

@@ -25,28 +25,34 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&BpSendFileRunner::MonitorExitKeypressThreadFunction, this));
         uint64_t maxBundleSizeBytes;
-        std::string fileOrFolderPath;
+        boost::filesystem::path fileOrFolderPath;
         cbhe_eid_t myEid;
         cbhe_eid_t finalDestEid;
         uint64_t myCustodianServiceId;
         OutductsConfig_ptr outductsConfigPtr;
         InductsConfig_ptr inductsConfigPtr;
+        bool uploadExistingFiles;
+        bool uploadNewFiles;
         bool custodyTransferUseAcs;
         bool forceDisableCustody;
         bool useBpVersion7;
         unsigned int bundleSendTimeoutSeconds;
+        unsigned int recurseDirectoriesDepth;
 
         boost::program_options::options_description desc("Allowed options");
         try {
                 desc.add_options()
                     ("help", "Produce help message.")
                     ("max-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(4000000), "Max size bundle for file fragments (default 4MB).")
-                    ("file-or-folder-path", boost::program_options::value<std::string>()->default_value(""), "File or folder paths. Folders are recursive.")
+                    ("file-or-folder-path", boost::program_options::value<boost::filesystem::path>()->default_value(""), "File or folder paths. Folders are recursive.")
                     ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
                     ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
                     ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
                     ("outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File.")
                     ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                    ("skip-upload-existing-files", "Do not upload existing files in the directory if and only if file-or-folder-path is a directory.")
+                    ("upload-new-files", "Upload new files copied or moved into the directory if and only if file-or-folder-path is a directory.")
+                    ("recurse-directories-depth", boost::program_options::value<unsigned int>()->default_value(3), "Upload all files within max specified depth of subdirectories if file-or-folder-path is a directory (0->no recursion).")
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                     ("force-disable-custody", "Custody transfer turned off regardless of link bidirectionality.")
                     ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
@@ -63,6 +69,8 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 }
                 forceDisableCustody = (vm.count("force-disable-custody") != 0);
                 useBpVersion7 = (vm.count("use-bp-version-7") != 0);
+                uploadExistingFiles = (vm.count("skip-upload-existing-files") == 0);
+                uploadNewFiles = (vm.count("upload-new-files") != 0);
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
@@ -107,10 +115,11 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     }
                 }
                 custodyTransferUseAcs = (vm.count("custody-transfer-use-acs"));
-                fileOrFolderPath = vm["file-or-folder-path"].as<std::string>();
+                fileOrFolderPath = vm["file-or-folder-path"].as<boost::filesystem::path>();
                 maxBundleSizeBytes = vm["max-bundle-size-bytes"].as<uint64_t>();
                 myCustodianServiceId = vm["my-custodian-service-id"].as<uint64_t>();
                 bundleSendTimeoutSeconds = vm["bundle-send-timeout-seconds"].as<unsigned int>();
+                recurseDirectoriesDepth = vm["recurse-directories-depth"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
                 std::cout << "invalid data error: " << e.what() << "\n\n";
@@ -129,7 +138,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
 
         std::cout << "starting BpSendFile.." << std::endl;
 
-        BpSendFile bpSendFile(fileOrFolderPath, maxBundleSizeBytes);
+        BpSendFile bpSendFile(fileOrFolderPath, maxBundleSizeBytes, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth);
         if (bpSendFile.GetNumberOfFilesToSend() == 0) {
             return false;
         }

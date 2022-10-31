@@ -15,6 +15,7 @@
 int main(int argc, const char* argv[]) {
 
 
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::ingress);
     IngressAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);

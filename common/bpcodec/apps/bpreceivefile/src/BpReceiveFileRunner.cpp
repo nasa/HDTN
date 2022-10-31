@@ -27,14 +27,14 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
         OutductsConfig_ptr outductsConfigPtr;
         cbhe_eid_t myEid;
         bool isAcsAware;
-        std::string saveDirectory;
+        boost::filesystem::path saveDirectory;
         uint64_t maxBundleSizeBytes;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("save-directory", boost::program_options::value<std::string>()->default_value(""), "Directory to save file(s) to.  Empty=>DoNotSaveToDisk")
+                ("save-directory", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Directory to save file(s) to.  Empty=>DoNotSaveToDisk")
                 ("inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File.")
                 ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpReceiveFile Eid.")
                 ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
@@ -86,7 +86,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
                 }
             }
             isAcsAware = (vm.count("acs-aware-bundle-agent"));
-            saveDirectory = vm["save-directory"].as<std::string>();
+            saveDirectory = vm["save-directory"].as<boost::filesystem::path>();
             maxBundleSizeBytes = vm["max-rx-bundle-size-bytes"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {

@@ -2,7 +2,7 @@
  * @file StorageSpeedTestMain.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -12,7 +12,6 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <iostream>
 #include <string>
 #include "BundleStorageManagerMT.h"
 #include "BundleStorageManagerAsio.h"
@@ -21,6 +20,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/timer/timer.hpp>
 #include "SignalHandler.h"
+#include "Logger.h"
 
 static const uint64_t PRIMARY_SRC_NODE = 100;
 static const uint64_t PRIMARY_SRC_SVC = 1;
@@ -29,12 +29,12 @@ static const uint64_t PRIMARY_SRC_SVC = 1;
 //static const uint64_t PRIMARY_TIME = 1000;
 //static const uint64_t PRIMARY_LIFETIME = 2000;
 static const uint64_t PRIMARY_SEQ = 1;
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 static volatile bool g_running = true;
 
 static void MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
-    hdtn::Logger::getInstance()->logNotification("storage", "Keyboard Interrupt.. exiting");
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     g_running = false; //do this first
 }
 
@@ -115,16 +115,14 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
         10000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE - 2 ,
         10000 * BUNDLE_STORAGE_PER_SEGMENT_SIZE + 2,
     };
-    std::cout << "generating test files\n";
-    hdtn::Logger::getInstance()->logNotification("storage", "Generating test files");
+    LOG_INFO(subprocess) << "generating test files";
     std::vector<TestFile> testFiles(10);
     std::map<boost::uint64_t, TestFile*> fileMap;
     for (std::size_t i = 0; i < 10; ++i) {
         testFiles[i] = TestFile(sizes[i]);
         fileMap[sizes[i]] = &testFiles[i];
     }
-    std::cout << "done generating test files\n";
-    hdtn::Logger::getInstance()->logNotification("storage", "Done generating test files");
+    LOG_INFO(subprocess) << "done generating test files";
 
     boost::uint64_t totalSegmentsStoredOnDisk = 0;
     double gigaBitsPerSecReadDoubleAvg = 0.0, gigaBitsPerSecWriteDoubleAvg = 0.0;
@@ -133,15 +131,13 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
     for (unsigned int testI = 0; testI < NUM_TESTS; ++testI) {
 
         {
-            std::cout << "filling up the storage\n";
-            hdtn::Logger::getInstance()->logNotification("storage", "Filling up the storage");
+            LOG_INFO(subprocess) << "filling up the storage";
             boost::uint64_t totalBytesWrittenThisTest = 0;
             boost::timer::cpu_timer timer;
             while (g_running) {
                 const unsigned int fileIdx = distFileId(gen);
                 std::vector<boost::uint8_t> & data = testFiles[fileIdx].m_data;
                 const boost::uint64_t size = data.size();
-                //std::cout << "testing size " << size << "\n";
 
                 const unsigned int linkId = distLinkId(gen);
                 const unsigned int priorityIndex = distPriorityIndex(gen) & 3;
@@ -162,7 +158,6 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 primary.m_creationTimestamp.sequenceNumber = PRIMARY_SEQ;
 
                 boost::uint64_t totalSegmentsRequired = bsm.Push(sessionWrite, primary, size);
-                //std::cout << "totalSegmentsRequired " << totalSegmentsRequired << "\n";
                 if (totalSegmentsRequired == 0) break;
                 totalSegmentsStoredOnDisk += totalSegmentsRequired;
                 totalBytesWrittenThisTest += size;
@@ -172,18 +167,14 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 
             }
             const boost::uint64_t nanoSecWall = timer.elapsed().wall;
-            //std::cout << "nanosec=" << nanoSecWall << "\n";
             const double bytesPerNanoSecDouble = static_cast<double>(totalBytesWrittenThisTest) / static_cast<double>(nanoSecWall);
             const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
-            //std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
             const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
             gigaBitsPerSecWriteDoubleAvg += gigaBitsPerSecDouble;
-            std::cout << "WRITE GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
-            hdtn::Logger::getInstance()->logInfo("storage", "WRITE GBits/sec=" + std::to_string(gigaBitsPerSecDouble));
+            LOG_DEBUG(subprocess) << "WRITE GBits/sec=" << gigaBitsPerSecDouble;
         }
         {
-            std::cout << "reading half of the stored\n";
-            hdtn::Logger::getInstance()->logNotification("storage", "Reading half of the stored");
+            LOG_INFO(subprocess) << "reading half of the stored";
             boost::uint64_t totalBytesReadThisTest = 0;
             boost::timer::cpu_timer timer;
             BundleStorageManagerSession_ReadFromDisk sessionRead; //reuse (heap allocated)
@@ -191,7 +182,6 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
                 
                 boost::uint64_t bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks);
-                //std::cout << "bytesToReadFromDisk " << bytesToReadFromDisk << "\n";
                 std::vector<boost::uint8_t> dataReadBack(bytesToReadFromDisk);
                 TestFile & originalFile = *fileMap[bytesToReadFromDisk];
 
@@ -199,17 +189,14 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 bsm.ReadAllSegments(sessionRead, dataReadBack);
                 const std::size_t totalBytesRead = dataReadBack.size();
                 
-                //std::cout << "totalBytesRead " << totalBytesRead << "\n";
                 if (totalBytesRead != bytesToReadFromDisk) return false;
                 totalBytesReadThisTest += totalBytesRead;
                 if (dataReadBack != originalFile.m_data) {
-                    std::cout << "dataReadBack does not equal data\n";
-                    hdtn::Logger::getInstance()->logWarning("storage", "dataReadBack does not equal data");
+                    LOG_WARNING(subprocess) << "dataReadBack does not equal data";
                     return false;
                 }
                 if (!bsm.RemoveReadBundleFromDisk(sessionRead)) {
-                    std::cout << "error freeing bundle from disk\n";
-                    hdtn::Logger::getInstance()->logError("storage", "Error freeing bundle from disk");
+                    LOG_ERROR(subprocess) << "error freeing bundle from disk";
                     return false;
                 }
 
@@ -219,22 +206,17 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
                 }
             }
             const boost::uint64_t nanoSecWall = timer.elapsed().wall;
-            //std::cout << "nanosec=" << nanoSecWall << "\n";
             const double bytesPerNanoSecDouble = static_cast<double>(totalBytesReadThisTest) / static_cast<double>(nanoSecWall);
             const double gigaBytesPerSecDouble = bytesPerNanoSecDouble;// / 1e9 * 1e9;
-            //std::cout << "GBytes/sec=" << gigaBytesPerSecDouble << "\n";
             const double gigaBitsPerSecDouble = gigaBytesPerSecDouble * 8.0;
             gigaBitsPerSecReadDoubleAvg += gigaBitsPerSecDouble;
-            std::cout << "READ GBits/sec=" << gigaBitsPerSecDouble << "\n\n";
-            hdtn::Logger::getInstance()->logInfo("storage", "READ GBits/sec=" + std::to_string(gigaBitsPerSecDouble));
+            LOG_DEBUG(subprocess) << "READ GBits/sec=" << gigaBitsPerSecDouble;
         }
     }
 
     if (g_running) {
-        std::cout << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / NUM_TESTS << "\n\n";
-        std::cout << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / NUM_TESTS << "\n\n";
-        hdtn::Logger::getInstance()->logInfo("storage", "Read avg GBits/sec=" + std::to_string(gigaBitsPerSecReadDoubleAvg));
-        hdtn::Logger::getInstance()->logInfo("storage", "Write avg GBits/sec=" + std::to_string(gigaBitsPerSecWriteDoubleAvg));
+        LOG_DEBUG(subprocess) << "Read avg GBits/sec=" << gigaBitsPerSecReadDoubleAvg / NUM_TESTS;
+        LOG_DEBUG(subprocess) << "Write avg GBits/sec=" << gigaBitsPerSecWriteDoubleAvg / NUM_TESTS;
     }
     return true;
 
@@ -242,6 +224,7 @@ bool TestSpeed(BundleStorageManagerBase & bsm) {
 
 
 int main() {
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::storagespeedtest);
     std::unique_ptr<BundleStorageManagerBase> bsmPtr;
     if (true) {
         boost::make_unique<BundleStorageManagerMT>();
@@ -249,6 +232,6 @@ int main() {
     else {
         boost::make_unique<BundleStorageManagerAsio>();
     }
-    std::cout << TestSpeed(*bsmPtr) << "\n";
+    LOG_INFO(subprocess) << TestSpeed(*bsmPtr);
     return 0;
 }

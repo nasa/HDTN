@@ -1,5 +1,6 @@
 #include <iostream>
 #include "BpSendFileRunner.h"
+#include "Logger.h"
 
 
 int main(int argc, const char* argv[]) {
@@ -9,7 +10,8 @@ int main(int argc, const char* argv[]) {
     argv = manualArgv;
     argc = 4;
 #endif
-    
+
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::bpsendfile);
     BpSendFileRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
