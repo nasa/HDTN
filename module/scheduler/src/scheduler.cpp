@@ -348,12 +348,9 @@ void Scheduler::EgressEventsHandler() {
             contact.dest = destNode;
 
             if (event == 1 && m_mapContactUp[contact]) {
-	     //   if (m_mapContactUp[contact] == true) {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
 		SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
-	//	}
-            }
-            else {
+            } else {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Down event " << std::endl;
                 SendLinkDown(srcNode, destNode, finalDestEid.nodeId);
             }
@@ -525,7 +522,7 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
             }
             else {
 		m_mapContactUp.insert(std::pair<contact_t, bool>(contact, false));
-                SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event
