@@ -59,7 +59,7 @@ void StatsLogger::createMultiFileLogSinkForMetricNameAttr()
     (
         boost::log::expressions::stream
             << boost::log::expressions::attr< std::string >("MetricName")
-            << "," << boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
+            << "," << boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S.%f")
             << "," << boost::log::expressions::smessage
     );
     boost::log::core::get()->add_sink(sink);
