@@ -13,18 +13,16 @@ add_library(ltp_lib
 	src/LtpBundleSource.cpp
 )
 
-if(HAS_LTP_RNG_USE_RDSEED)
-	set_property(
-		SOURCE src/LtpRandomNumberGenerator.cpp
-		PROPERTY COMPILE_DEFINITIONS
-		  LTP_RNG_USE_RDSEED
-	)
-	set_property(
-		SOURCE src/LtpRandomNumberGenerator.cpp
-		PROPERTY COMPILE_OPTIONS
-		  ${NON_WINDOWS_RDSEED_COMPILE_FLAG}
-	)
-endif()
+set_property(
+	SOURCE src/LtpRandomNumberGenerator.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${HAS_LTP_RNG_USE_RDSEED}>:LTP_RNG_USE_RDSEED> 
+)
+set_property(
+	SOURCE src/LtpRandomNumberGenerator.cpp
+	PROPERTY COMPILE_OPTIONS
+		$<$<BOOL:${HAS_LTP_RNG_USE_RDSEED}>:${NON_WINDOWS_RDSEED_COMPILE_FLAG}> 
+)
 
 target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 
@@ -37,19 +35,11 @@ target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS
 #If there is no technical reason to prohibit these, it would be helpful to remove these guards.
 #I did a quick experiment of just removing the three checks and things seem to go through properly.
 OPTION(LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS "Allow sending segments to your own LTP engine." Off)
-if(LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS)
-	#from https://cmake.org/pipermail/cmake/2016-January/062570.html
-	set_property(
-		SOURCE src/LtpEngine.cpp
-		PROPERTY COMPILE_DEFINITIONS
-		  LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
-	)
-endif()
-
+#from https://cmake.org/pipermail/cmake/2016-January/062570.html
 set_property(
 	SOURCE src/LtpEngine.cpp
 	PROPERTY COMPILE_DEFINITIONS
-		LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
+		$<$<BOOL:${LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS}>:LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS> 
 )
 
 GENERATE_EXPORT_HEADER(ltp_lib)

@@ -64,36 +64,13 @@ target_link_libraries(unit-tests
 	Boost::timer
 )
 
-#Log output options
-if (LOG_TO_CONSOLE)
-	#add_compile_definitions(LOG_TO_CONSOLE)
-	set_property(
-		SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
-		PROPERTY COMPILE_DEFINITIONS
-		  LOG_TO_CONSOLE
-	)
-endif()
-if (LOG_TO_PROCESS_FILE)
-	#add_compile_definitions(LOG_TO_PROCESS_FILE)
-	set_property(
-		SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
-		PROPERTY COMPILE_DEFINITIONS
-		  LOG_TO_PROCESS_FILE
-	)
-endif()
-if (LOG_TO_SUBPROCESS_FILES)
-	#add_compile_definitions(LOG_TO_SUBPROCESS_FILES)
-	set_property(
-		SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
-		PROPERTY COMPILE_DEFINITIONS
-		  LOG_TO_SUBPROCESS_FILES
-	)
-endif()
-if (LOG_TO_ERROR_FILE)
-	#add_compile_definitions(LOG_TO_ERROR_FILE)
-	set_property(
-		SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
-		PROPERTY COMPILE_DEFINITIONS
-		  LOG_TO_ERROR_FILE
-	)
-endif()
+
+set_property(
+	SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${LOG_TO_CONSOLE}>:LOG_TO_CONSOLE> 
+		$<$<BOOL:${LOG_TO_PROCESS_FILE}>:LOG_TO_PROCESS_FILE>
+		$<$<BOOL:${LOG_TO_SUBPROCESS_FILES}>:LOG_TO_SUBPROCESS_FILES>
+		$<$<BOOL:${LOG_TO_ERROR_FILE}>:LOG_TO_ERROR_FILE>
+)
+
