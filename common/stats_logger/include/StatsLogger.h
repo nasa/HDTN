@@ -18,6 +18,7 @@
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/phoenix/function.hpp>
 #include "NoOpStream.h"
 #include "stats_lib_export.h"
 
@@ -90,6 +91,14 @@ private:
     static std::unique_ptr<StatsLogger> StatsLogger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
     static volatile bool StatsLoggerSingletonFullyInitialized_;
+
+    /**
+     * Log formatters 
+     */
+    struct millisecondsSinceEpoch_t {
+        long operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const;
+    };
+    static boost::phoenix::function<StatsLogger::millisecondsSinceEpoch_t> millisecondsSinceEpochFormatter;
 };
 }
 

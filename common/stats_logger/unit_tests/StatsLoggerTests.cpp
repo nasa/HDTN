@@ -18,7 +18,7 @@
 #include <boost/test/unit_test.hpp>
 #include "StatsLogger.h"
 
-static const std::string date_regex = "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}";
+static const std::string timestamp_regex = "\\d{13}";
 static const std::string anything_regex = "((.|\n)*)";
 
 /**
@@ -45,9 +45,9 @@ BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
     BOOST_TEST(std::regex_match(
         file_contents_to_str("stats/foo.csv"),
         std::regex(
-            anything_regex + "foo," + date_regex + ",1\n" +
-            "foo," + date_regex + ",x\n" +
-            "foo," + date_regex + ",30.5,y\n$"
+            anything_regex + "foo," + timestamp_regex + ",1\n" +
+            "foo," + timestamp_regex + ",x\n" +
+            "foo," + timestamp_regex + ",30.5,y\n$"
         ))
     );
 
@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
     BOOST_TEST(std::regex_match(
         file_contents_to_str("stats/bar.csv"),
         std::regex(
-            anything_regex + "bar," + date_regex + ",19.7\n$"
+            anything_regex + "bar," + timestamp_regex + ",19.7\n$"
         ))
     );
 
@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(StatsLoggerLogMetrics)
     BOOST_TEST(std::regex_match(
         file_contents_to_str("stats/foobar.csv"),
         std::regex(
-            anything_regex + "foobar," + date_regex + ",2000\n$"
+            anything_regex + "foobar," + timestamp_regex + ",2000\n$"
         ))
     );
 }

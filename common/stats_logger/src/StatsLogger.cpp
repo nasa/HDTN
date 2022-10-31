@@ -40,6 +40,11 @@ void StatsLogger::registerAttributes()
     StatsLogger::logger_.add_attribute("MetricName", StatsLogger::metric_name_attr);
 }
 
+long StatsLogger::millisecondsSinceEpoch_t::operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const {
+    static boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+    return (date.get() - epoch).total_milliseconds();
+}
+
 void StatsLogger::createMultiFileLogSinkForMetricNameAttr()
 {
     boost::shared_ptr< boost::log::sinks::text_multifile_backend > backend =
@@ -59,7 +64,7 @@ void StatsLogger::createMultiFileLogSinkForMetricNameAttr()
     (
         boost::log::expressions::stream
             << boost::log::expressions::attr< std::string >("MetricName")
-            << "," << boost::log::expressions::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S.%f")
+            << "," << millisecondsSinceEpochFormatter(boost::log::expressions::attr<boost::posix_time::ptime>("TimeStamp"))
             << "," << boost::log::expressions::smessage
     );
     boost::log::core::get()->add_sink(sink);
