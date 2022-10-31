@@ -7,7 +7,6 @@ add_library(log_lib
 
 #Log output options
 if (LOG_TO_CONSOLE)
-	#add_compile_definitions(LOG_TO_CONSOLE)
 	set_property(
 		SOURCE src/Logger.cpp
 		PROPERTY COMPILE_DEFINITIONS
@@ -15,7 +14,6 @@ if (LOG_TO_CONSOLE)
 	)
 endif()
 if (LOG_TO_PROCESS_FILE)
-	#add_compile_definitions(LOG_TO_PROCESS_FILE)
 	set_property(
 		SOURCE src/Logger.cpp
 		PROPERTY COMPILE_DEFINITIONS
@@ -23,7 +21,6 @@ if (LOG_TO_PROCESS_FILE)
 	)
 endif()
 if (LOG_TO_SUBPROCESS_FILES)
-	#add_compile_definitions(LOG_TO_SUBPROCESS_FILES)
 	set_property(
 		SOURCE src/Logger.cpp
 		PROPERTY COMPILE_DEFINITIONS
@@ -31,7 +28,6 @@ if (LOG_TO_SUBPROCESS_FILES)
 	)
 endif()
 if (LOG_TO_ERROR_FILE)
-	#add_compile_definitions(LOG_TO_ERROR_FILE)
 	set_property(
 		SOURCE src/Logger.cpp
 		PROPERTY COMPILE_DEFINITIONS
