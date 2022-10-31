@@ -4,6 +4,18 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_library(log_lib
       	src/Logger.cpp
 )
+
+#Log output options
+set_property(
+	SOURCE src/Logger.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${LOG_TO_CONSOLE}>:LOG_TO_CONSOLE> 
+		$<$<BOOL:${LOG_TO_PROCESS_FILE}>:LOG_TO_PROCESS_FILE>
+		$<$<BOOL:${LOG_TO_SUBPROCESS_FILES}>:LOG_TO_SUBPROCESS_FILES>
+		$<$<BOOL:${LOG_TO_ERROR_FILE}>:LOG_TO_ERROR_FILE>
+)
+
+
 GENERATE_EXPORT_HEADER(log_lib)
 get_target_property(target_type log_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)

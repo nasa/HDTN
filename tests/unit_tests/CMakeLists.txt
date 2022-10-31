@@ -63,3 +63,14 @@ target_link_libraries(unit-tests
 	Boost::unit_test_framework
 	Boost::timer
 )
+
+
+set_property(
+	SOURCE ../../common/logger/unit_tests/LoggerTests.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${LOG_TO_CONSOLE}>:LOG_TO_CONSOLE> 
+		$<$<BOOL:${LOG_TO_PROCESS_FILE}>:LOG_TO_PROCESS_FILE>
+		$<$<BOOL:${LOG_TO_SUBPROCESS_FILES}>:LOG_TO_SUBPROCESS_FILES>
+		$<$<BOOL:${LOG_TO_ERROR_FILE}>:LOG_TO_ERROR_FILE>
+)
+
