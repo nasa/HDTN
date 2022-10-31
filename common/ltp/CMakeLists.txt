@@ -12,7 +12,21 @@ add_library(ltp_lib
 	src/LtpBundleSink.cpp
 	src/LtpBundleSource.cpp
 )
-target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_RDSEED_COMPILE_FLAG} ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
+
+if(HAS_LTP_RNG_USE_RDSEED)
+	set_property(
+		SOURCE src/LtpRandomNumberGenerator.cpp
+		PROPERTY COMPILE_DEFINITIONS
+		  LTP_RNG_USE_RDSEED
+	)
+	set_property(
+		SOURCE src/LtpRandomNumberGenerator.cpp
+		PROPERTY COMPILE_OPTIONS
+		  ${NON_WINDOWS_RDSEED_COMPILE_FLAG}
+	)
+endif()
+
+target_compile_options(ltp_lib PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 
 #Github issue 26: Allow same-engine transfers
 #There are currently three places in LtpEngine.cpp that guard against
@@ -31,6 +45,12 @@ if(LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS)
 		  LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
 	)
 endif()
+
+set_property(
+	SOURCE src/LtpEngine.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
+)
 
 GENERATE_EXPORT_HEADER(ltp_lib)
 get_target_property(target_type ltp_lib TYPE)
