@@ -8,8 +8,10 @@
  */
 
 #include "router.h"
+#include "Logger.h"
 
 int main(int argc, char *argv[]) {
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::router);
     Router router;
     std::string jsonFileName;
     volatile bool running;

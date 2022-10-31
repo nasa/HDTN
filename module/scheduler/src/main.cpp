@@ -8,8 +8,10 @@
  */
 
 #include "scheduler.h"
+#include "Logger.h"
 
 int main(int argc, char *argv[]) {
+    hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::scheduler);
     Scheduler scheduler;
     volatile bool running;
 	

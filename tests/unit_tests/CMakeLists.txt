@@ -21,6 +21,10 @@ add_executable(unit-tests
 	../../common/util/test/TestTokenRateLimiter.cpp
 	../../common/util/test/TestUdpBatchSender.cpp
 	../../common/util/test/TestJsonSerializable.cpp
+	../../common/util/test/TestDirectoryScanner.cpp
+	../../common/util/test/dir_monitor/test_async.cpp
+	../../common/util/test/dir_monitor/test_sync.cpp
+	#../../common/util/test/test_running.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp
@@ -55,6 +59,7 @@ target_link_libraries(unit-tests
 	ingress_async_lib
 	bpcodec
 	udp_delay_sim_lib
+	log_lib
 	Boost::unit_test_framework
 	Boost::timer
 )

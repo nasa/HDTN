@@ -15,27 +15,34 @@ HDTN build environment requires:
 * ZeroMQ 
 * gcc version 9.3.0 (Debian 8.3.0-6) 
 * Target: x86_64-linux-gnu 
-* Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio 2017) and Mac 
+* Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio 2017 (version 15.7 and 15.9) and Visual Studio 2022), and Mac
 
 ## Optional CivetWeb Dependencies ## 
 HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
 * Can be obtained from https://github.com/civetweb/civetweb
 * User must build its C and C++ libraries using cmake with websocket support enabled.
-* Set the Cmake cache variable USE_WEB_INTERFACE to On (default is Off)
-* Set the Cmake variables to point to your civetweb installation: civetweb_INCLUDE, civetweb_LIB, civetwebcpp_LIB
+* Set the Cmake cache variable `USE_WEB_INTERFACE` to `On` (default is `Off`)
+* Set the Cmake variables to point to your civetweb installation: `civetweb_INCLUDE`, `civetweb_LIB`, `civetwebcpp_LIB`
+
+## Notes on C++ Standard Version ##
+HDTN build environment sets by default the CMake cache variable `HDTN_TRY_USE_CPP17` to `On`.
+* If set to `On`, CMake will test if the compiler supports C++17.  If the test fails, CMake will fall back to C++11 and compile HDTN with C++11.  If the test passes, CMake will compile HDTN with C++17.
+* If set to `Off`, CMake will compile HDTN with C++11.
+* With Visual Studio 2017 version 15.7 and later versions, if C++17 is enabled, CMake will set the compile option `/Zc:__cplusplus` to make the `__cplusplus` preprocessor macro accurate for Visual Studio.  (Otherwise, without this compile option, by default, Visual Studio always returns the value `199711L` for the `__cplusplus` preprocessor macro.)
+* Throughout the HDTN codebase, C++17 optimizations exist, usually within a `#if(__cplusplus >= 201703L)` block.
 
 ## Optional X86 Hardware Acceleration ## 
-HDTN build environment sets by default two CMake cache variables to "On": USE_X86_HARDWARE_ACCELERATION and LTP_RNG_USE_RDSEED.
+HDTN build environment sets by default two CMake cache variables to `On`: `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED`.
 * If you are building natively (i.e. not cross-compiling) then the HDTN CMake build environment will check the processor's CPU instruction set
 as well as the compiler to determine which HDTN hardware accelerated functions will both build and run on the native host.  CMake will automatically set various
 compiler defines to enable any supported HDTN hardware accelerated features.
 * If you are cross-compiling then the HDTN CMake build environment will check the compiler only to determine if the HDTN hardware accelerated functions will build.
 It is up to the user to determine if the target processor will support/run those instructons. CMake will automatically set various
 compiler defines to enable any supported HDTN hardware accelerated features if and only if they compile.
-* Hardware accelerated functions can be turned off by setting USE_X86_HARDWARE_ACCELERATION and/or LTP_RNG_USE_RDSEED to "Off" in the CMakeCache.txt.
-* If you are building for ARM or any non X86-64 platform, USE_X86_HARDWARE_ACCELERATION and LTP_RNG_USE_RDSEED must be set to "Off".
+* Hardware accelerated functions can be turned off by setting `USE_X86_HARDWARE_ACCELERATION` and/or `LTP_RNG_USE_RDSEED` to `Off` in the `CMakeCache.txt`.
+* If you are building for ARM or any non X86-64 platform, `USE_X86_HARDWARE_ACCELERATION` and `LTP_RNG_USE_RDSEED` must be set to `Off`.
 
-If USE_X86_HARDWARE_ACCELERATION is turned on, then some or all of the following various features will be enabled if CMake finds support for these CPU instructions:
+If `USE_X86_HARDWARE_ACCELERATION` is turned on, then some or all of the following various features will be enabled if CMake finds support for these CPU instructions:
 * Fast SDNV encode/decode (BPv6, TCPCLv3, and LTP) requires SSE, SSE2, SSE3, SSSE3, SSE4.1, POPCNT, BMI1, and BMI2.
 * Fast batch 32-byte SDNV decode (not yet implemented into HDTN but available in the common/util/Sdnv library) requires AVX, AVX2, and the above "Fast SDNV" support.
 * Fast CBOR encode/decode (BPv7) requires SSE and SSE2.
@@ -43,7 +50,7 @@ If USE_X86_HARDWARE_ACCELERATION is turned on, then some or all of the following
 * Fast CRC32C (BPv7 and a storage hash function) requires SSE4.2.
 * The HDTN storage controller will use BITTEST if available.  If BITTEST is not available, it will use ANDN if BMI1 is available.
 
-If LTP_RNG_USE_RDSEED is turned on, this feature will be enabled if CMake finds support for this CPU instruction:
+If `LTP_RNG_USE_RDSEED` is turned on, this feature will be enabled if CMake finds support for this CPU instruction:
 * An additional source of randomness for LTP's random number generator requires RDSEED.  You may choose to disable this feature for potentially faster LTP performance even if the CPU supports it.
 
 ## Storage Capacity Compilation Parameters ## 

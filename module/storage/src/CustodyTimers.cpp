@@ -2,7 +2,7 @@
  * @file CustodyTimers.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,6 @@
  */
 
 #include "CustodyTimers.h"
-#include <iostream>
 #include <string>
 #include <boost/make_unique.hpp>
 
@@ -43,7 +42,6 @@ bool CustodyTimers::PollOneAndPopExpiredCustodyTimer(uint64_t & custodyId, const
             }
         }
     }
-    //std::cout << "lowestExp " << lowestExpiry << " now " << nowPtime << std::endl;
     if (lowestExpiry <= nowPtime) {
         custid_ptime_list_t & custIdPlusPtimeList = lowestExpiryIt->second;
         const custid_ptime_pair_t & thisCustodyIdPlusPtimePair = custIdPlusPtimeList.front();
@@ -96,7 +94,6 @@ bool CustodyTimers::StartCustodyTransferTimer(const cbhe_eid_t & finalDestEid, c
 bool CustodyTimers::CancelCustodyTransferTimer(const cbhe_eid_t & finalDestEid, const uint64_t custodyId) {
     custid_to_listiterator_map_t::iterator itCidToListItMap = m_mapCustodyIdToListIterator.find(custodyId);
     if (itCidToListItMap != m_mapCustodyIdToListIterator.end()) {
-        //std::cout << "DeleteTimer found and erasing " << serialNumber << std::endl;
         desteid_to_custidexpirylist_map_t::iterator itEidToCidExpiryListMap = m_mapDestEidToCustodyIdExpiryList.find(finalDestEid);
         if (itEidToCidExpiryListMap != m_mapDestEidToCustodyIdExpiryList.end()) {
             custid_ptime_list_t & listRef = itEidToCidExpiryListMap->second;

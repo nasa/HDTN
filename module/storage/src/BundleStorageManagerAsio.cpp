@@ -2,7 +2,7 @@
  * @file BundleStorageManagerAsio.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -19,7 +19,6 @@
 #endif
 
 #include "BundleStorageManagerAsio.h"
-#include <iostream>
 #include <string>
 #include <boost/filesystem.hpp>
 #include <memory>
@@ -28,12 +27,13 @@
 #include <windows.h> //must be included after boost
 #endif
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
+
 BundleStorageManagerAsio::BundleStorageManagerAsio() : BundleStorageManagerAsio("storageConfig.json") {}
 
 BundleStorageManagerAsio::BundleStorageManagerAsio(const std::string & jsonConfigFileName) : BundleStorageManagerAsio(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
     if (!m_storageConfigPtr) {
-        std::cerr << "cannot open storage json config file: " << jsonConfigFileName << std::endl;
-        hdtn::Logger::getInstance()->logError("storage", "cannot open storage json config file: " + jsonConfigFileName);
+        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFileName;
         return;
     }
 }
@@ -70,7 +70,7 @@ void BundleStorageManagerAsio::Start() {
     if (m_storageConfigPtr) {
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
             const char * const filePath = m_filePathsAsStringVec[diskId].c_str();
-            std::cout << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath << "\n";
+            LOG_INFO(subprocess) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
 #ifdef _WIN32
             //
             //https://docs.microsoft.com/en-us/windows/win32/fileio/synchronous-and-asynchronous-i-o
@@ -90,7 +90,7 @@ void BundleStorageManagerAsio::Start() {
                 NULL);                  // no attr. template
 
             if (hFile == INVALID_HANDLE_VALUE) {
-                std::cerr << "error opening " << filePath << std::endl;
+                LOG_ERROR(subprocess) << "error opening " << filePath;
                 return;
             }
             //
@@ -99,7 +99,7 @@ void BundleStorageManagerAsio::Start() {
 #else
             int file_desc = open(filePath, (m_successfullyRestoredFromDisk) ? (O_RDWR|O_LARGEFILE) : (O_CREAT|O_RDWR|O_TRUNC|O_LARGEFILE), DEFFILEMODE);
             if(file_desc < 0) {
-                std::cerr << "error opening " << filePath << std::endl;
+                LOG_ERROR(subprocess) << "error opening " << filePath;
                 return;
             }
             m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::posix::stream_descriptor>(m_ioService, file_desc);
@@ -125,8 +125,7 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
 
             const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
             if (segmentId == SEGMENT_ID_LAST) {
-                std::cout << "error segmentId is last\n";
-                hdtn::Logger::getInstance()->logError("storage", "Error segmentId is last");
+                LOG_ERROR(subprocess) << "error segmentId is last";
                 //continue;
             }
 
@@ -178,10 +177,10 @@ void BundleStorageManagerAsio::NotifyDiskOfWorkToDo_ThreadSafe(const unsigned in
 void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system::error_code& error, std::size_t bytes_transferred, const unsigned int diskId, const unsigned int consumeIndex, const bool wasReadOperation) {
     m_diskOperationInProgressVec[diskId] = false;
     if (error) {
-        std::cerr << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: " << error.message();
     }
     else if (bytes_transferred != SEGMENT_SIZE) {
-        std::cerr << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: bytes_transferred(" << bytes_transferred << ") != SEGMENT_SIZE(" << SEGMENT_SIZE << ")" << std::endl;
+        LOG_ERROR(subprocess) << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: bytes_transferred(" << bytes_transferred << ") != SEGMENT_SIZE(" << SEGMENT_SIZE << ")";
     }
     else {
         if (wasReadOperation) {

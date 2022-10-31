@@ -15,6 +15,7 @@ add_library(hdtn_util
 	src/TokenRateLimiter.cpp
 	src/UdpBatchSender.cpp
 	src/LtpClientServiceDataToSend.cpp
+	src/DirectoryScanner.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -51,6 +52,7 @@ set(MY_PUBLIC_HEADERS
 	include/CborUint.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
+	include/DirectoryScanner.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h
 	include/FragmentSet.h
@@ -74,5 +76,7 @@ install(TARGETS hdtn_util
 	DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+#preserve hierarchy of dir_monitor
+install(DIRECTORY include/dir_monitor DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
 add_hdtn_package_export(hdtn_util HDTNUtil) #exported target will have the name HDTN::HDTNUtil and not hdtn_util.  Also requires install to EXPORT hdtn_util-targets

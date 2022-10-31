@@ -35,7 +35,10 @@ uint64_t CgrServer::requestNextHop(uint64_t currentNode, uint64_t destinationNod
     cgrSock->send(zmq::const_buffer(message.data(), message.size()), zmq::send_flags::none);
     std::cout << "Waiting to receive message back" << std::endl;
     zmq::message_t recvMessage;
-    cgrSock->recv(recvMessage, zmq::recv_flags::none);
+    if (!cgrSock->recv(recvMessage, zmq::recv_flags::none)) {
+        std::cout << "error in CgrServer::requestNextHop: did not receive message\n";
+        return UINT64_MAX;
+    }
 
     const std::string myReceivedAsString((const char *)recvMessage.data(), ((const char *)recvMessage.data()) + recvMessage.size());
 
