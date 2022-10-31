@@ -27,6 +27,7 @@ target_link_libraries(bpcodec
 	PUBLIC
 		hdtn_util
 		log_lib
+		stats_lib
 )
 target_include_directories(bpcodec
 	PUBLIC
