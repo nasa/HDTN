@@ -2,7 +2,7 @@
  * @file BinaryConversions.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include "BinaryConversions.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/hex.hpp>
 #if (BOOST_VERSION >= 106600)
@@ -51,11 +51,10 @@ bool BinaryConversions::HexStringToBytes(const std::string & hexString, std::vec
         boost::algorithm::unhex(hexString, std::back_inserter(bytes));
     }
     catch (const boost::algorithm::hex_decode_error &) {
-        //std::cout << "decode error: " << e.what() << std::endl;
         return false;
     }
     catch (const std::exception & e) {
-        std::cout << "unknown decode error: " << e.what() << std::endl;
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "unknown decode error: " << e.what();
         return false;
     }
     return true;

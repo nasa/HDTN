@@ -2,7 +2,7 @@
  * @file FragmentSet.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include "FragmentSet.h"
-#include <iostream>
+#include "Logger.h"
 #include "Sdnv.h"
 #include <algorithm>
 #include <boost/next_prior.hpp>
@@ -207,9 +207,8 @@ bool FragmentSet::RemoveFragment(std::set<data_fragment_t> & fragmentSet, const 
 
 void FragmentSet::PrintFragmentSet(const std::set<data_fragment_t> & fragmentSet) {
     for (std::set<data_fragment_t>::const_iterator it = fragmentSet.cbegin(); it != fragmentSet.cend(); ++it) {
-        std::cout << "(" << it->beginIndex << "," << it->endIndex << ") ";
+        LOG_INFO(hdtn::Logger::SubProcess::none) << "(" << it->beginIndex << "," << it->endIndex << ") ";
     }
-    std::cout << std::endl;
 }
 
 void FragmentSet::GetBoundsMinusFragments(const data_fragment_t bounds, const std::set<data_fragment_t>& fragmentSet, std::set<data_fragment_t>& boundsMinusFragmentsSet) {

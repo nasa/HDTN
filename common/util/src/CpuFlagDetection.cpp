@@ -2,7 +2,7 @@
  * @file CpuFlagDetection.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -21,7 +21,7 @@
 #ifndef CPU_FLAG_DETECTION_RUN_MAIN_ONLY
 #include "CpuFlagDetection.h"
 #endif
-#include <iostream>
+#include "Logger.h"
 #include <vector>
 #include <bitset>
 #include <array>
@@ -34,6 +34,8 @@
 #else
 #include <cpuid.h>  // __get_cpuid
 #endif
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void CpuIdCrossPlatform(int * eaxThrougEdxRegisters, int id) {
 #ifdef _MSC_VER
@@ -185,7 +187,7 @@ InstructionSet::InstructionSet_Internal::InstructionSet_Internal() :
     //https://en.wikipedia.org/wiki/CPUID#EAX=0:_Highest_Function_Parameter_and_Manufacturer_ID
     // Calling __cpuid with 0x0 as the function_id argument
     // gets the number of the highest valid function ID.
-    // This returns the CPU's manufacturer ID string – a twelve-character ASCII string stored in EBX, EDX, ECX (in that order)
+    // This returns the CPU's manufacturer ID string ï¿½ a twelve-character ASCII string stored in EBX, EDX, ECX (in that order)
     // The highest basic calling parameter (largest value that EAX can be set to before calling CPUID) is returned in EAX.
     CpuIdCrossPlatform(cpuInfoArrayInt4.data(), 0);
     m_numIds = cpuInfoArrayInt4[0];
@@ -345,9 +347,9 @@ std::string CpuFlagDetection::GetCpuBrand() {
 #else
 //for use in cmake try_run() only
 int main() {
-    std::cout << "VENDOR_BEGIN" << InstructionSet::Vendor() << "VENDOR_END ";
-    std::cout << "BRAND_BEGIN" << InstructionSet::Brand() << "BRAND_END";
-    std::cout << "ALL_CPU_FLAGS_BEGIN" << InstructionSet::FlagsList() << "ALL_CPU_FLAGS_END";
+    LOG_INFO(subprocess) << "VENDOR_BEGIN" << InstructionSet::Vendor() << "VENDOR_END ";
+    LOG_INFO(subprocess) << "BRAND_BEGIN" << InstructionSet::Brand() << "BRAND_END";
+    LOG_INFO(subprocess) << "ALL_CPU_FLAGS_BEGIN" << InstructionSet::FlagsList() << "ALL_CPU_FLAGS_END";
     return 0;
 }
 #endif

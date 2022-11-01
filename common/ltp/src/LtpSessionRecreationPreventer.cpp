@@ -2,7 +2,7 @@
  * @file LtpSessionRecreationPreventer.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include "LtpSessionRecreationPreventer.h"
-#include <iostream>
+#include "Logger.h"
 
 LtpSessionRecreationPreventer::LtpSessionRecreationPreventer(const uint64_t numReceivedSessionsToRemember) :
     M_NUM_RECEIVED_SESSION_NUMBERS_TO_REMEMBER(numReceivedSessionsToRemember),
@@ -31,7 +31,7 @@ bool LtpSessionRecreationPreventer::AddSession(const uint64_t newSessionNumber) 
     if (m_previouslyReceivedSessionNumbersUnorderedSet.insert(newSessionNumber).second) { //successful insertion
         if (m_queueIsFull) { //remove oldest session number from history
             if (m_previouslyReceivedSessionNumbersUnorderedSet.erase(m_previouslyReceivedSessionNumbersQueueVector[m_nextQueueIndex]) == 0) {
-                std::cerr << "error in LtpSessionRecreationPreventer::AddSession: unable to erase an old value\n";
+                LOG_ERROR(hdtn::Logger::SubProcess::none) << "LtpSessionRecreationPreventer::AddSession: unable to erase an old value";
                 return false;
             }
         }

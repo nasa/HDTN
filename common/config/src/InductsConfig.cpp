@@ -6,12 +6,15 @@
  */
 
 #include "InductsConfig.h"
+#include "Logger.h"
 #include <memory>
 #include <boost/foreach.hpp>
 #include <iostream>
 #ifndef _WIN32
 #include <sys/socket.h> //for ltpMaxUdpPacketsToSendPerSystemCall checks
 #endif
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
@@ -248,7 +251,7 @@ bool InductsConfig::operator==(const InductsConfig & o) const {
 bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) {
     m_inductConfigName = pt.get<std::string>("inductConfigName", ""); //non-throw version
     if (m_inductConfigName == "") {
-        std::cerr << "error: inductConfigName must be defined and not empty string\n";
+        LOG_ERROR(subprocess) << "inductConfigName must be defined and not empty string";
         return false;
     }
     const boost::property_tree::ptree & inductElementConfigVectorPt = pt.get_child("inductVector", boost::property_tree::ptree()); //non-throw version
@@ -268,13 +271,13 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                     }
                 }
                 if (!found) {
-                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: invalid convergence layer " << inductElementConfig.convergenceLayer << std::endl;
+                    LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: invalid convergence layer " << inductElementConfig.convergenceLayer;
                     return false;
                 }
             }
             inductElementConfig.boundPort = inductElementConfigPt.second.get<uint16_t>("boundPort");
             if (inductElementConfig.boundPort == 0) {
-                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero\n";
+                LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: boundPort must be non-zero";
                 return false;
             }
             inductElementConfig.numRxCircularBufferElements = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferElements");
@@ -282,8 +285,8 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.numRxCircularBufferBytesPerElement = inductElementConfigPt.second.get<uint32_t>("numRxCircularBufferBytesPerElement");
             }
             else if (inductElementConfigPt.second.count("numRxCircularBufferBytesPerElement")) { //not used by stcp or ltp
-                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: convergence layer "
-                    << inductElementConfig.convergenceLayer << " induct config does not use numRxCircularBufferBytesPerElement.. please remove\n";
+                LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: convergence layer "
+                    << inductElementConfig.convergenceLayer << " induct config does not use numRxCircularBufferBytesPerElement.. please remove";
                 return false;
             }
 
@@ -298,8 +301,8 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.ltpMaxRetriesPerSerialNumber = inductElementConfigPt.second.get<uint32_t>("ltpMaxRetriesPerSerialNumber");
                 inductElementConfig.ltpRandomNumberSizeBits = inductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits");
                 if ((inductElementConfig.ltpRandomNumberSizeBits != 32) && (inductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
-                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpRandomNumberSizeBits ("
-                        << inductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                    LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpRandomNumberSizeBits ("
+                        << inductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64";
                     return false;
                 }
                 inductElementConfig.ltpRemoteUdpHostname = inductElementConfigPt.second.get<std::string>("ltpRemoteUdpHostname");
@@ -308,15 +311,15 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.ltpMaxExpectedSimultaneousSessions = inductElementConfigPt.second.get<uint64_t>("ltpMaxExpectedSimultaneousSessions");
                 inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = inductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
                 if (inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
-                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
-                        << inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be non-zero.\n";
+                    LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be non-zero.";
                     return false;
                 }
 #ifdef UIO_MAXIOV
                 //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
                 if (inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
-                    std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
-                        << inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").\n";
+                    LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << inductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
                     return false;
                 }
 #endif //UIO_MAXIOV
@@ -328,8 +331,8 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 };
                 for (std::size_t i = 0; i < LTP_ONLY_VALUES.size(); ++i) {
                     if (inductElementConfigPt.second.count(LTP_ONLY_VALUES[i]) != 0) {
-                        std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
-                            << " has an ltp induct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove" << std::endl;
+                        LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                            << " has an ltp induct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove";
                         return false;
                     }
                 }
@@ -339,8 +342,8 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.keepAliveIntervalSeconds = inductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
             }
             else if (inductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
-                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
-                    << " has an stcp or tcpcl induct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                    << " has an stcp or tcpcl induct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove";
                 return false;
             }
 
@@ -348,8 +351,8 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 inductElementConfig.tcpclV3MyMaxTxSegmentSizeBytes = inductElementConfigPt.second.get<uint64_t>("tcpclV3MyMaxTxSegmentSizeBytes");
             }
             else if (inductElementConfigPt.second.count("tcpclV3MyMaxTxSegmentSizeBytes") != 0) {
-                std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
-                    << " has a tcpcl_v3 induct only configuration parameter of \"tcpclV3MyMaxTxSegmentSizeBytes\".. please remove" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                    << " has a tcpcl_v3 induct only configuration parameter of \"tcpclV3MyMaxTxSegmentSizeBytes\".. please remove";
                 return false;
             }
 
@@ -367,15 +370,15 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
 
                 for (std::vector<std::string>::const_iterator it = VALID_TCPCL_V4_INDUCT_PARAMETERS.cbegin(); it != VALID_TCPCL_V4_INDUCT_PARAMETERS.cend(); ++it) {
                     if (inductElementConfigPt.second.count(*it) != 0) {
-                        std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
-                            << " has a tcpcl_v4 induct only configuration parameter of \"" << (*it) << "\".. please remove" << std::endl;
+                        LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: induct convergence layer  " << inductElementConfig.convergenceLayer
+                            << " has a tcpcl_v4 induct only configuration parameter of \"" << (*it) << "\".. please remove";
                         return false;
                     }
                 }
             }
         }
         catch (const boost::property_tree::ptree_error & e) {
-            std::cerr << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "error parsing JSON inductVector[" << (vectorIndex - 1) << "]: " << e.what();
             return false;
         }
     }
@@ -389,7 +392,7 @@ InductsConfig_ptr InductsConfig::CreateFromJson(const std::string & jsonString) 
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In InductsConfig::CreateFromJson. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return InductsConfig_ptr(); //NULL
@@ -401,7 +404,7 @@ InductsConfig_ptr InductsConfig::CreateFromJsonFile(const std::string & jsonFile
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In InductsConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return InductsConfig_ptr(); //NULL

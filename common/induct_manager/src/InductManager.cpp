@@ -1,5 +1,5 @@
 #include "InductManager.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <memory>
 #include "TcpclInduct.h"
@@ -28,7 +28,7 @@ void InductManager::LoadInductsFromConfig(const InductProcessBundleCallback_t & 
         else if (thisInductConfig.convergenceLayer == "tcpcl_v4") {
 #ifndef OPENSSL_SUPPORT_ENABLED
             if (thisInductConfig.tlsIsRequired) {
-                std::cout << "error in InductManager::LoadInductsFromConfig: TLS is required for this tcpcl v4 induct but HDTN is not compiled with OpenSSL support.. this induct shall be disabled." << std::endl;
+                LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in InductManager::LoadInductsFromConfig: TLS is required for this tcpcl v4 induct but HDTN is not compiled with OpenSSL support.. this induct shall be disabled.";
                 continue;
             }
 #endif

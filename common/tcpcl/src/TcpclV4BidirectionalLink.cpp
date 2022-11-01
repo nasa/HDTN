@@ -2,7 +2,7 @@
  * @file TcpclV4BidirectionalLink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,13 +13,15 @@
  */
 
 #include <string>
-#include <iostream>
 #include "TcpclV4BidirectionalLink.h"
+#include "Loggger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include <boost/endian/conversion.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     const std::string & implementationStringForCout,
@@ -110,8 +112,8 @@ TcpclV4BidirectionalLink::TcpclV4BidirectionalLink(
     else {
         uint64_t remoteNodeId, remoteServiceId;
         if (!Uri::ParseIpnUriString(expectedRemoteEidUriStringIfNotEmpty, remoteNodeId, remoteServiceId)) {
-            std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in constructor: error parsing remote EID URI string " << expectedRemoteEidUriStringIfNotEmpty
-                << " .. TCPCLV4 will fail the Session Init Callback.  Correct the \"nextHopEndpointId\" field in the outducts config." << std::endl;
+            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error parsing remote EID URI string " << expectedRemoteEidUriStringIfNotEmpty
+                << " .. TCPCLV4 will fail the Session Init Callback.  Correct the \"nextHopEndpointId\" field in the outducts config.";
         }
         else {
             //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
@@ -133,10 +135,10 @@ void TcpclV4BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending()
     for (unsigned int attempt = 0; attempt < 10; ++attempt) {
         const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
         if (numUnacked) {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": notice: destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
 
-            std::cout << "   acked: " << m_base_totalBundlesAcked << std::endl;
-            std::cout << "   total sent: " << m_base_totalBundlesSent << std::endl;
+            LOG_INFO(subprocess) << "   acked: " << m_base_totalBundlesAcked;
+            LOG_INFO(subprocess) << "   total sent: " << m_base_totalBundlesSent;
 
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
@@ -181,7 +183,7 @@ unsigned int TcpclV4BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
 
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSend: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSend: " << error.message();
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else {
@@ -191,7 +193,7 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
 
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendContactHeader: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSendContactHeader: " << error.message();
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else {
@@ -201,7 +203,7 @@ void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendContactHeader(const boost:
 
 void TcpclV4BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendShutdown: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSendShutdown: " << error.message();
     }
     else {
         m_base_sendSessionTerminationMessageTimeoutTimer.cancel();
@@ -225,8 +227,8 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
                     memcpy(&bundleLength, ext.valueVec.data(), sizeof(bundleLength));
                     boost::endian::big_to_native_inplace(bundleLength);
                     if (bundleLength > M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES) {
-                        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_DataSegmentCallback: received length transfer extension with bundle length ("
-                            << bundleLength << ") greater than my bundle capacity of " << M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES << " bytes\n";
+                        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_DataSegmentCallback: received length transfer extension with bundle length ("
+                            << bundleLength << ") greater than my bundle capacity of " << M_BASE_MY_MAX_RX_BUNDLE_SIZE_BYTES << " bytes";
                         //todo refuse bundle
                     }
                     else {
@@ -234,7 +236,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
                     }
                 }
                 else {
-                    std::cout << "error in TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback: received length transfer extension with invalid payload size\n";
+                    LOG_ERROR(subprocess) << "TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback: received length transfer extension with invalid payload size";
                 }
             }
             else if (ext.IsCritical()) {
@@ -244,11 +246,8 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
                 //XFER_REFUSE reason code of "Extension Failure".  If the CRITICAL
                 //flag is 0, an entity SHALL skip over and ignore any item with an
                 //unknown Item Type.
-                std::cout << "error in TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback: received unknown critical transfer extension type " << ext.type
-                    << " ..terminating session.\n";
-            }
-            else {
-                //std::cout << "notice: TcpclV4BundleSource::SessionInitCallback: ignoring unknown non-critical session extension type " << ext.type << std::endl;
+                LOG_ERROR(subprocess) << "TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback: received unknown critical transfer extension type " << ext.type
+                    << " ..terminating session.";
             }
         }
     }
@@ -257,7 +256,6 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     if (isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
         bytesToAck = dataSegmentDataVec.size(); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
         Virtual_WholeBundleReady(dataSegmentDataVec);
-        //std::cout << dataSegmentDataSharedPtr->size() << std::endl;
     }
     else {
         if (isStartFlag) {
@@ -267,7 +265,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
                 m_base_fragmentedBundleRxConcat.reserve(bundleLength);
             }
             else {
-                std::cout << "warning in TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback: received fragmented start segment with no length extension\n";
+                LOG_WARNING(subprocess) << "TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback: received fragmented start segment with no length extension";
             }
         }
         m_base_fragmentedBundleRxConcat.insert(m_base_fragmentedBundleRxConcat.end(), dataSegmentDataVec.begin(), dataSegmentDataVec.end()); //concatenate
@@ -316,7 +314,7 @@ void TcpclV4BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
 void TcpclV4BidirectionalLink::BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_t & ack) {
     const unsigned int readIndex = m_base_segmentsToAckCbPtr->GetIndexForRead();
     if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error: BaseClass_AckCallback called with empty queue" << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_AckCallback called with empty queue";
         return;
     }
 
@@ -339,7 +337,7 @@ void TcpclV4BidirectionalLink::BaseClass_AckCallback(const TcpclV4::tcpclv4_ack_
         m_base_segmentsToAckCbPtr->CommitRead();
     }
     else {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_AckCallback: wrong ack: expected " << toAckFromQueue << " but got " << ack << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_AckCallback: wrong ack: expected " << toAckFromQueue << " but got " << ack;
     }
 }
 
@@ -356,7 +354,7 @@ void TcpclV4BidirectionalLink::BaseClass_RestartNoKeepaliveReceivedTimer() {
 }
 
 void TcpclV4BidirectionalLink::BaseClass_KeepAliveCallback() {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received keepalive packet\n";
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received keepalive packet";
     BaseClass_RestartNoKeepaliveReceivedTimer(); //cancels and restarts timer
 }
 
@@ -364,16 +362,13 @@ void TcpclV4BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpire
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         if (m_base_dataReceivedServedAsKeepaliveReceived) {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": data received served as keepalive\n";
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": data received served as keepalive";
             BaseClass_RestartNoKeepaliveReceivedTimer();
         }
         else {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": shutting down tcpcl session due to inactivity or missing keepalive\n";
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": shutting down tcpcl session due to inactivity or missing keepalive";
             BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::IDLE_TIMEOUT, false);
         }
-    }
-    else {
-        //std::cout << "timer cancelled\n";
     }
 }
 
@@ -385,7 +380,6 @@ void TcpclV4BidirectionalLink::BaseClass_RestartNeedToSendKeepAliveMessageTimer(
     const unsigned int shift = static_cast<unsigned int>(m_base_dataSentServedAsKeepaliveSent);
     const unsigned int millisecondMultiplier = 1000u >> shift;
     const boost::posix_time::time_duration expiresFromNowDuration = boost::posix_time::milliseconds(m_base_keepAliveIntervalSeconds * millisecondMultiplier);
-    //std::cout << "try send keepalive in " << expiresFromNowDuration.total_milliseconds() << " millisec\n";
     m_base_needToSendKeepAliveMessageTimer.expires_from_now(expiresFromNowDuration);
     m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
     m_base_dataSentServedAsKeepaliveSent = false;
@@ -421,31 +415,28 @@ void TcpclV4BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpir
         }
 
     }
-    else {
-        //std::cout << "timer cancelled\n";
-    }
 }
 
 void TcpclV4BidirectionalLink::BaseClass_SessionTerminationMessageCallback(TCPCLV4_SESSION_TERMINATION_REASON_CODES terminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage) {
 
 
     if (isAckOfAnEarlierSessionTerminationMessage) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote acknowledged my termination request\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote acknowledged my termination request";
         m_base_waitForSessionTerminationAckTimeoutTimer.cancel();
     }
     else {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote has requested session termination\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote has requested session termination";
         //send ack
         BaseClass_DoTcpclShutdown(true, terminationReasonCode, true);
     }
 
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": reason for shutdown: "
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": reason for shutdown: "
         << ((terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN) ? "unknown" :
         (terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::IDLE_TIMEOUT) ? "idle timeout" :
             (terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::VERSION_MISMATCH) ? "version mismatch" :
             (terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::BUSY) ? "busy" :
             (terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE) ? "contact failure" :
-            (terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::RESOURCE_EXHAUSTION) ? "resource exhaustion" : "unassigned") << std::endl;
+            (terminationReasonCode == TCPCLV4_SESSION_TERMINATION_REASON_CODES::RESOURCE_EXHAUSTION) ? "resource exhaustion" : "unassigned");
 }
 
 void TcpclV4BidirectionalLink::BaseClass_DoTcpclShutdown(bool doCleanShutdown, TCPCLV4_SESSION_TERMINATION_REASON_CODES sessionTerminationReasonCode, bool isAckOfAnEarlierSessionTerminationMessage) {
@@ -468,7 +459,7 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
         if (doCleanShutdown && m_base_tcpAsyncSenderPtr && m_base_tcpSocketPtr) {
 #endif
         
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending session terminination packet to cleanly close tcpcl.. " << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending session terminination packet to cleanly close tcpcl.. ";
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingDataVecHeaders.resize(1);
 
@@ -522,19 +513,18 @@ void TcpclV4BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool doCleanShut
 void TcpclV4BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e, bool isAckOfAnEarlierSessionTerminationMessage) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Error: TCPCL session termination message could not be sent." << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination message could not be sent.";
         BaseClass_CloseAndDeleteSockets();
     }
     else { //operation cancelled by m_base_handleTcpSendShutdownCallback (as expected)
-        //std::cout << "timer cancelled\n";
         if (isAckOfAnEarlierSessionTerminationMessage) {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination ACK message was sent.  Keeping socket open for 1 second." << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination ACK message was sent.  Keeping socket open for 1 second.";
             m_base_remainInEndingStateTimer.expires_from_now(boost::posix_time::seconds(1));
             m_base_remainInEndingStateTimer.async_wait(boost::bind(
                 &TcpclV4BidirectionalLink::BaseClass_RemainInEndingState_TimerExpired, this, boost::asio::placeholders::error));
         }
         else {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination message was sent (initiated by me)." << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination message was sent (initiated by me).";
             m_base_waitForSessionTerminationAckTimeoutTimer.expires_from_now(boost::posix_time::seconds(3));
             m_base_waitForSessionTerminationAckTimeoutTimer.async_wait(boost::bind(
                 &TcpclV4BidirectionalLink::BaseClass_OnWaitForSessionTerminationAckTimeout_TimerExpired, this, boost::asio::placeholders::error));
@@ -545,12 +535,11 @@ void TcpclV4BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpir
 void TcpclV4BidirectionalLink::BaseClass_OnWaitForSessionTerminationAckTimeout_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Error: TCPCL session termination Ack message was not received." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Error: TCPCL session termination Ack message was not received.";
         BaseClass_CloseAndDeleteSockets();
     }
     else { //operation cancelled by On Session Termination Message Received (as expected)
-        //std::cout << "timer cancelled\n";
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination Ack message was received.  Keeping socket open for 1 second." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": TCPCL session termination Ack message was received.  Keeping socket open for 1 second.";
         m_base_remainInEndingStateTimer.expires_from_now(boost::posix_time::seconds(1));
         m_base_remainInEndingStateTimer.async_wait(boost::bind(
             &TcpclV4BidirectionalLink::BaseClass_RemainInEndingState_TimerExpired, this, boost::asio::placeholders::error));
@@ -560,7 +549,7 @@ void TcpclV4BidirectionalLink::BaseClass_OnWaitForSessionTerminationAckTimeout_T
 void TcpclV4BidirectionalLink::BaseClass_RemainInEndingState_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Closing socket..." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Closing socket...";
     }
     BaseClass_CloseAndDeleteSockets();
 }
@@ -568,7 +557,7 @@ void TcpclV4BidirectionalLink::BaseClass_RemainInEndingState_TimerExpired(const 
 void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
     //final code to shut down tcp sockets
     if (M_BASE_DELETE_SOCKET_AFTER_SHUTDOWN) { //for bundle sink
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Async Sender" << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Async Sender";
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_tcpAsyncSenderSslPtr.reset();
 #else
@@ -586,37 +575,37 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
     
         if (socketRef.is_open()) {
             try {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " cancelling TCP socket operations.." << std::endl;
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " cancelling TCP socket operations..";
                 socketRef.cancel();
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what();
             }
             try {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " shutting down TCP socket.." << std::endl;
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " shutting down TCP socket..";
                 socketRef.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " BaseClass_CloseAndDeleteSockets: " << e.what();
             }
             try {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " closing TCP socket socket.." << std::endl;
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " closing TCP socket socket..";
                 socketRef.close();
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_CloseAndDeleteSockets: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " BaseClass_CloseAndDeleteSockets: " << e.what();
             }
         }
         if (M_BASE_DELETE_SOCKET_AFTER_SHUTDOWN) { //for bundle sink
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Socket" << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Socket";
 #ifdef OPENSSL_SUPPORT_ENABLED
             if (m_base_sslStreamSharedPtr.use_count() != 1) {
-                std::cerr << "error m_base_sslStreamSharedPtr.use_count() != 1" << std::endl;
+                LOG_ERROR(subprocess) << "m_base_sslStreamSharedPtr.use_count() != 1";
             }
             m_base_sslStreamSharedPtr = std::shared_ptr< boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >();
 #else
             if (m_base_tcpSocketPtr.use_count() != 1) {
-                std::cerr << "error m_base_tcpSocketPtr.use_count() != 1" << std::endl;
+                LOG_ERROR(subprocess) << "m_base_tcpSocketPtr.use_count() != 1";
         }
             m_base_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
 #endif
@@ -657,7 +646,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::
 bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
     
     if (!m_base_readyToForward) {
-        std::cerr << "link not ready to forward yet" << std::endl;
+        LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
 
@@ -766,7 +755,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
             const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
             if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Unexpected Error in Base_Forward.. cannot get cb write index" << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
                 return false;
             }
             m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(isStartSegment, isEndSegment, transferId, dataIndex);
@@ -815,7 +804,7 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
         const unsigned int writeIndex = m_base_segmentsToAckCbPtr->GetIndexForWrite(); //don't put this in tcp async write callback
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-            std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Unexpected Error in Base_Forward.. cannot get cb write index" << std::endl;
+            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Base_Forward.. cannot get cb write index";
             return false;
         }
         m_base_segmentsToAckCbVec[writeIndex] = TcpclV4::tcpclv4_ack_t(true, true, transferId, dataSize);
@@ -837,28 +826,28 @@ bool TcpclV4BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 }
 
 void TcpclV4BidirectionalLink::BaseClass_MessageRejectCallback(TCPCLV4_MESSAGE_REJECT_REASON_CODES refusalCode, uint8_t rejectedMessageHeader) {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote rejected message (header=" << (int)rejectedMessageHeader << ") with reason code: ";
-    std::cout <<
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote rejected message (header=" << (int)rejectedMessageHeader << ") with reason code: ";
+    LOG_INFO(subprocess) <<
         ((refusalCode == TCPCLV4_MESSAGE_REJECT_REASON_CODES::MESSAGE_TYPE_UNKNOWN) ? "MESSAGE_TYPE_UNKNOWN" :
         (refusalCode == TCPCLV4_MESSAGE_REJECT_REASON_CODES::MESSAGE_UNEXPECTED) ? "MESSAGE_UNEXPECTED" :
-        (refusalCode == TCPCLV4_MESSAGE_REJECT_REASON_CODES::MESSAGE_UNSUPPORTED) ? "MESSAGE_UNSUPPORTED" : "unassigned") << std::endl;
+        (refusalCode == TCPCLV4_MESSAGE_REJECT_REASON_CODES::MESSAGE_UNSUPPORTED) ? "MESSAGE_UNSUPPORTED" : "unassigned");
 }
 
 void TcpclV4BidirectionalLink::BaseClass_BundleRefusalCallback(TCPCLV4_TRANSFER_REFUSE_REASON_CODES refusalCode, uint64_t transferId) {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote refused bundle transfer (transferId=" << transferId << ") with reason code: ";
-    std::cout <<
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote refused bundle transfer (transferId=" << transferId << ") with reason code: ";
+    LOG_INFO(subprocess) <<
         ((refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_ALREADY_COMPLETED) ? "ALREADY_COMPLETED" :
         (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_EXTENSION_FAILURE) ? "EXTENSION_FAILURE" :
         (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_NOT_ACCEPTABLE) ? "NOT_ACCEPTABLE" :
         (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_NO_RESOURCES) ? "NO_RESOURCES" :
         (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_RETRANSMIT) ? "RETRANSMIT" :
         (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_SESSION_TERMINATING) ? "SESSION_TERMINATING" :
-        (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_UNKNOWN) ? "UNKNOWN" :"unassigned") << std::endl;
+        (refusalCode == TCPCLV4_TRANSFER_REFUSE_REASON_CODES::REFUSAL_REASON_UNKNOWN) ? "UNKNOWN" :"unassigned");
 }
 
 void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEnabledTlsSecurity) {
     //We are the active entity
-    std::cout << "rx contact header\n";
+    LOG_INFO(subprocess) << "rx contact header";
     //The first negotiation is on the TCPCL protocol version to use.  The
     //active entity always sends its Contact Header first and waits for a
     //response from the passive entity.  During contact initiation, the
@@ -896,7 +885,7 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
     //exchange.
     if (M_BASE_TLS_IS_REQUIRED && (!m_base_usingTls)) {
         //contact failure
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_ContactHeaderCallback: tls is required by this entity." << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_ContactHeaderCallback: tls is required by this entity.";
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE, false); //will send shutdown with tls disabled
         return;
     }
@@ -909,7 +898,7 @@ void TcpclV4BidirectionalLink::BaseClass_ContactHeaderCallback(bool remoteHasEna
     else {
         //Since TcpclBundleSource sent the first contact header, it just got the reply back from the sink.  Now it's time to reply with a session init
         if (m_base_usingTls) {
-            std::cout << "upgrading tcp socket to tls tcp socket..\n";
+            LOG_INFO(subprocess) << "upgrading tcp socket to tls tcp socket..";
         }
         else {
             BaseClass_SendSessionInit();
@@ -965,54 +954,54 @@ void TcpclV4BidirectionalLink::BaseClass_SendContactHeader() {
 void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveIntervalSeconds, uint64_t segmentMru, uint64_t transferMru,
     const std::string & remoteNodeEidUri, const TcpclV4::tcpclv4_extensions_t & sessionExtensions)
 {
-    std::cout << "rx session init\n";
+    LOG_INFO(subprocess) << "rx session init";
 #ifdef OPENSSL_SUPPORT_ENABLED
     if (m_base_didSuccessfulSslHandshake) {
         const std::string sslVersionString(SSL_get_version(m_base_sslStreamSharedPtr->native_handle()));
-        std::cout << "tcpclv4 using secure protocol: " << sslVersionString << std::endl;
+        LOG_INFO(subprocess) << "tcpclv4 using secure protocol: " << sslVersionString;
     }
     else {
-        std::cout << "notice: TLS is disabled\n";
+        LOG_INFO(subprocess) << "TLS is disabled";
     }
 #endif
     uint64_t remoteNodeId = UINT64_MAX;
     uint64_t remoteServiceId = UINT64_MAX;
     if (!Uri::ParseIpnUriString(remoteNodeEidUri, remoteNodeId, remoteServiceId)) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_SessionInitCallback: error parsing remote EID URI string " << remoteNodeEidUri
-            << " .. TCPCL will not receive bundles." << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_SessionInitCallback: error parsing remote EID URI string " << remoteNodeEidUri
+            << " .. TCPCL will not receive bundles.";
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE, false);
         return;
     }
     else if (remoteServiceId != 0) {
         //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
         //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_SessionInitCallback: remote EID URI string " << remoteNodeEidUri
-            << " does not use service number 0.. TCPCL will not receive bundles." << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_SessionInitCallback: remote EID URI string " << remoteNodeEidUri
+            << " does not use service number 0.. TCPCL will not receive bundles.";
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE, false);
         return;
     }
     else if ((!M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY.empty()) && (remoteNodeEidUri != M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY)) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_SessionInitCallback: received wrong remote node eid "
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_SessionInitCallback: received wrong remote node eid "
             << remoteNodeEidUri << " but expected " << M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY
-            << " .. TCPCL will not forward bundles.  Correct the \"nextHopEndpointId\" field in the outducts config." << std::endl;
+            << " .. TCPCL will not forward bundles.  Correct the \"nextHopEndpointId\" field in the outducts config.";
         BaseClass_DoTcpclShutdown(true, TCPCLV4_SESSION_TERMINATION_REASON_CODES::CONTACT_FAILURE, false);
         return;
     }
 
     m_base_tcpclRemoteEidString = remoteNodeEidUri;
     m_base_tcpclRemoteNodeId = remoteNodeId;
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " received valid SessionInit from remote with EID " << m_base_tcpclRemoteEidString << std::endl;
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " received valid SessionInit from remote with EID " << m_base_tcpclRemoteEidString;
 
     m_base_remoteMaxRxSegmentSizeBytes = segmentMru;
     m_base_remoteMaxRxBundleSizeBytes = transferMru;
     if (m_base_remoteMaxRxSegmentSizeBytes == 0) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_SessionInitCallback: remote has 0 for segment MRU\n";
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_SessionInitCallback: remote has 0 for segment MRU";
         //DoTcpclShutdown(false, false);
         return;
     }
     if (m_base_remoteMaxRxSegmentSizeBytes > m_base_remoteMaxRxBundleSizeBytes) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": notice in BaseClass_SessionInitCallback: remote has segment MRU (" << m_base_remoteMaxRxSegmentSizeBytes 
-            << ") greater than transfer/bundle MRU( " << m_base_remoteMaxRxBundleSizeBytes << ").. reducing segment mru to transfer mru\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_SessionInitCallback: remote has segment MRU (" << m_base_remoteMaxRxSegmentSizeBytes 
+            << ") greater than transfer/bundle MRU( " << m_base_remoteMaxRxBundleSizeBytes << ").. reducing segment mru to transfer mru";
         m_base_remoteMaxRxSegmentSizeBytes = m_base_remoteMaxRxBundleSizeBytes;
     }
 
@@ -1024,7 +1013,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     m_base_userDataCbVec.resize(m_base_ackCbSize);
 
     if (sessionExtensions.extensionsVec.size()) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received " << sessionExtensions.extensionsVec.size() << " session extensions\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received " << sessionExtensions.extensionsVec.size() << " session extensions";
         for (std::size_t i = 0; i < sessionExtensions.extensionsVec.size(); ++i) {
             const TcpclV4::tcpclv4_extension_t & ext = sessionExtensions.extensionsVec[i];
             //If a TCPCL entity receives a
@@ -1034,11 +1023,11 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
             //is 0, an entity SHALL skip over and ignore any item with an
             //unknown Item Type.
             if (ext.IsCritical()) {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_SessionInitCallback: received unknown critical session extension type " << ext.type
-                    << " ..terminating session.\n";
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_SessionInitCallback: received unknown critical session extension type " << ext.type
+                    << " ..terminating session.";
             }
             else {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": notice: BaseClass_SessionInitCallback: ignoring unknown non-critical session extension type " << ext.type << std::endl;
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_SessionInitCallback: ignoring unknown non-critical session extension type " << ext.type;
             }
         }
     }
@@ -1053,21 +1042,21 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     //"Contact Failure".  Note: a negotiated Session Keepalive of zero
     //indicates that KEEPALIVEs are disabled.
     if (M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS == 0) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: we have disabled the keepalive feature\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " we have disabled the keepalive feature";
         m_base_keepAliveIntervalSeconds = 0;
     }
     else if (keepAliveIntervalSeconds == 0) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: remote host has disabled the keepalive feature\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " remote host has disabled the keepalive feature";
         m_base_keepAliveIntervalSeconds = 0;
     }
     else if (M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS > keepAliveIntervalSeconds) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: remote host has requested a smaller keepalive interval of " << keepAliveIntervalSeconds
-            << " seconds than ours of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS << "." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " remote host has requested a smaller keepalive interval of " << keepAliveIntervalSeconds
+            << " seconds than ours of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS << ".";
         m_base_keepAliveIntervalSeconds = keepAliveIntervalSeconds; //use the remote's smaller one
     }
     else if (M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS < keepAliveIntervalSeconds) { //bundle source should never enter here as the response should be smaller
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: we have requested a smaller keepalive interval of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS
-            << " seconds than the remote host's of " << keepAliveIntervalSeconds << "." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " we have requested a smaller keepalive interval of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS
+            << " seconds than the remote host's of " << keepAliveIntervalSeconds << ".";
         m_base_keepAliveIntervalSeconds = M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS; //use our smaller one
     }
     else {
@@ -1081,7 +1070,7 @@ void TcpclV4BidirectionalLink::BaseClass_SessionInitCallback(uint16_t keepAliveI
     }
 
     if (m_base_keepAliveIntervalSeconds) { //non-zero
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " using " << m_base_keepAliveIntervalSeconds << " seconds for keepalive\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " using " << m_base_keepAliveIntervalSeconds << " seconds for keepalive";
 
         BaseClass_RestartNoKeepaliveReceivedTimer();
         BaseClass_RestartNeedToSendKeepAliveMessageTimer();

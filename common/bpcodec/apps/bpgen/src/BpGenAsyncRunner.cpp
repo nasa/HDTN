@@ -1,13 +1,15 @@
 #include "BpGenAsyncRunner.h"
-#include <iostream>
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
+#include "Logger.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 void BpGenAsyncRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -16,10 +18,10 @@ void BpGenAsyncRunner::MonitorExitKeypressThreadFunction() {
 static void DurationEndedThreadFunction(const boost::system::error_code& e, volatile bool * running) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "BpGen reached duration.. exiting\n";
+        LOG_INFO(subprocess) << "Reached duration.. exiting";
     }
     else {
-        std::cout << "Unknown error occurred in DurationEndedThreadFunction " << e.message() << std::endl;
+        LOG_ERROR(subprocess) << "Unknown error occurred in DurationEndedThreadFunction " << e.message();
     }
     *running = false;
 }
@@ -71,7 +73,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 boost::program_options::notify(vm);
 
                 if (vm.count("help")) {
-                        std::cout << desc << "\n";
+                        LOG_INFO(subprocess) << desc;
                         return false;
                 }
                 forceDisableCustody = (vm.count("force-disable-custody") != 0);
@@ -79,13 +81,13 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
-                    std::cerr << "error: bad bpsink uri string: " << myUriEid << std::endl;
+                    LOG_ERROR(subprocess) << "error: bad bpsink uri string: " << myUriEid;
                     return false;
                 }
 
                 const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
-                    std::cerr << "error: bad bpsink uri string: " << myFinalDestUriEid << std::endl;
+                    LOG_ERROR(subprocess) << "error: bad bpsink uri string: " << myFinalDestUriEid;
                     return false;
                 }
 
@@ -94,16 +96,16 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 if (outductsConfigFileName.length()) {
                     outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
                     if (!outductsConfigPtr) {
-                        std::cerr << "error loading outducts config file: " << outductsConfigFileName << std::endl;
+                        LOG_ERROR(subprocess) << "error loading outducts config file: " << outductsConfigFileName;
                         return false;
                     }
                     std::size_t numBpGenOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
                     if (numBpGenOutducts != 1) {
-                        std::cerr << "error: number of bpgen outducts is not 1: got " << numBpGenOutducts << std::endl;
+                        LOG_ERROR(subprocess) << "error: number of bpgen outducts is not 1: got " << numBpGenOutducts;
                     }
                 }
                 else {
-                    std::cout << "notice: bpgen has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct\n";
+                    LOG_WARNING(subprocess) << "notice: bpgen has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct";
                 }
 
                 //create induct for custody signals
@@ -111,12 +113,12 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 if (inductsConfigFileName.length()) {
                     inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
                     if (!inductsConfigPtr) {
-                        std::cerr << "error loading induct config file: " << inductsConfigFileName << std::endl;
+                        LOG_ERROR(subprocess) << "error loading induct config file: " << inductsConfigFileName;
                         return false;
                     }
                     std::size_t numBpGenInducts = inductsConfigPtr->m_inductElementConfigVector.size();
                     if (numBpGenInducts != 1) {
-                        std::cerr << "error: number of bp gen inducts for custody signals is not 1: got " << numBpGenInducts << std::endl;
+                        LOG_ERROR(subprocess) << "error: number of bp gen inducts for custody signals is not 1: got " << numBpGenInducts;
                     }
                 }
                 custodyTransferUseAcs = (vm.count("custody-transfer-use-acs"));
@@ -128,28 +130,28 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
                 bundleSendTimeoutSeconds = vm["bundle-send-timeout-seconds"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
-                std::cout << "invalid data error: " << e.what() << "\n\n";
-                std::cout << desc << "\n";
+                LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+                LOG_ERROR(subprocess) << desc;
                 return false;
         }
         catch (std::exception& e) {
-                std::cerr << "error: " << e.what() << "\n";
+                LOG_ERROR(subprocess) << "error: " << e.what();
                 return false;
         }
         catch (...) {
-                std::cerr << "Exception of unknown type!\n";
+                LOG_ERROR(subprocess) << "Exception of unknown type!";
                 return false;
         }
 
 
-        std::cout << "starting BpGenAsync.." << std::endl;
-        std::cout << "Sending Bundles from BPGen Node " << myEid.nodeId << " to final Destination Node " << finalDestEid.nodeId << std::endl; 
+        LOG_INFO(subprocess) << "starting BpGenAsync..";
+        LOG_INFO(subprocess) << "Sending Bundles from BPGen Node " << myEid.nodeId << " to final Destination Node " << finalDestEid.nodeId; 
         BpGenAsync bpGen(bundleSizeBytes);
         bpGen.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, bundleSendTimeoutSeconds, false, forceDisableCustody, useBpVersion7);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);
-        std::cout << "running bpgen for " << durationSeconds << " seconds\n";
+        LOG_INFO(subprocess) << "running bpgen for " << durationSeconds << " seconds";
         
         bool startedTimer = false;
         
@@ -157,7 +159,7 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "BpGenAsync up and running" << std::endl;
+        LOG_INFO(subprocess) << "BpGenAsync up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (durationSeconds) {
@@ -175,17 +177,13 @@ bool BpGenAsyncRunner::Run(int argc, const char* const argv[], volatile bool & r
             }
         }
 
-       //std::cout << "Msg Count, Bundle Count, Bundle data bytes\n";
 
-        //std::cout << egress.m_messageCount << "," << egress.m_bundleCount << "," << egress.m_bundleData << "\n";
-
-
-        std::cout<< "BpGenAsyncRunner::Run: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "BpGenAsyncRunner::Run: exiting cleanly..";
         bpGen.Stop();
         m_bundleCount = bpGen.m_bundleCount;
         m_outductFinalStats = bpGen.m_outductFinalStats;
     }
-    std::cout<< "BpGenAsyncRunner::Run: exited cleanly\n";
+    LOG_INFO(subprocess) << "BpGenAsyncRunner::Run: exited cleanly";
     return true;
 
 }

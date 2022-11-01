@@ -2,7 +2,7 @@
  * @file LtpSessionSender.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,12 +13,12 @@
  */
 
 #include "LtpSessionSender.h"
-#include <iostream>
+#include "Logger.h"
 #include <inttypes.h>
 #include <boost/bind/bind.hpp>
 #include <boost/next_prior.hpp>
 
-
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber,
     LtpClientServiceDataToSend && dataToSend, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake,
@@ -76,13 +76,13 @@ LtpSessionSender::~LtpSessionSender() {
         const Ltp::session_id_t checkpointSerialNumberPlusSessionNumber(csn, M_SESSION_ID.sessionNumber);
 
         if (!m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber)) {
-            std::cout << "error in LtpSessionSender::~LtpSessionSender: did not delete timer\n";
+            LOG_ERROR(subprocess) << "LtpSessionSender::~LtpSessionSender: did not delete timer";
         }
     }
     //clean up this sending session's single active timer within the shared LtpTimerManager
     if (m_mapRsBoundsToRsnPendingGeneration.size()) {
         if (!m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
-            std::cout << "error in LtpSessionSender::~LtpSessionSender: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef\n";
+            LOG_ERROR(subprocess) << "LtpSessionSender::~LtpSessionSender: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef";
         }
     }
 }
@@ -98,7 +98,7 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     const uint64_t checkpointSerialNumber = checkpointSerialNumberPlusSessionNumber.sessionOriginatorEngineId;
 
     if (userData.size() != sizeof(csntimer_userdata_t)) {
-        std::cerr << "error in LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(rsntimer_userdata_t)\n";
+        LOG_ERROR(subprocess) << "LtpSessionReceiver::LtpReportSegmentTimerExpiredCallback: userData.size() != sizeof(rsntimer_userdata_t)";
         return;
     }
     csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
@@ -121,7 +121,6 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
     //
     //Otherwise, a new copy of the CP segment is appended to the
     //(conceptual) application data queue for the destination LTP engine.
-    //std::cout << "LtpCheckpointTimerExpiredCallback timer expired!!! checkpointSerialNumber = " << checkpointSerialNumber << std::endl;
 
     
     ++m_numCheckpointTimerExpiredCallbacks;
@@ -133,7 +132,6 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
         if (isDiscretionaryCheckpoint && LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver,
             LtpFragmentSet::data_fragment_t(resendFragment.offset, (resendFragment.offset + resendFragment.length) - 1)))
         {
-            //std::cout << "  Discretionary checkpoint not being resent because its data was already received successfully by the receiver." << std::endl;
             ++m_numDiscretionaryCheckpointsNotResent;
         }
         else {
@@ -153,9 +151,6 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
 }
 
 void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64_t& sessionNumber, std::vector<uint8_t>& userData) {
-    //std::cout << "need resent: "; LtpFragmentSet::PrintFragmentSet(fragmentsNeedingResent); std::cout << std::endl;
-    //std::cout << "resend\n";
-    //std::cout << "LtpDelaySendDataSegmentsTimerExpiredCallback " << m_mapRsBoundsToRsnPendingGeneration.size() << "\n";
     // Github issue 24: Defer data retransmission with out-of-order report segments (see detailed description below)
     //...When the retransmission timer expires (i.e. there are still gaps to send) then send data segments to cover the remaining gaps for the session.
     std::list<std::pair<uint64_t, std::set<LtpFragmentSet::data_fragment_t> > > listFragmentSetNeedingResentForEachReport;
@@ -176,7 +171,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
     std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
 {
     if (!m_nonDataToSend.empty()) { //includes report ack segments
-        //std::cout << "sender dequeue\n";
         //highest priority
         underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
         (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSend.front());
@@ -187,13 +181,11 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
     }
 
     while (!m_resendFragmentsQueue.empty()) {
-        //std::cout << "resend fragment\n";
         if (m_allRedDataReceivedByRemote) {
             //Continuation of Github issue 23:
             //If the sender detects that all Red data has been acknowledged by the remote,
             //the sender shall remove all Red data segments (checkpoint or non-checkpoint) from the
             //outgoing transmission queue.
-            //std::cout << "SENDER DEQUEUING RED DATA SINCE ALL RED DATA RECEIVED\n";
             m_resendFragmentsQueue.pop();
             continue;
         }
@@ -218,7 +210,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             //this timer is immediately suspended, because the computed expected
             //arrival time may require an adjustment that cannot yet be computed.
             
-            //std::cout << "resend csn " << resendFragment.checkpointSerialNumber << std::endl;
 
             // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
             // but now sharing a single LtpTimerManager among all sessions, so use a
@@ -236,7 +227,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
             if (!m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
                 m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
-                std::cout << "error in LtpSessionSender::NextDataToSend: did not start timer\n";
+                LOG_ERROR(subprocess) << "LtpSessionSender::NextDataToSend: did not start timer";
             }
         }
         else { //non-checkpoint
@@ -248,8 +239,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             M_SESSION_ID, meta, NULL, 0);
         constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
         constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-        //std::cout << "rf o: " << resendFragment.offset << " l: " << resendFragment.length << " flags: " << (int)resendFragment.flags << std::endl;
-        //std::cout << (int)(*(m_dataToSend.data() + resendFragment.offset)) << std::endl;
         constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + resendFragment.offset, resendFragment.length);
         //Increase the reference count of the LtpClientServiceDataToSend shared_ptr
         //so that the LtpClientServiceDataToSend won't get deleted before the UDP send operation completes.
@@ -288,7 +277,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
                         flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT_ENDOFREDPART_ENDOFBLOCK;
                     }
                 }
-                //std::cout << "send sync csn " << cp << std::endl;
                 std::vector<uint8_t> userData(sizeof(csntimer_userdata_t));
                 csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userData.data());
                 LtpSessionSender::resend_fragment_t & resendFragment = userDataPtr->resendFragment;
@@ -307,7 +295,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
                 userDataPtr->itCheckpointSerialNumberActiveTimersList = m_checkpointSerialNumberActiveTimersList.begin();
                 if (!m_timeManagerOfCheckpointSerialNumbersRef.StartTimer(checkpointSerialNumberPlusSessionNumber, &m_timerExpiredCallback, std::move(userData))) {
                     m_checkpointSerialNumberActiveTimersList.erase(m_checkpointSerialNumberActiveTimersList.begin());
-                    std::cout << "error in LtpSessionSender::NextDataToSend: did not start timer\n";
+                    LOG_ERROR(subprocess) << "LtpSessionSender::NextDataToSend: did not start timer";
                 }
             }
 
@@ -343,7 +331,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
                 M_SESSION_ID, meta, NULL, 0);
             constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
             constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-            //std::cout << "green m_dataToSend[" << m_dataIndexFirstPass << "]=" << (int)(m_dataToSend.data()[m_dataIndexFirstPass]) << "\n";
             constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendGreen);
             m_dataIndexFirstPass += bytesToSendGreen;
         }
@@ -363,7 +350,6 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             }
             else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
                 std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
-                //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
                 if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                     if (!m_didNotifyForDeletion) {
                         m_didNotifyForDeletion = true;
@@ -388,7 +374,6 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
     //the RS segment is issued and is, in concept, appended to the queue of
     //internal operations traffic bound for the receiver.
     m_nonDataToSend.emplace(); //m_notifyEngineThatThisSenderHasProducibleDataFunction at the end of this function
-    //std::cout << "sender queue rsn " << reportSegment.reportSerialNumber << "\n";
     Ltp::GenerateReportAcknowledgementSegmentLtpPacket(m_nonDataToSend.back(),
         M_SESSION_ID, reportSegment.reportSerialNumber, NULL, NULL);
 
@@ -401,7 +386,6 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
         //If the report's checkpoint serial number is not zero, then the
         //countdown timer associated with the indicated checkpoint segment is deleted.
         if (reportSegment.checkpointSerialNumber) {
-            //std::cout << "delete rs's csn " << reportSegment.checkpointSerialNumber << std::endl;
 
             // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
             // but now sharing a single LtpTimerManager among all sessions, so use a
@@ -415,7 +399,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             std::vector<uint8_t> userDataReturned;
             if (m_timeManagerOfCheckpointSerialNumbersRef.DeleteTimer(checkpointSerialNumberPlusSessionNumber, userDataReturned)) { //if delete of a timer was successful
                 if (userDataReturned.size() != sizeof(csntimer_userdata_t)) {
-                    std::cout << "error in LtpSessionSender::ReportSegmentReceivedCallback: userDataReturned.size() != sizeof(csntimer_userdata_t)\n";
+                    LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: userDataReturned.size() != sizeof(csntimer_userdata_t)";
                 }
                 else {
                     const csntimer_userdata_t* userDataPtr = reinterpret_cast<csntimer_userdata_t*>(userDataReturned.data());
@@ -430,8 +414,6 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
 
             
 
-            //std::cout << "rs: " << reportSegment << std::endl;
-            //std::cout << "acked segments: "; LtpFragmentSet::PrintFragmentSet(m_dataFragmentsAckedByReceiver); std::cout << std::endl;
             //6.12.  Signify Transmission Completion
             //
             //This procedure is triggered at the earliest time at which(a) all
@@ -449,12 +431,9 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             //sent to the local client service associated with the session, and the
             //session is closed : the "Close Session" procedure(Section 6.20) is
             //invoked.
-            //std::cout << "M_LENGTH_OF_RED_PART " << M_LENGTH_OF_RED_PART << " m_dataFragmentsAckedByReceiver.size() " << m_dataFragmentsAckedByReceiver.size() << std::endl;
-            //std::cout << "m_dataIndexFirstPass " << m_dataIndexFirstPass << " m_dataToSend.size() " << m_dataToSend.size() << std::endl;
             if (m_allRedDataReceivedByRemote == false) { //the m_allRedDataReceivedByRemote flag is used to prevent resending of non-checkpoint data (Continuation of Github issue 23)
                 if (m_dataFragmentsAckedByReceiver.size() == 1) {
                     std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = m_dataFragmentsAckedByReceiver.cbegin();
-                    //std::cout << "it->beginIndex " << it->beginIndex << " it->endIndex " << it->endIndex << std::endl;
                     if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                         m_allRedDataReceivedByRemote = true;
                     }
@@ -490,7 +469,6 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             // Send the data segments immediately if the out-of-order deferral feature is disabled (i.e. (time_duration == not_a_date_time))
             // which is needed for TestLtpEngine.
             if (m_timeManagerOfSendingDelayedDataSegmentsRef.GetTimeDurationRef() == boost::posix_time::special_values::not_a_date_time) { //disabled
-                //std::cout << "SEND DS NOW!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                 ResendDataFromReport(fragmentsNeedingResent, reportSegment.reportSerialNumber); //will do nothing if fragmentsNeedingResent.empty() (i.e. this rs Has No Gaps In its Claims)
             }
             else {
@@ -532,27 +510,24 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
                     if (!fragmentsNeedingResent.empty()) { //the only rs has gaps in the claims
                         //start the timer
                         m_largestEndIndexPendingGeneration = boundsUnique.endIndex;
-                        //std::cout << "start timer " << m_largestEndIndexPendingGeneration << "\n";
                         m_mapRsBoundsToRsnPendingGeneration.emplace(boundsUnique, reportSegment.reportSerialNumber);
                         if (!m_timeManagerOfSendingDelayedDataSegmentsRef.StartTimer(M_SESSION_ID.sessionNumber, &m_delayedDataSegmentsTimerExpiredCallback)) {
-                            std::cout << "unexpected error in LtpSessionSender::ReportSegmentReceivedCallback: unable to start m_timeManagerOfSendingDelayedDataSegmentsRef timer\n";
+                            LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: unable to start m_timeManagerOfSendingDelayedDataSegmentsRef timer";
                         }
                     }
                     //else no work to do (no data segments to send)
                 }
                 else { //timer is running
                     m_largestEndIndexPendingGeneration = std::max(m_largestEndIndexPendingGeneration, boundsUnique.endIndex);
-                    //std::cout << "timer running " << m_largestEndIndexPendingGeneration << "\n";
                     m_mapRsBoundsToRsnPendingGeneration.emplace(boundsUnique, reportSegment.reportSerialNumber);
                     const uint64_t largestBeginIndexPendingGeneration = m_mapRsBoundsToRsnPendingGeneration.begin()->first.beginIndex; //based on operator <
                     const bool pendingReportsHaveNoGapsInClaims = LtpFragmentSet::ContainsFragmentEntirely(m_dataFragmentsAckedByReceiver,
                         LtpFragmentSet::data_fragment_t(largestBeginIndexPendingGeneration, m_largestEndIndexPendingGeneration));
                     if (pendingReportsHaveNoGapsInClaims) {
-                        //std::cout << "no gaps delete timer\n";
                         m_numDeletedFullyClaimedPendingReports += m_mapRsBoundsToRsnPendingGeneration.size();
                         //since there is a retransmission timer running stop it (there is no need to retransmit in this case)
                         if (!m_timeManagerOfSendingDelayedDataSegmentsRef.DeleteTimer(M_SESSION_ID.sessionNumber)) {
-                            std::cout << "error in LtpSessionSender::ReportSegmentReceivedCallback: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef\n";
+                            LOG_ERROR(subprocess) << "LtpSessionSender::ReportSegmentReceivedCallback: did not delete timer in m_timeManagerOfSendingDelayedDataSegmentsRef";
                         }
                         m_mapRsBoundsToRsnPendingGeneration.clear(); //also used as flag to signify timer no longer running
                     }
@@ -570,25 +545,21 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
 
 void LtpSessionSender::ResendDataFromReport(const std::set<LtpFragmentSet::data_fragment_t>& fragmentsNeedingResent, const uint64_t reportSerialNumber) {
     for (std::set<LtpFragmentSet::data_fragment_t>::const_iterator it = fragmentsNeedingResent.cbegin(); it != fragmentsNeedingResent.cend(); ++it) {
-        //std::cout << "h1\n";
         const bool isLastFragmentNeedingResent = (boost::next(it) == fragmentsNeedingResent.cend());
         for (uint64_t dataIndex = it->beginIndex; dataIndex <= it->endIndex; ) {
-            //std::cout << "h2 " << "isLastFragmentNeedingResent " << isLastFragmentNeedingResent << "\n";
             uint64_t bytesToSendRed = std::min((it->endIndex - dataIndex) + 1, M_MTU);
             if ((bytesToSendRed + dataIndex) > M_LENGTH_OF_RED_PART) {
-                std::cerr << "critical error gt length red part\n";
+                LOG_FATAL(subprocess) << "gt length red part";
             }
-            //std::cout << "(dataIndex + bytesToSendRed) " << (dataIndex + bytesToSendRed) <<  " it->endIndex " << it->endIndex << "\n";
             const bool isLastPacketNeedingResent = ((isLastFragmentNeedingResent) && ((dataIndex + bytesToSendRed) == (it->endIndex + 1)));
             const bool isEndOfRedPart = ((bytesToSendRed + dataIndex) == M_LENGTH_OF_RED_PART);
             if (isEndOfRedPart && !isLastPacketNeedingResent) {
-                std::cerr << "critical error: end of red part but not last packet being resent\n";
+                LOG_FATAL(subprocess) << "end of red part but not last packet being resent";
             }
 
             uint64_t checkpointSerialNumber = 0; //dont care
             LTP_DATA_SEGMENT_TYPE_FLAGS flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA;
             if (isLastPacketNeedingResent) {
-                //std::cout << "h3\n";
                 flags = LTP_DATA_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT;
                 checkpointSerialNumber = m_nextCheckpointSerialNumber++; //now we care since this is now a checkpoint
                 if (isEndOfRedPart) {

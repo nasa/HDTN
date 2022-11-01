@@ -6,9 +6,11 @@
  */
 
 #include "StorageConfig.h"
+#include "Logger.h"
 #include <memory>
 #include <boost/foreach.hpp>
-#include <iostream>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const std::vector<std::string> VALID_STORAGE_IMPLEMENTATION_NAMES = { "stdio_multi_threaded", "asio_single_threaded" };
 
@@ -111,7 +113,7 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
                 }
             }
             if (!found) {
-                std::cerr << "error parsing JSON Storage config:: invalid storage implementation " << m_storageImplementation << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON Storage config:: invalid storage implementation " << m_storageImplementation;
                 return false;
             }
         }
@@ -120,12 +122,12 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
         m_totalStorageCapacityBytes = pt.get<uint64_t>("totalStorageCapacityBytes");
     }
     catch (const boost::property_tree::ptree_error & e) {
-        std::cerr << "error parsing JSON Storage config: " << e.what() << std::endl;
+        LOG_ERROR(subprocess) << "error parsing JSON Storage config: " << e.what();
         return false;
     }
 
     if (m_totalStorageCapacityBytes == 0) {
-        std::cerr << "error parsing JSON Storage config: totalStorageCapacityBytes must be defined and non-zero\n";
+        LOG_ERROR(subprocess) << "error parsing JSON Storage config: totalStorageCapacityBytes must be defined and non-zero";
         return false;
     }
     const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", boost::property_tree::ptree()); //non-throw version
@@ -138,11 +140,11 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
             storageDiskConfig.storeFilePath = storageDiskConfigPt.second.get<std::string>("storeFilePath");
         }
         catch (const boost::property_tree::ptree_error & e) {
-            std::cerr << "error parsing JSON storageDiskConfigVector[" << (storageDiskConfigVectorIndex - 1) << "]: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "error parsing JSON storageDiskConfigVector[" << (storageDiskConfigVectorIndex - 1) << "]: " << e.what();
             return false;
         }
         if (storageDiskConfig.storeFilePath == "") {
-            std::cerr << "error parsing JSON storageDiskConfigVector[" << (storageDiskConfigVectorIndex - 1) << "]: storeFilePath must be defined\n";
+            LOG_ERROR(subprocess) << "error parsing JSON storageDiskConfigVector[" << (storageDiskConfigVectorIndex - 1) << "]: storeFilePath must be defined";
             return false;
         }
     }
@@ -157,7 +159,7 @@ StorageConfig_ptr StorageConfig::CreateFromJson(const std::string & jsonString) 
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In StorageConfig::CreateFromJson. Error: " + std::string(e.what());
         hdtn::Logger::getInstance()->logError("storage", message);
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return StorageConfig_ptr(); //NULL
@@ -170,7 +172,7 @@ StorageConfig_ptr StorageConfig::CreateFromJsonFile(const std::string & jsonFile
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In StorageConfig::CreateFromJsonFile. Error: " + std::string(e.what());
         hdtn::Logger::getInstance()->logError("storage", message);
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return StorageConfig_ptr(); //NULL

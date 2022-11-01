@@ -2,7 +2,7 @@
  * @file DirectoryScanner.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,9 +13,11 @@
  */
 
 #include <string.h>
-#include <iostream>
 #include "DirectoryScanner.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFolderPath,
     bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
@@ -95,7 +97,6 @@ bool DirectoryScanner::GetNextFilePath(boost::filesystem::path& nextFilePathAbso
     path_list_t::iterator toEraseIt = m_currentFilePathIterator;
     ++m_currentFilePathIterator;
     m_pathsOfFilesList.erase(toEraseIt);
-    //std::cout << "send " << nextFilePathAbsolute << std::endl;
     return true;
 }
 
@@ -135,7 +136,7 @@ void DirectoryScanner::Reload() {
                 m_currentlyMonitoredDirectoryPaths.emplace(m_rootFileOrFolderPath);
             }
             catch (std::exception& e) {
-                std::cout << e.what() << "\n";
+                LOG_INFO(subprocess) << e.what();
             }
         }
         IterateDirectories(m_rootFileOrFolderPath, 0, m_includeExistingFiles);
@@ -148,7 +149,7 @@ void DirectoryScanner::Reload() {
             }
         }
         else {
-            std::cout << "error " << m_rootFileOrFolderPath << " is too long" << std::endl;
+            LOG_ERROR(subprocess) << m_rootFileOrFolderPath << " is too long";
         }
     }
 
@@ -167,7 +168,6 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
         const unsigned int depth = static_cast<unsigned int>(dirIt.depth()) + startingRecursiveDepthIndex;
         if (isDirectory) {
             if (depth >= m_recurseDirectoriesDepth) { //don't iterate files within that will have depth 1 greater than this directory that contains them
-                //std::cout << "SKIPDIR depth=" << depth << " p=" << p << "\n";
                 dirIt.no_push();
             }
             else {
@@ -177,16 +177,14 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
                             m_dirMonitor.add_directory(p.string());
                         }
                         catch (std::exception& e) {
-                            std::cout << e.what() << "\n";
+                            LOG_INFO(subprocess) << e.what();
                             m_currentlyMonitoredDirectoryPaths.erase(p);
                         }
                     }
                 }
-                //std::cout << "DIR depth=" << depth << " p=" << p << "\n";
             }
         }
         else if (isFile && (p.extension().string().size() > 1)) {
-            //std::cout << "FILE depth=" << depth << " p=" << p << "\n";
             if (p.size() <= 255) {
                 if (startingRecursiveDepthIndex == 0) { //existing files
                     if (m_newFilePathsAddedSet.emplace(p).second) { //keep permanent record of found files
@@ -200,7 +198,7 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
                 }
             }
             else {
-                std::cout << "skipping " << p << std::endl;
+                LOG_INFO(subprocess) << "skipping " << p;
             }
         }
     }
@@ -208,23 +206,19 @@ void DirectoryScanner::IterateDirectories(const boost::filesystem::path& rootDir
 
 void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& ec, const boost::asio::dir_monitor_event& ev) {
     if (!ec) {
-        //std::cout << ev << std::endl;
         const boost::filesystem::path relPath = boost::filesystem::relative(ev.path, m_rootFileOrFolderPath);
         const unsigned int recursionDepthRelative = static_cast<unsigned int>(std::distance(relPath.begin(), relPath.end()) - 1);
-        //std::cout << relPath << " " << recursionDepthRelative << "\n";
         if ((ev.type == boost::asio::dir_monitor_event::added) || (ev.type == boost::asio::dir_monitor_event::modified)) {
             if (boost::filesystem::is_directory(ev.path)) {
                 if (m_currentlyMonitoredDirectoryPaths.count(ev.path) == 0) {
-                    if (recursionDepthRelative >= m_recurseDirectoriesDepth) { //don't iterate files within that will have depth 1 greater than this directory that contains them
-                        //std::cout << "EVENT SKIPDIR depth=" << recursionDepthRelative << " p=" << relPath << "\n";
-                    }
+                    if (recursionDepthRelative >= m_recurseDirectoriesDepth) {} //don't iterate files within that will have depth 1 greater than this directory that contains them
                     else {
                         try {
                             m_dirMonitor.add_directory(ev.path.string());
                             m_currentlyMonitoredDirectoryPaths.emplace(ev.path);
                         }
                         catch (std::exception& e) {
-                            std::cout << e.what() << "\n";
+                            LOG_INFO(subprocess) << e.what();
                         }
 
                         //now that the directory is added, iterate in case a new directory was added before the event listener was added
@@ -245,16 +239,14 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
         else if (ev.type == boost::asio::dir_monitor_event::renamed_new_name) {
             if (boost::filesystem::is_directory(ev.path)) {
                 if (m_currentlyMonitoredDirectoryPaths.count(ev.path) == 0) {
-                    if (recursionDepthRelative >= m_recurseDirectoriesDepth) { //don't iterate files within that will have depth 1 greater than this directory that contains them
-                        //std::cout << "SKIPDIR depth=" << recursionDepthRelative << " p=" << relPath << "\n";
-                    }
+                    if (recursionDepthRelative >= m_recurseDirectoriesDepth) {} //don't iterate files within that will have depth 1 greater than this directory that contains them
                     else {
                         try {
                             m_dirMonitor.add_directory(ev.path.string());
                             m_currentlyMonitoredDirectoryPaths.emplace(ev.path);
                         }
                         catch (std::exception& e) {
-                            std::cout << e.what() << "\n";
+                            LOG_INFO(subprocess) << e.what();
                         }
                     }
                 }
@@ -263,11 +255,10 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
         m_dirMonitor.async_monitor(boost::bind(&DirectoryScanner::OnDirectoryChangeEvent, this, boost::placeholders::_1, boost::placeholders::_2));
     }
     else if (ec == boost::asio::error::operation_aborted) {
-        //std::cout << "op abort\n";
         //m_dirMonitor.async_monitor(boost::bind(&DirectoryScanner::OnDirectoryChangeEvent, this, boost::placeholders::_1, boost::placeholders::_2));
     }
     else {
-        std::cout << "Error code " << ec << std::endl;
+        LOG_ERROR(subprocess) << "Error code " << ec;
     }
 }
 
@@ -279,13 +270,11 @@ void DirectoryScanner::TryAddNewFile(const boost::filesystem::path& p) {
         const bool alreadyInQueue = (!retVal.second); //insertion didn't happen (already pending in the size change timer)
         filesizeQueuecountPairRef.second += alreadyInQueue; //invalidate previous event for this path if already in queue (sometimes a new file will trigger multiple directory events such as "added" then "modified")
         const bool timerIsStopped = m_currentlyPendingFilesToAddTimerQueue.empty();
-        //std::cout << "queue push " << filesizeQueuecountPairRef.second << "\n";
         m_currentlyPendingFilesToAddTimerQueue.emplace(boost::posix_time::microsec_clock::universal_time() + m_timeDurationToRecheckFileSize, retVal.first);
         if (timerIsStopped) {
             m_timerNewFileComplete.expires_at(m_currentlyPendingFilesToAddTimerQueue.front().first);
             m_timerNewFileComplete.async_wait(boost::bind(&DirectoryScanner::OnRecheckFileSize_TimerExpired, this, boost::asio::placeholders::error));
         }
-        //std::cout << "filesize " << fileSize << "\n";
         //ev.path.size();
     }
 }
@@ -299,7 +288,6 @@ void DirectoryScanner::OnRecheckFileSize_TimerExpired(const boost::system::error
         filesize_queuecount_pair_t & thisFilesizeQueueCount = thisExpiredIt->second;
         if (--thisFilesizeQueueCount.second) { //queuecount not zero (still remaining event(s) for this path within the queue)
             //ignore this invalid expired event
-            //std::cout << "ignore invalid expired event " << thisPath << "\n";
         }
         else { //queuecount now zero (last event for this path removed from queue)
             //check filesize
@@ -314,7 +302,6 @@ void DirectoryScanner::OnRecheckFileSize_TimerExpired(const boost::system::error
                     ifstr.close();
                 }
                 if (fileIsOpenable) {
-                    //std::cout << "add new file " << thisPath << " filesize= " << nowFileSize << "\n";
                     if (m_newFilePathsAddedSet.emplace(thisPath).second) {
                         {
                             boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
@@ -329,13 +316,12 @@ void DirectoryScanner::OnRecheckFileSize_TimerExpired(const boost::system::error
                     m_currentlyPendingFilesToAddMap.erase(thisExpiredIt); //references now invalid
                 }
                 else { //file not openable (perhaps permission denied during copy)
-                    std::cout << "file not openable yet: " << thisPath << "\n";
+                    LOG_INFO(subprocess) << "file not openable yet: " << thisPath;
                     thisFilesizeQueueCount.second = 1;
                     m_currentlyPendingFilesToAddTimerQueue.emplace(boost::posix_time::microsec_clock::universal_time() + m_timeDurationToRecheckFileSize, thisExpiredIt);
                 }
             }
             else { //file size mismatch.. wait again to see if the file stops changing sizes
-                //std::cout << "file size mismatch " << thisPath << "\n";
                 thisFilesizeQueueCount.second = 1;
                 m_currentlyPendingFilesToAddTimerQueue.emplace(boost::posix_time::microsec_clock::universal_time() + m_timeDurationToRecheckFileSize, thisExpiredIt);
             }

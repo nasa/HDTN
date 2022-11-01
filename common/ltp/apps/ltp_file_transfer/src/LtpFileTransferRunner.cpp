@@ -1,5 +1,5 @@
 #include "LtpFileTransferRunner.h"
-#include <iostream>
+#include "Logger.h"
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -11,6 +11,8 @@
 #ifndef _WIN32
 #include <sys/socket.h> //for maxUdpPacketsToSendPerSystemCall checks
 #endif
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void GetSha1(const uint8_t * data, const std::size_t size, std::string & sha1Str) {
 
@@ -31,7 +33,7 @@ static void GetSha1(const uint8_t * data, const std::size_t size, std::string & 
 
 
 void LtpFileTransferRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -105,18 +107,18 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
             const uint32_t randomNumberSizeBits = vm["random-number-size-bits"].as<uint32_t>();
             if ((randomNumberSizeBits != 32) && (randomNumberSizeBits != 64)) {
-                std::cerr << "error: randomNumberSizeBits (" << randomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                LOG_ERROR(subprocess) << "randomNumberSizeBits (" << randomNumberSizeBits << ") must be either 32 or 64";
                 return false;
             }
             force32BitRandomNumbers = (randomNumberSizeBits == 32);
 
             if (!(vm.count("receive-file") ^ vm.count("send-file"))) {
-                std::cerr << "error, receive-file or send-file must be specified, but not both\n";
+                LOG_ERROR(subprocess) << "receive-file or send-file must be specified, but not both";
                 return false;
             }
             if (vm.count("receive-file")) {
@@ -143,20 +145,20 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             maxRetriesPerSerialNumber = vm["max-retries-per-serial-number"].as<uint32_t>();
             maxSendRateBitsPerSecOrZeroToDisable = vm["max-send-rate-bits-per-sec"].as<uint64_t>();
             if (useReceiveFile && maxSendRateBitsPerSecOrZeroToDisable) {
-                std::cout << "error: maxSendRateBitsPerSecOrZeroToDisable was specified for a receiver\n";
+                LOG_ERROR(subprocess) << "maxSendRateBitsPerSecOrZeroToDisable was specified for a receiver";
                 return false;
             }
             maxUdpPacketsToSendPerSystemCall = vm["max-udp-packets-to-send-per-system-call"].as<uint64_t>();
             if (maxUdpPacketsToSendPerSystemCall == 0) {
-                std::cerr << "error: max-udp-packets-to-send-per-system-call ("
-                    << maxUdpPacketsToSendPerSystemCall << ") must be non-zero.\n";
+                LOG_ERROR(subprocess) << "max-udp-packets-to-send-per-system-call ("
+                    << maxUdpPacketsToSendPerSystemCall << ") must be non-zero.";
                 return false;
             }
 #ifdef UIO_MAXIOV
             //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
             if (maxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
-                std::cerr << "error: max-udp-packets-to-send-per-system-call ("
-                    << maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").\n";
+                LOG_ERROR(subprocess) << "max-udp-packets-to-send-per-system-call ("
+                    << maxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
                 return false;
             }
 #endif //UIO_MAXIOV
@@ -164,16 +166,16 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+            LOG_ERROR(subprocess) << desc;
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
+            LOG_ERROR(subprocess) << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
@@ -181,7 +183,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         const boost::posix_time::time_duration ONE_WAY_LIGHT_TIME = (boost::posix_time::milliseconds(oneWayLightTimeMs));
         const boost::posix_time::time_duration ONE_WAY_MARGIN_TIME = (boost::posix_time::milliseconds(oneWayMarginTimeMs));
         if (useSendFile) {
-            std::cout << "loading file " << sendFilePath << std::endl;
+            LOG_INFO(subprocess) << "loading file " << sendFilePath;
             std::vector<uint8_t> fileContentsInMemory;
             std::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
 
@@ -199,13 +201,13 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
                 ifs.close();
 
-                std::cout << "computing sha1..\n";
+                LOG_INFO(subprocess) << "computing sha1..";
                 std::string sha1Str;
                 GetSha1(fileContentsInMemory.data(), fileContentsInMemory.size(), sha1Str);
-                std::cout << "SHA1: " << sha1Str << std::endl;
+                LOG_INFO(subprocess) << "SHA1: " << sha1Str;
             }
             else {
-                std::cerr << "error opening file: " << sendFilePath << std::endl;
+                LOG_ERROR(subprocess) << "error opening file: " << sendFilePath;
                 return false;
             }
 
@@ -217,11 +219,11 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                     cv.notify_one();
                 }
                 void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
-                    std::cout << "first pass of all data sent\n";
+                    LOG_INFO(subprocess) << "first pass of all data sent";
                 }
                 void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
                     cancelled = true;
-                    std::cout << "remote cancelled session with reason code " << (int)reasonCode << std::endl;
+                    LOG_INFO(subprocess) << "remote cancelled session with reason code " << (int)reasonCode;
                     cv.notify_one();
                 }
 
@@ -274,8 +276,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
             const double rateBps = rateMbps * 1e6;
             printf("Sent data at %0.4f Mbits/sec\n", rateMbps);
-            std::cout << "udp packets sent: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent) << std::endl;
-            std::cout << "system calls for send: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls) << std::endl;
+            LOG_INFO(subprocess) << "udp packets sent: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent);
+            LOG_INFO(subprocess) << "system calls for send: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls);
         }
         else { //receive file
             struct ReceiverHelper {
@@ -288,7 +290,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 }
                 void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
                     cancelled = true;
-                    std::cout << "remote cancelled session with reason code " << (int)reasonCode << std::endl;
+                    LOG_INFO(subprocess) << "remote cancelled session with reason code " << (int)reasonCode;
                     cv.notify_one();
                 }
                 boost::posix_time::ptime finishedTime;
@@ -300,7 +302,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             };
             ReceiverHelper receiverHelper;
 
-            std::cout << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive\n";
+            LOG_INFO(subprocess) << "expecting approximately " << estimatedFileSizeToReceive << " bytes to receive";
             std::shared_ptr<LtpUdpEngineManager> ltpUdpEngineManagerDestPtr = LtpUdpEngineManager::GetOrCreateInstance(myBoundUdpPort, true);
             LtpUdpEngine * ltpUdpEngineDestPtr = ltpUdpEngineManagerDestPtr->GetLtpUdpEnginePtrByRemoteEngineId(remoteLtpEngineId, true);
             if (ltpUdpEngineDestPtr == NULL) {
@@ -314,8 +316,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 boost::placeholders::_4, boost::placeholders::_5));
             ltpUdpEngineDestPtr->SetReceptionSessionCancelledCallback(boost::bind(&ReceiverHelper::ReceptionSessionCancelledCallback, &receiverHelper, boost::placeholders::_1, boost::placeholders::_2));
             
-            std::cout << "this ltp receiver/server for engine ID " << thisLtpEngineId << " will receive on port "
-                << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort << std::endl;
+            LOG_INFO(subprocess) << "this ltp receiver/server for engine ID " << thisLtpEngineId << " will receive on port "
+                << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort;
             
             
             boost::mutex cvMutex;
@@ -330,34 +332,34 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 }
             }
             if (receiverHelper.finished) {
-                std::cout << "received file of size " << receiverHelper.receivedFileContents.size() << std::endl;
-                std::cout << "computing sha1..\n";
+                LOG_INFO(subprocess) << "received file of size " << receiverHelper.receivedFileContents.size();
+                LOG_INFO(subprocess) << "computing sha1..";
                 std::string sha1Str;
                 GetSha1(receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size(), sha1Str);
-                std::cout << "SHA1: " << sha1Str << std::endl;
+                LOG_INFO(subprocess) << "SHA1: " << sha1Str;
                 if (!dontSaveFile) {
                     std::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);
                     if (!ofs.good()) {
-                        std::cout << "error, unable to open file " << receiveFilePath << " for writing\n";
+                        LOG_ERROR(subprocess) << "unable to open file " << receiveFilePath << " for writing";
                         return false;
                     }
                     ofs.write((char*)receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size());
                     ofs.close();
-                    std::cout << "wrote " << receiveFilePath << "\n";
+                    LOG_INFO(subprocess) << "wrote " << receiveFilePath;
                 }
                 
             }
             boost::this_thread::sleep(boost::posix_time::seconds(2));
-            std::cout << "udp packets sent: " << (ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent) << std::endl;
-            std::cout << "system calls for send: " << (ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls) << std::endl;
+            LOG_INFO(subprocess) << "udp packets sent: " << (ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent);
+            LOG_INFO(subprocess) << "system calls for send: " << (ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls);
         }
 
-        std::cout << "LtpFileTransferRunner::Run: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "LtpFileTransferRunner::Run: exiting cleanly..";
         //bpGen.Stop();
         //m_bundleCount = bpGen.m_bundleCount;
         //m_FinalStats = bpGen.m_FinalStats;
     }
-    std::cout << "LtpFileTransferRunner::Run: exited cleanly\n";
+    LOG_INFO(subprocess) << "LtpFileTransferRunner::Run: exited cleanly";
     return true;
 
 }

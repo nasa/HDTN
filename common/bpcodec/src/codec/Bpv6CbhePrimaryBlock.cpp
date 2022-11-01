@@ -3,7 +3,7 @@
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  * @author  Gilbert Clark
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -21,7 +21,9 @@
 #include <inttypes.h>
 #include "Sdnv.h"
 #include <utility>
-#include <iostream>
+#include "Logger.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 Bpv6CbhePrimaryBlock::Bpv6CbhePrimaryBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
 Bpv6CbhePrimaryBlock::~Bpv6CbhePrimaryBlock() { } //a destructor: ~X()
@@ -282,14 +284,14 @@ void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
         printf("* Reception reporting requested.\n");
     }
     const BPV6_PRIORITY priority = GetPriorityFromFlags(m_bundleProcessingControlFlags);
-    std::cout << "Priority: " << priority << "\n";
+    LOG_INFO(subprocess) << "Priority: " << priority;
 
-    std::cout << "Destination: " << m_destinationEid << "\n";
-    std::cout << "Source: " << m_sourceNodeId << "\n";
-    std::cout << "Custodian: " << m_custodianEid << "\n";
-    std::cout << "Report-to: " << m_reportToEid << "\n";
+    LOG_INFO(subprocess) << "Destination: " << m_destinationEid;
+    LOG_INFO(subprocess) << "Source: " << m_sourceNodeId;
+    LOG_INFO(subprocess) << "Custodian: " << m_custodianEid;
+    LOG_INFO(subprocess) << "Report-to: " << m_reportToEid;
 
-    std::cout << "Creation: " << m_creationTimestamp << "\n";
+    LOG_INFO(subprocess) << "Creation: " << m_creationTimestamp;
     printf("Lifetime: %" PRIu64 "\n", m_lifetimeSeconds);
 }
 

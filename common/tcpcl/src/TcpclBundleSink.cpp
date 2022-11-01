@@ -2,7 +2,7 @@
  * @file TcpclBundleSink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -14,10 +14,12 @@
 
 #include <boost/bind/bind.hpp>
 #include <memory>
-#include <iostream>
 #include "TcpclBundleSink.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 TcpclBundleSink::TcpclBundleSink(
     const uint16_t desiredKeepAliveIntervalSeconds, //new
@@ -101,12 +103,12 @@ TcpclBundleSink::~TcpclBundleSink() {
     m_base_tcpAsyncSenderPtr.reset();
 
     //print stats
-    std::cout << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Sink totalBytesAcked " << m_base_totalBytesAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_totalBundlesSent << std::endl;
-    std::cout << "TcpclV3 Bundle Sink totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Sink totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
-    std::cout << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesAcked " << m_base_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBytesAcked " << m_base_totalBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundlesSent " << m_base_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentedAcked " << m_base_totalFragmentedAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalFragmentedSent " << m_base_totalFragmentedSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Sink totalBundleBytesSent " << m_base_totalBundleBytesSent;
 }
 
 
@@ -118,7 +120,7 @@ void TcpclBundleSink::TryStartTcpReceive() {
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
-                std::cout << "notice in TcpclBundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
+                LOG_WARNING(subprocess) << "TcpclBundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!";
             }
         }
         else {
@@ -141,11 +143,11 @@ void TcpclBundleSink::HandleTcpReceiveSome(const boost::system::error_code & err
         TryStartTcpReceive(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "TcpclBundleSink Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "TcpclBundleSink Tcp connection closed cleanly by peer";
         BaseClass_DoTcpclShutdown(false, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclBundleSink::HandleTcpReceiveSome: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "TcpclBundleSink::HandleTcpReceiveSome: " << error.message();
     }
 }
 
@@ -170,7 +172,7 @@ void TcpclBundleSink::PopCbThreadFunc() {
         m_circularIndexBuffer.CommitRead();
     }
 
-    std::cout << "TcpclBundleSink Circular buffer reader thread exiting\n";
+    LOG_INFO(subprocess) << "TcpclBundleSink Circular buffer reader thread exiting";
 
 }
 
@@ -213,7 +215,7 @@ uint64_t TcpclBundleSink::GetRemoteNodeId() const {
 
 void TcpclBundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread() {
     if (m_base_shutdownCalled || m_base_sinkIsSafeToDelete) {
-        std::cerr << "opportunistic link unavailable" << std::endl;
+        LOG_ERROR(subprocess) << "opportunistic link unavailable";
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;

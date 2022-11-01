@@ -1,13 +1,15 @@
 #include "BPingRunner.h"
-#include <iostream>
+#include "Logger.h"
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 void BPingRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -16,10 +18,10 @@ void BPingRunner::MonitorExitKeypressThreadFunction() {
 static void DurationEndedThreadFunction(const boost::system::error_code& e, volatile bool * running) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "BPing reached duration.. exiting\n";
+        LOG_INFO(subprocess) << "Reached duration.. exiting";
     }
     else {
-        std::cout << "Unknown error occurred in DurationEndedThreadFunction " << e.message() << std::endl;
+        LOG_ERROR(subprocess) << "Unknown error occurred in DurationEndedThreadFunction " << e.message();
     }
     *running = false;
 }
@@ -67,20 +69,20 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                 boost::program_options::notify(vm);
 
                 if (vm.count("help")) {
-                        std::cout << desc << "\n";
+                        LOG_INFO(subprocess) << desc;
                         return false;
                 }
                 useBpVersion7 = (vm.count("use-bp-version-7") != 0);
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
-                    std::cerr << "error: bad bpsink uri string: " << myUriEid << std::endl;
+                    LOG_ERROR(subprocess) << "bad bpsink uri string: " << myUriEid;
                     return false;
                 }
 
                 const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
-                    std::cerr << "error: bad bpsink uri string: " << myFinalDestUriEid << std::endl;
+                    LOG_ERROR(subprocess) << "bad bpsink uri string: " << myFinalDestUriEid;
                     return false;
                 }
 
@@ -89,16 +91,16 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                 if (outductsConfigFileName.length()) {
                     outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
                     if (!outductsConfigPtr) {
-                        std::cerr << "error loading outduct config file: " << outductsConfigFileName << std::endl;
+                        LOG_ERROR(subprocess) << "error loading outduct config file: " << outductsConfigFileName;
                         return false;
                     }
                     std::size_t numOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
                     if (numOutducts != 1) {
-                        std::cerr << "error: number of outducts is not 1: got " << numOutducts << std::endl;
+                        LOG_ERROR(subprocess) << "number of outducts is not 1: got " << numOutducts;
                     }
                 }
                 else {
-                    std::cout << "notice: bping has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct\n";
+                    LOG_WARNING(subprocess) << "bping has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct";
                 }
 
                 //create induct for custody signals
@@ -106,12 +108,12 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                 if (inductsConfigFileName.length()) {
                     inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
                     if (!inductsConfigPtr) {
-                        std::cerr << "error loading induct config file: " << inductsConfigFileName << std::endl;
+                        LOG_ERROR(subprocess) << "error loading induct config file: " << inductsConfigFileName;
                         return false;
                     }
                     std::size_t numInducts = inductsConfigPtr->m_inductElementConfigVector.size();
                     if (numInducts != 1) {
-                        std::cerr << "error: number of inducts for custody signals is not 1: got " << numInducts << std::endl;
+                        LOG_ERROR(subprocess) << "number of inducts for custody signals is not 1: got " << numInducts;
                     }
                 }
                 custodyTransferUseAcs = (vm.count("custody-transfer-use-acs"));
@@ -122,28 +124,28 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                 bundleSendTimeoutSeconds = vm["bundle-send-timeout-seconds"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
-                std::cout << "invalid data error: " << e.what() << "\n\n";
-                std::cout << desc << "\n";
+                LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+                LOG_ERROR(subprocess) << desc;
                 return false;
         }
         catch (std::exception& e) {
-                std::cerr << "error: " << e.what() << "\n";
+                LOG_ERROR(subprocess) << e.what();
                 return false;
         }
         catch (...) {
-                std::cerr << "Exception of unknown type!\n";
+                LOG_ERROR(subprocess) << "Exception of unknown type!";
                 return false;
         }
 
 
-        std::cout << "starting BPing.." << std::endl;
+        LOG_INFO(subprocess) << "starting..";
 
         BPing bping;
         bping.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, bundleRate, finalDestEid, myCustodianServiceId, bundleSendTimeoutSeconds, true, true, useBpVersion7);
 
         boost::asio::io_service ioService;
         boost::asio::deadline_timer deadlineTimer(ioService);
-        std::cout << "running BPing for " << durationSeconds << " seconds\n";
+        LOG_INFO(subprocess) << "Running for " << durationSeconds << " seconds";
         
         bool startedTimer = false;
         
@@ -151,7 +153,7 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "BPing up and running" << std::endl;
+        LOG_INFO(subprocess) << "Up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (durationSeconds) {
@@ -169,15 +171,12 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
             }
         }
 
-       //std::cout << "Msg Count, Bundle Count, Bundle data bytes\n";
-
-        //std::cout << egress.m_messageCount << "," << egress.m_bundleCount << "," << egress.m_bundleData << "\n";
 
 
-        std::cout<< "BPingRunner::Run: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "Exiting cleanly..";
         bping.Stop();
     }
-    std::cout<< "BPingRunner::Run: exited cleanly\n";
+    LOG_INFO(subprocess) << "Exited cleanly";
     return true;
 
 }

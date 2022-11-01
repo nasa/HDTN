@@ -2,7 +2,7 @@
  * @file TcpAsyncSender.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,8 +13,8 @@
  */
 
 #include <string>
-#include <iostream>
 #include "TcpAsyncSender.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/make_unique.hpp>
 
@@ -70,7 +70,7 @@ void TcpAsyncSender::HandleTcpSend(const boost::system::error_code& error, std::
     m_queueTcpAsyncSenderElements.pop();
     if (error) {
         m_sendErrorOccurred = true;
-        std::cerr << "error in TcpAsyncSender::HandleTcpSend: " << error.message() << std::endl;
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "TcpAsyncSender::HandleTcpSend: " << error.message();
         //empty the queue
         DoFailedBundleCallback(elPtr);
         while (!m_queueTcpAsyncSenderElements.empty()) {
@@ -99,8 +99,6 @@ void TcpAsyncSender::SetUserAssignedUuid(uint64_t userAssignedUuid) {
     m_userAssignedUuid = userAssignedUuid;
 }
 void TcpAsyncSender::DoFailedBundleCallback(std::unique_ptr<TcpAsyncSenderElement>& el) {
-    //std::cout << "in TcpAsyncSender::DoFailedBundleCallback\n";
-    //std::cout << el->m_underlyingDataVecBundle.size() << " " << (m_onFailedBundleVecSendCallback) << " " << (el->m_underlyingDataZmqBundle) << " " << (m_onFailedBundleZmqSendCallback) << "\n";
     if ((el->m_underlyingDataVecBundle.size()) && (m_onFailedBundleVecSendCallback)) {
         m_onFailedBundleVecSendCallback(el->m_underlyingDataVecBundle, el->m_userData, m_userAssignedUuid);
     }
@@ -152,7 +150,7 @@ void TcpAsyncSenderSsl::HandleTcpSendSecure(const boost::system::error_code& err
     m_queueTcpAsyncSenderElements.pop();
     if (error) {
         m_sendErrorOccurred = true;
-        std::cerr << "error in TcpAsyncSenderSsl::HandleTcpSendSecure: " << error.message() << std::endl;
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in TcpAsyncSenderSsl::HandleTcpSendSecure: " << error.message();
         //empty the queue
         DoFailedBundleCallback(elPtr);
         while (!m_queueTcpAsyncSenderElements.empty()) {
@@ -201,7 +199,7 @@ void TcpAsyncSenderSsl::HandleTcpSendUnsecure(const boost::system::error_code& e
     m_queueTcpAsyncSenderElements.pop();
     if (error) {
         m_sendErrorOccurred = true;
-        std::cerr << "error in TcpAsyncSenderSsl::HandleTcpSendUnsecure: " << error.message() << std::endl;
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "error in TcpAsyncSenderSsl::HandleTcpSendUnsecure: " << error.message();
         //empty the queue
         DoFailedBundleCallback(elPtr);
         while (!m_queueTcpAsyncSenderElements.empty()) {

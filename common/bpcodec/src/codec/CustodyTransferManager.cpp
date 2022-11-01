@@ -59,7 +59,7 @@ bool CustodyTransferManager::GenerateCustodySignalBundle(BundleViewV6 & newRende
         sig.m_copyOfBundleCreationTimestamp = primaryFromSender.m_creationTimestamp;
         sig.m_bundleSourceEid = Uri::GetIpnUriString(primaryFromSender.m_sourceNodeId.nodeId, primaryFromSender.m_sourceNodeId.serviceId);
         //REQ D4.2.2.7 An ACS-aware bundle protocol agent shall utilize the ACS bundle timestamp
-        //time as the ‘Time of Signal’ when executing RFC 5050 section 6.3
+        //time as the ï¿½Time of Signalï¿½ when executing RFC 5050 section 6.3
         sig.SetTimeOfSignalGeneration(TimestampUtil::GenerateDtnTimeNow());//add custody
         const uint8_t sri = static_cast<uint8_t>(statusReasonIndex);
         sig.SetCustodyTransferStatusAndReason(INDEX_TO_IS_SUCCESS[sri], INDEX_TO_REASON_CODE[sri]);
@@ -236,14 +236,14 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
 
                 //REQUIREMENT D4.2.2.3c For ACS-aware bundle protocol agents which do accept custody of ACS:
                 //  c) for bundles with a valid CTEB: 
-                //      1) the bundle protocol agent shall aggregate ‘Succeeded’ status into a single bundle
+                //      1) the bundle protocol agent shall aggregate ï¿½Succeededï¿½ status into a single bundle
                 //      as identified in D3.2:
-                //          i) the aggregation of ‘Succeeded’ status shall not exceed maximum allowed
+                //          i) the aggregation of ï¿½Succeededï¿½ status shall not exceed maximum allowed
                 //          bundle size;
                 //          ii) the time period for aggregation of bundle status shall not exceed the
                 //          maximum allowed;
                 //      2) the bundle protocol agent shall delete, upon successful transmission of an ACS
-                //      signal, the associated timer and pending ACS ‘Succeeded’.
+                //      signal, the associated timer and pending ACS ï¿½Succeededï¿½.
 
                 //aggregate succeeded status
                 acs_array_t & acsArray = m_mapCustodianToAcsArray[custodianEidFromPrimary];
@@ -271,7 +271,6 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 ctebBlockPtr->m_custodyId = custodyId; //ctebBlockPtr asserted to be non-null from above
                 ctebBlockPtr->m_ctebCreatorCustodianEidString = m_myCtebCreatorCustodianEidString;
                 blocks[0]->SetManuallyModified(); //bundle needs rerendered
-                //std::cout << "cteb present\n";
             }
             else { //non-existing cteb present.. append a new one to the bundle
                 //https://cwe.ccsds.org/sis/docs/SIS-DTN/Meeting%20Materials/2011/Fall%20(Colorado)/jenkins-sisdtn-aggregate-custody-signals.pdf
@@ -299,12 +298,12 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 //acs capable ba, ba refuses custody, valid cteb => pending failed acs for custodian
 
                 //b) for bundles with a valid CTEB:
-                //  1) the bundle protocol agent shall aggregate ‘Failed’ status into a single bundle as identified in D3.2:
-                //      i) the aggregation of ‘Failed’ status shall not exceed the maximum allowed bundle size;
+                //  1) the bundle protocol agent shall aggregate ï¿½Failedï¿½ status into a single bundle as identified in D3.2:
+                //      i) the aggregation of ï¿½Failedï¿½ status shall not exceed the maximum allowed bundle size;
                 //      ii) the time period for aggregation of bundle status shall not exceed the maximum allowed;
                 //  2) the bundle protocol agent shall transmit an ACS as identified in RFC 5050 section 5.10;
                 //  3) the bundle protocol agent shall delete, upon successful transmission of an ACS
-                //  signal, the associated timer and pending ACS ‘Failed’.
+                //  signal, the associated timer and pending ACS ï¿½Failedï¿½.
 
                 //aggregate failed status
                 acs_array_t & acsArray = m_mapCustodianToAcsArray[custodianEidFromPrimary];
@@ -314,7 +313,7 @@ bool CustodyTransferManager::ProcessCustodyOfBundle(BundleViewV6 & bv, bool acce
                 //acs capable ba, ba refuses custody, invalid cteb => generate failed and follow 5.10
 
                 //a) for bundles without a valid CTEB block as identified in RFC 5050 section 5.10, the
-                //  bundle protocol agent shall generate a ‘Failed’ status;
+                //  bundle protocol agent shall generate a ï¿½Failedï¿½ status;
                 if (!GenerateCustodySignalBundle(custodySignalRfc5050RenderedBundleView, primary, statusReasonIndex)) {
                     return false;
                 }

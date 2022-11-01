@@ -2,7 +2,7 @@
  * @file TcpclBundleSource.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,8 +13,8 @@
  */
 
 #include <string>
-#include <iostream>
 #include "TcpclBundleSource.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
@@ -68,12 +68,12 @@ void TcpclBundleSource::Stop() {
     }
 
     //print stats
-    std::cout << "TcpclV3 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalBytesAcked " << m_base_totalBytesAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalBundlesSent " << m_base_totalBundlesSent << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
-    std::cout << "TcpclV3 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBytesAcked " << m_base_totalBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundlesSent " << m_base_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent;
+    LOG_INFO(subprocess) << "TcpclV3 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent;
 }
 
 
@@ -91,10 +91,10 @@ void TcpclBundleSource::Connect(const std::string & hostname, const std::string 
 
 void TcpclBundleSource::OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results) { // Resolved endpoints as a range.
     if(ec) {
-        std::cerr << "Error resolving: " << ec.message() << std::endl;
+        LOG_ERROR(subprocess) << ec.message();
     }
     else {
-        std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
+        LOG_INFO(subprocess) << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting...";
         m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         m_resolverResults = results;
         boost::asio::async_connect(
@@ -111,15 +111,15 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
-            std::cout << "Will try to reconnect after 2 seconds" << std::endl;
+            LOG_ERROR(subprocess) << "OnConnect: " << ec.value() << " " << ec.message();
+            LOG_ERROR(subprocess) << "Will try to reconnect after 2 seconds";
             m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
             m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
         return;
     }
 
-    std::cout << "connected.. sending contact header..\n";
+    LOG_INFO(subprocess) << "connected.. sending contact header..";
     m_base_tcpclShutdownComplete = false;
 
     
@@ -143,7 +143,7 @@ void TcpclBundleSource::OnConnect(const boost::system::error_code & ec) {
 void TcpclBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "TcpclBundleSource Trying to reconnect..." << std::endl;
+        LOG_INFO(subprocess) << "TcpclBundleSource Trying to reconnect...";
         boost::asio::async_connect(
             *m_base_tcpSocketPtr,
             m_resolverResults,
@@ -166,7 +166,6 @@ void TcpclBundleSource::StartTcpReceive() {
 }
 void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        //std::cout << "received " << bytesTransferred << "\n";
 
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
@@ -176,11 +175,11 @@ void TcpclBundleSource::HandleTcpReceiveSome(const boost::system::error_code & e
         StartTcpReceive(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "Tcp connection closed cleanly by peer";
         BaseClass_DoTcpclShutdown(false, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "TcpclBundleSource::HandleTcpReceiveSome: " << error.message();
         BaseClass_DoTcpclShutdown(false, false);
     }
 }
@@ -215,7 +214,7 @@ void TcpclBundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBu
         m_outductOpportunisticProcessReceivedBundleCallback(wholeBundleVec);
     }
     else {
-        std::cout << "TcpclBundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false" << std::endl;
+        LOG_INFO(subprocess) << "TcpclBundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false";
     }
 }
 
@@ -224,7 +223,7 @@ void TcpclBundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & wholeBu
 void TcpclBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "Trying to reconnect..." << std::endl;
+        LOG_INFO(subprocess) << "Trying to reconnect...";
         m_base_tcpAsyncSenderPtr.reset();
         m_base_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_base_ioServiceRef);
         m_base_shutdownCalled = false;

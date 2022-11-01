@@ -2,7 +2,7 @@
  * @file UdpBatchSender.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,12 +13,14 @@
  */
 
 #include <string>
-#include <iostream>
 #include "UdpBatchSender.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 UdpBatchSender::UdpBatchSender() : m_udpSocketConnectedSenderOnly(m_ioService) {}
 
@@ -29,13 +31,13 @@ UdpBatchSender::~UdpBatchSender() {
 bool UdpBatchSender::Init(const std::string& remoteHostname, const uint16_t remotePort) {
 
     if (m_ioServiceThreadPtr) {
-        std::cout << "Error in UdpBatchSender::Init: already initialized\n";
+        LOG_ERROR(subprocess) << "UdpBatchSender::Init: already initialized";
         return false;
     }
     m_ioService.reset();
 
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-    std::cout << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort << std::endl;
+    LOG_INFO(subprocess) << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort;
     
     boost::asio::ip::udp::endpoint udpDestinationEndpoint;
     {
@@ -44,7 +46,7 @@ bool UdpBatchSender::Init(const std::string& remoteHostname, const uint16_t remo
             udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
         }
         catch (const boost::system::system_error& e) {
-            std::cout << "Error resolving in UdpBatchSender::Init: " << e.what() << "  code=" << e.code() << std::endl;
+            LOG_ERROR(subprocess) << "Error resolving in UdpBatchSender::Init: " << e.what() << "  code=" << e.code();
             return false;
         }
     }
@@ -53,13 +55,13 @@ bool UdpBatchSender::Init(const std::string& remoteHostname, const uint16_t remo
 bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEndpoint) {
 #ifndef _WIN32
     if (sizeof(boost::asio::const_buffer) != sizeof(struct iovec)) {
-        std::cout << "Error in UdpBatchSender::Init: sizeof(boost::asio::const_buffer) != sizeof(struct iovec)\n";
+        LOG_ERROR(subprocess) << "UdpBatchSender::Init: sizeof(boost::asio::const_buffer) != sizeof(struct iovec)";
         return false;
     }
 #endif
 
     if (m_ioServiceThreadPtr) {
-        std::cout << "Error in UdpBatchSender::Init: already initialized\n";
+        LOG_ERROR(subprocess) << "UdpBatchSender::Init: already initialized";
         return false;
     }
     m_ioService.reset();
@@ -70,8 +72,8 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
         m_udpSocketConnectedSenderOnly.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0)); //if udpPort is 0 then bind to random ephemeral port
     }
     catch (const boost::system::system_error& e) {
-        std::cerr << "Could not bind on random ephemeral UDP port\n";
-        std::cerr << "  Error: " << e.what() << std::endl;
+        LOG_ERROR(subprocess) << "Could not bind on random ephemeral UDP port";
+        LOG_ERROR(subprocess) << "  Error: " << e.what();
         return false;
     }
 
@@ -79,7 +81,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
         m_udpSocketConnectedSenderOnly.connect(m_udpDestinationEndpoint);
     }
     catch (const boost::system::system_error& e) {
-        std::cout << "Error connecting socket in UdpBatchSender::Init: " << e.what() << "  code=" << e.code() << std::endl;
+        LOG_INFO(subprocess) << "Error connecting socket in UdpBatchSender::Init: " << e.what() << "  code=" << e.code();
         return false;
     }
 
@@ -140,7 +142,7 @@ void UdpBatchSender::Stop() {
 #ifdef _WIN32
 # ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
         if (!CloseHandle(m_sendOverlappedAutoReset.hEvent)) {
-            std::cout << "error in UdpBatchSender::Stop(), unable to close handle sendOverlapped\n";
+            LOG_ERROR(subprocess) << "UdpBatchSender::Stop(), unable to close handle sendOverlapped";
         }
 # endif
 #endif
@@ -156,18 +158,18 @@ void UdpBatchSender::DoHandleSocketShutdown() {
     //final code to shut down tcp sockets
     if (m_udpSocketConnectedSenderOnly.is_open()) {
         try {
-            std::cout << "shutting down UdpBatchSender UDP socket.." << std::endl;
+            LOG_INFO(subprocess) << "shutting down UdpBatchSender UDP socket..";
             m_udpSocketConnectedSenderOnly.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
         }
         catch (const boost::system::system_error& e) {
-            std::cerr << "error in UdpBatchSender::DoHandleSocketShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "UdpBatchSender::DoHandleSocketShutdown: " << e.what();
         }
         try {
-            std::cout << "closing UdpBatchSender UDP socket.." << std::endl;
+            LOG_INFO(subprocess) << "closing UdpBatchSender UDP socket..";
             m_udpSocketConnectedSenderOnly.close();
         }
         catch (const boost::system::system_error& e) {
-            std::cerr << "error in UdpBatchSender::DoHandleSocketShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "UdpBatchSender::DoHandleSocketShutdown: " << e.what();
         }
     }
 }
@@ -255,9 +257,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
                 
 #endif //#ifdef _WIN32
         }
-        else {
-            //std::cout << "UdpBatchSender skip one\n";
-        }
+        else {}
     }
 
     bool successfulSend = true;
@@ -353,14 +353,14 @@ bool UdpBatchSender::SetEndpointAndReconnect(const boost::asio::ip::udp::endpoin
         m_udpSocketConnectedSenderOnly.connect(m_udpDestinationEndpoint);
     }
     catch (const boost::system::system_error& e) {
-        std::cout << "Error connecting socket in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code() << std::endl;
+        LOG_INFO(subprocess) << "Error connecting socket in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code();
         return false;
     }
     return true;
 }
 bool UdpBatchSender::SetEndpointAndReconnect(const std::string& remoteHostname, const uint16_t remotePort) {
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-    std::cout << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort << std::endl;
+    LOG_INFO(subprocess) << "UdpBatchSender resolving " << remoteHostname << ":" << remotePort;
 
     boost::asio::ip::udp::endpoint udpDestinationEndpoint;
     {
@@ -369,7 +369,7 @@ bool UdpBatchSender::SetEndpointAndReconnect(const std::string& remoteHostname, 
             udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
         }
         catch (const boost::system::system_error& e) {
-            std::cout << "Error resolving in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code() << std::endl;
+            LOG_INFO(subprocess) << "Error resolving in UdpBatchSender::SetEndpointAndReconnect: " << e.what() << "  code=" << e.code();
             return false;
         }
     }

@@ -15,7 +15,7 @@ int main(int argc, const char* argv[]) {
     BpSendFileRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
-    std::cout << "bundle count main: " << runner.m_bundleCount << std::endl;
+    LOG_INFO(hdtn::Logger::SubProcess::none) << "bundle count main: " << runner.m_bundleCount;
     return 0;
 
 }

@@ -2,7 +2,7 @@
  * @file LtpTimerManager.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -31,7 +31,6 @@ LtpTimerManager<idType, hashType>::LtpTimerManager(boost::asio::deadline_timer& 
 
 template <typename idType, typename hashType>
 LtpTimerManager<idType, hashType>::~LtpTimerManager() {
-    //std::cout << "~LtpTimerManager " << m_isTimerActive << std::endl;
     //this destructor is single threaded
     if (!m_isTimerActive) {
         delete m_timerIsDeletedPtr;
@@ -63,9 +62,7 @@ bool LtpTimerManager<idType, hashType>::StartTimer(const idType serialNumber, co
         //value was inserted
         m_listTimerData.emplace_back(serialNumber, expiry, callbackPtr, std::move(userData));
         retVal.first->second = std::prev(m_listTimerData.end()); //For a non-empty container c, the expression c.back() is equivalent to *std::prev(c.end())
-        //std::cout << "StartTimer inserted " << serialNumber << std::endl;
         if (!m_isTimerActive) { //timer is not running
-            //std::cout << "StartTimer started timer for " << serialNumber << std::endl;
             m_activeSerialNumberBeingTimed = serialNumber;
             m_deadlineTimerRef.expires_at(expiry);
             m_deadlineTimerRef.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error, m_timerIsDeletedPtr));
@@ -96,7 +93,6 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, s
     if (mapIt != m_mapIdToTimerData.end()) {
         typename timer_data_list_t::iterator& timerDataListIt = mapIt->second;
         timer_data_t& timerDataRef = *timerDataListIt;
-        //std::cout << "DeleteTimer found and erasing " << serialNumber << std::endl;
         userDataReturned = std::move(timerDataRef.m_userData);
         callbackPtrReturned = timerDataRef.m_callbackPtr;
         m_listTimerData.erase(timerDataListIt);
@@ -104,7 +100,6 @@ bool LtpTimerManager<idType, hashType>::DeleteTimer(const idType serialNumber, s
         if (m_isTimerActive && (m_activeSerialNumberBeingTimed == serialNumber)) { 
             // if this is the one running, DO NOT cancel it, let it expire to allow timer deletions before they become active,
             // reducing the number of async_wait calls.  Then expiration will automatically start the next non-deleted timer.
-            //std::cout << "delete is cancelling " << serialNumber << std::endl;
             m_activeSerialNumberBeingTimed = 0; //prevent double delete and callback when cancelled externally after expiration
             //m_deadlineTimerRef.cancel(); //do not cancel for performance reasons
         }
@@ -118,7 +113,6 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
 
     //for that timer that got cancelled by the destructor, it's still going to enter this function.. prevent it from using the deleted member variables
     if (*isTimerDeleted) {
-        //std::cout << "safely returning from OnTimerExpired\n";
         delete isTimerDeleted;
         return;
     }
@@ -129,19 +123,12 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
         if (!(serialNumberThatExpired == 0)) { //if not deleted externally when active after expiration
             std::vector<uint8_t> userData; //grab any user data before DeleteTimer deletes it
             const LtpTimerExpiredCallback_t * callbackPtr; //grab before DeleteTimer deletes it
-            //std::cout << "OnTimerExpired expired sn " << serialNumberThatExpired << std::endl;
             m_activeSerialNumberBeingTimed = 0; //so DeleteTimer does not try to cancel timer that already expired
             DeleteTimer(serialNumberThatExpired, userData, callbackPtr); //callback function can choose to readd it later
 
             const LtpTimerExpiredCallback_t& callbackRef = *callbackPtr;
             callbackRef(serialNumberThatExpired, userData); //called after DeleteTimer in case callback readds it
         }
-        else {
-            //std::cout << "expired a deleted timer\n";
-        }
-    }
-    else {
-        //std::cout << "timer cancelled\n";
     }
 
     //regardless of cancelled or expired:
@@ -151,7 +138,6 @@ void LtpTimerManager<idType, hashType>::OnTimerExpired(const boost::system::erro
         //most recent ptime exists
         
         m_activeSerialNumberBeingTimed = it->m_id;
-        //std::cout << "OnTimerExpired starting next ptime for " << m_activeSerialNumberBeingTimed << std::endl;
         m_deadlineTimerRef.expires_at(it->m_expiry);
         m_deadlineTimerRef.async_wait(boost::bind(&LtpTimerManager::OnTimerExpired, this, boost::asio::placeholders::error, m_timerIsDeletedPtr));
         m_isTimerActive = true;

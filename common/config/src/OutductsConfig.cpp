@@ -15,6 +15,8 @@
 #include <sys/socket.h> //for ltpMaxUdpPacketsToSendPerSystemCall checks
 #endif
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 static const std::vector<std::string> VALID_CONVERGENCE_LAYER_NAMES = { "ltp_over_udp", "udp", "stcp", "tcpcl_v3", "tcpcl_v4" };
 
 outduct_element_config_t::outduct_element_config_t() :
@@ -295,7 +297,7 @@ bool OutductsConfig::operator==(const OutductsConfig & o) const {
 bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & pt) {
     m_outductConfigName = pt.get<std::string>("outductConfigName", ""); //non-throw version
     if (m_outductConfigName == "") {
-        std::cerr << "error: outductConfigName must be defined and not empty string\n";
+        LOG_ERROR(subprocess) << "outductConfigName must be defined and not empty string";
         return false;
     }
     const boost::property_tree::ptree & outductElementConfigVectorPt = pt.get_child("outductVector", boost::property_tree::ptree()); //non-throw version
@@ -316,18 +318,18 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                     }
                 }
                 if (!found) {
-                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid convergence layer " << outductElementConfig.convergenceLayer << std::endl;
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid convergence layer " << outductElementConfig.convergenceLayer;
                     return false;
                 }
             }
             outductElementConfig.remoteHostname = outductElementConfigPt.second.get<std::string>("remoteHostname");
             if (outductElementConfig.remoteHostname == "") {
-                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid outduct remoteHostname, must not be empty";
                 return false;
             }
             outductElementConfig.remotePort = outductElementConfigPt.second.get<uint16_t>("remotePort");
             if (outductElementConfig.remotePort == 0) {
-                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero";
                 return false;
             }
             outductElementConfig.bundlePipelineLimit = outductElementConfigPt.second.get<uint32_t>("bundlePipelineLimit");
@@ -338,11 +340,11 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 uint64_t node, svc;
                 bool serviceNumberIsWildCard;
                 if (!Uri::ParseIpnUriString(uriStr, node, svc, &serviceNumberIsWildCard)) {
-                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid final destination eid uri " << uriStr << std::endl;
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid final destination eid uri " << uriStr;
                     return false;
                 }
                 else if (outductElementConfig.finalDestinationEidUris.insert(uriStr).second == false) { //not inserted
-                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "duplicate final destination eid uri " << uriStr << std::endl;
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "duplicate final destination eid uri " << uriStr;
                     return false;
                 }
             }
@@ -359,23 +361,23 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.ltpCheckpointEveryNthDataSegment = outductElementConfigPt.second.get<uint32_t>("ltpCheckpointEveryNthDataSegment");
                 outductElementConfig.ltpRandomNumberSizeBits = outductElementConfigPt.second.get<uint32_t>("ltpRandomNumberSizeBits");
                 if ((outductElementConfig.ltpRandomNumberSizeBits != 32) && (outductElementConfig.ltpRandomNumberSizeBits != 64)) { //not inserted
-                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "ltpRandomNumberSizeBits ("
-                        << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64" << std::endl;
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "ltpRandomNumberSizeBits ("
+                        << outductElementConfig.ltpRandomNumberSizeBits << ") must be either 32 or 64";
                     return false;
                 }
                 outductElementConfig.ltpSenderBoundPort = outductElementConfigPt.second.get<uint16_t>("ltpSenderBoundPort");
                 outductElementConfig.ltpMaxSendRateBitsPerSecOrZeroToDisable = outductElementConfigPt.second.get<uint64_t>("ltpMaxSendRateBitsPerSecOrZeroToDisable");
                 outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall = outductElementConfigPt.second.get<uint64_t>("ltpMaxUdpPacketsToSendPerSystemCall");
                 if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall == 0) {
-                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
-                        << outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be non-zero.\n";
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be non-zero.";
                     return false;
                 }
 #ifdef UIO_MAXIOV
                 //sendmmsg() is Linux-specific. NOTES The value specified in vlen is capped to UIO_MAXIOV (1024).
                 if (outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall > UIO_MAXIOV) {
-                    std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
-                        << outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").\n";
+                    LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: ltpMaxUdpPacketsToSendPerSystemCall ("
+                        << outductElementConfig.ltpMaxUdpPacketsToSendPerSystemCall << ") must be <= UIO_MAXIOV (" << UIO_MAXIOV << ").";
                     return false;
                 }
 #endif //UIO_MAXIOV
@@ -387,8 +389,8 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 };
                 for (std::size_t i = 0; i < LTP_ONLY_VALUES.size(); ++i) {
                     if (outductElementConfigPt.second.count(LTP_ONLY_VALUES[i]) != 0) {
-                        std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                            << " has an ltp outduct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove" << std::endl;
+                        LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                            << " has an ltp outduct only configuration parameter of \"" << LTP_ONLY_VALUES[i] << "\".. please remove";
                         return false;
                     }
                 }
@@ -398,8 +400,8 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.udpRateBps = outductElementConfigPt.second.get<uint64_t>("udpRateBps");
             }
             else if (outductElementConfigPt.second.count("udpRateBps") != 0) {
-                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a udp outduct only configuration parameter of \"udpRateBps\".. please remove" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a udp outduct only configuration parameter of \"udpRateBps\".. please remove";
                 return false;
             }
 
@@ -407,8 +409,8 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.keepAliveIntervalSeconds = outductElementConfigPt.second.get<uint32_t>("keepAliveIntervalSeconds");
             }
             else if (outductElementConfigPt.second.count("keepAliveIntervalSeconds") != 0) {
-                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has an stcp or tcpcl outduct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has an stcp or tcpcl outduct only configuration parameter of \"keepAliveIntervalSeconds\".. please remove";
                 return false;
             }
 
@@ -416,8 +418,8 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.tcpclV3MyMaxTxSegmentSizeBytes = outductElementConfigPt.second.get<uint64_t>("tcpclV3MyMaxTxSegmentSizeBytes");
             }
             else if (outductElementConfigPt.second.count("tcpclV3MyMaxTxSegmentSizeBytes") != 0) {
-                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a tcpcl_v3 outduct only configuration parameter of \"tcpclV3MyMaxTxSegmentSizeBytes\".. please remove" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a tcpcl_v3 outduct only configuration parameter of \"tcpclV3MyMaxTxSegmentSizeBytes\".. please remove";
                 return false;
             }
 
@@ -425,8 +427,8 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 outductElementConfig.tcpclAllowOpportunisticReceiveBundles = outductElementConfigPt.second.get<bool>("tcpclAllowOpportunisticReceiveBundles");
             }
             else if (outductElementConfigPt.second.count("tcpclAllowOpportunisticReceiveBundles") != 0) {
-                std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                    << " has a tcpcl (all versions) outduct only configuration parameter of \"tcpclAllowOpportunisticReceiveBundles\".. please remove" << std::endl;
+                LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                    << " has a tcpcl (all versions) outduct only configuration parameter of \"tcpclAllowOpportunisticReceiveBundles\".. please remove";
                 return false;
             }
 
@@ -446,15 +448,15 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 
                 for (std::vector<std::string>::const_iterator it = VALID_TCPCL_V4_OUTDUCT_PARAMETERS.cbegin(); it != VALID_TCPCL_V4_OUTDUCT_PARAMETERS.cend(); ++it) {
                     if (outductElementConfigPt.second.count(*it) != 0) {
-                        std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
-                            << " has a tcpcl_v4 outduct only configuration parameter of \"" << (*it) << "\".. please remove" << std::endl;
+                        LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: outduct convergence layer  " << outductElementConfig.convergenceLayer
+                            << " has a tcpcl_v4 outduct only configuration parameter of \"" << (*it) << "\".. please remove";
                         return false;
                     }
                 }
             }
         }
         catch (const boost::property_tree::ptree_error & e) {
-            std::cerr << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << e.what();
             return false;
         }
     }
@@ -468,7 +470,7 @@ OutductsConfig_ptr OutductsConfig::CreateFromJson(const std::string & jsonString
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In OutductsConfig::CreateFromJson. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return OutductsConfig_ptr(); //NULL
@@ -480,7 +482,7 @@ OutductsConfig_ptr OutductsConfig::CreateFromJsonFile(const std::string & jsonFi
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In OutductsConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return OutductsConfig_ptr(); //NULL

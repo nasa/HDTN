@@ -1,7 +1,9 @@
 #include "TcpclV4Induct.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 //TCPCL INDUCT
 TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
@@ -34,17 +36,17 @@ TcpclV4Induct::TcpclV4Induct(const InductProcessBundleCallback_t & inductProcess
             m_shareableSslContext.use_certificate_file(inductConfig.certificatePemFile, boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/cert.pem"
             m_shareableSslContext.use_private_key_file(inductConfig.privateKeyPemFile, boost::asio::ssl::context::pem); //"C:/hdtn_ssl_certificates/privatekey.pem"
             if (inductConfig.diffieHellmanParametersPemFile.length() > 0) {
-                std::cout << "notice: tcpclv4 induct using diffie hellman parameters file\n";
+                LOG_WARNING(subprocess) << "tcpclv4 induct using diffie hellman parameters file";
                 m_shareableSslContext.use_tmp_dh_file(inductConfig.diffieHellmanParametersPemFile); //"C:/hdtn_ssl_certificates/dh4096.pem"
             }
             m_tlsSuccessfullyConfigured = true;
         }
         catch (boost::system::system_error & e) {
-            std::cout << "error in TcpclV4Induct constructor: " << e.what() << ": tls shall be disabled for this induct" << std::endl;
+            LOG_ERROR(subprocess) << "error in TcpclV4Induct constructor: " << e.what() << ": tls shall be disabled for this induct";
         }
     }
     if ((!m_tlsSuccessfullyConfigured) && inductConfig.tlsIsRequired) {
-        std::cout << "error in TcpclV4Induct constructor: TLS is required but tls is not properly configured.. this induct shall be disabled for safety." << std::endl;
+        LOG_ERROR(subprocess) << "error in TcpclV4Induct constructor: TLS is required but tls is not properly configured.. this induct shall be disabled for safety.";
         return;
     }
 #endif
@@ -60,7 +62,7 @@ TcpclV4Induct::~TcpclV4Induct() {
             m_tcpAcceptor.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "Error closing TCP Acceptor in TcpclV4Induct::~TcpclInduct:  " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "Error closing TCP Acceptor in TcpclV4Induct::~TcpclInduct:  " << e.what();
         }
     }
     boost::asio::post(m_ioService, boost::bind(&TcpclV4Induct::DisableRemoveInactiveTcpConnections, this));
@@ -76,7 +78,7 @@ TcpclV4Induct::~TcpclV4Induct() {
 }
 
 void TcpclV4Induct::StartTcpAccept() {
-    std::cout << "waiting for tcpclv4 tcp connections" << std::endl;
+    LOG_INFO(subprocess) << "waiting for tcpclv4 tcp connections";
 #ifdef OPENSSL_SUPPORT_ENABLED
     std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > newSslStreamPtr =
         std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_ioService, m_shareableSslContext);
@@ -95,13 +97,13 @@ void TcpclV4Induct::StartTcpAccept() {
 #ifdef OPENSSL_SUPPORT_ENABLED
 void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > & newSslStreamSharedPtr, const boost::system::error_code & error) {
     if (!error) {
-        std::cout << "tcpclv4 tcp connection: " << newSslStreamSharedPtr->next_layer().remote_endpoint().address() << ":" << newSslStreamSharedPtr->next_layer().remote_endpoint().port() << std::endl;
+        LOG_INFO(subprocess) << "tcpclv4 tcp connection: " << newSslStreamSharedPtr->next_layer().remote_endpoint().address() << ":" << newSslStreamSharedPtr->next_layer().remote_endpoint().port();
         m_listTcpclV4BundleSinks.emplace_back(
             newSslStreamSharedPtr,
 #else
 void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
-        std::cout << "tcpclv4 tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
+        LOG_INFO(subprocess) << "tcpclv4 tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port();
         m_listTcpclV4BundleSinks.emplace_back(
             newTcpSocketPtr,
 #endif
@@ -122,7 +124,7 @@ void TcpclV4Induct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket
         StartTcpAccept(); //only accept if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "tcp accept error: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "tcp accept error: " << error.message();
     }
 
 

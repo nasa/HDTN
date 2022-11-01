@@ -1,5 +1,5 @@
 #include "Induct.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <boost/lexical_cast.hpp>
@@ -13,7 +13,7 @@ Induct::~Induct() {}
 
 Induct::OpportunisticBundleQueue::OpportunisticBundleQueue() {}
 Induct::OpportunisticBundleQueue::~OpportunisticBundleQueue() {
-    std::cout << "opportunistic link with m_remoteNodeId " << m_remoteNodeId << " terminated with " << m_dataToSendQueue.size() << " bundles queued\n";
+    LOG_INFO(hdtn::Logger::SubProcess::none) << "opportunistic link with m_remoteNodeId " << m_remoteNodeId << " terminated with " << m_dataToSendQueue.size() << " bundles queued";
 }
 std::size_t Induct::OpportunisticBundleQueue::GetQueueSize() {
     return m_dataToSendQueue.size();
@@ -65,17 +65,14 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
     std::map<uint64_t, OpportunisticBundleQueue>::iterator obqIt = m_mapNodeIdToOpportunisticBundleQueue.find(remoteNodeId);
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
     if (obqIt == m_mapNodeIdToOpportunisticBundleQueue.end()) {
-        std::cout << "error in Induct::ForwardOnOpportunisticLink: opportunistic link with remoteNodeId " << remoteNodeId << " does not exist\n";
+        LOG_ERROR(subprocess) << "error in Induct::ForwardOnOpportunisticLink: opportunistic link with remoteNodeId " << remoteNodeId << " does not exist";
         return false;
     }
     OpportunisticBundleQueue & opportunisticBundleQueue = obqIt->second;
     boost::posix_time::ptime timeoutExpiry((timeoutSeconds != 0) ?
         boost::posix_time::special_values::not_a_date_time :
         boost::posix_time::special_values::neg_infin); //allow zero time to fail immediately if full
-    ////std::cout << "opportunisticBundleQueue.GetQueueSize() " << opportunisticBundleQueue.GetQueueSize() << std::endl;
     //while (opportunisticBundleQueue.GetQueueSize() > 5) { //can't use queue size here, need to go on bundle acks (which limits the max queue size anyway)
-    //std::cout << "Virtual_GetTotalBundlesUnacked() " << opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetTotalBundlesUnacked() 
-    //    << " Virtual_GetMaxTxBundlesInPipeline() " << opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetMaxTxBundlesInPipeline() << "\n";
     //const unsigned int maxBundlesInPipeline = opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetMaxTxBundlesInPipeline();
     //while ((opportunisticBundleQueue.m_bidirectionalLinkPtr->Virtual_GetTotalBundlesUnacked() >= maxBundlesInPipeline)
     //    || (opportunisticBundleQueue.GetQueueSize() >= maxBundlesInPipeline))
@@ -88,7 +85,7 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
                 boost::lexical_cast<std::string>(timeoutSeconds) +
                 " seconds because it has too many pending opportunistic bundles the queue for remoteNodeId " +
                 boost::lexical_cast<std::string>(remoteNodeId);
-            std::cout << msg << "\n";
+            LOG_INFO(hdtn::Logger::SubProcess::none) << msg;
             return false;
 
         }
