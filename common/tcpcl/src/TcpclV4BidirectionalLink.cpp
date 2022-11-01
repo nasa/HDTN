@@ -14,7 +14,7 @@
 
 #include <string>
 #include "TcpclV4BidirectionalLink.h"
-#include "Loggger.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>

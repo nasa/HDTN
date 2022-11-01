@@ -21,7 +21,7 @@
 #ifndef CPU_FLAG_DETECTION_RUN_MAIN_ONLY
 #include "CpuFlagDetection.h"
 #endif
-#include "Logger.h"
+#include <iostream>
 #include <vector>
 #include <bitset>
 #include <array>
@@ -35,7 +35,6 @@
 #include <cpuid.h>  // __get_cpuid
 #endif
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void CpuIdCrossPlatform(int * eaxThrougEdxRegisters, int id) {
 #ifdef _MSC_VER
@@ -347,9 +346,9 @@ std::string CpuFlagDetection::GetCpuBrand() {
 #else
 //for use in cmake try_run() only
 int main() {
-    LOG_INFO(subprocess) << "VENDOR_BEGIN" << InstructionSet::Vendor() << "VENDOR_END ";
-    LOG_INFO(subprocess) << "BRAND_BEGIN" << InstructionSet::Brand() << "BRAND_END";
-    LOG_INFO(subprocess) << "ALL_CPU_FLAGS_BEGIN" << InstructionSet::FlagsList() << "ALL_CPU_FLAGS_END";
+    std::cout << "VENDOR_BEGIN" << InstructionSet::Vendor() << "VENDOR_END " << std::endl;
+    std::cout << "BRAND_BEGIN" << InstructionSet::Brand() << "BRAND_END" << std::endl;
+    std::cout << "ALL_CPU_FLAGS_BEGIN" << InstructionSet::FlagsList() << "ALL_CPU_FLAGS_END" << std::endl;
     return 0;
 }
 #endif

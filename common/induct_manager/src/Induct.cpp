@@ -65,7 +65,7 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
     std::map<uint64_t, OpportunisticBundleQueue>::iterator obqIt = m_mapNodeIdToOpportunisticBundleQueue.find(remoteNodeId);
     m_mapNodeIdToOpportunisticBundleQueueMutex.unlock();
     if (obqIt == m_mapNodeIdToOpportunisticBundleQueue.end()) {
-        LOG_ERROR(subprocess) << "error in Induct::ForwardOnOpportunisticLink: opportunistic link with remoteNodeId " << remoteNodeId << " does not exist";
+        LOG_ERROR(hdtn::Logger::SubProcess::none) << "Induct::ForwardOnOpportunisticLink: opportunistic link with remoteNodeId " << remoteNodeId << " does not exist";
         return false;
     }
     OpportunisticBundleQueue & opportunisticBundleQueue = obqIt->second;

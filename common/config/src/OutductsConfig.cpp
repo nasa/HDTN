@@ -6,9 +6,9 @@
  */
 
 #include "OutductsConfig.h"
+#include "Logger.h"
 #include <memory>
 #include <boost/foreach.hpp>
-#include <iostream>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 #ifndef _WIN32

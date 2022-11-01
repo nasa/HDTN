@@ -1,5 +1,5 @@
 #include "OutductManager.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <memory>
 #include "TcpclOutduct.h"

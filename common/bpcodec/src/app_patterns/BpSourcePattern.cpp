@@ -1,6 +1,6 @@
 #include <string.h>
-#include <iostream>
 #include "app_patterns/BpSourcePattern.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
@@ -778,7 +778,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 //Section 5.10.
                 //Hop limit MUST be in the range 1 through 255.
                 if ((newHopCount > hopCountBlockPtr->m_hopLimit) || (newHopCount > 255)) {
-                    LOG_WARNOMG(subprocess) << "notice: Process dropping version 7 bundle with hop count " << newHopCount;
+                    LOG_WARNING(subprocess) << "notice: Process dropping version 7 bundle with hop count " << newHopCount;
                     return;
                 }
                 ++m_hopCounts[newHopCount];
