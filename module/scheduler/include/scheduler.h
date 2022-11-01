@@ -93,6 +93,7 @@ private:
     void TryRestartContactPlanTimer();
     void OnContactPlan_TimerExpired(const boost::system::error_code& e);
     bool AddContact_NotThreadSafe(const contactPlan_t& contact);
+    boost::mutex m_contactUpSetMutex;
 
 private:
     volatile bool m_runningFromSigHandler;

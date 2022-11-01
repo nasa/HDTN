@@ -347,9 +347,11 @@ void Scheduler::EgressEventsHandler() {
             contact.source = srcNode;
             contact.dest = destNode;
 
-            if (event == 1 && m_mapContactUp[contact]) {
-                std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
-		SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
+            if (event == 1) {
+                if (m_mapContactUp[contact]) {
+		    std::cout << "[Scheduler] EgressEventsHandler Sending Link Up event " << std::endl;
+		    SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
+		}
             } else {
                 std::cout << "[Scheduler] EgressEventsHandler Sending Link Down event " << std::endl;
                 SendLinkDown(srcNode, destNode, finalDestEid.nodeId);
@@ -448,7 +450,10 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
 
 
         if (!isLinkUp) {
-            m_mapContactUp.insert(std::pair<contact_t, bool>(contact, false));
+            m_contactUpSetMutex.lock();
+	    m_mapContactUp[contact] = false;
+	    std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
+            m_contactUpSetMutex.unlock();   
 	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
         }
     }
@@ -517,11 +522,17 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
             contact.dest = contactPlan.first.dest;
 
             if (isLinkUp) {
-                m_mapContactUp.insert(std::pair<contact_t, bool>(contact, true));
-		SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+                 m_contactUpSetMutex.lock(); 
+                 m_mapContactUp[contact] = true;
+		 std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
+		m_contactUpSetMutex.unlock();
+		 SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             else {
-		m_mapContactUp.insert(std::pair<contact_t, bool>(contact, false));
+		m_contactUpSetMutex.lock();    
+		m_mapContactUp[contact] = false;
+		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
+		m_contactUpSetMutex.unlock();
 		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             m_ptimeToContactPlanBimap.left.erase(it);
