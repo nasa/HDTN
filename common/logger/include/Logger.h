@@ -159,6 +159,7 @@ public:
         scheduler,
         storage,
         gui,
+        unittest,
         none
     };
 
@@ -216,6 +217,11 @@ public:
      */
     LOG_LIB_EXPORT static void initializeWithProcess(Logger::Process process);
 
+    /**
+     * Extracts the process attribute value
+     */
+    LOG_LIB_EXPORT static Logger::Process getProcessAttributeVal();
+
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
     LOG_LIB_EXPORT static Logger* getInstance();
@@ -270,11 +276,6 @@ private:
      * Creates a new sink for writing messages to stderr
      */
     LOG_LIB_EXPORT void createStderrSink();
-
-    /**
-     * Extracts the process attribute value
-     */
-    LOG_LIB_EXPORT Logger::Process getProcessAttributeVal();
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static std::unique_ptr<Logger> logger_; //singleton instance

@@ -48,6 +48,7 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
     "scheduler",
     "storage",
     "gui",
+    "unittest",
     ""
 };
 
@@ -68,7 +69,6 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_lev
 /**
  * Overloads the stream operator to support the Process enum
  */
-
 static std::ostream& operator<< (std::ostream& strm, const Logger::Process& process)
 {
     std::string output = Logger::toString(process);
@@ -81,14 +81,19 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::Process& proc
 /**
  * Overloads the stream operator to support the SubProcess enum
  */
-
 static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& subprocess)
 {
-    std::string output = Logger::toString(subprocess);
-    if (subprocess != Logger::SubProcess::none) {
-        output = "[" + output + "]";
+    std::string subprocessStr = Logger::toString(subprocess);
+    std::string processStr = Logger::toString(Logger::getProcessAttributeVal());
+
+    if (subprocess == Logger::SubProcess::none) {
+        return strm;
     }
-    return strm << output;
+    if (subprocessStr == processStr) {
+        return strm;
+    }
+
+    return strm << "[" << subprocessStr << "]";
 }
 
 Logger::Logger()
@@ -137,7 +142,7 @@ void Logger::init()
     registerAttributes();
 
     #ifdef LOG_TO_PROCESS_FILE
-        createFileSinkForProcess(getProcessAttributeVal());
+        createFileSinkForProcess(Logger::getProcessAttributeVal());
     #endif
 
     #ifdef LOG_TO_SUBPROCESS_FILES
