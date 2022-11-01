@@ -66,7 +66,7 @@ For more information on how the storage works, see `module/storage/doc/storage.p
 
 ## Logging Compilation Parameters ##
 Logging is controlled by CMake cache variables:
-* `LOG_LEVEL_TYPE` controls which messages are logged. The options, from most verbose to least verbose, are `TRACE`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `FATAL`. All log statements using a level more verbose than the provided level will be compiled out of the application. The default value is `INFO`.
+* `LOG_LEVEL_TYPE` controls which messages are logged. The options, from most verbose to least verbose, are `TRACE`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `FATAL`, and `NONE`. All log statements using a level more verbose than the provided level will be compiled out of the application. The default value is `INFO`.
 * `LOG_TO_CONSOLE` controls whether log messages are sent to the console. The default value is `ON`.
 * `LOG_TO_ERROR_FILE` controls whether all error messages are written to a single error.log file. The default value is `OFF`.
 * `LOG_TO_PROCESS_FILE` controls whether each process writes to their own log file. The default value is `OFF`.
