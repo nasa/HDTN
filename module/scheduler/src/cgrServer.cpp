@@ -32,7 +32,10 @@ int CgrServer::requestNextHop(int currentNode, int destinationNode, int startTim
     cgrSock->send(zmq::const_buffer(message.c_str(), strlen(message.c_str())), zmq::send_flags::none);
     LOG_INFO(subprocess) << "Waiting to receive message back";
     zmq::message_t recvMessage;
-    cgrSock->recv(recvMessage, zmq::recv_flags::none);
+    if (!cgrSock->recv(recvMessage, zmq::recv_flags::none)) {
+        std::cout << "error in CgrServer::requestNextHop: did not receive message\n";
+        return INT_MAX;
+    }
 
     std::string myReceivedAsString((const char *)recvMessage.data(), (const char *)recvMessage.data() + recvMessage.size());
 

@@ -163,21 +163,21 @@ bool TestSchedulerTcpcl() {
     Delay(DELAY_THREAD);
 
     //bpsink1
-    static const std::string bpsinkConfigArg0 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4557.json").string();
+    static const std::string bpsinkConfigArg0 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpcl_port4557.json").string();
     static const char * argsBpsink0[] = { "bpsink",  "--my-uri-eid=ipn:1.1", bpsinkConfigArg0.c_str(), NULL };
     std::thread threadBpsink0(RunBpsinkAsync, argsBpsink0, 3, std::ref(runningBpsink[0]), &bundlesReceivedBpsink[0],
         &finalStatsBpSink[0]);
     Delay(DELAY_THREAD);
 
     //bpsink2
-    static const std::string bpsinkConfigArg1 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
+    static const std::string bpsinkConfigArg1 = "--inducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "inducts" / "bpsink_one_tcpcl_port4558.json").string();
     static const char * argsBpsink1[] = { "bpsink", "--my-uri-eid=ipn:2.1", bpsinkConfigArg1.c_str(), NULL };
     std::thread threadBpsink1(RunBpsinkAsync, argsBpsink1, 3, std::ref(runningBpsink[1]), &bundlesReceivedBpsink[1],
         &finalStatsBpSink[1]);
     Delay(DELAY_THREAD);
 
     //Egress
-    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json").string();
+    static const std::string hdtnConfigArg = "--hdtn-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "hdtn" / "hdtn_ingress1tcpcl_port4556_egress2tcpcl_port4557flowid1_port4558flowid2.json").string();
     static const char * argsEgress[] = { "egress",hdtnConfigArg.c_str(), NULL };
     std::thread threadEgress(RunEgressAsync,argsEgress,2,std::ref(runningEgress),&bundleCountEgress);
     Delay(DELAY_THREAD);
@@ -211,7 +211,7 @@ bool TestSchedulerTcpcl() {
 
     
     //Bpgen1
-   static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "tests" / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
+   static const std::string bpgenConfigArg = "--outducts-config-file=" + (Environment::GetPathHdtnSourceRoot() / "config_files" / "outducts" / "bpgen_one_tcpcl_port4556.json").string();
     static const char * argsBpgen1[] = { "bpgen", "--bundle-rate=100", "--my-uri-eid=ipn:101.1", "--dest-uri-eid=ipn:1.1","--duration=40", bpgenConfigArg.c_str(), NULL };
     std::thread threadBpgen1(RunBpgenAsync,argsBpgen1, 6,std::ref(runningBpgen[1]),&bundlesSentBpgen[1],&finalStats[1]);
     Delay(1);

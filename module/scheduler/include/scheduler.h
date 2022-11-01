@@ -51,11 +51,20 @@ struct contactPlan_t {
     bool operator<(const contactPlan_t& o) const; //operator < so it can be used as a map key
 };
 
+struct contact_t {
+    int source;
+    int dest;
+    bool operator<(const contact_t& o) const;
+
+};
+
 class Scheduler {
 public:
     typedef std::pair<boost::posix_time::ptime, uint64_t> ptime_index_pair_t; //used in case of identical ptimes for starting events
     typedef std::pair<contactPlan_t, bool> contactplan_islinkup_pair_t; //second parameter isLinkUp
     typedef boost::bimap<ptime_index_pair_t, contactplan_islinkup_pair_t> ptime_to_contactplan_bimap_t;
+
+    std::map<contact_t, bool> m_mapContactUp;
 
     Scheduler();
     ~Scheduler();

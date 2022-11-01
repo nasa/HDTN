@@ -26,7 +26,9 @@ option(BUILD_SHARED_LIBS "Build shared libraries" Off)
 
 set(HDTN_VERSION "1.0")
 project(HDTN VERSION ${HDTN_VERSION})
-set(CMAKE_CXX_STANDARD 11)
+
+#set(CMAKE_CXX_STANDARD 11)
+include(${CMAKE_SOURCE_DIR}/cpp_standard_detection.cmake) # Determine whether to compile HDTN with C++11 or C++17
 
 SET(CMAKE_INSTALL_LIBDIR "lib" CACHE PATH "HDTN shared and static libraries will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_LIBDIR/")
 SET(CMAKE_INSTALL_INCLUDEDIR "include/HDTN" CACHE PATH "HDTN public headers will be installed to CMAKE_INSTALL_PREFIX/CMAKE_INSTALL_INCLUDEDIR/")
@@ -78,24 +80,9 @@ endif()
 
 #Log output options
 OPTION(LOG_TO_CONSOLE "Should logger write to console window" On)
-if (LOG_TO_CONSOLE)
-	add_compile_definitions(LOG_TO_CONSOLE)
-endif()
-
 OPTION(LOG_TO_PROCESS_FILE "Should logger write all messages to a single process.log file" Off)
-if (LOG_TO_PROCESS_FILE)
-	add_compile_definitions(LOG_TO_PROCESS_FILE)
-endif()
-
 OPTION(LOG_TO_SUBPROCESS_FILES "Should logger write all sub-process messages to their respective subprocess.log files" Off)
-if (LOG_TO_SUBPROCESS_FILES)
-	add_compile_definitions(LOG_TO_SUBPROCESS_FILES)
-endif()
-
 OPTION(LOG_TO_ERROR_FILE "Should logger write all error messages to an error.log file" Off)
-if (LOG_TO_ERROR_FILE)
-	add_compile_definitions(LOG_TO_ERROR_FILE)
-endif()
 
 #Bundle Storage Manager options
 SET(STORAGE_SEGMENT_ID_SIZE_BITS "32" CACHE STRING "Set word size of storage's segment_id_t to either 32-bit (default recommended) or 64-bit (high memory only systems for greater than 17TB storage).")
@@ -133,7 +120,7 @@ endif()
 
 OPTION(USE_WEB_INTERFACE "Use CivetWeb HDTN Web Interface" OFF)
 if(USE_WEB_INTERFACE)
-	add_compile_definitions(USE_WEB_INTERFACE)
+	#add_compile_definitions(USE_WEB_INTERFACE) #not needed globally, rather this is set specifically to HdtnOneProcessRunner.cpp in the one process CMakeLists.txt
 	if (WIN32)
 		set(civetweb_INCLUDE "C:/civetweb_msvc2017/include" CACHE PATH "Folder to CivetServer.h and civetweb.h")
 		set(civetweb_LIB "C:/civetweb_msvc2017/lib_release/civetweb.lib" CACHE FILEPATH "Civetweb library")

@@ -1,3 +1,20 @@
+# @file hardware_acceleration.cmake
+# @author  Brian Tomko <brian.j.tomko@nasa.gov>
+#
+# @copyright Copyright © 2021 United States Government as represented by
+# the National Aeronautics and Space Administration.
+# No copyright is claimed in the United States under Title 17, U.S.Code.
+# All Other Rights Reserved.
+#
+# @section LICENSE
+# Released under the NASA Open Source Agreement (NOSA)
+# See LICENSE.md in the source root directory for more information.
+#
+# @section DESCRIPTION
+#
+# This script detects if the compiler supports specific hardware acceleration compiler intrinsics,
+# and it detects (if not cross compiling) if the CPU supports hardware accelerated instructions.
+
 if(USE_X86_HARDWARE_ACCELERATION OR LTP_RNG_USE_RDSEED)
 	check_include_file("immintrin.h" HAVE_IMMINTRIN_H)
 	if(NOT HAVE_IMMINTRIN_H)
@@ -326,14 +343,14 @@ if(LTP_RNG_USE_RDSEED)
 			if(RDSEED_supported)
 				CHECK_CXX_SOURCE_RUNS(${rdseed_test_source_code} RDSEED_RUNS) #success if main returns 0
 				if(RDSEED_RUNS)
-					message("adding compile definition: LTP_RNG_USE_RDSEED (cpu supports RDSEED)")
-					add_compile_definitions(LTP_RNG_USE_RDSEED)
+					SET(HAS_LTP_RNG_USE_RDSEED TRUE)
+					message("setting HAS_LTP_RNG_USE_RDSEED (cpu supports RDSEED)")
 					list(APPEND NON_WINDOWS_RDSEED_COMPILE_FLAG -mrdseed)
 				endif()
 			endif() #RDSEED_supported
 		else() #cross compiling (assume cpu supports RDSEED instruction)
-			message("adding compile definition: LTP_RNG_USE_RDSEED (cross compiling assumes cpu supports RDSEED)")
-			add_compile_definitions(LTP_RNG_USE_RDSEED)
+			SET(HAS_LTP_RNG_USE_RDSEED TRUE)
+			message("setting HAS_LTP_RNG_USE_RDSEED (cross compiling assumes cpu supports RDSEED)")
 			list(APPEND NON_WINDOWS_RDSEED_COMPILE_FLAG -mrdseed)
 		endif()
 	endif()

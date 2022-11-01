@@ -2,7 +2,7 @@
  * @file ReleaseSender.cpp
  * @author  Jeff Follo
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright ï¿½ 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -16,7 +16,7 @@
 #include "Uri.h"
 
 const std::string ReleaseSender::DEFAULT_FILE = "releaseMessages1.json";
-
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::storage;
 
 ReleaseSender::ReleaseSender() {
     m_timersFinished = false;
@@ -28,7 +28,7 @@ ReleaseSender::~ReleaseSender() {
 
 void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_eid_t finalDestinationEid, std::string message, zmq::socket_t * ptrSocket) {
   boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-  std::cout <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
+  LOG_INFO(subprocess) <<  "Expiry time: " << timeLocal << " , finalDestinationEid: (" << finalDestinationEid.nodeId << "," << finalDestinationEid.serviceId << ") , message: " << message;
   if (message == "start") {
       hdtn::IreleaseStartHdr releaseMsg;
       memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -37,7 +37,7 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
       releaseMsg.rate = 0;  //not implemented
       releaseMsg.duration = 20;  //not implemented
       ptrSocket->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)), zmq::send_flags::none);
-      std::cout << " -- Start Release message sent.";
+      LOG_INFO(subprocess) << " -- Start Release message sent.";
   }
   else if (message == "stop") {
       hdtn::IreleaseStopHdr stopMsg;
@@ -45,9 +45,8 @@ void ReleaseSender::ProcessEvent(const boost::system::error_code&, const cbhe_ei
       stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
       stopMsg.finalDestinationNodeId = finalDestinationEid.nodeId;
       ptrSocket->send(zmq::const_buffer(&stopMsg, sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
-      std::cout << " -- Stop Release message sent.";
+      LOG_INFO(subprocess) << " -- Stop Release message sent.";
   }
-  std::cout << std::endl << std::flush;
 }
 
 int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
@@ -63,7 +62,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
         releaseMessageEvent.message = eventPt.second.get<std::string>("message", "");
         const std::string uriEid = eventPt.second.get<std::string>("finalDestinationEid", "");
         if (!Uri::ParseIpnUriString(uriEid, releaseMessageEvent.finalDestEid.nodeId, releaseMessageEvent.finalDestEid.serviceId)) {
-            std::cerr << "error: bad uri string: " << uriEid << std::endl;
+            LOG_ERROR(subprocess) << "error: bad uri string: " << uriEid;
             return false;
         }
         releaseMessageEvent.delay = eventPt.second.get<int>("delay",0);
@@ -75,13 +74,13 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
             errorMessage += " Invalid delay: " + boost::lexical_cast<std::string>(releaseMessageEvent.delay) + ".";
         }
         if (errorMessage.length() > 0) {
-            std::cerr << errorMessage << std::endl << std::flush;
+            LOG_ERROR(subprocess) << errorMessage;
             return 1;
         }
     }
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    std::cout << "Epoch Time:  " << timeLocal << std::endl << std::flush;
+    LOG_INFO(subprocess) << "Epoch Time:  " << timeLocal;
 
     zmq::context_t ctx;
     zmq::socket_t socket(ctx, zmq::socket_type::pub);
@@ -104,7 +103,7 @@ int ReleaseSender::ProcessEventFile(std::string jsonEventFileName) {
     socket.close();
     m_timersFinished = true;
     timeLocal = boost::posix_time::second_clock::local_time();
-    std::cout << "End of ProcessEventFile:  " << timeLocal << std::endl << std::flush;
+    LOG_INFO(subprocess) << "End of ProcessEventFile:  " << timeLocal;
     return 0;
 }
 
@@ -124,12 +123,12 @@ int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& 
                | boost::program_options::command_line_style::case_insensitive), vm);
         boost::program_options::notify(vm);
         if (vm.count("help")) {
-            std::cout << desc << "\n";
+            LOG_INFO(subprocess) << desc;
             return 1;
         }
         eventsFile = vm["events-file"].as<std::string>();
         if (eventsFile.length() < 1) {
-            std::cout << desc << "\n";
+            LOG_INFO(subprocess) << desc;
             return 1;
         }
         const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
@@ -138,21 +137,21 @@ int ReleaseSender::ProcessComandLine(int argc, const char *argv[], std::string& 
             m_hdtnConfig = *ptrConfig;
         }
         else {
-            std::cerr << "error loading config file: " << configFileName << std::endl;
+            LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
             return false;
         }
     }
     catch (std::exception& e) {
-        std::cerr << "error: " << e.what() << "\n";
+        LOG_ERROR(subprocess) << "error: " << e.what();
         return 1;
     }
     catch (...) {
-        std::cerr << "Exception of unknown type!\n";
+        LOG_ERROR(subprocess) << "Exception of unknown type!";
         return 1;
     }
     std::string jsonFileName =  ReleaseSender::GetFullyQualifiedFilename(eventsFile);
     if ( !boost::filesystem::exists( jsonFileName ) ) {
-        std::cerr << "File not found: " << jsonFileName << std::endl << std::flush;
+        LOG_ERROR(subprocess) << "File not found: " << jsonFileName;
         return 1;
     }
     jsonEventFileName = jsonFileName;

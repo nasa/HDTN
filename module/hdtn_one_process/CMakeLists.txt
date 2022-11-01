@@ -2,6 +2,13 @@ add_executable(hdtn-one-process
     src/HdtnOneProcessRunner.cpp
 	src/HdtnOneProcessMain.cpp
 )
+
+set_property(
+	SOURCE src/HdtnOneProcessRunner.cpp
+	PROPERTY COMPILE_DEFINITIONS
+		$<$<BOOL:${USE_WEB_INTERFACE}>:USE_WEB_INTERFACE> 
+)
+
 install(TARGETS hdtn-one-process DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-one-process
 	PUBLIC
