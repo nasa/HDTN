@@ -42,7 +42,7 @@ sz -h > $null
 #------build directory-----------------
 $build_directory = "C:\hdtn_build" #"${PSScriptRoot}\..\build" #don't install within source, causes cmake issues when building/installing hdtn
 #------build machine-----------------
-$num_cpu_cores = "8"
+$num_cpu_cores = (Get-ComputerInfo).CsNumberOfLogicalProcessors.ToString()
 #------openssl-----------------
 $nasm_version = "2.15.05" #required for compiling openssl
 $openssl_src_directory = "openssl-1.1.1q"
@@ -66,6 +66,8 @@ $boost_library_install_prefix = "lib64_msvc2022"
 #------hdtn-----------------
 $hdtn_install_directory_name = "hdtn_msvc2022_x64"
 $Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #simplify the path to get rid of any ..
+
+Write-Output "building with ${num_cpu_cores} logical cpu cores"
 
 #this script should be located in HDTN_SOURCE_ROOT/building_on_windows
 if (Test-Path -Path ${build_directory}) {
