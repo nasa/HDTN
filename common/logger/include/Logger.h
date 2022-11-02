@@ -159,12 +159,9 @@ public:
         scheduler,
         storage,
         gui,
-<<<<<<< HEAD
         bpsinkpattern,
         bpsourcepattern,
-=======
         unittest,
->>>>>>> 074a502bc24fb80cd2a739a9dc5f0096989f76f7
         none
     };
 
