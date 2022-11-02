@@ -1,0 +1,28 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [ "test_cicd_windows" ]
+  pull_request:
+    branches: [ "test_cicd_windows" ]
+
+jobs:
+  windows-x64-test:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Display Test Start
+        run: |
+          echo "============================================================="
+          echo "Run #${GITHUB_RUN_NUMBER}"
+          echo "Run ID: ${GITHUB_RUN_ID}"
+          echo "Testing: ${GITHUB_REPOSITORY}"
+          echo "Triggered by: ${GITHUB_EVENT_NAME}"
+          echo "Initiated by: ${GITHUB_ACTOR}"
+          echo "============================================================="
+
+      - name: Powershell Script
+        run: .\building_on_windows\hdtn_windows_cicd_unit_test.ps1
+        shell: powershell
