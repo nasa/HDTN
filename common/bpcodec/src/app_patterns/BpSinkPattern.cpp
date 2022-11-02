@@ -7,7 +7,6 @@
 #include <sstream>
 #include <cstdlib>
 #include <cassert>
-#include <format.h>
 
 #include "codec/bpv6.h"
 #include "app_patterns/BpSinkPattern.h"
@@ -385,7 +384,10 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
             double bundleRateMbps = (diffBundleBytesRx * 8.0) / (diff.total_microseconds());
             double bundlesPerSecond = (diffBundlesRx * 1e6) / (diff.total_microseconds());
 
-            LOG_INFO(subprocess) << std::format("Payload Only Rate: %0.4f Mbits/sec, Total Rate: %0.4f Mbits/sec, %0.4f Bundles/sec: \n", payloadRateMbps, bundleRateMbps, bundlesPerSecond);
+            LOG_INFO(subprocess) << std::fixed << std::setprecision(4)
+                << "Payload Only Rate: " << payloadRateMbps << " Mbits/sec, "
+                << "Total Rate: " << bundleRateMbps << " Mbits/sec, "
+                << bundlesPerSecond << " Bundles/sec: \n";
         }
         
         m_lastPayloadBytesRx = totalPayloadBytesRx;
