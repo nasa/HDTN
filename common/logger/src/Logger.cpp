@@ -229,7 +229,7 @@ logging::formatter Logger::levelFileFormatter()
     logging::formatter fmt = expr::stream
         << expr::if_ (expr::has_attr<Logger::Process>("Process"))
         [
-            expr::stream << expr::attr<Logger::Process>("Process")
+            expr::stream << "[ " << expr::attr<Logger::Process>("Process") << "]"
         ]
         << expr::if_ (expr::has_attr<Logger::SubProcess>("SubProcess")
             && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none

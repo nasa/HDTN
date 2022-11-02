@@ -116,10 +116,10 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
 
     // Assert results
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
-        std::string("[ unittest][ egress][ trace]: Egress foo bar\n") +
-        std::string("[ unittest][ ingress][ debug]: Ingress foo bar\n") +
-        std::string("[ unittest][ router][ info]: Router foo bar\n") +
-        std::string("[ unittest][ scheduler][ warning]: Scheduler foo bar\n")
+        std::string("[ egress         ][ trace]: Egress foo bar\n") +
+        std::string("[ ingress        ][ debug]: Ingress foo bar\n") +
+        std::string("[ router         ][ info]: Router foo bar\n") +
+        std::string("[ scheduler      ][ warning]: Scheduler foo bar\n")
     );
 }
 #endif
@@ -141,8 +141,8 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
 
     // Assert results
     BOOST_REQUIRE_EQUAL(output_tester.cerr_test_stream.str(),
-        std::string("[ unittest][ egress][ error]: Egress foo bar!\n") +
-        std::string("[ unittest][ ingress][ fatal]: Ingress foo bar!\n")
+        std::string("[ egress         ][ error]: Egress foo bar!\n") +
+        std::string("[ ingress        ][ fatal]: Ingress foo bar!\n")
     );
 }
 #endif
@@ -159,7 +159,7 @@ BOOST_AUTO_TEST_CASE(LoggerMatchingSubprocessAndProcessTestCase)
 
     output_tester.reset_cout_cerr();
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
-        std::string("[ unittest]         [ info]: Unittest foo bar\n")
+        std::string("[ unittest       ][ info]: Unittest foo bar\n")
     );
 }
 #endif
