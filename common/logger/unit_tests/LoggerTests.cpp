@@ -147,6 +147,23 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
 }
 #endif
 
+#ifdef LOG_TO_CONSOLE
+BOOST_AUTO_TEST_CASE(LoggerMatchingSubprocessAndProcessTestCase)
+{
+    // If the process and sub-process match, only the process attribute should
+    // be logged
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
+
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::unittest, info) << "Unittest foo bar";
+
+    output_tester.reset_cout_cerr();
+    BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
+        std::string("[unittest][info]:        Unittest foo bar\n")
+    );
+}
+#endif
+
 #ifdef LOG_TO_PROCESS_FILE
 BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
 {

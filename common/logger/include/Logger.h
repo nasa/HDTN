@@ -159,8 +159,12 @@ public:
         scheduler,
         storage,
         gui,
+<<<<<<< HEAD
         bpsinkpattern,
         bpsourcepattern,
+=======
+        unittest,
+>>>>>>> 074a502bc24fb80cd2a739a9dc5f0096989f76f7
         none
     };
 
@@ -277,6 +281,11 @@ private:
      * Extracts the process attribute value
      */
     LOG_LIB_EXPORT Logger::Process getProcessAttributeVal();
+
+    /**
+     * Formatter used for messages displayed in the console 
+     */
+    LOG_LIB_EXPORT static void consoleFormatter(boost::log::record_view const& rec, boost::log::formatting_ostream& strm);
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static std::unique_ptr<Logger> logger_; //singleton instance

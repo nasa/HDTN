@@ -23,7 +23,7 @@ static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger:
     "ltpfiletransfer",
     "egress",
     "gui",
-    "hdtnoneprocess",
+    "hdtn",
     "ingress",
     "router",
     "scheduler",
@@ -50,10 +50,12 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
     "gui",
     "bpsinkpattern",
     "bpsourcepattern",
+    "unittest",
     ""
 };
 
 static const uint32_t file_rotation_size = 5 * 1024 * 1024; //5 MiB
+static const uint8_t console_message_offset = 25;
 
 // Namespaces recommended by the Boost log library
 namespace logging = boost::log;
@@ -70,7 +72,6 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_lev
 /**
  * Overloads the stream operator to support the Process enum
  */
-
 static std::ostream& operator<< (std::ostream& strm, const Logger::Process& process)
 {
     std::string output = Logger::toString(process);
@@ -83,7 +84,6 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::Process& proc
 /**
  * Overloads the stream operator to support the SubProcess enum
  */
-
 static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& subprocess)
 {
     std::string output = Logger::toString(subprocess);
@@ -264,11 +264,6 @@ Logger::SubProcess Logger::fromString(std::string subprocess) {
 }
 
 void Logger::createStdoutSink() {
-    logging::formatter fmt = expr::stream
-        << expr::attr<Logger::Process>("Process")
-        << expr::attr<Logger::SubProcess>("SubProcess")
-        << "[" << severity << "]: " << expr::smessage;
-
     boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
     stdout_sink_backend->add_stream(
@@ -280,17 +275,28 @@ void Logger::createStdoutSink() {
 
     stdout_sink->set_filter(severity != logging::trivial::severity_level::error &&
         severity != logging::trivial::severity_level::fatal);
-    stdout_sink->set_formatter(fmt);
+    stdout_sink->set_formatter(&Logger::consoleFormatter);
     stdout_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(stdout_sink);
 }
 
-void Logger::createStderrSink() {
-    logging::formatter fmt = expr::stream
-        << expr::attr<Logger::Process>("Process")
-        << expr::attr<Logger::SubProcess>("SubProcess")
-        << "[" << severity << "]: " << expr::smessage;
+void Logger::consoleFormatter(logging::record_view const& rec, logging::formatting_ostream& strm)
+{
+    std::stringstream ss;
+    ss << logging::extract<Logger::Process>("Process", rec);
+    
+    // Ignore subprocess if it matches process
+    std::stringstream tmpSS;
+    tmpSS << logging::extract<Logger::SubProcess>("SubProcess", rec);
+    if (ss.str() != tmpSS.str()) {
+        ss << tmpSS.str();
+    }
 
+    ss << "[" << rec[logging::trivial::severity] << "]: ";
+    strm << std::setw(console_message_offset) << std::left << ss.str() << rec[expr::smessage];
+}
+
+void Logger::createStderrSink() {
     boost::shared_ptr<sinks::text_ostream_backend> stderr_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
     stderr_sink_backend->add_stream(
@@ -302,7 +308,7 @@ void Logger::createStderrSink() {
 
     stderr_sink->set_filter(severity == logging::trivial::severity_level::error ||
         severity == logging::trivial::severity_level::fatal);
-    stderr_sink->set_formatter(fmt);
+    stderr_sink->set_formatter(&Logger::consoleFormatter);
     stderr_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(stderr_sink);
 }
