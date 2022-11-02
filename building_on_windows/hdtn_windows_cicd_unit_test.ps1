@@ -71,7 +71,7 @@ $Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #
 if (Test-Path -Path ${build_directory}) {
     throw "${build_directory} already exists!  It must not exist for this script to work."
 }
-#New-Item -ItemType Directory -Force -Path ${build_directory}
+New-Item -ItemType Directory -Force -Path ${build_directory}
 $build_directory = Convert-Path( Resolve-Path -Path ${build_directory}) #simplify the path (after it exists from previous line) to get rid of any ..
 Write-Output ${build_directory}
 push-location ${build_directory}
