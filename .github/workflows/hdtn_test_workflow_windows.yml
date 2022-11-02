@@ -1,10 +1,6 @@
 name: Windows CI
 
-on:
-  push:
-    branches: [ "test_cicd_windows" ]
-  pull_request:
-    branches: [ "test_cicd_windows" ]
+on: [push, pull_request]
 
 jobs:
   windows-x64-test:
