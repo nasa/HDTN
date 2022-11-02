@@ -159,7 +159,7 @@ BOOST_AUTO_TEST_CASE(LoggerMatchingSubprocessAndProcessTestCase)
 
     output_tester.reset_cout_cerr();
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
-        std::string("[unittest][info]:   Unittest foo bar\n")
+        std::string("[unittest][info]:        Unittest foo bar\n")
     );
 }
 #endif
