@@ -13,7 +13,7 @@
 #include "TcpclV4Induct.h"
 #include "codec/BundleViewV7.h"
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::bpsourcepattern;
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 BpSourcePattern::BpSourcePattern() : m_running(false) {
 

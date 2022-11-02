@@ -48,8 +48,6 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
     "scheduler",
     "storage",
     "gui",
-    "bpsinkpattern",
-    "bpsourcepattern",
     "unittest",
     ""
 };

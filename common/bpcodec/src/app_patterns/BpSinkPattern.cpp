@@ -7,6 +7,7 @@
 #include <sstream>
 #include <cstdlib>
 #include <cassert>
+#include <format.h>
 
 #include "codec/bpv6.h"
 #include "app_patterns/BpSinkPattern.h"
@@ -19,7 +20,7 @@
 #include "codec/BundleViewV7.h"
 #include "Logger.h"
 
-static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::bpsinkpattern;
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 BpSinkPattern::BpSinkPattern() : m_timerAcs(m_ioService), m_timerTransferRateStats(m_ioService) {}
 
@@ -384,7 +385,7 @@ void BpSinkPattern::TransferRate_TimerExpired(const boost::system::error_code& e
             double bundleRateMbps = (diffBundleBytesRx * 8.0) / (diff.total_microseconds());
             double bundlesPerSecond = (diffBundlesRx * 1e6) / (diff.total_microseconds());
 
-            printf("Payload Only Rate: %0.4f Mbits/sec, Total Rate: %0.4f Mbits/sec, %0.4f Bundles/sec: \n", payloadRateMbps, bundleRateMbps, bundlesPerSecond);
+            LOG_INFO(subprocess) << std::format("Payload Only Rate: %0.4f Mbits/sec, Total Rate: %0.4f Mbits/sec, %0.4f Bundles/sec: \n", payloadRateMbps, bundleRateMbps, bundlesPerSecond);
         }
         
         m_lastPayloadBytesRx = totalPayloadBytesRx;
