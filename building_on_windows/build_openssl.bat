@@ -3,7 +3,14 @@ setlocal
 REM ARG1 is the install folder name
 REM %~1   Expand %1 removing any surrounding quotes (")
 SET OPENSSL_INSTALL_FOLDER_NAME=%~1
-CALL "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
+IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat" (
+    CALL "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
+ ) ELSE IF EXIST "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" (
+    CALL "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+ ) ELSE (
+    Echo The vcvars64.bat file was not found.
+    GOTO fail
+ )
 perl Configure VC-WIN64A --prefix="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%" --openssldir="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%\SSL"
 IF %ERRORLEVEL% NEQ 0 GOTO fail
 nmake
