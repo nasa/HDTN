@@ -137,7 +137,7 @@ void Logger::init()
     registerAttributes();
 
     #ifdef LOG_TO_PROCESS_FILE
-        createFileSinkForProcess(Logger::getProcessAttributeVal());
+        createFileSinkForProcess(getProcessAttributeVal());
     #endif
 
     #ifdef LOG_TO_SUBPROCESS_FILES

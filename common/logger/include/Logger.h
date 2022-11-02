@@ -217,11 +217,6 @@ public:
      */
     LOG_LIB_EXPORT static void initializeWithProcess(Logger::Process process);
 
-    /**
-     * Extracts the process attribute value
-     */
-    LOG_LIB_EXPORT static Logger::Process getProcessAttributeVal();
-
     // Deprecated -- use LOG_* macros instead.
     LOG_LIB_EXPORT static SubProcess fromString(std::string subprocess);
     LOG_LIB_EXPORT static Logger* getInstance();
@@ -276,6 +271,11 @@ private:
      * Creates a new sink for writing messages to stderr
      */
     LOG_LIB_EXPORT void createStderrSink();
+
+    /**
+     * Extracts the process attribute value
+     */
+    LOG_LIB_EXPORT Logger::Process getProcessAttributeVal();
 
     /**
      * Formatter used for messages displayed in the console 
