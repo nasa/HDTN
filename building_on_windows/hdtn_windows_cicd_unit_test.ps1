@@ -93,7 +93,14 @@ Remove-Item ${boost_7z_file_name}
 sz x "libzmq.zip" > $null
 New-Item -ItemType Directory -Force -Path ".\libzmq-${zmq_version}\mybuild"
 push-location ".\libzmq-${zmq_version}\mybuild"
-cmd.exe /c "$PSScriptRoot\build_libzmq.bat ${num_cpu_cores}"
+$zmq_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
+    "-DBUILD_SHARED:BOOL=ON " + 
+    "-DBUILD_STATIC:BOOL=ON " + 
+    "-DBUILD_TESTS:BOOL=OFF " + 
+    "-DCMAKE_INSTALL_PREFIX:PATH=`"${PWD}\myinstall`" " + #myinstall is within the mybuild directory, no need for double double quote for .bat quote escape char
+    ".." + # .. indicates location of source directory which is up one level (currently in the mybuild directory)
+    "`"") #ending literal quote needed to make this one .bat parameter
+cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${zmq_cmake_build_options}"
 if($LastExitCode -ne 0) { throw 'ZeroMQ failed to build' }
 Move-Item -Path ".\myinstall" -Destination "..\..\${zmq_install_directory_name}"
 Pop-Location
@@ -124,7 +131,15 @@ Remove-Item -Recurse -Force $openssl_src_directory
 sz x "v${civetweb_version}.zip" > $null
 New-Item -ItemType Directory -Force -Path ".\civetweb-${civetweb_version}\mybuild"
 push-location ".\civetweb-${civetweb_version}\mybuild"
-cmd.exe /c "$PSScriptRoot\build_civetweb.bat ${num_cpu_cores}"
+$civetweb_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
+    "-DCIVETWEB_ENABLE_CXX:BOOL=ON " + 
+    "-DCIVETWEB_ENABLE_WEBSOCKETS:BOOL=ON " + 
+    "-DCIVETWEB_BUILD_TESTING:BOOL=OFF " + 
+    "-DCIVETWEB_INSTALL_EXECUTABLE:BOOL=OFF " +
+    "-DCMAKE_INSTALL_PREFIX:PATH=`"${PWD}\myinstall`" " + #myinstall is within the mybuild directory, no need for double double quote for .bat quote escape char
+    ".." + # .. indicates location of source directory which is up one level (currently in the mybuild directory)
+    "`"") #ending literal quote needed to make this one .bat parameter
+cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${civetweb_cmake_build_options}"
 if($LastExitCode -ne 0) { throw 'Civetweb failed to build' }
 Move-Item -Path ".\myinstall" -Destination "..\..\${civetweb_install_directory_name}"
 Pop-Location
