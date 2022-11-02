@@ -24,6 +24,8 @@
 #7 GB of RAM
 #14 GB of SSD space
 
+$ErrorActionPreference = "Stop" #stop script at first exception
+
 #sanity check to make sure scripts can fail
 #cmd.exe /c "$PSScriptRoot\test_fail.bat"
 #if($LastExitCode -ne 0) { throw 'test_fail.bat successfully failed' }
@@ -33,12 +35,12 @@ perl --version
 
 #if 7-zip is not installed then fail immediately (required to unzip source packages)
 set-alias sz "$env:ProgramFiles\7-Zip\7z.exe"
-sz -h
+sz -h > $null
 
 #configurable variables
 #-----------------------------------
 #------build directory-----------------
-$build_directory = "${PSScriptRoot}\..\build"
+$build_directory = "C:\hdtn_build" #"${PSScriptRoot}\..\build" #don't install within source, causes cmake issues when building/installing hdtn
 #------build machine-----------------
 $num_cpu_cores = "8"
 #------openssl-----------------
@@ -61,11 +63,18 @@ $boost_src_directory_name = "boost_${boost_version_underscore_separated}"
 $boost_7z_file_name = "${boost_src_directory_name}.7z"
 $boost_install_directory_name = "${boost_src_directory_name}_build"
 $boost_library_install_prefix = "lib64_msvc2022"
+#------hdtn-----------------
+$hdtn_install_directory_name = "hdtn_msvc2022_x64"
+$Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #simplify the path to get rid of any ..
 
 #this script should be located in HDTN_SOURCE_ROOT/building_on_windows
-New-Item -ItemType Directory -Force -Path ${build_directory}
+if (Test-Path -Path ${build_directory}) {
+    throw "${build_directory} already exists!  It must not exist for this script to work."
+}
+#New-Item -ItemType Directory -Force -Path ${build_directory}
+$build_directory = Convert-Path( Resolve-Path -Path ${build_directory}) #simplify the path (after it exists from previous line) to get rid of any ..
+Write-Output ${build_directory}
 push-location ${build_directory}
-
 
 #download all files first in case a link fails
 (new-object System.Net.WebClient).DownloadFile( "https://boostorg.jfrog.io/artifactory/main/release/${boost_version_dot_separated}/source/${boost_7z_file_name}", "${pwd}\${boost_7z_file_name}")
@@ -109,7 +118,8 @@ Remove-Item "libzmq.zip"
 
 #extract nasm (an openssl building requirement)
 sz x "nasm.zip" > $null
-$Env:Path += [IO.Path]::PathSeparator + "$pwd\nasm-${nasm_version}"
+$old_env_path_without_nasm = $Env:Path
+$Env:Path = "${pwd}\nasm-${nasm_version}" + [IO.Path]::PathSeparator + $Env:Path #prepend to make it first priority
 Write-Output $Env:Path
 nasm --version #fail if nasm not working
 Remove-Item "nasm.zip"
@@ -126,6 +136,11 @@ Move-Item -Path ".\${openssl_install_directory_name}" -Destination "..\${openssl
 Pop-Location
 Remove-Item -Recurse -Force $openssl_src_directory
 #Remove-Item -Recurse -Force "${openssl_install_directory_name}\html" #not needed if openssl is installed with "make install_sw" instead of "make install"
+
+#remove nasm after openssl build
+$Env:Path = $old_env_path_without_nasm
+
+Remove-Item -Recurse -Force ".\nasm-${nasm_version}"
 
 #build civetweb
 sz x "v${civetweb_version}.zip" > $null
@@ -148,3 +163,49 @@ Remove-Item -Recurse -Force "${civetweb_install_directory_name}\bin" #contains n
 Remove-Item "v${civetweb_version}.zip"
 
 
+#build hdtn
+New-Item -ItemType Directory -Force -Path ".\hdtn-build-tmp"
+push-location ".\hdtn-build-tmp"
+$hdtn_cmake_build_options = ("`" " + #literal quote needed to make this one .bat parameter
+    "-DBOOST_INCLUDEDIR:PATH=`"${build_directory}\${boost_install_directory_name}`" " + 
+    "-DBOOST_LIBRARYDIR:PATH=`"${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}`" " + 
+    "-DBOOST_ROOT:PATH=`"${build_directory}\${boost_install_directory_name}`" " + 
+    "-DBUILD_SHARED_LIBS:BOOL=ON " + 
+    "-DENABLE_OPENSSL_SUPPORT:BOOL=ON " + 
+    "-DHDTN_TRY_USE_CPP17:BOOL=ON " + 
+    "-DLOG_TO_CONSOLE:BOOL=ON " + 
+    "-DLOG_TO_ERROR_FILE:BOOL=OFF " + 
+    "-DLOG_TO_MODULE_FILES:BOOL=OFF " + 
+    "-DLOG_TO_PROCESS_FILE:BOOL=OFF " + 
+    "-DLOG_TO_SINGLE_FILE:BOOL=OFF " + 
+    "-DLOG_TO_SUBPROCESS_FILES:BOOL=OFF " + 
+    "-DLTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS:BOOL=OFF " + 
+    "-DLTP_RNG_USE_RDSEED:BOOL=ON " + 
+    "-DOPENSSL_ROOT_DIR:PATH=`"${build_directory}\${openssl_install_directory_name}`" " + 
+    "-DOPENSSL_USE_STATIC_LIBS:BOOL=OFF " + 
+    "-DUSE_WEB_INTERFACE:BOOL=ON " + 
+    "-DUSE_X86_HARDWARE_ACCELERATION:BOOL=ON " +
+    "-Dcivetweb_INCLUDE:PATH=`"${build_directory}\${civetweb_install_directory_name}\include`" " + 
+    "-Dcivetweb_LIB:FILEPATH=`"${build_directory}\${civetweb_install_directory_name}\lib\civetweb.lib`" " + 
+    "-Dcivetwebcpp_LIB:FILEPATH=`"${build_directory}\${civetweb_install_directory_name}\lib\civetweb-cpp.lib`" " + 
+    "-Dlibzmq_INCLUDE:PATH=`"${build_directory}\${zmq_install_directory_name}\include`" " + 
+    "-Dlibzmq_LIB:FILEPATH=`"${build_directory}\${zmq_install_directory_name}\lib\libzmq-v143-mt-4_3_4.lib`" " + 
+    "-DCMAKE_INSTALL_PREFIX:PATH=`"${build_directory}\${hdtn_install_directory_name}`" " + #myinstall is within the mybuild directory, no need for double double quote for .bat quote escape char
+    "`"${Env:HDTN_SOURCE_ROOT}`"" + 
+    "`"") #ending literal quote needed to make this one .bat parameter
+cmd.exe /c "$PSScriptRoot\build_generic_cmake_project.bat ${num_cpu_cores} ${hdtn_cmake_build_options}"
+if($LastExitCode -ne 0) { throw 'HDTN failed to build' }
+Pop-Location
+Remove-Item -Recurse -Force "hdtn-build-tmp"
+
+#run hdtn unit tests
+$Env:Path = ( #add the shared .dll files to the path
+    "${build_directory}\${zmq_install_directory_name}\bin" + [IO.Path]::PathSeparator + 
+    "${build_directory}\${boost_install_directory_name}\${boost_library_install_prefix}" + [IO.Path]::PathSeparator + 
+    "${build_directory}\${openssl_install_directory_name}\bin" + [IO.Path]::PathSeparator + 
+    "${build_directory}\${hdtn_install_directory_name}\lib" + [IO.Path]::PathSeparator + 
+    $Env:Path) #prepend to make it first priority
+Write-Output $Env:Path
+#If you want PowerShell to interpret the string as a command name then use the call operator (&) like so:
+& "${build_directory}\${hdtn_install_directory_name}\bin\unit-tests.exe"
+if($LastExitCode -ne 0) { throw 'HDTN unit tests failed' }

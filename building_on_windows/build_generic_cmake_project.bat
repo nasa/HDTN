@@ -4,7 +4,7 @@ REM ARG1 is the number of build cpu cores
 SET NUM_CPU_CORES=%1
 echo %NUM_CPU_CORES%
 REM ARG2 is the cmake options
-REM %~1   Expand %1 removing any surrounding quotes (")
+REM %~2   Expand %2 removing any surrounding quotes (")
 SET CMAKE_ARGS=%~2
 echo %CMAKE_ARGS%
 CALL "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"
