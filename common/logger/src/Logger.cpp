@@ -53,7 +53,7 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
 };
 
 static const uint32_t file_rotation_size = 5 * 1024 * 1024; //5 MiB
-static const uint8_t console_message_offset = 25;
+static const uint8_t console_message_offset = 20;
 
 // Namespaces recommended by the Boost log library
 namespace logging = boost::log;
@@ -74,7 +74,7 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::Process& proc
 {
     std::string output = Logger::toString(process);
     if (process != Logger::Process::none) {
-        output = "[" + output + "]";
+        output = "[ " + output + "]";
     }
     return strm << output;
 }
@@ -86,7 +86,7 @@ static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& s
 {
     std::string output = Logger::toString(subprocess);
     if (subprocess != Logger::SubProcess::none) {
-        output = "[" + output + "]";
+        output = "[ " + output + "]";
     }
     return strm << output;
 }
@@ -172,9 +172,9 @@ void Logger::registerAttributes()
 void Logger::createFileSinkForProcess(Logger::Process process)
 {
     logging::formatter hdtn_log_fmt = expr::stream
-        << expr::attr<Logger::SubProcess>("SubProcess") << "["
+        << expr::attr<Logger::SubProcess>("SubProcess") << "[ "
         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: " << expr::smessage;
+        << "][ " << severity << "]: " << expr::smessage;
 
     //Create hdtn log backend
     boost::shared_ptr<sinks::text_file_backend> sink_backend = 
@@ -194,8 +194,8 @@ void Logger::createFileSinkForProcess(Logger::Process process)
 void Logger::createFileSinkForSubProcess(const Logger::SubProcess subprocess)
 {
     logging::formatter module_log_fmt = expr::stream
-        << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: "<< expr::smessage;
+        << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
+        << "][ " << severity << "]: "<< expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend =
         boost::make_shared<sinks::text_file_backend>(
@@ -215,8 +215,8 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
     logging::formatter severity_log_fmt = expr::stream
         << expr::attr<Logger::Process>("Process")
         << expr::attr<Logger::SubProcess>("SubProcess")
-        << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
-        << "[" << expr::attr<std::string>("File") << ":"
+        << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
+        << "[ " << expr::attr<std::string>("File") << ":"
         << expr::attr<int>("Line") << "]: " << expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
@@ -290,8 +290,10 @@ void Logger::consoleFormatter(logging::record_view const& rec, logging::formatti
         ss << tmpSS.str();
     }
 
-    ss << "[" << rec[logging::trivial::severity] << "]: ";
-    strm << std::setw(console_message_offset) << std::left << ss.str() << rec[expr::smessage];
+    strm << std::setw(console_message_offset) << std::left
+        << ss.str()
+        << "[ " << rec[logging::trivial::severity] << "]: "
+        << rec[expr::smessage];
 }
 
 void Logger::createStderrSink() {
