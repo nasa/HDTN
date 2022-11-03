@@ -16,7 +16,7 @@
 #include <iostream>
 #include "DirectoryScanner.h"
 #include <boost/make_unique.hpp>
-
+#include <boost/filesystem/fstream.hpp>
 DirectoryScanner::DirectoryScanner(const boost::filesystem::path& rootFileOrFolderPath,
     bool includeExistingFiles, bool includeNewFiles, unsigned int recurseDirectoriesDepth,
     boost::asio::io_service& ioServiceRef, const uint64_t recheckFileSizeDurationMilliseconds) :
