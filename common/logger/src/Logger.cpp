@@ -180,7 +180,7 @@ void Logger::createFileSinkForProcess(Logger::Process process)
 
 logging::formatter Logger::processFileFormatter() 
 {
-    logging::formatter fmt = expr::stream
+    static const logging::formatter fmt = expr::stream
         << expr::if_ (expr::has_attr<Logger::SubProcess>("SubProcess")
             && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none)
         [
@@ -226,7 +226,7 @@ void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
 
 logging::formatter Logger::levelFileFormatter()
 {
-    logging::formatter fmt = expr::stream
+    static const logging::formatter fmt = expr::stream
         << expr::if_ (expr::has_attr<Logger::Process>("Process"))
         [
             expr::stream << "[ " << expr::attr<Logger::Process>("Process") << "]"
@@ -308,7 +308,7 @@ void Logger::createStderrSink() {
 }
 
 boost::log::formatter Logger::consoleFormatter() {
-   logging::formatter fmt = expr::stream
+   static const logging::formatter fmt = expr::stream
         << "[ " << std::setw(console_message_offset) << std::left
         << expr::if_ (
             expr::has_attr<Logger::SubProcess>("SubProcess")
