@@ -4,7 +4,7 @@
 #include <string>
 #include "app_patterns/BpSourcePattern.h"
 #include "DirectoryScanner.h"
-
+#include <boost/filesystem/fstream.hpp>
 class BpSendFile : public BpSourcePattern {
 private:
     BpSendFile();

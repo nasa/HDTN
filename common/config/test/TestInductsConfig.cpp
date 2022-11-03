@@ -3,7 +3,7 @@
 #include <memory>
 #include "Environment.h"
 #include <boost/algorithm/string.hpp>
-
+#include <boost/filesystem/fstream.hpp>
 BOOST_AUTO_TEST_CASE(InductsConfigTestCase)
 {
     const boost::filesystem::path jsonRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "config" / "test";

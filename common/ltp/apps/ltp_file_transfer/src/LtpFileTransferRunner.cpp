@@ -6,6 +6,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/detail/sha1.hpp>
 #include <boost/endian/conversion.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include "LtpUdpEngineManager.h"
 #include <memory>
 #ifndef _WIN32

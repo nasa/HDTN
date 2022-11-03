@@ -2,6 +2,7 @@
 #include "OutductsConfig.h"
 #include <memory>
 #include "Environment.h"
+#include <boost/filesystem/fstream.hpp>
 #include <boost/algorithm/string.hpp>
 
 BOOST_AUTO_TEST_CASE(OutductsConfigTestCase)
