@@ -35,6 +35,7 @@ M_CLIENT_SERVICE_ID(clientServiceId),
 M_THIS_ENGINE_ID(thisEngineId),
 M_REMOTE_LTP_ENGINE_ID(remoteLtpEngineId),
 M_BUNDLE_PIPELINE_LIMIT(bundlePipelineLimit),
+m_startingCount(0),
 
 m_ltpOutductTelemetry()
 {
