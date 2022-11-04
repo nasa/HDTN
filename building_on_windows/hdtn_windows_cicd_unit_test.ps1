@@ -137,7 +137,7 @@ $boost_version_underscore_separated = "${boost_major_version}_${boost_minor_vers
 $boost_src_directory_name = "boost_${boost_version_underscore_separated}"
 $boost_7z_file_name = "${boost_src_directory_name}.7z"
 $boost_install_directory_name = "${boost_src_directory_name}_install"
-$boost_library_install_prefix = "lib"
+$boost_library_install_prefix = "lib64"
 #------hdtn-----------------
 $hdtn_install_directory_name = "hdtn_install"
 $Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #simplify the path to get rid of any ..
