@@ -106,13 +106,21 @@ Write-Output "Building using the installed Visual Studio ${vc_version} ${vc_edit
 Write-Output "Visual Studio vcvars64.bat location: ${vcvars64_path_with_quotes}."
 Write-Output "CMake Generator argument: ${cmake_generator_arg}."
 
+#------build machine-----------------
+$num_cpu_cores = (Get-ComputerInfo).CsNumberOfLogicalProcessors
+if($num_cpu_cores) {
+    $num_cpu_cores = $num_cpu_cores.ToString()
+    Write-Output "building with ${num_cpu_cores} logical cpu cores"
+}
+else { #null
+    $num_cpu_cores = "2"
+    Write-Output "unable to detect num logical cpu cores, defaulting to ${num_cpu_cores}"
+}
 
 #configurable variables
 #-----------------------------------
 #------build directory-----------------
 $build_directory_prefix = "C:\hdtn_build" #appends _x64_release_vs[2017,2019, or 2022] #"${PSScriptRoot}\..\build" #don't install within source, causes cmake issues when building/installing hdtn
-#------build machine-----------------
-$num_cpu_cores = (Get-ComputerInfo).CsNumberOfLogicalProcessors.ToString()
 #------openssl-----------------
 $nasm_version = "2.15.05" #required for compiling openssl
 $openssl_version = "1.1.1q"
@@ -149,7 +157,7 @@ $Env:HDTN_SOURCE_ROOT = Convert-Path( Resolve-Path -Path "${PSScriptRoot}\..") #
 #if($LastExitCode -ne 0) { throw 'test_fail.bat successfully failed' }
 #throw "stop"
 
-Write-Output "building with ${num_cpu_cores} logical cpu cores"
+
 
 #this script should be located in HDTN_SOURCE_ROOT/building_on_windows
 
