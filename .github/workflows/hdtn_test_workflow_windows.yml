@@ -3,7 +3,7 @@ name: Windows CI
 on: [push, pull_request]
 
 jobs:
-  windows-x64-test:
+  windows-2022-x64-test:
     runs-on: windows-2022
 
     steps:
@@ -12,11 +12,31 @@ jobs:
       - name: Display Test Start
         run: |
           echo "============================================================="
-          echo "Run #${GITHUB_RUN_NUMBER}"
-          echo "Run ID: ${GITHUB_RUN_ID}"
-          echo "Testing: ${GITHUB_REPOSITORY}"
-          echo "Triggered by: ${GITHUB_EVENT_NAME}"
-          echo "Initiated by: ${GITHUB_ACTOR}"
+          echo "Run #${env:GITHUB_RUN_NUMBER}"
+          echo "Run ID: ${env:GITHUB_RUN_ID}"
+          echo "Testing: ${env:GITHUB_REPOSITORY}"
+          echo "Triggered by: ${env:GITHUB_EVENT_NAME}"
+          echo "Initiated by: ${env:GITHUB_ACTOR}"
+          echo "============================================================="
+
+      - name: Powershell Script
+        run: .\building_on_windows\hdtn_windows_cicd_unit_test.ps1
+        shell: powershell
+
+  windows-2019-x64-test:
+    runs-on: windows-2019
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Display Test Start
+        run: |
+          echo "============================================================="
+          echo "Run #${env:GITHUB_RUN_NUMBER}"
+          echo "Run ID: ${env:GITHUB_RUN_ID}"
+          echo "Testing: ${env:GITHUB_REPOSITORY}"
+          echo "Triggered by: ${env:GITHUB_EVENT_NAME}"
+          echo "Initiated by: ${env:GITHUB_ACTOR}"
           echo "============================================================="
 
       - name: Powershell Script
