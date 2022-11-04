@@ -14,12 +14,12 @@ static bool CreateDirectoryRecursivelyVerboseIfNotExist(const boost::filesystem:
                 LOG_INFO(subprocess) << "successfully created directory";
             }
             else {
-                LOG_ERROR(subprocess) << "error: unable to create directory";
+                LOG_ERROR(subprocess) << "unable to create directory";
                 return false;
             }
         }
         catch (const boost::system::system_error & e) {
-            LOG_ERROR(subprocess) << "error: " << e.what() << "..unable to create directory";
+            LOG_ERROR(subprocess) << e.what() << "..unable to create directory";
             return false;
         }
     }
@@ -64,16 +64,16 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
     boost::endian::little_to_native_inplace(sendFileMetadata.fragmentLength);
     //safety checks
     if (sendFileMetadata.fragmentOffset > 8000000000) { //8GB ignore
-        LOG_ERROR(subprocess) << "error fragmentOffset > 8GB";
+        LOG_ERROR(subprocess) << "fragmentOffset > 8GB";
         return false;
     }
     if (sendFileMetadata.fragmentLength > 2000000000) { //2GB ignore
-        LOG_ERROR(subprocess) << "error fragmentLength > 2GB";
+        LOG_ERROR(subprocess) << "fragmentLength > 2GB";
         return false;
     }
     const uint64_t fragmentOffsetPlusFragmentLength = sendFileMetadata.fragmentOffset + sendFileMetadata.fragmentLength;
     if (fragmentOffsetPlusFragmentLength > sendFileMetadata.totalFileSize) {
-        LOG_ERROR(subprocess) << "error fragment exceeds total file size";
+        LOG_ERROR(subprocess) << "fragment exceeds total file size";
         return false;
     }
     const boost::filesystem::path fileName(std::string(data, data + sendFileMetadata.pathLen));
@@ -94,7 +94,7 @@ bool BpReceiveFile::ProcessPayload(const uint8_t * data, const uint64_t size) {
             }
             boost::filesystem::ofstream ofs(fullPathFileName, boost::filesystem::ofstream::out | boost::filesystem::ofstream::binary);
             if (!ofs.good()) {
-                LOG_ERROR(subprocess) << "error, unable to open file " << fullPathFileName << " for writing";
+                LOG_ERROR(subprocess) << "unable to open file " << fullPathFileName << " for writing";
                 return false;
             }
             ofs.close();

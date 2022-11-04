@@ -54,7 +54,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
     const cbhe_eid_t & myEid, uint32_t bundleRate, const cbhe_eid_t & finalDestEid, const uint64_t myCustodianServiceId, const unsigned int bundleSendTimeoutSeconds,
     const bool requireRxBundleBeforeNextTx, const bool forceDisableCustody, const bool useBpVersion7) {
     if (m_running) {
-        LOG_ERROR(subprocess) << "error: BpSourcePattern::Start called while BpSourcePattern is already running";
+        LOG_ERROR(subprocess) << "BpSourcePattern::Start called while BpSourcePattern is already running";
         return;
     }
     m_bundleSendTimeoutSeconds = bundleSendTimeoutSeconds;
@@ -635,7 +635,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
             bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
             if (blocks.size() != 1) {
-                LOG_ERROR(subprocess) << "received a non-admin-record bundle with no payload block";
+                LOG_ERROR(subprocess) << "BpSourcePattern received a non-admin-record bundle with no payload block";
                 return;
             }
             Bpv6CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
@@ -653,7 +653,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         else { //admin record
 
             if (receivedFinalDestinationEid != m_myCustodianEid) {
-                LOG_ERROR(subprocess) << "Received an admin record bundle with final destination "
+                LOG_ERROR(subprocess) << "BpSourcePattern received an admin record bundle with final destination "
                     << Uri::GetIpnUriString(receivedFinalDestinationEid.nodeId, receivedFinalDestinationEid.serviceId)
                     << " that does not match this custodial destination " << Uri::GetIpnUriString(m_myCustodianEid.nodeId, m_myCustodianEid.serviceId);
                 return;
@@ -662,12 +662,12 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
             std::vector<BundleViewV6::Bpv6CanonicalBlockView*> blocks;
             bv.GetCanonicalBlocksByType(BPV6_BLOCK_TYPE_CODE::PAYLOAD, blocks);
             if (blocks.size() != 1) {
-                LOG_ERROR(subprocess) << "Received an admin-record bundle with no payload block";
+                LOG_ERROR(subprocess) << "BpSourcePattern received an admin-record bundle with no payload block";
                 return;
             }
             Bpv6AdministrativeRecord* adminRecordBlockPtr = dynamic_cast<Bpv6AdministrativeRecord*>(blocks[0]->headerPtr.get());
             if (adminRecordBlockPtr == NULL) {
-                LOG_ERROR(subprocess) << "cannot cast payload block to admin record";
+                LOG_ERROR(subprocess) << "BpSourcePattern cannot cast payload block to admin record";
                 return;
             }
             const BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE adminRecordType = adminRecordBlockPtr->m_adminRecordTypeCode;
@@ -677,7 +677,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 //check acs
                 Bpv6AdministrativeRecordContentAggregateCustodySignal * acsPtr = dynamic_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
                 if (acsPtr == NULL) {
-                    LOG_ERROR(subprocess) << "cannot cast admin record content to Bpv6AdministrativeRecordContentAggregateCustodySignal";
+                    LOG_ERROR(subprocess) << "BpSourcePattern cannot cast admin record content to Bpv6AdministrativeRecordContentAggregateCustodySignal";
                     return;
                 }
                 Bpv6AdministrativeRecordContentAggregateCustodySignal & acs = *(reinterpret_cast<Bpv6AdministrativeRecordContentAggregateCustodySignal*>(acsPtr));
@@ -696,7 +696,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
             else if (adminRecordType == BPV6_ADMINISTRATIVE_RECORD_TYPE_CODE::CUSTODY_SIGNAL) { //rfc5050 style custody transfer
                 Bpv6AdministrativeRecordContentCustodySignal * csPtr = dynamic_cast<Bpv6AdministrativeRecordContentCustodySignal*>(adminRecordBlockPtr->m_adminRecordContentPtr.get());
                 if (csPtr == NULL) {
-                    LOG_ERROR(subprocess) << "cannot cast admin record content to Bpv6AdministrativeRecordContentCustodySignal";
+                    LOG_ERROR(subprocess) << "BpSourcePattern cannot cast admin record content to Bpv6AdministrativeRecordContentCustodySignal";
                     return;
                 }
                 Bpv6AdministrativeRecordContentCustodySignal & cs = *(reinterpret_cast<Bpv6AdministrativeRecordContentCustodySignal*>(csPtr));
@@ -746,7 +746,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
         bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
         if (blocks.size() > 1) {
-            LOG_ERROR(subprocess) << "Process: version 7 bundle received has multiple previous node blocks";
+            LOG_ERROR(subprocess) << "BpSourcePattern::Process: version 7 bundle received has multiple previous node blocks";
             return;
         }
         else if (blocks.size() == 1) {
@@ -757,7 +757,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 }
             }
             else {
-                LOG_ERROR(subprocess) << "Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed";
+                LOG_ERROR(subprocess) << "BpSourcePattern::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed";
                 return;
             }
         }
@@ -765,7 +765,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         //get hop count if exists
         bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT, blocks);
         if (blocks.size() > 1) {
-            LOG_ERROR(subprocess) << "Process: version 7 bundle received has multiple hop count blocks";
+            LOG_ERROR(subprocess) << "BpSourcePattern::Process: version 7 bundle received has multiple hop count blocks";
             return;
         }
         else if (blocks.size() == 1) {
@@ -778,13 +778,13 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 //Section 5.10.
                 //Hop limit MUST be in the range 1 through 255.
                 if ((newHopCount > hopCountBlockPtr->m_hopLimit) || (newHopCount > 255)) {
-                    LOG_WARNING(subprocess) << "notice: Process dropping version 7 bundle with hop count " << newHopCount;
+                    LOG_WARNING(subprocess) << "notice: BpSourcePattern::Process dropping version 7 bundle with hop count " << newHopCount;
                     return;
                 }
                 ++m_hopCounts[newHopCount];
             }
             else {
-                LOG_ERROR(subprocess) << "Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed";
+                LOG_ERROR(subprocess) << "BpSourcePattern::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed";
                 return;
             }
         }
@@ -793,7 +793,7 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
         bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD, blocks);
 
         if (blocks.size() != 1) {
-            LOG_ERROR(subprocess) << "Process: Bpv7 payload block not found";
+            LOG_ERROR(subprocess) << "BpSourcePattern::Process: Bpv7 payload block not found";
             return;
         }
         Bpv7CanonicalBlock & payloadBlock = *(blocks[0]->headerPtr);
@@ -826,7 +826,7 @@ void BpSourcePattern::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId
         m_tcpclOpportunisticRemoteNodeId = remoteNodeId;
     }
     else {
-        LOG_ERROR(subprocess) << "OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
+        LOG_ERROR(subprocess) << "BpSourcePattern::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
 }
 void BpSourcePattern::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
@@ -846,7 +846,7 @@ void BpSourcePattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movabl
         sizeErased = m_currentlySendingBundleIdSet.erase(bundleId);
     }
     if (sizeErased == 0) {
-        LOG_ERROR(subprocess) << "OnFailedBundleVecSendCallback: cannot find bundleId " << bundleId;
+        LOG_ERROR(subprocess) << "BpSourcePattern::OnFailedBundleVecSendCallback: cannot find bundleId " << bundleId;
     }
     
     if (!m_linkIsDown) {

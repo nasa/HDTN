@@ -35,7 +35,6 @@
 #include <cpuid.h>  // __get_cpuid
 #endif
 
-
 static void CpuIdCrossPlatform(int * eaxThrougEdxRegisters, int id) {
 #ifdef _MSC_VER
     __cpuid(eaxThrougEdxRegisters, id);
