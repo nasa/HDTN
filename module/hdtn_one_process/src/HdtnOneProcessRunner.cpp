@@ -35,9 +35,10 @@
 #endif
 
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 void HdtnOneProcessRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
-    hdtn::Logger::getInstance()->logNotification("ingress", "Keyboard Interrupt");
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -76,7 +77,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
 
@@ -84,7 +85,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
             hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
             if (!hdtnConfig) {
-                std::cerr << "error loading config file: " << configFileName << std::endl;
+                LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
 
@@ -95,29 +96,26 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
             const boost::filesystem::path htmlMainFilePath = boost::filesystem::path(DOCUMENT_ROOT) / boost::filesystem::path(HTML_FILE_NAME);
             if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
-                std::cout << "found " << htmlMainFilePath.string() << std::endl;
+                LOG_INFO(subprocess) << "found " << htmlMainFilePath.string();
             }
             else {
-                std::cout << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml" << std::endl;
+                LOG_INFO(subprocess) << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml";
                 return false;
             }
 #endif //USE_WEB_INTERFACE
 
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            hdtn::Logger::getInstance()->logError("ingress", "Invalid Data Error: " + std::string(e.what()));
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+            LOG_ERROR(subprocess) << desc;
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
-            hdtn::Logger::getInstance()->logError("ingress", "Error: " + std::string(e.what()));
+            LOG_ERROR(subprocess) << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
-            hdtn::Logger::getInstance()->logError("ingress", "Exception of unknown type!");
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
@@ -125,19 +123,16 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         //If your application is using only the inproc transport for messaging you may set this to zero, otherwise set it to at least one.     
         std::unique_ptr<zmq::context_t> hdtnOneProcessZmqInprocContextPtr = boost::make_unique<zmq::context_t>(0);// 0 Threads
 
-        std::cout << "starting EgressAsync.." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("egress", "Starting EgressAsync");
+        LOG_INFO(subprocess) << "starting EgressAsync..";
 
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<hdtn::HegrManagerAsync> egressPtr = boost::make_unique<hdtn::HegrManagerAsync>();
         egressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
 
-        printf("Announcing presence of egress ...\n");
-        hdtn::Logger::getInstance()->logNotification("egress", "Egress Present");
+        LOG_INFO(subprocess) << "Announcing presence of egress...";
         
 
-        std::cout << "starting ingress.." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
+        LOG_INFO(subprocess) << "starting ingress..";
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
         ingressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
@@ -145,8 +140,7 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         //create on heap with unique_ptr to prevent stack overflows
         std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
-        std::cout << "[store] Initializing storage manager ..." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("storage", "[store] Initializing storage manager ...");
+        LOG_INFO(subprocess) << "Initializing storage manager ...";
         if (!storagePtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
@@ -184,34 +178,31 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         //Possibly out of Date
         double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
         oss << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024) << "\n";
+            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024);
 
-        std::cout << oss.str();
-//        output << oss.str();
-//        output.close();
-        hdtn::Logger::getInstance()->logInfo("ingress", oss.str());
+        LOG_INFO(subprocess) << oss.str();
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-        std::cout << "IngressAsyncRunner currentTime  " << timeLocal << std::endl << std::flush;
+        LOG_INFO(subprocess) << "IngressAsyncRunner currentTime  " << timeLocal;
 
-        std::cout << "IngressAsyncRunner: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "IngressAsyncRunner: exiting cleanly..";
         ingressPtr->Stop();
         m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
         m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
         m_ingressBundleCount = ingressPtr->m_bundleCount;
         m_ingressBundleData = ingressPtr->m_bundleData;
 
-        std::cout << "StorageRunner: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "StorageRunner: exiting cleanly..";
         storagePtr->Stop();
         m_totalBundlesErasedFromStorage = storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
         m_totalBundlesSentToEgressFromStorage = storagePtr->m_totalBundlesSentToEgressFromStorage;
 
-        std::cout << "EgressAsyncRunner: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "EgressAsyncRunner: exiting cleanly..";
         egressPtr->Stop();
         m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
         m_egressBundleData = static_cast<uint64_t>(egressPtr->m_telemetry.egressBundleData);
         m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
     }
-    std::cout << "HDTN one process: exited cleanly\n";
+    LOG_INFO(subprocess) << "HDTN one process: exited cleanly";
     return true;
 }

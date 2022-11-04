@@ -12,6 +12,8 @@
 #include "IngressAsyncRunner.h"
 #include "Logger.h"
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
+
 int main(int argc, const char* argv[]) {
 
 
@@ -19,14 +21,10 @@ int main(int argc, const char* argv[]) {
     IngressAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
-    std::cout << "m_bundleCountStorage: " << runner.m_bundleCountStorage << std::endl;
-    std::cout << "m_bundleCountEgress: " << runner.m_bundleCountEgress << std::endl;
-    std::cout << "m_bundleCount: " << runner.m_bundleCount << std::endl;
-    std::cout << "m_bundleData: " << runner.m_bundleData << std::endl;
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountStorage: " + std::to_string(runner.m_bundleCountStorage));
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountEgress: " + std::to_string(runner.m_bundleCountEgress));
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCount: " + std::to_string(runner.m_bundleCount));
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleData: " + std::to_string(runner.m_bundleData));
+    LOG_DEBUG(subprocess) << "m_bundleCountStorage: " << runner.m_bundleCountStorage;
+    LOG_DEBUG(subprocess) << "m_bundleCountEgress: " << runner.m_bundleCountEgress;
+    LOG_DEBUG(subprocess) << "m_bundleCount: " << runner.m_bundleCount;
+    LOG_DEBUG(subprocess) << "m_bundleData: " << runner.m_bundleData;
 
     return 0;
 

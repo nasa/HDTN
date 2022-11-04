@@ -21,10 +21,11 @@
 #define BP_INGRESS_TELEM_FREQ (0.10)
 #define INGRESS_PORT (4556)
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
+
 
 void IngressAsyncRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
-    hdtn::Logger::getInstance()->logNotification("ingress", "Keyboard Interrupt");
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -53,7 +54,7 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
 
@@ -62,39 +63,34 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 
             hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
             if (!hdtnConfig) {
-                std::cerr << "error loading config file: " << configFileName << std::endl;
+                LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
 
 
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            hdtn::Logger::getInstance()->logError("ingress", "Invalid Data Error: " + std::string(e.what()));
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+            LOG_ERROR(subprocess) << desc;
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
-            hdtn::Logger::getInstance()->logError("ingress", "Error: " + std::string(e.what()));
+            LOG_ERROR(subprocess) << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
-            hdtn::Logger::getInstance()->logError("ingress", "Exception of unknown type!");
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
-        std::cout << "starting ingress.." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("ingress", "Starting Ingress");
+        LOG_INFO(subprocess) << "starting ingress..";
         hdtn::Ingress ingress;
         ingress.Init(*hdtnConfig);
 
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "ingress up and running" << std::endl;
-        hdtn::Logger::getInstance()->logNotification("ingress", "Ingress up and running");
+        LOG_INFO(subprocess) << "ingress up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -110,28 +106,20 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
             "(MB)\n";
         double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
         oss << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024) << "\n";
+            << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024);
 
-        std::cout << oss.str();
-//        output << oss.str();
-//        output.close();
-        hdtn::Logger::getInstance()->logInfo("ingress", "Elapsed: " + std::to_string(ingress.m_elapsed) + 
-                                                        ", Bundle Count (M): " + std::to_string(ingress.m_bundleCount / 1000000.0f) +
-                                                        ", Rate (Mbps): " + std::to_string(rate) +
-                                                        ", Bundles/sec: " + std::to_string(ingress.m_bundleCount / ingress.m_elapsed) +
-                                                        ", Bundle Data (MP): " + std::to_string(ingress.m_bundleData / (double)(1024 * 1024)));
+        LOG_INFO(subprocess) << oss.str();
 
 	boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-        std::cout << "IngressAsyncRunner currentTime  " << timeLocal << std::endl << std::flush;
+        LOG_INFO(subprocess) << "IngressAsyncRunner currentTime  " << timeLocal;
 
-        std::cout << "IngressAsyncRunner: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "IngressAsyncRunner: exiting cleanly..";
         ingress.Stop();
         m_bundleCountStorage = ingress.m_bundleCountStorage;
         m_bundleCountEgress = ingress.m_bundleCountEgress;
         m_bundleCount = ingress.m_bundleCount;
         m_bundleData = ingress.m_bundleData;
     }
-    std::cout << "IngressAsyncRunner: exited cleanly\n";
-    hdtn::Logger::getInstance()->logNotification("ingress", "IngressAsyncRunner: exited cleanly");
+    LOG_INFO(subprocess) << "IngressAsyncRunner: exited cleanly";
     return true;
 }
