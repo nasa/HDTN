@@ -169,18 +169,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
                 sigHandler.PollOnce();
             }
         }
-        std::ofstream output;
-//        output.open("ingress-" + currentDate);
 
-        std::ostringstream oss;
-        oss << "Elapsed, Bundle Count (M),Rate (Mbps),Bundles/sec, Bundle Data "
-            "(MB)\n";
+        LOG_INFO(subprocess) << "Elapsed, Bundle Count (M), Rate (Mbps), Bundles/sec, Bundle Data (MB) ";
         //Possibly out of Date
         double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
-        oss << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
+        LOG_INFO(subprocess) << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
             << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024);
-
-        LOG_INFO(subprocess) << oss.str();
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         LOG_INFO(subprocess) << "IngressAsyncRunner currentTime  " << timeLocal;
