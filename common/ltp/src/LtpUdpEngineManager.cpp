@@ -97,7 +97,7 @@ bool LtpUdpEngineManager::StartIfNotAlreadyRunning() {
 
             return false;
         }
-        printf("LtpUdpEngineManager bound successfully on UDP port %d\n", m_udpSocket.local_endpoint().port());
+        LOG_INFO(subprocess) << "LtpUdpEngineManager bound successfully on UDP port " << m_udpSocket.local_endpoint().port();
 
         StartUdpReceive(); //call before creating io_service thread so that it has "work"
 
