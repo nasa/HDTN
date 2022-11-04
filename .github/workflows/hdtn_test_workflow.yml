@@ -65,6 +65,8 @@ jobs:
         run: |
           export PATH=/home/hdtn/cov-analysis-linux64-2022.6.1/bin:$PATH
           export HDTN_SOURCE_ROOT=/home/hdtn/HDTN_LATEST/HDTN
+          cd $HDTN_SOURCE_ROOT/hdtn
+          git pull
           cd $HDTN_SOURCE_ROOT/build
           make clean
           cov-build --dir idir make -j8
