@@ -14,7 +14,7 @@ int main(int argc, const char* argv[]) {
     EgressAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
-    LOG_DEBUG(subprocess) << "Msg Count, Bundle Count, Bundle data bytes";
-    LOG_DEBUG(subprocess) << runner.m_messageCount << "," << runner.m_bundleCount << "," << runner.m_bundleData;
+    LOG_DEBUG(hdtn::Logger::SubProcess::egress) << "Msg Count, Bundle Count, Bundle data bytes";
+    LOG_DEBUG(hdtn::Logger::SubProcess::egress) << runner.m_messageCount << "," << runner.m_bundleCount << "," << runner.m_bundleData;
     return 0;
 }
