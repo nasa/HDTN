@@ -159,6 +159,7 @@ public:
         scheduler,
         storage,
         gui,
+        unittest,
         none
     };
 
@@ -275,6 +276,21 @@ private:
      * Extracts the process attribute value
      */
     LOG_LIB_EXPORT Logger::Process getProcessAttributeVal();
+
+    /**
+     * Formatter used for messages displayed in the console 
+     */
+    LOG_LIB_EXPORT static boost::log::formatter consoleFormatter();
+
+    /**
+     * Formatter used for messages displayed in the level log file
+     */
+    LOG_LIB_EXPORT static boost::log::formatter levelFileFormatter();
+
+    /**
+     * Formatter used for messages displayed in the process log file
+     */
+    LOG_LIB_EXPORT static boost::log::formatter processFileFormatter();
 
     boost::log::sources::severity_logger_mt<boost::log::trivial::severity_level> log_; //mt for multithreaded
     static std::unique_ptr<Logger> logger_; //singleton instance

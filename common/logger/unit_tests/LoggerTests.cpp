@@ -12,7 +12,7 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <regex>
+#include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/test/unit_test.hpp>
 #include "Logger.h"
@@ -53,7 +53,7 @@ private:
     std::streambuf *cout_backup;
 };
 
-const std::string date_regex = "\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
+const std::string date_regex = "\\[ \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
 const std::string anything_regex = "((.|\n)*)";
 
 BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
@@ -116,10 +116,10 @@ BOOST_AUTO_TEST_CASE(LoggerStdoutTestCase)
 
     // Assert results
     BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
-        std::string("[unittest][egress][trace]: Egress foo bar\n") +
-        std::string("[unittest][ingress][debug]: Ingress foo bar\n") +
-        std::string("[unittest][router][info]: Router foo bar\n") +
-        std::string("[unittest][scheduler][warning]: Scheduler foo bar\n")
+        std::string("[ egress         ][ trace]: Egress foo bar\n") +
+        std::string("[ ingress        ][ debug]: Ingress foo bar\n") +
+        std::string("[ router         ][ info]: Router foo bar\n") +
+        std::string("[ scheduler      ][ warning]: Scheduler foo bar\n")
     );
 }
 #endif
@@ -141,8 +141,25 @@ BOOST_AUTO_TEST_CASE(LoggerStderrTestCase)
 
     // Assert results
     BOOST_REQUIRE_EQUAL(output_tester.cerr_test_stream.str(),
-        std::string("[unittest][egress][error]: Egress foo bar!\n") +
-        std::string("[unittest][ingress][fatal]: Ingress foo bar!\n")
+        std::string("[ egress         ][ error]: Egress foo bar!\n") +
+        std::string("[ ingress        ][ fatal]: Ingress foo bar!\n")
+    );
+}
+#endif
+
+#ifdef LOG_TO_CONSOLE
+BOOST_AUTO_TEST_CASE(LoggerMatchingSubprocessAndProcessTestCase)
+{
+    // If the process and sub-process match, only the process attribute should
+    // be logged
+    OutputTester output_tester;
+    output_tester.redirect_cout_cerr();
+
+    _LOG_INTERNAL(hdtn::Logger::SubProcess::unittest, info) << "Unittest foo bar";
+
+    output_tester.reset_cout_cerr();
+    BOOST_REQUIRE_EQUAL(output_tester.cout_test_stream.str(),
+        std::string("[ unittest       ][ info]: Unittest foo bar\n")
     );
 }
 #endif
@@ -164,9 +181,9 @@ BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
     // Assert results
     BOOST_TEST(boost::filesystem::exists("logs/"));
     BOOST_TEST(boost::filesystem::exists("logs/unittest_00000.log"));
-    BOOST_TEST(std::regex_match(
+    BOOST_TEST(boost::regex_match(
         file_contents_to_str("logs/unittest_00000.log"),
-        std::regex(anything_regex + "\\[egress]" + date_regex + "\\[info]: Egress file test case\n\\[ingress]" + date_regex + "\\[error]: Ingress file test case\n$"))
+        boost::regex(anything_regex + "\\[ egress]" + date_regex + "\\[ info]: Egress file test case\n\\[ ingress]" + date_regex + "\\[ error]: Ingress file test case\n$"))
     );
 }
 #endif
@@ -185,14 +202,14 @@ BOOST_AUTO_TEST_CASE(LoggerSubProcessFilesTestCase) {
 
     BOOST_TEST(boost::filesystem::exists("logs/"));
     BOOST_TEST(boost::filesystem::exists("logs/storage_00000.log"));
-    BOOST_TEST(std::regex_match(
+    BOOST_TEST(boost::regex_match(
         file_contents_to_str("logs/storage_00000.log"),
-        std::regex(anything_regex + date_regex + "\\[info]: Storage file test case\n$"))
+        boost::regex(anything_regex + date_regex + "\\[ info]: Storage file test case\n$"))
     );
     BOOST_TEST(boost::filesystem::exists("logs/egress_00000.log"));
-    BOOST_TEST(std::regex_match(
+    BOOST_TEST(boost::regex_match(
         file_contents_to_str("logs/egress_00000.log"),
-        std::regex(anything_regex + date_regex + "\\[error]: Egress file test case\n$"))
+        boost::regex(anything_regex + date_regex + "\\[ error]: Egress file test case\n$"))
     );
 }
 #endif
@@ -208,9 +225,9 @@ BOOST_AUTO_TEST_CASE(LoggerErrorFileTestCase) {
 
     BOOST_TEST(boost::filesystem::exists("logs/"));
     BOOST_TEST(boost::filesystem::exists("logs/error_00000.log"));
-    BOOST_TEST(std::regex_match(
+    BOOST_TEST(boost::regex_match(
         file_contents_to_str("logs/error_00000.log"),
-        std::regex(anything_regex + "\\[unittest]\\[ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
+        boost::regex(anything_regex + "\\[ unittest]\\[ ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
     );
 }
 #endif

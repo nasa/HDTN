@@ -23,7 +23,7 @@ static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger:
     "ltpfiletransfer",
     "egress",
     "gui",
-    "hdtnoneprocess",
+    "hdtn",
     "ingress",
     "router",
     "scheduler",
@@ -48,10 +48,12 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
     "scheduler",
     "storage",
     "gui",
+    "unittest",
     ""
 };
 
 static const uint32_t file_rotation_size = 5 * 1024 * 1024; //5 MiB
+static const uint8_t console_message_offset = 15;
 
 // Namespaces recommended by the Boost log library
 namespace logging = boost::log;
@@ -68,27 +70,17 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", logging::trivial::severity_lev
 /**
  * Overloads the stream operator to support the Process enum
  */
-
 static std::ostream& operator<< (std::ostream& strm, const Logger::Process& process)
 {
-    std::string output = Logger::toString(process);
-    if (process != Logger::Process::none) {
-        output = "[" + output + "]";
-    }
-    return strm << output;
+    return strm << Logger::toString(process);
 }
 
 /**
  * Overloads the stream operator to support the SubProcess enum
  */
-
 static std::ostream& operator<< (std::ostream& strm, const Logger::SubProcess& subprocess)
 {
-    std::string output = Logger::toString(subprocess);
-    if (subprocess != Logger::SubProcess::none) {
-        output = "[" + output + "]";
-    }
-    return strm << output;
+    return strm << Logger::toString(subprocess);;
 }
 
 Logger::Logger()
@@ -171,11 +163,6 @@ void Logger::registerAttributes()
 
 void Logger::createFileSinkForProcess(Logger::Process process)
 {
-    logging::formatter hdtn_log_fmt = expr::stream
-        << expr::attr<Logger::SubProcess>("SubProcess") << "["
-        << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: " << expr::smessage;
-
     //Create hdtn log backend
     boost::shared_ptr<sinks::text_file_backend> sink_backend = 
         boost::make_shared<sinks::text_file_backend>(
@@ -185,17 +172,30 @@ void Logger::createFileSinkForProcess(Logger::Process process)
  
     //Wrap log backend into frontend
     boost::shared_ptr<sink_t> sink = boost::make_shared<sink_t>(sink_backend);
-    sink->set_formatter(hdtn_log_fmt);
+    sink->set_formatter(Logger::processFileFormatter());
     sink->set_filter(expr::attr<Logger::Process>("Process") == process);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
 }
 
+logging::formatter Logger::processFileFormatter() 
+{
+    static const logging::formatter fmt = expr::stream
+        << expr::if_ (expr::has_attr<Logger::SubProcess>("SubProcess")
+            && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none)
+        [
+            expr::stream << "[ " << expr::attr<Logger::SubProcess>("SubProcess") << "]"
+        ]
+        << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
+        << "[ " << severity << "]: " << expr::smessage;
+    return fmt;
+}
+
 void Logger::createFileSinkForSubProcess(const Logger::SubProcess subprocess)
 {
     logging::formatter module_log_fmt = expr::stream
-        << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
-        << "][" << severity << "]: "<< expr::smessage;
+        << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S")
+        << "][ " << severity << "]: "<< expr::smessage;
 
     boost::shared_ptr<sinks::text_file_backend> sink_backend =
         boost::make_shared<sinks::text_file_backend>(
@@ -212,23 +212,35 @@ void Logger::createFileSinkForSubProcess(const Logger::SubProcess subprocess)
 
 void Logger::createFileSinkForLevel(logging::trivial::severity_level level)
 {
-    logging::formatter severity_log_fmt = expr::stream
-        << expr::attr<Logger::Process>("Process")
-        << expr::attr<Logger::SubProcess>("SubProcess")
-        << "[" << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
-        << "[" << expr::attr<std::string>("File") << ":"
-        << expr::attr<int>("Line") << "]: " << expr::smessage;
-
     boost::shared_ptr<sinks::text_file_backend> sink_backend = boost::make_shared<sinks::text_file_backend>(
         keywords::file_name = std::string("logs/") + logging::trivial::to_string(level) + "_%5N.log",
         keywords::rotation_size = file_rotation_size
     );
     boost::shared_ptr<sink_t> sink = boost::make_shared<sink_t>(sink_backend);
 
-    sink->set_formatter(severity_log_fmt);
+    sink->set_formatter(Logger::levelFileFormatter());
     sink->set_filter(severity == level);
     sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(sink);
+}
+
+logging::formatter Logger::levelFileFormatter()
+{
+    static const logging::formatter fmt = expr::stream
+        << expr::if_ (expr::has_attr<Logger::Process>("Process"))
+        [
+            expr::stream << "[ " << expr::attr<Logger::Process>("Process") << "]"
+        ]
+        << expr::if_ (expr::has_attr<Logger::SubProcess>("SubProcess")
+            && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none
+        )
+        [
+            expr::stream << "[ " << expr::attr<Logger::SubProcess>("SubProcess") << "]"
+        ]
+        << "[ " << expr::format_date_time<boost::posix_time::ptime>("TimeStamp","%Y-%m-%d %H:%M:%S") << "]"
+        << "[ " << expr::attr<std::string>("File") << ":"
+        << expr::attr<int>("Line") << "]: " << expr::smessage;
+    return fmt;
 }
 
 std::string Logger::toString(Logger::Process process)
@@ -262,11 +274,6 @@ Logger::SubProcess Logger::fromString(std::string subprocess) {
 }
 
 void Logger::createStdoutSink() {
-    logging::formatter fmt = expr::stream
-        << expr::attr<Logger::Process>("Process")
-        << expr::attr<Logger::SubProcess>("SubProcess")
-        << "[" << severity << "]: " << expr::smessage;
-
     boost::shared_ptr<sinks::text_ostream_backend> stdout_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
     stdout_sink_backend->add_stream(
@@ -278,17 +285,12 @@ void Logger::createStdoutSink() {
 
     stdout_sink->set_filter(severity != logging::trivial::severity_level::error &&
         severity != logging::trivial::severity_level::fatal);
-    stdout_sink->set_formatter(fmt);
+    stdout_sink->set_formatter(Logger::consoleFormatter());
     stdout_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(stdout_sink);
 }
 
 void Logger::createStderrSink() {
-    logging::formatter fmt = expr::stream
-        << expr::attr<Logger::Process>("Process")
-        << expr::attr<Logger::SubProcess>("SubProcess")
-        << "[" << severity << "]: " << expr::smessage;
-
     boost::shared_ptr<sinks::text_ostream_backend> stderr_sink_backend =
         boost::make_shared<sinks::text_ostream_backend>();
     stderr_sink_backend->add_stream(
@@ -300,9 +302,29 @@ void Logger::createStderrSink() {
 
     stderr_sink->set_filter(severity == logging::trivial::severity_level::error ||
         severity == logging::trivial::severity_level::fatal);
-    stderr_sink->set_formatter(fmt);
+    stderr_sink->set_formatter(Logger::consoleFormatter());
     stderr_sink->locked_backend()->auto_flush(true);
     logging::core::get()->add_sink(stderr_sink);
+}
+
+boost::log::formatter Logger::consoleFormatter() {
+   static const logging::formatter fmt = expr::stream
+        << "[ " << std::setw(console_message_offset) << std::left
+        << expr::if_ (
+            expr::has_attr<Logger::SubProcess>("SubProcess")
+            && expr::attr<Logger::SubProcess>("SubProcess") != Logger::SubProcess::none
+        )
+        [
+            expr::stream << expr::attr<Logger::SubProcess>("SubProcess")
+        ]
+        .else_
+        [
+            expr::stream << expr::attr<Logger::Process>("Process")
+        ]
+        << "]"
+        << "[ " << severity << "]: " << expr::smessage;
+
+    return fmt;
 }
 
 Logger::Process Logger::getProcessAttributeVal()
