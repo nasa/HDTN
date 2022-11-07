@@ -450,14 +450,15 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(primary.m_lifetimeMilliseconds, PRIMARY_LIFETIME);
         BOOST_REQUIRE_EQUAL(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primary.GetSerializationSize());
 
-        BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 4);
+        BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 5);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 1);
+        BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PRIORITY), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::UNUSED_4), 0);
 
-        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 5);
+        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 6);
         
         //get previous node
         {
