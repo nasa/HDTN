@@ -122,6 +122,9 @@ else { #null
 #------build directory-----------------
 $build_directory_prefix = "C:\hdtn_build" #appends _x64_release_vs[2017,2019, or 2022] #"${PSScriptRoot}\..\build" #don't install within source, causes cmake issues when building/installing hdtn
 #------openssl-----------------
+$build_openssl_with_jom = $true #parallel build
+$jom_version = "1.1.3"
+$jom_version_underscore_separated = $jom_version.replace('.','_')
 $nasm_version = "2.15.05" #required for compiling openssl
 $openssl_version = "1.1.1q"
 $openssl_src_directory = "openssl-${openssl_version}"
@@ -222,6 +225,17 @@ else {
         (new-object System.Net.WebClient).DownloadFile($nasm_download_link, "${pwd}\nasm.zip")
     }
 
+    if($build_openssl_with_jom) {
+        if(Test-Path -Path "${pwd}\jom.zip") {
+            Write-Output "${pwd}\jom.zip already exists, not downloading"
+        }
+        else {
+            $jom_download_link = "https://download.qt.io/official_releases/jom/jom_${jom_version_underscore_separated}.zip"
+            Write-Output "Downloading JOM from ${jom_download_link}"
+            (new-object System.Net.WebClient).DownloadFile($jom_download_link, "${pwd}\jom.zip")
+        }
+    }
+
     if(Test-Path -Path "${pwd}\openssl.tar.gz") {
         Write-Output "${pwd}\openssl.tar.gz already exists, not downloading"
     }
@@ -302,6 +316,21 @@ if(-Not $openssl_is_installed) {
     nasm --version #fail if nasm not working
     Remove-Item "nasm.zip"
 
+    $openssl_make_command = "`"nmake`"" #literal quote needed to make this one .bat parameter
+    if($build_openssl_with_jom) {
+        #extract jom (an optional openssl building requirement)
+        if(Test-Path -Path ".\jom") {
+            Remove-Item -Recurse -Force ".\jom"
+        }
+        sz x -ojom "jom.zip" > $null
+        #old env path saved above in $old_env_path_without_nasm = $Env:Path
+        $Env:Path = "${pwd}\jom" + [IO.Path]::PathSeparator + $Env:Path #prepend to make it first priority
+        Write-Output $Env:Path
+        jom /VERSION #fail if jom not working
+        Remove-Item "jom.zip"
+        $openssl_make_command = "`"jom /J ${num_cpu_cores}`""
+    }
+
     #build openssl
     if(Test-Path -Path $openssl_src_directory) {
         Remove-Item -Recurse -Force $openssl_src_directory
@@ -311,12 +340,17 @@ if(-Not $openssl_is_installed) {
     sz x "openssl.tar" > $null
     Remove-Item "openssl.tar"
     push-location $openssl_src_directory
-    cmd.exe /c "$PSScriptRoot\build_openssl.bat ${openssl_install_directory_name} ${vcvars64_path_with_quotes}"
+    cmd.exe /c "$PSScriptRoot\build_openssl.bat ${openssl_install_directory_name} ${vcvars64_path_with_quotes} ${openssl_make_command}"
     if($LastExitCode -ne 0) { throw 'Openssl failed to build' }
     Move-Item -Path ".\${openssl_install_directory_name}" -Destination "..\${openssl_install_directory_name}"
     Pop-Location
     Remove-Item -Recurse -Force $openssl_src_directory
     #Remove-Item -Recurse -Force "${openssl_install_directory_name}\html" #not needed if openssl is installed with "make install_sw" instead of "make install"
+
+    #remove jom after openssl build
+    if(Test-Path -Path ".\jom") {
+        Remove-Item -Recurse -Force ".\jom"
+    }
 
     #remove nasm after openssl build
     $Env:Path = $old_env_path_without_nasm
