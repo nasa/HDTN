@@ -554,8 +554,9 @@ void BpSinkPattern::SenderReaderThreadFunc() {
 
         if (m_hasSendCapabilityOverTcpclBidirectionalInduct) {
             if (destEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
-                LOG_ERROR(subprocess) << "node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId;
-                continue;
+                LOG_WARNING(subprocess) << "node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId;
+                //bundleToSend.clear();
+                //continue;
             }
             //else if (m_tcpclInductPtr) {
             //note BpSink has no routing capability so it must send to the only connection available to it

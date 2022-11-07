@@ -1,5 +1,6 @@
 @Echo off
 SET HDTN_CONFIG_FILE_PARAM="--hdtn-config-file=%HDTN_SOURCE_ROOT%\config_files\hdtn\hdtn_ingress1stcp_port4556_egress1stcp_port4558flowid2_bpgencustodyxfer.json"
+SET CONTACT_PLAN_FILE_PARAM="--contact-plan-file=%HDTN_SOURCE_ROOT%\module\scheduler\src\contactPlanCutThroughMode.json"
 REM INITIALIZE ANACONDA PYTHON NEXT LINE (requires activate.bat in PATH)
 REM CALL activate.bat
 REM START BPSINK SO ALL EGRESS OUTDUCTS CAN CONNECT EVEN THOUGH JUST PINGING HDTN
