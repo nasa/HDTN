@@ -1,10 +1,12 @@
 #include <string.h>
-#include <iostream>
 #include "BpSendFile.h"
+#include "Logger.h"
 #include <boost/foreach.hpp>
 #include <boost/make_unique.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/endian/conversion.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 BpSendFile::SendFileMetadata::SendFileMetadata() : totalFileSize(0), fragmentOffset(0), fragmentLength(0), pathLen(0) {}
 void BpSendFile::SendFileMetadata::ToLittleEndianInplace() {
@@ -30,11 +32,11 @@ BpSendFile::BpSendFile(const boost::filesystem::path & fileOrFolderPath, uint64_
     }
     
     if ((m_directoryScannerPtr->GetNumberOfFilesToSend() == 0) && (!uploadNewFiles)) {
-        std::cerr << "error no files to send\n";
+        LOG_ERROR(subprocess) << "no files to send";
     }
     else {
-        std::cout << "sending " << m_directoryScannerPtr->GetNumberOfFilesToSend() << " files now, monitoring "
-            << m_directoryScannerPtr->GetNumberOfCurrentlyMonitoredDirectories() << " directories\n";
+        LOG_INFO(subprocess) << "sending " << m_directoryScannerPtr->GetNumberOfFilesToSend() << " files now, monitoring "
+            << m_directoryScannerPtr->GetNumberOfCurrentlyMonitoredDirectories() << " directories";
     }
 }
 
@@ -66,7 +68,6 @@ uint64_t BpSendFile::GetNextPayloadLength_Step1() {
         }
     }
     if (!m_currentIfstreamPtr) {
-        //std::cout << "loading and sending " << p << "\n";
         m_currentIfstreamPtr = boost::make_unique<boost::filesystem::ifstream>(m_currentFilePathAbsolute, std::ifstream::in | std::ifstream::binary);
         if (m_currentIfstreamPtr->good()) {
             // get length of file:
@@ -75,10 +76,10 @@ uint64_t BpSendFile::GetNextPayloadLength_Step1() {
             m_currentIfstreamPtr->seekg(0, m_currentIfstreamPtr->beg);
             m_currentSendFileMetadata.fragmentOffset = 0;
             m_currentSendFileMetadata.pathLen = static_cast<uint8_t>(m_currentFilePathRelative.size());
-            std::cout << "send " << m_currentFilePathRelative << std::endl;
+            LOG_INFO(subprocess) << "send " << m_currentFilePathRelative;
         }
         else { //file error occurred.. stop
-            std::cout << "error in BpSendFile::GetNextPayloadLength_Step1: failed to read " << m_currentFilePathAbsolute << " : error was : " << std::strerror(errno) << "\n";
+            LOG_ERROR(subprocess) << "Failed to read " << m_currentFilePathAbsolute << " : error was : " << std::strerror(errno);
             return 0;
         }
     }
@@ -95,11 +96,8 @@ bool BpSendFile::CopyPayload_Step2(uint8_t * destinationBuffer) {
     destinationBuffer += m_currentSendFileMetadata.pathLen;
     // read data as a block:
     m_currentIfstreamPtr->read((char*)destinationBuffer, m_currentSendFileMetadata.fragmentLength);
-    if (*m_currentIfstreamPtr) {
-        //std::cout << "all characters read successfully.";
-    }
-    else {
-        std::cout << "error: only " << m_currentIfstreamPtr->gcount() << " out of " << m_currentSendFileMetadata.fragmentLength << " bytes could be read\n";
+    if (!*m_currentIfstreamPtr) {
+        LOG_ERROR(subprocess) << "only " << m_currentIfstreamPtr->gcount() << " out of " << m_currentSendFileMetadata.fragmentLength << " bytes could be read";
         return false;
     }
     const uint64_t nextOffset = m_currentSendFileMetadata.fragmentLength + m_currentSendFileMetadata.fragmentOffset;

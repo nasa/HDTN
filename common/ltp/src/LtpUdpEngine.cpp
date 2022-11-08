@@ -2,7 +2,7 @@
  * @file LtpUdpEngine.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,8 +13,11 @@
  */
 
 #include "LtpUdpEngine.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef,
     const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber,
@@ -53,21 +56,20 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     if (M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL > 1) { //need a dedicated connected sender socket
         m_udpBatchSenderConnected.SetOnSentPacketsCallback(boost::bind(&LtpUdpEngine::OnSentPacketsCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4));
         if (!m_udpBatchSenderConnected.Init(m_remoteEndpoint)) {
-            std::cout << "Error in LtpUdpEngine::LtpUdpEngine: could not init dedicated udp batch sender socket\n";
+            LOG_ERROR(subprocess) << "LtpUdpEngine::LtpUdpEngine: could not init dedicated udp batch sender socket";
         }
         else {
-            std::cout << "LtpUdpEngine successfully initialized dedicated udp batch sender socket to send up to "
-                << M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL << " udp packets per system call\n";
+            LOG_INFO(subprocess) << "LtpUdpEngine successfully initialized dedicated udp batch sender socket to send up to "
+                << M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL << " udp packets per system call";
         }
     }
 }
 
 LtpUdpEngine::~LtpUdpEngine() {
-    //std::cout << "end of ~LtpUdpEngine with port " << M_MY_BOUND_UDP_PORT << std::endl;
-    std::cout << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls 
+    LOG_INFO(subprocess) << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls 
         << " m_countBatchSendCalls " << m_countBatchSendCalls
         << " m_countBatchUdpPacketsSent " << m_countBatchUdpPacketsSent
-        << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns << std::endl;
+        << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns;
 }
 
 void LtpUdpEngine::Reset_ThreadSafe_Blocking() {
@@ -99,7 +101,7 @@ void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packe
         ++m_countCircularBufferOverruns;
         if (!m_printedCbTooSmallNotice) {
             m_printedCbTooSmallNotice = true;
-            std::cout << "notice in LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! Next UDP packet will be dropped!" << std::endl;
+            LOG_WARNING(subprocess) << "LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! Next UDP packet will be dropped!";
         }
     }
     else {
@@ -135,7 +137,6 @@ void LtpUdpEngine::SendPackets(std::vector<std::vector<boost::asio::const_buffer
 
 void LtpUdpEngine::PacketInFullyProcessedCallback(bool success) {
     //Called by LTP Engine thread
-    //std::cout << "PacketInFullyProcessedCallback " << std::endl;
     m_circularIndexBuffer.CommitRead(); //LtpEngine IoService thread will CommitRead
 }
 
@@ -148,12 +149,11 @@ void LtpUdpEngine::HandleUdpSend(std::shared_ptr<std::vector<std::vector<uint8_t
     //Called by m_ioServiceUdpRef thread
     ++m_countAsyncSendCallbackCalls;
     if (error) {
-        std::cerr << "error in LtpUdpEngine::HandleUdpSend: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "LtpUdpEngine::HandleUdpSend: " << error.message();
         //DoUdpShutdown();
     }
     else {
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
-        //std::cout << "sent " << bytes_transferred << std::endl;
 
         if (m_countAsyncSendCallbackCalls == m_countAsyncSendCalls) { //prevent too many sends from stacking up in ioService queue
             SignalReadyForSend_ThreadSafe();
@@ -169,12 +169,11 @@ void LtpUdpEngine::OnSentPacketsCallback(bool success, std::vector<std::vector<b
     ++m_countBatchSendCallbackCalls;
     m_countBatchUdpPacketsSent += constBufferVecs.size();
     if (!success) {
-        std::cerr << "error in LtpUdpEngine::OnSentPacketsCallback\n";
+        LOG_ERROR(subprocess) << "LtpUdpEngine::OnSentPacketsCallback";
         //DoUdpShutdown();
     }
     else {
         //rate stuff handled in LtpEngine due to self-sending nature of LtpEngine
-        //std::cout << "sent " << bytes_transferred << std::endl;
 
         if (m_countBatchSendCallbackCalls == m_countBatchSendCalls) { //prevent too many sends from stacking up in UdpBatchSender queue
             SignalReadyForSend_ThreadSafe();
@@ -197,7 +196,7 @@ void LtpUdpEngine::SetEndpoint(const boost::asio::ip::udp::endpoint& remoteEndpo
 }
 void LtpUdpEngine::SetEndpoint(const std::string& remoteHostname, const uint16_t remotePort) {
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-    std::cout << "LtpUdpEngine resolving " << remoteHostname << ":" << remotePort << std::endl;
+    LOG_INFO(subprocess) << "LtpUdpEngine resolving " << remoteHostname << ":" << remotePort;
 
     boost::asio::ip::udp::endpoint udpDestinationEndpoint;
     {
@@ -206,7 +205,7 @@ void LtpUdpEngine::SetEndpoint(const std::string& remoteHostname, const uint16_t
             udpDestinationEndpoint = *resolver.resolve(boost::asio::ip::udp::resolver::query(boost::asio::ip::udp::v4(), remoteHostname, boost::lexical_cast<std::string>(remotePort), UDP_RESOLVER_FLAGS));
         }
         catch (const boost::system::system_error& e) {
-            std::cout << "Error resolving in LtpUdpEngine::SetEndpoint: " << e.what() << "  code=" << e.code() << std::endl;
+            LOG_ERROR(subprocess) << "LtpUdpEngine::SetEndpoint: " << e.what() << "  code=" << e.code();
             return;
         }
     }

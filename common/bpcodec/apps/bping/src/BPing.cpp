@@ -1,7 +1,9 @@
 #include <string.h>
-#include <iostream>
 #include "BPing.h"
+#include "Logger.h"
 #include <boost/format.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 struct bping_data_t {
     uint64_t sequence;
@@ -33,7 +35,7 @@ bool BPing::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint6
     const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
     bping_data_t bPingData;
     if (size != sizeof(bPingData)) {
-        std::cout << "error in BPing::ProcessNonAdminRecordBundlePayload: received payload size not " << sizeof(bPingData) << std::endl;
+        LOG_ERROR(subprocess) << "error in BPing::ProcessNonAdminRecordBundlePayload: received payload size not " << sizeof(bPingData);
         return false;
     }
     memcpy(&bPingData, data, sizeof(bPingData));
@@ -42,6 +44,6 @@ bool BPing::ProcessNonAdminRecordBundlePayload(const uint8_t * data, const uint6
     static const boost::format fmtTemplate("Ping received: sequence=%d, took %0.3f milliseconds");
     boost::format fmt(fmtTemplate);
     fmt % bPingData.sequence % millisecs;
-    std::cout << fmt.str() << std::endl;
+    LOG_INFO(subprocess) << fmt.str();
     return true;
 }

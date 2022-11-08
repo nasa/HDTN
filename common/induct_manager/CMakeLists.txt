@@ -32,6 +32,7 @@ target_link_libraries(induct_manager_lib
 		stcp_lib 
 		udp_lib 
 		ltp_lib
+		log_lib
 )
 target_include_directories(induct_manager_lib
 	PUBLIC

@@ -26,6 +26,7 @@ if (target_type STREQUAL SHARED_LIBRARY)
 endif()
 target_link_libraries(hdtn_util
 	PUBLIC
+		log_lib
 		Boost::boost #boost headers
 		Boost::date_time
 		Boost::filesystem

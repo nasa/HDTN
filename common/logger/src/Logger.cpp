@@ -23,7 +23,7 @@ static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger:
     "ltpfiletransfer",
     "egress",
     "gui",
-    "hdtn",
+    "hdtnoneprocess",
     "ingress",
     "router",
     "scheduler",

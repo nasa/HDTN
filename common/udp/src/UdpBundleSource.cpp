@@ -2,7 +2,7 @@
  * @file UdpBundleSource.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,12 +13,14 @@
  */
 
 #include <string>
-#include <iostream>
 #include "UdpBundleSource.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include <boost/endian/conversion.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
 static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
@@ -49,12 +51,10 @@ m_totalPacketsLimitedByRate(0)
     UpdateRate(rateBps);
     
     const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
-    std::cout << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  token limit = " << tokenLimit << "\n";
+    LOG_INFO(subprocess) << "UdpBundleSource: rate bitsPerSec = " << rateBps << "  token limit = " << tokenLimit;
 
     //The following error message should no longer be relevant since the Token Bucket is allowed to go negative if there is at least 1 token in the bucket.
-    //std::cout << "UdpBundleSource: minimum rate bitsPerSec = " << minimumRateBitsPerSecond << " minimum rateBytesPerSecond = " << minimumRateBytesPerSecond << "\n";
     //if (tokenLimit < 65536u) {
-    //    std::cout << "error in UdpBundleSource constructor: the token limit of " << tokenLimit << " bytes is less than the max udp packet size of 65536 bytes.  UDP packets may never be sent!\n";
     //}
 
     m_ioServiceThreadPtr = boost::make_unique<boost::thread>(boost::bind(&boost::asio::io_service::run, &m_ioService));
@@ -64,11 +64,11 @@ m_totalPacketsLimitedByRate(0)
 UdpBundleSource::~UdpBundleSource() {
     Stop();
     //print stats
-    std::cout << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback << std::endl;
-    std::cout << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback << std::endl;
-    std::cout << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend << std::endl;
-    std::cout << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend << std::endl;
-    std::cout << "m_totalPacketsLimitedByRate " << m_totalPacketsLimitedByRate << std::endl;
+    LOG_INFO(subprocess) << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback;
+    LOG_INFO(subprocess) << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback;
+    LOG_INFO(subprocess) << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend;
+    LOG_INFO(subprocess) << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend;
+    LOG_INFO(subprocess) << "m_totalPacketsLimitedByRate " << m_totalPacketsLimitedByRate;
 }
 
 void UdpBundleSource::Stop() {
@@ -80,11 +80,7 @@ void UdpBundleSource::Stop() {
     for (unsigned int attempt = 0; attempt < 20; ++attempt) {
         const std::size_t numUnacked = GetTotalUdpPacketsUnacked();
         if (numUnacked) {
-            std::cout << "notice: UdpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
-
-//            std::cout << "   acked by rate: " << m_totalUdpPacketsAckedByRate << std::endl;
-//            std::cout << "   acked by cb: " << m_totalUdpPacketsAckedByUdpSendCallback << std::endl;
-//            std::cout << "   total sent: " << m_totalUdpPacketsSent << std::endl;
+            LOG_INFO(subprocess) << "UdpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
@@ -128,13 +124,13 @@ void UdpBundleSource::UpdateRate(uint64_t rateBitsPerSec) {
 bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
 
     if(!m_readyToForward) {
-        std::cerr << "link not ready to forward yet" << std::endl;
+        LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
 
     const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexSentCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
+        LOG_ERROR(subprocess) << "RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback";
         return false;
     }
 
@@ -155,13 +151,13 @@ bool UdpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
 bool UdpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
 
     if (!m_readyToForward) {
-        std::cerr << "link not ready to forward yet" << std::endl;
+        LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
 
     const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexSentCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
+        LOG_ERROR(subprocess) << "RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback";
         return false;
     }
 
@@ -212,7 +208,7 @@ std::size_t UdpBundleSource::GetTotalBundleBytesUnacked() {
 void UdpBundleSource::Connect(const std::string & hostname, const std::string & port) {
 
     static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-    std::cout << "udp resolving " << hostname << ":" << port << std::endl;
+    LOG_INFO(subprocess) << "udp resolving " << hostname << ":" << port;
     boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), hostname, port, UDP_RESOLVER_FLAGS);
     m_resolver.async_resolve(query, boost::bind(&UdpBundleSource::OnResolve,
                                                 this, boost::asio::placeholders::error,
@@ -221,22 +217,22 @@ void UdpBundleSource::Connect(const std::string & hostname, const std::string & 
 
 void UdpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results) { // Resolved endpoints as a range.
     if(ec) {
-        std::cerr << "Error resolving: " << ec.message() << std::endl;
+        LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
         m_udpDestinationEndpoint = *results;
-        std::cout << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << ".  Binding..." << std::endl;
+        LOG_INFO(subprocess) << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << ".  Binding...";
         try {            
             m_udpSocket.open(boost::asio::ip::udp::v4());
             m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0)); //bind to 0 (random ephemeral port)
 
-            std::cout << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port() << std::endl;
-            std::cout << "UDP READY" << std::endl;
+            LOG_INFO(subprocess) << "UDP Bound on ephemeral port " << m_udpSocket.local_endpoint().port();
+            LOG_INFO(subprocess) << "UDP READY";
             m_readyToForward = true;
 
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "Error in UdpBundleSource::OnResolve(): " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "UdpBundleSource::OnResolve(): " << e.what();
             return;
         }
     }
@@ -283,7 +279,7 @@ void UdpBundleSource::HandlePostForUdpSendZmqMessage(std::shared_ptr<zmq::messag
 
 void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<std::vector<boost::uint8_t> > & dataSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
-        std::cerr << "error in UdpBundleSource::HandleUdpSend: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "UdpBundleSource::HandleUdpSend: " << error.message();
         DoUdpShutdown();
     }
     else if (!ProcessPacketSent(bytes_transferred)) {
@@ -293,7 +289,7 @@ void UdpBundleSource::HandleUdpSendVecMessage(std::shared_ptr<std::vector<boost:
 
 void UdpBundleSource::HandleUdpSendZmqMessage(std::shared_ptr<zmq::message_t> & dataZmqSentPtr, const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
-        std::cerr << "error in UdpBundleSource::HandleUdpSendZmqMessage: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "UdpBundleSource::HandleUdpSendZmqMessage: " << error.message();
         DoUdpShutdown();
     }
     else if(!ProcessPacketSent(bytes_transferred)) {
@@ -305,7 +301,7 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
 
     const unsigned int readIndex = m_bytesToAckBySentCallbackCb.GetIndexForRead();
     if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
-        std::cerr << "error in UdpBundleSource::ProcessPacketSent: AckCallback called with empty queue" << std::endl;
+        LOG_ERROR(subprocess) << "UdpBundleSource::ProcessPacketSent: AckCallback called with empty queue";
         return false;
     }
     else if (m_bytesToAckBySentCallbackCbVec[readIndex] == bytes_transferred) {
@@ -323,7 +319,7 @@ bool UdpBundleSource::ProcessPacketSent(std::size_t bytes_transferred) {
         return true;
     }
     else {
-        std::cerr << "error in UdpBundleSource::ProcessPacketSent: wrong bytes acked: expected " << m_bytesToAckBySentCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+        LOG_ERROR(subprocess) << "UdpBundleSource::ProcessPacketSent: wrong bytes acked: expected " << m_bytesToAckBySentCallbackCbVec[readIndex] << " but got " << bytes_transferred;
         return false;
     }
 }
@@ -338,18 +334,18 @@ void UdpBundleSource::DoHandleSocketShutdown() {
     m_readyToForward = false;
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "shutting down UdpBundleSource UDP socket.." << std::endl;
+            LOG_INFO(subprocess) << "shutting down UdpBundleSource UDP socket..";
             m_udpSocket.shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in UdpBundleSource::DoUdpShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "UdpBundleSource::DoUdpShutdown: " << e.what();
         }
         try {
-            std::cout << "closing UdpBundleSource UDP socket.." << std::endl;
+            LOG_INFO(subprocess) << "closing UdpBundleSource UDP socket..";
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in UdpBundleSource::DoUdpShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "UdpBundleSource::DoUdpShutdown: " << e.what();
         }
     }
 }
@@ -430,9 +426,6 @@ void UdpBundleSource::OnTokenRefresh_TimerExpired(const boost::system::error_cod
         if (!m_tokenRateLimiter.HasFullBucketOfTokens()) {
             TryRestartTokenRefreshTimer(nowPtime);
         }
-    }
-    else {
-        //std::cout << "timer cancelled\n";
     }
 }
 

@@ -5,6 +5,7 @@ find_dependency(HDTNUtil REQUIRED)
 find_dependency(Bpcodec REQUIRED)
 find_dependency(OutductManagerLib REQUIRED)
 find_dependency(InductManagerLib REQUIRED)
+find_dependency(LoggerLib REQUIRED)
 
 if(NOT TARGET HDTN::BpAppPatternsLib)
     include("${BP_APP_PATTERNS_LIB_CMAKE_DIR}/BpAppPatternsLibTargets.cmake")

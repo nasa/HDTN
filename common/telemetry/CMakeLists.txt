@@ -14,6 +14,7 @@ set(MY_PUBLIC_HEADERS
 set_target_properties(telemetry_definitions PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") # this needs to be a list, so putting in quotes makes it a ; separated list
 target_link_libraries(telemetry_definitions
 	PUBLIC
+		log_lib
 		Boost::boost #boost headers
 )
 target_include_directories(telemetry_definitions

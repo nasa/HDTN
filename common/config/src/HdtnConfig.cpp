@@ -6,10 +6,12 @@
  */
 
 #include "HdtnConfig.h"
+#include "Logger.h"
 #include <memory>
 #include <boost/foreach.hpp>
-#include <iostream>
 #include <boost/lexical_cast.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 HdtnConfig::HdtnConfig() :
     m_hdtnConfigName("unnamed hdtn config"),
@@ -258,14 +260,14 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
     try {
         m_hdtnConfigName = pt.get<std::string>("hdtnConfigName");
         if (m_hdtnConfigName == "") {
-            std::cerr << "error parsing JSON HDTN config: hdtnConfigName must be defined and not empty string\n";
+            LOG_ERROR(subprocess) << "parsing JSON HDTN config: hdtnConfigName must be defined and not empty string";
             return false;
         }
         m_userInterfaceOn = pt.get<bool>("userInterfaceOn");
         m_mySchemeName = pt.get<std::string>("mySchemeName");
         m_myNodeId = pt.get<uint64_t>("myNodeId");
         if (m_myNodeId == 0) {
-            std::cerr << "error parsing JSON HDTN config: myNodeId must be defined and not zero\n";
+            LOG_ERROR(subprocess) << "parsing JSON HDTN config: myNodeId must be defined and not zero";
             return false;
         }
         m_myBpEchoServiceId = pt.get<uint64_t>("myBpEchoServiceId");
@@ -300,24 +302,24 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_zmqMaxMessageSizeBytes = pt.get<uint64_t>("zmqMaxMessageSizeBytes");
     }
     catch (const boost::property_tree::ptree_error & e) {
-        std::cerr << "error parsing JSON HDTN config: " << e.what() << std::endl;
+        LOG_ERROR(subprocess) << "parsing JSON HDTN config: " << e.what();
         return false;
     }
 
 
     const boost::property_tree::ptree & inductsConfigPt = pt.get_child("inductsConfig", boost::property_tree::ptree()); //non-throw version
     if (!m_inductsConfig.SetValuesFromPropertyTree(inductsConfigPt)) {
-        std::cerr << "error: inductsConfig must be defined inside an hdtnConfig\n";
+        LOG_ERROR(subprocess) << "inductsConfig must be defined inside an hdtnConfig";
         return false;
     }
     const boost::property_tree::ptree & outductsConfigPt = pt.get_child("outductsConfig", boost::property_tree::ptree()); //non-throw version
     if (!m_outductsConfig.SetValuesFromPropertyTree(outductsConfigPt)) {
-        std::cerr << "error: outductsConfig must be defined inside an hdtnConfig\n";
+        LOG_ERROR(subprocess) << "outductsConfig must be defined inside an hdtnConfig";
         return false;
     }
     const boost::property_tree::ptree & storageConfigPt = pt.get_child("storageConfig", boost::property_tree::ptree()); //non-throw version
     if (!m_storageConfig.SetValuesFromPropertyTree(storageConfigPt)) {
-        std::cerr << "error: storageConfig must be defined inside an hdtnConfig\n";
+        LOG_ERROR(subprocess) << "storageConfig must be defined inside an hdtnConfig";
         return false;
     }
    
@@ -331,7 +333,7 @@ HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJson. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return HdtnConfig_ptr(); //NULL
@@ -343,7 +345,7 @@ HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName) 
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
 
     return HdtnConfig_ptr(); //NULL

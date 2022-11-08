@@ -34,7 +34,16 @@ target_include_directories(bpsink-async
 	PUBLIC 
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/bpsink/include>
 )
-target_link_libraries(bpsink-async PUBLIC induct_manager_lib outduct_manager_lib bpcodec hdtn_util bp_app_patterns_lib Boost::program_options)
+target_link_libraries(bpsink-async
+	PUBLIC
+		induct_manager_lib
+		outduct_manager_lib
+		bpcodec
+		hdtn_util
+		bp_app_patterns_lib
+		Boost::program_options
+		log_lib
+)
 
 add_executable(bpsendfile
 	bpsendfile/src/BpSendFile.cpp

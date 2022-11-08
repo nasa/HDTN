@@ -2,7 +2,7 @@
  * @file LtpBundleSource.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,10 +13,12 @@
  */
 
 #include <string>
-#include <iostream>
 #include "LtpBundleSource.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 LtpBundleSource::LtpBundleSource(const uint64_t clientServiceId, const uint64_t remoteLtpEngineId, const uint64_t thisEngineId, const uint64_t mtuClientServiceData,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
@@ -72,7 +74,7 @@ void LtpBundleSource::Stop() {
         for (unsigned int attempt = 0; attempt < 10; ++attempt) {
             const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
             if (numUnacked) {
-                std::cout << "notice: LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+                LOG_WARNING(subprocess) << "LtpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
                 if (previousUnacked > numUnacked) {
                     previousUnacked = numUnacked;
@@ -92,17 +94,17 @@ void LtpBundleSource::Stop() {
             if (m_removeCallbackCalled) {
                 break;
             }
-            std::cout << "waiting to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID << std::endl;
+            LOG_INFO(subprocess) << "waiting to remove ltp bundle source for engine ID " << M_THIS_ENGINE_ID;
             boost::this_thread::sleep(boost::posix_time::milliseconds(100));
         }
         m_ltpUdpEnginePtr = NULL;
 
         //print stats
-        std::cout << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.totalBundlesSent << std::endl;
-        std::cout << "m_ltpOutductTelemetry.totalBundlesAcked " << m_ltpOutductTelemetry.totalBundlesAcked << std::endl;
-        std::cout << "m_ltpOutductTelemetry.totalBundleBytesSent " << m_ltpOutductTelemetry.totalBundleBytesSent << std::endl;
-        std::cout << "m_ltpOutductTelemetry.totalBundleBytesAcked " << m_ltpOutductTelemetry.totalBundleBytesAcked << std::endl;
-        std::cout << "m_ltpOutductTelemetry.totalBundlesFailedToSend " << m_ltpOutductTelemetry.totalBundlesFailedToSend << std::endl;
+        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesSent " << m_ltpOutductTelemetry.totalBundlesSent;
+        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesAcked " << m_ltpOutductTelemetry.totalBundlesAcked;
+        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesSent " << m_ltpOutductTelemetry.totalBundleBytesSent;
+        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundleBytesAcked " << m_ltpOutductTelemetry.totalBundleBytesAcked;
+        LOG_INFO(subprocess) << "m_ltpOutductTelemetry.totalBundlesFailedToSend " << m_ltpOutductTelemetry.totalBundlesFailedToSend;
     }
 }
 
@@ -139,7 +141,7 @@ bool LtpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_
     const unsigned int startingCount = m_startingCount.fetch_add(1);
     if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
         --m_startingCount;
-        std::cerr << "Error in LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
+        LOG_ERROR(subprocess) << "LtpBundleSource::Forward(std::vector<uint8_t>.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ").";
         return false;
     }
 
@@ -170,7 +172,7 @@ bool LtpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& u
     const unsigned int startingCount = m_startingCount.fetch_add(1);
     if ((m_activeSessionNumbersSet.size() + startingCount) > M_BUNDLE_PIPELINE_LIMIT) {
         --m_startingCount;
-        std::cerr << "Error in LtpBundleSource::Forward(zmq::message_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ")." << std::endl;
+        LOG_ERROR(subprocess) << "LtpBundleSource::Forward(zmq::message_t.. too many unacked sessions (exceeds bundle pipeline limit of " << M_BUNDLE_PIPELINE_LIMIT << ").";
         return false;
     }
 
@@ -199,18 +201,18 @@ bool LtpBundleSource::Forward(const uint8_t* bundleData, const std::size_t size,
 
 void LtpBundleSource::SessionStartCallback(const Ltp::session_id_t & sessionId) {
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in LtpBundleSource::SessionStartCallback, sessionOriginatorEngineId "
-            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+        LOG_ERROR(subprocess) << "LtpBundleSource::SessionStartCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")";
     }
     else if (m_activeSessionNumbersSet.insert(sessionId.sessionNumber).second == false) { //sessionId was not inserted (already exists)
-        std::cerr << "error in LtpBundleSource::SessionStartCallback, sessionId " << sessionId << " (already exists)\n";
+        LOG_ERROR(subprocess) << "LtpBundleSource::SessionStartCallback, sessionId " << sessionId << " (already exists)";
     }
     m_startingCount.fetch_sub(1);
 }
 void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in LtpBundleSource::TransmissionSessionCompletedCallback, sessionOriginatorEngineId "
-            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+        LOG_ERROR(subprocess) << "LtpBundleSource::TransmissionSessionCompletedCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")";
     }
     else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.totalBundlesAcked;
@@ -219,7 +221,7 @@ void LtpBundleSource::TransmissionSessionCompletedCallback(const Ltp::session_id
         }
     }
     else {
-        std::cerr << "critical error in LtpBundleSource::TransmissionSessionCompletedCallback: cannot find sessionId " << sessionId << std::endl;
+        LOG_FATAL(subprocess) << "LtpBundleSource::TransmissionSessionCompletedCallback: cannot find sessionId " << sessionId;
     }
 }
 void LtpBundleSource::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
@@ -227,8 +229,8 @@ void LtpBundleSource::InitialTransmissionCompletedCallback(const Ltp::session_id
 }
 void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in LtpBundleSource::TransmissionSessionCancelledCallback, sessionOriginatorEngineId "
-            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")\n";
+        LOG_ERROR(subprocess) << "LtpBundleSource::TransmissionSessionCancelledCallback, sessionOriginatorEngineId "
+            << sessionId.sessionOriginatorEngineId << " is not my engine id (" << M_THIS_ENGINE_ID << ")";
     }
     else if (m_activeSessionNumbersSet.erase(sessionId.sessionNumber)) { //found and erased
         ++m_ltpOutductTelemetry.totalBundlesFailedToSend;
@@ -237,9 +239,8 @@ void LtpBundleSource::TransmissionSessionCancelledCallback(const Ltp::session_id
         }
     }
     else {
-        std::cerr << "critical error in LtpBundleSource::TransmissionSessionCancelledCallback: cannot find sessionId " << sessionId << std::endl;
+        LOG_FATAL(subprocess) << "LtpBundleSource::TransmissionSessionCancelledCallback: cannot find sessionId " << sessionId;
     }
-    //std::cout << "notice in LtpBundleSource: session cancelled with reason code "
 }
 
 void LtpBundleSource::SetOnFailedBundleVecSendCallback(const OnFailedBundleVecSendCallback_t& callback) {

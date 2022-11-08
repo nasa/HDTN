@@ -17,6 +17,7 @@ set_target_properties(udp_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") #
 target_link_libraries(udp_lib
 	PUBLIC
 		hdtn_util
+		log_lib
 )
 target_include_directories(udp_lib
 	PUBLIC

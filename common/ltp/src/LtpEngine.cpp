@@ -2,7 +2,7 @@
  * @file LtpEngine.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,10 +13,12 @@
  */
 
 #include "LtpEngine.h"
-#include <iostream>
+#include "Logger.h"
 #include <inttypes.h>
 #include <boost/bind/bind.hpp>
 #include <boost/make_unique.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
 static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
@@ -95,7 +97,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
     UpdateRate(m_maxSendRateBitsPerSecOrZeroToDisable);
     if (m_maxSendRateBitsPerSecOrZeroToDisable) {
         const uint64_t tokenLimit = m_tokenRateLimiter.GetRemainingTokens();
-        std::cout << "LtpEngine: rate bitsPerSec = " << m_maxSendRateBitsPerSecOrZeroToDisable << "  token limit = " << tokenLimit << "\n";
+        LOG_INFO(subprocess) << "LtpEngine: rate bitsPerSec = " << m_maxSendRateBitsPerSecOrZeroToDisable << "  token limit = " << tokenLimit;
     }
 
     Reset();
@@ -110,20 +112,20 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
 }
 
 LtpEngine::~LtpEngine() {
-    std::cout << "LtpEngine Stats:" << std::endl; //print before reset
-    std::cout << "m_numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacks << std::endl;
-    std::cout << "m_numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResent << std::endl;
-    std::cout << "m_numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReports << std::endl;
-    std::cout << "m_numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacks << std::endl;
-    std::cout << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued << std::endl;
-    std::cout << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit << std::endl;
-    std::cout << "m_numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplit << std::endl;
-    std::cout << "m_numGapsFilledByOutOfOrderDataSegments: " << m_numGapsFilledByOutOfOrderDataSegments << std::endl;
-    std::cout << "m_numDelayedFullyClaimedPrimaryReportSegmentsSent: " << m_numDelayedFullyClaimedPrimaryReportSegmentsSent << std::endl;
-    std::cout << "m_numDelayedFullyClaimedSecondaryReportSegmentsSent: " << m_numDelayedFullyClaimedSecondaryReportSegmentsSent << std::endl;
-    std::cout << "m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent << std::endl;
-    std::cout << "m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent << std::endl;
-    std::cout << "m_countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate << std::endl << std::endl;
+    LOG_INFO(subprocess) << "LtpEngine Stats:"; //print before reset
+    LOG_INFO(subprocess) << "m_numCheckpointTimerExpiredCallbacks: " << m_numCheckpointTimerExpiredCallbacks;
+    LOG_INFO(subprocess) << "m_numDiscretionaryCheckpointsNotResent: " << m_numDiscretionaryCheckpointsNotResent;
+    LOG_INFO(subprocess) << "m_numDeletedFullyClaimedPendingReports: " << m_numDeletedFullyClaimedPendingReports;
+    LOG_INFO(subprocess) << "m_numReportSegmentTimerExpiredCallbacks: " << m_numReportSegmentTimerExpiredCallbacks;
+    LOG_INFO(subprocess) << "m_numReportSegmentsUnableToBeIssued: " << m_numReportSegmentsUnableToBeIssued;
+    LOG_INFO(subprocess) << "m_numReportSegmentsTooLargeAndNeedingSplit: " << m_numReportSegmentsTooLargeAndNeedingSplit;
+    LOG_INFO(subprocess) << "m_numReportSegmentsCreatedViaSplit: " << m_numReportSegmentsCreatedViaSplit;
+    LOG_INFO(subprocess) << "m_numGapsFilledByOutOfOrderDataSegments: " << m_numGapsFilledByOutOfOrderDataSegments;
+    LOG_INFO(subprocess) << "m_numDelayedFullyClaimedPrimaryReportSegmentsSent: " << m_numDelayedFullyClaimedPrimaryReportSegmentsSent;
+    LOG_INFO(subprocess) << "m_numDelayedFullyClaimedSecondaryReportSegmentsSent: " << m_numDelayedFullyClaimedSecondaryReportSegmentsSent;
+    LOG_INFO(subprocess) << "m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
+    LOG_INFO(subprocess) << "m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent: " << m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
+    LOG_INFO(subprocess) << "m_countAsyncSendsLimitedByRate " << m_countAsyncSendsLimitedByRate << std::endl;
 
     if (m_ioServiceLtpEngineThreadPtr) {
         m_housekeepingTimer.cancel(); //keep here instead of Reset() so unit test can call Reset()
@@ -180,18 +182,18 @@ void LtpEngine::SetMtuReportSegment(uint64_t mtuReportSegment) {
     //(5 * 10) + (receptionClaims.size() * (2 * 10)); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
     //70 bytes worst case minimum for 1 claim
     if (mtuReportSegment < 70) {
-        std::cerr << "error in LtpEngine::SetMtuReportSegment: mtuReportSegment must be at least 70 bytes!!!!.. setting to 70 bytes" << std::endl;
+        LOG_ERROR(subprocess) << "LtpEngine::SetMtuReportSegment: mtuReportSegment must be at least 70 bytes!!!!.. setting to 70 bytes";
         m_maxReceptionClaims = 1;
     }
     m_maxReceptionClaims = (mtuReportSegment - 50) / 20;
-    std::cout << "max reception claims = " << m_maxReceptionClaims << std::endl;
+    LOG_INFO(subprocess) << "max reception claims = " << m_maxReceptionClaims;
 }
 
 bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
     std::string errorMessage;
     const bool success = m_ltpRxStateMachine.HandleReceivedChars(data, size, errorMessage, sessionOriginatorEngineIdDecodedCallbackPtr);
     if (!success) {
-        std::cerr << "error in LtpEngine::PacketIn: " << errorMessage << std::endl;
+        LOG_ERROR(subprocess) << "LtpEngine::PacketIn: " << errorMessage;
         m_ltpRxStateMachine.InitRx();
     }
     PacketInFullyProcessedCallback(success);
@@ -314,11 +316,11 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                         std::vector<uint8_t> & vecRef = csdRef->GetVecRef();
                         if (vecRef.size()) { //this session sender is using vector<uint8_t> client service data
                             if (safeToMove) {
-                                std::cout << "Ltp engine moving a send-failed vector bundle back to the user\n";
+                                LOG_INFO(subprocess) << "Ltp engine moving a send-failed vector bundle back to the user";
                                 m_onFailedBundleVecSendCallback(vecRef, csdRef->m_userData, m_userAssignedUuid);
                             }
                             else {
-                                std::cout << "Ltp engine copying a send-failed vector bundle back to the user\n";
+                                LOG_INFO(subprocess) << "Ltp engine copying a send-failed vector bundle back to the user";
                                 std::vector<uint8_t> vecCopy(vecRef);
                                 m_onFailedBundleVecSendCallback(vecCopy, csdRef->m_userData, m_userAssignedUuid);
                             }
@@ -328,11 +330,11 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                         zmq::message_t & zmqRef = csdRef->GetZmqRef();
                         if (zmqRef.size()) { //this session sender is using zmq client service data
                             if (safeToMove) {
-                                std::cout << "Ltp engine moving a send-failed zmq bundle back to the user\n";
+                                LOG_INFO(subprocess) << "Ltp engine moving a send-failed zmq bundle back to the user";
                                 m_onFailedBundleZmqSendCallback(zmqRef, csdRef->m_userData, m_userAssignedUuid);
                             }
                             else {
-                                std::cout << "Ltp engine copying a send-failed zmq bundle back to the user\n";
+                                LOG_INFO(subprocess) << "Ltp engine copying a send-failed zmq bundle back to the user";
                                 zmq::message_t zmqCopy(zmqRef.data(), zmqRef.size());
                                 m_onFailedBundleZmqSendCallback(zmqCopy, csdRef->m_userData, m_userAssignedUuid);
                             }
@@ -348,11 +350,10 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                 m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
                 m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
                 m_mapSessionNumberToSessionSender.erase(txSessionIt);
-                ////std::cout << "deleted session sender " << m_listSendersNeedingDeleted.front() << std::endl;
             }
         }
         else {
-            std::cout << "error in LtpEngine::GetNextPacketToSend: could not find session sender " << m_queueSendersNeedingDeleted.front() << " to delete" << std::endl;
+            LOG_ERROR(subprocess) << "LtpEngine::GetNextPacketToSend: could not find session sender " << m_queueSendersNeedingDeleted.front() << " to delete";
         }
         m_queueSendersNeedingDeleted.pop();
     }
@@ -377,11 +378,10 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
                 m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
                 m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
                 m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
-                ////std::cout << "deleted session receiver sessionNumber " << m_listReceiversNeedingDeleted.front().sessionNumber << std::endl;
             }
         }
         else {
-            std::cout << "error in LtpEngine::GetNextPacketToSend: could not find session receiver " << m_queueReceiversNeedingDeleted.front() << " to delete" << std::endl;
+            LOG_ERROR(subprocess) << "LtpEngine::GetNextPacketToSend: could not find session receiver " << m_queueReceiversNeedingDeleted.front() << " to delete";
         }
         m_queueReceiversNeedingDeleted.pop();
     }
@@ -406,7 +406,6 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
 
         const uint8_t * const infoPtr = (uint8_t*)&info;
         m_timeManagerOfCancelSegments.StartTimer(info.sessionId, &m_cancelSegmentTimerExpiredCallback, std::vector<uint8_t>(infoPtr, infoPtr + sizeof(info)));
-        //std::cout << "start cancel timer\n";
         m_queueCancelSegmentTimerInfo.pop();
         return true;
     }
@@ -588,7 +587,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
             m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
-            std::cout << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber << std::endl;
+            LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session sender session number " << sessionId.sessionNumber;
 
             //send Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
             m_queueCancelSegmentTimerInfo.emplace();
@@ -628,7 +627,7 @@ bool LtpEngine::CancellationRequest(const Ltp::session_id_t & sessionId) { //onl
             m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
             m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
-            std::cout << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber << std::endl;
+            LOG_INFO(subprocess) << "LtpEngine::CancellationRequest deleted session receiver session number " << sessionId.sessionNumber;
 
             //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
             m_queueCancelSegmentTimerInfo.emplace();
@@ -673,7 +672,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedPrimaryReportSegmentsSent;
             m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent += rxSessionPtr->m_numDelayedPartiallyClaimedSecondaryReportSegmentsSent;
             m_mapSessionIdToSessionReceiver.erase(rxSessionIt);
-            std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber << std::endl;
+            LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session receiver session number " << sessionId.sessionNumber;
             //Send CAx after outer if-else statement
             
         }
@@ -701,7 +700,7 @@ void LtpEngine::CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionI
             m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
             m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
             m_mapSessionNumberToSessionSender.erase(txSessionIt);
-            std::cout << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber << std::endl;
+            LOG_INFO(subprocess) << "LtpEngine::CancelSegmentReceivedCallback deleted session sender session number " << sessionId.sessionNumber;
             //Send CAx after outer if-else statement
         }
         else { //not found
@@ -729,7 +728,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
 {
     if (isToSender) {
         if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-            std::cerr << "error in CA received to sender: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") != M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")\n";
+            LOG_ERROR(subprocess) << "CA received to sender: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") != M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")";
             return;
         }
     }
@@ -744,7 +743,7 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
             //If there is no technical reason to prohibit these, it would be helpful to remove these guards.
             //I did a quick experiment of just removing the three checks and things seem to go through properly.
 #ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
-            std::cerr << "error in CA received to receiver: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")\n";
+            LOG_ERROR(subprocess) << "CA received to receiver: sessionId.sessionOriginatorEngineId (" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID (" << M_THIS_ENGINE_ID << ")";
             return;
 #endif
         }
@@ -756,32 +755,28 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
     //Response: the timer associated with the Cx segment is deleted, and
     //the session of which the segment is one token is closed, i.e., the
     //"Close Session" procedure(Section 6.20) is invoked.
-    //std::cout << "CancelAcknowledgementSegmentReceivedCallback1\n";
     if (!m_timeManagerOfCancelSegments.DeleteTimer(sessionId)) {
-        std::cout << "LtpEngine::CancelAcknowledgementSegmentReceivedCallback didn't delete timer\n";
+        LOG_INFO(subprocess) << "LtpEngine::CancelAcknowledgementSegmentReceivedCallback didn't delete timer";
     }
 
     if (isToSender && LtpRandomNumberGenerator::IsPingSession(sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
         //sender ping is successful
-        //std::cout << "sender ping success\n";
         M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
         if (m_onOutductLinkStatusChangedCallback) { //let user know of link up event
             m_onOutductLinkStatusChangedCallback(false, m_userAssignedUuid);
         }
     }
-    //std::cout << "CancelAcknowledgementSegmentReceivedCallback2\n";
 }
 
 void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
     cancel_segment_timer_info_t info;
     if (userData.size() != sizeof(info)) {
-        std::cerr << "error in LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)\n";
+        LOG_ERROR(subprocess) << "LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)";
         return;
     }
     memcpy(&info, userData.data(), sizeof(info));
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
-        //std::cout << "Resend cancel segment!\n";
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
         ++info.retryCount;
         m_queueCancelSegmentTimerInfo.push(info);
@@ -791,14 +786,13 @@ void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmen
     else {
         if (info.isFromSender && LtpRandomNumberGenerator::IsPingSession(info.sessionId.sessionNumber, M_FORCE_32_BIT_RANDOM_NUMBERS)) {
             //sender ping failed
-            //std::cout << "sender ping failed\n";
             M_NEXT_PING_START_EXPIRY = boost::posix_time::microsec_clock::universal_time() + M_SENDER_PING_TIME;
             if (m_onOutductLinkStatusChangedCallback) { //let user know of link down event
                 m_onOutductLinkStatusChangedCallback(true, m_userAssignedUuid);
             }
         }
         else {
-            std::cout << "Cancel segment unable to send!\n";
+            LOG_INFO(subprocess) << "Cancel segment unable to send!";
         }
     }
 }
@@ -897,7 +891,7 @@ void LtpEngine::ReportAcknowledgementSegmentReceivedCallback(const Ltp::session_
         //If there is no technical reason to prohibit these, it would be helpful to remove these guards.
         //I did a quick experiment of just removing the three checks and things seem to go through properly.
 #ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
-        std::cerr << "error in RA received: sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID\n";
+        LOG_ERROR(subprocess) << "RA received: sessionId.sessionOriginatorEngineId == M_THIS_ENGINE_ID";
         return;
 #endif
     }
@@ -912,7 +906,7 @@ void LtpEngine::ReportSegmentReceivedCallback(const Ltp::session_id_t & sessionI
     Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions)
 {
     if (sessionId.sessionOriginatorEngineId != M_THIS_ENGINE_ID) {
-        std::cerr << "error in RS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ")  != M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")" << std::endl;
+        LOG_ERROR(subprocess) << "RS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ")  != M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")";
         return;
     }
     map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(sessionId.sessionNumber);
@@ -952,7 +946,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         //If there is no technical reason to prohibit these, it would be helpful to remove these guards.
         //I did a quick experiment of just removing the three checks and things seem to go through properly.
 #ifndef LTP_ENGINE_ALLOW_SAME_ENGINE_TRANSFERS
-        std::cerr << "error in DS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")\n";
+        LOG_ERROR(subprocess) << "DS received: sessionId.sessionOriginatorEngineId(" << sessionId.sessionOriginatorEngineId << ") == M_THIS_ENGINE_ID(" << M_THIS_ENGINE_ID << ")";
         return;
 #endif
     }
@@ -963,11 +957,11 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         if (M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE) {
             std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> >::iterator it = m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.find(sessionId.sessionOriginatorEngineId);
             if (it == m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.end()) {
-                std::cout << "create new LtpSessionRecreationPreventer for sessionOriginatorEngineId " << sessionId.sessionOriginatorEngineId << " with history size " << M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE << std::endl;
+                LOG_INFO(subprocess) << "create new LtpSessionRecreationPreventer for sessionOriginatorEngineId " << sessionId.sessionOriginatorEngineId << " with history size " << M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;
                 it = m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer.emplace(sessionId.sessionOriginatorEngineId, boost::make_unique<LtpSessionRecreationPreventer>(M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE)).first;
             }
             if (!it->second->AddSession(sessionId.sessionNumber)) {
-                std::cout << "preventing old session from being recreated for " << sessionId << std::endl;
+                LOG_INFO(subprocess) << "preventing old session from being recreated for " << sessionId;
                 return;
             }
         }
@@ -980,7 +974,7 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
 
         std::pair<map_session_id_to_session_receiver_t::iterator, bool> res = m_mapSessionIdToSessionReceiver.emplace(sessionId, std::move(session));
         if (res.second == false) { //fragment key was not inserted
-            std::cerr << "error new rx session cannot be inserted??\n";
+            LOG_ERROR(subprocess) << "new rx session cannot be inserted??";
             return;
         }
         rxSessionIt = res.first;
@@ -1097,9 +1091,6 @@ void LtpEngine::OnTokenRefresh_TimerExpired(const boost::system::error_code& e) 
 
         TrySendPacketIfAvailable();
     }
-    else {
-        //std::cout << "timer cancelled\n";
-    }
 }
 
 void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) {
@@ -1144,7 +1135,7 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
                 //erase session
                 const Ltp::session_id_t & sessionId = rxSessionIt->first;
                 m_queueReceiversNeedingDeleted.emplace(sessionId); //don't want to invalidate iterator in for loop
-                std::cout << "LtpEngine::OnHousekeeping_TimerExpired deleting stagnant receiver session number " << sessionId.sessionNumber << std::endl;
+                LOG_INFO(subprocess) << "LtpEngine::OnHousekeeping_TimerExpired deleting stagnant receiver session number " << sessionId.sessionNumber;
 
                 //send Cancel Segment to sender (GetNextPacketToSend() will create the packet and start the timer)
                 m_queueCancelSegmentTimerInfo.emplace();
@@ -1194,13 +1185,9 @@ void LtpEngine::OnHousekeeping_TimerExpired(const boost::system::error_code& e) 
             }
         }
         
-        //std::cout << "house\n";
         //restart housekeeping timer
         m_housekeepingTimer.expires_at(nowPtime + M_HOUSEKEEPING_INTERVAL);
         m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
-    }
-    else {
-        //std::cout << "housekeeping timer cancelled\n";
     }
 }
 

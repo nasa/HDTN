@@ -10,8 +10,8 @@ int main(int argc, const char* argv[]) {
     BpSinkAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
-    std::cout << "Rx Count, Duplicate Count, Total bytes Rx\n";
-    std::cout << runner.m_receivedCount << "," << runner.m_duplicateCount << "," << runner.m_totalBytesRx << "\n";
+    LOG_INFO(hdtn::Logger::SubProcess::none) << "Rx Count, Duplicate Count, Total bytes Rx";
+    LOG_INFO(hdtn::Logger::SubProcess::none) << runner.m_receivedCount << "," << runner.m_duplicateCount << "," << runner.m_totalBytesRx;
     return 0;
 
 }

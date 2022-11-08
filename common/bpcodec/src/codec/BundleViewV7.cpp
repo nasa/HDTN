@@ -3,6 +3,9 @@
 #include <boost/next_prior.hpp>
 #include "Uri.h"
 #include "PaddedVectorUint8.h"
+#include "Logger.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 void BundleViewV7::Bpv7PrimaryBlockView::SetManuallyModified() {
     dirty = true;
@@ -162,7 +165,6 @@ bool BundleViewV7::RenderInPlace(const std::size_t paddingLeft) {
     const uint64_t payloadLastBlockSize = m_listCanonicalBlockView.back().actualSerializedBlockPtr.size();
 
     if (newBundleSize > originalBundleSize) { //shift left, will overlap paddingLeft
-        //std::cout << "new bigger bundle\n";
         const uint64_t diff = newBundleSize - originalBundleSize;
         if (diff > paddingLeft) {
             return false;
@@ -171,7 +173,6 @@ bool BundleViewV7::RenderInPlace(const std::size_t paddingLeft) {
         maxRenderSpaceRequired = (newBundleSize - payloadLastBlockSize) + 10;
     }
     else {  //if (newBundleSize <= originalBundleSize) { //shift right
-        //std::cout << "new smaller or same size bundle\n";
         const uint64_t diff = originalBundleSize - newBundleSize;
         newStart = ((uint8_t*)m_renderedBundle.data()) + diff;
         maxRenderSpaceRequired = (originalBundleSize - payloadLastBlockSize) + 10;
@@ -185,7 +186,6 @@ bool BundleViewV7::RenderInPlace(const std::size_t paddingLeft) {
     if (!Render(newStart, sizeSerialized, true)) { //render to newStart
         return false;
     }
-    //std::cout << "originalBundleSize " << originalBundleSize << " newBundleSize " << newBundleSize << " sizeSerialized " << sizeSerialized << "\n";
     m_renderedBundle = boost::asio::buffer(newStart, newBundleSize);
     return true;
 }
@@ -193,7 +193,6 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
     uint8_t * const serializationBase = serialization;
     *serialization++ = (4U << 5) | 31U; //major type 4, additional information 31 (Indefinite-Length Array)
     if (m_primaryBlockView.dirty) {
-        //std::cout << "pd\n";
         const uint64_t sizeSerialized = m_primaryBlockView.header.SerializeBpv7(serialization);
         if (sizeSerialized == 0) {
             return false;
@@ -203,7 +202,6 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
         m_primaryBlockView.dirty = false;
     }
     else {
-        //std::cout << "pnd\n";
         const std::size_t size = m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
         memcpy(serialization, m_primaryBlockView.actualSerializedPrimaryBlockPtr.data(), size);
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
@@ -221,12 +219,12 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         if (isLastBlock) {
             if (it->headerPtr->m_blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD) {
-                std::cerr << "error in BundleViewV7::Render: last block is not payload block\n";
+                LOG_ERROR(subprocess) << "BundleViewV7::Render: last block is not payload block";
                 return false;
             }
             if (it->headerPtr->m_blockNumber != 1) { //The block number of the payload block is always 1.
-                std::cerr << "error in BundleViewV7::Render: last block (payload block) has block number " << it->headerPtr->m_blockNumber 
-                    << " but the block number of the payload block is always 1.\n";
+                LOG_ERROR(subprocess) << "BundleViewV7::Render: last block (payload block) has block number " << it->headerPtr->m_blockNumber 
+                    << " but the block number of the payload block is always 1.";
                 return false;
             }
             if (terminateBeforeLastBlock) {
@@ -251,7 +249,6 @@ bool BundleViewV7::Render(uint8_t * serialization, uint64_t & sizeSerialized, bo
             it->dirty = false;
         }
         else {
-            //std::cout << "cnd\n";
             currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
             memcpy(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
         }
@@ -278,7 +275,7 @@ bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
     for (std::list<Bpv7CanonicalBlockView>::const_iterator it = m_listCanonicalBlockView.cbegin(); it != m_listCanonicalBlockView.cend(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         if (isLastBlock && (it->headerPtr->m_blockTypeCode != BPV7_BLOCK_TYPE_CODE::PAYLOAD)) {
-            std::cerr << "error in BundleViewV7::GetSerializationSize: last block is not payload block\n";
+            LOG_ERROR(subprocess) << "BundleViewV7::GetSerializationSize: last block is not payload block";
             return false;
         }
         uint64_t currentBlockSizeSerialized;
@@ -292,7 +289,6 @@ bool BundleViewV7::GetSerializationSize(uint64_t & serializationSize) const {
             }
         }
         else {
-            //std::cout << "cnd\n";
             currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
         }
         serializationSize += currentBlockSizeSerialized;

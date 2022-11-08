@@ -2,7 +2,7 @@
  * @file TcpclV4BundleSource.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,12 +13,14 @@
  */
 
 #include <string>
-#include <iostream>
 #include "TcpclV4BundleSource.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 TcpclV4BundleSource::TcpclV4BundleSource(
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -64,12 +66,12 @@ TcpclV4BundleSource::TcpclV4BundleSource(
 TcpclV4BundleSource::~TcpclV4BundleSource() {
     Stop();
     //print stats
-    std::cout << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalBytesAcked " << m_base_totalBytesAcked << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalBundlesSent " << m_base_totalBundlesSent << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent << std::endl;
-    std::cout << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent << std::endl;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesAcked " << m_base_totalBundlesAcked;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBytesAcked " << m_base_totalBytesAcked;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundlesSent " << m_base_totalBundlesSent;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentedAcked " << m_base_totalFragmentedAcked;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalFragmentedSent " << m_base_totalFragmentedSent;
+    LOG_INFO(subprocess) << "TcpclV4 Bundle Source totalBundleBytesSent " << m_base_totalBundleBytesSent;
 }
 
 void TcpclV4BundleSource::Stop() {
@@ -105,10 +107,10 @@ void TcpclV4BundleSource::Connect(const std::string & hostname, const std::strin
 
 void TcpclV4BundleSource::OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results) { // Resolved endpoints as a range.
     if(ec) {
-        std::cerr << "Error resolving: " << ec.message() << std::endl;
+        LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
-        std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
+        LOG_INFO(subprocess) << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting...";
         m_resolverResults = results;
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_sslStreamSharedPtr = std::make_shared<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> >(m_base_ioServiceRef, m_shareableSslContextRef);
@@ -131,15 +133,15 @@ void TcpclV4BundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
-            std::cout << "Will try to reconnect after 2 seconds" << std::endl;
+            LOG_ERROR(subprocess) << "OnConnect: " << ec.value() << " " << ec.message();
+            LOG_ERROR(subprocess) << "Will try to reconnect after 2 seconds";
             m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
             m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&TcpclV4BundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
         return;
     }
 
-    std::cout << "connected.. sending contact header..\n";
+    LOG_INFO(subprocess) << "connected.. sending contact header..";
     m_base_tcpclShutdownComplete = false;
 
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -163,7 +165,7 @@ void TcpclV4BundleSource::OnConnect(const boost::system::error_code & ec) {
 void TcpclV4BundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "TcpclV4BundleSource Trying to reconnect..." << std::endl;
+        LOG_INFO(subprocess) << "TcpclV4BundleSource Trying to reconnect...";
 
         boost::asio::async_connect(
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -195,7 +197,6 @@ void TcpclV4BundleSource::StartTcpReceiveUnsecure() {
 }
 void TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        //std::cout << "received " << bytesTransferred << "\n";
 
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
@@ -205,7 +206,7 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure(const boost::system::erro
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
             m_base_doUpgradeSocketToSsl = false;
-            std::cout << "source calling client handshake\n";
+            LOG_INFO(subprocess) << "source calling client handshake";
             m_base_sslStreamSharedPtr->async_handshake(boost::asio::ssl::stream_base::client,
                 boost::bind(&TcpclV4BundleSource::HandleSslHandshake, this, boost::asio::placeholders::error));
         }
@@ -216,11 +217,11 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure(const boost::system::erro
         }
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "Tcp connection closed cleanly by peer";
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "TcpclV4BundleSource::HandleTcpReceiveSomeUnsecure: " << error.message();
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
 }
@@ -235,7 +236,6 @@ void TcpclV4BundleSource::StartTcpReceiveSecure() {
 }
 void TcpclV4BundleSource::HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        //std::cout << "received " << bytesTransferred << "\n";
         //because TcpclBundleSource will not receive much data from the destination,
         //a separate thread is not needed to process it, but rather this
         //io_service thread will do the processing
@@ -244,24 +244,24 @@ void TcpclV4BundleSource::HandleTcpReceiveSomeSecure(const boost::system::error_
         StartTcpReceiveSecure(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "Tcp connection closed cleanly by peer";
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclV4BundleSource::HandleTcpReceiveSomeSecure: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "TcpclV4BundleSource::HandleTcpReceiveSomeSecure: " << error.message();
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
 }
 
 void TcpclV4BundleSource::HandleSslHandshake(const boost::system::error_code & error) {
     if (!error) {
-        std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
+        LOG_INFO(subprocess) << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point";
         m_base_didSuccessfulSslHandshake = true;
         StartTcpReceiveSecure();
         BaseClass_SendSessionInit(); //I am the active entity and will send a session init first
     }
     else {
-        std::cout << "SSL/TLS Handshake failed: " << error.message() << "\n";
+        LOG_ERROR(subprocess) << "SSL/TLS Handshake failed: " << error.message();
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
 }
@@ -296,7 +296,7 @@ void TcpclV4BundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & whole
         m_outductOpportunisticProcessReceivedBundleCallback(wholeBundleVec);
     }
     else {
-        std::cout << "TcpclV4BundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false" << std::endl;
+        LOG_INFO(subprocess) << "TcpclV4BundleSource should never enter DataSegmentCallback if tcpclAllowOpportunisticReceiveBundles is set to false";
     }
 }
 
@@ -305,7 +305,7 @@ void TcpclV4BundleSource::Virtual_WholeBundleReady(padded_vector_uint8_t & whole
 void TcpclV4BundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "Trying to reconnect..." << std::endl;
+        LOG_INFO(subprocess) << "Trying to reconnect...";
         m_base_shutdownCalled = false;
 #ifdef OPENSSL_SUPPORT_ENABLED
         m_base_tcpAsyncSenderSslPtr.reset();

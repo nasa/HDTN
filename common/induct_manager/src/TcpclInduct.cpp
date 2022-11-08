@@ -1,7 +1,9 @@
 #include "TcpclInduct.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 //TCPCL INDUCT
 TcpclInduct::TcpclInduct(const InductProcessBundleCallback_t & inductProcessBundleCallback, const induct_element_config_t & inductConfig,
@@ -25,7 +27,7 @@ TcpclInduct::~TcpclInduct() {
             m_tcpAcceptor.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "Error closing TCP Acceptor in TcpclInduct::~TcpclInduct:  " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "Error closing TCP Acceptor in TcpclInduct::~TcpclInduct:  " << e.what();
         }
     }
     boost::asio::post(m_ioService, boost::bind(&TcpclInduct::DisableRemoveInactiveTcpConnections, this));
@@ -41,7 +43,7 @@ TcpclInduct::~TcpclInduct() {
 }
 
 void TcpclInduct::StartTcpAccept() {
-    std::cout << "waiting for tcpcl tcp connections" << std::endl;
+    LOG_INFO(subprocess) << "waiting for tcpcl tcp connections";
     std::shared_ptr<boost::asio::ip::tcp::socket> newTcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService); //get_io_service() is deprecated: Use get_executor()
 
     m_tcpAcceptor.async_accept(*newTcpSocketPtr,
@@ -50,7 +52,7 @@ void TcpclInduct::StartTcpAccept() {
 
 void TcpclInduct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> & newTcpSocketPtr, const boost::system::error_code& error) {
     if (!error) {
-        std::cout << "tcpcl tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port() << std::endl;
+        LOG_INFO(subprocess) << "tcpcl tcp connection: " << newTcpSocketPtr->remote_endpoint().address() << ":" << newTcpSocketPtr->remote_endpoint().port();
         m_listTcpclBundleSinks.emplace_back(
             m_inductConfig.keepAliveIntervalSeconds,
             newTcpSocketPtr,
@@ -68,7 +70,7 @@ void TcpclInduct::HandleTcpAccept(std::shared_ptr<boost::asio::ip::tcp::socket> 
         StartTcpAccept(); //only accept if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "tcp accept error: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "tcp accept error: " << error.message();
     }
 
 

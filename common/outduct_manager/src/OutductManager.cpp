@@ -1,5 +1,5 @@
 #include "OutductManager.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <memory>
 #include "TcpclOutduct.h"
@@ -9,10 +9,12 @@
 #include "LtpOverUdpOutduct.h"
 #include "Uri.h"
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 OutductManager::OutductManager() : m_numEventsTooManyUnackedBundles(0) {}
 
 OutductManager::~OutductManager() {
-    std::cout << "m_numEventsTooManyUnackedBundles " << m_numEventsTooManyUnackedBundles << std::endl;
+    LOG_INFO(subprocess) << "m_numEventsTooManyUnackedBundles " << m_numEventsTooManyUnackedBundles;
 }
 
 bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfig, const uint64_t myNodeId, const uint64_t maxUdpRxPacketSizeBytesForAllLtp,
@@ -46,7 +48,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
 #ifndef OPENSSL_SUPPORT_ENABLED
             if (thisOutductConfig.tlsIsRequired) {
-                std::cout << "error in OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.. this outduct shall be disabled." << std::endl;
+                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.. this outduct shall be disabled.";
                 continue;
             }
 #endif
@@ -75,14 +77,14 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                 cbhe_eid_t destEid;
                 bool serviceNumberIsWildCard;
                 if (!Uri::ParseIpnUriString(finalDestinationEidUri, destEid.nodeId, destEid.serviceId, &serviceNumberIsWildCard)) {
-                    std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
-                        << " is invalid." << std::endl;
+                    LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                        << " is invalid.";
                     return false;
                 }
                 if (serviceNumberIsWildCard) {
                     if (m_finalDestNodeIdToOutductMap.emplace(destEid.nodeId, outductSharedPtr).second == false) { //not inserted, already exists
-                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
-                            << " is already in use by another outduct." << std::endl;
+                        LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                            << " is already in use by another outduct.";
                         return false;
                     }
                     //make sure there is nothing in the fully qualified map
@@ -90,8 +92,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                     //lower bound points to equivalent or next greater
                     std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator eidIt = m_finalDestEidToOutductMap.lower_bound(eidStart);
                     if ((eidIt != m_finalDestEidToOutductMap.end()) && (eidIt->first.nodeId == destEid.nodeId)) {
-                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri 
-                            << " is already in use by an outduct using the fully qualified eid " << eidIt->first << std::endl;
+                        LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri 
+                            << " is already in use by an outduct using the fully qualified eid " << eidIt->first;
                         return false;
                     }
                 }
@@ -103,29 +105,29 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
                         //lower bound points to equivalent or next greater
                         std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::iterator eidIt = m_finalDestEidToOutductMap.lower_bound(eidStart);
                         if ((eidIt != m_finalDestEidToOutductMap.end()) && (eidIt->first.nodeId == destEid.nodeId)) {
-                            std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                            LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
                                 << " shares a node number that is already in use by an outduct using the fully qualified eid " << eidIt->first 
-                                << ". Please note that HDTN does not support selecting an outduct by service number." << std::endl;
+                                << ". Please note that HDTN does not support selecting an outduct by service number.";
                             return false;
                         }
 
                     }
                     if (m_finalDestEidToOutductMap.emplace(destEid, outductSharedPtr).second == false) { //not inserted, already exists
-                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
-                            << " is already in use by another outduct." << std::endl;
+                        LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                            << " is already in use by another outduct.";
                         return false;
                     }
                     if (m_finalDestNodeIdToOutductMap.count(destEid.nodeId)) {
-                        std::cerr << "error in OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
+                        LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: finalDestinationEidUri " << finalDestinationEidUri
                             << " is already in use by an outduct using the wildcard eid " 
-                            << Uri::GetIpnUriStringAnyServiceNumber(destEid.nodeId) << std::endl;
+                            << Uri::GetIpnUriStringAnyServiceNumber(destEid.nodeId);
                         return false;
                     }
                 }
             }
             if (m_nextHopNodeIdToOutductMap.emplace(thisOutductConfig.nextHopNodeId, outductSharedPtr).second == false) { //not inserted, already exists
-                std::cerr << "error in OutductManager::LoadOutductsFromConfig: nextHopNodeId " << thisOutductConfig.nextHopNodeId
-                    << " is already in use by another outduct." << std::endl;
+                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: nextHopNodeId " << thisOutductConfig.nextHopNodeId
+                    << " is already in use by another outduct.";
                 return false;
             }
 
@@ -138,7 +140,7 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
         }
         else {
-            std::cerr << "error in OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " is invalid." << std::endl;
+            LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: convergence layer " << thisOutductConfig.convergenceLayer << " is invalid.";
             return false;
         }
     }
@@ -165,7 +167,7 @@ void OutductManager::StopAllOutducts() {
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
         if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-            std::cerr << "bundle pipeline limit exceeded" << std::endl;
+            LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
         else {
@@ -173,14 +175,14 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bun
         }
     }
     else {
-        std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
+        LOG_ERROR(subprocess) << "OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found.";
         return false;
     }
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
         if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-            std::cerr << "bundle pipeline limit exceeded" << std::endl;
+            LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
         else {
@@ -188,14 +190,14 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & m
         }
     }
     else {
-        std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
+        LOG_ERROR(subprocess) << "OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found.";
         return false;
     }
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
         if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
-            std::cerr << "bundle pipeline limit exceeded" << std::endl;
+            LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
         else {
@@ -203,7 +205,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_
         }
     }
     else {
-        std::cerr << "error in  OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found." << std::endl;
+        LOG_ERROR(subprocess) << "OutductManager::Forward: finalDestEid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ") not found.";
         return false;
     }
 }
@@ -215,7 +217,7 @@ bool OutductManager::Reroute_ThreadSafe(const uint64_t finalDestNodeId, const ui
 
     std::map<uint64_t, std::shared_ptr<Outduct> >::iterator itNextHopNodeId = m_nextHopNodeIdToOutductMap.find(newNextHopNodeId);
     if (itNextHopNodeId == m_nextHopNodeIdToOutductMap.end()) {
-        std::cerr << "error in OutductManager::Reroute_ThreadSafe: newNextHopNodeId " << newNextHopNodeId << " not found in HDTN's outducts\n";
+        LOG_ERROR(subprocess) << "OutductManager::Reroute_ThreadSafe: newNextHopNodeId " << newNextHopNodeId << " not found in HDTN's outducts";
         return false;
     }
     std::shared_ptr<Outduct> & newOutductPtrRef = itNextHopNodeId->second;
