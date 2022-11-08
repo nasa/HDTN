@@ -228,7 +228,13 @@ void DirectoryScanner::OnDirectoryChangeEvent(const boost::system::error_code& e
                 }
             }
             else if (boost::filesystem::is_regular_file(ev.path)) {
-                TryAddNewFile(ev.path);
+                if (recursionDepthRelative > m_recurseDirectoriesDepth) { 
+                    //don't add a file that is too deep (this behavior was noticed on certain linux distros)
+                    //std::cout << "EVENT SKIPFILE depth=" << recursionDepthRelative << " p=" << relPath << "\n";
+                }
+                else {
+                    TryAddNewFile(ev.path);
+                }
             }
         }
         else if ((ev.type == boost::asio::dir_monitor_event::removed) || (ev.type == boost::asio::dir_monitor_event::renamed_old_name)) {
