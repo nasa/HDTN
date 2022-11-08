@@ -18,11 +18,11 @@ echo %MAKE_COMMAND%
 REM /FS (not a linker flag) needed to prevent this error: if multiple CL.EXE write to the same .PDB file, please use /FS
 if /I "%MAKE_COMMAND%" == "nmake" (
     echo "Using NMAKE"
-    perl Configure VC-WIN64A --prefix="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%" --openssldir="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%\SSL"
+    perl Configure VC-WIN64A no-unit-test no-tests threads shared --prefix="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%" --openssldir="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%\SSL"
  ) ELSE (
     echo "Using JOM"
     REM perl Configure VC-WIN64A CFLAGS=/FS CXXFLAGS=/FS --prefix="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%" --openssldir="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%\SSL" (don't use.. removes /O2)
-    perl Configure VC-WIN64A /FS --prefix="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%" --openssldir="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%\SSL"
+    perl Configure VC-WIN64A no-unit-test no-tests threads shared /FS --prefix="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%" --openssldir="%cd%\%OPENSSL_INSTALL_FOLDER_NAME%\SSL"
  )
 
 IF %ERRORLEVEL% NEQ 0 GOTO fail
