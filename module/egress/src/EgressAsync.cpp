@@ -168,10 +168,10 @@ void hdtn::HegrManagerAsync::Init(const HdtnConfig & hdtnConfig, zmq::context_t 
         }
         
         //The ZMQ_SNDHWM option shall set the high water mark for outbound messages on the specified socket.
-        //The high water mark is a hard limit on the maximum number of outstanding messages �MQ shall queue 
+        //The high water mark is a hard limit on the maximum number of outstanding messages MQ shall queue 
         //in memory for any single peer that the specified socket is communicating with.
         //If this limit has been reached the socket shall enter an exceptional state and depending on the socket type,
-        //�MQ shall take appropriate action such as blocking or dropping sent messages.
+        //MQ shall take appropriate action such as blocking or dropping sent messages.
         const int hwm = 5; //todo
         m_zmqPushSock_connectingEgressBundlesOnlyToBoundIngressPtr->set(zmq::sockopt::sndhwm, hwm); //flow control
     }

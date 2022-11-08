@@ -8,6 +8,7 @@ find_dependency(StcpLib REQUIRED)
 find_dependency(UdpLib REQUIRED)
 find_dependency(LtpLib REQUIRED)
 find_dependency(Bpcodec REQUIRED)
+find_dependency(LoggerLib REQUIRED)
 
 if(NOT TARGET HDTN::OutductManagerLib)
     include("${OUTDUCTMANAGERLIB_CMAKE_DIR}/OutductManagerLibTargets.cmake")

@@ -9,6 +9,7 @@ target_link_libraries(hdtn-scheduler
 	hdtn_util
 	config_lib
 	Boost::program_options
+	log_lib
 )
 
 target_include_directories(hdtn-scheduler
