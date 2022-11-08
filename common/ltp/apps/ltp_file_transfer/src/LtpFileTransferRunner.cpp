@@ -276,7 +276,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             boost::posix_time::time_duration diff = senderHelper.finishedTime - startTime;
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
             const double rateBps = rateMbps * 1e6;
-            printf("Sent data at %0.4f Mbits/sec\n", rateMbps);
+            LOG_INFO(subprocess) << "Sent data at " << rateMbps << " Mbits/sec";
             LOG_INFO(subprocess) << "udp packets sent: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent);
             LOG_INFO(subprocess) << "system calls for send: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls);
         }

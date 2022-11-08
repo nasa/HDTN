@@ -101,7 +101,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
         NULL);
 
     if (returnValue == SOCKET_ERROR) {
-        printf("%s:%d - WSAIoctl failed (%d)\n", __FILE__, __LINE__, WSAGetLastError());
+        LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - WSAIoctl failed " << WSAGetLastError();
         return false;
     }
 # ifdef UDP_BATCH_SENDER_USE_OVERLAPPED
@@ -109,7 +109,7 @@ bool UdpBatchSender::Init(const boost::asio::ip::udp::endpoint& udpDestinationEn
     ZeroMemory(&m_sendOverlappedAutoReset, sizeof(m_sendOverlappedAutoReset));
     m_sendOverlappedAutoReset.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL); //auto-reset event object
     if (m_sendOverlappedAutoReset.hEvent == NULL) {
-        printf("%s:%d - CreateEvent failed (%d)\n", __FILE__, __LINE__, GetLastError());
+        LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - CreateEvent failed (" << GetLastError() << ")";
         return false;
     }
 # endif
@@ -285,7 +285,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
         if (!result) {
             DWORD lastError = WSAGetLastError();
             if (lastError != ERROR_IO_PENDING) {
-                printf("%s:%d - TransmitPackets failed (%d)\n", __FILE__, __LINE__, GetLastError());
+                LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - TransmitPackets failed " << GetLastError();
                 successfulSend = false;
             }
         }
@@ -320,7 +320,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
         //On error, -1 is returned, and errno is set to indicate the error.
         if (retval == -1) {
             successfulSend = false;
-            printf("%s:%d - sendmmsg failed with errno %d\n", __FILE__, __LINE__, errno);
+            LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - sendmmsg failed with errno " << errno;
             perror("sendmmsg()");
         }
         else if (retval != vlen) {
@@ -330,7 +330,7 @@ void UdpBatchSender::PerformSendPacketsOperation(
             //the call indicates the number of elements of msgvec that have
             //been updated.
             successfulSend = false;
-            printf("%s:%d - sendmmsg failed by only sending %d out of %d udp packets\n", __FILE__, __LINE__, retval, vlen);
+            LOG_ERROR(subprocess) << __FILE__ << ":" << __LINE__ << " - sendmmsg failed by only sending " << retval << " out of " << vlen << " packets";
         }
 
 #endif //#ifdef _WIN32

@@ -597,11 +597,12 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::posix_time::time_duration diff = finishedTime - startTime;
     {
         const double rateMbps = (bundle_data * 8.0) / (diff.total_microseconds());
-        printf("Sent bundle_data (payload data) at %0.4f Mbits/sec\n", rateMbps);
+        LOG_INFO(subprocess) << "Sent bundle_data (payload data) at " << std::fixed << std::setprecision(4) << rateMbps << "Mbits/sec";
     }
     {
         const double rateMbps = (raw_data * 8.0) / (diff.total_microseconds());
-        printf("Sent raw_data (bundle overhead + payload data) at %0.4f Mbits/sec\n", rateMbps);
+        LOG_INFO(subprocess) << "Sent raw_data (bundle overhead + payload data) at " << std::fixed << std::setprecision(4)
+            << rateMbps << " Mbits/sec";
     }
 
     LOG_INFO(subprocess) << "BpSourcePatternThreadFunc thread exiting";
