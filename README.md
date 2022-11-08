@@ -10,12 +10,14 @@ Build Environment
 
 ## Dependencies ## 
 HDTN build environment requires:
-* CMake version 3.16.3
-* Boost library version 1.67.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
-* ZeroMQ 
-* gcc version 9.3.0 (Debian 8.3.0-6) 
+* CMake version 3.12 minimum
+* Boost library version 1.66.0 minimum, version 1.69.0 for TCPCLv4 TLS version 1.3 support
+* ZeroMQ (tested with version 4.3.4)
+* OpenSSL (recommended version 1.1.1).  If OpenSSL is not available, disable OpenSSL support via the CMake cache variable `ENABLE_OPENSSL_SUPPORT:BOOL`
+* On Linux: gcc version 9.3.0 (Debian 8.3.0-6)
+* On Windows: see the [Windows Build Instructions](building_on_windows/readme_building_on_windows.md)
 * Target: x86_64-linux-gnu 
-* Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio 2017 (version 15.7 and 15.9) and Visual Studio 2022), and Mac
+* Tested platforms: Ubuntu 20.04.2 LTS, Debian 10, Windows 10 (Visual Studio), Windows Server 2019 (Visual Studio), Windows Server 2022 (Visual Studio), and Mac
 
 ## Optional CivetWeb Dependencies ## 
 HDTN build environment optionally requires the CivetWeb Embedded C/C++ Web Server Library for displaying real time HDTN data if and only if running in non-distributed mode (using hdtn-one-process executable only).
@@ -91,6 +93,7 @@ Getting Started
 
 Build HDTN
 ===========
+If building on Windows, see the [Windows Build Instructions](building_on_windows/readme_building_on_windows.md).
 To build HDTN in Release mode (which is now the default if -DCMAKE_BUILD_TYPE is not specified), follow these steps:
 * export HDTN_SOURCE_ROOT=/home/username/hdtn
 * cd $HDTN_SOURCE_ROOT
