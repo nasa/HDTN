@@ -16,6 +16,7 @@
 #include "UdpDelaySim.h"
 #include "Logger.h"
 #include <boost/make_unique.hpp>
+#include <boost/format.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -257,7 +258,10 @@ void UdpDelaySim::TransferRate_TimerExpired(const boost::system::error_code& e) 
             double rateBytesTxMbps = (diffTotalUdpBytesSent * 8.0) / diffTotalMicroseconds;
             const unsigned int cbSize = m_circularIndexBuffer.NumInBuffer();
 
-            LOG_INFO(subprocess) << std::fixed << std:: setprecision(4) << "RX: " << rateBytesRxMbps << " Mbits/sec, " << ratePacketsRxPerSecond << " Packets/sec   TX: " << rateBytesTxMbps << " Mbits/sec, " << ratePacketsTxPerSecond << " Packets/sec  Buffered: " << cbSize;
+            static const boost::format fmtTemplate("RX: %0.4f Mbits/sec, %0.1f Packets/sec   TX: %0.4f Mbits/sec, %0.1f Packets/sec  Buffered: %d");
+            boost::format fmt(fmtTemplate);
+            fmt % rateBytesRxMbps % ratePacketsRxPerSecond % rateBytesTxMbps % ratePacketsTxPerSecond % cbSize;
+            LOG_INFO(subprocess) << fmt.str();
         }
 
         m_lastTotalUdpPacketsReceived = m_countTotalUdpPacketsReceived;
