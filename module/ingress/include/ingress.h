@@ -77,9 +77,11 @@ private:
             m_mutex.unlock();
             return (retVal != 0);
         }
-        void WaitUntilNotifiedOr250MsTimeout() {
+        void WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGtThisValue) {
             boost::mutex::scoped_lock lock(m_mutex);
-            m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            if (GetSetSize() > waitWhileSizeGtThisValue) { //lock mutex (above) before checking condition
+                m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+            }
         }
         void NotifyAll() {            
             m_conditionVariable.notify_all();

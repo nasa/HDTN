@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         const std::string DESIRED_FULLY_GREEN_DATA_TO_SEND;
         boost::condition_variable cv;
         boost::mutex cvMutex;
-        boost::mutex::scoped_lock cvLock;
+        
 
         uint64_t numRedPartReceptionCallbacks;
         uint64_t numSessionStartSenderCallbacks;
@@ -94,8 +94,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             udpDelaySimReportSegmentProxy(BOUND_UDP_PORT_REPORT_SEGMENT_PROXY, "localhost", boost::lexical_cast<std::string>(BOUND_UDP_PORT_SRC), 1000, 100, ACTUAL_DELAY_DEST_TO_SRC, true),
             DESIRED_RED_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!"),
             DESIRED_RED_AND_GREEN_DATA_TO_SEND("The quick brown fox jumps over the lazy dog!GGE"), //G=>green data not EOB, E=>green datat EOB
-            DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE"),
-            cvLock(cvMutex)
+            DESIRED_FULLY_GREEN_DATA_TO_SEND("GGGGGGGGGGGGGGGGGE")
         {
             BOOST_REQUIRE(ltpUdpEngineManagerSrcPtr->StartIfNotAlreadyRunning()); //already running from constructor so should do nothing and return true 
             BOOST_REQUIRE(ltpUdpEngineManagerSrcPtr->StartIfNotAlreadyRunning()); //still already running so should do nothing and return true 
@@ -170,56 +169,81 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             lastSessionId_sessionStartSenderCallback = sessionId;
         }
         void SessionStartReceiverCallback(const Ltp::session_id_t & sessionId) {
-            ++numSessionStartReceiverCallbacks;
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                ++numSessionStartReceiverCallbacks;
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            }
+            // do not cv.notify_one(); (numSessionStartReceiverCallbacks is not used as a flag)
         }
         void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
             std::string receivedMessage(movableClientServiceDataVec.data(), movableClientServiceDataVec.data() + movableClientServiceDataVec.size());
-            ++numRedPartReceptionCallbacks;
-            BOOST_REQUIRE_EQUAL(receivedMessage, DESIRED_RED_DATA_TO_SEND);
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                ++numRedPartReceptionCallbacks;
+                BOOST_REQUIRE_EQUAL(receivedMessage, DESIRED_RED_DATA_TO_SEND);
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            }
             cv.notify_one();
             //std::cout << "receivedMessage: " << receivedMessage << std::endl;
             //std::cout << "here\n";
         }
         void GreenPartSegmentArrivalCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t offsetStartOfBlock, uint64_t clientServiceId, bool isEndOfBlock) {
-            ++numGreenPartReceptionCallbacks;
-            BOOST_REQUIRE_EQUAL(movableClientServiceDataVec.size(), 1);
-            BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], (isEndOfBlock) ? 'E' : 'G');
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                ++numGreenPartReceptionCallbacks;
+                BOOST_REQUIRE_EQUAL(movableClientServiceDataVec.size(), 1);
+                BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], (isEndOfBlock) ? 'E' : 'G');
 
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            }
             cv.notify_one();
         }
         void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
-            ++numReceptionSessionCancelledCallbacks;
-            lastReasonCode_receptionSessionCancelledCallback = reasonCode;
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                ++numReceptionSessionCancelledCallbacks;
+                lastReasonCode_receptionSessionCancelledCallback = reasonCode;
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            }
+            cv.notify_one();
         }
         void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-            ++numTransmissionSessionCompletedCallbacks;
-            BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
-            MyTransmissionUserData * myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
-            BOOST_REQUIRE(myUserData);
-            BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                ++numTransmissionSessionCompletedCallbacks;
+                BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
+                MyTransmissionUserData* myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
+                BOOST_REQUIRE(myUserData);
+                BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            }
             cv.notify_one();
         }
         void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-            BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
-            MyTransmissionUserData * myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
-            BOOST_REQUIRE(myUserData);
-            BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
-            ++numInitialTransmissionCompletedCallbacks;
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
+                MyTransmissionUserData* myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
+                BOOST_REQUIRE(myUserData);
+                BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+                ++numInitialTransmissionCompletedCallbacks;
+            }
+            cv.notify_one();
         }
         void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-            BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
-            MyTransmissionUserData * myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
-            BOOST_REQUIRE(myUserData);
-            BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
-            ++numTransmissionSessionCancelledCallbacks;
-            lastReasonCode_transmissionSessionCancelledCallback = reasonCode;
-            BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
+                MyTransmissionUserData* myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
+                BOOST_REQUIRE(myUserData);
+                BOOST_REQUIRE_EQUAL(myUserData->m_data, 123);
+                ++numTransmissionSessionCancelledCallbacks;
+                lastReasonCode_transmissionSessionCancelledCallback = reasonCode;
+                BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
+            }
+            cv.notify_one();
         }
 
         void Reset() {
@@ -242,16 +266,19 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             lastSessionId_sessionStartSenderCallback = 0; //sets all fields to 0
         }
         void AssertNoActiveSendersAndReceivers() {
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->NumActiveSenders(), 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->NumActiveReceivers(), 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->NumActiveSenders(), 0);
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->NumActiveReceivers(), 0);
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            {
+                BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->NumActiveSenders(), 0);
+                BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->NumActiveReceivers(), 0);
+                BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->NumActiveSenders(), 0);
+                BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->NumActiveReceivers(), 0);
+            }
         }
         bool HasActiveSendersAndReceivers() {
             return ltpUdpEngineSrcPtr->NumActiveSenders() || ltpUdpEngineSrcPtr->NumActiveReceivers() || ltpUdpEngineDestPtr->NumActiveSenders() || ltpUdpEngineDestPtr->NumActiveReceivers();
         }
         void TryWaitForNoActiveSendersAndReceivers() {
-            for(unsigned int i=0; i<20; ++i) {
+            for(unsigned int i=0; i<50; ++i) { //max wait 10 seconds
                 if(!HasActiveSendersAndReceivers()) {
                     break;
                 }
@@ -272,7 +299,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -281,6 +309,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -290,10 +319,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); //1 for Report segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for Report ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for Report ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 for Report segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -317,7 +348,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= 3)) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= 3)) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -326,6 +358,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -335,10 +368,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); //1 for Report segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_AND_GREEN_DATA_TO_SEND.size() + 1); //+1 for Report ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_AND_GREEN_DATA_TO_SEND.size() + 1); //+1 for Report ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 for Report segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -356,7 +391,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= DESIRED_FULLY_GREEN_DATA_TO_SEND.size())) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numTransmissionSessionCompletedCallbacks && (numGreenPartReceptionCallbacks >= DESIRED_FULLY_GREEN_DATA_TO_SEND.size())) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -365,6 +401,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
 
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -374,10 +411,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_FULLY_GREEN_DATA_TO_SEND.size());
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 0);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -413,7 +452,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -421,10 +461,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 3); //+3 for 2 Report acks and 1 resend
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 3-1 (see above comment)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -477,7 +521,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -485,10 +530,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 4); //+4 for 2 Report acks and 2 resends
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
 
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 4-2 (see above comment)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 2); //2 for 2 Report segments
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -540,7 +589,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(5);
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -548,6 +598,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 11); //11 (see below comment)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 13); //+13 for 11 Report acks (see next line) and 2 resends
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
@@ -563,6 +616,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //primary subsequent LB : 30, UB : 35
             //primary subsequent LB : 35, UB : 40
             //primary subsequent LB : 40, UB : 44
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 11); //+11 13-2 (see above comment)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 11); // 44/5=8 + (1 eobCp at 44) + 2 retrans report 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -617,7 +671,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             ltpUdpEngineSrcPtr->SetCheckpointEveryNthDataPacketForSenders(5);
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -625,6 +680,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 9); //9 (see below comment)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 10); //+10 for 9 Report acks (see next line) and 1 resend
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
@@ -638,6 +696,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //primary subsequent LB : 30, UB : 35
             //primary subsequent LB : 35, UB : 40
             //primary subsequent LB : 40, UB : 44
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 9); //+9 10-1 (see above comment)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 9); // 44/5-1=7 + (1 eobCp at 44) + 1 retrans report 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -690,7 +749,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -698,10 +758,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); //1 for 1 Report segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 1 Report ack and 1 resend CP_EOB and -1failedEOB
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 for 1 Report segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -757,6 +821,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                //lock mutex (above) before checking condition (although m_numReportSegmentTimerExpiredCallbacks is not set within the mutex)
                 if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks && (ltpUdpEngineDestPtr->m_numReportSegmentTimerExpiredCallbacks == 1)) {
                     break;
                 }
@@ -765,10 +831,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 2); //2 for 1 Report segment + 1 Resend Report Segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend Report Ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 resend Report Ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 2); //2 for 1 Report segment + 1 Resend Report Segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -830,7 +900,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->lengthOfRedPart = DESIRED_RED_DATA_TO_SEND.size();
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -840,6 +911,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, DESIRED_RED_DATA_TO_SEND.size() + 2); //+2 for 1 Report ack and 1 resend CP_EOB
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
 
@@ -882,18 +955,22 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
-                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCancelledCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(500));
             }
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
-          
+
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); // 1 for cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 6); //+6 for 5 resend EOB and 1 cancel segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size()); //+0 for -1EOB +1  cancel segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); // 1 for cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -937,7 +1014,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 100; ++i) {
-                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numReceptionSessionCancelledCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(500));
@@ -945,10 +1023,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 7); //7 see comment below
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 7); //+7 for 6 RA and 1 CA
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 for 1 CA (6 RA always dropped)
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 7); //7 for 1 RS, 5 resend RS, and 1 cancel segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -991,7 +1072,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numInitialTransmissionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                //lock mutex (above) before checking condition (although m_countUdpPacketsReceived not in mutex)
+                if (numInitialTransmissionCompletedCallbacks && (ltpUdpEngineDestPtr->m_countUdpPacketsReceived == DESIRED_RED_DATA_TO_SEND.size() - 1)) { 
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
@@ -1000,10 +1083,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); //1 cancel segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, (DESIRED_RED_DATA_TO_SEND.size() - 1) + 1); //+1 cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 cancel segment
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -1047,7 +1133,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numInitialTransmissionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numInitialTransmissionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(250));
@@ -1056,10 +1143,13 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
 
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); //1 cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 1); //+1 cancel req
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, (DESIRED_RED_DATA_TO_SEND.size() - 1) + 1); //+1 cancel req
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -1115,7 +1205,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 10; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -1123,10 +1214,14 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 10); //10 see comment below
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_RED_DATA_TO_SEND.size() + 25); //+25 for 10 Report acks (see below) and 15 resends
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_RED_DATA_TO_SEND.size() + 25 - 15); //-15 for 15 resends
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 10); //10 for 5 initial separately sentReport segments + 5 report segments of data complete as response to resends
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -1171,6 +1266,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             tReq->userDataPtr = myUserData; //keep a copy
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 60; ++i) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                //lock mutex (above) before checking condition
                 if (numTransmissionSessionCompletedCallbacks && numReceptionSessionCancelledCallbacks && (numGreenPartReceptionCallbacks >= (DESIRED_FULLY_GREEN_DATA_TO_SEND.size() - 1))) {
                     break;
                 }
@@ -1179,6 +1276,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             }
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
+
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             BOOST_REQUIRE_EQUAL(numRedPartReceptionCallbacks, 0);
             BOOST_REQUIRE_EQUAL(numSessionStartSenderCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numSessionStartReceiverCallbacks, 1);
@@ -1189,10 +1288,12 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_FULLY_GREEN_DATA_TO_SEND.size() + 1); //+1 for 1 (last) dropped packet
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, 1); //1 cancel ack
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent, DESIRED_FULLY_GREEN_DATA_TO_SEND.size() + 1); //+1 for cancel ack, not //+1 for 1 (last) dropped packet
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);
             
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, DESIRED_FULLY_GREEN_DATA_TO_SEND.size()); //+0 for -1 dropped green eob  +1 cancel ack
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent, 1); //1 for housekeeping sending CANCEL_SEGMENT_REASON_CODES::USER_CANCELLED 
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineDestPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countBatchSendCallbackCalls, ltpUdpEngineDestPtr->m_countBatchSendCalls);
@@ -1281,7 +1382,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             }
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             for (unsigned int i = 0; i < 50; ++i) {
-                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) {
+                boost::mutex::scoped_lock cvLock(cvMutex);
+                if (numRedPartReceptionCallbacks && numTransmissionSessionCompletedCallbacks) { //lock mutex (above) before checking condition
                     break;
                 }
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
@@ -1289,6 +1391,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             TryWaitForNoActiveSendersAndReceivers();
             AssertNoActiveSendersAndReceivers();
             //std::cout << "numSrcToDestDataExchanged " << numSrcToDestDataExchanged << " numDestToSrcDataExchanged " << numDestToSrcDataExchanged << " DESIRED_RED_DATA_TO_SEND.size() " << DESIRED_RED_DATA_TO_SEND.size() << std::endl;
+            
+            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             if (disableRsDefer) {
                 if (addTwoDiscretionaryCheckpoints) {
                     if (reverseOnlyFromEob) {
@@ -1357,6 +1461,10 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                     BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_numDeletedFullyClaimedPendingReports, 0); //despite ds defer on sender enabled, not needed since rsDefer on receiver preventing the need
                 }
             }
+
+            //no dropped packets
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countUdpPacketsReceived, ltpUdpEngineDestPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineDestPtr->m_countBatchUdpPacketsSent);
+            BOOST_REQUIRE_EQUAL(ltpUdpEngineDestPtr->m_countUdpPacketsReceived, ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent);
             
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls, ltpUdpEngineSrcPtr->m_countAsyncSendCalls);
             BOOST_REQUIRE_EQUAL(ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls, ltpUdpEngineSrcPtr->m_countBatchSendCalls);

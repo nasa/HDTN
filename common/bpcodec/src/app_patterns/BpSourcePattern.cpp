@@ -142,12 +142,6 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
 
 void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
 
-    boost::mutex waitingForRxBundleBeforeNextTxMutex;
-    boost::mutex::scoped_lock waitingForRxBundleBeforeNextTxLock(waitingForRxBundleBeforeNextTxMutex);
-
-    boost::mutex waitingForBundlePipelineFreeMutex;
-    boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(waitingForBundlePipelineFreeMutex);
-
     while (m_running) {
         if (m_useInductForSendingBundles) {
             LOG_INFO(subprocess) << "Waiting for Tcpcl opportunistic link on the induct to become available for forwarding bundles...";
@@ -467,7 +461,10 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             continue;
         }
         else { //bundles are still being sent
-            m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(10));
+            boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_waitingForBundlePipelineFreeMutex);
+            if (m_currentlySendingBundleIdSet.size()) { //lock mutex (above) before checking condition
+                m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(20));
+            }
             continue;
         }
         
@@ -500,7 +497,10 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                             timeout = true;
                             break;
                         }
-                        m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(10));
+                        boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_waitingForBundlePipelineFreeMutex);
+                        if (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) { //lock mutex (above) before checking condition
+                            m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(20));
+                        }
                     }
                     if (timeout) {
                         LOG_ERROR(subprocess) << "Unable to send a bundle for " << m_bundleSendTimeoutSeconds << " seconds on the outduct.. retrying in 1 second";
@@ -539,8 +539,11 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     ++m_bundleCount;
                     bundle_data += payloadSizeBytes;     // payload data
                     raw_data += bundleLength; // bundle overhead + payload data
-                    while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) {
-                        m_waitingForRxBundleBeforeNextTxConditionVariable.timed_wait(waitingForRxBundleBeforeNextTxLock, boost::posix_time::milliseconds(10));
+                    {
+                        boost::mutex::scoped_lock waitingForRxBundleBeforeNextTxLock(m_waitingForRxBundleBeforeNextTxMutex);
+                        while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) { //lock mutex (above) before checking flag m_isWaitingForRxBundleBeforeNextTx
+                            m_waitingForRxBundleBeforeNextTxConditionVariable.timed_wait(waitingForRxBundleBeforeNextTxLock, boost::posix_time::milliseconds(20));
+                        }
                     }
                     break;
                 }
@@ -654,7 +657,9 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
                 LOG_ERROR(subprocess) << "ProcessNonAdminRecordBundlePayload";
                 return;
             }
+            m_waitingForRxBundleBeforeNextTxMutex.lock();
             m_isWaitingForRxBundleBeforeNextTx = false;
+            m_waitingForRxBundleBeforeNextTxMutex.unlock();
             m_waitingForRxBundleBeforeNextTxConditionVariable.notify_one();
         }
         else { //admin record
@@ -814,7 +819,9 @@ void BpSourcePattern::WholeRxBundleReadyCallback(padded_vector_uint8_t & wholeBu
             LOG_ERROR(subprocess) << "ProcessNonAdminRecordBundlePayload";
             return;
         }
+        m_waitingForRxBundleBeforeNextTxMutex.lock();
         m_isWaitingForRxBundleBeforeNextTx = false;
+        m_waitingForRxBundleBeforeNextTxMutex.unlock();
         m_waitingForRxBundleBeforeNextTxConditionVariable.notify_one();
     }
 }

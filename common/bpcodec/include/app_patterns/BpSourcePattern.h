@@ -85,7 +85,9 @@ private:
     uint64_t m_nextBundleId;
     boost::mutex m_mutexCurrentlySendingBundleIdSet;
     std::unordered_set<uint64_t> m_currentlySendingBundleIdSet;
+    boost::mutex m_waitingForRxBundleBeforeNextTxMutex;
     boost::condition_variable m_waitingForRxBundleBeforeNextTxConditionVariable;
+    boost::mutex m_waitingForBundlePipelineFreeMutex;
     boost::condition_variable m_waitingForBundlePipelineFreeConditionVariable;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;

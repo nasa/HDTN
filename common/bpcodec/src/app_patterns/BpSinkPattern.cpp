@@ -448,12 +448,6 @@ bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<u
 
 void BpSinkPattern::SenderReaderThreadFunc() {
 
-    boost::mutex senderReaderMutex;
-    boost::mutex::scoped_lock senderReaderLock(senderReaderMutex);
-
-    boost::mutex waitingForBundlePipelineFreeMutex;
-    boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(waitingForBundlePipelineFreeMutex);
-
     uint64_t m_nextBundleId = 0;
     cbhe_eid_t destEid;
     std::vector<uint8_t> bundleToSend;
@@ -498,7 +492,10 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             thisBundleId = nextBundleId++;
         }
         else { //empty
-            m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+            boost::mutex::scoped_lock senderReaderLock(m_mutexSendBundleQueue);
+            if (m_bundleToSendQueue.empty()) { //lock mutex (above) before checking flag
+                m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(20)); // call lock.unlock() and blocks the current thread
+            }
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
@@ -551,11 +548,14 @@ void BpSinkPattern::SenderReaderThreadFunc() {
                     timeout = true;
                     break;
                 }
-                m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(10));
+                boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_mutexCurrentlySendingBundleIdSet);
+                if (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) { //lock mutex (above) before checking condition
+                    m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(20));
+                }
             }
             if (timeout) {
                 LOG_ERROR(subprocess) << "BpSinkPattern was unable to send a bundle for " << TIMEOUT_SECONDS << " seconds on the outduct";
-                m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(1000)); // call lock.unlock() and blocks the current thread
+                ////m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(1000)); // call lock.unlock() and blocks the current thread
                 //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
                 continue;
             }

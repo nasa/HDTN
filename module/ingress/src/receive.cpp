@@ -645,7 +645,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 useStorage = true;
                 break;
             }
-            egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
+            egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout(m_hdtnConfig.m_zmqMaxMessagesPerPath);
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             ++m_eventsTooManyInEgressQueue;
         }

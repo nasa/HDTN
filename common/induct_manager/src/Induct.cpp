@@ -42,9 +42,11 @@ bool Induct::OpportunisticBundleQueue::TryPop_ThreadSafe(std::pair<std::unique_p
     m_conditionVariable.notify_all();
     return true;
 }
-void Induct::OpportunisticBundleQueue::WaitUntilNotifiedOr250MsTimeout() {
+void Induct::OpportunisticBundleQueue::WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGeThisValue) {
     boost::mutex::scoped_lock lock(m_mutex);
-    m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+    if (GetQueueSize() >= waitWhileSizeGeThisValue) { //lock mutex (above) before checking condition
+        m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+    }
 }
 void Induct::OpportunisticBundleQueue::NotifyAll() {
     m_conditionVariable.notify_all();
@@ -90,7 +92,7 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
 
         }
         Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(remoteNodeId);
-        opportunisticBundleQueue.WaitUntilNotifiedOr250MsTimeout();
+        opportunisticBundleQueue.WaitUntilNotifiedOr250MsTimeout(opportunisticBundleQueue.m_maxTxBundlesInPipeline);
         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
     }
     if (zmqMsgPtr) {
