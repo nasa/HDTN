@@ -12,12 +12,13 @@
  * See LICENSE.md in the source root directory for more information.
  */
 
-#include <iostream>
-
 
 #include "UdpDelaySim.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
+#include <boost/format.hpp>
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 UdpDelaySim::UdpDelaySim(uint16_t myBoundUdpPort,
     const std::string & remoteHostnameToForwardPacketsTo,
@@ -72,12 +73,12 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
             m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), M_MY_BOUND_UDP_PORT)); // //if udpPort is 0 then bind to random ephemeral port
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "Could not bind on UDP port " << M_MY_BOUND_UDP_PORT << std::endl;
-            std::cerr << "  Error: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "Could not bind on UDP port " << M_MY_BOUND_UDP_PORT;
+            LOG_ERROR(subprocess) << "  Error: " << e.what();
 
             return false;
         }
-        printf("UdpDelaySim bound successfully on UDP port %d\n", m_udpSocket.local_endpoint().port());
+        LOG_INFO(subprocess) << "UdpDelaySim bound successfully on UDP port " << m_udpSocket.local_endpoint().port();
 
         {
             //start timer
@@ -89,7 +90,7 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
         {
             //connect
             static const boost::asio::ip::resolver_query_base::flags UDP_RESOLVER_FLAGS = boost::asio::ip::resolver_query_base::canonical_name; //boost resolver flags
-            std::cout << "udp resolving remote " << M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO << ":" << M_REMOTE_PORT_TO_FORWARD_PACKETS_TO << std::endl;
+            LOG_INFO(subprocess) << "udp resolving remote " << M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO << ":" << M_REMOTE_PORT_TO_FORWARD_PACKETS_TO;
             boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), M_REMOTE_HOSTNAME_TO_FORWARD_PACKETS_TO, M_REMOTE_PORT_TO_FORWARD_PACKETS_TO, UDP_RESOLVER_FLAGS);
             m_resolver.async_resolve(query, boost::bind(&UdpDelaySim::OnResolve,
                 this, boost::asio::placeholders::error,
@@ -102,11 +103,11 @@ bool UdpDelaySim::StartIfNotAlreadyRunning() {
 
 UdpDelaySim::~UdpDelaySim() {
     Stop();
-    std::cout << "stats:\n";
-    std::cout << "m_countCircularBufferOverruns " << m_countCircularBufferOverruns << "\n";
-    std::cout << "m_countMaxCircularBufferSize " << m_countMaxCircularBufferSize << "\n";
-    std::cout << "m_countTotalUdpPacketsReceived " << m_countTotalUdpPacketsReceived << "\n";
-    std::cout << "m_countTotalUdpPacketsSent " << m_countTotalUdpPacketsSent << "\n";
+    LOG_INFO(subprocess) << "stats:";
+    LOG_INFO(subprocess) << "m_countCircularBufferOverruns " << m_countCircularBufferOverruns;
+    LOG_INFO(subprocess) << "m_countMaxCircularBufferSize " << m_countMaxCircularBufferSize;
+    LOG_INFO(subprocess) << "m_countTotalUdpPacketsReceived " << m_countTotalUdpPacketsReceived;
+    LOG_INFO(subprocess) << "m_countTotalUdpPacketsSent " << m_countTotalUdpPacketsSent;
 }
 
 void UdpDelaySim::Stop() {
@@ -125,11 +126,11 @@ void UdpDelaySim::Stop() {
 
 void UdpDelaySim::OnResolve(const boost::system::error_code & ec, boost::asio::ip::udp::resolver::results_type results) { // Resolved endpoints as a range.
     if (ec) {
-        std::cerr << "Error resolving: " << ec.message() << std::endl;
+        LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
         m_udpDestinationEndpoint = *results;
-        std::cout << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << ".  Binding..." << std::endl;
+        LOG_INFO(subprocess) << "resolved host to " << m_udpDestinationEndpoint.address() << ":" << m_udpDestinationEndpoint.port() << ".  Binding...";
         StartUdpReceive();
     }
 }
@@ -155,7 +156,7 @@ void UdpDelaySim::HandleUdpReceive(const boost::system::error_code & error, std:
         StartUdpReceive(); //restart operation only if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "critical error in UdpDelaySim::HandleUdpReceive(): " << error.message() << std::endl;
+        LOG_FATAL(subprocess) << "critical error in UdpDelaySim::HandleUdpReceive(): " << error.message();
         DoUdpShutdown();
     }
 }
@@ -167,7 +168,7 @@ void UdpDelaySim::QueuePacketForDelayedSend_NotThreadSafe(std::vector<uint8_t>& 
         ++m_countCircularBufferOverruns;
         if (!m_printedCbTooSmallNotice) {
             m_printedCbTooSmallNotice = true;
-            std::cout << "notice in UdpDelaySim::HandleUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!" << std::endl;
+            LOG_WARNING(subprocess) << "notice in UdpDelaySim::HandleUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!";
         }
     }
     else { //not full.. swap packet in to circular buffer
@@ -189,11 +190,11 @@ void UdpDelaySim::DoUdpShutdown() {
     m_timerTransferRateStats.cancel();
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "closing UdpDelaySim UDP socket.." << std::endl;
+            LOG_INFO(subprocess) << "closing UdpDelaySim UDP socket..";
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cout << "notice in UdpDelaySim::DoUdpShutdown calling udpSocket.close: " << e.what() << std::endl;
+            LOG_WARNING(subprocess) << "notice in UdpDelaySim::DoUdpShutdown calling udpSocket.close: " << e.what();
         }
     }
 
@@ -224,14 +225,11 @@ void UdpDelaySim::OnSendDelay_TimerExpired(const boost::system::error_code& e, c
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred));
     }
-    else {
-        //std::cout << "timer cancelled\n";
-    }
 }
 
 void UdpDelaySim::HandleUdpSend(const boost::system::error_code& error, std::size_t bytes_transferred) {
     if (error) {
-        std::cerr << "error in UdpDelaySim::HandleUdpSend: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "UdpDelaySim::HandleUdpSend: " << error.message();
         DoUdpShutdown();
     }
     else {
@@ -260,8 +258,10 @@ void UdpDelaySim::TransferRate_TimerExpired(const boost::system::error_code& e) 
             double rateBytesTxMbps = (diffTotalUdpBytesSent * 8.0) / diffTotalMicroseconds;
             const unsigned int cbSize = m_circularIndexBuffer.NumInBuffer();
 
-            printf("RX: %0.4f Mbits/sec, %0.1f Packets/sec   TX: %0.4f Mbits/sec, %0.1f Packets/sec  Buffered: %d\n",
-                rateBytesRxMbps, ratePacketsRxPerSecond, rateBytesTxMbps, ratePacketsTxPerSecond, cbSize);
+            static const boost::format fmtTemplate("RX: %0.4f Mbits/sec, %0.1f Packets/sec   TX: %0.4f Mbits/sec, %0.1f Packets/sec  Buffered: %d");
+            boost::format fmt(fmtTemplate);
+            fmt % rateBytesRxMbps % ratePacketsRxPerSecond % rateBytesTxMbps % ratePacketsTxPerSecond % cbSize;
+            LOG_INFO(subprocess) << fmt.str();
         }
 
         m_lastTotalUdpPacketsReceived = m_countTotalUdpPacketsReceived;
@@ -273,7 +273,7 @@ void UdpDelaySim::TransferRate_TimerExpired(const boost::system::error_code& e) 
         m_timerTransferRateStats.async_wait(boost::bind(&UdpDelaySim::TransferRate_TimerExpired, this, boost::asio::placeholders::error));
     }
     else {
-        std::cout << "transfer rate timer stopped\n";
+        LOG_INFO(subprocess) << "transfer rate timer stopped";
     }
 }
 

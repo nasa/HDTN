@@ -5,8 +5,6 @@
  ****************************************************************************
  */
 
-#include <iostream>
-
 #include "codec/bpv6.h"
 #include "ingress.h"
 #include "Logger.h"
@@ -19,6 +17,8 @@
 #include "codec/BundleViewV7.h"
 
 namespace hdtn {
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
 
 Ingress::Ingress() :
     m_bundleCountStorage(0),
@@ -54,9 +54,7 @@ void Ingress::Stop() {
     }
 
 
-    std::cout << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue << std::endl;
-    hdtn::Logger::getInstance()->logNotification("ingress",
-        "m_eventsTooManyInStorageQueue: " + std::to_string(m_eventsTooManyInStorageQueue));
+    LOG_INFO(subprocess) << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue;
 }
 
 int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
@@ -136,7 +134,7 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcess
             }
         }
         catch (const zmq::error_t & ex) {
-            std::cerr << "error: ingress cannot connect bind zmq socket: " << ex.what() << std::endl;
+            LOG_ERROR(subprocess) << "cannot connect bind zmq socket: " << ex.what();
             return 0;
         }
 
@@ -162,9 +160,9 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcess
         try {
             m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
             m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "");
-            std::cout << "Ingress connected and listening to events from scheduler " << connect_boundSchedulerPubSubPath << std::endl;
+            LOG_INFO(subprocess) << "Ingress connected and listening to events from scheduler " << connect_boundSchedulerPubSubPath;
         } catch (const zmq::error_t & ex) {
-            std::cerr << "error: ingress cannot connect to scheduler socket: " << ex.what() << std::endl;
+            LOG_ERROR(subprocess) << "ingress cannot connect to scheduler socket: " << ex.what();
             return 0;
         }
         
@@ -178,7 +176,7 @@ int Ingress::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcess
             boost::bind(&Ingress::OnNewOpportunisticLinkCallback, this, boost::placeholders::_1, boost::placeholders::_2),
             boost::bind(&Ingress::OnDeletedOpportunisticLinkCallback, this, boost::placeholders::_1));
 
-        std::cout << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path." << std::endl;
+        LOG_INFO(subprocess) << "Ingress running, allowing up to " << m_hdtnConfig.m_zmqMaxMessagesPerPath << " max zmq messages per path.";
     }
     return 0;
 }
@@ -205,7 +203,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
             rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
         }
         catch (zmq::error_t & e) {
-            std::cout << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "caught zmq::error_t in Ingress::ReadZmqAcksThreadFunc: " << e.what();
             continue;
         }
         if (rc > 0) {
@@ -213,20 +211,15 @@ void Ingress::ReadZmqAcksThreadFunc() {
                 EgressAckHdr receivedEgressAckHdr;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmq::mutable_buffer(&receivedEgressAckHdr, sizeof(hdtn::EgressAckHdr)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    std::cerr << "error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress",
-                        "Error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack");
+                    LOG_ERROR(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack";
+                        "Error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read egress BlockHdr ack";
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
-                    std::cerr << "egress EgressAckHdr message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::EgressAckHdr) << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress",
-                        "Egress EgressAckHdr message mismatch: untruncated = " + std::to_string(res->untruncated_size)
-                        + " truncated = " + std::to_string(res->size) + " expected = " +
-                        std::to_string(sizeof(hdtn::EgressAckHdr)));
+                    LOG_ERROR(subprocess) << "EgressAckHdr message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::EgressAckHdr);
                 }
                 else if (receivedEgressAckHdr.base.type != HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
-                    std::cerr << "error message ack not HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS\n";
+                    LOG_ERROR(subprocess) << "message ack not HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS";
                 }
                 else {
                     m_egressAckMapSetMutex.lock();
@@ -239,7 +232,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                         const bool erased = (m_finalDestNodeIdAvailableSet.erase(receivedEgressAckHdr.finalDestEid.nodeId) != 0); //eid with any service id
                         m_eidAvailableSetMutex.unlock();
                         if (erased) {
-                            std::cout << "Ingress got a link down notification from egress for final dest node id " << receivedEgressAckHdr.finalDestEid.nodeId << "\n";
+                            LOG_INFO(subprocess) << "Ingress got a link down notification from egress for final dest node id " << receivedEgressAckHdr.finalDestEid.nodeId;
                         }
                     }
                     if (egressToIngressAckingObj.CompareAndPop_ThreadSafe(receivedEgressAckHdr.custodyId)) {
@@ -247,8 +240,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                         ++totalAcksFromEgress;
                     }
                     else {
-                        std::cerr << "error didn't receive expected egress ack" << std::endl;
-                        hdtn::Logger::getInstance()->logError("ingress", "Error didn't receive expected egress ack");
+                        LOG_ERROR(subprocess) << "didn't receive expected egress ack";
                     }
 
                 }
@@ -257,29 +249,22 @@ void Ingress::ReadZmqAcksThreadFunc() {
                 StorageAckHdr receivedStorageAck;
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingStorageToBoundIngressPtr->recv(zmq::mutable_buffer(&receivedStorageAck, sizeof(hdtn::StorageAckHdr)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    std::cerr << "error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read storage BlockHdr ack" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress",
-                        "Error in BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read storage BlockHdr ack");
+                    LOG_ERROR(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc: cannot read storage BlockHdr ack";
 
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::StorageAckHdr))) {
-                    std::cerr << "egress StorageAckHdr message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::StorageAckHdr) << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress",
-                        "Egress blockhdr message mismatch: untruncated = " + std::to_string(res->untruncated_size)
-                        + " truncated = " + std::to_string(res->size) + " expected = " +
-                        std::to_string(sizeof(hdtn::StorageAckHdr)));
+                    LOG_ERROR(subprocess) << "StorageAckHdr message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(hdtn::StorageAckHdr);
                 }
                 else if (receivedStorageAck.base.type != HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS) {
-                    std::cerr << "error message ack not HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS\n";
+                    LOG_ERROR(subprocess) << "message ack not HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS";
                 }
                 else {
                     bool needsNotify = false;
                     {
                         boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
                         if (m_storageAckQueue.empty()) {
-                            std::cerr << "error m_storageAckQueue is empty" << std::endl;
-                            hdtn::Logger::getInstance()->logError("ingress", "Error m_storageAckQueue is empty");
+                            LOG_ERROR(subprocess) << "m_storageAckQueue is empty";
                         }
                         else if (m_storageAckQueue.front() == receivedStorageAck.ingressUniqueId) {
                             m_storageAckQueue.pop();
@@ -287,8 +272,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                             ++totalAcksFromStorage;
                         }
                         else {
-                            std::cerr << "error didn't receive expected storage ack" << std::endl;
-                            hdtn::Logger::getInstance()->logError("ingress", "Error didn't receive expected storage ack");
+                            LOG_ERROR(subprocess) << "didn't receive expected storage ack";
                         }
                     }
                     if (needsNotify) {
@@ -303,42 +287,35 @@ void Ingress::ReadZmqAcksThreadFunc() {
                 uint8_t guiMsgByte;
                 const zmq::recv_buffer_result_t res = m_zmqRepSock_connectingGuiToFromBoundIngressPtr->recv(zmq::mutable_buffer(&guiMsgByte, sizeof(guiMsgByte)), zmq::recv_flags::dontwait);
                 if (!res) {
-                    std::cerr << "error in Ingress::ReadZmqAcksThreadFunc: cannot read guiMsgByte" << std::endl;
+                    LOG_ERROR(subprocess) << "ReadZmqAcksThreadFunc: cannot read guiMsgByte";
                 }
                 else if ((res->truncated()) || (res->size != sizeof(guiMsgByte))) {
-                    std::cerr << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
-                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte) << std::endl;
+                    LOG_ERROR(subprocess) << "guiMsgByte message mismatch: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(guiMsgByte);
                 }
                 else if (guiMsgByte != 1) {
-                    std::cerr << "error guiMsgByte not 1\n";
+                    LOG_ERROR(subprocess) << "guiMsgByte not 1";
                 }
                 else {
                     //send telemetry
-                    //std::cout << "ingress send telem\n";
                     IngressTelemetry_t telem;
                     telem.totalData = static_cast<double>(m_bundleData);
                     telem.bundleCountEgress = m_bundleCountEgress;
                     telem.bundleCountStorage = m_bundleCountStorage;
                     if (!m_zmqRepSock_connectingGuiToFromBoundIngressPtr->send(zmq::const_buffer(&telem, sizeof(telem)), zmq::send_flags::dontwait)) {
-                        std::cerr << "ingress can't send telemetry to gui" << std::endl;
+                        LOG_ERROR(subprocess) << "can't send telemetry to gui";
                     }
                 }
             }
         }
     }
-    std::cout << "totalAcksFromEgress: " << totalAcksFromEgress << std::endl;
-    std::cout << "totalAcksFromStorage: " << totalAcksFromStorage << std::endl;
-    std::cout << "m_bundleCountStorage: " << m_bundleCountStorage << std::endl;
-    std::cout << "m_bundleCountEgress: " << m_bundleCountEgress << std::endl;
+    LOG_INFO(subprocess) << "totalAcksFromEgress: " << totalAcksFromEgress;
+    LOG_INFO(subprocess) << "totalAcksFromStorage: " << totalAcksFromStorage;
+    LOG_INFO(subprocess) << "m_bundleCountStorage: " << m_bundleCountStorage;
+    LOG_INFO(subprocess) << "m_bundleCountEgress: " << m_bundleCountEgress;
     m_bundleCount = m_bundleCountStorage + m_bundleCountEgress;
-    std::cout << "m_bundleCount: " << m_bundleCount << std::endl;
-    std::cout << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting\n";
-    hdtn::Logger::getInstance()->logInfo("ingress", "totalAcksFromEgress: " + std::to_string(totalAcksFromEgress));
-    hdtn::Logger::getInstance()->logInfo("ingress", "totalAcksFromStorage: " + std::to_string(totalAcksFromStorage));
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountStorage: " + std::to_string(m_bundleCountStorage));
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCountEgress: " + std::to_string(m_bundleCountEgress));
-    hdtn::Logger::getInstance()->logInfo("ingress", "m_bundleCount: " + std::to_string(m_bundleCount));
-    hdtn::Logger::getInstance()->logNotification("ingress", "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting");
+    LOG_INFO(subprocess) << "m_bundleCount: " << m_bundleCount;
+    LOG_DEBUG(subprocess) << "BpIngressSyscall::ReadZmqAcksThreadFunc thread exiting";
 }
 
 void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
@@ -356,18 +333,18 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             rc = zmq::poll(&items[0], NUM_SOCKETS, DEFAULT_BIG_TIMEOUT_POLL);
         }
         catch (zmq::error_t & e) {
-            std::cout << "caught zmq::error_t in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "caught zmq::error_t in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: " << e.what();
             continue;
         }
         if ((rc > 0) && (items[0].revents & ZMQ_POLLIN)) {
             const zmq::recv_buffer_result_t res = m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->recv(messageFlagsBuffer, zmq::recv_flags::none);
             if (!res) {
-                std::cerr << "error in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: messageFlags not received" << std::endl;
+                LOG_ERROR(subprocess) << "ReadTcpclOpportunisticBundlesFromEgressThreadFunc: messageFlags not received";
                 continue;
             }
             else if ((res->truncated()) || (res->size != sizeof(messageFlags))) {
-                std::cerr << "error in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: messageFlags message mismatch: untruncated = " << res->untruncated_size
-                    << " truncated = " << res->size << " expected = " << sizeof(messageFlags) << std::endl;
+                LOG_ERROR(subprocess) << "ReadTcpclOpportunisticBundlesFromEgressThreadFunc: messageFlags message mismatch: untruncated = " << res->untruncated_size
+                    << " truncated = " << res->size << " expected = " << sizeof(messageFlags);
                 continue;
             }
             
@@ -376,7 +353,7 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             std::unique_ptr<zmq::message_t> zmqPotentiallyPaddedMessage = boost::make_unique<zmq::message_t>();
             //no header, just a bundle as a zmq message
             if (!m_zmqPullSock_connectingEgressBundlesOnlyToBoundIngressPtr->recv(*zmqPotentiallyPaddedMessage, zmq::recv_flags::none)) {
-                std::cerr << "error in Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc: cannot receive zmq\n";
+                LOG_ERROR(subprocess) << "ReadTcpclOpportunisticBundlesFromEgressThreadFunc: cannot receive zmq";
             }
             else {
                 if (messageFlags) { //1 => from egress and needs processing (is padded from the convergence layer)
@@ -393,7 +370,7 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
             }
         }
     }
-    std::cout << "totalOpportunisticBundlesFromEgress: " << totalOpportunisticBundlesFromEgress << std::endl;
+    LOG_INFO(subprocess) << "totalOpportunisticBundlesFromEgress: " << totalOpportunisticBundlesFromEgress;
 }
 
 void Ingress::SchedulerEventHandler() {
@@ -403,13 +380,11 @@ void Ingress::SchedulerEventHandler() {
     uint64_t * rxBufRawPtrAlign64 = &m_schedulerRxBufPtrToStdVec64[0];
     const zmq::recv_buffer_result_t res = m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
     if (!res) {
-        std::cerr << "[Ingress::SchedulerEventHandler] message not received" << std::endl;
-        hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] message not received");
+        LOG_ERROR(subprocess) << "SchedulerEventHandler: message not received";
         return;
     }
     else if (res->size < sizeof(hdtn::CommonHdr)) {
-        std::cerr << "[Ingress::SchedulerEventHandler] res->size < sizeof(hdtn::CommonHdr)" << std::endl;
-        hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size < sizeof(hdtn::CommonHdr)");
+        LOG_ERROR(subprocess) << "SchedulerEventHandler: res->size < sizeof(hdtn::CommonHdr)";
         return;
     }
 
@@ -417,8 +392,7 @@ void Ingress::SchedulerEventHandler() {
     if (common->type == HDTN_MSGTYPE_ILINKUP) {
         hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufRawPtrAlign64;
         if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
-            std::cerr << "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStartHdr" << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStartHdr");
+            LOG_ERROR(subprocess) << "SchedulerEventHandler: res->size != sizeof(hdtn::IreleaseStartHdr";
             return;
         }
         m_eidAvailableSetMutex.lock();
@@ -427,14 +401,13 @@ void Ingress::SchedulerEventHandler() {
         m_finalDestNodeIdAvailableSet.insert(iReleaseStartHdr->finalDestinationNodeId); //eid with any service id
         m_finalDestNodeIdAvailableSet.insert(iReleaseStartHdr->nextHopNodeId);
         m_eidAvailableSetMutex.unlock();
-        std::cout << "Ingress sending bundles to egress for finalDestinationEid: "
-            << Uri::GetIpnUriStringAnyServiceNumber(iReleaseStartHdr->finalDestinationNodeId) << std::endl;
+        LOG_INFO(subprocess) << "Ingress sending bundles to egress for finalDestinationEid: "
+            << Uri::GetIpnUriStringAnyServiceNumber(iReleaseStartHdr->finalDestinationNodeId);
     }
     else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
         hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
         if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
-            std::cerr << "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr" << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", "[Ingress::SchedulerEventHandler] res->size != sizeof(hdtn::IreleaseStopHdr");
+            LOG_ERROR(subprocess) << "SchedulerEventHandler: res->size != sizeof(hdtn::IreleaseStopHdr";
             return;
         }
         m_eidAvailableSetMutex.lock();
@@ -443,8 +416,8 @@ void Ingress::SchedulerEventHandler() {
         m_finalDestNodeIdAvailableSet.erase(iReleaseStopHdr->finalDestinationNodeId); //eid with any service id
         m_finalDestNodeIdAvailableSet.erase(iReleaseStopHdr->nextHopNodeId);
         m_eidAvailableSetMutex.unlock();
-        std::cout << "Ingress sending bundles to storage for finalDestinationEid: "
-            << Uri::GetIpnUriStringAnyServiceNumber(iReleaseStopHdr->finalDestinationNodeId) << std::endl;
+        LOG_INFO(subprocess) << "Sending bundles to storage for finalDestinationEid: "
+            << Uri::GetIpnUriStringAnyServiceNumber(iReleaseStopHdr->finalDestinationNodeId);
     }
 }
 
@@ -456,7 +429,6 @@ static void CustomCleanupPaddedVecUint8(void *data, void *hint) {
 }
 
 static void CustomCleanupStdVecUint8(void *data, void *hint) {
-    //std::cout << "free " << static_cast<std::vector<uint8_t>*>(hint)->size() << std::endl;
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
 
@@ -474,9 +446,9 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
 {
     std::unique_ptr<zmq::message_t> zmqMessageToSendUniquePtr; //create on heap as zmq default constructor costly
     if (bundleCurrentSize > m_hdtnConfig.m_maxBundleSizeBytes) { //should never reach here as this is handled by induct
-        std::cerr << "error in Ingress::Process: received bundle size ("
+        LOG_ERROR(subprocess) << "Process: received bundle size ("
             << bundleCurrentSize << " bytes) exceeds max bundle size limit of "
-            << m_hdtnConfig.m_maxBundleSizeBytes << " bytes\n";
+            << m_hdtnConfig.m_maxBundleSizeBytes << " bytes";
         return false;
     }
     cbhe_eid_t finalDestEid;
@@ -488,7 +460,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
     if (isBpVersion6) {
         BundleViewV6 bv;
         if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize)) {
-            std::cerr << "malformed bundle\n";
+            LOG_ERROR(subprocess) << "malformed bundle";
             return false;
         }
         Bpv6CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -505,7 +477,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
                 finalDestEid = primary.m_destinationEid;
-                std::cerr << "Sending Ping for destination " << primary.m_destinationEid << "\n";
+                LOG_ERROR(subprocess) << "Sending Ping for destination " << primary.m_destinationEid;
                 primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                 bv.m_primaryBlockView.SetManuallyModified();
                 bv.Render(bundleCurrentSize + 10);
@@ -529,7 +501,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
         BundleViewV7 bv;
         const bool skipCrcVerifyInCanonicalBlocks = !needsProcessing;
         if (!bv.LoadBundle(bundleDataBegin, bundleCurrentSize, skipCrcVerifyInCanonicalBlocks)) { //todo true => skip canonical block crc checks to increase speed
-            std::cout << "error in Ingress::Process: malformed version 7 bundle received\n";
+            LOG_ERROR(subprocess) << "Process: malformed version 7 bundle received";
             return false;
         }
         Bpv7CbhePrimaryBlock & primary = bv.m_primaryBlockView.header;
@@ -546,7 +518,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE, blocks);
                 if (blocks.size() > 1) {
-                    std::cout << "error in Ingress::Process: version 7 bundle received has multiple previous node blocks\n";
+                    LOG_ERROR(subprocess) << "Process: version 7 bundle received has multiple previous node blocks";
                     return false;
                 }
                 else if (blocks.size() == 1) { //update existing
@@ -555,7 +527,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                         blocks[0]->SetManuallyModified();
                     }
                     else {
-                        std::cout << "error in Ingress::Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed\n";
+                        LOG_ERROR(subprocess) << "Process: dynamic_cast to Bpv7PreviousNodeCanonicalBlock failed";
                         return false;
                     }
                 }
@@ -573,7 +545,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 //get hop count if exists and update it
                 bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT, blocks);
                 if (blocks.size() > 1) {
-                    std::cout << "error in Ingress::Process: version 7 bundle received has multiple hop count blocks\n";
+                    LOG_ERROR(subprocess) << "Process: version 7 bundle received has multiple hop count blocks";
                     return false;
                 }
                 else if (blocks.size() == 1) { //update existing
@@ -586,27 +558,27 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                         //Section 5.10.
                         //Hop limit MUST be in the range 1 through 255.
                         if ((newHopCount > hopCountBlockPtr->m_hopLimit) || (newHopCount > 255)) {
-                            std::cout << "notice: Ingress::Process dropping version 7 bundle with hop count " << newHopCount << "\n";
+                            LOG_INFO(subprocess) << "Process dropping version 7 bundle with hop count " << newHopCount;
                             return false;
                         }
                         hopCountBlockPtr->m_hopCount = newHopCount;
                         blocks[0]->SetManuallyModified();
                     }
                     else {
-                        std::cout << "error in Ingress::Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed\n";
+                        LOG_ERROR(subprocess) << "Process: dynamic_cast to Bpv7HopCountCanonicalBlock failed";
                         return false;
                     }
                 }
                 if (isEcho) {
                     primary.m_destinationEid = primary.m_sourceNodeId;
                     finalDestEid = primary.m_sourceNodeId;
-                    std::cerr << "Sending Ping for destination " << finalDestEid << std::endl;
+                    LOG_ERROR(subprocess) << "Sending Ping for destination " << finalDestEid;
                     primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                     bv.m_primaryBlockView.SetManuallyModified();
                 }
 
                 if (!bv.RenderInPlace(PaddedMallocator<uint8_t>::PADDING_ELEMENTS_BEFORE)) {
-                    std::cout << "error in Ingress::Process: bpv7 RenderInPlace failed\n";
+                    LOG_ERROR(subprocess) << "Process: bpv7 RenderInPlace failed";
                     return false;
                 }
                 bundleCurrentSize = bv.m_renderedBundle.size();
@@ -622,14 +594,11 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
         }
     }
     else {
-        std::cout << "error in Ingress::Process: unsupported bundle version received\n";
+        LOG_ERROR(subprocess) << "Process: unsupported bundle version received";
         return false;
     }
 
 
-    //if (isAdminRecordForHdtnStorage) {
-    //    std::cout << "ingress received admin record for final dest eid (" << finalDestEid.nodeId << "," << finalDestEid.serviceId << ")\n";
-    //}
     m_eidAvailableSetMutex.lock();
     const bool linkIsUp = ((m_finalDestEidAvailableSet.count(finalDestEid) != 0) || (m_finalDestNodeIdAvailableSet.count(finalDestEid.nodeId) != 0));
     m_eidAvailableSetMutex.unlock();
@@ -653,8 +622,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             else {
                 msg += " ..sending to storage instead";
             }
-            std::cerr << msg << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", msg);
+            LOG_ERROR(subprocess) << msg;
         }
     }
     if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
@@ -673,8 +641,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                     boost::lexical_cast<std::string>(m_hdtnConfig.m_maxIngressBundleWaitOnEgressMilliseconds) +
                     " milliseconds because it has too many pending egress acks in the queue for finalDestEid (" +
                     boost::lexical_cast<std::string>(finalDestEid.nodeId) + "," + boost::lexical_cast<std::string>(finalDestEid.serviceId) + ") ..sending to storage instead";
-                std::cerr << msg << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", msg);
+                LOG_ERROR(subprocess) << msg;
                 useStorage = true;
                 break;
             }
@@ -701,16 +668,14 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
                 boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
                 if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                    std::cerr << "ingress can't send BlockHdr to egress" << std::endl;
-                    hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to egress");
+                    LOG_ERROR(subprocess) << "can't send BlockHdr to egress";
                 }
                 else {
                     egressToIngressAckingObj.PushMove_ThreadSafe(ingressToEgressUniqueId);
 
 
                     if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
-                        std::cerr << "ingress can't send bundle to egress" << std::endl;
-                        hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to egress");
+                        LOG_ERROR(subprocess) << "can't send bundle to egress";
 
                     }
                     else {
@@ -732,8 +697,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + twoSeconds;
             }
             if (timeoutExpiry < boost::posix_time::microsec_clock::universal_time()) {
-                std::cerr << "error: too many pending storage acks in the queue" << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", "Error: too many pending storage acks in the queue");
+                LOG_ERROR(subprocess) << "too many pending storage acks in the queue";
                 return false;
             }
             m_conditionVariableStorageAckReceived.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
@@ -754,15 +718,13 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
 
         //zmq threads not thread safe but protected by mutex above
         if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-            std::cerr << "ingress can't send BlockHdr to storage" << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send BlockHdr to storage");
+            LOG_ERROR(subprocess) << "can't send BlockHdr to storage";
         }
         else {
             m_storageAckQueue.push(ingressToStorageUniqueId);
 
             if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
-                std::cerr << "ingress can't send bundle to storage" << std::endl;
-                hdtn::Logger::getInstance()->logError("ingress", "Ingress can't send bundle to storage");
+                LOG_ERROR(subprocess) << "can't send bundle to storage";
             }
             else {
                 //success                            
@@ -798,8 +760,7 @@ void Ingress::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool is
         //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
         boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
         if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::dontwait)) {
-            std::cerr << "ingress can't send ToEgressHdr Opportunistic link message to egress" << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", "ingress can't send ToEgressHdr Opportunistic link message to egress");
+            LOG_ERROR(subprocess) << "can't send ToEgressHdr Opportunistic link message to egress";
         }
     }
 
@@ -813,31 +774,30 @@ void Ingress::SendOpportunisticLinkMessages(const uint64_t remoteNodeId, bool is
     {
         boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
         if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::dontwait)) {
-            std::cerr << "ingress can't send ToStorageHdr Opportunistic link message to storage" << std::endl;
-            hdtn::Logger::getInstance()->logError("ingress", "ingress can't send ToStorageHdr Opportunistic link message to storage");
+            LOG_ERROR(subprocess) << "can't send ToStorageHdr Opportunistic link message to storage";
         }
     }
 }
 
 void Ingress::OnNewOpportunisticLinkCallback(const uint64_t remoteNodeId, Induct * thisInductPtr) {
     if (TcpclInduct * tcpclInductPtr = dynamic_cast<TcpclInduct*>(thisInductPtr)) {
-        std::cout << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*\n";
+        LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV3 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
     }
     else if (TcpclV4Induct * tcpclInductPtr = dynamic_cast<TcpclV4Induct*>(thisInductPtr)) {
-        std::cout << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*\n";
+        LOG_INFO(subprocess) << "New opportunistic link detected on TcpclV4 induct for ipn:" << remoteNodeId << ".*";
         SendOpportunisticLinkMessages(remoteNodeId, true);
         boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
         m_availableDestOpportunisticNodeIdToTcpclInductMap[remoteNodeId] = tcpclInductPtr;
     }
     else {
-        std::cerr << "error in Ingress::OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct\n";
+        LOG_ERROR(subprocess) << "OnNewOpportunisticLinkCallback: Induct ptr cannot cast to TcpclInduct or TcpclV4Induct";
     }
 }
 void Ingress::OnDeletedOpportunisticLinkCallback(const uint64_t remoteNodeId) {
-    std::cout << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*\n";
+    LOG_INFO(subprocess) << "Deleted opportunistic link on Tcpcl induct for ipn:" << remoteNodeId << ".*";
     SendOpportunisticLinkMessages(remoteNodeId, false);
     boost::mutex::scoped_lock lock(m_availableDestOpportunisticNodeIdToTcpclInductMapMutex);
     m_availableDestOpportunisticNodeIdToTcpclInductMap.erase(remoteNodeId);

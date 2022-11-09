@@ -350,11 +350,11 @@ void Scheduler::EgressEventsHandler() {
 
             if (event == 1) {
                 if (m_mapContactUp[contact]) {
-	            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event " << std::endl;
-		    SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
-		}
+                    LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
+                    SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
+                }
             } else {
-                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event " << std::endl;
+                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event ";
                 SendLinkDown(srcNode, destNode, finalDestEid.nodeId);
             }
         }
@@ -379,7 +379,7 @@ void Scheduler::UisEventsHandler() {
         }
         std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(JsonSerializable::GetPropertyTreeFromCharArray((char*)message.data(), message.size()));
         boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), hdr.using_unix_timestamp));
-       LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
+        LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
     }
     else {
         LOG_ERROR(subprocess) << "error in Scheduler::UisEventsHandler: unknown hdr " << hdr.base.type;
@@ -452,10 +452,10 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
 
         if (!isLinkUp) {
             m_contactUpSetMutex.lock();
-	    m_mapContactUp[contact] = false;
-	    std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
+            m_mapContactUp[contact] = false;
+            LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
             m_contactUpSetMutex.unlock();   
-	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
         }
     }
 
@@ -523,18 +523,18 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
             contact.dest = contactPlan.first.dest;
 
             if (isLinkUp) {
-                 m_contactUpSetMutex.lock(); 
-                 m_mapContactUp[contact] = true;
-		 std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
-		m_contactUpSetMutex.unlock();
-		 SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+                m_contactUpSetMutex.lock();
+                m_mapContactUp[contact] = true;
+                LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest;
+                m_contactUpSetMutex.unlock();
+                SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             else {
-		m_contactUpSetMutex.lock();    
-		m_mapContactUp[contact] = false;
-		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
-		m_contactUpSetMutex.unlock();
-		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+                m_contactUpSetMutex.lock();
+                m_mapContactUp[contact] = false;
+                LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest;
+                m_contactUpSetMutex.unlock();
+                SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event

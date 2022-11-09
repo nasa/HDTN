@@ -7,6 +7,7 @@
 #include <boost/uuid/detail/sha1.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/format.hpp>
 #include "LtpUdpEngineManager.h"
 #include <memory>
 #ifndef _WIN32
@@ -276,7 +277,12 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             boost::posix_time::time_duration diff = senderHelper.finishedTime - startTime;
             const double rateMbps = totalBitsToSend / (diff.total_microseconds());
             const double rateBps = rateMbps * 1e6;
-            printf("Sent data at %0.4f Mbits/sec\n", rateMbps);
+
+            static const boost::format fmtTemplate("Sent data at %0.4f Mbits/sec");
+            boost::format fmt(fmtTemplate);
+            fmt % rateMbps;
+            LOG_INFO(subprocess) << fmt.str();
+
             LOG_INFO(subprocess) << "udp packets sent: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchUdpPacketsSent);
             LOG_INFO(subprocess) << "system calls for send: " << (ltpUdpEngineSrcPtr->m_countAsyncSendCallbackCalls + ltpUdpEngineSrcPtr->m_countBatchSendCallbackCalls);
         }

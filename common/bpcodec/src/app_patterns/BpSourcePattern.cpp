@@ -2,6 +2,7 @@
 #include "app_patterns/BpSourcePattern.h"
 #include "Logger.h"
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
@@ -597,11 +598,17 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     boost::posix_time::time_duration diff = finishedTime - startTime;
     {
         const double rateMbps = (bundle_data * 8.0) / (diff.total_microseconds());
-        printf("Sent bundle_data (payload data) at %0.4f Mbits/sec\n", rateMbps);
+        static const boost::format fmtTemplate("Sent bundle_data (payload data) at %0.4f Mbits/sec");
+        boost::format fmt(fmtTemplate);
+        fmt % rateMbps;
+        LOG_INFO(subprocess) << fmt.str();
     }
     {
         const double rateMbps = (raw_data * 8.0) / (diff.total_microseconds());
-        printf("Sent raw_data (bundle overhead + payload data) at %0.4f Mbits/sec\n", rateMbps);
+        static const boost::format fmtTemplate("Sent raw_data (bundle overhead + payload data) at %0.4f Mbits/sec");
+        boost::format fmt(fmtTemplate);
+        fmt % rateMbps;
+        LOG_INFO(subprocess) << fmt.str();
     }
 
     LOG_INFO(subprocess) << "BpSourcePatternThreadFunc thread exiting";

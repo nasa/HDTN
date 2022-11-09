@@ -5,17 +5,18 @@
  ****************************************************************************
  */
 
-#include <iostream>
 #include "EgressAsync.h"
+#include "Logger.h"
 #include "EgressAsyncRunner.h"
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::egress;
+
 void EgressAsyncRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
-    hdtn::Logger::getInstance()->logNotification("egress", "Keyboard Interrupt.. exiting");
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -44,7 +45,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
 
@@ -52,42 +53,36 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
             hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
             if (!hdtnConfig) {
-                std::cerr << "error loading config file: " << configFileName << std::endl;
+                LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            hdtn::Logger::getInstance()->logError("egress", "Invalid data error: " + std::string(e.what()));
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+            LOG_ERROR(subprocess) << desc;
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
-            hdtn::Logger::getInstance()->logError("egress", "Error: " + std::string(e.what()));
+            LOG_ERROR(subprocess) << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
-            hdtn::Logger::getInstance()->logError("egress", "Exception of unknown type!");
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
 
-        std::cout << "starting EgressAsync.." << std::endl;
-        hdtn::Logger::getInstance()->logNotification("egress", "Starting EgressAsync");
+        LOG_INFO(subprocess) << "starting EgressAsync..";
         
 	hdtn::HegrManagerAsync egress;
         egress.Init(*hdtnConfig);
 
-        printf("Announcing presence of egress ...\n");
-        hdtn::Logger::getInstance()->logNotification("egress", "Egress Present");
+        LOG_DEBUG(subprocess) << "Announcing presence of egress...";
         
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "egress up and running" << std::endl;
-        hdtn::Logger::getInstance()->logNotification("egress", "Egress up and running.");
+        LOG_INFO(subprocess) << "egress up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -95,13 +90,12 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
             }
         }
 
-        std::cout << "EgressAsyncRunner: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "EgressAsyncRunner: exiting cleanly..";
         egress.Stop();
         m_bundleCount = egress.m_telemetry.egressBundleCount;
         m_bundleData = static_cast<uint64_t>(egress.m_telemetry.egressBundleData);
         m_messageCount = egress.m_telemetry.egressMessageCount;
     }
-    std::cout << "EgressAsyncRunner: exited cleanly\n";
-    hdtn::Logger::getInstance()->logNotification("egress", "EgressAsyncRunner: Exited cleanly");
+    LOG_INFO(subprocess) << "EgressAsyncRunner: exited cleanly";
     return true;
 }

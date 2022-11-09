@@ -13,9 +13,12 @@
 #include "codec/bpv6.h"
 #include <inttypes.h>
 #include "Sdnv.h"
+#include "Logger.h"
 #include <utility>
 #include <iostream>
 #include <boost/make_unique.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 Bpv6CanonicalBlock::Bpv6CanonicalBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
 Bpv6CanonicalBlock::~Bpv6CanonicalBlock() { } //a destructor: ~X()
@@ -236,67 +239,67 @@ bool Bpv6CanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv6() {
 
 
 void Bpv6CanonicalBlock::bpv6_canonical_block_print() const {
-    printf("Canonical block [type %u]\n", static_cast<unsigned int>(m_blockTypeCode));
+    LOG_INFO(subprocess) << "Canonical block [type " << m_blockTypeCode << "]";
     switch(m_blockTypeCode) {
         case BPV6_BLOCK_TYPE_CODE::BUNDLE_AUTHENTICATION:
-            printf("> Authentication block\n");
+            LOG_INFO(subprocess) << "> Authentication block";
             break;
         case BPV6_BLOCK_TYPE_CODE::EXTENSION_SECURITY:
-            printf("> Extension security block\n");
+            LOG_INFO(subprocess) << "> Extension security block";
             break;
         case BPV6_BLOCK_TYPE_CODE::PAYLOAD_INTEGRITY:
-            printf("> Integrity block\n");
+            LOG_INFO(subprocess) << "> Integrity block";
             break;
         case BPV6_BLOCK_TYPE_CODE::METADATA_EXTENSION:
-            printf("> Metadata block\n");
+            LOG_INFO(subprocess) << "> Metadata block"   ;
             break;
         case BPV6_BLOCK_TYPE_CODE::PAYLOAD:
-            printf("> Payload block\n");
+            LOG_INFO(subprocess) << "> Payload block";
             break;
         case BPV6_BLOCK_TYPE_CODE::PAYLOAD_CONFIDENTIALITY:
-            printf("> Payload confidentiality block\n");
+            LOG_INFO(subprocess) << "> Payload confidentiality block";
             break;
         case BPV6_BLOCK_TYPE_CODE::PREVIOUS_HOP_INSERTION:
-            printf("> Previous hop insertion block\n");
+            LOG_INFO(subprocess) << "> Previous hop insertion block";
             break;
         case BPV6_BLOCK_TYPE_CODE::CUSTODY_TRANSFER_ENHANCEMENT:
-            printf("> ACS custody transfer enhancement block (CTEB)\n");
+            LOG_INFO(subprocess) << "> ACS custody transfer enhancement block (CTEB)";
             break;
         case BPV6_BLOCK_TYPE_CODE::BPLIB_BIB:
-            printf("> Bplib bundle integrity block (BIB)\n");
+            LOG_INFO(subprocess) << "> Bplib bundle integrity block (BIB)";
             break;
         case BPV6_BLOCK_TYPE_CODE::BUNDLE_AGE:
-            printf("> Bundle age extension (BAE)\n");
+            LOG_INFO(subprocess) << "> Bundle age extension (BAE)";
             break;
         default:
-            printf("> Unknown block type\n");
+            LOG_INFO(subprocess) << "> Unknown block type";
             break;
     }
     bpv6_block_flags_print();
-    printf("Block length: %" PRIu64 " bytes\n", m_blockTypeSpecificDataLength);
+    LOG_INFO(subprocess) << "Block length: " << m_blockTypeSpecificDataLength << " bytes";
 }
 
 void Bpv6CanonicalBlock::bpv6_block_flags_print() const {
-    printf("Flags: 0x%" PRIx64 "\n", static_cast<uint64_t>(m_blockProcessingControlFlags));
+    LOG_INFO(subprocess) << "Flags: " << m_blockProcessingControlFlags;
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::MUST_BE_REPLICATED_IN_EVERY_FRAGMENT) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Block must be replicated in every fragment.\n");
+        LOG_INFO(subprocess) << "* Block must be replicated in every fragment.";
     }
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::STATUS_REPORT_REQUESTED_IF_BLOCK_CANT_BE_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Transmit status report if block can't be processed.\n");
+        LOG_INFO(subprocess) << "* Transmit status report if block can't be processed.";
     }
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::DELETE_BUNDLE_IF_BLOCK_CANT_BE_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Delete bundle if block can't be processed.\n");
+        LOG_INFO(subprocess) << "* Delete bundle if block can't be processed.";
     }
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::IS_LAST_BLOCK) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Last block in this bundle.\n");
+        LOG_INFO(subprocess) << "* Last block in this bundle.";
     }
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::DISCARD_BLOCK_IF_IT_CANT_BE_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Discard block if it can't be processed.\n");
+        LOG_INFO(subprocess) << "* Discard block if it can't be processed.";
     }
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::BLOCK_WAS_FORWARDED_WITHOUT_BEING_PROCESSED) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Block was forwarded without being processed.\n");
+        LOG_INFO(subprocess) << "* Block was forwarded without being processed.";
     }
     if ((m_blockProcessingControlFlags & BPV6_BLOCKFLAG::BLOCK_CONTAINS_AN_EID_REFERENCE_FIELD) != BPV6_BLOCKFLAG::NO_FLAGS_SET) {
-        printf("* Block contains an EID-reference field.\n");
+        LOG_INFO(subprocess) << "* Block contains an EID-reference field.";
     }
 }

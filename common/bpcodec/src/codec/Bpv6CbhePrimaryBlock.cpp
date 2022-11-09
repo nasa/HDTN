@@ -162,7 +162,7 @@ bool Bpv6CbhePrimaryBlock::DeserializeBpv6(const uint8_t * serialization, uint64
         //    because it will be unable to determine the destination endpoint; the
         //    bundle will be judged to be malformed.The behavior of the bundle
         //    protocol agent in this circumstance is an implementation matter.
-        printf("error: cbhe bpv6 primary decode: dictionary size not 0\n");
+        LOG_INFO(subprocess) << "error: cbhe bpv6 primary decode: dictionary size not 0";
         return false;
     }
     // Skip the entirety of the dictionary - we assume an IPN scheme
@@ -218,7 +218,7 @@ uint64_t Bpv6CbhePrimaryBlock::SerializeBpv6(uint8_t * serialization) { //modifi
 
     m_blockLength = serialization - (blockLengthPtrForLater + 1);
     if (m_blockLength > 127) { // our encoding failed because our block length was too long ...
-        printf("error in Bpv6CbhePrimaryBlock::SerializeBpv6 blockLength > 127\n");
+        LOG_INFO(subprocess) << "error in Bpv6CbhePrimaryBlock::SerializeBpv6 blockLength > 127";
         return 0;
     }
     *blockLengthPtrForLater = static_cast<uint8_t>(m_blockLength); // 1-byte sdnv's are the value itself
@@ -251,37 +251,37 @@ uint64_t Bpv6CbhePrimaryBlock::GetSerializationSize() const {
 
 
 void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
-    printf("BPv6 / Primary block (%" PRIu64 " bytes)\n", m_blockLength);
-    printf("Flags: 0x%" PRIx64 "\n", static_cast<uint64_t>(m_bundleProcessingControlFlags));
+    LOG_INFO(subprocess) << "BPv6 / Primary block (" << m_blockLength << " bytes)";
+    LOG_INFO(subprocess) << "Flags: " << m_bundleProcessingControlFlags;
     if((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::NOFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* No fragmentation allowed\n");
+        LOG_INFO(subprocess) << "* No fragmentation allowed";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ISFRAGMENT) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Bundle is a fragment\n");
+        LOG_INFO(subprocess) << "* Bundle is a fragment";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::ADMINRECORD) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Bundle is administrative (control) traffic\n");
+        LOG_INFO(subprocess) << "* Bundle is administrative (control) traffic";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::CUSTODY_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Custody transfer requested\n");
+        LOG_INFO(subprocess) << "* Custody transfer requested";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::USER_APP_ACK_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Application acknowledgment requested.\n");
+        LOG_INFO(subprocess) << "* Application acknowledgment requested.";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::CUSTODY_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Custody reporting requested.\n");
+        LOG_INFO(subprocess) << "* Custody reporting requested.";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::DELIVERY_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Delivery reporting requested.\n");
+        LOG_INFO(subprocess) << "* Delivery reporting requested.";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::DELETION_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Deletion reporting requested.\n");
+        LOG_INFO(subprocess) << "* Deletion reporting requested.";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::FORWARDING_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Forward reporting requested.\n");
+        LOG_INFO(subprocess) << "* Forward reporting requested.";
     }
     if ((m_bundleProcessingControlFlags & BPV6_BUNDLEFLAG::RECEPTION_STATUS_REPORTS_REQUESTED) != BPV6_BUNDLEFLAG::NO_FLAGS_SET) {
-        printf("* Reception reporting requested.\n");
+        LOG_INFO(subprocess) << "* Reception reporting requested.";
     }
     const BPV6_PRIORITY priority = GetPriorityFromFlags(m_bundleProcessingControlFlags);
     LOG_INFO(subprocess) << "Priority: " << priority;
@@ -292,7 +292,7 @@ void Bpv6CbhePrimaryBlock::bpv6_primary_block_print() const {
     LOG_INFO(subprocess) << "Report-to: " << m_reportToEid;
 
     LOG_INFO(subprocess) << "Creation: " << m_creationTimestamp;
-    printf("Lifetime: %" PRIu64 "\n", m_lifetimeSeconds);
+    LOG_INFO(subprocess) << "Lifetime: " << m_lifetimeSeconds;
 }
 
 

@@ -63,7 +63,7 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
         m_running = false;
         return;
     }
-    printf("UdpBundleSink bound successfully on UDP port %d ...", udpPort);
+    LOG_INFO(subprocess) << "UdpBundleSink bound successfully on UDP port " << udpPort << "...";
     StartUdpReceive(); //call before creating io_service thread so that it has "work"
 }
 
