@@ -54,7 +54,7 @@ private:
 };
 
 const std::string date_regex = "\\[ \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
-const std::string anything_regex = "((.|\n)*)";
+const std::string anything_regex = "(?:(?:.|\n)*)";
 
 BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
 {
