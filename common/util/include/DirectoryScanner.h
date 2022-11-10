@@ -59,6 +59,7 @@ public:
     HDTN_UTIL_EXPORT const path_set_t& GetSetOfMonitoredDirectoriesAbsolute() const;
     HDTN_UTIL_EXPORT path_set_t GetSetOfMonitoredDirectoriesRelativeCopy() const;
 private:
+    HDTN_UTIL_NO_EXPORT bool GetNextFilePath_NotThreadSafe(boost::filesystem::path& nextFilePathAbsolute, boost::filesystem::path& nextFilePathRelative);
     HDTN_UTIL_NO_EXPORT void Reload();
     HDTN_UTIL_NO_EXPORT void Clear();
     HDTN_UTIL_NO_EXPORT void OnDirectoryChangeEvent(const boost::system::error_code& ec, const boost::asio::dir_monitor_event& ev);

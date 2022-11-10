@@ -32,7 +32,7 @@ BundleStorageManagerMT::BundleStorageManagerMT(const std::string & jsonConfigFil
 BundleStorageManagerMT::BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr) :
     BundleStorageManagerBase(storageConfigPtr),
 
-    m_conditionVariablesVec(M_NUM_STORAGE_DISKS),
+    m_conditionVariablesPlusMutexesVec(M_NUM_STORAGE_DISKS),
     m_threadPtrsVec(M_NUM_STORAGE_DISKS),
     m_running(false)
 {
@@ -62,9 +62,11 @@ void BundleStorageManagerMT::Start() {
 
 void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-    boost::condition_variable & cv = m_conditionVariablesVec[threadIndex];
+    
+    //boost::mutex::scoped_lock lock(localMutex);
+    std::pair<boost::condition_variable, boost::mutex>& cvMutexPairRef = m_conditionVariablesPlusMutexesVec[threadIndex];
+    boost::condition_variable & cv = cvMutexPairRef.first;
+    boost::mutex & localMutex = cvMutexPairRef.second;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
     const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
     LOG_INFO(subprocess) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
@@ -75,19 +77,26 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
     while (m_running || (cb.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY)) { //keep thread alive if running or cb not empty
 
 
-        const unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
+        unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
 
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
-            cv.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            //try again, but with the mutex
+            boost::mutex::scoped_lock lock(localMutex);
+            consumeIndex = cb.GetIndexForRead(); //store the volatile
+            if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
+                cv.timed_wait(lock, boost::posix_time::milliseconds(20)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
         }
 
         boost::uint8_t * const data = &circularBufferBlockDataPtr[consumeIndex * SEGMENT_SIZE]; //expected data for testing when reading
         const segment_id_t segmentId = circularBufferSegmentIdsPtr[consumeIndex];
         volatile boost::uint8_t * const readFromStorageDestPointer = m_circularBufferReadFromStoragePointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
-        volatile bool * const isReadCompletedPointer = m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
         const bool isWriteToDisk = (readFromStorageDestPointer == NULL);
+        volatile bool junk;
+        volatile bool * const isReadCompletedPointer = (isWriteToDisk) ?
+            &junk : m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
         if (segmentId == SEGMENT_ID_LAST) {
             LOG_ERROR(subprocess) << "error segmentId is last";
             m_running = false;
@@ -112,11 +121,12 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
             if (fread((void*)readFromStorageDestPointer, 1, SEGMENT_SIZE, fileHandle) != SEGMENT_SIZE) {
                 LOG_ERROR(subprocess) << "error reading";
             }
-            *isReadCompletedPointer = true;
         }
 
-
+        m_mutexMainThread.lock();
+        *isReadCompletedPointer = true;
         cb.CommitRead();
+        m_mutexMainThread.unlock();
         m_conditionVariableMainThread.notify_one();
     }
 
@@ -127,6 +137,14 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
 }
 
 //virtual function to be called immediately after a disk's circular buffer CommitWrite();
-void BundleStorageManagerMT::NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) {
-    m_conditionVariablesVec[diskId].notify_one();
+void BundleStorageManagerMT::CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) {
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable& cb = m_circularIndexBuffersVec[diskId];
+    std::pair<boost::condition_variable, boost::mutex>& cvMutexPairRef = m_conditionVariablesPlusMutexesVec[diskId];
+    boost::condition_variable& cv = cvMutexPairRef.first;
+    boost::mutex& cvMutex = cvMutexPairRef.second;
+
+    cvMutex.lock();
+    cb.CommitWrite();
+    cvMutex.unlock();
+    cv.notify_one();
 }

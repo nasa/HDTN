@@ -137,9 +137,11 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
     if (!error) {
         if (bytesTransferred == m_incomingBundleSize) {
             m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
+            m_mutexCb.lock();
             m_circularIndexBuffer.CommitWrite(); //write complete at this point
-            m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
+            m_mutexCb.unlock();
             m_conditionVariableCb.notify_one();
+            m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
             TryStartTcpReceive(); //restart operation only if there was no error
         }
         else {
@@ -160,18 +162,21 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
 
 void StcpBundleSink::PopCbThreadFunc() {
 
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
 
     while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY)) { //keep thread alive if running or cb not empty
 
 
-        const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
+        unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
         boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&StcpBundleSink::TryStartTcpReceive, this)); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
-            m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            //try again, but with the mutex
+            boost::mutex::scoped_lock lock(m_mutexCb);
+            consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
+            if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
+                m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(20)); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
         }
         m_wholeBundleReadyCallback(m_tcpReceiveBuffersCbVec[consumeIndex]);
         

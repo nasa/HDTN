@@ -35,13 +35,13 @@ public:
 
 private:
     STORAGE_LIB_NO_EXPORT void ThreadFunc(unsigned int threadIndex);
-    STORAGE_LIB_NO_EXPORT virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
+    STORAGE_LIB_NO_EXPORT virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
 private:
 
     //boost::condition_variable m_conditionVariables[NUM_STORAGE_THREADS];
     //std::shared_ptr<boost::thread> m_threadPtrs[NUM_STORAGE_THREADS];
     //CircularIndexBufferSingleProducerSingleConsumer m_circularIndexBuffers[NUM_STORAGE_THREADS];
-    std::vector<boost::condition_variable> m_conditionVariablesVec;
+    std::vector<std::pair<boost::condition_variable, boost::mutex> > m_conditionVariablesPlusMutexesVec;
     std::vector<std::unique_ptr<boost::thread> > m_threadPtrsVec;
 
     volatile bool m_running;

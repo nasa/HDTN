@@ -88,8 +88,7 @@ std::ostream& operator<<(std::ostream& os, const DirectoryScanner::path_set_t& o
     return os;
 }
 
-bool DirectoryScanner::GetNextFilePath(boost::filesystem::path& nextFilePathAbsolute, boost::filesystem::path& nextFilePathRelative) {
-    boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
+bool DirectoryScanner::GetNextFilePath_NotThreadSafe(boost::filesystem::path& nextFilePathAbsolute, boost::filesystem::path& nextFilePathRelative) {
     if (m_currentFilePathIterator == m_pathsOfFilesList.end()) {
         return false; //stopping criteria
     }
@@ -101,17 +100,19 @@ bool DirectoryScanner::GetNextFilePath(boost::filesystem::path& nextFilePathAbso
     return true;
 }
 
+bool DirectoryScanner::GetNextFilePath(boost::filesystem::path& nextFilePathAbsolute, boost::filesystem::path& nextFilePathRelative) {
+    boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
+    return GetNextFilePath_NotThreadSafe(nextFilePathAbsolute, nextFilePathRelative);
+}
+
 bool DirectoryScanner::GetNextFilePathTimeout(boost::filesystem::path& nextFilePathAbsolute,
     boost::filesystem::path& nextFilePathRelative, const boost::posix_time::time_duration& timeout)
 {
-    if (GetNextFilePath(nextFilePathAbsolute, nextFilePathRelative)) {
-        return true;
+    boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
+    if (!GetNextFilePath_NotThreadSafe(nextFilePathAbsolute, nextFilePathRelative)) {
+        m_pathsOfFilesListCv.timed_wait(lock, timeout); //lock mutex (above) before checking condition
     }
-    {
-        boost::mutex::scoped_lock lock(m_pathsOfFilesListMutex);
-        m_pathsOfFilesListCv.timed_wait(lock, timeout);
-    }
-    return GetNextFilePath(nextFilePathAbsolute, nextFilePathRelative);
+    return GetNextFilePath_NotThreadSafe(nextFilePathAbsolute, nextFilePathRelative);
 }
 
 void DirectoryScanner::Clear() {

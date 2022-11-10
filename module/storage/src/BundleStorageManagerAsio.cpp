@@ -169,7 +169,9 @@ void BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe(const unsi
 }
 
 //virtual function to be called immediately after a disk's circular buffer CommitWrite();
-void BundleStorageManagerAsio::NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) {
+void BundleStorageManagerAsio::CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) {
+    CircularIndexBufferSingleProducerSingleConsumerConfigurable& cb = m_circularIndexBuffersVec[diskId];
+    cb.CommitWrite();
     boost::asio::post(m_ioService, boost::bind(&BundleStorageManagerAsio::TryDiskOperation_Consume_NotThreadSafe, this, diskId));
 }
 
@@ -183,12 +185,14 @@ void BundleStorageManagerAsio::HandleDiskOperationCompleted(const boost::system:
         LOG_ERROR(subprocess) << "error in BundleStorageManagerMT::HandleDiskOperationCompleted: bytes_transferred(" << bytes_transferred << ") != SEGMENT_SIZE(" << SEGMENT_SIZE << ")";
     }
     else {
-        if (wasReadOperation) {
-            volatile bool * const isReadCompletedPointer = m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
-            *isReadCompletedPointer = true;
-        }
+        volatile bool junk;
+        volatile bool * const isReadCompletedPointer = (wasReadOperation) ?
+            m_circularBufferIsReadCompletedPointers[diskId * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex] : &junk;
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskId];
+        m_mutexMainThread.lock();
+        *isReadCompletedPointer = true;
         cb.CommitRead();
+        m_mutexMainThread.unlock();
         m_conditionVariableMainThread.notify_one();
         TryDiskOperation_Consume_NotThreadSafe(diskId);
     }

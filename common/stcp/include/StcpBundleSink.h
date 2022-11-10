@@ -68,6 +68,7 @@ private:
     std::vector<padded_vector_uint8_t > m_tcpReceiveBuffersCbVec;
     std::vector<std::size_t> m_tcpReceiveBytesTransferredCbVec;
     boost::condition_variable m_conditionVariableCb;
+    boost::mutex m_mutexCb;
     std::unique_ptr<boost::thread> m_threadCbReaderPtr;
     bool m_stateTcpReadActive;
     bool m_printedCbTooSmallNotice;

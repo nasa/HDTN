@@ -69,7 +69,6 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     M_TOTAL_STORAGE_CAPACITY_BYTES((m_storageConfigPtr) ? m_storageConfigPtr->m_totalStorageCapacityBytes : 1),
     M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
     m_memoryManager(M_MAX_SEGMENTS),
-    m_lockMainThread(m_mutexMainThread),
     m_filePathsVec(M_NUM_STORAGE_DISKS),
     m_filePathsAsStringVec(M_NUM_STORAGE_DISKS),
     m_circularIndexBuffersVec(M_NUM_STORAGE_DISKS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
@@ -157,10 +156,14 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
     unsigned int produceIndex = cb.GetIndexForWrite();
-    while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //store the volatile, wait until not full				
-        m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-        //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+    while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full, wait until not full	
+        //try again, but with the mutex
+        boost::mutex::scoped_lock lockMainThread(m_mutexMainThread);
         produceIndex = cb.GetIndexForWrite();
+        if (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full again (lock mutex (above) before checking condition)
+            m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+        }
     }
 
     uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
@@ -177,8 +180,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
     memcpy(dataCb, &storageSegmentHeader, SEGMENT_RESERVED_SPACE);
     memcpy(dataCb + SEGMENT_RESERVED_SPACE, buf, size);
 
-    cb.CommitWrite();
-    NotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
+    CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
     if (session.nextLogicalSegment == segmentIdChainVec.size()) {
         m_bundleStorageCatalog.CatalogIncomingBundleForStore(catalogEntry, bundlePrimaryBlock, custodyId, BundleStorageCatalog::DUPLICATE_EXPIRY_ORDER::FIFO);
     }
@@ -276,10 +278,14 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
         const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
         CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
         unsigned int produceIndex = cb.GetIndexForWrite();
-        while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //store the volatile, wait until not full				
-            m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+        while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full, wait until not full	
+            //try again, but with the mutex
+            boost::mutex::scoped_lock lockMainThread(m_mutexMainThread);
             produceIndex = cb.GetIndexForWrite();
+            if (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full again (lock mutex (above) before checking condition)
+                m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            }
         }
 
         session.readCacheIsSegmentReady[session.cacheWriteIndex] = false;
@@ -288,15 +294,17 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
         session.cacheWriteIndex = (session.cacheWriteIndex + 1) % READ_CACHE_NUM_SEGMENTS_PER_SESSION;
         m_circularBufferSegmentIdsPtr[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE + produceIndex] = segmentId;
 
-        cb.CommitWrite();
-        NotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
+        CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
     }
 
-    bool readIsReady = session.readCacheIsSegmentReady[session.cacheReadIndex];
-    while (!readIsReady) { //store the volatile, wait until not full				
-        m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-        //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
-        readIsReady = session.readCacheIsSegmentReady[session.cacheReadIndex];
+    volatile bool & readIsReadyRef = session.readCacheIsSegmentReady[session.cacheReadIndex];
+    while (!readIsReadyRef) { //store the volatile, wait until read is ready		
+        //try again, but with the mutex
+        boost::mutex::scoped_lock lockMainThread(m_mutexMainThread);
+        if (!readIsReadyRef) { //if not ready again (lock mutex (above) before checking condition)
+            m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+        }
     }
 
     StorageSegmentHeader storageSegmentHeader;
@@ -364,10 +372,14 @@ bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const catalog_entry_t * 
     const unsigned int diskIndex = segmentId % M_NUM_STORAGE_DISKS;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[diskIndex];
     unsigned int produceIndex = cb.GetIndexForWrite();
-    while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //store the volatile, wait until not full				
-        m_conditionVariableMainThread.timed_wait(m_lockMainThread, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-        //thread is now unblocked, and the lock is reacquired by invoking lock.lock()	
+    while (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full, wait until not full	
+        //try again, but with the mutex
+        boost::mutex::scoped_lock lockMainThread(m_mutexMainThread);
         produceIndex = cb.GetIndexForWrite();
+        if (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full again (lock mutex (above) before checking condition)
+            m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
+            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+        }
     }
 
     uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[diskIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
@@ -381,8 +393,7 @@ bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const catalog_entry_t * 
     memcpy(dataCb, &bundleSizeBytesLittleEndian, sizeof(bundleSizeBytesLittleEndian));
 
 
-    cb.CommitWrite();
-    NotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
+    CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(diskIndex);
 
     const bool successFreedSegments = m_memoryManager.FreeSegments_ThreadSafe(segmentIdChainVec);
     return (m_bundleStorageCatalog.Remove(custodyId, false).first && successFreedSegments);

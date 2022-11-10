@@ -116,7 +116,7 @@ public:
 protected:
 
     
-    virtual void NotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) = 0;
+    virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId) = 0;
 
 protected:
     StorageConfig_ptr m_storageConfigPtr;
@@ -128,7 +128,6 @@ protected:
     MemoryManagerTreeArray m_memoryManager;
     BundleStorageCatalog m_bundleStorageCatalog;
     boost::mutex m_mutexMainThread;
-    boost::mutex::scoped_lock m_lockMainThread;
     boost::condition_variable m_conditionVariableMainThread;
     std::vector<boost::filesystem::path> m_filePathsVec;
     std::vector<std::string> m_filePathsAsStringVec;
