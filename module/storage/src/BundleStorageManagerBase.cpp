@@ -163,6 +163,7 @@ int BundleStorageManagerBase::PushSegment(BundleStorageManagerSession_WriteToDis
         if (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full again (lock mutex (above) before checking condition)
             m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            produceIndex = cb.GetIndexForWrite(); //should definitely have an index now (prevents an extra lock, unlock operation)
         }
     }
 
@@ -285,6 +286,7 @@ std::size_t BundleStorageManagerBase::TopSegment(BundleStorageManagerSession_Rea
             if (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full again (lock mutex (above) before checking condition)
                 m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
                 //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                produceIndex = cb.GetIndexForWrite(); //should definitely have an index now (prevents an extra lock, unlock operation)
             }
         }
 
@@ -379,6 +381,7 @@ bool BundleStorageManagerBase::RemoveReadBundleFromDisk(const catalog_entry_t * 
         if (produceIndex == CIRCULAR_INDEX_BUFFER_FULL) { //if full again (lock mutex (above) before checking condition)
             m_conditionVariableMainThread.wait(lockMainThread); // call lock.unlock() and blocks the current thread
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+            produceIndex = cb.GetIndexForWrite(); //should definitely have an index now (prevents an extra lock, unlock operation)
         }
     }
 
