@@ -2,7 +2,7 @@
  * @file UdpBundleSink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -14,10 +14,12 @@
 
 #include <boost/bind/bind.hpp>
 #include <memory>
-#include <iostream>
 #include "UdpBundleSink.h"
+#include "Logger.h"
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
     uint16_t udpPort,
@@ -55,13 +57,13 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
         m_udpSocket.bind(boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), udpPort));
     }
     catch (const boost::system::system_error & e) {
-        std::cerr << "Could not bind on UDP port " << udpPort << std::endl;
-        std::cerr << "  Error: " << e.what() << std::endl;
+        LOG_ERROR(subprocess) << "Could not bind on UDP port " << udpPort;
+        LOG_ERROR(subprocess) << e.what();
 
         m_running = false;
         return;
     }
-    printf("UdpBundleSink bound successfully on UDP port %d ...", udpPort);
+    LOG_INFO(subprocess) << "UdpBundleSink bound successfully on UDP port " << udpPort << "...";
     StartUdpReceive(); //call before creating io_service thread so that it has "work"
 }
 
@@ -81,7 +83,7 @@ UdpBundleSink::~UdpBundleSink() {
         m_threadCbReaderPtr->join();
         m_threadCbReaderPtr.reset(); //delete it
     }
-    std::cout << "UdpBundleSink m_countCircularBufferOverruns: " << m_countCircularBufferOverruns << std::endl;
+    LOG_INFO(subprocess) << "UdpBundleSink m_countCircularBufferOverruns: " << m_countCircularBufferOverruns;
 }
 
 void UdpBundleSink::StartUdpReceive() {
@@ -94,14 +96,13 @@ void UdpBundleSink::StartUdpReceive() {
 }
 
 void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, std::size_t bytesTransferred) {
-    //std::cout << "1" << std::endl;
     if (!error) {
         const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             ++m_countCircularBufferOverruns;
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
-                std::cout << "notice in LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!" << std::endl;
+                LOG_INFO(subprocess) << "LtpUdpEngine::StartUdpReceive(): buffers full.. you might want to increase the circular buffer size! This UDP packet will be dropped!";
             }
         }
         else {
@@ -114,7 +115,7 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
         StartUdpReceive(); //restart operation only if there was no error
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "critical error in UdpBundleSink::HandleUdpReceive(): " << error.message() << std::endl;
+        LOG_FATAL(subprocess) << "UdpBundleSink::HandleUdpReceive(): " << error.message();
         DoUdpShutdown();
     }
 }
@@ -141,14 +142,13 @@ void UdpBundleSink::PopCbThreadFunc() {
         m_udpReceiveBuffersCbVec[consumeIndex].resize(m_udpReceiveBytesTransferredCbVec[consumeIndex]);
         m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex]);
         //if (m_udpReceiveBuffersCbVec[consumeIndex].size() != 0) {
-        //    std::cerr << "error in UdpBundleSink::PopCbThreadFunc(): udp data was not moved" << std::endl;
         //}
         m_udpReceiveBuffersCbVec[consumeIndex].resize(M_MAX_UDP_PACKET_SIZE_BYTES); //restore for next udp read in case it was moved
         
         m_circularIndexBuffer.CommitRead();
     }
 
-    std::cout << "UdpBundleSink Circular buffer reader thread exiting\n";
+    LOG_INFO(subprocess) << "UdpBundleSink Circular buffer reader thread exiting";
 
 }
 
@@ -160,11 +160,11 @@ void UdpBundleSink::HandleSocketShutdown() {
     //final code to shut down tcp sockets
     if (m_udpSocket.is_open()) {
         try {
-            std::cout << "closing UdpBundleSink UDP socket.." << std::endl;
+            LOG_INFO(subprocess) << "closing UdpBundleSink UDP socket..";
             m_udpSocket.close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in UdpBundleSink::DoUdpShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "UdpBundleSink::DoUdpShutdown: " << e.what();
         }
     }
     m_safeToDelete = true;

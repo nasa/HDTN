@@ -2,7 +2,7 @@
  * @file LtpRandomNumberGenerator.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include "LtpRandomNumberGenerator.h"
-#include <iostream>
+#include "Logger.h"
 #include "TimestampUtil.h"
 #ifdef LTP_RNG_USE_RDSEED
 #include <immintrin.h>
@@ -22,6 +22,8 @@
 #endif
 #endif
 #include <inttypes.h>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 LtpRandomNumberGenerator::LtpRandomNumberGenerator() : m_birthdayParadoxPreventer_incrementalPart_U16(1) {
 
@@ -38,7 +40,7 @@ uint64_t LtpRandomNumberGenerator::GetRandomSession64(const uint64_t additionalR
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
     if (!_rdseed64_step((unsigned long long *)&random2)) {
-        std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
+        LOG_ERROR(subprocess) << "LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function";
     }
 #endif
     uint64_t randomNumber = (random1 ^ random2) ^ additionalRandomness;
@@ -53,7 +55,6 @@ uint64_t LtpRandomNumberGenerator::GetRandomSession64(const uint64_t additionalR
     ++inc;
     inc += (inc == 0); //must be non-zero when uint16 rolls back around
     m_birthdayParadoxPreventer_incrementalPart_U16 = inc;
-    //printf("random1: 0x%016" PRIx64 "\nrandom2: 0x%016" PRIx64 " \nrandom3: 0x%016" PRIx64 "\nrandomF: 0x%016" PRIx64 "\n", random1, random2, additionalRandomness, randomNumber);
     return randomNumber;
 
 }
@@ -81,7 +82,7 @@ uint64_t LtpRandomNumberGenerator::GetRandomSerialNumber64(const uint64_t additi
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
     if (!_rdseed64_step((unsigned long long *)&random2)) {
-        std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
+        LOG_ERROR(subprocess) << "LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function";
     }
 #endif
     uint64_t randomNumber = (random1 ^ random2) ^ additionalRandomness;
@@ -108,7 +109,7 @@ uint32_t LtpRandomNumberGenerator::GetRandomSession32(const uint32_t additionalR
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
     if (!_rdseed64_step((unsigned long long *)&random2)) {
-        std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
+        LOG_ERROR(subprocess) << "LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function";
     }
 #endif
     uint64_t additionalRandomness = additionalRandomness32Bit;
@@ -125,7 +126,6 @@ uint32_t LtpRandomNumberGenerator::GetRandomSession32(const uint32_t additionalR
     ++inc;
     inc += (inc == 0); //must be non-zero when uint16 rolls back around
     m_birthdayParadoxPreventer_incrementalPart_U16 = inc;
-    //printf("random1: 0x%016" PRIx64 "\nrandom2: 0x%016" PRIx64 " \nrandom3: 0x%016" PRIx64 "\nrandomF: 0x%016" PRIx64 "\n", random1, random2, additionalRandomness, randomNumber);
     return static_cast<uint32_t>(randomNumber);
 }
 uint32_t LtpRandomNumberGenerator::GetRandomSession32(boost::random_device & randomDevice) {
@@ -149,7 +149,7 @@ uint32_t LtpRandomNumberGenerator::GetRandomSerialNumber32(const uint32_t additi
     uint64_t random2 = 0;
 #ifdef LTP_RNG_USE_RDSEED
     if (!_rdseed64_step((unsigned long long *)&random2)) {
-        std::cerr << "NOTICE: in LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function" << std::endl;
+        LOG_ERROR(subprocess) << "LtpRandomNumberGenerator::GetRandom(): cannot use _rdseed64_step function";
     }
 #endif
     const uint64_t additionalRandomness = additionalRandomness32Bit;

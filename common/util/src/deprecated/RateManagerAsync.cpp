@@ -1,6 +1,8 @@
 #include "RateManagerAsync.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/bind/bind.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 RateManagerAsync::RateManagerAsync(boost::asio::io_service & ioService, const uint64_t rateBitsPerSec, const uint64_t maxPacketsBeingSent) :
     m_ioServiceRef(ioService),
@@ -22,12 +24,12 @@ RateManagerAsync::~RateManagerAsync() {
 
     
     //print stats
-    std::cout << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback << std::endl;
-    std::cout << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback << std::endl;
-    std::cout << "m_totalPacketsSentByRate " << m_totalPacketsSentByRate << std::endl;
-    std::cout << "m_totalBytesSentByRate " << m_totalBytesSentByRate << std::endl;
-    std::cout << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend << std::endl;
-    std::cout << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend << std::endl;
+    LOG_INFO(subprocess) << "m_totalPacketsSentBySentCallback " << m_totalPacketsSentBySentCallback;
+    LOG_INFO(subprocess) << "m_totalBytesSentBySentCallback " << m_totalBytesSentBySentCallback;
+    LOG_INFO(subprocess) << "m_totalPacketsSentByRate " << m_totalPacketsSentByRate;
+    LOG_INFO(subprocess) << "m_totalBytesSentByRate " << m_totalBytesSentByRate;
+    LOG_INFO(subprocess) << "m_totalPacketsDequeuedForSend " << m_totalPacketsDequeuedForSend;
+    LOG_INFO(subprocess) << "m_totalBytesDequeuedForSend " << m_totalBytesDequeuedForSend;
 }
 
 void RateManagerAsync::Reset() {
@@ -78,13 +80,13 @@ std::size_t RateManagerAsync::GetTotalBytesBeingSent() {
 bool RateManagerAsync::SignalNewPacketDequeuedForSend(uint64_t packetSizeBytes) {
     const unsigned int writeIndexRate = m_bytesToAckByRateCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexRate == UINT32_MAX) { //push check
-        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by rate" << std::endl;
+        LOG_ERROR(subprocess) << "RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by rate";
         return false;
     }
 
     const unsigned int writeIndexSentCallback = m_bytesToAckBySentCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexSentCallback == UINT32_MAX) { //push check
-        std::cerr << "Error in RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback" << std::endl;
+        LOG_ERROR(subprocess) << "RateManagerAsync::SignalNewPacketDequeuedForSend.. too many unacked packets by tcp send callback";
         return false;
     }
 
@@ -116,7 +118,6 @@ void RateManagerAsync::TryRestartRateTimer() {
             }
         }
         if (m_groupingOfBytesToAckByRateVec.size()) {
-            //std::cout << "d " << delayMicroSec << " sz " << m_groupingOfBytesToAckByRateVec.size() << std::endl;
             m_rateTimer.expires_from_now(boost::posix_time::microseconds(delayMicroSec));
             m_rateTimer.async_wait(boost::bind(&RateManagerAsync::OnRate_TimerExpired, this, boost::asio::placeholders::error));
             m_rateTimerIsRunning = true;
@@ -146,12 +147,10 @@ void RateManagerAsync::OnRate_TimerExpired(const boost::system::error_code& e) {
             TryRestartRateTimer(); //must be called after commit read
         }
         else {
-            std::cerr << "error in RateManagerAsync::OnRate_TimerExpired: m_groupingOfBytesToAckByRateVec is size 0" << std::endl;
+            LOG_ERROR(subprocess) << "RateManagerAsync::OnRate_TimerExpired: m_groupingOfBytesToAckByRateVec is size 0";
         }
     }
-    else {
-        //std::cout << "timer cancelled\n";
-    }
+    else {}
 }
 
 void RateManagerAsync::NotifyPacketSentFromCallback_ThreadSafe(std::size_t bytes_transferred) {
@@ -162,7 +161,7 @@ bool RateManagerAsync::IoServiceThreadNotifyPacketSentCallback(std::size_t bytes
    
     const unsigned int readIndex = m_bytesToAckBySentCallbackCb.GetIndexForRead();
     if (readIndex == UINT32_MAX) { //empty
-        std::cerr << "error in RateManagerAsync::IoServiceThreadNotifyPacketSentCallback: AckCallback called with empty queue" << std::endl;
+        LOG_ERROR(subprocess) << "RateManagerAsync::IoServiceThreadNotifyPacketSentCallback: AckCallback called with empty queue";
         return false;
     }
     else if (m_bytesToAckBySentCallbackCbVec[readIndex] == bytes_transferred) {
@@ -178,7 +177,7 @@ bool RateManagerAsync::IoServiceThreadNotifyPacketSentCallback(std::size_t bytes
         return true;
     }
     else {
-        std::cerr << "error in RateManagerAsync::IoServiceThreadNotifyPacketSentCallback: wrong bytes acked: expected " << m_bytesToAckBySentCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+        LOG_ERROR(subprocess) << "RateManagerAsync::IoServiceThreadNotifyPacketSentCallback: wrong bytes acked: expected " << m_bytesToAckBySentCallbackCbVec[readIndex] << " but got " << bytes_transferred;
         return false;
     }
 }
@@ -190,7 +189,7 @@ void RateManagerAsync::WaitForAllDequeuedPacketsToFullySend_Blocking(unsigned in
         const std::size_t numUnacked = GetTotalPacketsBeingSent();
         if (numUnacked) {
             if (printStats) {
-                std::cout << "notice: waiting on " << numUnacked << " unacked bundles" << std::endl;
+                LOG_INFO(subprocess) << "waiting on " << numUnacked << " unacked bundles";
             }
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;

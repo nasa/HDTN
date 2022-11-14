@@ -15,6 +15,7 @@
 #include <boost/test/unit_test.hpp>
 #include "UdpBatchSender.h"
 #include <iostream>
+#include <boost/thread.hpp>
 
 static std::vector<uint8_t> g_udpReceiveBuffer;
 static std::vector<std::vector<uint8_t> > g_udpPacketsReceived;
@@ -26,15 +27,20 @@ static volatile uint64_t g_constBufferVecsCallbackSize;
 static volatile uint64_t g_underlyingDataToDeleteOnSentCallbackSize;
 static volatile uint64_t g_underlyingCsDataToDeleteOnSentCallbackSize;
 static volatile bool g_sentCallbackWasSuccessful;
+static boost::condition_variable g_conditionVariableSentPackets;
+static boost::mutex g_conditionVariableSentPacketsMutex;
 
 static void OnSentPacketsCallback(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
     std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
     std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
-    g_sentCallbackWasSuccessful = success;
     g_constBufferVecsCallbackSize = constBufferVecs.size();
     g_underlyingDataToDeleteOnSentCallbackSize = underlyingDataToDeleteOnSentCallbackVec.size();
     g_underlyingCsDataToDeleteOnSentCallbackSize = underlyingCsDataToDeleteOnSentCallbackVec.size();
+    g_conditionVariableSentPacketsMutex.lock();
+    g_sentCallbackWasSuccessful = success; //must be last assignment as this is the "done" flag
+    g_conditionVariableSentPacketsMutex.unlock();
+    g_conditionVariableSentPackets.notify_one();
 }
 
 static void StartUdpReceive() {
@@ -105,6 +111,8 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
         BOOST_REQUIRE(ubs.Init("localhost", 1112)); //intentionally set the wrong port, correct it on the next line
         ubs.SetEndpointAndReconnect_ThreadSafe("localhost", 1113);
         unsigned int successfulTests = 0;
+        
+        
         for (unsigned int count = 0; count < 10; ++count) {
             g_udpPacketsReceived.clear();
             std::vector<std::vector<boost::asio::const_buffer> > constBufferVecs;
@@ -146,6 +154,14 @@ BOOST_AUTO_TEST_CASE(UdpBatchSenderTestCase)
             ubs.QueueSendPacketsOperation_ThreadSafe(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //data gets stolen
             ioService.run();
             ioService.reset();
+
+            //wait for OnSentPacketsCallback, because it's possible for receiver callback to be called first
+            {
+                boost::mutex::scoped_lock cvLock(g_conditionVariableSentPacketsMutex); //must lock before checking the flag
+                while (!g_sentCallbackWasSuccessful) {
+                    g_conditionVariableSentPackets.wait(cvLock);
+                }
+            }
 
             BOOST_REQUIRE_EQUAL(constBufferVecs.size(), 0); //stolen and empty
             BOOST_REQUIRE_EQUAL(underlyingDataToDeleteOnSentCallbackVec.size(), 0); //stolen and empty

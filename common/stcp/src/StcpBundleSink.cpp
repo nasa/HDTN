@@ -2,7 +2,7 @@
  * @file StcpBundleSink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -14,10 +14,12 @@
 
 #include <boost/bind/bind.hpp>
 #include <memory>
-#include <iostream>
+#include "Logger.h"
 #include "StcpBundleSink.h"
 #include <boost/endian/conversion.hpp>
 #include <boost/make_unique.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcpSocketPtr,
     boost::asio::io_service & tcpSocketIoServiceRef,
@@ -40,7 +42,7 @@ StcpBundleSink::StcpBundleSink(std::shared_ptr<boost::asio::ip::tcp::socket> tcp
     m_running(false),
     m_safeToDelete(false)
 {
-    std::cout << "stcp sink using CB size: " << M_NUM_CIRCULAR_BUFFER_VECTORS << std::endl;
+    LOG_INFO(subprocess) << "stcp sink using CB size: " << M_NUM_CIRCULAR_BUFFER_VECTORS;
     m_running = true;
     m_threadCbReaderPtr = boost::make_unique<boost::thread>(
         boost::bind(&StcpBundleSink::PopCbThreadFunc, this)); //create and start the worker thread
@@ -74,7 +76,7 @@ void StcpBundleSink::TryStartTcpReceive() {
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
-                std::cout << "notice in StcpBundleSink::TryStartTcpReceive(): buffers full.. you might want to increase the circular buffer size!" << std::endl; 
+                LOG_WARNING(subprocess) << "StcpBundleSink::TryStartTcpReceive(): buffers full.. you might want to increase the circular buffer size!"; 
             }
         }
         else {
@@ -95,7 +97,7 @@ void StcpBundleSink::TryStartTcpReceive() {
 void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::error_code & error, std::size_t bytesTransferred, const unsigned int writeIndex) {
     if (!error) {
         if (m_incomingBundleSize == 0) { //keepalive (0 is endian agnostic)
-            std::cout << "notice: keepalive packet received" << std::endl;
+            LOG_INFO(subprocess) << "keepalive packet received";
             //StartTcpReceiveIncomingBundleSize
             boost::asio::async_read(*m_tcpSocketPtr,
                 boost::asio::buffer(&m_incomingBundleSize, sizeof(m_incomingBundleSize)),
@@ -108,7 +110,7 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
             boost::endian::big_to_native_inplace(m_incomingBundleSize);
             //continue operation StartTcpReceiveBundleData only if there was no error
             if (m_incomingBundleSize > M_MAX_BUNDLE_SIZE_BYTES) { //SAFETY CHECKS ON SIZE BEFORE ALLOCATE
-                std::cerr << "critical error in StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size " << m_incomingBundleSize << " exceeds 100MB.. TCP receiving on StcpBundleSink will now stop!" << std::endl;
+                LOG_FATAL(subprocess) << "StcpBundleSink::HandleTcpReceiveIncomingBundleSize(): size " << m_incomingBundleSize << " exceeds 100MB.. TCP receiving on StcpBundleSink will now stop!";
                 DoStcpShutdown(); //leave in m_stateTcpReadActive = true
             }
             else {
@@ -123,11 +125,11 @@ void StcpBundleSink::HandleTcpReceiveIncomingBundleSize(const boost::system::err
         }
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "Tcp connection closed cleanly by peer";
         DoStcpShutdown();
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "Error in StcpBundleSink::HandleTcpReceiveIncomingBundleSize: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSink::HandleTcpReceiveIncomingBundleSize: " << error.message();
     }
 }
 
@@ -141,16 +143,16 @@ void StcpBundleSink::HandleTcpReceiveBundleData(const boost::system::error_code 
             TryStartTcpReceive(); //restart operation only if there was no error
         }
         else {
-            std::cerr << "Critical error in StcpBundleSink::HandleTcpReceiveBundleData: bytesTransferred ("
-                << bytesTransferred << ") != m_incomingBundleSize (" << m_incomingBundleSize << ")" << std::endl;
+            LOG_ERROR(subprocess) << "StcpBundleSink::HandleTcpReceiveBundleData: bytesTransferred ("
+                << bytesTransferred << ") != m_incomingBundleSize (" << m_incomingBundleSize << ")";
         }
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "Tcp connection closed cleanly by peer";
         DoStcpShutdown();
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "Error in StcpBundleSink::HandleTcpReceiveBundleData: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSink::HandleTcpReceiveBundleData: " << error.message();
     }
 }
 
@@ -176,7 +178,7 @@ void StcpBundleSink::PopCbThreadFunc() {
         m_circularIndexBuffer.CommitRead();
     }
 
-    std::cout << "StcpBundleSink Circular buffer reader thread exiting\n";
+    LOG_INFO(subprocess) << "StcpBundleSink Circular buffer reader thread exiting";
 
 }
 
@@ -189,23 +191,23 @@ void StcpBundleSink::HandleSocketShutdown() {
     if (m_tcpSocketPtr) {
         if (m_tcpSocketPtr->is_open()) {
             try {
-                std::cout << "shutting down StcpBundleSink TCP socket.." << std::endl;
+                LOG_INFO(subprocess) << "shutting down StcpBundleSink TCP socket..";
                 m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << "error in StcpBundleSink::HandleSocketShutdown: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << "StcpBundleSink::HandleSocketShutdown: " << e.what();
             }
             try {
-                std::cout << "closing StcpBundleSink TCP socket socket.." << std::endl;
+                LOG_INFO(subprocess) << "closing StcpBundleSink TCP socket socket..";
                 m_tcpSocketPtr->close();
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << "error in StcpBundleSink::HandleSocketShutdown: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << "StcpBundleSink::HandleSocketShutdown: " << e.what();
             }
         }
-        std::cout << "deleting TcpclBundleSink TCP Socket" << std::endl;
+        LOG_INFO(subprocess) << "deleting TcpclBundleSink TCP Socket";
         if (m_tcpSocketPtr.use_count() != 1) {
-            std::cerr << "error m_tcpSocketPtr.use_count() != 1" << std::endl;
+            LOG_ERROR(subprocess) << "m_tcpSocketPtr.use_count() != 1";
         }
         m_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
     }

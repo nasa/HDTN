@@ -15,6 +15,7 @@ set_target_properties(cgr_lib PROPERTIES PUBLIC_HEADER "${MY_PUBLIC_HEADERS}") #
 target_link_libraries(cgr_lib
 	PUBLIC
 		hdtn_util
+		log_lib
 )
 target_include_directories(cgr_lib
 	PUBLIC

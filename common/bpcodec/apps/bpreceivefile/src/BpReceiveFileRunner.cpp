@@ -1,14 +1,16 @@
-#include <iostream>
 #include "BpReceiveFile.h"
 #include "BpReceiveFileRunner.h"
 #include "SignalHandler.h"
+#include "Logger.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 void BpReceiveFileRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -47,12 +49,12 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
             const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
             if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
-                std::cerr << "error: bad BpReceiveFile uri string: " << myUriEid << std::endl;
+                LOG_ERROR(subprocess) << "bad BpReceiveFile uri string: " << myUriEid;
                 return false;
             }
 
@@ -60,16 +62,16 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             if (configFileNameInducts.length()) {
                 inductsConfigPtr = InductsConfig::CreateFromJsonFile(configFileNameInducts);
                 if (!inductsConfigPtr) {
-                    std::cerr << "error loading config file: " << configFileNameInducts << std::endl;
+                    LOG_ERROR(subprocess) << "error loading config file: " << configFileNameInducts;
                     return false;
                 }
                 std::size_t numInducts = inductsConfigPtr->m_inductElementConfigVector.size();
                 if (numInducts != 1) {
-                    std::cerr << "error: number of BpReceiveFile inducts is not 1: got " << numInducts << std::endl;
+                    LOG_ERROR(subprocess) << "number of BpReceiveFile inducts is not 1: got " << numInducts;
                 }
             }
             else {
-                std::cout << "notice: BpReceiveFile has no induct... bundle data will have to flow in through a bidirectional tcpcl outduct\n";
+                LOG_WARNING(subprocess) << "notice: BpReceiveFile has no induct... bundle data will have to flow in through a bidirectional tcpcl outduct";
             }
 
             //create outduct for custody signals
@@ -77,12 +79,12 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             if (outductsConfigFileName.length()) {
                 outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
                 if (!outductsConfigPtr) {
-                    std::cerr << "error loading config file: " << outductsConfigFileName << std::endl;
+                    LOG_ERROR(subprocess) << "error loading config file: " << outductsConfigFileName;
                     return false;
                 }
                 std::size_t numOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
                 if (numOutducts != 1) {
-                    std::cerr << "error: number of BpReceiveFile outducts is not 1: got " << numOutducts << std::endl;
+                    LOG_ERROR(subprocess) << "number of BpReceiveFile outducts is not 1: got " << numOutducts;
                 }
             }
             isAcsAware = (vm.count("acs-aware-bundle-agent"));
@@ -90,21 +92,21 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             maxBundleSizeBytes = vm["max-rx-bundle-size-bytes"].as<uint64_t>();
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what() << "\n";
+            LOG_ERROR(subprocess) << desc;
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
+            LOG_ERROR(subprocess) << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
 
-        std::cout << "starting BpReceiveFile.." << std::endl;
+        LOG_INFO(subprocess) << "starting..";
         BpReceiveFile bpReceiveFile(saveDirectory);
         bpReceiveFile.Init(inductsConfigPtr, outductsConfigPtr, isAcsAware, myEid, 0, maxBundleSizeBytes);
 
@@ -112,7 +114,7 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "BpReceiveFileRunner up and running" << std::endl;
+        LOG_INFO(subprocess) << "Up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -121,11 +123,11 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
         }
 
 
-        std::cout << "BpReceiveFileRunner: exiting cleanly..\n";
+        LOG_INFO(subprocess) << "Exiting cleanly..";
         bpReceiveFile.Stop();
         //safe to get any stats now if needed
     }
-    std::cout << "BpReceiveFileRunner: exited cleanly\n";
+    LOG_INFO(subprocess) << "Exited cleanly";
     return true;
 
 }

@@ -3,10 +3,12 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include <iostream>
 #include <queue>
+#include "Logger.h"
 
 namespace cgr {
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 /*
  * Class method implementations.
@@ -193,7 +195,7 @@ std::vector<Contact> Route::get_hops() {
 }
 Vertex::Vertex() {
     // this should never be used
-    std::cout << "warning, default vertex constructor used\n";
+    LOG_WARNING(subprocess) << "default vertex constructor used";
 }
 
 Vertex::Vertex(nodeId_t node_id) {
@@ -285,7 +287,7 @@ ContactMultigraph::ContactMultigraph(const std::vector<Contact>& contact_plan, n
 
 ContactMultigraph::CmrMapData::CmrMapData(Vertex&& v) : m_vertex(std::move(v)), m_visited(false), m_predecessorNodeId(std::numeric_limits<nodeId_t>::max()), m_arrivalTime(MAX_TIME_T) {}
 ContactMultigraph::CmrMapData::CmrMapData(nodeId_t nodeId) : m_vertex(nodeId), m_visited(false), m_predecessorNodeId(std::numeric_limits<nodeId_t>::max()), m_arrivalTime(MAX_TIME_T) {}
-ContactMultigraph::CmrMapData::CmrMapData() { std::cout << "warning default CmrMapData constructor used\n"; }
+ContactMultigraph::CmrMapData::CmrMapData() { LOG_WARNING(subprocess) << "default CmrMapData constructor used"; }
 
 
 /*
@@ -299,7 +301,6 @@ std::vector<Contact> cp_load(const std::string & filename, std::size_t max_conta
     const boost::property_tree::ptree& contactsPt
         = pt.get_child("contacts", boost::property_tree::ptree());
     contactsVector.reserve(contactsPt.size());
-    //std::cout << "reserved " << contactsPt.size() << "\n";
     for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
         contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
             eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
@@ -311,7 +312,7 @@ std::vector<Contact> cp_load(const std::string & filename, std::size_t max_conta
             eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
         contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
         if (contactsVector.size() == max_contacts) {
-            std::cout << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!\n";
+            LOG_WARNING(subprocess) << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!";
             break;
         }
     }
@@ -561,7 +562,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
         PQ.emplace(&v, v.vertex_arrival_time);
     }
     if (PQ.empty()) {
-        std::cout << "ERROR in cmr_dijkstra, initial priority queue empty\n";
+        LOG_ERROR(subprocess) << "cmr_dijkstra: initial priority queue empty";
         return Route();
     }
     vertex_ptr_plus_arrival_time_pair_t v_next;
@@ -569,7 +570,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     PQ.pop();
     ContactMultigraph::cmr_node_map_t::iterator vCurrItNodeMap = CM.m_nodeMap.find(v_curr.first->id); //not const, modifies m_visited
     if (vCurrItNodeMap == CM.m_nodeMap.cend()) {
-        std::cout << "vCurrItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+        LOG_WARNING(subprocess) << "vCurrItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
         return Route();
     }
     
@@ -579,13 +580,13 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
             //std::unordered_map<nodeId_t, Vertex>::iterator itVert = CM.vertices.find(adj.first);
             ContactMultigraph::cmr_node_map_t::iterator itAdjNodeMap = CM.m_nodeMap.find(adj.first);
             if (itAdjNodeMap == CM.m_nodeMap.cend()) {
-                std::cout << "adj not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+                LOG_WARNING(subprocess) << "adj not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
                 return Route();
             }
             Vertex * u = &(itAdjNodeMap->second.m_vertex); //CM.vertices[adj.first];
             //sanity check
             if (u->id != itAdjNodeMap->first) {
-                std::cout << "error u->id not itAdjNodeMap->first\n";
+                LOG_ERROR(subprocess) << "u->id not itAdjNodeMap->first";
                 return Route();
             }
             if (itAdjNodeMap->second.m_visited) {
@@ -594,7 +595,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
             // check if there is any viable contact
             const std::vector<uint64_t> & v_curr_to_u_ind = v_curr.first->adjacencies[u->id];
             if (v_curr_to_u_ind.empty()) {
-                std::cout << "found error\n";
+                LOG_ERROR(subprocess) << "found error";
                 continue;
             }
             std::vector<const Contact*> v_curr_to_u(v_curr_to_u_ind.size());
@@ -603,7 +604,6 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
             }
             //std::unordered_map<nodeId_t, time_t>
             const time_t arrivalTimeVcurr = vCurrItNodeMap->second.m_arrivalTime;
-            //std::cout << "arrivalTimeVcurr " << arrivalTimeVcurr << "\n";
             //if ((v_curr_to_u.back().end < CM.arrival_time[v_curr.id]) && (CM.arrival_time[v_curr.id] != MAX_SIZE)) {
             if ((v_curr_to_u.back()->end < arrivalTimeVcurr) && (arrivalTimeVcurr != MAX_TIME_T)) {
                 continue;
@@ -620,13 +620,11 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
 
             //std::unordered_map<nodeId_t, time_t>::iterator itArrivalU = CM.arrival_time.find(u->id);
             //if (itArrivalU == CM.arrival_time.end()) {
-            //    std::cout << "arrival U time not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
             //    return Route();
             //}
             //const time_t arrivalTimeU = itArrivalU->second;
             time_t & arrivalTimeU = itAdjNodeMap->second.m_arrivalTime;
 
-            //std::cout << " best_arr_time(" << best_arr_time << ") < arrivalTimeU(" << arrivalTimeU << ")\n";
             if (best_arr_time < arrivalTimeU) { //if (best_arr_time < CM.arrival_time[u.id]) {
                 arrivalTimeU = best_arr_time; //CM.arrival_time[u.id] = best_arr_time;
                 // update PQ
@@ -635,13 +633,10 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
                 //u.predecessor = contact_search_predecessor(v_curr_to_u, v_curr.arrival_time); old way
                 //uint64_t p_i = contact_search_predecessor(v_curr_to_u_ind, CM.arrival_time[v_curr.id], contact_plan);
                 uint64_t p_i = contact_search_predecessor(v_curr_to_u_ind, arrivalTimeVcurr, contact_plan);
-                //std::cout << "u.id " << u->id << " p_i " << p_i << "\n";
                 //std::unordered_map<nodeId_t, nodeId_t>::iterator itPredU = CM.predecessors.find(u->id);
                 //if (itPredU == CM.predecessors.end()) { //not found
-                //    std::cout << "error cannot find predecessor U.id " << u->id << " in CM.predecessors\n";
                 //    return Route();
                 //}
-                //std::cout << "add to pred " << u->id << " " << itPredU->first << " " << itPredU->second << "\n";
                 //itPredU->second = p_i; //CM.predecessors[u.id] = p_i;
                 itAdjNodeMap->second.m_predecessorNodeId = p_i;
                 // still want to update u node's arrival time for sake of pq
@@ -652,7 +647,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
         vCurrItNodeMap->second.m_visited = true;
         // ---------- MRP ----------
         if (PQ.empty()) {
-            std::cout << "ERROR in cmr_dijkstra, priority queue empty\n";
+            LOG_ERROR(subprocess) << "cmr_dijkstra: priority queue empty";
             return Route();
         }
         v_next = PQ.top();
@@ -664,7 +659,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
             v_curr = v_next;
             vCurrItNodeMap = CM.m_nodeMap.find(v_curr.first->id);
             if (vCurrItNodeMap == CM.m_nodeMap.cend()) {
-                std::cout << "vCurrItNodeMap from v_next not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+                LOG_WARNING(subprocess) << "vCurrItNodeMap from v_next not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
                 return Route();
             }
         }
@@ -684,13 +679,12 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
     while (true) {
         ContactMultigraph::cmr_node_map_t::const_iterator vNextItNodeMap = CM.m_nodeMap.find(predecessorIndex);
         if (vNextItNodeMap == CM.m_nodeMap.cend()) {
-            std::cout << "vNextItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            LOG_WARNING(subprocess) << "vNextItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
             break;
         }
         const nodeId_t contactPlanIndex = vNextItNodeMap->second.m_predecessorNodeId;
-        //std::cout << "predecessorIndex " << predecessorIndex << " constactPlanIndex " << constactPlanIndex << "\n";
         if (contactPlanIndex >= contact_plan.size()) {
-            std::cout << "error contactPlanIndex(" << contactPlanIndex << ") >= contact_plan.size(" << contact_plan.size() << ")\n";
+            LOG_ERROR(subprocess) << "contactPlanIndex(" << contactPlanIndex << ") >= contact_plan.size(" << contact_plan.size() << ")";
             break;
         }
         const Contact & contact = contact_plan[contactPlanIndex];
@@ -703,7 +697,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
         }
         ContactMultigraph::cmr_node_map_t::const_iterator contactFromItNodeMap = CM.m_nodeMap.find(contact.frm);
         if (contactFromItNodeMap == CM.m_nodeMap.cend()) {
-            std::cout << "contactFromItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            LOG_WARNING(subprocess) << "contactFromItNodeMap not found!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
             break;
         }
         predecessorIndex = contactFromItNodeMap->second.m_vertex.id;
@@ -711,7 +705,7 @@ Route cmr_dijkstra(Contact* root_contact, nodeId_t destination, const std::vecto
 #endif
     Route route;
     if (hops.empty()) {
-        std::cout << "todo: hops is empty.. no route\n";
+        LOG_DEBUG(subprocess) << "todo: hops is empty.. no route";
         route.to_node = std::numeric_limits<nodeId_t>::max();
     }
     else {

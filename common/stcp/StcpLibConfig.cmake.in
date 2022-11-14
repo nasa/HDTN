@@ -3,6 +3,7 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(HDTNUtil REQUIRED)
 find_dependency(TelemetryDefinitions REQUIRED)
+find_dependency(LoggerLib REQUIRED)
 
 if(NOT TARGET HDTN::StcpLib)
     include("${STCPLIB_CMAKE_DIR}/StcpLibTargets.cmake")

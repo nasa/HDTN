@@ -18,6 +18,7 @@ target_link_libraries(stcp_lib
 	PUBLIC
 		hdtn_util
 		telemetry_definitions
+		log_lib
 )
 target_include_directories(stcp_lib
 	PUBLIC

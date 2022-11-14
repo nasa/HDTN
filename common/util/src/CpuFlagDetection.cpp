@@ -2,7 +2,7 @@
  * @file CpuFlagDetection.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -185,7 +185,7 @@ InstructionSet::InstructionSet_Internal::InstructionSet_Internal() :
     //https://en.wikipedia.org/wiki/CPUID#EAX=0:_Highest_Function_Parameter_and_Manufacturer_ID
     // Calling __cpuid with 0x0 as the function_id argument
     // gets the number of the highest valid function ID.
-    // This returns the CPU's manufacturer ID string – a twelve-character ASCII string stored in EBX, EDX, ECX (in that order)
+    // This returns the CPU's manufacturer ID string  a twelve-character ASCII string stored in EBX, EDX, ECX (in that order)
     // The highest basic calling parameter (largest value that EAX can be set to before calling CPUID) is returned in EAX.
     CpuIdCrossPlatform(cpuInfoArrayInt4.data(), 0);
     m_numIds = cpuInfoArrayInt4[0];

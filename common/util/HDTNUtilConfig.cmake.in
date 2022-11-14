@@ -4,6 +4,7 @@ include(CMakeFindDependencyMacro)
 #find_dependency seems broken for multiple calls to find_boost, use find_package instead (https://stackoverflow.com/questions/52763112/cmake-boost-find-depedency-config)
 #find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS filesystem regex date_time thread)
 find_package(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS filesystem regex date_time thread)
+find_dependency(LoggerLib REQUIRED)
 
 if(@ENABLE_OPENSSL_SUPPORT@)
 	find_dependency(OpenSSL REQUIRED)

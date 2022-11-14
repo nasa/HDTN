@@ -10,6 +10,7 @@
 #include "CborUint.h"
 #include <boost/format.hpp>
 #include <boost/make_unique.hpp>
+#include "Logger.h"
 
 Bpv7CanonicalBlock::Bpv7CanonicalBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
 Bpv7CanonicalBlock::~Bpv7CanonicalBlock() { } //a destructor: ~X()
@@ -450,7 +451,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
                 boost::format fmt(fmtTemplate);
                 fmt % canonicalPtr->m_computedCrc16 % computedCrc16;
                 const std::string message(std::move(fmt.str()));
-                std::cout << message << "\n";
+                LOG_INFO(hdtn::Logger::SubProcess::none) << message;
                 return false;
             }
         }
@@ -476,7 +477,7 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
                 boost::format fmt(fmtTemplate);
                 fmt % canonicalPtr->m_computedCrc32 % computedCrc32;
                 const std::string message(std::move(fmt.str()));
-                std::cout << message << "\n";
+                LOG_INFO(hdtn::Logger::SubProcess::none) << message;
                 return false;
             }
         }

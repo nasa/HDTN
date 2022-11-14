@@ -2,7 +2,7 @@
  * @file Telemetry.cpp
  * @author  Blake LaFuente
  *
- * @copyright Copyright � 2021 United States Government as represented by
+ * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,8 +13,10 @@
  */
 
 #include "Telemetry.h"
+#include "Logger.h"
 #include <boost/endian/conversion.hpp>
-#include <iostream>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static void SerializeUint64ArrayToLittleEndian(uint64_t* dest, const uint64_t* src, const uint64_t numElements) {
     for (uint64_t i = 0; i < numElements; ++i) {
@@ -147,7 +149,7 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
         serialized += sizeof(uint64_t);
 
         if (type == 1) { //ingress
-            std::cout << "Ingress Telem:\n";
+            LOG_INFO(subprocess) << "Ingress Telem:";
             if (size < sizeof(IngressTelemetry_t)) return false;
             size -= sizeof(IngressTelemetry_t);
 
@@ -162,14 +164,14 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             const uint64_t bundleCountStorage = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
 
-            std::cout << " bundleDataRate: " << bundleDataRate << "\n";
-            std::cout << " averageDataRate: " << averageDataRate << "\n";
-            std::cout << " totalData: " << totalData << "\n";
-            std::cout << " bundleCountEgress: " << bundleCountEgress << "\n";
-            std::cout << " bundleCountStorage: " << bundleCountStorage << "\n";
+            LOG_INFO(subprocess) << " bundleDataRate: " << bundleDataRate;
+            LOG_INFO(subprocess) << " averageDataRate: " << averageDataRate;
+            LOG_INFO(subprocess) << " totalData: " << totalData;
+            LOG_INFO(subprocess) << " bundleCountEgress: " << bundleCountEgress;
+            LOG_INFO(subprocess) << " bundleCountStorage: " << bundleCountStorage;
         }
         else if (type == 2) { //egress
-            std::cout << "Egress Telem:\n";
+            LOG_INFO(subprocess) << "Egress Telem:";
             if (size < sizeof(EgressTelemetry_t)) return false;
             size -= sizeof(EgressTelemetry_t);
 
@@ -180,12 +182,12 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             const uint64_t egressMessageCount = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
 
-            std::cout << " egressBundleCount: " << egressBundleCount << "\n";
-            std::cout << " egressBundleData: " << egressBundleData << "\n";
-            std::cout << " egressMessageCount: " << egressMessageCount << "\n";
+            LOG_INFO(subprocess) << " egressBundleCount: " << egressBundleCount;
+            LOG_INFO(subprocess) << " egressBundleData: " << egressBundleData;
+            LOG_INFO(subprocess) << " egressMessageCount: " << egressMessageCount;
         }
         else if (type == 3) { //storage
-            std::cout << "Storage Telem:\n";
+            LOG_INFO(subprocess) << "Storage Telem:";
             if (size < sizeof(StorageTelemetry_t)) return false;
             size -= sizeof(StorageTelemetry_t);
 
@@ -194,11 +196,11 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             const uint64_t totalBundlesSentToEgressFromStorage = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
 
-            std::cout << " totalBundlesErasedFromStorage: " << totalBundlesErasedFromStorage << "\n";
-            std::cout << " totalBundlesSentToEgressFromStorage: " << totalBundlesSentToEgressFromStorage << "\n";
+            LOG_INFO(subprocess) << " totalBundlesErasedFromStorage: " << totalBundlesErasedFromStorage;
+            LOG_INFO(subprocess) << " totalBundlesSentToEgressFromStorage: " << totalBundlesSentToEgressFromStorage;
         }
         else if (type == 10) { //StorageExpiringBeforeThresholdTelemetry_t
-            std::cout << "StorageExpiringBeforeThreshold Telem:\n";
+            LOG_INFO(subprocess) << "StorageExpiringBeforeThreshold Telem:";
             if (size < 32) return false;
             size -= 32;
 
@@ -209,8 +211,8 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             const uint64_t numNodes = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
             serialized += sizeof(uint64_t);
 
-            std::cout << " priority: " << priority << "\n";
-            std::cout << " thresholdSecondsSinceStartOfYear2000: " << thresholdSecondsSinceStartOfYear2000 << "\n";
+            LOG_INFO(subprocess) << " priority: " << priority;
+            LOG_INFO(subprocess) << " thresholdSecondsSinceStartOfYear2000: " << thresholdSecondsSinceStartOfYear2000;
             const uint64_t remainingBytes = numNodes * 24;
             if (size < remainingBytes) return false;
             size -= remainingBytes;
@@ -221,7 +223,7 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
                 serialized += sizeof(uint64_t);
                 const uint64_t totalBundleBytes = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
                 serialized += sizeof(uint64_t);
-                std::cout << " finalDestNode: " << nodeId << " : bundleCount=" << bundleCount << " totalBundleBytes=" << totalBundleBytes << "\n";
+                LOG_INFO(subprocess) << " finalDestNode: " << nodeId << " : bundleCount=" << bundleCount << " totalBundleBytes=" << totalBundleBytes;
             }
         }
         else if (type == 4) { //a single outduct
@@ -230,12 +232,12 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             serialized += sizeof(uint64_t);
 
             if (convergenceLayerType == 1) { //a single stcp outduct
-                std::cout << "STCP Outduct Telem:\n";
+                LOG_INFO(subprocess) << "STCP Outduct Telem:";
                 if (size < sizeof(StcpOutductTelemetry_t)) return false;
                 size -= sizeof(StcpOutductTelemetry_t);
             }
             else if (convergenceLayerType == 2) { //a single ltp outduct
-                std::cout << "LTP Outduct Telem:\n";
+                LOG_INFO(subprocess) << "LTP Outduct Telem:";
                 if (size < sizeof(LtpOutductTelemetry_t)) return false;
                 size -= sizeof(LtpOutductTelemetry_t);
             }
@@ -244,7 +246,7 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             //else if (convergenceLayerType == 4) { //a single ltp outduct
             //else if (convergenceLayerType == 5) { //a single udp outduct
             else {
-                std::cout << "Invalid telemetry convergence layer type (" << convergenceLayerType << ")\n";
+                LOG_INFO(subprocess) << "Invalid telemetry convergence layer type (" << convergenceLayerType << ")";
                 return false;
             }
 
@@ -261,19 +263,19 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
             serialized += sizeof(uint64_t);
             const uint64_t totalBundlesQueued = totalBundlesSent - totalBundlesAcked;
             const uint64_t totalBundleBytessQueued = totalBundleBytesSent - totalBundleBytesAcked;
-            std::cout << " totalBundlesAcked: " << totalBundlesAcked << "\n";
-            std::cout << " totalBundleBytesAcked: " << totalBundleBytesAcked << "\n";
-            std::cout << " totalBundlesSent: " << totalBundlesSent << "\n";
-            std::cout << " totalBundleBytesSent: " << totalBundleBytesSent << "\n";
-            std::cout << " totalBundlesFailedToSend: " << totalBundlesFailedToSend << "\n";
-            std::cout << " totalBundlesQueued: " << totalBundlesQueued << "\n";
-            std::cout << " totalBundleBytessQueued: " << totalBundleBytessQueued << "\n";
+            LOG_INFO(subprocess) << " totalBundlesAcked: " << totalBundlesAcked;
+            LOG_INFO(subprocess) << " totalBundleBytesAcked: " << totalBundleBytesAcked;
+            LOG_INFO(subprocess) << " totalBundlesSent: " << totalBundlesSent;
+            LOG_INFO(subprocess) << " totalBundleBytesSent: " << totalBundleBytesSent;
+            LOG_INFO(subprocess) << " totalBundlesFailedToSend: " << totalBundlesFailedToSend;
+            LOG_INFO(subprocess) << " totalBundlesQueued: " << totalBundlesQueued;
+            LOG_INFO(subprocess) << " totalBundleBytessQueued: " << totalBundleBytessQueued;
             
             if (convergenceLayerType == 1) { //a single stcp outduct
                 const uint64_t totalStcpBytesSent = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
                 serialized += sizeof(uint64_t);
-                std::cout << "  Specific to STCP:\n";
-                std::cout << "  totalStcpBytesSent: " << totalStcpBytesSent << "\n";
+                LOG_INFO(subprocess) << "  Specific to STCP:";
+                LOG_INFO(subprocess) << "  totalStcpBytesSent: " << totalStcpBytesSent;
             }
             else if (convergenceLayerType == 2) { //a single ltp outduct
                 const uint64_t numCheckpointsExpired = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
@@ -286,12 +288,12 @@ bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {
                 serialized += sizeof(uint64_t);
                 const uint64_t countTxUdpPacketsLimitedByRate = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialized)));
                 serialized += sizeof(uint64_t);
-                std::cout << "  Specific to LTP:\n";
-                std::cout << "  numCheckpointsExpired: " << numCheckpointsExpired << "\n";
-                std::cout << "  numDiscretionaryCheckpointsNotResent: " << numDiscretionaryCheckpointsNotResent << "\n";
-                std::cout << "  countUdpPacketsSent: " << countUdpPacketsSent << "\n";
-                std::cout << "  countRxUdpCircularBufferOverruns: " << countRxUdpCircularBufferOverruns << "\n";
-                std::cout << "  countTxUdpPacketsLimitedByRate: " << countTxUdpPacketsLimitedByRate << "\n";
+                LOG_INFO(subprocess) << "  Specific to LTP:";
+                LOG_INFO(subprocess) << "  numCheckpointsExpired: " << numCheckpointsExpired;
+                LOG_INFO(subprocess) << "  numDiscretionaryCheckpointsNotResent: " << numDiscretionaryCheckpointsNotResent;
+                LOG_INFO(subprocess) << "  countUdpPacketsSent: " << countUdpPacketsSent;
+                LOG_INFO(subprocess) << "  countRxUdpCircularBufferOverruns: " << countRxUdpCircularBufferOverruns;
+                LOG_INFO(subprocess) << "  countTxUdpPacketsLimitedByRate: " << countTxUdpPacketsLimitedByRate;
             }
             //else if (convergenceLayerType == 3) { //a single tcpclv4 outduct
             //else if (convergenceLayerType == 4) { //a single ltp outduct

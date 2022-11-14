@@ -9,6 +9,7 @@
 #include "codec/Bpv7Crc.h"
 #include "CborUint.h"
 #include <boost/format.hpp>
+#include "Logger.h"
 
 Bpv7CbhePrimaryBlock::Bpv7CbhePrimaryBlock() { } //a default constructor: X() //don't initialize anything for efficiency, use SetZero if required
 Bpv7CbhePrimaryBlock::~Bpv7CbhePrimaryBlock() { } //a destructor: ~X()
@@ -445,7 +446,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
                 boost::format fmt(fmtTemplate);
                 fmt % m_computedCrc16 % computedCrc16;
                 const std::string message(std::move(fmt.str()));
-                std::cout << message << "\n";
+                LOG_INFO(hdtn::Logger::SubProcess::none) << message;
                 return false;
             }
         }
@@ -467,7 +468,7 @@ bool Bpv7CbhePrimaryBlock::DeserializeBpv7(uint8_t * serialization, uint64_t & n
                 boost::format fmt(fmtTemplate);
                 fmt % m_computedCrc32 % computedCrc32;
                 const std::string message(std::move(fmt.str()));
-                std::cout << message << "\n";
+                LOG_INFO(hdtn::Logger::SubProcess::none) << message;
                 return false;
             }
         }

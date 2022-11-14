@@ -2,7 +2,7 @@
  * @file JsonSerializable.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include "JsonSerializable.h"
-#include <iostream>
+#include "Logger.h"
 #include <sstream>
 #include <boost/regex.hpp>
 //since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
@@ -26,6 +26,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 //regex to match "number", "true", "false", "{}", or "[]" (that do not precede a colon) and remove the quotes around them
 static const boost::regex regexMatchInQuotes("\\\"(-?\\d*\\.{0,1}\\d+|true|false|\\{\\}|\\[\\])\\\"(?!:)"); //, boost::regex_constants::icase); //json boolean is lower case only
@@ -43,7 +45,7 @@ bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) {
     std::ofstream out(fileName);
     if (!out.good()) {
         const std::string message = "In JsonSerializable::ToJsonFile. Error opening file for writing: " + fileName;
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
         return false;
     }
     out << ToJson(pretty);
@@ -68,7 +70,7 @@ boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromCharArray(char 
         boost::property_tree::read_json(is, pt);
     }
     catch (boost::property_tree::json_parser::json_parser_error e) {
-        std::cerr << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << data << std::endl;
+        LOG_ERROR(subprocess) << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << data;
     }
     return pt;
 }
@@ -80,7 +82,7 @@ boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromJsonString(cons
         boost::property_tree::read_json(iss, pt);
     }
     catch (boost::property_tree::json_parser::json_parser_error e) {
-        std::cerr << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << jsonStr << std::endl;
+        LOG_ERROR(subprocess) << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << jsonStr;
     }
     return pt;
 }
@@ -105,7 +107,7 @@ bool JsonSerializable::ToXmlFile(const std::string & fileName, char indentCharac
     }
     catch (boost::property_tree::xml_parser_error & e) {
         const std::string message = "In JsonSerializable::ToXmlFile. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
         return false;
     }
 
@@ -131,7 +133,7 @@ bool JsonSerializable::SetValuesFromJson(const std::string & jsonString) {
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In JsonSerializable::SetValuesFromJson. Error: " + std::string(e.what());
-        std::cerr << message << std::endl;
+        LOG_ERROR(subprocess) << message;
     }
     return false;
 }

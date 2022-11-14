@@ -1,9 +1,11 @@
 #include "TcpclV4Outduct.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, const uint64_t myNodeId, const uint64_t outductUuid,
     const uint64_t maxOpportunisticRxBundleSizeBytes,
@@ -32,7 +34,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
     if (outductConfig.tryUseTls) {
 #if (BOOST_VERSION < 106900)
         if (outductConfig.useTlsVersion1_3) {
-            std::cout << "warning: TLS Version 1.3 was specified but that requires compiling with boost version 1.69.0-beta1 or greater.. using TLS Version 1.2 instead.\n";
+            LOG_WARNING(subprocess) << "TLS Version 1.3 was specified but that requires compiling with boost version 1.69.0-beta1 or greater.. using TLS Version 1.2 instead.";
         }
 #endif
         try {
@@ -40,7 +42,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
             m_shareableSslContext.set_verify_mode(boost::asio::ssl::verify_peer);
         }
         catch (boost::system::system_error & e) {
-            std::cout << "error in TcpclV4Outduct constructor: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "TcpclV4Outduct constructor: " << e.what();
             return;
         }
         //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
@@ -113,11 +115,11 @@ static bool VerifySubjectAltNameFromCertificate(X509 *cert, const std::string & 
             unsigned char *outBuf = NULL;
             ASN1_STRING_to_UTF8(&outBuf, currentSubjectAltName->d.uniformResourceIdentifier);
             const std::string subjectAltNameString((const char *)outBuf, (std::size_t)ASN1_STRING_length(currentSubjectAltName->d.uniformResourceIdentifier));
-            std::cout << "subjectAltNameString=" << subjectAltNameString << std::endl;
+            LOG_INFO(subprocess) << "subjectAltNameString=" << subjectAltNameString;
             OPENSSL_free(outBuf);
             if (subjectAltNameString == expectedIpnEidUri) {
-                std::cout << "warning, using an older draft version of tcpcl version 4 that uses URIs as the subject alternative name\n";
-                std::cout << " switch to id-on-bundleEID when generating certificates\n";
+                LOG_WARNING(subprocess) << "using an older draft version of tcpcl version 4 that uses URIs as the subject alternative name";
+                LOG_WARNING(subprocess) << " switch to id-on-bundleEID when generating certificates";
                 return true;
             }
         }
@@ -131,17 +133,17 @@ static bool VerifySubjectAltNameFromCertificate(X509 *cert, const std::string & 
                     //ASN1_STRING_get0_data returns an internal pointer to the data of x. Since this is an internal pointer it should not be freed or modified in any way.
                     const char * ia5StringData = (const char*)ASN1_STRING_get0_data(currentSubjectAltName->d.otherName->value->value.ia5string);
                     const std::string uriString(ia5StringData);
-                    std::cout << "id-on-bundleEID=" << uriString << "\n";
+                    LOG_INFO(subprocess) << "id-on-bundleEID=" << uriString;
                     if (uriString == expectedIpnEidUri) {
                         return true;
                     }
                 }
                 else {
-                    std::cout << "unknown type in currentSubjectAltName->d.otherName->value->type, got " << currentSubjectAltName->d.otherName->value->type << "\n";
+                    LOG_WARNING(subprocess) << "unknown type in currentSubjectAltName->d.otherName->value->type, got " << currentSubjectAltName->d.otherName->value->type;
                 }
             }
             else {
-                std::cout << "unknown nid, got " << nid << "\n";
+                LOG_WARNING(subprocess) << "unknown nid, got " << nid;
             }
         }
     }
@@ -170,29 +172,29 @@ bool TcpclV4Outduct::VerifyCertificate(bool preverified, boost::asio::ssl::verif
     //So a version 3 certificate will return 2 and a version 1 certificate will return 0.
     const long x509Version = X509_get_version(cert) + 1;
     if (doX509CertificateVerification) {
-        std::cout << "Verifying " << subjectName.data() << "  preverified=" << preverified << " x509 version=" << x509Version << "\n";
+        LOG_INFO(subprocess) << "Verifying " << subjectName.data() << "  preverified=" << preverified << " x509 version=" << x509Version;
     }
     else {
-        std::cout << "Skipping verification and accepting this certificate: subject=" << subjectName.data() << "  preverified=" << preverified << " x509 version=" << x509Version << "\n";
+        LOG_INFO(subprocess) << "Skipping verification and accepting this certificate: subject=" << subjectName.data() << "  preverified=" << preverified << " x509 version=" << x509Version;
         return true;
     }
     if (x509Version < 3) {
-        std::cout << "error in TcpclV4Outduct::VerifyCertificate: tcpclV4 requires a minimum X.509 certificate of 3 but got " << x509Version << std::endl;
+        LOG_ERROR(subprocess) << "TcpclV4Outduct::VerifyCertificate: tcpclV4 requires a minimum X.509 certificate of 3 but got " << x509Version;
         return false;
     }
     if (!preverified) {
-        std::cout << "error in TcpclV4Outduct::VerifyCertificate: X.509 certificate not verified\n";
+        LOG_ERROR(subprocess) << "TcpclV4Outduct::VerifyCertificate: X.509 certificate not verified";
         return false;
     }
     
     
     if (doVerifyNextHopEndpointIdStr) {
         if (!VerifySubjectAltNameFromCertificate(cert, nextHopEndpointIdStrWithServiceIdZero)) {
-            std::cout << "error in TcpclV4Outduct::VerifyCertificate: the subjectAltName URI in the X.509 certificate does not match the next hop endpoint id of " << nextHopEndpointIdStrWithServiceIdZero << std::endl;
+            LOG_ERROR(subprocess) << "TcpclV4Outduct::VerifyCertificate: the subjectAltName URI in the X.509 certificate does not match the next hop endpoint id of " << nextHopEndpointIdStrWithServiceIdZero;
             return false;
         }
         else {
-            std::cout << "success: X.509 certificate subjectAltName matches the nextHopEndpointIdStr\n";
+            LOG_INFO(subprocess) << "success: X.509 certificate subjectAltName matches the nextHopEndpointIdStr";
         }
     }
 

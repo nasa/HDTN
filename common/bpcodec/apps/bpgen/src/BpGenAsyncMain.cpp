@@ -1,4 +1,3 @@
-#include <iostream>
 #include "BpGenAsyncRunner.h"
 #include "Logger.h"
 
@@ -15,7 +14,7 @@ int main(int argc, const char* argv[]) {
     BpGenAsyncRunner runner;
     volatile bool running;
     runner.Run(argc, argv, running, true);
-    std::cout << "bundle count main: " << runner.m_bundleCount << std::endl;
+    LOG_INFO(hdtn::Logger::SubProcess::none) << "bundle count main: " << runner.m_bundleCount;
     return 0;
 
 }

@@ -2,7 +2,7 @@
  * @file TcpclV4BundleSink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -14,10 +14,12 @@
 
 #include <boost/bind/bind.hpp>
 #include <memory>
-#include <iostream>
 #include "TcpclV4BundleSink.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include "Uri.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 TcpclV4BundleSink::TcpclV4BundleSink(
 #ifdef OPENSSL_SUPPORT_ENABLED
@@ -132,14 +134,14 @@ void TcpclV4BundleSink::DoSslUpgrade() { //must run within Io Service Thread
 
 void TcpclV4BundleSink::HandleSslHandshake(const boost::system::error_code & error) {
     if (!error) {
-        std::cout << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point\n";
+        LOG_INFO(subprocess) << "SSL/TLS Handshake succeeded.. all transmissions shall be secure from this point";
         m_base_didSuccessfulSslHandshake = true;
         m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceiveSecure
         TryStartTcpReceiveSecure();
         //BaseClass_SendSessionInit(); I am the passive entity and will send (from within my session init rx callback) a session init when i first receive a session init from the active entity (from bundle source)
     }
     else {
-        std::cout << "SSL/TLS Handshake failed: " << error.message() << "\n";
+        LOG_ERROR(subprocess) << "SSL/TLS Handshake failed: " << error.message();
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
 }
@@ -150,7 +152,7 @@ void TcpclV4BundleSink::TryStartTcpReceiveSecure() { //must run within Io Servic
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
-                std::cout << "notice in TcpclV4BundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
+                LOG_INFO(subprocess) << "TcpclV4BundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!";
             }
         }
         else {
@@ -174,11 +176,11 @@ void TcpclV4BundleSink::HandleTcpReceiveSomeSecure(const boost::system::error_co
         TryStartTcpReceiveSecure(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "TcpclBundleSink Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "TcpclBundleSink Tcp connection closed cleanly by peer";
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclV4BundleSink::HandleTcpReceiveSomeSecure: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "TcpclV4BundleSink::HandleTcpReceiveSomeSecure: " << error.message();
     }
 }
 
@@ -195,7 +197,7 @@ void TcpclV4BundleSink::TryStartTcpReceiveUnsecure() { //must run within Io Serv
         if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
             if (!m_printedCbTooSmallNotice) {
                 m_printedCbTooSmallNotice = true;
-                std::cout << "notice in TcpclV4BundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!" << std::endl;
+                LOG_INFO(subprocess) << "TcpclV4BundleSink::StartTcpReceive(): buffers full.. you might want to increase the circular buffer size for better performance!";
             }
         }
         else {
@@ -218,11 +220,11 @@ void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_
         TryStartTcpReceiveUnsecure(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "TcpclBundleSink Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "TcpclBundleSink Tcp connection closed cleanly by peer";
         BaseClass_DoTcpclShutdown(false, TCPCLV4_SESSION_TERMINATION_REASON_CODES::UNKNOWN, false);
     }
     else if (error != boost::asio::error::operation_aborted) { //will always be operation_aborted when thread is terminating
-        std::cerr << "Error in TcpclV4BundleSink::HandleTcpReceiveSome: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "TcpclV4BundleSink::HandleTcpReceiveSome: " << error.message();
     }
 }
 
@@ -247,7 +249,7 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
         m_circularIndexBuffer.CommitRead();
 #ifdef OPENSSL_SUPPORT_ENABLED
         if (m_base_doUpgradeSocketToSsl) { //the tcpclv4 rx state machine may have set m_base_doUpgradeSocketToSsl to true after HandleReceivedChars()
-            std::cout << "sink going to call handshake\n";
+            LOG_INFO(subprocess) << "sink going to call handshake";
             m_base_doUpgradeSocketToSsl = false;
             tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveSecure, this);
             //boost::asio::post(m_tcpSocketIoServiceRef, boost::bind(&TcpclV4BundleSink::DoSslUpgrade, this)); //keep this a thread safe operation by letting ioService thread run it
@@ -255,7 +257,7 @@ void TcpclV4BundleSink::PopCbThreadFunc() {
 #endif
     }
 
-    std::cout << "TcpclBundleSink Circular buffer reader thread exiting\n";
+    LOG_INFO(subprocess) << "TcpclBundleSink Circular buffer reader thread exiting";
 
 }
 
@@ -305,7 +307,7 @@ uint64_t TcpclV4BundleSink::GetRemoteNodeId() const {
 
 void TcpclV4BundleSink::TrySendOpportunisticBundleIfAvailable_FromIoServiceThread() {
     if (m_base_shutdownCalled || m_base_sinkIsSafeToDelete) {
-        std::cerr << "opportunistic link unavailable" << std::endl;
+        LOG_ERROR(subprocess) << "opportunistic link unavailable";
         return;
     }
     std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > bundleDataPair;

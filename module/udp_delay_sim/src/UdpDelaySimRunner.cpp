@@ -2,7 +2,7 @@
  * @file UdpDelaySimRunner.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -15,16 +15,18 @@
 #include "UdpDelaySim.h"
 #include "UdpDelaySimRunner.h"
 #include "SignalHandler.h"
+#include "Logger.h"
 
 #include <fstream>
-#include <iostream>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/date_time.hpp>
 
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 void UdpDelaySimRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -65,7 +67,7 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
             boost::program_options::notify(vm);
 
             if (vm.count("help")) {
-                std::cout << desc << "\n";
+                LOG_INFO(subprocess) << desc;
                 return false;
             }
 
@@ -78,26 +80,26 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
             maxRxUdpPacketSizeBytes = vm["max-rx-udp-packet-size-bytes"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
-            std::cout << "invalid data error: " << e.what() << "\n\n";
-            std::cout << desc << "\n";
+            LOG_ERROR(subprocess) << "invalid data error: " << e.what() << "\n";
+            LOG_ERROR(subprocess) << desc;
             return false;
         }
         catch (std::exception& e) {
-            std::cerr << "error: " << e.what() << "\n";
+            LOG_ERROR(subprocess) << e.what();
             return false;
         }
         catch (...) {
-            std::cerr << "Exception of unknown type!\n";
+            LOG_ERROR(subprocess) << "Exception of unknown type!";
             return false;
         }
 
-        std::cout << "starting UdpDelaySim (Proxy).." << std::endl;
+        LOG_INFO(subprocess) << "starting UdpDelaySim (Proxy)..";
         UdpDelaySim udpDelaySim(myBoundUdpPort, remoteUdpHostname, remoteUdpPortAsString, numUdpRxPacketsCircularBufferSize, maxRxUdpPacketSizeBytes, boost::posix_time::milliseconds(sendDelayMs), true);
         
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "UdpDelaySim up and running" << std::endl;
+        LOG_INFO(subprocess) << "UdpDelaySim up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -106,6 +108,6 @@ bool UdpDelaySimRunner::Run(int argc, const char* const argv[], volatile bool & 
         }
 
     }
-    std::cout << "UdpDelaySim: exited cleanly\n";
+    LOG_INFO(subprocess) << "UdpDelaySim: exited cleanly";
     return true;
 }

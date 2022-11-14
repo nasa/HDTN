@@ -2,7 +2,7 @@
  * @file TcpclV4.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include "TcpclV4.h"
-#include <iostream>
+#include "Logger.h"
 #include <boost/multiprecision/cpp_int.hpp>
 #include <boost/multiprecision/detail/bitscan.hpp>
 #include <boost/endian/conversion.hpp>
@@ -22,6 +22,8 @@
 #include <emmintrin.h>
 #endif
 
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 static BOOST_FORCEINLINE uint64_t UnalignedBigEndianToNativeU64(const uint8_t * const data) {
 #ifndef USE_SSE_SSE2
@@ -443,8 +445,8 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                         numChars -= sizeof(uint64_t);
                         rxVals += sizeof(uint64_t);
                         if ((m_dataSegmentLength > M_MAX_RX_BUNDLE_SIZE_BYTES) || (m_dataSegmentLength == 0)) {
-                            std::cout << "error in TCPCLV4_DATA_SEGMENT_RX_STATE::READ_DATA_LENGTH_U64 shortcut, data segment length ("
-                                << m_dataSegmentLength << " bytes) is not between 1 and the bundle size limit of " << M_MAX_RX_BUNDLE_SIZE_BYTES << " bytes\n";
+                            LOG_ERROR(subprocess) << "TCPCLV4_DATA_SEGMENT_RX_STATE::READ_DATA_LENGTH_U64 shortcut, data segment length ("
+                                << m_dataSegmentLength << " bytes) is not between 1 and the bundle size limit of " << M_MAX_RX_BUNDLE_SIZE_BYTES << " bytes";
                             m_contactHeaderRxState = TCPCLV4_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
                             m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_CONTACT_HEADER;
                         }
@@ -461,7 +463,6 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     }
                 }
                 else { //not enough bytes to read transfer id (u64) now 
-                    //std::cout << "skipping tcpcl shortcut" << std::endl;
                     m_dataSegmentRxState = TCPCLV4_DATA_SEGMENT_RX_STATE::READ_TRANSFER_ID_U64;
                     m_readValueByteIndex = 0;
                 }
@@ -501,8 +502,8 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     m_readValueByteIndex = 0;
                     boost::endian::big_to_native_inplace(m_dataSegmentLength);
                     if ((m_dataSegmentLength > M_MAX_RX_BUNDLE_SIZE_BYTES) || (m_dataSegmentLength == 0)) {
-                        std::cout << "error in TCPCLV4_DATA_SEGMENT_RX_STATE::READ_DATA_LENGTH_U64, data segment length ("
-                            << m_dataSegmentLength << " bytes) is not between 1 and the bundle size limit of " << M_MAX_RX_BUNDLE_SIZE_BYTES << " bytes\n";
+                        LOG_ERROR(subprocess) << "TCPCLV4_DATA_SEGMENT_RX_STATE::READ_DATA_LENGTH_U64, data segment length ("
+                            << m_dataSegmentLength << " bytes) is not between 1 and the bundle size limit of " << M_MAX_RX_BUNDLE_SIZE_BYTES << " bytes";
                         m_contactHeaderRxState = TCPCLV4_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_CONTACT_HEADER;
                     }
@@ -564,7 +565,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     //than are present in the Transfer Extension Length), the reception
                     //of the XFER_SEGMENT is considered to have failed.
                     if (m_currentCountOfTransferExtensionEncodedBytes > m_transferExtensionItemsLengthBytes) {
-                        std::cout << "error in TCPCLV4_DATA_SEGMENT_RX_STATE::READ_ONE_START_SEGMENT_TRANSFER_EXTENSION_ITEM_LENGTH, m_currentCountOfTransferExtensionEncodedBytes > m_transferExtensionItemsLengthBytes\n";
+                        LOG_ERROR(subprocess) << "TCPCLV4_DATA_SEGMENT_RX_STATE::READ_ONE_START_SEGMENT_TRANSFER_EXTENSION_ITEM_LENGTH, m_currentCountOfTransferExtensionEncodedBytes > m_transferExtensionItemsLengthBytes";
                         m_contactHeaderRxState = TCPCLV4_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_CONTACT_HEADER;
                     }
@@ -793,7 +794,7 @@ void TcpclV4::HandleReceivedChars(const uint8_t * rxVals, std::size_t numChars) 
                     //Extension Length), the reception of the SESS_INIT is considered to
                     //have failed.
                     if (m_currentCountOfSessionExtensionEncodedBytes > m_sessionExtensionItemsLengthBytes) {
-                        std::cout << "error in TCPCLV4_SESSION_INIT_RX_STATE::READ_ONE_SESSION_EXTENSION_ITEM_LENGTH, m_currentCountOfSessionExtensionEncodedBytes > m_sessionExtensionItemsLengthBytes\n";
+                        LOG_ERROR(subprocess) << "TCPCLV4_SESSION_INIT_RX_STATE::READ_ONE_SESSION_EXTENSION_ITEM_LENGTH, m_currentCountOfSessionExtensionEncodedBytes > m_sessionExtensionItemsLengthBytes";
                         m_contactHeaderRxState = TCPCLV4_CONTACT_HEADER_RX_STATE::READ_SYNC_1;
                         m_mainRxState = TCPCLV4_MAIN_RX_STATE::READ_CONTACT_HEADER;
                     }

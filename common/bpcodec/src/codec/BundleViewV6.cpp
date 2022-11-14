@@ -107,7 +107,6 @@ bool BundleViewV6::Render(const std::size_t maxBundleSizeBytes) {
 bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
     uint8_t * const serializationBase = serialization;
     if (m_primaryBlockView.dirty) {
-        //std::cout << "pd\n";
         const uint64_t sizeSerialized = m_primaryBlockView.header.SerializeBpv6(serialization);
         if (sizeSerialized == 0) {
             return false;
@@ -117,7 +116,6 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
         m_primaryBlockView.dirty = false;
     }
     else {
-        //std::cout << "pnd\n";
         const std::size_t size = m_primaryBlockView.actualSerializedPrimaryBlockPtr.size();
         memcpy(serialization, m_primaryBlockView.actualSerializedPrimaryBlockPtr.data(), size);
         m_primaryBlockView.actualSerializedPrimaryBlockPtr = boost::asio::buffer(serialization, size);
@@ -134,11 +132,9 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
     for (std::list<Bpv6CanonicalBlockView>::iterator it = m_listCanonicalBlockView.begin(); it != m_listCanonicalBlockView.end(); ++it) {
         const bool isLastBlock = (boost::next(it) == m_listCanonicalBlockView.end());
         if (isLastBlock) {
-            //std::cout << "lb\n";
             it->SetBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::IS_LAST_BLOCK);
         }
         else {
-            //std::cout << "nlb\n";
             it->ClearBlockProcessingControlFlagAndDirtyIfNecessary(BPV6_BLOCKFLAG::IS_LAST_BLOCK);
         }
         uint64_t currentBlockSizeSerialized;
@@ -151,7 +147,6 @@ bool BundleViewV6::Render(uint8_t * serialization, uint64_t & sizeSerialized) {
             it->dirty = false;
         }
         else {
-            //std::cout << "cnd\n";
             currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
             memcpy(serialization, it->actualSerializedBlockPtr.data(), currentBlockSizeSerialized);
         }
@@ -188,7 +183,6 @@ bool BundleViewV6::GetSerializationSize(uint64_t & serializationSize) const {
             }
         }
         else {
-            //std::cout << "cnd\n";
             currentBlockSizeSerialized = it->actualSerializedBlockPtr.size();
         }
         serializationSize += currentBlockSizeSerialized;

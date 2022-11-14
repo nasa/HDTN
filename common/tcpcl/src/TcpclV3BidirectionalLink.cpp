@@ -2,7 +2,7 @@
  * @file TcpclV3BidirectionalLink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,13 +13,15 @@
  */
 
 #include <string>
-#include <iostream>
 #include "TcpclV3BidirectionalLink.h"
+#include "Logger.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
 #include <boost/make_unique.hpp>
 #include "Uri.h"
 #include <boost/endian/conversion.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     const std::string & implementationStringForCout,
@@ -101,8 +103,8 @@ TcpclV3BidirectionalLink::TcpclV3BidirectionalLink(
     else {
         uint64_t remoteNodeId, remoteServiceId;
         if (!Uri::ParseIpnUriString(expectedRemoteEidUriStringIfNotEmpty, remoteNodeId, remoteServiceId)) {
-            std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in constructor: error parsing remote EID URI string " << expectedRemoteEidUriStringIfNotEmpty
-                << " .. TCPCL will fail the Contact Header Callback.  Correct the \"nextHopEndpointId\" field in the outducts config." << std::endl;
+            LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in constructor: error parsing remote EID URI string " << expectedRemoteEidUriStringIfNotEmpty
+                << " .. TCPCL will fail the Contact Header Callback.  Correct the \"nextHopEndpointId\" field in the outducts config.";
         }
         else {
             //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
@@ -124,10 +126,10 @@ void TcpclV3BidirectionalLink::BaseClass_TryToWaitForAllBundlesToFinishSending()
     for (unsigned int attempt = 0; attempt < 10; ++attempt) {
         const std::size_t numUnacked = Virtual_GetTotalBundlesUnacked();
         if (numUnacked) {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": notice: destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": destructor waiting on " << numUnacked << " unacked bundles";
 
-            std::cout << "   acked: " << m_base_totalBundlesAcked << std::endl;
-            std::cout << "   total sent: " << m_base_totalBundlesSent << std::endl;
+            LOG_INFO(subprocess) << "   acked: " << m_base_totalBundlesAcked;
+            LOG_INFO(subprocess) << "   total sent: " << m_base_totalBundlesSent;
 
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
@@ -172,7 +174,7 @@ unsigned int TcpclV3BidirectionalLink::Virtual_GetMaxTxBundlesInPipeline() {
 
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSend: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ":BaseClass_HandleTcpSend: " << error.message();
         BaseClass_DoTcpclShutdown(true, false);
     }
     else {
@@ -182,7 +184,7 @@ void TcpclV3BidirectionalLink::BaseClass_HandleTcpSend(const boost::system::erro
 
 void TcpclV3BidirectionalLink::BaseClass_HandleTcpSendShutdown(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_HandleTcpSendShutdown: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_HandleTcpSendShutdown: " << error.message();
     }
     else {
         m_base_sendShutdownMessageTimeoutTimer.cancel();
@@ -197,7 +199,6 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
     if (isStartFlag && isEndFlag) { //optimization for whole (non-fragmented) data
         bytesToAck = dataSegmentDataVec.size(); //grab the size now in case vector gets stolen in m_wholeBundleReadyCallback
         Virtual_WholeBundleReady(dataSegmentDataVec);
-        //std::cout << dataSegmentDataSharedPtr->size() << std::endl;
     }
     else {
         if (isStartFlag) {
@@ -229,7 +230,7 @@ void TcpclV3BidirectionalLink::BaseClass_DataSegmentCallback(padded_vector_uint8
 void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowledged) {
     const unsigned int readIndex = m_base_bytesToAckCb.GetIndexForRead();
     if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error: AckCallback called with empty queue" << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": AckCallback called with empty queue";
     }
     else {
         std::vector<uint64_t> & currentFragmentBytesVec = m_base_fragmentBytesToAckCbVec[readIndex];
@@ -243,8 +244,8 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
                 ++m_base_totalFragmentedAcked;
             }
             else {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_AckCallback: wrong fragment bytes acked: expected "
-                    << expectedFragByteToAck << " but got " << totalBytesAcknowledged << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_AckCallback: wrong fragment bytes acked: expected "
+                    << expectedFragByteToAck << " but got " << totalBytesAcknowledged;
             }
         }
 
@@ -263,8 +264,8 @@ void TcpclV3BidirectionalLink::BaseClass_AckCallback(uint64_t totalBytesAcknowle
                 }
             }
             else {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_AckCallback: wrong bytes acked: expected "
-                    << m_base_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_AckCallback: wrong bytes acked: expected "
+                    << m_base_bytesToAckCbVec[readIndex] << " but got " << totalBytesAcknowledged;
             }
         }
     }
@@ -282,7 +283,7 @@ void TcpclV3BidirectionalLink::BaseClass_RestartNoKeepaliveReceivedTimer() {
 }
 
 void TcpclV3BidirectionalLink::BaseClass_KeepAliveCallback() {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received keepalive packet\n";
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": received keepalive packet";
     BaseClass_RestartNoKeepaliveReceivedTimer(); //cancels and restarts timer
 }
 
@@ -290,16 +291,13 @@ void TcpclV3BidirectionalLink::BaseClass_OnNoKeepAlivePacketReceived_TimerExpire
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
         if (m_base_dataReceivedServedAsKeepaliveReceived) {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": data received served as keepalive\n";
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": data received served as keepalive";
             BaseClass_RestartNoKeepaliveReceivedTimer();
         }
         else {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": shutting down tcpcl session due to inactivity or missing keepalive\n";
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": shutting down tcpcl session due to inactivity or missing keepalive";
             BaseClass_DoTcpclShutdown(true, true);
         }
-    }
-    else {
-        //std::cout << "timer cancelled\n";
     }
 }
 
@@ -311,7 +309,6 @@ void TcpclV3BidirectionalLink::BaseClass_RestartNeedToSendKeepAliveMessageTimer(
     const unsigned int shift = static_cast<unsigned int>(m_base_dataSentServedAsKeepaliveSent);
     const unsigned int millisecondMultiplier = 1000u >> shift;
     const boost::posix_time::time_duration expiresFromNowDuration = boost::posix_time::milliseconds(m_base_keepAliveIntervalSeconds * millisecondMultiplier);
-    //std::cout << "try send keepalive in " << expiresFromNowDuration.total_milliseconds() << " millisec\n";
     m_base_needToSendKeepAliveMessageTimer.expires_from_now(expiresFromNowDuration);
     m_base_needToSendKeepAliveMessageTimer.async_wait(boost::bind(&TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpired, this, boost::asio::placeholders::error));
     m_base_dataSentServedAsKeepaliveSent = false;
@@ -333,25 +330,22 @@ void TcpclV3BidirectionalLink::BaseClass_OnNeedToSendKeepAliveMessage_TimerExpir
             BaseClass_RestartNeedToSendKeepAliveMessageTimer();
         }
     }
-    else {
-        //std::cout << "timer cancelled\n";
-    }
 }
 
 
 void TcpclV3BidirectionalLink::BaseClass_ShutdownCallback(bool hasReasonCode, SHUTDOWN_REASON_CODES shutdownReasonCode,
     bool hasReconnectionDelay, uint64_t reconnectionDelaySeconds)
 {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote has requested shutdown\n";
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote has requested shutdown";
     if (hasReasonCode) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " reason provided by remote for shutdown: "
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " reason provided by remote for shutdown: "
             << ((shutdownReasonCode == SHUTDOWN_REASON_CODES::BUSY) ? "busy" :
             (shutdownReasonCode == SHUTDOWN_REASON_CODES::IDLE_TIMEOUT) ? "idle timeout" :
-                (shutdownReasonCode == SHUTDOWN_REASON_CODES::VERSION_MISMATCH) ? "version mismatch" : "unassigned") << std::endl;
+                (shutdownReasonCode == SHUTDOWN_REASON_CODES::VERSION_MISMATCH) ? "version mismatch" : "unassigned");
     }
     if (hasReconnectionDelay) {
         m_base_reconnectionDelaySecondsIfNotZero = reconnectionDelaySeconds; //for bundle source only
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote has requested reconnection delay of " << reconnectionDelaySeconds << " seconds" << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": remote has requested reconnection delay of " << reconnectionDelaySeconds << " seconds";
     }
     BaseClass_DoTcpclShutdown(false, false);
 }
@@ -371,7 +365,7 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
         }
         //if (!m_base_sinkIsSafeToDelete) { this is unnecessary if statement
         if (sendShutdownMessage && m_base_tcpAsyncSenderPtr && m_base_tcpSocketPtr) {
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending shutdown packet to cleanly close tcpcl.. " << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Sending shutdown packet to cleanly close tcpcl.. ";
             TcpAsyncSenderElement * el = new TcpAsyncSenderElement();
             el->m_underlyingDataVecHeaders.resize(1);
             //For the requested delay, in seconds, the value 0 SHALL be interpreted as an infinite delay,
@@ -400,39 +394,38 @@ void TcpclV3BidirectionalLink::BaseClass_DoHandleSocketShutdown(bool sendShutdow
 void TcpclV3BidirectionalLink::BaseClass_OnSendShutdownMessageTimeout_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " Notice: No TCPCL shutdown message was sent (not required)." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " No TCPCL shutdown message was sent (not required).";
     }
     else {
-        //std::cout << "timer cancelled\n";
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " TCPCL shutdown message was sent." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " TCPCL shutdown message was sent.";
     }
 
     //final code to shut down tcp sockets
     if (M_BASE_DELETE_SOCKET_AFTER_SHUTDOWN) { //for bundle sink
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Async Sender" << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Async Sender";
         m_base_tcpAsyncSenderPtr.reset();
     }
     if (m_base_tcpSocketPtr) {
         if (m_base_tcpSocketPtr->is_open()) {
             try {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " shutting down TCP socket.." << std::endl;
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " shutting down TCP socket..";
                 m_base_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_OnSendShutdownMessageTimeout_TimerExpired: " << e.what();
             }
             try {
-                std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " closing TCP socket socket.." << std::endl;
+                LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " closing TCP socket socket..";
                 m_base_tcpSocketPtr->close();
             }
             catch (const boost::system::system_error & e) {
-                std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_OnSendShutdownMessageTimeout_TimerExpired: " << e.what() << std::endl;
+                LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " error in BaseClass_OnSendShutdownMessageTimeout_TimerExpired: " << e.what();
             }
         }
         if (M_BASE_DELETE_SOCKET_AFTER_SHUTDOWN) { //for bundle sink
-            std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Socket" << std::endl;
+            LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " deleting TCP Socket";
             if (m_base_tcpSocketPtr.use_count() != 1) {
-                std::cerr << "error m_base_tcpSocketPtr.use_count() != 1" << std::endl;
+                LOG_ERROR(subprocess) << "m_base_tcpSocketPtr.use_count() != 1";
             }
             m_base_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
         }
@@ -473,7 +466,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(zmq::message_t & dataZmq, std::
 bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t> & zmqMessageUniquePtr, std::vector<uint8_t> & vecMessage, const bool usingZmqData, std::vector<uint8_t>&& userData) {
 
     if (!m_base_readyToForward) {
-        std::cerr << "link not ready to forward yet" << std::endl;
+        LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
 
@@ -493,7 +486,7 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 
     const unsigned int writeIndex = m_base_bytesToAckCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": Error in BaseClass_Forward.. too many unacked packets" << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_Forward.. too many unacked packets";
         return false;
     }
     m_base_dataSentServedAsKeepaliveSent = true;
@@ -600,17 +593,17 @@ bool TcpclV3BidirectionalLink::BaseClass_Forward(std::unique_ptr<zmq::message_t>
 }
 
 void TcpclV3BidirectionalLink::BaseClass_BundleRefusalCallback(BUNDLE_REFUSAL_CODES refusalCode) {
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error: BundleRefusalCallback not implemented yet" << std::endl;
+    LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BundleRefusalCallback not implemented yet";
 }
 
 void TcpclV3BidirectionalLink::BaseClass_NextBundleLengthCallback(uint64_t nextBundleLength) {
     if (nextBundleLength > m_base_tcpclV3RxStateMachine.GetMaxReceiveBundleSizeBytes()) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error: BaseClass_NextBundleLengthCallback received next bundle length of " << nextBundleLength
-            << " which is greater than the bundle receive limit of " << m_base_tcpclV3RxStateMachine.GetMaxReceiveBundleSizeBytes()  << " bytes" << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_NextBundleLengthCallback received next bundle length of " << nextBundleLength
+            << " which is greater than the bundle receive limit of " << m_base_tcpclV3RxStateMachine.GetMaxReceiveBundleSizeBytes()  << " bytes";
         //todo refuse bundle message?
     }
     else {
-        std::cout << "next bundle length\n";
+        LOG_INFO(subprocess) << "next bundle length";
         m_base_fragmentedBundleRxConcat.reserve(nextBundleLength); //in case the bundle is fragmented
     }
 }
@@ -620,30 +613,30 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
     uint64_t remoteNodeId = UINT64_MAX;
     uint64_t remoteServiceId = UINT64_MAX;
     if (!Uri::ParseIpnUriString(localEid, remoteNodeId, remoteServiceId)) {
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_ProcessContactHeader: error parsing remote EID URI string " << localEid
-            << " .. TCPCL will not receive bundles." << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_ProcessContactHeader: error parsing remote EID URI string " << localEid
+            << " .. TCPCL will not receive bundles.";
         BaseClass_DoTcpclShutdown(false, false);
         return;
     }
     else if (remoteServiceId != 0) {
         //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
         //isprintf(eid, sizeof eid, "ipn:" UVAST_FIELDSPEC ".0", getOwnNodeNbr());
-        std::cerr << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_ProcessContactHeader: remote EID URI string " << localEid
-            << " does not use service number 0.. TCPCL will not receive bundles." << std::endl;
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_ProcessContactHeader: remote EID URI string " << localEid
+            << " does not use service number 0.. TCPCL will not receive bundles.";
         BaseClass_DoTcpclShutdown(false, false);
         return;
     }
     else if ((!M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY.empty()) && (localEid != M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY)) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": error in BaseClass_ProcessContactHeader: received wrong contact header back from "
+        LOG_ERROR(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << ": BaseClass_ProcessContactHeader: received wrong contact header back from "
             << localEid << " but expected " << M_BASE_EXPECTED_REMOTE_CONTACT_HEADER_EID_STRING_IF_NOT_EMPTY
-            << " .. TCPCL will not forward bundles.  Correct the \"nextHopEndpointId\" field in the outducts config." << std::endl;
+            << " .. TCPCL will not forward bundles.  Correct the \"nextHopEndpointId\" field in the outducts config.";
         BaseClass_DoTcpclShutdown(false, false);
         return;
     }
 
     m_base_tcpclRemoteEidString = localEid;
     m_base_tcpclRemoteNodeId = remoteNodeId;
-    std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " received valid contact header from remote with EID " << m_base_tcpclRemoteEidString << std::endl;
+    LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " received valid contact header from remote with EID " << m_base_tcpclRemoteEidString;
 
     m_base_contactHeaderFlags = flags;
 
@@ -652,21 +645,21 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
     //value zero, then the keepalive feature (described in Section 5.6)
     //is disabled.
     if (M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS == 0) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: we have disabled the keepalive feature\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " we have disabled the keepalive feature";
         m_base_keepAliveIntervalSeconds = 0;
     }
     else if (keepAliveIntervalSeconds == 0) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: remote host has disabled the keepalive feature\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " remote host has disabled the keepalive feature";
         m_base_keepAliveIntervalSeconds = 0;
     }
     else if (M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS > keepAliveIntervalSeconds) {
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: remote host has requested a smaller keepalive interval of " << keepAliveIntervalSeconds
-            << " seconds than ours of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS << "." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " remote host has requested a smaller keepalive interval of " << keepAliveIntervalSeconds
+            << " seconds than ours of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS << ".";
         m_base_keepAliveIntervalSeconds = keepAliveIntervalSeconds; //use the remote's smaller one
     }
     else if (M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS < keepAliveIntervalSeconds) { //bundle source should never enter here as the response should be smaller
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " notice: we have requested a smaller keepalive interval of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS
-            << " seconds than the remote host's of " << keepAliveIntervalSeconds << "." << std::endl;
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " we have requested a smaller keepalive interval of " << M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS
+            << " seconds than the remote host's of " << keepAliveIntervalSeconds << ".";
         m_base_keepAliveIntervalSeconds = M_BASE_DESIRED_KEEPALIVE_INTERVAL_SECONDS; //use our smaller one
     }
     else {
@@ -687,7 +680,7 @@ void TcpclV3BidirectionalLink::BaseClass_ContactHeaderCallback(CONTACT_HEADER_FL
     }
     
     if (m_base_keepAliveIntervalSeconds) { //non-zero
-        std::cout << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " using " << m_base_keepAliveIntervalSeconds << " seconds for keepalive\n";
+        LOG_INFO(subprocess) << M_BASE_IMPLEMENTATION_STRING_FOR_COUT << " using " << m_base_keepAliveIntervalSeconds << " seconds for keepalive";
 
         BaseClass_RestartNoKeepaliveReceivedTimer();
         BaseClass_RestartNeedToSendKeepAliveMessageTimer();

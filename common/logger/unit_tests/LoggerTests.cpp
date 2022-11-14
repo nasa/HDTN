@@ -2,7 +2,7 @@
  * @file LoggerTests.cpp
  * @author  Ethan Schweinsberg <ethan.e.schweinsberg@nasa.gov>
  *
- * @copyright Copyright � 2021 United States Government as represented by
+ * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -54,7 +54,7 @@ private:
 };
 
 const std::string date_regex = "\\[ \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
-const std::string anything_regex = "((.|\n)*)";
+const std::string anything_regex = "(?:(?:.|\n)*)";
 
 BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
 {

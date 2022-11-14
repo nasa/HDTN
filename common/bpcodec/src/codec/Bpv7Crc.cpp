@@ -14,13 +14,11 @@ uint32_t Bpv7Crc::Crc32C_Unaligned_Hardware(const uint8_t* dataUnaligned, std::s
     uint64_t crc = UINT32_MAX;
 
     while (length && (((std::uintptr_t)dataUnaligned) & 7)) { //while not aligned on 8-byte boundary
-        //std::cout << "1";
         crc = _mm_crc32_u8(static_cast<uint32_t>(crc), *dataUnaligned++);
         --length;
     }
     //data now aligned on 8-byte boundary
     while (length > 7) { //while length >= 8
-        //std::cout << "2";
         const uint64_t * const dataAligned64 = reinterpret_cast<const uint64_t * const>(dataUnaligned);
         crc = _mm_crc32_u64(crc, *dataAligned64);
         dataUnaligned += sizeof(uint64_t);
@@ -28,11 +26,9 @@ uint32_t Bpv7Crc::Crc32C_Unaligned_Hardware(const uint8_t* dataUnaligned, std::s
     }
     //finish any remaining bytes <= 7
     while (length) {
-        //std::cout << "3";
         crc = _mm_crc32_u8(static_cast<uint32_t>(crc), *dataUnaligned++);
         --length;
     }
-    //std::cout << "\n";
 
     return static_cast<uint32_t>(crc ^ UINT32_MAX); //final xor value
 }

@@ -2,6 +2,7 @@ get_filename_component(UDPDELAYSIMLIB_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PAT
 include(CMakeFindDependencyMacro)
 
 find_dependency(HDTNUtil REQUIRED)
+find_dependency(LoggerLib REQUIRED)
 
 #find_dependency seems broken for multiple calls to find_boost, use find_package instead (https://stackoverflow.com/questions/52763112/cmake-boost-find-depedency-config)
 #find_dependency(Boost @MIN_BOOST_VERSION@ REQUIRED COMPONENTS program_options)

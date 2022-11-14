@@ -33,6 +33,7 @@ target_link_libraries(outduct_manager_lib
 		udp_lib 
 		ltp_lib
 		bpcodec
+		log_lib
 )
 target_include_directories(outduct_manager_lib
 	PUBLIC

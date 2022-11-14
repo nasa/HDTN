@@ -2,7 +2,7 @@
  * @file StcpBundleSource.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -13,7 +13,7 @@
  */
 
 #include <string>
-#include <iostream>
+#include "Logger.h"
 #include "StcpBundleSource.h"
 #include <boost/lexical_cast.hpp>
 #include <memory>
@@ -21,6 +21,8 @@
 #include <boost/make_unique.hpp>
 
 #define RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS 3
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 StcpBundleSource::StcpBundleSource(const uint16_t desiredKeeAliveIntervlSeconds, const unsigned int maxUnacked) :
 m_work(m_ioService), //prevent stopping of ioservice until destructor
@@ -62,11 +64,8 @@ void StcpBundleSource::Stop() {
     for (unsigned int attempt = 0; attempt < 20; ++attempt) {
         const std::size_t numUnacked = GetTotalDataSegmentsUnacked();
         if (numUnacked) {
-            std::cout << "notice: StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles" << std::endl;
+            LOG_INFO(subprocess) << "StcpBundleSource destructor waiting on " << numUnacked << " unacked bundles";
 
-//            std::cout << "   acked by rate: " << m_totalDataSegmentsAckedByRate << std::endl;
-//            std::cout << "   acked by cb: " << m_totalDataSegmentsAckedByTcpSendCallback << std::endl;
-//            std::cout << "   total sent: " << m_totalDataSegmentsSent << std::endl;
 
             if (previousUnacked > numUnacked) {
                 previousUnacked = numUnacked;
@@ -96,11 +95,11 @@ void StcpBundleSource::Stop() {
     }
 
     //print stats
-    std::cout << "m_stcpOutductTelemetry.totalBundlesSent " << m_stcpOutductTelemetry.totalBundlesSent << std::endl;
-    std::cout << "m_stcpOutductTelemetry.totalBundlesAcked " << m_stcpOutductTelemetry.totalBundlesAcked << std::endl;
-    std::cout << "m_stcpOutductTelemetry.totalBundleBytesSent " << m_stcpOutductTelemetry.totalBundleBytesSent << std::endl;
-    std::cout << "m_stcpOutductTelemetry.totalStcpBytesSent " << m_stcpOutductTelemetry.totalStcpBytesSent << std::endl;
-    std::cout << "m_stcpOutductTelemetry.totalBundleBytesAcked " << m_stcpOutductTelemetry.totalBundleBytesAcked << std::endl;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundlesSent " << m_stcpOutductTelemetry.totalBundlesSent;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundlesAcked " << m_stcpOutductTelemetry.totalBundlesAcked;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundleBytesSent " << m_stcpOutductTelemetry.totalBundleBytesSent;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalStcpBytesSent " << m_stcpOutductTelemetry.totalStcpBytesSent;
+    LOG_INFO(subprocess) << "m_stcpOutductTelemetry.totalBundleBytesAcked " << m_stcpOutductTelemetry.totalBundleBytesAcked;
 }
 
 //An STCP protocol data unit (SPDU) is simply a serialized bundle
@@ -134,14 +133,14 @@ void StcpBundleSource::GenerateDataUnitHeaderOnly(std::vector<uint8_t> & dataUni
 
 bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& userData) {
     if (!m_readyToForward) {
-        std::cerr << "link not ready to forward yet" << std::endl;
+        LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
 
 
     const unsigned int writeIndexTcpSendCallback = m_bytesToAckByTcpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexTcpSendCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSource::Forward.. too many unacked packets by tcp send callback";
         return false;
     }
 
@@ -175,13 +174,13 @@ bool StcpBundleSource::Forward(zmq::message_t & dataZmq, std::vector<uint8_t>&& 
 
 bool StcpBundleSource::Forward(std::vector<uint8_t> & dataVec, std::vector<uint8_t>&& userData) {
     if (!m_readyToForward) {
-        std::cerr << "link not ready to forward yet" << std::endl;
+        LOG_ERROR(subprocess) << "link not ready to forward yet";
         return false;
     }
 
     const unsigned int writeIndexTcpSendCallback = m_bytesToAckByTcpSendCallbackCb.GetIndexForWrite(); //don't put this in tcp async write callback
     if (writeIndexTcpSendCallback == CIRCULAR_INDEX_BUFFER_FULL) { //push check
-        std::cerr << "Error in StcpBundleSource::Forward.. too many unacked packets by tcp send callback" << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSource::Forward.. too many unacked packets by tcp send callback";
         return false;
     }
 
@@ -255,10 +254,10 @@ void StcpBundleSource::Connect(const std::string & hostname, const std::string &
 
 void StcpBundleSource::OnResolve(const boost::system::error_code & ec, boost::asio::ip::tcp::resolver::results_type results) { // Resolved endpoints as a range.
     if(ec) {
-        std::cerr << "Error resolving: " << ec.message() << std::endl;
+        LOG_ERROR(subprocess) << "Error resolving: " << ec.message();
     }
     else {
-        std::cout << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting..." << std::endl;
+        LOG_INFO(subprocess) << "resolved host to " << results->endpoint().address() << ":" << results->endpoint().port() << ".  Connecting...";
         m_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
         m_resolverResults = results;
         boost::asio::async_connect(
@@ -275,15 +274,15 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
 
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            std::cerr << "Error in OnConnect: " << ec.value() << " " << ec.message() << "\n";
-            std::cout << "Will try to reconnect after 2 seconds" << std::endl;
+            LOG_ERROR(subprocess) << "OnConnect: " << ec.value() << " " << ec.message();
+            LOG_ERROR(subprocess) << "Will try to reconnect after 2 seconds";
             m_reconnectAfterOnConnectErrorTimer.expires_from_now(boost::posix_time::seconds(2));
             m_reconnectAfterOnConnectErrorTimer.async_wait(boost::bind(&StcpBundleSource::OnReconnectAfterOnConnectError_TimerExpired, this, boost::asio::placeholders::error));
         }
         return;
     }
 
-    std::cout << "Stcp connection complete" << std::endl;
+    LOG_INFO(subprocess) << "Stcp connection complete";
     m_stcpShutdownComplete = false;
     m_readyToForward = true;
 
@@ -306,7 +305,7 @@ void StcpBundleSource::OnConnect(const boost::system::error_code & ec) {
 void StcpBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "Trying to reconnect..." << std::endl;
+        LOG_INFO(subprocess) << "Trying to reconnect...";
         boost::asio::async_connect(
             *m_tcpSocketPtr,
             m_resolverResults,
@@ -321,13 +320,13 @@ void StcpBundleSource::OnReconnectAfterOnConnectError_TimerExpired(const boost::
 
 void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << "error in StcpBundleSource::HandleTcpSend: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSource::HandleTcpSend: " << error.message();
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
     }
     else {
         const unsigned int readIndex = m_bytesToAckByTcpSendCallbackCb.GetIndexForRead();
         if (readIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //empty
-            std::cerr << "error: AckCallback called with empty queue" << std::endl;
+            LOG_ERROR(subprocess) << "AckCallback called with empty queue";
         }
         else if (m_bytesToAckByTcpSendCallbackCbVec[readIndex] == bytes_transferred) {
             ++m_stcpOutductTelemetry.totalBundlesAcked;
@@ -343,18 +342,18 @@ void StcpBundleSource::HandleTcpSend(const boost::system::error_code& error, std
             
         }
         else {
-            std::cerr << "error in StcpBundleSource::HandleTcpSend: wrong bytes acked: expected " << m_bytesToAckByTcpSendCallbackCbVec[readIndex] << " but got " << bytes_transferred << std::endl;
+            LOG_ERROR(subprocess) << "StcpBundleSource::HandleTcpSend: wrong bytes acked: expected " << m_bytesToAckByTcpSendCallbackCbVec[readIndex] << " but got " << bytes_transferred;
         }
     }
 }
 
 void StcpBundleSource::HandleTcpSendKeepAlive(const boost::system::error_code& error, std::size_t bytes_transferred, TcpAsyncSenderElement* elPtr) {
     if (error) {
-        std::cerr << "error in StcpBundleSource::HandleTcpSendKeepAlive: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSource::HandleTcpSendKeepAlive: " << error.message();
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
     }
     else {
-        std::cout << "notice: keepalive packet sent" << std::endl;
+        LOG_INFO(subprocess) << "keepalive packet sent";
     }
 }
 
@@ -367,17 +366,17 @@ void StcpBundleSource::StartTcpReceive() {
 }
 void StcpBundleSource::HandleTcpReceiveSome(const boost::system::error_code & error, std::size_t bytesTransferred) {
     if (!error) {
-        std::cerr << "Error in StcpBundleSource::HandleTcpReceiveSome: received " << bytesTransferred << " but should never receive any data" << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSource::HandleTcpReceiveSome: received " << bytesTransferred << " but should never receive any data";
 
         //shutdown
     }
     else if (error == boost::asio::error::eof) {
-        std::cout << "Tcp connection closed cleanly by peer" << std::endl;
+        LOG_INFO(subprocess) << "Tcp connection closed cleanly by peer";
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
         
     }
     else if (error != boost::asio::error::operation_aborted) {
-        std::cerr << "Error in StcpBundleSource::HandleTcpReceiveSome: " << error.message() << std::endl;
+        LOG_ERROR(subprocess) << "StcpBundleSource::HandleTcpReceiveSome: " << error.message();
         DoStcpShutdown(RECONNECTION_DELAY_AFTER_SHUTDOWN_SECONDS);
     }
 }
@@ -400,13 +399,12 @@ void StcpBundleSource::OnNeedToSendKeepAliveMessage_TimerExpired(const boost::sy
                 m_tcpAsyncSenderPtr->AsyncSend_NotThreadSafe(el); //timer runs in same thread as socket so special thread safety not needed
             }
             else {
-                std::cout << "notice: stcp keepalive packet not needed" << std::endl;
+                LOG_INFO(subprocess) << "stcp keepalive packet not needed";
             }
         }
         m_dataServedAsKeepAlive = false;
     }
     else {
-        //std::cout << "timer cancelled\n";
         m_stcpShutdownComplete = true; //last step in sequence
     }
 }
@@ -423,22 +421,21 @@ void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySeco
     }
     if (m_tcpSocketPtr && m_tcpSocketPtr->is_open()) {
         try {
-            std::cout << "shutting down StcpBundleSource TCP socket.." << std::endl;
+            LOG_INFO(subprocess) << "shutting down StcpBundleSource TCP socket..";
             m_tcpSocketPtr->shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in StcpBundleSource::DoStcpShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "StcpBundleSource::DoStcpShutdown: " << e.what();
         }
         try {
-            std::cout << "closing StcpBundleSource TCP socket socket.." << std::endl;
+            LOG_INFO(subprocess) << "closing StcpBundleSource TCP socket socket..";
             m_tcpSocketPtr->close();
         }
         catch (const boost::system::system_error & e) {
-            std::cerr << "error in StcpBundleSource::DoStcpShutdown: " << e.what() << std::endl;
+            LOG_ERROR(subprocess) << "StcpBundleSource::DoStcpShutdown: " << e.what();
         }
         //don't delete the tcp socket because the Forward function is multi-threaded without a mutex to
         //increase speed, so prevent a race condition that would cause a null pointer exception
-        //std::cout << "deleting tcp socket" << std::endl;
         //m_tcpSocketPtr = std::shared_ptr<boost::asio::ip::tcp::socket>();
     }
     m_needToSendKeepAliveMessageTimer.cancel();
@@ -451,7 +448,7 @@ void StcpBundleSource::DoHandleSocketShutdown(unsigned int reconnectionDelaySeco
 void StcpBundleSource::OnNeedToReconnectAfterShutdown_TimerExpired(const boost::system::error_code& e) {
     if (e != boost::asio::error::operation_aborted) {
         // Timer was not cancelled, take necessary action.
-        std::cout << "Trying to reconnect..." << std::endl;
+        LOG_INFO(subprocess) << "Trying to reconnect...";
         m_tcpAsyncSenderPtr.reset();
         m_tcpSocketPtr = std::make_shared<boost::asio::ip::tcp::socket>(m_ioService);
         boost::asio::async_connect(

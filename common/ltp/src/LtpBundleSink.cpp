@@ -2,7 +2,7 @@
  * @file LtpBundleSink.cpp
  * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
- * @copyright Copyright © 2021 United States Government as represented by
+ * @copyright Copyright Â© 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
  * No copyright is claimed in the United States under Title 17, U.S.Code.
  * All Other Rights Reserved.
@@ -14,10 +14,12 @@
 
 #include <boost/bind/bind.hpp>
 #include <memory>
-#include <iostream>
 #include "LtpBundleSink.h"
+#include "Logger.h"
 #include <boost/make_unique.hpp>
 #include <boost/lexical_cast.hpp>
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
 LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,
     const uint64_t thisEngineId, const uint64_t expectedSessionOriginatorEngineId, uint64_t mtuReportSegment,
@@ -52,8 +54,8 @@ LtpBundleSink::LtpBundleSink(const LtpWholeBundleReadyCallback_t & ltpWholeBundl
     m_ltpUdpEnginePtr->SetReceptionSessionCancelledCallback(boost::bind(&LtpBundleSink::ReceptionSessionCancelledCallback, this, boost::placeholders::_1, boost::placeholders::_2));
 
     
-    std::cout << "this ltp bundle sink for engine ID " << thisEngineId << " will receive on port "
-        << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort << std::endl;
+    LOG_INFO(subprocess) << "this ltp bundle sink for engine ID " << thisEngineId << " will receive on port "
+        << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort;
 }
 
 void LtpBundleSink::RemoveCallback() {
@@ -68,7 +70,7 @@ LtpBundleSink::~LtpBundleSink() {
         if (m_removeCallbackCalled) {
             break;
         }
-        std::cout << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+        LOG_INFO(subprocess) << "waiting to remove ltp bundle sink for M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID " << M_EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
         boost::this_thread::sleep(boost::posix_time::milliseconds(100));
     }
 }
@@ -87,7 +89,7 @@ void LtpBundleSink::RedPartReceptionCallback(const Ltp::session_id_t & sessionId
 
 void LtpBundleSink::ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode)
 {
-    std::cout << "remote has cancelled session " << sessionId << " with reason code " << (int)reasonCode << std::endl;
+    LOG_INFO(subprocess) << "remote has cancelled session " << sessionId << " with reason code " << (int)reasonCode;
 }
 
 

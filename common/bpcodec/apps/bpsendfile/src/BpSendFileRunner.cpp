@@ -1,13 +1,15 @@
 #include "BpSendFileRunner.h"
-#include <iostream>
+#include "Logger.h"
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include "Uri.h"
 
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
+
 void BpSendFileRunner::MonitorExitKeypressThreadFunction() {
-    std::cout << "Keyboard Interrupt.. exiting\n";
+    LOG_INFO(subprocess) << "Keyboard Interrupt.. exiting";
     m_runningFromSigHandler = false; //do this first
 }
 
@@ -64,7 +66,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 boost::program_options::notify(vm);
 
                 if (vm.count("help")) {
-                        std::cout << desc << "\n";
+                        LOG_INFO(subprocess) << desc;
                         return false;
                 }
                 forceDisableCustody = (vm.count("force-disable-custody") != 0);
@@ -74,13 +76,13 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
 
                 const std::string myUriEid = vm["my-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myUriEid, myEid.nodeId, myEid.serviceId)) {
-                    std::cerr << "error: bad bpsink uri string: " << myUriEid << std::endl;
+                    LOG_ERROR(subprocess) << "error: bad bpsink uri string: " << myUriEid;
                     return false;
                 }
 
                 const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
                 if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
-                    std::cerr << "error: bad bpsink uri string: " << myFinalDestUriEid << std::endl;
+                    LOG_ERROR(subprocess) << "error: bad bpsink uri string: " << myFinalDestUriEid;
                     return false;
                 }
 
@@ -89,16 +91,16 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 if (outductsConfigFileName.length()) {
                     outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
                     if (!outductsConfigPtr) {
-                        std::cerr << "error loading outducts config file: " << outductsConfigFileName << std::endl;
+                        LOG_ERROR(subprocess) << "error loading outducts config file: " << outductsConfigFileName;
                         return false;
                     }
                     std::size_t numBpGenOutducts = outductsConfigPtr->m_outductElementConfigVector.size();
                     if (numBpGenOutducts != 1) {
-                        std::cerr << "error: number of bpsendfile outducts is not 1: got " << numBpGenOutducts << std::endl;
+                        LOG_ERROR(subprocess) << "number of bpsendfile outducts is not 1: got " << numBpGenOutducts;
                     }
                 }
                 else {
-                    std::cout << "notice: bpsendfile has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct\n";
+                    LOG_WARNING(subprocess) << "notice: bpsendfile has no outduct... bundle data will have to flow out through a bidirectional tcpcl induct";
                 }
 
                 //create induct for custody signals
@@ -106,12 +108,12 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 if (inductsConfigFileName.length()) {
                     inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
                     if (!inductsConfigPtr) {
-                        std::cerr << "error loading induct config file: " << inductsConfigFileName << std::endl;
+                        LOG_ERROR(subprocess) << "error loading induct config file: " << inductsConfigFileName;
                         return false;
                     }
                     std::size_t numBpGenInducts = inductsConfigPtr->m_inductElementConfigVector.size();
                     if (numBpGenInducts != 1) {
-                        std::cerr << "error: number of bp gen inducts for custody signals is not 1: got " << numBpGenInducts << std::endl;
+                        LOG_ERROR(subprocess) << "number of bp gen inducts for custody signals is not 1: got " << numBpGenInducts;
                     }
                 }
                 custodyTransferUseAcs = (vm.count("custody-transfer-use-acs"));
@@ -122,21 +124,21 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 recurseDirectoriesDepth = vm["recurse-directories-depth"].as<unsigned int>();
         }
         catch (boost::bad_any_cast & e) {
-                std::cout << "invalid data error: " << e.what() << "\n\n";
-                std::cout << desc << "\n";
+                LOG_ERROR(subprocess) << "invalid data error: " << e.what();
+                LOG_ERROR(subprocess) << desc;
                 return false;
         }
         catch (std::exception& e) {
-                std::cerr << "error: " << e.what() << "\n";
+                LOG_ERROR(subprocess) << e.what();
                 return false;
         }
         catch (...) {
-                std::cerr << "Exception of unknown type!\n";
+                LOG_ERROR(subprocess) << "Exception of unknown type!";
                 return false;
         }
 
 
-        std::cout << "starting BpSendFile.." << std::endl;
+        LOG_INFO(subprocess) << "starting..";
 
         BpSendFile bpSendFile(fileOrFolderPath, maxBundleSizeBytes, uploadExistingFiles, uploadNewFiles, recurseDirectoriesDepth);
         if (bpSendFile.GetNumberOfFilesToSend() == 0) {
@@ -144,7 +146,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         }
         bpSendFile.Start(outductsConfigPtr, inductsConfigPtr, custodyTransferUseAcs, myEid, 0, finalDestEid, myCustodianServiceId, bundleSendTimeoutSeconds, false, forceDisableCustody, useBpVersion7);
 
-        std::cout << "running BpSendFile\n";
+        LOG_INFO(subprocess) << "running";
         
         bool startedTimer = false;
         
@@ -152,7 +154,7 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
         if (useSignalHandler) {
             sigHandler.Start(false);
         }
-        std::cout << "BpSendFile up and running" << std::endl;
+        LOG_INFO(subprocess) << "Up and running";
         while (running && m_runningFromSigHandler) {
             boost::this_thread::sleep(boost::posix_time::millisec(250));
             if (useSignalHandler) {
@@ -160,12 +162,12 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
             }
         }
 
-        std::cout<< "BpSendFileRunner::Run: exiting cleanly..\n";
+        LOG_INFO(subprocess)<< "Exiting cleanly..";
         bpSendFile.Stop();
         m_bundleCount = bpSendFile.m_bundleCount;
         m_outductFinalStats = bpSendFile.m_outductFinalStats;
     }
-    std::cout<< "BpSendFileRunner::Run: exited cleanly\n";
+    LOG_INFO(subprocess)<< "Exited cleanly";
     return true;
 
 }
