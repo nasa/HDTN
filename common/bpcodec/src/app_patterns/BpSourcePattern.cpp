@@ -37,7 +37,18 @@ BpSourcePattern::~BpSourcePattern() {
 }
 
 void BpSourcePattern::Stop() {
-    m_running = false;
+    m_running = false; //thread stopping criteria
+    //only lock one mutex at a time to prevent deadlock (a worker may call this function on an error condition)
+    //lock then unlock each thread's mutex to prevent a missed notify after setting thread stopping criteria above
+    m_waitingForRxBundleBeforeNextTxMutex.lock();
+    m_waitingForRxBundleBeforeNextTxMutex.unlock();
+    m_waitingForRxBundleBeforeNextTxConditionVariable.notify_one();
+    //
+    m_mutexCurrentlySendingBundleIdSet.lock();
+    m_mutexCurrentlySendingBundleIdSet.unlock();
+    m_cvCurrentlySendingBundleIdSet.notify_one(); //break out of the timed_wait (wait_until)
+
+
 //    boost::this_thread::sleep(boost::posix_time::seconds(1));
     if(m_bpSourcePatternThreadPtr) {
         m_bpSourcePatternThreadPtr->join();
@@ -59,6 +70,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
         return;
     }
     m_bundleSendTimeoutSeconds = bundleSendTimeoutSeconds;
+    m_bundleSendTimeoutTimeDuration = boost::posix_time::seconds(m_bundleSendTimeoutSeconds);
     m_finalDestinationEid = finalDestEid;
     m_myEid = myEid;
     m_myCustodianServiceId = myCustodianServiceId;
@@ -461,9 +473,9 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
             continue;
         }
         else { //bundles are still being sent
-            boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_waitingForBundlePipelineFreeMutex);
-            if (m_currentlySendingBundleIdSet.size()) { //lock mutex (above) before checking condition
-                m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(20));
+            boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_mutexCurrentlySendingBundleIdSet);
+            if (m_running && m_currentlySendingBundleIdSet.size()) { //lock mutex (above) before checking condition
+                m_cvCurrentlySendingBundleIdSet.wait(waitingForBundlePipelineFreeLock);
             }
             continue;
         }
@@ -488,18 +500,18 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                 if (!m_useInductForSendingBundles) { //outduct for forwarding bundles
                     boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
                     bool timeout = false;
-                    while (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) {
-                        const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+                    while (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) { //don't check m_running because do while loop checks at end
                         if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
-                            timeoutExpiry = nowTime + boost::posix_time::seconds(m_bundleSendTimeoutSeconds);
+                            const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+                            timeoutExpiry = nowTime + m_bundleSendTimeoutTimeDuration;
                         }
-                        if (timeoutExpiry <= nowTime) {
-                            timeout = true;
-                            break;
-                        }
-                        boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_waitingForBundlePipelineFreeMutex);
+                        boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_mutexCurrentlySendingBundleIdSet);
                         if (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) { //lock mutex (above) before checking condition
-                            m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(20));
+                            //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+                            if (!m_cvCurrentlySendingBundleIdSet.timed_wait(waitingForBundlePipelineFreeLock, timeoutExpiry)) {
+                                timeout = true;
+                                break;
+                            }
                         }
                     }
                     if (timeout) {
@@ -541,8 +553,8 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
                     raw_data += bundleLength; // bundle overhead + payload data
                     {
                         boost::mutex::scoped_lock waitingForRxBundleBeforeNextTxLock(m_waitingForRxBundleBeforeNextTxMutex);
-                        while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) { //lock mutex (above) before checking flag m_isWaitingForRxBundleBeforeNextTx
-                            m_waitingForRxBundleBeforeNextTxConditionVariable.timed_wait(waitingForRxBundleBeforeNextTxLock, boost::posix_time::milliseconds(20));
+                        while (m_requireRxBundleBeforeNextTx && m_running && m_isWaitingForRxBundleBeforeNextTx) { //lock mutex (above) before checking flag m_running and m_isWaitingForRxBundleBeforeNextTx
+                            m_waitingForRxBundleBeforeNextTxConditionVariable.wait(waitingForRxBundleBeforeNextTxLock);
                         }
                     }
                     break;
@@ -867,7 +879,7 @@ void BpSourcePattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movabl
         LOG_INFO(subprocess) << "Setting link status to DOWN";
         m_linkIsDown = true;
     }
-    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+    m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSourcePattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
     bundleid_payloadsize_pair_t* p = (bundleid_payloadsize_pair_t*)userData.data();
@@ -884,7 +896,7 @@ void BpSourcePattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userD
         LOG_INFO(subprocess) << "Setting link status to UP";
         m_linkIsDown = false;
     }
-    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+    m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSourcePattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     LOG_INFO(subprocess) << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid;
@@ -896,7 +908,7 @@ void BpSourcePattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, u
         LOG_INFO(subprocess) << "Setting link status to UP";
     }
     m_linkIsDown = isLinkDownEvent;
-    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+    m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 
 bool BpSourcePattern::TryWaitForDataAvailable(const boost::posix_time::time_duration& timeout) {

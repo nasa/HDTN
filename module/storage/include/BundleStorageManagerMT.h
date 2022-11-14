@@ -34,6 +34,7 @@ public:
 
 
 private:
+    STORAGE_LIB_NO_EXPORT void StopAllDiskThreads();
     STORAGE_LIB_NO_EXPORT void ThreadFunc(unsigned int threadIndex);
     STORAGE_LIB_NO_EXPORT virtual void CommitWriteAndNotifyDiskOfWorkToDo_ThreadSafe(const unsigned int diskId);
 private:
@@ -45,6 +46,7 @@ private:
     std::vector<std::unique_ptr<boost::thread> > m_threadPtrsVec;
 
     volatile bool m_running;
+    volatile bool m_noFatalErrorsOccurred;
 };
 
 

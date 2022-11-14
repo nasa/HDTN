@@ -34,25 +34,36 @@ BundleStorageManagerMT::BundleStorageManagerMT(const StorageConfig_ptr & storage
 
     m_conditionVariablesPlusMutexesVec(M_NUM_STORAGE_DISKS),
     m_threadPtrsVec(M_NUM_STORAGE_DISKS),
-    m_running(false)
+    m_running(false),
+    m_noFatalErrorsOccurred(true)
 {
 
 }
 
-BundleStorageManagerMT::~BundleStorageManagerMT() {
+void BundleStorageManagerMT::StopAllDiskThreads() {
     m_running = false; //thread stopping criteria
+    for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) { //only lock one mutex at a time to prevent deadlock (a worker may call this function on an error condition)
+        //lock then unlock each thread's mutex to prevent a missed notify after setting thread stopping criteria above
+        m_conditionVariablesPlusMutexesVec[diskId].second.lock();
+        m_conditionVariablesPlusMutexesVec[diskId].second.unlock();
+        m_conditionVariablesPlusMutexesVec[diskId].first.notify_one();
+    }
+}
+
+BundleStorageManagerMT::~BundleStorageManagerMT() {
+    StopAllDiskThreads();
     for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
         if (m_threadPtrsVec[diskId]) {
             m_threadPtrsVec[diskId]->join();
             m_threadPtrsVec[diskId].reset(); //delete it
         }
     }
-
 }
 
 void BundleStorageManagerMT::Start() {
     if ((!m_running) && (m_storageConfigPtr)) {
         m_running = true;
+        m_noFatalErrorsOccurred = true;
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
             m_threadPtrsVec[diskId] = boost::make_unique<boost::thread>(
                 boost::bind(&BundleStorageManagerMT::ThreadFunc, this, diskId)); //create and start the worker thread
@@ -74,17 +85,17 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
     boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
     segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
 
-    while (m_running || (cb.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY)) { //keep thread alive if running or cb not empty
-
-
+    while (m_noFatalErrorsOccurred) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
         unsigned int consumeIndex = cb.GetIndexForRead(); //store the volatile
-
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
             //try again, but with the mutex
             boost::mutex::scoped_lock lock(localMutex);
             consumeIndex = cb.GetIndexForRead(); //store the volatile
             if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
-                cv.timed_wait(lock, boost::posix_time::milliseconds(20)); // call lock.unlock() and blocks the current thread
+                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                    break; //thread stopping criteria (empty and not running)
+                }
+                cv.wait(lock); // call lock.unlock() and blocks the current thread
                 //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
                 continue;
             }
@@ -99,8 +110,9 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
             &junk : m_circularBufferIsReadCompletedPointers[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE + consumeIndex];
         if (segmentId == SEGMENT_ID_LAST) {
             LOG_ERROR(subprocess) << "error segmentId is last";
-            m_running = false;
-            continue;
+            m_noFatalErrorsOccurred = false; //a fatal error occurred
+            StopAllDiskThreads(); //sets m_running = false;
+            break;
         }
 
         const boost::uint64_t offsetBytes = static_cast<boost::uint64_t>(segmentId / M_NUM_STORAGE_DISKS) * SEGMENT_SIZE;

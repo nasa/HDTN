@@ -60,32 +60,13 @@ public:
 
 private:
     struct EgressToIngressAckingSet {
-        EgressToIngressAckingSet() {
-            //By default, unordered_set containers have a max_load_factor of 1.0.
-            m_ingressToEgressCustodyIdSet.reserve(500); //TODO
-        }
-        std::size_t GetSetSize() {
-            return m_ingressToEgressCustodyIdSet.size();
-        }
-        void PushMove_ThreadSafe(const uint64_t ingressToEgressCustody) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            m_ingressToEgressCustodyIdSet.emplace(ingressToEgressCustody);
-        }
-        bool CompareAndPop_ThreadSafe(const uint64_t ingressToEgressCustody) {
-            m_mutex.lock();
-            const std::size_t retVal = m_ingressToEgressCustodyIdSet.erase(ingressToEgressCustody);
-            m_mutex.unlock();
-            return (retVal != 0);
-        }
-        void WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGtThisValue) {
-            boost::mutex::scoped_lock lock(m_mutex);
-            if (GetSetSize() > waitWhileSizeGtThisValue) { //lock mutex (above) before checking condition
-                m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
-            }
-        }
-        void NotifyAll() {            
-            m_conditionVariable.notify_all();
-        }
+        EgressToIngressAckingSet();
+        std::size_t GetSetSize() const noexcept;
+        void PushMove_ThreadSafe(const uint64_t ingressToEgressCustody);
+        bool CompareAndPop_ThreadSafe(const uint64_t ingressToEgressCustody);
+        void WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGtThisValue);
+        void NotifyAll();
+    private:
         boost::mutex m_mutex;
         boost::condition_variable m_conditionVariable;
         std::unordered_set<uint64_t> m_ingressToEgressCustodyIdSet;

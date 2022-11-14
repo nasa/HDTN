@@ -65,6 +65,7 @@ private:
     bool m_useInductForSendingBundles;
     bool m_useBpVersion7;
     unsigned int m_bundleSendTimeoutSeconds;
+    boost::posix_time::time_duration m_bundleSendTimeoutTimeDuration;
     cbhe_eid_t m_finalDestinationEid;
     cbhe_eid_t m_myEid;
     uint64_t m_myCustodianServiceId;
@@ -87,8 +88,7 @@ private:
     std::unordered_set<uint64_t> m_currentlySendingBundleIdSet;
     boost::mutex m_waitingForRxBundleBeforeNextTxMutex;
     boost::condition_variable m_waitingForRxBundleBeforeNextTxConditionVariable;
-    boost::mutex m_waitingForBundlePipelineFreeMutex;
-    boost::condition_variable m_waitingForBundlePipelineFreeConditionVariable;
+    boost::condition_variable m_cvCurrentlySendingBundleIdSet;
     uint64_t m_tcpclOpportunisticRemoteNodeId;
     Induct * m_tcpclInductPtr;
     //version 7 stuff

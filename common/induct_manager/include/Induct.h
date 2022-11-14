@@ -42,7 +42,7 @@ protected:
     struct OpportunisticBundleQueue { //tcpcl only
         INDUCT_MANAGER_LIB_EXPORT OpportunisticBundleQueue();
         INDUCT_MANAGER_LIB_EXPORT ~OpportunisticBundleQueue();
-        INDUCT_MANAGER_LIB_EXPORT std::size_t GetQueueSize();
+        INDUCT_MANAGER_LIB_EXPORT std::size_t GetQueueSize() const noexcept;
         INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(zmq::message_t & msg);
         INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(std::vector<uint8_t> & msg);
         INDUCT_MANAGER_LIB_EXPORT void PushMove_ThreadSafe(std::pair<std::unique_ptr<zmq::message_t>, std::vector<uint8_t> > & msgPair);
