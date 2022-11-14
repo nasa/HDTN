@@ -144,6 +144,7 @@ struct IreleaseStartHdr {
     uint64_t duration;  // msec
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
+    uint64_t time;
 };
 
 struct IreleaseStopHdr {
@@ -155,6 +156,8 @@ struct IreleaseStopHdr {
     uint64_t finalDestinationNodeId;
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
+    uint64_t time;
+    uint64_t contact;
 };
 
 struct RouteUpdateHdr {

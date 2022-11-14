@@ -83,8 +83,10 @@ public:
 
 private:
     void Stop();
-    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId);
-    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId);
+    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, 
+		    uint64_t time);
+    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, 
+		      uint64_t time, uint64_t cid);
      
     void MonitorExitKeypressThreadFunction();
     void EgressEventsHandler();

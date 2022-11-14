@@ -261,7 +261,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
     return true;
 }
 
-void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId) {
+void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, 
+		             uint64_t time, uint64_t cid) {
 
     hdtn::IreleaseStopHdr stopMsg;
 
@@ -270,6 +271,9 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinat
     stopMsg.nextHopNodeId = dest;
     stopMsg.prevHopNodeId = src;
     stopMsg.finalDestinationNodeId = finalDestinationNodeId;
+    stopMsg.time = time;
+    stopMsg.contact = cid;
+
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&stopMsg,
@@ -277,10 +281,11 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinat
     }
     
 
-    LOG_INFO(subprocess) << " -- LINK DOWN Event sent for Link " << src << " ===> " << dest;
+    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+    LOG_INFO(subprocess) << " -- LINK DOWN Event sent for Link " << src << " ===> " << dest << " at time "  << timeLocal ;
 }
 
-void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId) {
+void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, uint64_t time) {
 
     hdtn::IreleaseStartHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -289,13 +294,15 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinatio
     releaseMsg.nextHopNodeId = dest;
     releaseMsg.prevHopNodeId = src;
     releaseMsg.finalDestinationNodeId = finalDestinationNodeId;
+    releaseMsg.time = time;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)),
             zmq::send_flags::none);
     }
 
-    LOG_INFO(subprocess) << " -- LINK UP Event sent for Link " << src << " ===> " << dest;
+    boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
+    LOG_INFO(subprocess) << " -- LINK UP Event sent for Link " << src << " ===> " << dest << " at time " << timeLocal;
 }
 
 void Scheduler::EgressEventsHandler() {
@@ -351,11 +358,11 @@ void Scheduler::EgressEventsHandler() {
             if (event == 1) {
                 if (m_mapContactUp[contact]) {
 	            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event " << std::endl;
-		    SendLinkUp(srcNode, destNode, finalDestEid.nodeId);
+		    SendLinkUp(srcNode, destNode, finalDestEid.nodeId, 1);
 		}
             } else {
                 LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event " << std::endl;
-                SendLinkDown(srcNode, destNode, finalDestEid.nodeId);
+                SendLinkDown(srcNode, destNode, finalDestEid.nodeId, 1, 1);
             }
         }
     }
@@ -455,7 +462,8 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
 	    m_mapContactUp[contact] = false;
 	    std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
             m_contactUpSetMutex.unlock();   
-	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
+			 contactPlan.first.end + 1, contactPlan.first.contact);
         }
     }
 
@@ -527,14 +535,15 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
                  m_mapContactUp[contact] = true;
 		 std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
 		m_contactUpSetMutex.unlock();
-		 SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+		 SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, contactPlan.first.start);
             }
             else {
 		m_contactUpSetMutex.lock();    
 		m_mapContactUp[contact] = false;
 		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
 		m_contactUpSetMutex.unlock();
-		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
+		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
+		             contactPlan.first.end + 1, contactPlan.first.contact);
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event

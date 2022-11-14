@@ -37,5 +37,7 @@ private:
     HdtnConfig m_hdtnConfig;
     void MonitorExitKeypressThreadFunction();
     volatile bool m_runningFromSigHandler;
+    uint64_t m_latestTime;
+    std::map<uint64_t, uint64_t> m_routeTable;
 };
 #endif // ROUTER_H

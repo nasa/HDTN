@@ -30,6 +30,7 @@ const std::string Router::DEFAULT_FILE = "contactPlan_RoutingTest.json";
 
 Router::Router() {
     m_timersFinished = false;
+    m_latestTime = 0;
 }
 
 Router::~Router() {
@@ -131,6 +132,27 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
 
 	router.ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid.nodeId);
 
+        const std::string connect_boundSchedulerPubSubPath(
+        std::string("tcp://") +
+        m_hdtnConfig.m_zmqSchedulerAddress +
+        std::string(":") +
+        boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
+        zmq::context_t ctx;
+        zmq::socket_t socket(ctx, zmq::socket_type::sub);
+
+        try {
+            socket.connect(connect_boundSchedulerPubSubPath);
+            socket.set(zmq::sockopt::subscribe, "");
+            std::cout << "[Router] connected and listening to events from Scheduler " << connect_boundSchedulerPubSubPath << std::endl;
+        }
+        catch (const zmq::error_t& ex) {
+            std::cerr << "error: router cannot connect to scheduler socket: " << ex.what() << std::endl;
+            return false;
+        }
+
+        zmq::pollitem_t items[] = { {socket.handle(), 0, ZMQ_POLLIN, 0} };
+        int rc = 0;
+	
 	if (useSignalHandler) {
             sigHandler.Start(false);
         }
@@ -141,7 +163,54 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
-        }
+            
+            try {
+                rc = zmq::poll(&items[0], 1, 250);
+            }
+            catch (zmq::error_t& e) {
+                std::cerr << "zmq::poll threw zmq::error_t in hdtn::Router::Run: " << e.what() << std::endl;
+                continue;
+            }
+
+            assert(rc >= 0);
+            if (rc > 0) {
+                if (items[0].revents & ZMQ_POLLIN) {
+                    zmq::message_t message;
+                    if (!socket.recv(message, zmq::recv_flags::none)) {
+                        std::cout << "[Router] unable to receive message" << endl;
+                        continue;
+                    }
+
+                    if (message.size() < sizeof(hdtn::CommonHdr)) {
+                        std::cout << "[Router] unknown message type received" << std::endl;
+                    }
+
+                    hdtn::CommonHdr* common = (hdtn::CommonHdr*)message.data();
+//                    std::cout << "[Router] received scheduler message of type " << common->type << std::endl;
+                    if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
+                        hdtn::IreleaseStopHdr *linkdownMsg = (hdtn::IreleaseStopHdr*)message.data();
+                        m_latestTime = linkdownMsg->time;
+                        std::cout << "[Router] contact down: " << linkdownMsg->contact << std::endl;
+                       // for (cbhe_eid_t& node : finalDestEids) {
+                            if (m_routeTable[linkdownMsg->contact] == finalDestEid.nodeId) {
+                                ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid.nodeId);
+                            }
+                        //}
+                    }
+                    else if (common->type == HDTN_MSGTYPE_ILINKUP) {
+                        hdtn::IreleaseStartHdr *linkupMsg = (hdtn::IreleaseStartHdr*)message.data();
+                        m_latestTime = linkupMsg->time;
+                        std::cout << "[Router] contact up" << std::endl;
+                    }
+                    else {
+                    	std::cerr << "[Router] unknown message type " << common->type << std::endl;
+                    }
+
+                    std::cout << "[Router] updated time to " << m_latestTime << std::endl;
+                }
+            }
+
+	}
 
         m_timersFinished = true;
 
@@ -184,11 +253,13 @@ int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceN
     std::vector<cgr::Contact> contactPlan = cgr::cp_load(*jsonEventFileName);
 
     cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
-    rootContact.arrival_time = 0;
+    rootContact.arrival_time = m_latestTime;
     cgr::Route bestRoute = cgr::dijkstra(&rootContact, finalDestNodeId, contactPlan);
     //cgr::Route bestRoute = cgr::cmr_dijkstra(&rootContact, finalDestEid.nodeId, contactPlan);
 
     const uint64_t nextHop = bestRoute.next_node;
+
+    m_routeTable[bestRoute.get_hops()[0].id + 1] = finalDestNodeId;
     
     std::cout << "[Router] Computed next hop: " << nextHop << std::endl;
     
