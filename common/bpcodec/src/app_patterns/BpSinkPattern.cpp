@@ -326,6 +326,31 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             }
         }
 
+        bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PRIORITY, blocks);
+        if (blocks.size() > 1) {
+            LOG_ERROR(subprocess) << "version 7 bundle received has multiple priority blocks";
+            return false;
+        }
+        else if (blocks.size() == 1) {
+            if (Bpv7PriorityCanonicalBlock* priorityBlockPtr = dynamic_cast<Bpv7PriorityCanonicalBlock*>(blocks[0]->headerPtr.get())) {
+                m_bpv7Priority = BPV7_PRIORITY::INVALID;
+
+                if (priorityBlockPtr->m_bundlePriority > BPV7_PRIORITY::MAX_PRIORITY) {
+                    LOG_WARNING(subprocess) << "notice: dropping version 7 bundle with priority " << priorityBlockPtr->m_bundlePriority;
+                    return false;
+                }
+
+                m_bpv7Priority = priorityBlockPtr->m_bundlePriority;
+            }
+            else {
+                LOG_ERROR(subprocess) << "dynamic_cast to Bpv7PriorityCanonicalBlock failed";
+                return false;
+            }           
+        }
+        else {
+            m_bpv7Priority = BPV7_PRIORITY::DEFAULT;
+        }
+
         if (m_hasSendCapability) { //has bidirectionality
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
@@ -530,8 +555,9 @@ void BpSinkPattern::SenderReaderThreadFunc() {
 
         if (m_hasSendCapabilityOverTcpclBidirectionalInduct) {
             if (destEid.nodeId != m_tcpclOpportunisticRemoteNodeId) {
-                LOG_ERROR(subprocess) << "node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId;
-                continue;
+                LOG_WARNING(subprocess) << "node id " << destEid.nodeId << " does not match tcpcl opportunistic link node id " << m_tcpclOpportunisticRemoteNodeId;
+                //bundleToSend.clear();
+                //continue;
             }
             //else if (m_tcpclInductPtr) {
             //note BpSink has no routing capability so it must send to the only connection available to it

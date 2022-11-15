@@ -53,6 +53,7 @@ public:
     boost::posix_time::ptime m_lastPtime;
     cbhe_eid_t m_lastPreviousNode;
     std::vector<uint64_t> m_hopCounts;
+    uint64_t m_bpv7Priority;
 
 private:
     uint32_t M_EXTRA_PROCESSING_TIME_MS;

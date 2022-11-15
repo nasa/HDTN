@@ -9,8 +9,8 @@
             "remotePort": 4556,
             "bundlePipelineLimit": 5,
             "finalDestinationEidUris": [
-                "ipn:10.0",
-                "ipn:1.1"
+                "ipn:10.*",
+                "ipn:1.*"
             ],
             "keepAliveIntervalSeconds": 17
         }

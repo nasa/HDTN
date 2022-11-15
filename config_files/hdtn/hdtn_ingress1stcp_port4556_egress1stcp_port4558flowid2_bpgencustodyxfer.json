@@ -55,8 +55,7 @@
                 "remotePort": 4558,
                 "bundlePipelineLimit": 50,
                 "finalDestinationEidUris": [
-                    "ipn:2.1",
-                    "ipn:2.2047"
+                    "ipn:2.*"
                 ],
                 "keepAliveIntervalSeconds": 17
             },
@@ -68,8 +67,7 @@
                 "remotePort": 4560,
                 "bundlePipelineLimit": 50,
                 "finalDestinationEidUris": [
-                    "ipn:1.0",
-                    "ipn:1.1"
+                    "ipn:1.*"
                 ],
                 "keepAliveIntervalSeconds": 17
             }

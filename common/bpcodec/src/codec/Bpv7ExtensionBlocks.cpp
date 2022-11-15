@@ -275,3 +275,83 @@ bool Bpv7HopCountCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
     uint8_t numBytesTakenToDecode;
     return ((m_dataPtr != NULL) && (CborTwoUint64ArrayDeserialize(m_dataPtr, &numBytesTakenToDecode, m_dataLength, m_hopLimit, m_hopCount)) && (numBytesTakenToDecode == m_dataLength));
 }
+
+////////////////////////////////////
+// BUNDLE PRIORITY EXTENSION BLOCK
+////////////////////////////////////
+
+Bpv7PriorityCanonicalBlock::Bpv7PriorityCanonicalBlock() : Bpv7CanonicalBlock() {
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIORITY;
+}
+
+Bpv7PriorityCanonicalBlock::~Bpv7PriorityCanonicalBlock() { }
+
+Bpv7PriorityCanonicalBlock::Bpv7PriorityCanonicalBlock(const Bpv7PriorityCanonicalBlock& o) :
+    Bpv7CanonicalBlock(o),
+    m_bundlePriority(o.m_bundlePriority) { }
+
+Bpv7PriorityCanonicalBlock::Bpv7PriorityCanonicalBlock(Bpv7PriorityCanonicalBlock&& o) :
+    Bpv7CanonicalBlock(std::move(o)),
+    m_bundlePriority(o.m_bundlePriority) { }
+
+Bpv7PriorityCanonicalBlock& Bpv7PriorityCanonicalBlock::operator=(const Bpv7PriorityCanonicalBlock& o) {
+    m_bundlePriority = o.m_bundlePriority;
+    return static_cast<Bpv7PriorityCanonicalBlock&>(Bpv7CanonicalBlock::operator=(o));
+}
+
+Bpv7PriorityCanonicalBlock& Bpv7PriorityCanonicalBlock::operator=(Bpv7PriorityCanonicalBlock && o) {
+    m_bundlePriority = o.m_bundlePriority;
+    return static_cast<Bpv7PriorityCanonicalBlock&>(Bpv7CanonicalBlock::operator=(std::move(o)));
+}
+
+bool Bpv7PriorityCanonicalBlock::operator==(const Bpv7PriorityCanonicalBlock & o) const {
+    return (m_bundlePriority == o.m_bundlePriority)
+        && Bpv7CanonicalBlock::operator==(o);
+}
+
+bool Bpv7PriorityCanonicalBlock::operator!=(const Bpv7PriorityCanonicalBlock & o) const {
+    return !(*this == o);
+}
+
+void Bpv7PriorityCanonicalBlock::SetZero() {
+    Bpv7CanonicalBlock::SetZero();
+    m_bundlePriority = 0;
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIORITY;
+}
+
+uint64_t Bpv7PriorityCanonicalBlock::SerializeBpv7(uint8_t * serialization) {
+    // Bundle priority. 0 = Bulk 1 = Normal 2 = Expedited
+    // Larger numbers correspond to higher priority.
+    // The block-type-specific data of this block is an unsigned integer
+    // containing the bundle priority, which SHALL be
+    // represented as a CBOR unsigned integer item.
+    // A bundle MUST NOT contain more than one (1) occurance of this type
+    // of block.
+
+    m_blockTypeCode = BPV7_BLOCK_TYPE_CODE::PRIORITY;
+    m_dataPtr = NULL;
+    m_dataLength = GetCanonicalBlockTypeSpecificDataSerializationSize();
+    const uint64_t serializationSizeCanonical = Bpv7CanonicalBlock::SerializeBpv7(serialization);
+    const uint64_t bufferSize = m_dataLength;
+    uint8_t * blockSpecificDataSerialization = m_dataPtr;
+
+    CborEncodeU64(blockSpecificDataSerialization, m_bundlePriority, bufferSize);
+    RecomputeCrcAfterDataModification(serialization, serializationSizeCanonical);
+
+    return serializationSizeCanonical;
+}
+
+uint64_t Bpv7PriorityCanonicalBlock::GetCanonicalBlockTypeSpecificDataSerializationSize() const {
+    return CborGetEncodingSizeU64(m_bundlePriority);
+}
+
+bool Bpv7PriorityCanonicalBlock::Virtual_DeserializeExtensionBlockDataBpv7() {
+    if (m_dataPtr == NULL) {
+        return false;
+    }
+
+    uint8_t numBytesTakenToDecode;
+    m_bundlePriority = CborDecodeU64(m_dataPtr, &numBytesTakenToDecode, m_dataLength);
+
+    return ((numBytesTakenToDecode != 0) && (numBytesTakenToDecode == m_dataLength));
+}

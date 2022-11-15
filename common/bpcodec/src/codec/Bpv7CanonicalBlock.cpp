@@ -307,6 +307,9 @@ bool Bpv7CanonicalBlock::DeserializeBpv7(std::unique_ptr<Bpv7CanonicalBlock> & c
             case BPV7_BLOCK_TYPE_CODE::CONFIDENTIALITY:
                 canonicalPtr = boost::make_unique<Bpv7BlockConfidentialityBlock>();
                 break;
+            case BPV7_BLOCK_TYPE_CODE::PRIORITY:
+                canonicalPtr = boost::make_unique<Bpv7PriorityCanonicalBlock>();
+                break;
             case BPV7_BLOCK_TYPE_CODE::PAYLOAD:
             default:
                 canonicalPtr = boost::make_unique<Bpv7CanonicalBlock>();

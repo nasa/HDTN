@@ -1,5 +1,6 @@
 #include "LtpFileTransferRunner.h"
 #include "Logger.h"
+#include <fstream>
 #include "SignalHandler.h"
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>

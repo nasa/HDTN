@@ -337,6 +337,7 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
     static const uint64_t BUNDLE_AGE_MS = 135791113;
     static const uint8_t HOP_LIMIT = 250;
     static const uint8_t HOP_COUNT = 200;
+    static const uint64_t PRIORITY = 2;
     const std::string payloadString = { "This is the data inside the bpv7 payload block!!!" };
     
     
@@ -400,6 +401,18 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             bv.AppendMoveCanonicalBlock(blockPtr);
         }
         
+        //add priority block
+        {
+            std::unique_ptr<Bpv7CanonicalBlock> blockPtr = boost::make_unique<Bpv7PriorityCanonicalBlock>();
+            Bpv7PriorityCanonicalBlock & block = *(reinterpret_cast<Bpv7PriorityCanonicalBlock*>(blockPtr.get()));
+
+            block.m_blockProcessingControlFlags = BPV7_BLOCKFLAG::REMOVE_BLOCK_IF_IT_CANT_BE_PROCESSED;
+            block.m_blockNumber = 5;
+            block.m_crcType = crcTypeToUse;
+            block.m_bundlePriority = PRIORITY;
+            bv.AppendMoveCanonicalBlock(blockPtr);
+        }
+
         //add payload block
         {
             
@@ -437,14 +450,15 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
         BOOST_REQUIRE_EQUAL(primary.m_lifetimeMilliseconds, PRIMARY_LIFETIME);
         BOOST_REQUIRE_EQUAL(bv.m_primaryBlockView.actualSerializedPrimaryBlockPtr.size(), primary.GetSerializationSize());
 
-        BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 4);
+        BOOST_REQUIRE_EQUAL(bv.GetNumCanonicalBlocks(), 5);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PREVIOUS_NODE), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::BUNDLE_AGE), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::HOP_COUNT), 1);
+        BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PRIORITY), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::PAYLOAD), 1);
         BOOST_REQUIRE_EQUAL(bv.GetCanonicalBlockCountByType(BPV7_BLOCK_TYPE_CODE::UNUSED_4), 0);
 
-        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 5);
+        BOOST_REQUIRE_EQUAL(bv.GetNextFreeCanonicalBlockNumber(), 6);
         
         //get previous node
         {
@@ -490,6 +504,20 @@ BOOST_AUTO_TEST_CASE(Bpv7ExtensionBlocksTestCase)
             BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
         }
         
+        //get priority
+        {
+            std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;
+            bv.GetCanonicalBlocksByType(BPV7_BLOCK_TYPE_CODE::PRIORITY, blocks);
+            BOOST_REQUIRE_EQUAL(blocks.size(), 1);
+            Bpv7PriorityCanonicalBlock* priorityBlockPtr = dynamic_cast<Bpv7PriorityCanonicalBlock*>(blocks[0]->headerPtr.get());
+            BOOST_REQUIRE(priorityBlockPtr);
+            BOOST_REQUIRE_EQUAL(priorityBlockPtr->m_blockTypeCode, BPV7_BLOCK_TYPE_CODE::PRIORITY);
+            BOOST_REQUIRE_EQUAL(priorityBlockPtr->m_blockNumber, 5);
+            BOOST_REQUIRE_EQUAL(priorityBlockPtr->m_bundlePriority, PRIORITY);
+            BOOST_REQUIRE_EQUAL(blocks[0]->actualSerializedBlockPtr.size(), priorityBlockPtr->GetSerializationSize());
+            BOOST_REQUIRE(!blocks[0]->isEncrypted); //not encrypted
+        }
+
         //get payload
         {
             std::vector<BundleViewV7::Bpv7CanonicalBlockView*> blocks;

@@ -4,6 +4,7 @@
 #include "Environment.h"
 #include <boost/filesystem/fstream.hpp>
 #include <boost/algorithm/string.hpp>
+#include <fstream>
 
 BOOST_AUTO_TEST_CASE(OutductsConfigTestCase)
 {
