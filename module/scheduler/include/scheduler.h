@@ -52,8 +52,8 @@ struct contactPlan_t {
 };
 
 struct contact_t {
-    int source;
-    int dest;
+    uint64_t source;
+    uint64_t dest;
     bool operator<(const contact_t& o) const;
 
 };
@@ -101,7 +101,6 @@ private:
     volatile bool m_runningFromSigHandler;
     HdtnConfig m_hdtnConfig;
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
-    std::vector<uint64_t> m_egressRxBufPtrToStdVec64;
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundEgressToConnectingSchedulerPtr;
@@ -117,6 +116,7 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     bool m_contactPlanTimerIsRunning;
     boost::posix_time::ptime m_epoch;
+    uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
 };
 
 

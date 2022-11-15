@@ -173,6 +173,7 @@ struct LinkStatusHdr {
     CommonHdr base;
     uint64_t event;
     uint64_t uuid;
+    uint64_t unixTimeSecondsSince1970;
 };
 
 struct ContactPlanReloadHdr {

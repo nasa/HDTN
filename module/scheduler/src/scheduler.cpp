@@ -15,6 +15,7 @@
 #include "scheduler.h"
 #include "Uri.h"
 #include "SignalHandler.h"
+#include "TimestampUtil.h"
 #include "Logger.h"
 #include <fstream>
 #include "message.hpp"
@@ -307,32 +308,29 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinatio
 
 void Scheduler::EgressEventsHandler() {
     //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
-    static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + sizeof(hdtn::LinkStatusHdr);
-    m_egressRxBufPtrToStdVec64.resize(minBufSizeBytes / sizeof(uint64_t));
-    uint64_t* rxBufRawPtrAlign64 = &m_egressRxBufPtrToStdVec64[0];
-    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
+    hdtn::LinkStatusHdr linkStatusHdr;
+    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&linkStatusHdr, sizeof(linkStatusHdr)), zmq::recv_flags::none);
     if (!res) {
         LOG_ERROR(subprocess) << "[EgressEventHandler] message not received";
         return;
     }
-    else if (res->size < sizeof(hdtn::CommonHdr)) {
-        LOG_ERROR(subprocess) << "[EgressEventHandler] res->size < sizeof(hdtn::CommonHdr)";
+    else if (res->size != sizeof(linkStatusHdr)) {
+        LOG_ERROR(subprocess) << "[EgressEventHandler] res->size != sizeof(linkStatusHdr)";
         return;
     }
 
-    hdtn::CommonHdr* common = (hdtn::CommonHdr*)rxBufRawPtrAlign64;
-
-    if (common->type == HDTN_MSGTYPE_LINKSTATUS) {
-        hdtn::LinkStatusHdr* linkStatusMsg = (hdtn::LinkStatusHdr*)rxBufRawPtrAlign64;
-        if (res->size != sizeof(hdtn::LinkStatusHdr)) {
-            LOG_ERROR(subprocess) << "EgressEventHandler res->size != sizeof(hdtn::LinkStatusHdr";
-            return;
-        }
-        uint64_t event = linkStatusMsg->event;
-        uint64_t outductId = linkStatusMsg->uuid;
+    
+    if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
+        const uint64_t event = linkStatusHdr.event;
+        const uint64_t outductId = linkStatusHdr.uuid;
+        const uint64_t timeSecondsSinceSchedulerEpoch = linkStatusHdr.unixTimeSecondsSince1970 - m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
 
         LOG_INFO(subprocess) << "Received link status event " << event << " from Egress for outduct id " << outductId;
 
+        if (outductId >= m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.size()) {
+            LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductId " << outductId;
+            return;
+        }
         const outduct_element_config_t& thisOutductConfig = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector[outductId];
 
 
@@ -341,7 +339,8 @@ void Scheduler::EgressEventsHandler() {
 
         LOG_INFO(subprocess) << "EgressEventsHandler nextHopNodeId " << thisOutductConfig.nextHopNodeId << " and srcNode " << srcNode;
         for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin();
-            itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri) {
+            itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri)
+        {
             const std::string& finalDestinationEidUri = *itDestUri;
             cbhe_eid_t finalDestEid;
             LOG_INFO(subprocess) << "EgressEventsHandler finalDestinationEidUri " << finalDestinationEidUri;
@@ -356,13 +355,20 @@ void Scheduler::EgressEventsHandler() {
             contact.dest = destNode;
 
             if (event == 1) {
-                if (m_mapContactUp[contact]) {
-	            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event " << std::endl;
-		    SendLinkUp(srcNode, destNode, finalDestEid.nodeId, 1);
-		}
-            } else {
-                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event " << std::endl;
-                SendLinkDown(srcNode, destNode, finalDestEid.nodeId, 1, 1);
+                m_contactUpSetMutex.lock();
+                std::map<contact_t, bool>::const_iterator it = m_mapContactUp.find(contact);
+                m_contactUpSetMutex.unlock();
+                if (it == m_mapContactUp.cend()) {
+                    LOG_ERROR(subprocess) << "EgressEventsHandler got Link Up event for unknown contact src=" << contact.source << " dest=" << contact.dest;
+                }
+                else if (it->second) {
+	                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
+                    SendLinkUp(srcNode, destNode, finalDestEid.nodeId, timeSecondsSinceSchedulerEpoch);
+                }
+            }
+            else {
+                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event ";
+                SendLinkDown(srcNode, destNode, finalDestEid.nodeId, timeSecondsSinceSchedulerEpoch, 1);
             }
         }
     }
@@ -460,10 +466,10 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
         if (!isLinkUp) {
             m_contactUpSetMutex.lock();
             m_mapContactUp[contact] = false;
-            LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
-            m_contactUpSetMutex.unlock();   
-	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
-			 contactPlan.first.end + 1, contactPlan.first.contact);
+            m_contactUpSetMutex.unlock();
+            LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
+            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
+                contactPlan.first.end + 1, contactPlan.first.contact);
         }
     }
 
@@ -471,11 +477,14 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
 
     if (useUnixTimestamps) {
         LOG_INFO(subprocess) << "***Using unix timestamp!";
-        m_epoch = boost::posix_time::ptime(boost::gregorian::date(1970, 1, 1));
+        m_epoch = TimestampUtil::GetUnixEpoch();
+        m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = 0;
     }
     else {
 	LOG_INFO(subprocess) << "using now as epoch";
         m_epoch = boost::posix_time::microsec_clock::universal_time();
+        const boost::posix_time::time_duration diff = (m_epoch - TimestampUtil::GetUnixEpoch());
+        m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = static_cast<uint64_t>(diff.total_seconds());
     }
     
     const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
@@ -526,24 +535,24 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
         if (it != m_ptimeToContactPlanBimap.left.end()) {
             const contactplan_islinkup_pair_t& contactPlan = it->second;
             const bool isLinkUp = contactPlan.second;
-	    contact_t contact;
-	    contact.source = contactPlan.first.source;
+            contact_t contact;
+            contact.source = contactPlan.first.source;
             contact.dest = contactPlan.first.dest;
 
             if (isLinkUp) {
-                m_contactUpSetMutex.lock(); 
+                m_contactUpSetMutex.lock();
                 m_mapContactUp[contact] = true;
-		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
-		m_contactUpSetMutex.unlock();
-		SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, contactPlan.first.start);
+                m_contactUpSetMutex.unlock();
+                LOG_INFO(subprocess) << "m_mapContactUp " << true << " for source " << contact.source << " destination " << contact.dest;
+                SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, contactPlan.first.start);
             }
             else {
-                m_contactUpSetMutex.lock();    
-		m_mapContactUp[contact] = false;
-		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
-		m_contactUpSetMutex.unlock();
-		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
-		             contactPlan.first.end + 1, contactPlan.first.contact);
+                m_contactUpSetMutex.lock();
+                m_mapContactUp[contact] = false;
+                m_contactUpSetMutex.unlock();
+                LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
+                SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
+                    contactPlan.first.end + 1, contactPlan.first.contact);
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event
