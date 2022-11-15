@@ -23,7 +23,7 @@ static const std::string process_strings[static_cast<unsigned int>(hdtn::Logger:
     "ltpfiletransfer",
     "egress",
     "gui",
-    "hdtnoneprocess",
+    "hdtn",
     "ingress",
     "router",
     "scheduler",
@@ -53,7 +53,7 @@ static const std::string subprocess_strings[static_cast<unsigned int>(hdtn::Logg
 };
 
 static const uint32_t file_rotation_size = 5 * 1024 * 1024; //5 MiB
-static const uint8_t console_message_offset = 15;
+static const uint8_t console_message_offset = 9;
 
 // Namespaces recommended by the Boost log library
 namespace logging = boost::log;
