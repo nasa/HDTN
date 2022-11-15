@@ -462,12 +462,8 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
             m_mapContactUp[contact] = false;
             LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
             m_contactUpSetMutex.unlock();   
-<<<<<<< HEAD
 	    SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
 			 contactPlan.first.end + 1, contactPlan.first.contact);
-=======
-            SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
->>>>>>> 07bf064b4798072a81efecb0b3326e1cb634c9ea
         }
     }
 
@@ -535,34 +531,19 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
             contact.dest = contactPlan.first.dest;
 
             if (isLinkUp) {
-<<<<<<< HEAD
-                 m_contactUpSetMutex.lock(); 
-                 m_mapContactUp[contact] = true;
-		 std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
+                m_contactUpSetMutex.lock(); 
+                m_mapContactUp[contact] = true;
+		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
 		m_contactUpSetMutex.unlock();
-		 SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, contactPlan.first.start);
+		SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, contactPlan.first.start);
             }
             else {
-		m_contactUpSetMutex.lock();    
+                m_contactUpSetMutex.lock();    
 		m_mapContactUp[contact] = false;
 		std::cout << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest << std::endl;
 		m_contactUpSetMutex.unlock();
 		SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
 		             contactPlan.first.end + 1, contactPlan.first.contact);
-=======
-                m_contactUpSetMutex.lock();
-                m_mapContactUp[contact] = true;
-                LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest;
-                m_contactUpSetMutex.unlock();
-                SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
-            }
-            else {
-                m_contactUpSetMutex.lock();
-                m_mapContactUp[contact] = false;
-                LOG_INFO(subprocess) << "m_mapContactUp " << m_mapContactUp[contact] << " for source " << contact.source << " destination " << contact.dest;
-                m_contactUpSetMutex.unlock();
-                SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest);
->>>>>>> 07bf064b4798072a81efecb0b3326e1cb634c9ea
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event
