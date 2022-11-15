@@ -38,6 +38,16 @@ void BpSinkPattern::Stop() {
     }
 
     m_runningSenderThread = false; //thread stopping criteria
+    //only lock one mutex at a time to prevent deadlock (a worker may call this function on an error condition)
+    //lock then unlock each thread's mutex to prevent a missed notify after setting thread stopping criteria above
+    m_mutexSendBundleQueue.lock();
+    m_mutexSendBundleQueue.unlock();
+    m_conditionVariableSenderReader.notify_one();
+    //
+    m_mutexCurrentlySendingBundleIdSet.lock();
+    m_mutexCurrentlySendingBundleIdSet.unlock();
+    m_cvCurrentlySendingBundleIdSet.notify_one(); //break out of the timed_wait (wait_until)
+
     if (m_threadSenderReaderPtr) {
         m_threadSenderReaderPtr->join();
         m_threadSenderReaderPtr.reset(); //delete it
@@ -448,12 +458,6 @@ bool BpSinkPattern::Forward_ThreadSafe(const cbhe_eid_t & destEid, std::vector<u
 
 void BpSinkPattern::SenderReaderThreadFunc() {
 
-    boost::mutex senderReaderMutex;
-    boost::mutex::scoped_lock senderReaderLock(senderReaderMutex);
-
-    boost::mutex waitingForBundlePipelineFreeMutex;
-    boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(waitingForBundlePipelineFreeMutex);
-
     uint64_t m_nextBundleId = 0;
     cbhe_eid_t destEid;
     std::vector<uint8_t> bundleToSend;
@@ -498,7 +502,10 @@ void BpSinkPattern::SenderReaderThreadFunc() {
             thisBundleId = nextBundleId++;
         }
         else { //empty
-            m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
+            boost::mutex::scoped_lock senderReaderLock(m_mutexSendBundleQueue);
+            if (m_runningSenderThread && m_bundleToSendQueue.empty()) { //lock mutex (above) before checking flag
+                m_conditionVariableSenderReader.wait(senderReaderLock); // call lock.unlock() and blocks the current thread
+            }
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             continue;
         }
@@ -542,21 +549,26 @@ void BpSinkPattern::SenderReaderThreadFunc() {
         else { //outduct for forwarding bundles
             boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
             bool timeout = false;
-            while (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline) {
-                const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+            while (m_runningSenderThread && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) {
                 if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
+                    const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
                     timeoutExpiry = nowTime + TIMEOUT_DURATION;
                 }
-                if (timeoutExpiry <= nowTime) {
-                    timeout = true;
-                    break;
+                boost::mutex::scoped_lock waitingForBundlePipelineFreeLock(m_mutexCurrentlySendingBundleIdSet);
+                if (m_runningSenderThread && (m_currentlySendingBundleIdSet.size() >= outductMaxBundlesInPipeline)) { //lock mutex (above) before checking condition
+                    //Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise.
+                    if (!m_cvCurrentlySendingBundleIdSet.timed_wait(waitingForBundlePipelineFreeLock, timeoutExpiry)) {
+                        timeout = true;
+                        break;
+                    }
                 }
-                m_waitingForBundlePipelineFreeConditionVariable.timed_wait(waitingForBundlePipelineFreeLock, boost::posix_time::milliseconds(10));
             }
             if (timeout) {
                 LOG_ERROR(subprocess) << "BpSinkPattern was unable to send a bundle for " << TIMEOUT_SECONDS << " seconds on the outduct";
-                m_conditionVariableSenderReader.timed_wait(senderReaderLock, boost::posix_time::milliseconds(1000)); // call lock.unlock() and blocks the current thread
-                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
+            if (!m_runningSenderThread) {
+                LOG_ERROR(subprocess) << "BpSinkPattern terminating before all bundles sent";
                 continue;
             }
 
@@ -596,7 +608,7 @@ void BpSinkPattern::OnFailedBundleVecSendCallback(std::vector<uint8_t>& movableB
         LOG_INFO(subprocess) << "Setting link status to DOWN";
         m_linkIsDown = true;
     }
-    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+    m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSinkPattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid) {
     bundleid_finaldesteid_pair_t* p = (bundleid_finaldesteid_pair_t*)userData.data();
@@ -613,7 +625,7 @@ void BpSinkPattern::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userDat
         LOG_INFO(subprocess) << "Setting link status to UP";
         m_linkIsDown = false;
     }
-    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+    m_cvCurrentlySendingBundleIdSet.notify_one();
 }
 void BpSinkPattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
     LOG_INFO(subprocess) << "OnOutductLinkStatusChangedCallback isLinkDownEvent:" << isLinkDownEvent << " outductUuid " << outductUuid;
@@ -625,5 +637,5 @@ void BpSinkPattern::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uin
         LOG_INFO(subprocess) << "Setting link status to UP";
     }
     m_linkIsDown = isLinkDownEvent;
-    m_waitingForBundlePipelineFreeConditionVariable.notify_one();
+    m_cvCurrentlySendingBundleIdSet.notify_one();
 }

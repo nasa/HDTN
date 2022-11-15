@@ -217,19 +217,30 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 SenderHelper() : finished(false), cancelled(false) {}
                 void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId) {
                     finishedTime = boost::posix_time::microsec_clock::universal_time();
+                    cvMutex.lock();
                     finished = true;
+                    cvMutex.unlock();
                     cv.notify_one();
                 }
                 void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId) {
                     LOG_INFO(subprocess) << "first pass of all data sent";
                 }
                 void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+                    cvMutex.lock();
                     cancelled = true;
+                    cvMutex.unlock();
                     LOG_INFO(subprocess) << "remote cancelled session with reason code " << (int)reasonCode;
                     cv.notify_one();
                 }
+                void WaitUntilFinishedOrCancelledOr200MsTimeout() {
+                    boost::mutex::scoped_lock cvLock(cvMutex);
+                    if ((!cancelled) && (!finished)) { //lock mutex (above) before checking condition
+                        cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                    }
+                }
 
                 boost::posix_time::ptime finishedTime;
+                boost::mutex cvMutex;
                 boost::condition_variable cv;
                 bool finished;
                 bool cancelled;
@@ -262,13 +273,13 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
 
             ltpUdpEngineSrcPtr->TransmissionRequest_ThreadSafe(std::move(tReq));
             boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
-            boost::mutex cvMutex;
-            boost::mutex::scoped_lock cvLock(cvMutex);
+            
+            
             if (useSignalHandler) {
                 sigHandler.Start(false);
             }
             while (running && m_runningFromSigHandler && (!senderHelper.cancelled) && (!senderHelper.finished)) {
-                senderHelper.cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                senderHelper.WaitUntilFinishedOrCancelledOr200MsTimeout();
                 if (useSignalHandler) {
                     sigHandler.PollOnce();
                 }
@@ -292,15 +303,26 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
                     finishedTime = boost::posix_time::microsec_clock::universal_time();
                     receivedFileContents = std::move(movableClientServiceDataVec);
+                    cvMutex.lock();
                     finished = true;
+                    cvMutex.unlock();
                     cv.notify_one();
                 }
                 void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
+                    cvMutex.lock();
                     cancelled = true;
+                    cvMutex.unlock();
                     LOG_INFO(subprocess) << "remote cancelled session with reason code " << (int)reasonCode;
                     cv.notify_one();
                 }
+                void WaitUntilFinishedOrCancelledOr200MsTimeout() {
+                    boost::mutex::scoped_lock cvLock(cvMutex);
+                    if ((!cancelled) && (!finished)) { //lock mutex (above) before checking condition
+                        cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                    }
+                }
                 boost::posix_time::ptime finishedTime;
+                boost::mutex cvMutex;
                 boost::condition_variable cv;
                 bool finished;
                 bool cancelled;
@@ -327,13 +349,13 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 << myBoundUdpPort << " and send report segments to " << remoteUdpHostname << ":" << remoteUdpPort;
             
             
-            boost::mutex cvMutex;
-            boost::mutex::scoped_lock cvLock(cvMutex);
+            
+            
             if (useSignalHandler) {
                 sigHandler.Start(false);
             }
             while (running && m_runningFromSigHandler && (!receiverHelper.cancelled) && (!receiverHelper.finished)) {
-                receiverHelper.cv.timed_wait(cvLock, boost::posix_time::milliseconds(200));
+                receiverHelper.WaitUntilFinishedOrCancelledOr200MsTimeout();
                 if (useSignalHandler) {
                     sigHandler.PollOnce();
                 }

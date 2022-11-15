@@ -47,7 +47,8 @@ LtpUdpEngine::LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asi
     m_countBatchSendCalls(0),
     m_countBatchSendCallbackCalls(0),
     m_countBatchUdpPacketsSent(0),
-    m_countCircularBufferOverruns(0)
+    m_countCircularBufferOverruns(0),
+    m_countUdpPacketsReceived(0)
 {
     for (unsigned int i = 0; i < M_NUM_CIRCULAR_BUFFER_VECTORS; ++i) {
         m_udpReceiveBuffersCbVec[i].resize(maxUdpRxPacketSizeBytes);
@@ -69,16 +70,16 @@ LtpUdpEngine::~LtpUdpEngine() {
     LOG_INFO(subprocess) << "~LtpUdpEngine: m_countAsyncSendCalls " << m_countAsyncSendCalls 
         << " m_countBatchSendCalls " << m_countBatchSendCalls
         << " m_countBatchUdpPacketsSent " << m_countBatchUdpPacketsSent
-        << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns;
+        << " m_countCircularBufferOverruns " << m_countCircularBufferOverruns
+        << " m_countUdpPacketsReceived " << m_countUdpPacketsReceived;
 }
 
 void LtpUdpEngine::Reset_ThreadSafe_Blocking() {
-    boost::mutex cvMutex;
-    boost::mutex::scoped_lock cvLock(cvMutex);
+    boost::mutex::scoped_lock cvLock(m_resetMutex);
     m_resetInProgress = true;
     boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpUdpEngine::Reset, this));
-    while (m_resetInProgress) {
-        m_resetConditionVariable.timed_wait(cvLock, boost::posix_time::milliseconds(250));
+    while (m_resetInProgress) { //lock mutex (above) before checking condition
+        m_resetConditionVariable.wait(cvLock);
     }
 }
 
@@ -90,12 +91,16 @@ void LtpUdpEngine::Reset() {
     m_countBatchSendCallbackCalls = 0;
     m_countBatchUdpPacketsSent = 0;
     m_countCircularBufferOverruns = 0;
+    m_countUdpPacketsReceived = 0;
+    m_resetMutex.lock();
     m_resetInProgress = false;
+    m_resetMutex.unlock();
     m_resetConditionVariable.notify_one();
 }
 
 
 void LtpUdpEngine::PostPacketFromManager_ThreadSafe(std::vector<uint8_t> & packetIn_thenSwappedForAnotherSameSizeVector, std::size_t size) {
+    ++m_countUdpPacketsReceived;
     const unsigned int writeIndex = m_circularIndexBuffer.GetIndexForWrite(); //store the volatile
     if (writeIndex == CIRCULAR_INDEX_BUFFER_FULL) {
         ++m_countCircularBufferOverruns;

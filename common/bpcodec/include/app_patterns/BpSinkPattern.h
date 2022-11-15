@@ -77,7 +77,7 @@ private:
     std::queue<desteid_bundle_pair_t> m_bundleToSendQueue;
     boost::mutex m_mutexCurrentlySendingBundleIdSet;
     std::unordered_set<uint64_t> m_currentlySendingBundleIdSet;
-    boost::condition_variable m_waitingForBundlePipelineFreeConditionVariable;
+    boost::condition_variable m_cvCurrentlySendingBundleIdSet;
     boost::mutex m_mutexQueueBundlesThatFailedToSend;
     typedef std::pair<uint64_t, cbhe_eid_t> bundleid_finaldesteid_pair_t;
     typedef std::pair<std::vector<uint8_t>, bundleid_finaldesteid_pair_t> bundle_userdata_pair_t;

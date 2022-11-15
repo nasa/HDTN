@@ -93,6 +93,7 @@ private:
     bool m_sendDelayTimerIsRunning;
     volatile bool m_setUdpDropSimulatorFunctionInProgress;
     boost::condition_variable m_cvSetUdpDropSimulatorFunction;
+    boost::mutex m_mutexSetUdpDropSimulatorFunction;
     UdpDropSimulatorFunction_t m_udpDropSimulatorFunction;
 
     //stats

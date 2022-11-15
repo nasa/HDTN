@@ -91,6 +91,7 @@ private:
 
     //for safe unit test resets
     volatile bool m_resetInProgress;
+    boost::mutex m_resetMutex;
     boost::condition_variable m_resetConditionVariable;
 
 public:
@@ -102,6 +103,7 @@ public:
     //total udp packets sent is m_countAsyncSendCallbackCalls + m_countBatchUdpPacketsSent
 
     uint64_t m_countCircularBufferOverruns;
+    uint64_t m_countUdpPacketsReceived;
 };
 
 

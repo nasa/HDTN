@@ -278,16 +278,17 @@ void UdpDelaySim::TransferRate_TimerExpired(const boost::system::error_code& e) 
 }
 
 void UdpDelaySim::SetUdpDropSimulatorFunction_ThreadSafe(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction) {
-    boost::mutex cvMutex;
-    boost::mutex::scoped_lock cvLock(cvMutex);
+    boost::mutex::scoped_lock cvLock(m_mutexSetUdpDropSimulatorFunction);
     m_setUdpDropSimulatorFunctionInProgress = true;
     boost::asio::post(m_ioService, boost::bind(&UdpDelaySim::SetUdpDropSimulatorFunction, this, udpDropSimulatorFunction));
-    while (m_setUdpDropSimulatorFunctionInProgress) {
-        m_cvSetUdpDropSimulatorFunction.timed_wait(cvLock, boost::posix_time::milliseconds(250));
+    while (m_setUdpDropSimulatorFunctionInProgress) { //lock mutex (above) before checking condition
+        m_cvSetUdpDropSimulatorFunction.wait(cvLock);
     }    
 }
 void UdpDelaySim::SetUdpDropSimulatorFunction(const UdpDropSimulatorFunction_t & udpDropSimulatorFunction) {
     m_udpDropSimulatorFunction = udpDropSimulatorFunction;
+    m_mutexSetUdpDropSimulatorFunction.lock();
     m_setUdpDropSimulatorFunctionInProgress = false;
+    m_mutexSetUdpDropSimulatorFunction.unlock();
     m_cvSetUdpDropSimulatorFunction.notify_one();
 }

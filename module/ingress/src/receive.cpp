@@ -20,6 +20,37 @@ namespace hdtn {
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::ingress;
 
+Ingress::EgressToIngressAckingSet::EgressToIngressAckingSet() {
+    //By default, unordered_set containers have a max_load_factor of 1.0.
+    m_ingressToEgressCustodyIdSet.reserve(500); //TODO
+}
+std::size_t Ingress::EgressToIngressAckingSet::GetSetSize() const noexcept {
+    return m_ingressToEgressCustodyIdSet.size();
+}
+void Ingress::EgressToIngressAckingSet::PushMove_ThreadSafe(const uint64_t ingressToEgressCustody) {
+    boost::mutex::scoped_lock lock(m_mutex);
+    m_ingressToEgressCustodyIdSet.emplace(ingressToEgressCustody);
+}
+bool Ingress::EgressToIngressAckingSet::CompareAndPop_ThreadSafe(const uint64_t ingressToEgressCustody) {
+    m_mutex.lock();
+    const std::size_t retVal = m_ingressToEgressCustodyIdSet.erase(ingressToEgressCustody);
+    m_mutex.unlock();
+    return (retVal != 0);
+}
+void Ingress::EgressToIngressAckingSet::WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGtThisValue) {
+    static const boost::posix_time::time_duration DURATION = boost::posix_time::milliseconds(250);
+    const boost::posix_time::ptime timeoutExpiry(boost::posix_time::microsec_clock::universal_time() + DURATION);
+    boost::mutex::scoped_lock lock(m_mutex);
+    //timed_wait Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise. (false=>timeout)
+    //wait while (queueIsFull AND hasNotTimedOutYet)
+    while ((GetSetSize() > waitWhileSizeGtThisValue) && m_conditionVariable.timed_wait(lock, timeoutExpiry)) {} //lock mutex (above) before checking condition
+}
+void Ingress::EgressToIngressAckingSet::NotifyAll() {
+    m_conditionVariable.notify_all();
+}
+
+
+
 Ingress::Ingress() :
     m_bundleCountStorage(0),
     m_bundleCountEgress(0),
@@ -645,7 +676,7 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
                 useStorage = true;
                 break;
             }
-            egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout();
+            egressToIngressAckingObj.WaitUntilNotifiedOr250MsTimeout(m_hdtnConfig.m_zmqMaxMessagesPerPath);
             //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
             ++m_eventsTooManyInEgressQueue;
         }

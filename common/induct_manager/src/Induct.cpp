@@ -15,7 +15,7 @@ Induct::OpportunisticBundleQueue::OpportunisticBundleQueue() {}
 Induct::OpportunisticBundleQueue::~OpportunisticBundleQueue() {
     LOG_INFO(hdtn::Logger::SubProcess::none) << "opportunistic link with m_remoteNodeId " << m_remoteNodeId << " terminated with " << m_dataToSendQueue.size() << " bundles queued";
 }
-std::size_t Induct::OpportunisticBundleQueue::GetQueueSize() {
+std::size_t Induct::OpportunisticBundleQueue::GetQueueSize() const noexcept {
     return m_dataToSendQueue.size();
 }
 void Induct::OpportunisticBundleQueue::PushMove_ThreadSafe(zmq::message_t & msg) {
@@ -42,9 +42,13 @@ bool Induct::OpportunisticBundleQueue::TryPop_ThreadSafe(std::pair<std::unique_p
     m_conditionVariable.notify_all();
     return true;
 }
-void Induct::OpportunisticBundleQueue::WaitUntilNotifiedOr250MsTimeout() {
+void Induct::OpportunisticBundleQueue::WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGeThisValue) {
+    static const boost::posix_time::time_duration DURATION = boost::posix_time::milliseconds(250);
+    const boost::posix_time::ptime timeoutExpiry(boost::posix_time::microsec_clock::universal_time() + DURATION);
     boost::mutex::scoped_lock lock(m_mutex);
-    m_conditionVariable.timed_wait(lock, boost::posix_time::milliseconds(250)); // call lock.unlock() and blocks the current thread
+    //timed_wait Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise. (false=>timeout)
+    //wait while (queueIsFull AND hasNotTimedOutYet)
+    while ((GetQueueSize() >= waitWhileSizeGeThisValue) && m_conditionVariable.timed_wait(lock, timeoutExpiry)) {} //lock mutex (above) before checking condition
 }
 void Induct::OpportunisticBundleQueue::NotifyAll() {
     m_conditionVariable.notify_all();
@@ -90,7 +94,7 @@ bool Induct::ForwardOnOpportunisticLink(const uint64_t remoteNodeId, zmq::messag
 
         }
         Virtual_PostNotifyBundleReadyToSend_FromIoServiceThread(remoteNodeId);
-        opportunisticBundleQueue.WaitUntilNotifiedOr250MsTimeout();
+        opportunisticBundleQueue.WaitUntilNotifiedOr250MsTimeout(opportunisticBundleQueue.m_maxTxBundlesInPipeline);
         //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
     }
     if (zmqMsgPtr) {

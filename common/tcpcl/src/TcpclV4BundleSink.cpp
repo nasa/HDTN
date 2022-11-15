@@ -110,7 +110,10 @@ TcpclV4BundleSink::~TcpclV4BundleSink() {
         }
     }
 
+    m_mutexCb.lock();
     m_running = false; //thread stopping criteria
+    m_mutexCb.unlock();
+    m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
@@ -170,9 +173,11 @@ void TcpclV4BundleSink::TryStartTcpReceiveSecure() { //must run within Io Servic
 void TcpclV4BundleSink::HandleTcpReceiveSomeSecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
     if (!error) {
         m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
+        m_mutexCb.lock();
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
-        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
+        m_mutexCb.unlock();
         m_conditionVariableCb.notify_one();
+        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
         TryStartTcpReceiveSecure(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
@@ -214,9 +219,11 @@ void TcpclV4BundleSink::TryStartTcpReceiveUnsecure() { //must run within Io Serv
 void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_code & error, std::size_t bytesTransferred, unsigned int writeIndex) {
     if (!error) {
         m_tcpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
+        m_mutexCb.lock();
         m_circularIndexBuffer.CommitWrite(); //write complete at this point
-        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
+        m_mutexCb.unlock();
         m_conditionVariableCb.notify_one();
+        m_stateTcpReadActive = false; //must be false before calling TryStartTcpReceive
         TryStartTcpReceiveUnsecure(); //restart operation only if there was no error
     }
     else if (error == boost::asio::error::eof) {
@@ -230,19 +237,23 @@ void TcpclV4BundleSink::HandleTcpReceiveSomeUnsecure(const boost::system::error_
 
 void TcpclV4BundleSink::PopCbThreadFunc() {
 
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
     boost::function<void()> tryStartTcpReceiveFunction = boost::bind(&TcpclV4BundleSink::TryStartTcpReceiveUnsecure, this);
 
-    while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY)) { //keep thread alive if running or cb not empty
-
-
-        const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
+    while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
+        unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
         boost::asio::post(m_tcpSocketIoServiceRef, tryStartTcpReceiveFunction); //keep this a thread safe operation by letting ioService thread run it
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
-            m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            //try again, but with the mutex
+            boost::mutex::scoped_lock lock(m_mutexCb);
+            consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
+            if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
+                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                    break; //thread stopping criteria (empty and not running)
+                }
+                m_conditionVariableCb.wait(lock); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
         }
         m_base_dataReceivedServedAsKeepaliveReceived = true;
         m_base_tcpclV4RxStateMachine.HandleReceivedChars(m_tcpReceiveBuffersCbVec[consumeIndex].data(), m_tcpReceiveBytesTransferredCbVec[consumeIndex]);

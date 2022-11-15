@@ -60,7 +60,11 @@ UdpBundleSink::UdpBundleSink(boost::asio::io_service & ioService,
         LOG_ERROR(subprocess) << "Could not bind on UDP port " << udpPort;
         LOG_ERROR(subprocess) << e.what();
 
-        m_running = false;
+        m_mutexCb.lock();
+        m_running = false; //thread stopping criteria
+        m_mutexCb.unlock();
+        m_conditionVariableCb.notify_one();
+
         return;
     }
     LOG_INFO(subprocess) << "UdpBundleSink bound successfully on UDP port " << udpPort << "...";
@@ -77,7 +81,10 @@ UdpBundleSink::~UdpBundleSink() {
     }
     
     
+    m_mutexCb.lock();
     m_running = false; //thread stopping criteria
+    m_mutexCb.unlock();
+    m_conditionVariableCb.notify_one();
 
     if (m_threadCbReaderPtr) {
         m_threadCbReaderPtr->join();
@@ -109,7 +116,9 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
             m_udpReceiveBuffer.swap(m_udpReceiveBuffersCbVec[writeIndex]);
             m_udpReceiveBytesTransferredCbVec[writeIndex] = bytesTransferred;
             m_remoteEndpointsCbVec[writeIndex] = std::move(m_remoteEndpoint);
+            m_mutexCb.lock();
             m_circularIndexBuffer.CommitWrite(); //write complete at this point
+            m_mutexCb.unlock();
             m_conditionVariableCb.notify_one();
         }
         StartUdpReceive(); //restart operation only if there was no error
@@ -125,18 +134,20 @@ void UdpBundleSink::HandleUdpReceive(const boost::system::error_code & error, st
 
 void UdpBundleSink::PopCbThreadFunc() {
 
-    boost::mutex localMutex;
-    boost::mutex::scoped_lock lock(localMutex);
-
-    while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY)) { //keep thread alive if running or cb not empty
-
-
-        const unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
-
+    while (true) { //keep thread alive if running or cb not empty, i.e. "while (m_running || (m_circularIndexBuffer.GetIndexForRead() != CIRCULAR_INDEX_BUFFER_EMPTY))"
+        unsigned int consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
         if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty
-            m_conditionVariableCb.timed_wait(lock, boost::posix_time::milliseconds(10)); // call lock.unlock() and blocks the current thread
-            //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
-            continue;
+            //try again, but with the mutex
+            boost::mutex::scoped_lock lock(m_mutexCb);
+            consumeIndex = m_circularIndexBuffer.GetIndexForRead(); //store the volatile
+            if (consumeIndex == CIRCULAR_INDEX_BUFFER_EMPTY) { //if empty again (lock mutex (above) before checking condition)
+                if (!m_running) { //m_running is mutex protected, if it stopped running, exit the thread (lock mutex (above) before checking condition)
+                    break; //thread stopping criteria (empty and not running)
+                }
+                m_conditionVariableCb.wait(lock); // call lock.unlock() and blocks the current thread
+                //thread is now unblocked, and the lock is reacquired by invoking lock.lock()
+                continue;
+            }
         }
         //m_wholeBundleReadyCallback(m_udpReceiveBuffersCbVec[consumeIndex], m_udpReceiveBytesTransferredCbVec[consumeIndex]);
         m_udpReceiveBuffersCbVec[consumeIndex].resize(m_udpReceiveBytesTransferredCbVec[consumeIndex]);
