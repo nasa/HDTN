@@ -14,6 +14,7 @@
 
 #include "SignalHandler.h"
 #include "Logger.h"
+#include "TimestampUtil.h"
 #include <fstream>
 #include "message.hpp"
 #include <boost/filesystem.hpp>
@@ -197,6 +198,7 @@ void hdtn::HegrManagerAsync::DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t o
     linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
     linkStatusMsg.event = (isLinkDownEvent) ? 0 : 1;
     linkStatusMsg.uuid = outductUuid;
+    linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
 
     {
         boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
