@@ -3,7 +3,7 @@
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_Node2_ltp.json
-sink_config=$config_files/inducts/bpsink_one_ltp_port4558.json
+sink_config=$config_files/inducts/bpsink_one_ltp_port4558_2NodesTest.json
 
 cd $HDTN_SOURCE_ROOT
 

@@ -3,7 +3,7 @@
 # path variables
 config_files=$HDTN_SOURCE_ROOT/config_files
 hdtn_config=$config_files/hdtn/hdtn_Node1_ltp.json
-gen_config=$config_files/outducts/bpgen_one_ltp_port4556_thisengineid200.json
+gen_config=$config_files/outducts/bpgen_one_ltp_port4556_2NodesTest.json
 
 cd $HDTN_SOURCE_ROOT
 
@@ -16,7 +16,7 @@ sleep 10
 sleep 1
 
 #bpgen
-./build/common/bpcodec/apps/bpgen-async --bundle-rate=0 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
+./build/common/bpcodec/apps/bpgen-async --bundle-size=100000 --bundle-rate=0 --my-uri-eid=ipn:1.1 --dest-uri-eid=ipn:2.1 --duration=40 --outducts-config-file=$gen_config &
 sleep 8
 
 
