@@ -64,6 +64,7 @@ private:
     EGRESS_ASYNC_LIB_NO_EXPORT void OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid);
     EGRESS_ASYNC_LIB_NO_EXPORT void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     EGRESS_ASYNC_LIB_NO_EXPORT void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
+    EGRESS_ASYNC_LIB_NO_EXPORT void ResendOutductCapabilities();
 
     EGRESS_ASYNC_LIB_EXPORT void DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid);
 

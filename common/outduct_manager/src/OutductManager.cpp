@@ -246,6 +246,36 @@ bool OutductManager::Reroute_ThreadSafe(const uint64_t finalDestNodeId, const ui
     return success;
 }
 
+void OutductManager::GetAllOutductCapabilitiesTelemetry_ThreadSafe(AllOutductCapabilitiesTelemetry_t& allOutductCapabilitiesTelemetry) {
+    std::vector<OutductCapabilityTelemetry_t> octVec(m_outductsVec.size());
+    allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.clear();
+    {
+        boost::mutex::scoped_lock lock(m_finalDestNodeIdToOutductMapMutex);
+        boost::mutex::scoped_lock lock2(m_finalDestEidToOutductMapMutex);
+        for (std::map<uint64_t, std::shared_ptr<Outduct> >::const_iterator it = m_finalDestNodeIdToOutductMap.cbegin(); it != m_finalDestNodeIdToOutductMap.cend(); ++it) {
+            const uint64_t nodeId = it->first;
+            const uint64_t outductIndex = it->second->GetOutductUuid();
+            OutductCapabilityTelemetry_t& oct = octVec[outductIndex];
+            oct.finalDestinationNodeIdList.emplace_back(nodeId);
+        }
+        for (std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::const_iterator it = m_finalDestEidToOutductMap.cbegin(); it != m_finalDestEidToOutductMap.cend(); ++it) {
+            const cbhe_eid_t& eid = it->first;
+            const uint64_t outductIndex = it->second->GetOutductUuid();
+            OutductCapabilityTelemetry_t& oct = octVec[outductIndex];
+            oct.finalDestinationEidList.emplace_back(eid);
+        }
+    }
+    //convert vector to list
+    for (std::size_t i = 0; i < octVec.size(); ++i) {
+        OutductCapabilityTelemetry_t& oct = octVec[i];
+        std::shared_ptr<Outduct> & outductPtr = m_outductsVec[i];
+        oct.maxBundlesInPipeline = outductPtr->GetOutductMaxBundlesInPipeline();
+        oct.maxBundleSizeBytesInPipeline = 0; //TODO
+        oct.outductArrayIndex = i;
+        allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.emplace_back(std::move(oct));
+    }
+}
+
 Outduct * OutductManager::GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid) {
     Outduct* retVal = NULL;
     //first try to find by node id (ipn:nodeId.*)

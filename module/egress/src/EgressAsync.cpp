@@ -215,6 +215,10 @@ static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
 static void CustomCleanupStdVecUint8(void* data, void* hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
+static void CustomCleanupSharedPtrStdVecUint8(void* data, void* hint) {
+    std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr = static_cast<std::shared_ptr<std::vector<uint8_t> > *>(hint);
+    delete serializedRawPtrToSharedPtr; //reduce ref count and delete shared_ptr object
+}
 
 void hdtn::HegrManagerAsync::RouterEventHandler() {
     zmq::message_t message;
@@ -274,6 +278,9 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
         m_zmqPullSock_connectingStorageToBoundEgressPtr.get()
     };
+
+    //Get initial outduct capabilities and send to ingress and storage
+    ResendOutductCapabilities();
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
     while (m_running) { //keep thread alive if running
@@ -445,6 +452,59 @@ void hdtn::HegrManagerAsync::ReadZmqThreadFunc() {
     LOG_INFO(subprocess) << "HegrManagerAsync::ReadZmqThreadFunc thread exiting";
     LOG_DEBUG(subprocess) << "m_totalCustodyTransfersSentToStorage: " << m_totalCustodyTransfersSentToStorage;
     LOG_DEBUG(subprocess) << "m_totalCustodyTransfersSentToIngress: " << m_totalCustodyTransfersSentToIngress;
+}
+
+void hdtn::HegrManagerAsync::ResendOutductCapabilities() {
+    AllOutductCapabilitiesTelemetry_t allOutductCapabilitiesTelemetry;
+    m_outductManager.GetAllOutductCapabilitiesTelemetry_ThreadSafe(allOutductCapabilitiesTelemetry);
+    const uint64_t serializationSize = allOutductCapabilitiesTelemetry.GetSerializationSize();
+    std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr = new std::shared_ptr<std::vector<uint8_t> >(std::make_shared<std::vector<uint8_t> >(serializationSize));
+    std::vector<uint8_t> & serialized = *(*serializedRawPtrToSharedPtr);
+    zmq::message_t zmqMsgToIngress(
+        serializedRawPtrToSharedPtr->get()->data(),
+        serializedRawPtrToSharedPtr->get()->size(),
+        CustomCleanupSharedPtrStdVecUint8,
+        serializedRawPtrToSharedPtr);
+    if (!allOutductCapabilitiesTelemetry.SerializeToLittleEndian(serialized.data(), serializationSize)) {
+        LOG_FATAL(subprocess) << "Cannot serialize outduct capabilities";
+        return;
+    }
+    std::shared_ptr<std::vector<uint8_t> >* serializedRawPtrToSharedPtr2 = new std::shared_ptr<std::vector<uint8_t> >(*serializedRawPtrToSharedPtr); //ref count 2
+    zmq::message_t zmqMsgToStorage(
+        serializedRawPtrToSharedPtr2->get()->data(),
+        serializedRawPtrToSharedPtr2->get()->size(),
+        CustomCleanupSharedPtrStdVecUint8,
+        serializedRawPtrToSharedPtr2);
+
+    hdtn::EgressAckHdr egressAck;
+    //memset 0 not needed because remaining values are "don't care"
+    egressAck.base.type = HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY;
+
+    zmq::const_buffer headerMessage(&egressAck, sizeof(egressAck));
+    
+    { //storage
+        boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
+        if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(headerMessage, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send outduct capabilities header";
+            return;
+        }
+        if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqMsgToStorage), zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send outduct capabilities";
+            return;
+        }
+    }
+
+    { //ingress
+        boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_connectingEgressToBoundIngress);
+        if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(headerMessage, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "m_zmqPushSock_connectingEgressToBoundIngressPtr could not send outduct capabilities header";
+            return;
+        }
+        if (!m_zmqPushSock_connectingEgressToBoundIngressPtr->send(std::move(zmqMsgToIngress), zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "m_zmqPushSock_connectingEgressToBoundIngressPtr could not send outduct capabilities";
+            return;
+        }
+    }
 }
 
 static void CustomCleanupPaddedVecUint8(void *data, void *hint) {

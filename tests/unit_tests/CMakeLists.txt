@@ -25,6 +25,7 @@ add_executable(unit-tests
 	../../common/util/test/dir_monitor/test_async.cpp
 	../../common/util/test/dir_monitor/test_sync.cpp
 	#../../common/util/test/test_running.cpp
+	../../common/telemetry/test/TestTelemetry.cpp
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp
 	../../common/bpcodec/test/TestCustodyTransfer.cpp
 	../../common/bpcodec/test/TestCustodyIdAllocator.cpp

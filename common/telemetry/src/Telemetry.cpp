@@ -1,6 +1,7 @@
 /**
  * @file Telemetry.cpp
  * @author  Blake LaFuente
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -14,6 +15,7 @@
 
 #include "Telemetry.h"
 #include "Logger.h"
+#include "Uri.h"
 #include <boost/endian/conversion.hpp>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
@@ -45,6 +47,8 @@ LtpOutductTelemetry_t::LtpOutductTelemetry_t() : OutductTelemetry_t(),
 {
     convergenceLayerType = 2;
 }
+OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t() : type(5), outductArrayIndex(0), maxBundlesInPipeline(0), maxBundleSizeBytesInPipeline(0) {}
+AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t() : type(6) {}
 
 uint64_t IngressTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
     static constexpr uint64_t NUM_BYTES = sizeof(IngressTelemetry_t);
@@ -140,6 +144,223 @@ uint64_t OutductTelemetry_t::GetTotalBundlesQueued() const {
 
 uint64_t OutductTelemetry_t::GetTotalBundleBytesQueued() const {
     return totalBundleBytesSent - totalBundleBytesAcked;
+}
+
+/////////////////////////////////////
+//OutductCapabilityTelemetry_t
+/////////////////////////////////////
+uint64_t OutductCapabilityTelemetry_t::GetSerializationSize() const {
+    return (6 * sizeof(uint64_t)) + (finalDestinationEidList.size() * sizeof(cbhe_eid_t)) + (finalDestinationNodeIdList.size() * sizeof(uint64_t));
+}
+uint64_t OutductCapabilityTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
+    const uint8_t* const dataStartPtr = data;
+    const uint64_t sizeSerialized = GetSerializationSize();
+    uint64_t* data64Ptr = reinterpret_cast<uint64_t*>(data);
+    if (bufferSize < sizeSerialized) {
+        return 0; //failure
+    }
+    //bufferSize -= sizeSerialized;
+    *data64Ptr++ = boost::endian::native_to_little(type);
+    *data64Ptr++ = boost::endian::native_to_little(outductArrayIndex);
+    *data64Ptr++ = boost::endian::native_to_little(maxBundlesInPipeline);
+    *data64Ptr++ = boost::endian::native_to_little(maxBundleSizeBytesInPipeline);
+    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(finalDestinationEidList.size()));
+    for (std::list<cbhe_eid_t>::const_iterator it = finalDestinationEidList.cbegin(); it != finalDestinationEidList.cend(); ++it) {
+        *data64Ptr++ = boost::endian::native_to_little(it->nodeId);
+        *data64Ptr++ = boost::endian::native_to_little(it->serviceId);
+    }
+    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(finalDestinationNodeIdList.size()));
+    for (std::list<uint64_t>::const_iterator it = finalDestinationNodeIdList.cbegin(); it != finalDestinationNodeIdList.cend(); ++it) {
+        *data64Ptr++ = boost::endian::native_to_little(*it);
+    }
+    //return (reinterpret_cast<uint8_t*>(data64Ptr)) - dataStartPtr;
+    return sizeSerialized;
+}
+bool OutductCapabilityTelemetry_t::DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize) {
+    const uint8_t* const serializationBase = serialization;
+
+    if (bufferSize < (6 * sizeof(uint64_t))) { //minimum size (if both lists are empty)
+        return false;
+    }
+    bufferSize -= (6 * sizeof(uint64_t));
+    //must be aligned
+    type = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    outductArrayIndex = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    maxBundlesInPipeline = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    maxBundleSizeBytesInPipeline = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    const uint64_t finalDestinationEidListSize = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    finalDestinationEidList.clear();
+    for (uint64_t i = 0; i < finalDestinationEidListSize; ++i) {
+        if (bufferSize < sizeof(cbhe_eid_t)) {
+            return false;
+        }
+        bufferSize -= sizeof(cbhe_eid_t);
+        const uint64_t nodeId = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+        serialization += sizeof(uint64_t);
+        const uint64_t serviceId = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+        serialization += sizeof(uint64_t);
+        finalDestinationEidList.emplace_back(nodeId, serviceId);
+    }
+    const uint64_t finalDestinationNodeIdListSize = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    finalDestinationNodeIdList.clear();
+    for (uint64_t i = 0; i < finalDestinationNodeIdListSize; ++i) {
+        if (bufferSize < sizeof(uint64_t)) { //minimum size (if both lists are empty)
+            return false;
+        }
+        bufferSize -= sizeof(uint64_t);
+        const uint64_t nodeId = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+        serialization += sizeof(uint64_t);
+        finalDestinationNodeIdList.emplace_back(nodeId);
+    }
+
+    numBytesTakenToDecode = serialization - serializationBase;
+    return true;
+}
+bool OutductCapabilityTelemetry_t::operator==(const OutductCapabilityTelemetry_t& o) const {
+    return (type == o.type)
+        && (outductArrayIndex == o.outductArrayIndex)
+        && (maxBundlesInPipeline == o.maxBundlesInPipeline)
+        && (maxBundleSizeBytesInPipeline == o.maxBundleSizeBytesInPipeline)
+        && (finalDestinationEidList == o.finalDestinationEidList)
+        && (finalDestinationNodeIdList == o.finalDestinationNodeIdList);
+}
+bool OutductCapabilityTelemetry_t::operator!=(const OutductCapabilityTelemetry_t& o) const {
+    return !(*this == o);
+}
+OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(const OutductCapabilityTelemetry_t& o) :
+    type(o.type),
+    outductArrayIndex(o.outductArrayIndex),
+    maxBundlesInPipeline(o.maxBundlesInPipeline),
+    maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
+    finalDestinationEidList(o.finalDestinationEidList),
+    finalDestinationNodeIdList(o.finalDestinationNodeIdList) { } //a copy constructor: X(const X&)
+OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) :
+    type(o.type),
+    outductArrayIndex(o.outductArrayIndex),
+    maxBundlesInPipeline(o.maxBundlesInPipeline),
+    maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
+    finalDestinationEidList(std::move(o.finalDestinationEidList)),
+    finalDestinationNodeIdList(std::move(o.finalDestinationNodeIdList)) { } //a move constructor: X(X&&)
+OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const OutductCapabilityTelemetry_t& o) { //a copy assignment: operator=(const X&)
+    type = o.type;
+    outductArrayIndex = o.outductArrayIndex;
+    maxBundlesInPipeline = o.maxBundlesInPipeline;
+    maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
+    finalDestinationEidList = o.finalDestinationEidList;
+    finalDestinationNodeIdList = o.finalDestinationNodeIdList;
+    return *this;
+}
+OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCapabilityTelemetry_t&& o) { //a move assignment: operator=(X&&)
+    type = o.type;
+    outductArrayIndex = o.outductArrayIndex;
+    maxBundlesInPipeline = o.maxBundlesInPipeline;
+    maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
+    finalDestinationEidList = std::move(o.finalDestinationEidList);
+    finalDestinationNodeIdList = std::move(o.finalDestinationNodeIdList);
+    return *this;
+}
+std::ostream& operator<<(std::ostream& os, const OutductCapabilityTelemetry_t& o) {
+    os << "outductArrayIndex=" << o.outductArrayIndex << " "
+        << " maxBundlesInPipeline=" << o.maxBundlesInPipeline << " "
+        << " maxBundleSizeBytesInPipeline=" << o.maxBundleSizeBytesInPipeline << std::endl;
+    os << " finalDestinationEidList:" << std::endl;
+    for (std::list<cbhe_eid_t>::const_iterator it = o.finalDestinationEidList.cbegin(); it != o.finalDestinationEidList.cend(); ++it) {
+        os << "  " << (*it) << std::endl;
+    }
+    os << " finalDestinationNodeIdList:" << std::endl;
+    for (std::list<uint64_t>::const_iterator it = o.finalDestinationNodeIdList.cbegin(); it != o.finalDestinationNodeIdList.cend(); ++it) {
+        os << "  " << Uri::GetIpnUriStringAnyServiceNumber(*it) << std::endl;
+    }
+    return os;
+}
+
+/////////////////////////////////////
+//AllOutductCapabilitiesTelemetry_t
+/////////////////////////////////////
+uint64_t AllOutductCapabilitiesTelemetry_t::GetSerializationSize() const {
+    uint64_t serializationSize = 2 * sizeof(uint64_t);
+    for (std::list<OutductCapabilityTelemetry_t>::const_iterator it = outductCapabilityTelemetryList.cbegin(); it != outductCapabilityTelemetryList.cend(); ++it) {
+        serializationSize += it->GetSerializationSize();
+    }
+    return serializationSize;
+}
+uint64_t AllOutductCapabilitiesTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
+    const uint8_t* const dataStartPtr = data;
+    const uint64_t sizeSerialized = GetSerializationSize();
+    uint64_t* data64Ptr = reinterpret_cast<uint64_t*>(data);
+    if (bufferSize < sizeSerialized) {
+        return 0; //failure
+    }
+    //bufferSize -= sizeSerialized;
+    *data64Ptr++ = boost::endian::native_to_little(type);
+    *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(outductCapabilityTelemetryList.size()));
+    for (std::list<OutductCapabilityTelemetry_t>::const_iterator it = outductCapabilityTelemetryList.cbegin(); it != outductCapabilityTelemetryList.cend(); ++it) {
+        data64Ptr += (it->SerializeToLittleEndian((uint8_t*)data64Ptr, bufferSize) >> 3); // n >> 3 same as n / sizeof(uint64_t)
+    }
+    //return (reinterpret_cast<uint8_t*>(data64Ptr)) - dataStartPtr;
+    return sizeSerialized;
+}
+bool AllOutductCapabilitiesTelemetry_t::DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize) {
+    const uint8_t* const serializationBase = serialization;
+
+    if (bufferSize < (2 * sizeof(uint64_t))) { //minimum size (if list IS empty)
+        return false;
+    }
+    bufferSize -= (2 * sizeof(uint64_t));
+    //must be aligned
+    type = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    const uint64_t outductCapabilityTelemetryListSize = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    outductCapabilityTelemetryList.clear();
+    for (uint64_t i = 0; i < outductCapabilityTelemetryListSize; ++i) {
+        uint64_t thisNumBytesTakenToDecode;
+        outductCapabilityTelemetryList.emplace_back();
+        OutductCapabilityTelemetry_t& oct = outductCapabilityTelemetryList.back();
+        if (!oct.DeserializeFromLittleEndian(serialization, thisNumBytesTakenToDecode, bufferSize)) {
+            return false;
+        }
+        bufferSize -= thisNumBytesTakenToDecode;
+        serialization += thisNumBytesTakenToDecode;
+    }
+
+    numBytesTakenToDecode = serialization - serializationBase;
+    return true;
+}
+bool AllOutductCapabilitiesTelemetry_t::operator==(const AllOutductCapabilitiesTelemetry_t& o) const {
+    return (type == o.type) && (outductCapabilityTelemetryList == o.outductCapabilityTelemetryList);
+}
+bool AllOutductCapabilitiesTelemetry_t::operator!=(const AllOutductCapabilitiesTelemetry_t& o) const {
+    return !(*this == o);
+}
+AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o) :
+    type(o.type),
+    outductCapabilityTelemetryList(o.outductCapabilityTelemetryList) { } //a copy constructor: X(const X&)
+AllOutductCapabilitiesTelemetry_t::AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o) :
+    type(o.type),
+    outductCapabilityTelemetryList(std::move(o.outductCapabilityTelemetryList)) { } //a move constructor: X(X&&)
+AllOutductCapabilitiesTelemetry_t& AllOutductCapabilitiesTelemetry_t::operator=(const AllOutductCapabilitiesTelemetry_t& o) { //a copy assignment: operator=(const X&)
+    type = o.type;
+    outductCapabilityTelemetryList = o.outductCapabilityTelemetryList;
+    return *this;
+}
+AllOutductCapabilitiesTelemetry_t& AllOutductCapabilitiesTelemetry_t::operator=(AllOutductCapabilitiesTelemetry_t&& o) { //a move assignment: operator=(X&&)
+    type = o.type;
+    outductCapabilityTelemetryList = std::move(o.outductCapabilityTelemetryList);
+    return *this;
+}
+std::ostream& operator<<(std::ostream& os, const AllOutductCapabilitiesTelemetry_t& o) {
+    os << "AllOutductCapabilitiesTelemetry:" << std::endl;
+    for (std::list<OutductCapabilityTelemetry_t>::const_iterator it = o.outductCapabilityTelemetryList.cbegin(); it != o.outductCapabilityTelemetryList.cend(); ++it) {
+        os << (*it);
+    }
+    return os;
 }
 
 bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size) {

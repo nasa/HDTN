@@ -249,10 +249,7 @@ void Ingress::ReadZmqAcksThreadFunc() {
                     LOG_ERROR(subprocess) << "EgressAckHdr message mismatch: untruncated = " << res->untruncated_size
                         << " truncated = " << res->size << " expected = " << sizeof(hdtn::EgressAckHdr);
                 }
-                else if (receivedEgressAckHdr.base.type != HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
-                    LOG_ERROR(subprocess) << "message ack not HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS";
-                }
-                else {
+                else if (receivedEgressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS) {
                     m_egressAckMapSetMutex.lock();
                     EgressToIngressAckingSet & egressToIngressAckingObj = m_egressAckMapSet[receivedEgressAckHdr.finalDestEid.nodeId];
                     m_egressAckMapSetMutex.unlock();
@@ -274,6 +271,25 @@ void Ingress::ReadZmqAcksThreadFunc() {
                         LOG_ERROR(subprocess) << "didn't receive expected egress ack";
                     }
 
+                }
+                else if (receivedEgressAckHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
+                    AllOutductCapabilitiesTelemetry_t aoct;
+                    uint64_t numBytesTakenToDecode;
+                    
+                    zmq::message_t zmqMessageOutductTelem;
+                    //message guaranteed to be there due to the zmq::send_flags::sndmore
+                    if (!m_zmqPullSock_connectingEgressToBoundIngressPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
+                        LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
+                    }
+                    else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(), numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
+                        LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
+                    }
+                    else {
+                        //std::cout << aoct << std::endl;
+                    }
+                }
+                else {
+                    LOG_ERROR(subprocess) << "message ack unknown";
                 }
             }
             if (items[1].revents & ZMQ_POLLIN) { //ack from storage

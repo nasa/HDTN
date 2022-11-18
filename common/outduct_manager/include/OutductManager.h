@@ -9,6 +9,7 @@
 #include <boost/thread.hpp>
 #include "codec/bpv6.h"
 #include "TcpclBundleSource.h" //for OutductOpportunisticProcessReceivedBundleCallback_t
+#include "Telemetry.h"
 #include "BundleCallbackFunctionDefines.h"
 
 class OutductManager {
@@ -26,6 +27,7 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid);
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByOutductUuid(const uint64_t uuid);
     OUTDUCT_MANAGER_LIB_EXPORT bool Reroute_ThreadSafe(const uint64_t finalDestNodeId, const uint64_t newNextHopNodeId);
+    OUTDUCT_MANAGER_LIB_EXPORT void GetAllOutductCapabilitiesTelemetry_ThreadSafe(AllOutductCapabilitiesTelemetry_t & allOutductCapabilitiesTelemetry);
     OUTDUCT_MANAGER_LIB_EXPORT std::shared_ptr<Outduct> GetOutductSharedPtrByOutductUuid(const uint64_t uuid);
     OUTDUCT_MANAGER_LIB_EXPORT Outduct * GetOutductByNextHopNodeId(const uint64_t nextHopNodeId);
 

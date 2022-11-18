@@ -630,11 +630,9 @@ void ZmqStorageInterface::ThreadFunc() {
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmq::mutable_buffer(&egressAckHdr, sizeof(egressAckHdr)), zmq::recv_flags::none);
                 if (!res) {
                     LOG_ERROR(subprocess) << "EgressAckHdr not received";
-                    continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::EgressAckHdr))) {
                     LOG_ERROR(subprocess) << "EgressAckHdr wrong size received";
-                    continue;
                 }
                 else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
                     custodyid_set_t& custodyIdSet = finalDestNodeIdToOpenCustIdsMap[egressAckHdr.finalDestEid.nodeId];
@@ -674,24 +672,38 @@ void ZmqStorageInterface::ThreadFunc() {
                     zmq::message_t zmqBundleDataReceived;
                     if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
                         LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
-                        continue;
                     }
-                    
-                    cbhe_eid_t finalDestEidReturnedFromWrite;
-                    Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, true);
-                    ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
-                    finalDestEidReturnedFromWrite.serviceId = 0;
-                    if (availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestEidReturnedFromWrite, true))) { //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
-                        LOG_WARNING(subprocess) << "Storage got a link down notification from egress for final dest "
-                            << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId) << " because cut through from ingress failed";
-                        PrintReleasedLinks(availableDestLinksSet);
+                    else {
+                        cbhe_eid_t finalDestEidReturnedFromWrite;
+                        Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, true);
+                        ++m_totalBundlesRewrittenToStorageFromFailedEgressSend;
+                        finalDestEidReturnedFromWrite.serviceId = 0;
+                        if (availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(finalDestEidReturnedFromWrite, true))) { //false => fully qualified service id, true => wildcard (*) service id, 0 is don't care
+                            LOG_WARNING(subprocess) << "Storage got a link down notification from egress for final dest "
+                                << Uri::GetIpnUriStringAnyServiceNumber(finalDestEidReturnedFromWrite.nodeId) << " because cut through from ingress failed";
+                            PrintReleasedLinks(availableDestLinksSet);
+                        }
+                        LOG_WARNING(subprocess) << "Notice in ZmqStorageInterface::ThreadFunc: A bundle was send to storage from egress because cut through from ingress failed";
                     }
-                    LOG_WARNING(subprocess) << "Notice in ZmqStorageInterface::ThreadFunc: A bundle was send to storage from egress because cut through from ingress failed";
-                    
+                }
+                else if (egressAckHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
+                    AllOutductCapabilitiesTelemetry_t aoct;
+                    uint64_t numBytesTakenToDecode;
+
+                    zmq::message_t zmqMessageOutductTelem;
+                    //message guaranteed to be there due to the zmq::send_flags::sndmore
+                    if (!m_zmqPullSock_boundEgressToConnectingStoragePtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
+                        LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
+                    }
+                    else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(), numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
+                        LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
+                    }
+                    else {
+                        //std::cout << aoct << std::endl;
+                    }
                 }
                 else {
                     LOG_ERROR(subprocess) << "EgressAckHdr unknown type, got " << egressAckHdr.base.type;
-                    continue;
                 }
             }
             if (pollItems[1].revents & ZMQ_POLLIN) { //from ingress bundle data
@@ -699,11 +711,9 @@ void ZmqStorageInterface::ThreadFunc() {
                 const zmq::recv_buffer_result_t res = m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmq::mutable_buffer(&toStorageHeader, sizeof(hdtn::ToStorageHdr)), zmq::recv_flags::none);
                 if (!res) {
                     LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message hdr not received";
-                    continue;
                 }
                 else if ((res->truncated()) || (res->size != sizeof(hdtn::ToStorageHdr))) {
                     LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) rhdr.size() != sizeof(hdtn::ToStorageHdr)";
-                    continue;
                 }
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
@@ -712,7 +722,6 @@ void ZmqStorageInterface::ThreadFunc() {
                         << ") will be released from storage";
                     availableDestLinksSet.emplace(cbhe_eid_t(nodeId, 0), true); //true => any service id.. 0 is don't care
                     PrintReleasedLinks(availableDestLinksSet);
-                    continue;
                 }
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
@@ -721,40 +730,40 @@ void ZmqStorageInterface::ThreadFunc() {
                         << ") will STOP being released from storage";
                     availableDestLinksSet.erase(eid_plus_isanyserviceid_pair_t(cbhe_eid_t(nodeId, 0), true)); //true => any service id.. 0 is don't care
                     PrintReleasedLinks(availableDestLinksSet);
-                    continue;
                 }
-                else if (toStorageHeader.base.type != HDTN_MSGTYPE_STORE) {
-                    LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message type not HDTN_MSGTYPE_STORE";
-                    continue;
+                else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORE) {
+                    storageStats.inBytes += sizeof(hdtn::ToStorageHdr);
+                    ++storageStats.inMsg;
+
+                    zmq::message_t zmqBundleDataReceived;
+                    if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
+                        LOG_ERROR(subprocess) << "hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
+                    }
+                    else {
+                        storageStats.inBytes += zmqBundleDataReceived.size();
+
+                        cbhe_eid_t finalDestEidReturnedFromWrite;
+                        Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, false);
+
+                        //send ack message to ingress
+                        //force natural/64-bit alignment
+                        hdtn::StorageAckHdr* storageAckHdr = new hdtn::StorageAckHdr();
+                        zmq::message_t zmqMessageStorageAckHdrWithDataStolen(storageAckHdr, sizeof(hdtn::StorageAckHdr), CustomCleanupStorageAckHdr, storageAckHdr);
+
+                        //memset 0 not needed because all values set below
+                        storageAckHdr->base.type = HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS;
+                        storageAckHdr->base.flags = 0;
+                        storageAckHdr->error = 0;
+                        storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite;
+                        storageAckHdr->ingressUniqueId = toStorageHeader.ingressUniqueId;
+
+                        if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(zmqMessageStorageAckHdrWithDataStolen), zmq::send_flags::dontwait)) {
+                            LOG_ERROR(subprocess) << "zmq could not send ingress an ack from storage";
+                        }
+                    }
                 }
-
-                storageStats.inBytes += sizeof(hdtn::ToStorageHdr);
-                ++storageStats.inMsg;
-
-                zmq::message_t zmqBundleDataReceived;
-                if (!m_zmqPullSock_boundIngressToConnectingStoragePtr->recv(zmqBundleDataReceived, zmq::recv_flags::none)) {
-                    LOG_ERROR(subprocess) << "error in hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) message not received";
-                    continue;
-                }
-                storageStats.inBytes += zmqBundleDataReceived.size();
-                
-                cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&zmqBundleDataReceived, bsm, custodyIdAllocator, ctm, custodyTimers, custodySignalRfc5050RenderedBundleView, finalDestEidReturnedFromWrite, this, false);
-
-                //send ack message to ingress
-                //force natural/64-bit alignment
-                hdtn::StorageAckHdr * storageAckHdr = new hdtn::StorageAckHdr();
-                zmq::message_t zmqMessageStorageAckHdrWithDataStolen(storageAckHdr, sizeof(hdtn::StorageAckHdr), CustomCleanupStorageAckHdr, storageAckHdr);
-
-                //memset 0 not needed because all values set below
-                storageAckHdr->base.type = HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS;
-                storageAckHdr->base.flags = 0;
-                storageAckHdr->error = 0;
-                storageAckHdr->finalDestEid = finalDestEidReturnedFromWrite;
-                storageAckHdr->ingressUniqueId = toStorageHeader.ingressUniqueId;
-
-                if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(zmqMessageStorageAckHdrWithDataStolen), zmq::send_flags::dontwait)) {
-                    LOG_ERROR(subprocess) << "error: zmq could not send ingress an ack from storage";
+                else {
+                    LOG_ERROR(subprocess) << "hdtn::ZmqStorageInterface::ThreadFunc (from ingress bundle data) unknown message type";
                 }
             }
             if (pollItems[2].revents & ZMQ_POLLIN) { //release messages
