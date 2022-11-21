@@ -9,6 +9,8 @@
 #ifndef _HDTN_STATS_H
 #define _HDTN_STATS_H
 
+#include <map>
+
 #include <boost/log/attributes.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
@@ -26,17 +28,17 @@ namespace hdtn{
 
 /**
  * Macro that supports logging a stat value via
- * an ostream operator 
+ * the ostream operator 
  */
 #ifdef DO_STATS_LOGGING
-    #define LOG_STAT(metric_name) _LOG_STAT(metric_name)
+    #define LOG_STAT(metricName) _LOG_STAT(metricName)
 #else
-    #define LOG_STAT(metric_name) _NO_OP_STREAM
+    #define LOG_STAT(metricName) _NO_OP_STREAM
 #endif
 
-#define _LOG_STAT(metric_name)\
-    hdtn::StatsLogger::ensureInitialized();\
-    hdtn::StatsLogger::metric_name_attr.set(metric_name);\
+#define _LOG_STAT(metricName)\
+    hdtn::StatsLogger::ensureInitialized(metricName);\
+    hdtn::StatsLogger::metric_name_attr.set(metricName);\
     BOOST_LOG(hdtn::StatsLogger::logger_)
 
 /**
@@ -48,7 +50,7 @@ public:
     /**
      * Initializes the StatsLogger if it hasn't been created yet
      */
-    STATS_LIB_EXPORT static void ensureInitialized();
+    STATS_LIB_EXPORT static void ensureInitialized(std::string metricName);
 
     /**
      * Underlying log source. This needs to be public so it can be called
@@ -80,10 +82,15 @@ private:
     STATS_LIB_EXPORT void registerAttributes();
 
     /**
-     * Creates a multi-file sink for the metric_name attribute. Used
+     * Creates a file sink for the given metric name. Used
      * to split stats into separate files. 
      */
-    STATS_LIB_EXPORT void createMultiFileLogSinkForMetricNameAttr();
+    STATS_LIB_EXPORT void createFileSinkForMetric(std::string metricName);
+
+    /**
+     * Follows the boost open handler interface. Writes a header to the csv file on open.
+     */
+    STATS_LIB_EXPORT static void writeHeader(boost::log::sinks::text_file_backend::stream_type& file);
 
     /**
      * Attributes for managing singleton instance 
@@ -91,14 +98,15 @@ private:
     static std::unique_ptr<StatsLogger> StatsLogger_; //singleton instance
     static boost::mutex mutexSingletonInstance_;
     static volatile bool StatsLoggerSingletonFullyInitialized_;
+    static std::map<std::string, bool> m_initializedMetrics;
 
     /**
      * Log formatters 
      */
-    struct millisecondsSinceEpoch_t {
+    struct timestampMs_t {
         long operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const;
     };
-    static boost::phoenix::function<StatsLogger::millisecondsSinceEpoch_t> millisecondsSinceEpochFormatter;
+    static boost::phoenix::function<StatsLogger::timestampMs_t> timestampMsFormatter;
 };
 }
 
