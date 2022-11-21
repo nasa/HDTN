@@ -18,13 +18,36 @@
 #include "Logger.h"
 
 /**
- * Reads a file's contents into a string and returns it
+ * Counts the total number of lines in a file 
  */
-static std::string file_contents_to_str(std::string path) {
-    std::ifstream in(path);
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-    return buffer.str();
+static int countLines(std::string filePath)
+{
+    std::ifstream in(filePath);
+    int count = std::count(std::istreambuf_iterator<char>(in), 
+            std::istreambuf_iterator<char>(), '\n');
+    in.close();
+    return count;
+}
+
+/**
+ * Reads a file's contents into a string and returns it
+ * @param path the path to the file
+ * @param maxLines the maximum number of lines to return, starting at the end of the file
+ */
+static std::string file_contents_to_str(std::string path, uint8_t maxLines)
+{
+    std::string inLine;
+    std::stringstream outBuffer;
+    std::ifstream inFile(path);
+    int totalLines = countLines(path);
+    int currentLine = 1;
+    while(std::getline(inFile, inLine)) {
+        if (currentLine > (totalLines - maxLines)) {
+            outBuffer << inLine << "\n";
+        }
+        currentLine++;
+    }
+    return outBuffer.str();
 }
 
 /**
@@ -53,8 +76,7 @@ private:
     std::streambuf *cout_backup;
 };
 
-static const std::string date_regex = "\\[\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
-static const std::string anything_regex = "((.|\n)*)";
+static const std::string date_regex = "\\[ \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}]";
 
 BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
 {
@@ -182,8 +204,8 @@ BOOST_AUTO_TEST_CASE(LoggerProcessFileTestCase)
     BOOST_TEST(boost::filesystem::exists("logs/"));
     BOOST_TEST(boost::filesystem::exists("logs/unittest_00000.log"));
     BOOST_TEST(boost::regex_match(
-        file_contents_to_str("logs/unittest_00000.log"),
-        boost::regex(anything_regex + "\\[ egress]" + date_regex + "\\[ info]: Egress file test case\n\\[ ingress]" + date_regex + "\\[ error]: Ingress file test case\n$"))
+        file_contents_to_str("logs/unittest_00000.log", 2),
+        boost::regex("^\\[ egress]" + date_regex + "\\[ info]: Egress file test case\n\\[ ingress]" + date_regex + "\\[ error]: Ingress file test case\n$"))
     );
 }
 #endif
@@ -203,13 +225,13 @@ BOOST_AUTO_TEST_CASE(LoggerSubProcessFilesTestCase) {
     BOOST_TEST(boost::filesystem::exists("logs/"));
     BOOST_TEST(boost::filesystem::exists("logs/storage_00000.log"));
     BOOST_TEST(boost::regex_match(
-        file_contents_to_str("logs/storage_00000.log"),
-        boost::regex(anything_regex + date_regex + "\\[ info]: Storage file test case\n$"))
+        file_contents_to_str("logs/storage_00000.log", 1),
+        boost::regex("^" + date_regex + "\\[ info]: Storage file test case\n$"))
     );
     BOOST_TEST(boost::filesystem::exists("logs/egress_00000.log"));
     BOOST_TEST(boost::regex_match(
-        file_contents_to_str("logs/egress_00000.log"),
-        boost::regex(anything_regex + date_regex + "\\[ error]: Egress file test case\n$"))
+        file_contents_to_str("logs/egress_00000.log", 1),
+        boost::regex("^" + date_regex + "\\[ error]: Egress file test case\n$"))
     );
 }
 #endif
@@ -224,10 +246,13 @@ BOOST_AUTO_TEST_CASE(LoggerErrorFileTestCase) {
     output_tester.reset_cout_cerr();
 
     BOOST_TEST(boost::filesystem::exists("logs/"));
-    BOOST_TEST(boost::filesystem::exists("logs/error_00000.log"));
+    std::string file = "logs/error_00000.log";
+    if (boost::filesystem::exists("logs/error_00001.log")) {
+        file = "logs/error_00001.log";
+    } 
     BOOST_TEST(boost::regex_match(
-        file_contents_to_str("logs/error_00000.log"),
-        boost::regex(anything_regex + "\\[ unittest]\\[ ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
+        file_contents_to_str(file, 1),
+        boost::regex("^\\[ unittest]\\[ ingress]" + date_regex + "\\[.*LoggerTests.cpp:\\d{3}]: Error file test case\n$"))
     );
 }
 #endif
