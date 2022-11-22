@@ -122,6 +122,7 @@ endif()
 OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
 #for now, if we want stats logged we need to also enable the web interface
 if (DO_STATS_LOGGING)
+	add_compile_definitions(DO_STATS_LOGGING)
 	set(USE_WEB_INTERFACE On)
 endif()
 

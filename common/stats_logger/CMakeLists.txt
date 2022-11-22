@@ -5,12 +5,6 @@ add_library(stats_lib
       	src/StatsLogger.cpp
 )
 
-set_property(
-	SOURCE src/StatsLogger.cpp
-	PROPERTY COMPILE_DEFINITIONS
-		$<$<BOOL:${DO_STATS_LOGGING}>:DO_STATS_LOGGING>
-)
-
 GENERATE_EXPORT_HEADER(stats_lib)
 get_target_property(target_type stats_lib TYPE)
 if (target_type STREQUAL SHARED_LIBRARY)
