@@ -84,12 +84,6 @@ OPTION(LOG_TO_PROCESS_FILE "Should logger write all messages to a single process
 OPTION(LOG_TO_SUBPROCESS_FILES "Should logger write all sub-process messages to their respective subprocess.log files" Off)
 OPTION(LOG_TO_ERROR_FILE "Should logger write all error messages to an error.log file" Off)
 
-#Stats options
-OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
-if (DO_STATS_LOGGING)
-	add_compile_definitions(DO_STATS_LOGGING)
-endif()
-
 #Bundle Storage Manager options
 SET(STORAGE_SEGMENT_ID_SIZE_BITS "32" CACHE STRING "Set word size of storage's segment_id_t to either 32-bit (default recommended) or 64-bit (high memory only systems for greater than 17TB storage).")
 if (STORAGE_SEGMENT_ID_SIZE_BITS STREQUAL "32")
@@ -122,6 +116,13 @@ if (WIN32)
 else()
 	set(libzmq_INCLUDE "")
 	set(libzmq_LIB zmq)
+endif()
+
+#Stats option
+OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
+#for now, if we want stats logged we need to also enable the web interface
+if (DO_STATS_LOGGING)
+	set(USE_WEB_INTERFACE On)
 endif()
 
 OPTION(USE_WEB_INTERFACE "Use CivetWeb HDTN Web Interface" OFF)
