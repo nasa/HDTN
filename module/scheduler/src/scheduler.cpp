@@ -26,6 +26,7 @@
 #include <boost/make_unique.hpp>
 #include <memory>
 #include <fstream>
+#include "Telemetry.h"
 
 namespace opt = boost::program_options;
 
@@ -96,24 +97,21 @@ void Scheduler::MonitorExitKeypressThreadFunction() {
 bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
+        running = false;
         Stop();
         running = true;
         m_runningFromSigHandler = true;
-        std::string contactsFile;
+        m_egressFullyInitialized = false;
 
         SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
-        cbhe_eid_t finalDestEid;
-        std::string finalDestAddr;
         opt::options_description desc("Allowed options");
 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
                 ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.")
-                ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
-                ("dest-addr", opt::value<std::string>()->default_value("127.0.0.1"), "final destination IP addr to ping for link availability");
+                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
 
             opt::variables_map vm;
             opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -136,29 +134,21 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
             //int src = m_hdtnConfig.m_myNodeId;
 
-            contactsFile = vm["contact-plan-file"].as<std::string>();
-            if (contactsFile.length() < 1) {
+            m_contactsFile = vm["contact-plan-file"].as<std::string>();
+            if (m_contactsFile.length() < 1) {
                 LOG_INFO(subprocess) << desc;
                 return false;
             }
 
-            if (!boost::filesystem::exists(contactsFile)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
-                contactsFile = Scheduler::GetFullyQualifiedFilename(contactsFile);
-                if (!boost::filesystem::exists(contactsFile)) {
-                    LOG_ERROR(subprocess) << "ContactPlan File not found: " << contactsFile;
+            if (!boost::filesystem::exists(m_contactsFile)) { //first see if the user specified an already valid path name not dependent on HDTN's source root
+                m_contactsFile = Scheduler::GetFullyQualifiedFilename(m_contactsFile);
+                if (!boost::filesystem::exists(m_contactsFile)) {
+                    LOG_ERROR(subprocess) << "ContactPlan File not found: " << m_contactsFile;
                     return false;
                 }
             }
 
-            LOG_INFO(subprocess) << "ContactPlan file: " << contactsFile;
-
-            const std::string myFinalDestUriEid = vm["dest-uri-eid"].as<std::string>();
-            if (!Uri::ParseIpnUriString(myFinalDestUriEid, finalDestEid.nodeId, finalDestEid.serviceId)) {
-                LOG_ERROR(subprocess) << "error: bad dest uri string: " << myFinalDestUriEid;
-                return false;
-            }
-
-            finalDestAddr = vm["dest-addr"].as<std::string>();
+            LOG_INFO(subprocess) << "ContactPlan file: " << m_contactsFile;
         }
 
         catch (boost::bad_any_cast & e) {
@@ -240,7 +230,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
         boost::this_thread::sleep(boost::posix_time::seconds(2));
 
-        ProcessContactsFile(contactsFile, false); //false => don't use unix timestamps
+        //Wait until egress up and running and get the first outduct capabilities telemetry.
+        //The m_threadZmqAckReaderPtr will call ProcessContactsFile to complete initialization once egress telemetry received for the first time
 
         if (useSignalHandler) {
             sigHandler.Start(false);
@@ -262,7 +253,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
     return true;
 }
 
-void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, 
+void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
 		             uint64_t time, uint64_t cid) {
 
     hdtn::IreleaseStopHdr stopMsg;
@@ -271,7 +262,7 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinat
     stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
     stopMsg.nextHopNodeId = dest;
     stopMsg.prevHopNodeId = src;
-    stopMsg.finalDestinationNodeId = finalDestinationNodeId;
+    stopMsg.outductArrayIndex = outductArrayIndex;
     stopMsg.time = time;
     stopMsg.contact = cid;
 
@@ -286,7 +277,7 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinat
     LOG_INFO(subprocess) << " -- LINK DOWN Event sent for Link " << src << " ===> " << dest << " at time "  << timeLocal ;
 }
 
-void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, uint64_t time) {
+void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time) {
 
     hdtn::IreleaseStartHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
@@ -294,7 +285,7 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinatio
     releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
     releaseMsg.nextHopNodeId = dest;
     releaseMsg.prevHopNodeId = src;
-    releaseMsg.finalDestinationNodeId = finalDestinationNodeId;
+    releaseMsg.outductArrayIndex = outductArrayIndex;
     releaseMsg.time = time;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
@@ -322,53 +313,91 @@ void Scheduler::EgressEventsHandler() {
     
     if (linkStatusHdr.base.type == HDTN_MSGTYPE_LINKSTATUS) {
         const uint64_t event = linkStatusHdr.event;
-        const uint64_t outductId = linkStatusHdr.uuid;
+        const uint64_t outductArrayIndex = linkStatusHdr.uuid;
         const uint64_t timeSecondsSinceSchedulerEpoch = linkStatusHdr.unixTimeSecondsSince1970 - m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
 
-        LOG_INFO(subprocess) << "Received link status event " << event << " from Egress for outduct id " << outductId;
+        LOG_INFO(subprocess) << "Received link status event " << event << " from Egress for outductArrayIndex " << outductArrayIndex;
 
-        if (outductId >= m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector.size()) {
-            LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductId " << outductId;
-            return;
-        }
-        const outduct_element_config_t& thisOutductConfig = m_hdtnConfig.m_outductsConfig.m_outductElementConfigVector[outductId];
-
-
-        const uint64_t srcNode = m_hdtnConfig.m_myNodeId;
-        const uint64_t destNode = thisOutductConfig.nextHopNodeId;
-
-        LOG_INFO(subprocess) << "EgressEventsHandler nextHopNodeId " << thisOutductConfig.nextHopNodeId << " and srcNode " << srcNode;
-        for (std::set<std::string>::const_iterator itDestUri = thisOutductConfig.finalDestinationEidUris.cbegin();
-            itDestUri != thisOutductConfig.finalDestinationEidUris.cend(); ++itDestUri)
+        uint64_t nextHopNodeId;
         {
-            const std::string& finalDestinationEidUri = *itDestUri;
-            cbhe_eid_t finalDestEid;
-            LOG_INFO(subprocess) << "EgressEventsHandler finalDestinationEidUri " << finalDestinationEidUri;
-            bool serviceNumberIsWildCard;
-            if (!Uri::ParseIpnUriString(finalDestinationEidUri, finalDestEid.nodeId, finalDestEid.serviceId, &serviceNumberIsWildCard)) {
-                LOG_ERROR(subprocess) << "error in EgressEventsHandler finalDestinationEidUri " <<
-                    finalDestinationEidUri << " is invalid.";
+            boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
+            std::map<uint64_t, uint64_t>::const_iterator it = m_mapOutductArrayIndexToNextHopNodeId.find(outductArrayIndex);
+            if (it == m_mapOutductArrayIndexToNextHopNodeId.cend()) {
+                LOG_ERROR(subprocess) << "EgressEventsHandler got event for unknown outductArrayIndex " << outductArrayIndex << " which does not correspont to a next hop";
                 return;
             }
-	        contact_t contact;
-            contact.source = srcNode;
-            contact.dest = destNode;
+            nextHopNodeId = it->second;
+        }
 
-            if (event == 1) {
-                m_contactUpSetMutex.lock();
+        const uint64_t srcNode = m_hdtnConfig.m_myNodeId;
+        const uint64_t destNode = nextHopNodeId;
+
+        LOG_INFO(subprocess) << "EgressEventsHandler nextHopNodeId " << destNode << " and srcNode " << srcNode;
+        
+	    contact_t contact;
+        contact.source = srcNode;
+        contact.dest = destNode;
+
+        if (event == 1) {
+            bool contactIsUp;
+            {
+                boost::mutex::scoped_lock lock(m_contactUpSetMutex);
                 std::map<contact_t, bool>::const_iterator it = m_mapContactUp.find(contact);
-                m_contactUpSetMutex.unlock();
                 if (it == m_mapContactUp.cend()) {
                     LOG_ERROR(subprocess) << "EgressEventsHandler got Link Up event for unknown contact src=" << contact.source << " dest=" << contact.dest;
+                    return;
                 }
-                else if (it->second) {
-	                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
-                    SendLinkUp(srcNode, destNode, finalDestEid.nodeId, timeSecondsSinceSchedulerEpoch);
+                contactIsUp = it->second;
+            }
+            if (contactIsUp) {
+	            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Up event ";
+                SendLinkUp(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch);
+            }
+        }
+        else {
+            LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event ";
+            SendLinkDown(srcNode, destNode, outductArrayIndex, timeSecondsSinceSchedulerEpoch, 1);
+        }
+    }
+    else if (linkStatusHdr.base.type == HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY) {
+        AllOutductCapabilitiesTelemetry_t aoct;
+        uint64_t numBytesTakenToDecode;
+
+        zmq::message_t zmqMessageOutductTelem;
+        //message guaranteed to be there due to the zmq::send_flags::sndmore
+        if (!m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
+            LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
+        }
+        else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(), numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
+            LOG_ERROR(subprocess) << "error deserializing AllOutductCapabilitiesTelemetry";
+        }
+        else {
+            //std::cout << aoct << std::endl;
+
+            boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
+            m_mapOutductArrayIndexToNextHopNodeId.clear();
+            m_mapNextHopNodeIdToOutductArrayIndex.clear();
+            m_mapFinalDestNodeIdToOutductArrayIndex.clear();
+            m_mapFinalDestEidToOutductArrayIndex.clear();
+
+            for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin(); itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct) {
+                const OutductCapabilityTelemetry_t& oct = *itAoct;
+                m_mapNextHopNodeIdToOutductArrayIndex[oct.nextHopNodeId] = oct.outductArrayIndex;
+                m_mapOutductArrayIndexToNextHopNodeId[oct.outductArrayIndex] = oct.nextHopNodeId;
+                for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin(); it != oct.finalDestinationEidList.cend(); ++it) {
+                    const cbhe_eid_t& eid = *it;
+                    m_mapFinalDestEidToOutductArrayIndex[eid] = oct.outductArrayIndex;
+                }
+                for (std::list<uint64_t>::const_iterator it = oct.finalDestinationNodeIdList.cbegin(); it != oct.finalDestinationNodeIdList.cend(); ++it) {
+                    const uint64_t nodeId = *it;
+                    m_mapFinalDestNodeIdToOutductArrayIndex[nodeId] = oct.outductArrayIndex;
                 }
             }
-            else {
-                LOG_INFO(subprocess) << "EgressEventsHandler Sending Link Down event ";
-                SendLinkDown(srcNode, destNode, finalDestEid.nodeId, timeSecondsSinceSchedulerEpoch, 1);
+
+            if (!m_egressFullyInitialized) { //first time this outduct capabilities telemetry received, start remaining scheduler threads
+                m_egressFullyInitialized = true;
+                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactsFile;
+                ProcessContactsFile(m_contactsFile, false); //false => don't use unix timestamps
             }
         }
     }
@@ -533,26 +562,43 @@ void Scheduler::OnContactPlan_TimerExpired(const boost::system::error_code& e) {
         // Timer was not cancelled, take necessary action.
         ptime_to_contactplan_bimap_t::left_iterator it = m_ptimeToContactPlanBimap.left.begin(); //get event that started the timer
         if (it != m_ptimeToContactPlanBimap.left.end()) {
-            const contactplan_islinkup_pair_t& contactPlan = it->second;
-            const bool isLinkUp = contactPlan.second;
+            const contactplan_islinkup_pair_t& contactPlanPlusIsLinkUpPair = it->second;
+            const contactPlan_t& contactPlan = contactPlanPlusIsLinkUpPair.first;
+            const bool isLinkUp = contactPlanPlusIsLinkUpPair.second;
             contact_t contact;
-            contact.source = contactPlan.first.source;
-            contact.dest = contactPlan.first.dest;
+            contact.source = contactPlan.source;
+            contact.dest = contactPlan.dest;
 
-            if (isLinkUp) {
-                m_contactUpSetMutex.lock();
-                m_mapContactUp[contact] = true;
-                m_contactUpSetMutex.unlock();
-                LOG_INFO(subprocess) << "m_mapContactUp " << true << " for source " << contact.source << " destination " << contact.dest;
-                SendLinkUp(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, contactPlan.first.start);
+            m_contactUpSetMutex.lock();
+            m_mapContactUp[contact] = isLinkUp;
+            m_contactUpSetMutex.unlock();
+
+            uint64_t outductArrayIndex;
+            bool didFindOutductArrayIndex;
+            {
+                boost::mutex::scoped_lock lock(m_mutexFinalDestsToOutductArrayIndexMaps);
+                std::map<uint64_t, uint64_t>::const_iterator itNextHopNodeIdToOutductArrayIndex = m_mapNextHopNodeIdToOutductArrayIndex.find(contact.dest);
+                if (itNextHopNodeIdToOutductArrayIndex == m_mapNextHopNodeIdToOutductArrayIndex.cend()) {
+                    didFindOutductArrayIndex = false;
+                }
+                else {
+                    didFindOutductArrayIndex = true;
+                    outductArrayIndex = itNextHopNodeIdToOutductArrayIndex->second;
+                }
+            }
+            if (didFindOutductArrayIndex) {
+                LOG_INFO(subprocess) << "m_mapContactUp " << isLinkUp << " for source " << contact.source << " destination " << contact.dest;
+
+                if (isLinkUp) {
+                    SendLinkUp(contactPlan.source, contactPlan.dest, outductArrayIndex, contactPlan.start);
+                }
+                else {
+                    SendLinkDown(contactPlan.source, contactPlan.dest, outductArrayIndex,
+                        contactPlan.end + 1, contactPlan.contact);
+                }
             }
             else {
-                m_contactUpSetMutex.lock();
-                m_mapContactUp[contact] = false;
-                m_contactUpSetMutex.unlock();
-                LOG_INFO(subprocess) << "m_mapContactUp " << false << " for source " << contact.source << " destination " << contact.dest;
-                SendLinkDown(contactPlan.first.source, contactPlan.first.dest, contactPlan.first.finalDest, 
-                    contactPlan.first.end + 1, contactPlan.first.contact);
+                LOG_ERROR(subprocess) << "OnContactPlan_TimerExpired cannot find next hop node id " << contact.dest;
             }
             m_ptimeToContactPlanBimap.left.erase(it);
             TryRestartContactPlanTimer(); //wait for next event

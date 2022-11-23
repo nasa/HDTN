@@ -132,6 +132,7 @@ struct OutductCapabilityTelemetry_t {
     uint64_t outductArrayIndex; //outductUuid
     uint64_t maxBundlesInPipeline;
     uint64_t maxBundleSizeBytesInPipeline;
+    uint64_t nextHopNodeId;
     std::list<cbhe_eid_t> finalDestinationEidList;
     std::list<uint64_t> finalDestinationNodeIdList;
 

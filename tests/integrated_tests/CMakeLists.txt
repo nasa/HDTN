@@ -6,12 +6,11 @@ add_executable(integrated-tests
         ../../common/bpcodec/apps/bpsink/BpSinkAsyncRunner.cpp
         ../../common/bpcodec/apps/bpsink/BpSinkAsync.cpp
         ../../module/storage/src/StorageRunner.cpp
-        ../../module/storage/src/test/ReleaseSender.cpp
         ../../module/scheduler/src/scheduler.cpp
 )
 install(TARGETS integrated-tests DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_include_directories(integrated-tests PUBLIC include
-    ../../module/storage/src/test
+target_include_directories(integrated-tests PUBLIC
+	include
     ../../module/storage/include
     ../../module/scheduler/include
     ../../common/include

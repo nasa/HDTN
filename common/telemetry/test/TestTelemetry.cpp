@@ -26,11 +26,12 @@ BOOST_AUTO_TEST_CASE(TelemetryTestCase)
         oct.maxBundlesInPipeline = 50;
         oct.maxBundleSizeBytesInPipeline = 5000;
         oct.outductArrayIndex = 2;
+        oct.nextHopNodeId = 10;
         oct.finalDestinationEidList = { cbhe_eid_t(1,1), cbhe_eid_t(2,1) };
         oct.finalDestinationNodeIdList = { 3, 4, 5 };
 
         const uint64_t serializationSize = oct.GetSerializationSize();
-        BOOST_REQUIRE_EQUAL(serializationSize, (6*8) + (2*16) + (3*8));
+        BOOST_REQUIRE_EQUAL(serializationSize, (7*8) + (2*16) + (3*8));
 
         std::vector<uint8_t> serialized(serializationSize);
         BOOST_REQUIRE_EQUAL(oct.SerializeToLittleEndian(serialized.data(), serializationSize - 1), 0); //fail due to too small of buffer size
@@ -66,12 +67,13 @@ BOOST_AUTO_TEST_CASE(TelemetryTestCase)
             oct.maxBundlesInPipeline = 50 + i;
             oct.maxBundleSizeBytesInPipeline = 5000 + i;
             oct.outductArrayIndex = i;
+            oct.nextHopNodeId = 10 + i;
             const unsigned int base = i * 100;
             oct.finalDestinationEidList = { cbhe_eid_t(base + 1,1), cbhe_eid_t(base + 2,1) };
             oct.finalDestinationNodeIdList = { base + 3, base + 4, base + 5 };
 
             const uint64_t serializationSize = oct.GetSerializationSize();
-            BOOST_REQUIRE_EQUAL(serializationSize, (6 * 8) + (2 * 16) + (3 * 8));
+            BOOST_REQUIRE_EQUAL(serializationSize, (7 * 8) + (2 * 16) + (3 * 8));
             expectedSerializationSize += serializationSize;
         }
 

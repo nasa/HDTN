@@ -10,6 +10,7 @@ target_link_libraries(hdtn-scheduler
 	config_lib
 	Boost::program_options
 	log_lib
+	telemetry_definitions
 )
 
 target_include_directories(hdtn-scheduler

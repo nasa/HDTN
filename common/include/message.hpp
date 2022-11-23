@@ -72,11 +72,12 @@ struct ToEgressHdr {
     CommonHdr base;
     uint8_t hasCustody;
     uint8_t isCutThroughFromIngress;
-    uint8_t unused3;
+    uint8_t isOpportunisticFromStorage;
     uint8_t unused4;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     cbhe_eid_t nextHopEid;
+    uint64_t outductIndex;
 
     //bool operator==(const ToEgressHdr & o) const {
     //    return (base == o.base) && (custodyId == o.custodyId);
@@ -92,6 +93,7 @@ struct EgressAckHdr {
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     cbhe_eid_t nextHopEid;
+    uint64_t outductIndex;
 
     //bool operator==(const EgressAckHdr & o) const {
     //    return (base == o.base) && (custodyId == o.custodyId);
@@ -140,7 +142,7 @@ struct IreleaseStartHdr {
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    uint64_t finalDestinationNodeId;   // formerly flow ID
+    uint64_t outductArrayIndex; //outductUuid
     uint64_t rate;      // bytes / sec
     uint64_t duration;  // msec
     uint64_t prevHopNodeId;
@@ -154,7 +156,7 @@ struct IreleaseStopHdr {
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    uint64_t finalDestinationNodeId;
+    uint64_t outductArrayIndex; //outductUuid
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
     uint64_t time;

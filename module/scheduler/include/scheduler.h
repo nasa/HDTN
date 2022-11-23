@@ -83,9 +83,9 @@ public:
 
 private:
     void Stop();
-    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, 
+    void SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, 
 		    uint64_t time);
-    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t finalDestinationNodeId, 
+    void SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
 		      uint64_t time, uint64_t cid);
      
     void MonitorExitKeypressThreadFunction();
@@ -108,6 +108,13 @@ private:
     std::unique_ptr<zmq::socket_t> m_zmqPubSock_boundSchedulerToConnectingSubsPtr;
     boost::mutex m_mutexZmqPubSock;
 
+    std::map<uint64_t, uint64_t> m_mapOutductArrayIndexToNextHopNodeId;
+    std::map<uint64_t, uint64_t> m_mapNextHopNodeIdToOutductArrayIndex;
+    std::map<uint64_t, uint64_t> m_mapFinalDestNodeIdToOutductArrayIndex;
+    std::map<cbhe_eid_t, uint64_t> m_mapFinalDestEidToOutductArrayIndex;
+    boost::mutex m_mutexFinalDestsToOutductArrayIndexMaps;
+
+    std::string m_contactsFile;
     
     ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
     boost::asio::io_service m_ioService;
@@ -115,6 +122,7 @@ private:
     std::unique_ptr<boost::asio::io_service::work> m_workPtr;
     std::unique_ptr<boost::thread> m_ioServiceThreadPtr;
     bool m_contactPlanTimerIsRunning;
+    volatile bool m_egressFullyInitialized;
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
 };

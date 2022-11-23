@@ -21,19 +21,9 @@
 #include "Telemetry.h"
 #include "ingress_async_lib_export.h"
 
+
 namespace hdtn {
 
-typedef struct IngressTelemetry {
-    uint64_t totalBundles;
-    uint64_t totalBytes;
-    uint64_t totalZmsgsIn;
-    uint64_t totalZmsgsOut;
-    uint64_t bundlesSecIn;
-    uint64_t mBitsSecIn;
-    uint64_t zmsgsSecIn;
-    uint64_t zmsgsSecOut;
-    double elapsed;
-} IngressTelemetry;
 
 class Ingress {
 public:
@@ -41,7 +31,7 @@ public:
     INGRESS_ASYNC_LIB_EXPORT ~Ingress();
     INGRESS_ASYNC_LIB_EXPORT void Stop();
     INGRESS_ASYNC_LIB_EXPORT void SchedulerEventHandler();
-    INGRESS_ASYNC_LIB_EXPORT int Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    INGRESS_ASYNC_LIB_EXPORT bool Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
 private:
     INGRESS_ASYNC_LIB_NO_EXPORT bool ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCurrentSize,
         std::unique_ptr<zmq::message_t> & zmqPaddedMessageUnderlyingDataUniquePtr, padded_vector_uint8_t & paddedVecMessageUnderlyingData, const bool usingZmqData, const bool needsProcessing);
@@ -67,9 +57,15 @@ private:
         void WaitUntilNotifiedOr250MsTimeout(const uint64_t waitWhileSizeGtThisValue);
         void NotifyAll();
     private:
-        boost::mutex m_mutex;
-        boost::condition_variable m_conditionVariable;
-        std::unordered_set<uint64_t> m_ingressToEgressCustodyIdSet;
+        // Internal implementation class
+        struct Impl;
+        // Pointer to the internal implementation
+        std::shared_ptr<Impl> m_pimpl; //shared to make it copyable (includes noncopyable mutex)
+    public:
+        uint64_t maxBundlesInPipeline;
+        uint64_t maxBundleSizeBytesInPipeline;
+        uint64_t nextHopNodeId;
+        bool linkIsUp;
     };
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
@@ -96,17 +92,23 @@ private:
     std::queue<uint64_t> m_storageAckQueue;
     boost::mutex m_storageAckQueueMutex;
     boost::condition_variable m_conditionVariableStorageAckReceived;
-    std::map<uint64_t, EgressToIngressAckingSet> m_egressAckMapSet; //final dest node id to set
-    boost::mutex m_egressAckMapSetMutex;
+    std::vector<EgressToIngressAckingSet> m_vectorEgressToIngressAckingSet; //final dest node id to set
+    std::map<uint64_t, uint64_t> m_mapNextHopNodeIdToOutductArrayIndex;
+    std::map<uint64_t, uint64_t> m_mapFinalDestNodeIdToOutductArrayIndex;
+    std::map<cbhe_eid_t, uint64_t> m_mapFinalDestEidToOutductArrayIndex;
+
+    struct SharedMutexImpl;
+    std::unique_ptr<SharedMutexImpl> m_ptrSharedMutexImpl;
+
+
+
     boost::mutex m_ingressToEgressZmqSocketMutex;
-    boost::mutex m_eidAvailableSetMutex;
     std::size_t m_eventsTooManyInStorageQueue;
     std::size_t m_eventsTooManyInEgressQueue;
     volatile bool m_running;
+    volatile bool m_egressFullyInitialized;
     boost::atomic_uint64_t m_ingressToEgressNextUniqueIdAtomic;
     uint64_t m_ingressToStorageNextUniqueId;
-    std::set<cbhe_eid_t> m_finalDestEidAvailableSet;
-    std::set<uint64_t> m_finalDestNodeIdAvailableSet;
     std::vector<uint64_t> m_schedulerRxBufPtrToStdVec64;
 
     std::map<uint64_t, Induct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;

@@ -150,7 +150,7 @@ uint64_t OutductTelemetry_t::GetTotalBundleBytesQueued() const {
 //OutductCapabilityTelemetry_t
 /////////////////////////////////////
 uint64_t OutductCapabilityTelemetry_t::GetSerializationSize() const {
-    return (6 * sizeof(uint64_t)) + (finalDestinationEidList.size() * sizeof(cbhe_eid_t)) + (finalDestinationNodeIdList.size() * sizeof(uint64_t));
+    return (7 * sizeof(uint64_t)) + (finalDestinationEidList.size() * sizeof(cbhe_eid_t)) + (finalDestinationNodeIdList.size() * sizeof(uint64_t));
 }
 uint64_t OutductCapabilityTelemetry_t::SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const {
     const uint8_t* const dataStartPtr = data;
@@ -164,6 +164,7 @@ uint64_t OutductCapabilityTelemetry_t::SerializeToLittleEndian(uint8_t* data, ui
     *data64Ptr++ = boost::endian::native_to_little(outductArrayIndex);
     *data64Ptr++ = boost::endian::native_to_little(maxBundlesInPipeline);
     *data64Ptr++ = boost::endian::native_to_little(maxBundleSizeBytesInPipeline);
+    *data64Ptr++ = boost::endian::native_to_little(nextHopNodeId);
     *data64Ptr++ = boost::endian::native_to_little(static_cast<uint64_t>(finalDestinationEidList.size()));
     for (std::list<cbhe_eid_t>::const_iterator it = finalDestinationEidList.cbegin(); it != finalDestinationEidList.cend(); ++it) {
         *data64Ptr++ = boost::endian::native_to_little(it->nodeId);
@@ -179,10 +180,10 @@ uint64_t OutductCapabilityTelemetry_t::SerializeToLittleEndian(uint8_t* data, ui
 bool OutductCapabilityTelemetry_t::DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize) {
     const uint8_t* const serializationBase = serialization;
 
-    if (bufferSize < (6 * sizeof(uint64_t))) { //minimum size (if both lists are empty)
+    if (bufferSize < (7 * sizeof(uint64_t))) { //minimum size (if both lists are empty)
         return false;
     }
-    bufferSize -= (6 * sizeof(uint64_t));
+    bufferSize -= (7 * sizeof(uint64_t));
     //must be aligned
     type = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
     serialization += sizeof(uint64_t);
@@ -191,6 +192,8 @@ bool OutductCapabilityTelemetry_t::DeserializeFromLittleEndian(const uint8_t* se
     maxBundlesInPipeline = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
     serialization += sizeof(uint64_t);
     maxBundleSizeBytesInPipeline = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
+    serialization += sizeof(uint64_t);
+    nextHopNodeId = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
     serialization += sizeof(uint64_t);
     const uint64_t finalDestinationEidListSize = boost::endian::little_to_native(*(reinterpret_cast<const uint64_t*>(serialization)));
     serialization += sizeof(uint64_t);
@@ -227,6 +230,7 @@ bool OutductCapabilityTelemetry_t::operator==(const OutductCapabilityTelemetry_t
         && (outductArrayIndex == o.outductArrayIndex)
         && (maxBundlesInPipeline == o.maxBundlesInPipeline)
         && (maxBundleSizeBytesInPipeline == o.maxBundleSizeBytesInPipeline)
+        && (nextHopNodeId == o.nextHopNodeId)
         && (finalDestinationEidList == o.finalDestinationEidList)
         && (finalDestinationNodeIdList == o.finalDestinationNodeIdList);
 }
@@ -238,6 +242,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(const OutductCapabili
     outductArrayIndex(o.outductArrayIndex),
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
+    nextHopNodeId(o.nextHopNodeId),
     finalDestinationEidList(o.finalDestinationEidList),
     finalDestinationNodeIdList(o.finalDestinationNodeIdList) { } //a copy constructor: X(const X&)
 OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o) :
@@ -245,6 +250,7 @@ OutductCapabilityTelemetry_t::OutductCapabilityTelemetry_t(OutductCapabilityTele
     outductArrayIndex(o.outductArrayIndex),
     maxBundlesInPipeline(o.maxBundlesInPipeline),
     maxBundleSizeBytesInPipeline(o.maxBundleSizeBytesInPipeline),
+    nextHopNodeId(o.nextHopNodeId),
     finalDestinationEidList(std::move(o.finalDestinationEidList)),
     finalDestinationNodeIdList(std::move(o.finalDestinationNodeIdList)) { } //a move constructor: X(X&&)
 OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const OutductCapabilityTelemetry_t& o) { //a copy assignment: operator=(const X&)
@@ -252,6 +258,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(const Outd
     outductArrayIndex = o.outductArrayIndex;
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
+    nextHopNodeId = o.nextHopNodeId;
     finalDestinationEidList = o.finalDestinationEidList;
     finalDestinationNodeIdList = o.finalDestinationNodeIdList;
     return *this;
@@ -261,6 +268,7 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCap
     outductArrayIndex = o.outductArrayIndex;
     maxBundlesInPipeline = o.maxBundlesInPipeline;
     maxBundleSizeBytesInPipeline = o.maxBundleSizeBytesInPipeline;
+    nextHopNodeId = o.nextHopNodeId;
     finalDestinationEidList = std::move(o.finalDestinationEidList);
     finalDestinationNodeIdList = std::move(o.finalDestinationNodeIdList);
     return *this;
@@ -268,7 +276,8 @@ OutductCapabilityTelemetry_t& OutductCapabilityTelemetry_t::operator=(OutductCap
 std::ostream& operator<<(std::ostream& os, const OutductCapabilityTelemetry_t& o) {
     os << "outductArrayIndex=" << o.outductArrayIndex << " "
         << " maxBundlesInPipeline=" << o.maxBundlesInPipeline << " "
-        << " maxBundleSizeBytesInPipeline=" << o.maxBundleSizeBytesInPipeline << std::endl;
+        << " maxBundleSizeBytesInPipeline=" << o.maxBundleSizeBytesInPipeline
+        << " nextHopNodeId=" << o.nextHopNodeId << std::endl;
     os << " finalDestinationEidList:" << std::endl;
     for (std::list<cbhe_eid_t>::const_iterator it = o.finalDestinationEidList.cbegin(); it != o.finalDestinationEidList.cend(); ++it) {
         os << "  " << (*it) << std::endl;
