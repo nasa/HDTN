@@ -825,7 +825,8 @@ bool Ingress::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bundleCur
             boost::mutex::scoped_lock lock(m_storageAckQueueMutex);
             const uint64_t ingressToStorageUniqueId = m_ingressToStorageNextUniqueId++;
             boost::posix_time::ptime timeoutExpiry(boost::posix_time::special_values::not_a_date_time);
-            while (m_storageAckQueue.size() > m_hdtnConfig.m_zmqMaxMessagesPerPath) { //2000 ms timeout
+            //TODO CHANGE HARDCODED 5 (formerly zmqMaxMessagesPerPath)
+            while (m_storageAckQueue.size() > 5) { //2000 ms timeout
                 if (timeoutExpiry == boost::posix_time::special_values::not_a_date_time) {
                     static const boost::posix_time::time_duration twoSeconds = boost::posix_time::seconds(2);
                     timeoutExpiry = boost::posix_time::microsec_clock::universal_time() + twoSeconds;

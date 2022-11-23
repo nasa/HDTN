@@ -16,7 +16,6 @@
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
-    "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
@@ -27,10 +26,8 @@
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
-    "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 9,
     "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
