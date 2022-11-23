@@ -175,38 +175,36 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
             assert(rc >= 0);
             if (rc > 0) {
                 if (items[0].revents & ZMQ_POLLIN) {
-                    zmq::message_t message;
-                    if (!socket.recv(message, zmq::recv_flags::none)) {
+
+                    hdtn::IreleaseChangeHdr releaseChangeHdr;
+                    const zmq::recv_buffer_result_t res = socket.recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
+                    if (!res) {
                         std::cout << "[Router] unable to receive message" << endl;
-                        continue;
                     }
-
-                    if (message.size() < sizeof(hdtn::CommonHdr)) {
-                        std::cout << "[Router] unknown message type received" << std::endl;
+                    else if ((res->truncated()) || (res->size != sizeof(releaseChangeHdr))) {
+                        std::cout << "[Router] message mismatch: untruncated = " << res->untruncated_size
+                            << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
                     }
-
-                    hdtn::CommonHdr* common = (hdtn::CommonHdr*)message.data();
-//                    std::cout << "[Router] received scheduler message of type " << common->type << std::endl;
-                    if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
-                        hdtn::IreleaseStopHdr *linkdownMsg = (hdtn::IreleaseStopHdr*)message.data();
-                        m_latestTime = linkdownMsg->time;
-                        std::cout << "[Router] contact down: " << linkdownMsg->contact << std::endl;
+                    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
+                        m_latestTime = releaseChangeHdr.time;
+                        std::cout << "[Router] contact down: " << releaseChangeHdr.contact << std::endl;
                        // for (cbhe_eid_t& node : finalDestEids) {
-                            if (m_routeTable[linkdownMsg->contact] == finalDestEid.nodeId) {
+                            if (m_routeTable[releaseChangeHdr.contact] == finalDestEid.nodeId) {
                                 ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid.nodeId);
                             }
                         //}
+                            std::cout << "[Router] updated time to " << m_latestTime << std::endl;
                     }
-                    else if (common->type == HDTN_MSGTYPE_ILINKUP) {
-                        hdtn::IreleaseStartHdr *linkupMsg = (hdtn::IreleaseStartHdr*)message.data();
-                        m_latestTime = linkupMsg->time;
+                    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
+                        m_latestTime = releaseChangeHdr.time;
                         std::cout << "[Router] contact up" << std::endl;
+                        std::cout << "[Router] updated time to " << m_latestTime << std::endl;
                     }
                     else {
-                    	std::cerr << "[Router] unknown message type " << common->type << std::endl;
+                    	std::cerr << "[Router] unknown message type " << releaseChangeHdr.base.type << std::endl;
                     }
 
-                    std::cout << "[Router] updated time to " << m_latestTime << std::endl;
+                    
                 }
             }
 

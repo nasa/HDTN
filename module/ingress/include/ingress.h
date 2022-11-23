@@ -109,7 +109,6 @@ private:
     volatile bool m_egressFullyInitialized;
     boost::atomic_uint64_t m_ingressToEgressNextUniqueIdAtomic;
     uint64_t m_ingressToStorageNextUniqueId;
-    std::vector<uint64_t> m_schedulerRxBufPtrToStdVec64;
 
     std::map<uint64_t, Induct*> m_availableDestOpportunisticNodeIdToTcpclInductMap;
     boost::mutex m_availableDestOpportunisticNodeIdToTcpclInductMapMutex;

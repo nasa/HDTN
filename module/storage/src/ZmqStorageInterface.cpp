@@ -634,10 +634,6 @@ void ZmqStorageInterface::ThreadFunc() {
     std::map<uint64_t, bool> mapOuductArrayIndexToPendingLinkChangeEvent; //in case scheduler sends events before egress fully initialized
     bool egressFullyInitialized = false;
 
-    
-    static constexpr std::size_t minBufSizeBytesReleaseMessages = sizeof(uint64_t) + 
-        ((sizeof(hdtn::IreleaseStartHdr) > sizeof(hdtn::IreleaseStopHdr)) ? sizeof(hdtn::IreleaseStartHdr) : sizeof(hdtn::IreleaseStopHdr));
-    uint64_t rxBufReleaseMessagesAlign64[minBufSizeBytesReleaseMessages / sizeof(uint64_t)];
 
     zmq::pollitem_t pollItems[5] = {
         {m_zmqPullSock_boundEgressToConnectingStoragePtr->handle(), 0, ZMQ_POLLIN, 0},
@@ -886,73 +882,60 @@ void ZmqStorageInterface::ThreadFunc() {
                 }
             }
             if (pollItems[2].revents & ZMQ_POLLIN) { //release messages
-                //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
-                const zmq::recv_buffer_result_t res = m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(
-                    zmq::mutable_buffer(rxBufReleaseMessagesAlign64, minBufSizeBytesReleaseMessages), zmq::recv_flags::none);
+                hdtn::IreleaseChangeHdr releaseChangeHdr;
+                const zmq::recv_buffer_result_t res = m_zmqSubSock_boundReleaseToConnectingStoragePtr->recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
                 if (!res) {
-                    LOG_ERROR(subprocess) << "[schedule release] message not received";
-                    continue;
+                    LOG_ERROR(subprocess) << "unable to receive IreleaseChangeHdr message";
                 }
-                else if (res->size < sizeof(hdtn::CommonHdr)) {
-                    LOG_ERROR(subprocess) << "[schedule release] res->size < sizeof(hdtn::CommonHdr)";
-                    continue;
+                else if ((res->truncated()) || (res->size != sizeof(releaseChangeHdr))) {
+                    LOG_ERROR(subprocess) << "message mismatch with IreleaseChangeHdr: untruncated = " << res->untruncated_size
+                        << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
                 }
-
-                LOG_INFO(subprocess) << "release message received";
-                hdtn::CommonHdr *commonHdr = (hdtn::CommonHdr *)rxBufReleaseMessagesAlign64;
-                if (commonHdr->type == HDTN_MSGTYPE_ILINKUP) {
-                    if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
-                        LOG_ERROR(subprocess) << "[schedule release] res->size != sizeof(hdtn::IreleaseStartHdr)";
-                        continue;
-                    }
-
-                    hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufReleaseMessagesAlign64;
+                else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
+                    LOG_INFO(subprocess) << "link up release message received";
                     if (egressFullyInitialized) {
-                        if (iReleaseStartHdr->outductArrayIndex < vectorOutductInfo.size()) {
-                            OutductInfo_t& info = vectorOutductInfo[iReleaseStartHdr->outductArrayIndex];
+                        if (releaseChangeHdr.outductArrayIndex < vectorOutductInfo.size()) {
+                            OutductInfo_t& info = vectorOutductInfo[releaseChangeHdr.outductArrayIndex];
                             if (!info.linkIsUp) {
                                 info.linkIsUp = true;
                                 RepopulateUpLinksVec(vectorOutductInfo, mapOpportunisticNextHopNodeIdToOutductInfo, vectorUpLinksOutductInfoPtrs);
-                                LOG_INFO(subprocess) << "outductArrayIndex=" << iReleaseStartHdr->outductArrayIndex << " " << info;
+                                LOG_INFO(subprocess) << "outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " " << info;
                             }
                         }
                         else {
-                            LOG_ERROR(subprocess) << "release message received with out of bounds outductArrayIndex " << iReleaseStartHdr->outductArrayIndex;
+                            LOG_ERROR(subprocess) << "release message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
                         }
                     }
                     else {
-                        mapOuductArrayIndexToPendingLinkChangeEvent[iReleaseStartHdr->outductArrayIndex] = true;
-                        LOG_INFO(subprocess) << "nextHopNodeId: " << iReleaseStartHdr->nextHopNodeId
-                            << " outductArrayIndex=" << iReleaseStartHdr->outductArrayIndex
+                        mapOuductArrayIndexToPendingLinkChangeEvent[releaseChangeHdr.outductArrayIndex] = true;
+                        LOG_INFO(subprocess) << "nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
+                            << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
                             << ") will be released from storage once egress is fully initialized";
                     }
                 }
-                else if (commonHdr->type == HDTN_MSGTYPE_ILINKDOWN) {
-                    if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
-                        LOG_ERROR(subprocess) << "[schedule release] res->size != sizeof(hdtn::IreleaseStopHdr)";
-                        continue;
-                    }
-
-                    hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufReleaseMessagesAlign64;
+                else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
                     if (egressFullyInitialized) {
-                        if (iReleaseStopHdr->outductArrayIndex < vectorOutductInfo.size()) {
-                            OutductInfo_t& info = vectorOutductInfo[iReleaseStopHdr->outductArrayIndex];
+                        if (releaseChangeHdr.outductArrayIndex < vectorOutductInfo.size()) {
+                            OutductInfo_t& info = vectorOutductInfo[releaseChangeHdr.outductArrayIndex];
                             if (info.linkIsUp) {
                                 info.linkIsUp = false;
                                 RepopulateUpLinksVec(vectorOutductInfo, mapOpportunisticNextHopNodeIdToOutductInfo, vectorUpLinksOutductInfoPtrs);
-                                LOG_INFO(subprocess) << "outductArrayIndex=" << iReleaseStopHdr->outductArrayIndex << " " << info;
+                                LOG_INFO(subprocess) << "outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " " << info;
                             }
                         }
                         else {
-                            LOG_ERROR(subprocess) << "release message received with out of bounds outductArrayIndex " << iReleaseStopHdr->outductArrayIndex;
+                            LOG_ERROR(subprocess) << "release message received with out of bounds outductArrayIndex " << releaseChangeHdr.outductArrayIndex;
                         }
                     }
                     else {
-                        mapOuductArrayIndexToPendingLinkChangeEvent[iReleaseStopHdr->outductArrayIndex] = true;
-                        LOG_INFO(subprocess) << "nextHopNodeId: " << iReleaseStopHdr->nextHopNodeId
-                            << " outductArrayIndex=" << iReleaseStopHdr->outductArrayIndex
+                        mapOuductArrayIndexToPendingLinkChangeEvent[releaseChangeHdr.outductArrayIndex] = true;
+                        LOG_INFO(subprocess) << "nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
+                            << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex
                             << ") will STOP BEING released from storage once egress is fully initialized";
                     }
+                }
+                else {
+                    LOG_ERROR(subprocess) << "unknown IreleaseChangeHdr message type " << releaseChangeHdr.base.type;
                 }
             }
             if (pollItems[3].revents & ZMQ_POLLIN) { //gui requests data

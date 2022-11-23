@@ -493,46 +493,35 @@ void Ingress::ReadTcpclOpportunisticBundlesFromEgressThreadFunc() {
 }
 
 void Ingress::SchedulerEventHandler() {
-    //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
-    static constexpr std::size_t minBufSizeBytes = sizeof(uint64_t) + ((sizeof(IreleaseStartHdr) > sizeof(IreleaseStopHdr)) ? sizeof(IreleaseStartHdr) : sizeof(IreleaseStopHdr));
-    m_schedulerRxBufPtrToStdVec64.resize(minBufSizeBytes / sizeof(uint64_t));
-    uint64_t * rxBufRawPtrAlign64 = &m_schedulerRxBufPtrToStdVec64[0];
-    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(zmq::mutable_buffer(rxBufRawPtrAlign64, minBufSizeBytes), zmq::recv_flags::none);
+    hdtn::IreleaseChangeHdr releaseChangeHdr;
+    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundSchedulerToConnectingIngressPtr->recv(zmq::mutable_buffer(&releaseChangeHdr, sizeof(releaseChangeHdr)), zmq::recv_flags::none);
     if (!res) {
-        LOG_ERROR(subprocess) << "SchedulerEventHandler: message not received";
-        return;
+        LOG_ERROR(subprocess) << "unable to receive IreleaseChangeHdr message";
     }
-    else if (res->size < sizeof(hdtn::CommonHdr)) {
-        LOG_ERROR(subprocess) << "SchedulerEventHandler: res->size < sizeof(hdtn::CommonHdr)";
-        return;
+    else if ((res->truncated()) || (res->size != sizeof(releaseChangeHdr))) {
+        LOG_ERROR(subprocess) << "message mismatch with IreleaseChangeHdr: untruncated = " << res->untruncated_size
+            << " truncated = " << res->size << " expected = " << sizeof(releaseChangeHdr);
     }
-
-    CommonHdr *common = (CommonHdr *)rxBufRawPtrAlign64;
-    if (common->type == HDTN_MSGTYPE_ILINKUP) {
-        hdtn::IreleaseStartHdr * iReleaseStartHdr = (hdtn::IreleaseStartHdr *)rxBufRawPtrAlign64;
-        if (res->size != sizeof(hdtn::IreleaseStartHdr)) {
-            LOG_ERROR(subprocess) << "SchedulerEventHandler: res->size != sizeof(hdtn::IreleaseStartHdr";
-            return;
-        }
-        EgressToIngressAckingSet& egressToIngressAckingObj = m_vectorEgressToIngressAckingSet[iReleaseStartHdr->outductArrayIndex];
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
+        SharedMutexImpl::ingress_shared_lock_t lockShared(m_ptrSharedMutexImpl->m_sharedMutexFinalDestsToOutductArrayIndexMaps);
+        EgressToIngressAckingSet& egressToIngressAckingObj = m_vectorEgressToIngressAckingSet[releaseChangeHdr.outductArrayIndex];
         if (!egressToIngressAckingObj.linkIsUp) {
             egressToIngressAckingObj.linkIsUp = true; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
-            LOG_INFO(subprocess) << "Ingress sending bundles to egress for nextHopNodeId: " << iReleaseStartHdr->nextHopNodeId
-                << " outductArrayIndex=" << iReleaseStartHdr->outductArrayIndex;
+            LOG_INFO(subprocess) << "Ingress sending bundles to egress for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
+                << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
         }
     }
-    else if (common->type == HDTN_MSGTYPE_ILINKDOWN) {
-        hdtn::IreleaseStopHdr * iReleaseStopHdr = (hdtn::IreleaseStopHdr *)rxBufRawPtrAlign64;
-        if (res->size != sizeof(hdtn::IreleaseStopHdr)) {
-            LOG_ERROR(subprocess) << "SchedulerEventHandler: res->size != sizeof(hdtn::IreleaseStopHdr";
-            return;
-        }
-        EgressToIngressAckingSet& egressToIngressAckingObj = m_vectorEgressToIngressAckingSet[iReleaseStopHdr->outductArrayIndex];
+    else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
+        SharedMutexImpl::ingress_shared_lock_t lockShared(m_ptrSharedMutexImpl->m_sharedMutexFinalDestsToOutductArrayIndexMaps);
+        EgressToIngressAckingSet& egressToIngressAckingObj = m_vectorEgressToIngressAckingSet[releaseChangeHdr.outductArrayIndex];
         if (egressToIngressAckingObj.linkIsUp) {
             egressToIngressAckingObj.linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
-            LOG_INFO(subprocess) << "Sending bundles to storage for nextHopNodeId: " << iReleaseStopHdr->nextHopNodeId
-                << " since outductArrayIndex=" << iReleaseStopHdr->outductArrayIndex << " is down";
+            LOG_INFO(subprocess) << "Sending bundles to storage for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
+                << " since outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " is down";
         }
+    }
+    else {
+        LOG_ERROR(subprocess) << "unknown IreleaseChangeHdr message type " << releaseChangeHdr.base.type;
     }
 }
 

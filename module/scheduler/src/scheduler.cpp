@@ -256,9 +256,9 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayIndex,
 		             uint64_t time, uint64_t cid) {
 
-    hdtn::IreleaseStopHdr stopMsg;
+    hdtn::IreleaseChangeHdr stopMsg;
 
-    memset(&stopMsg, 0, sizeof(hdtn::IreleaseStopHdr));
+    memset(&stopMsg, 0, sizeof(stopMsg));
     stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
     stopMsg.nextHopNodeId = dest;
     stopMsg.prevHopNodeId = src;
@@ -269,7 +269,7 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
         m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&stopMsg,
-            sizeof(hdtn::IreleaseStopHdr)), zmq::send_flags::none);
+            sizeof(stopMsg)), zmq::send_flags::none);
     }
     
 
@@ -279,8 +279,8 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
 
 void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time) {
 
-    hdtn::IreleaseStartHdr releaseMsg;
-    memset(&releaseMsg, 0, sizeof(hdtn::IreleaseStartHdr));
+    hdtn::IreleaseChangeHdr releaseMsg;
+    memset(&releaseMsg, 0, sizeof(releaseMsg));
 
     releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
     releaseMsg.nextHopNodeId = dest;
@@ -289,7 +289,7 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayInd
     releaseMsg.time = time;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-        m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(hdtn::IreleaseStartHdr)),
+        m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)),
             zmq::send_flags::none);
     }
 

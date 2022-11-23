@@ -136,31 +136,19 @@ struct CscheduleHdr {
     uint64_t duration;  // msec
 };
 
-struct IreleaseStartHdr {
-    CommonHdr base;
+struct IreleaseChangeHdr {
+    CommonHdr base; //types ILINKDOWN or ILINKUP
     uint8_t unused1;
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
     uint64_t outductArrayIndex; //outductUuid
-    uint64_t rate;      // bytes / sec
-    uint64_t duration;  // msec
+    uint64_t rate;      // bytes / sec (start events only)
+    uint64_t duration;  // msec (start events only)
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
     uint64_t time;
-};
-
-struct IreleaseStopHdr {
-    CommonHdr base;
-    uint8_t unused1;
-    uint8_t unused2;
-    uint8_t unused3;
-    uint8_t unused4;
-    uint64_t outductArrayIndex; //outductUuid
-    uint64_t prevHopNodeId;
-    uint64_t nextHopNodeId;
-    uint64_t time;
-    uint64_t contact;
+    uint64_t contact; //stop events only
 };
 
 struct RouteUpdateHdr {
