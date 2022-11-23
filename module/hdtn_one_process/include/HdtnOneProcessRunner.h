@@ -18,7 +18,7 @@
  * initializes the Ingress, Egress, Storage, and GUI modules/objects
  * by processing/using the various command line arguments.
  * HdtnOneProcessRunner is only used when running HDTN in single-process mode in which there
- * is a single process dedicated to the Ingress, Egress, Storage, and GUI modules.
+ * is a single process which contains most of HDTN (i.e. the Ingress, Egress, Storage, and GUI modules).
  * HdtnOneProcessRunner also provides a signal handler listener to capture Ctrl+C (SIGINT) events
  * for clean termination.
  */

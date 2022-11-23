@@ -1,3 +1,23 @@
+/**
+ * @file InductsConfig.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The InductsConfig class contains all the config parameters for
+ * instantiating zero or more HDTN inducts, and it
+ * provides JSON serialization and deserialization capability.
+ */
+
 #ifndef INDUCTS_CONFIG_H
 #define INDUCTS_CONFIG_H 1
 

@@ -15,7 +15,7 @@
  *
  * This file provides the "int main()" function to wrap StorageRunner
  * and forward command line arguments to StorageRunner.
- * This file is only used when running HDTN in single-process mode in which there
+ * This file is only used when running HDTN in distributed mode in which there
  * is a single process dedicated to the Storage module.
  */
 
