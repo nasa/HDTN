@@ -14,6 +14,12 @@
  * @section DESCRIPTION
  *
  * This StorageRunner class is used for launching just the HDTN storage module into its own process.
+ * The StorageRunner provides a blocking Run function which creates and
+ * initializes an Storage object by processing/using the various command line arguments.
+ * StorageRunner is only used when running HDTN in distributed mode in which there
+ * is a single process dedicated to Storage.
+ * StorageRunner also provides a signal handler listener to capture Ctrl+C (SIGINT) events
+ * for clean termination.
  */
 
 #ifndef _STORAGE_RUNNER_H

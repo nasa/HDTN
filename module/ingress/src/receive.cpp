@@ -1,8 +1,20 @@
-﻿/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+﻿/**
+ * @file receive.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ * @author  Gilbert Clark
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This file contains the implemetation for the ingress module of HDTN.
  */
 
 #include "codec/bpv6.h"

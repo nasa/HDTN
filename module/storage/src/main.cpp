@@ -10,6 +10,13 @@
  * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
  * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * This file provides the "int main()" function to wrap StorageRunner
+ * and forward command line arguments to StorageRunner.
+ * This file is only used when running HDTN in single-process mode in which there
+ * is a single process dedicated to the Storage module.
  */
 
 #include "StorageRunner.h"
