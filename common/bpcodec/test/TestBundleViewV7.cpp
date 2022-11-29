@@ -1139,5 +1139,4 @@ BOOST_AUTO_TEST_CASE(BundleViewGetMillisecondsSinceCreateTestCase) {
     long ms = primary.GetMillisecondsSinceCreate();
     // Provide some buffer
     BOOST_REQUIRE(ms >= 50000 && ms <= 50100);
-    std::cout << ms << std::endl;
 }

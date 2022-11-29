@@ -99,6 +99,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization); //not const as it needs to modify m_blockLength
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
+    BPCODEC_EXPORT long GetSecondsSinceCreate() const;
     
     /**
      * Dumps a primary block to stdout in a human-readable way
@@ -531,7 +532,7 @@ public:
 class CLASS_VISIBILITY_BPCODEC Bpv6AdministrativeRecordContentAggregateCustodySignal : public Bpv6AdministrativeRecordContentBase {
     
 private:
-    //The second field shall be a ‘Status’ byte encoded in the same way as the status byte
+    //The second field shall be a ï¿½Statusï¿½ byte encoded in the same way as the status byte
     //for administrative records in RFC 5050, using the same reason codes
     uint8_t m_statusFlagsPlus7bitReasonCode;
 public:

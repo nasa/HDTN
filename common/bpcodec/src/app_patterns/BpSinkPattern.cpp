@@ -238,6 +238,10 @@ bool BpSinkPattern::Process(padded_vector_uint8_t & rxBuf, const std::size_t mes
             LOG_ERROR(subprocess) << "ProcessPayload";
             return false;
         }
+
+        #ifdef DO_STATS_LOGGING
+            LOG_STAT("bundle_source_to_sink_latency_s") << primary.GetSecondsSinceCreate();
+        #endif
     }
     else if (isBpVersion7) {
         BundleViewV7 bv;
