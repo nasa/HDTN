@@ -6,6 +6,8 @@ jobs:
   windows-2022-x64-test:
     runs-on: windows-2022
 
+    timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v3
 
@@ -25,6 +27,8 @@ jobs:
 
   windows-2019-x64-test:
     runs-on: windows-2019
+
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v3
