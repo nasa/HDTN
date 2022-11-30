@@ -17,6 +17,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/results_reporter.hpp>
 #include <boost/test/unit_test_parameters.hpp>
+#include <boost/filesystem.hpp>
 #include "Logger.h"
 
 // Global Test Fixture. Used to setup report options for all unit tests.
@@ -30,6 +31,7 @@ BoostUnitTestsFixture::BoostUnitTestsFixture() {
     boost::unit_test::results_reporter::set_level(boost::unit_test::report_level::DETAILED_REPORT);
     boost::unit_test::unit_test_log.set_threshold_level( boost::unit_test::log_messages );
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::unittest);
+    boost::filesystem::remove_all("logs");
 }
 
 BoostUnitTestsFixture::~BoostUnitTestsFixture() {

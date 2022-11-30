@@ -38,6 +38,7 @@
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/config/detail/suffix.hpp>
 #include "log_lib_export.h"
+#include "NoOpStream.h"
 
 namespace hdtn{
 
@@ -94,12 +95,6 @@ namespace hdtn{
     hdtn::Logger::ensureInitialized();\
     _ADD_LOG_ATTRIBUTES(subprocess);\
     BOOST_LOG_TRIVIAL(lvl)
-
-/**
- * _NO_OP is a macro to efficiently discard a streaming expression. Since the "else"
- * branch is never taken, the compiler should optimize it out.
- */
-#define _NO_OP_STREAM if (true) {} else std::cout
 
 /**
  * _ADD_LOG_ATTRIBUTES adds attributes to the logger

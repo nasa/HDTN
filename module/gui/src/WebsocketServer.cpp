@@ -16,6 +16,7 @@
 #include <boost/program_options.hpp>
 #include "Environment.h"
 #include "Telemetry.h"
+#include "StatsLogger.h"
 
 #define EXIT_URI "/exit"
 static const std::string CONNECT_MESSAGE = "hyxifwtd";
@@ -199,11 +200,6 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
     };
 
     boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
-    boost::posix_time::ptime lastTime = startTime;  
-    double lastData = 0;
-    double rate = 0;
-    double averageRate = 0;
-
 
     while (m_running) {
         //sleep for 1 second
@@ -272,31 +268,53 @@ void WebSocketHandler::ReadZmqThreadFunc(zmq::context_t * hdtnOneProcessZmqInpro
                     else {
                         //process ingress telemetry
                         moduleMask |= 0x1;
- 
-                        boost::posix_time::ptime newTime = boost::posix_time::microsec_clock::universal_time();
-                        boost::posix_time::time_duration elapsedTime = newTime - lastTime;
-                        lastTime=newTime;
-                        boost::posix_time::time_duration totalTime = newTime - startTime; 
-                        rate = (8.0 * (telem.totalData - lastData)) / elapsedTime.total_microseconds();
-                        averageRate = (8.0 * telem.totalData) / totalTime.total_microseconds();
-                        lastData = telem.totalData;
 
-                        telem.bundleDataRate = rate;
+                        static double lastTotalDataBytes = 0;
+                        static boost::posix_time::ptime lastReceivedTime = startTime;
+ 
+                        boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+                        boost::posix_time::time_duration elapsedTime = now - lastReceivedTime;
+                        lastReceivedTime=now;
+
+                        boost::posix_time::time_duration totalTime = now - startTime;
+                        double numBytesSent = telem.totalData - lastTotalDataBytes;
+                        double mbpsRate = (8.0 * numBytesSent) / elapsedTime.total_microseconds();
+                        double averageRate = (8.0 * telem.totalData) / totalTime.total_microseconds();
+                        telem.bundleDataRate = mbpsRate;
                         telem.averageDataRate = averageRate;
-			SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
+                        SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
+                        LOG_STAT("ingress_data_rate_mbps") << mbpsRate;
+                        LOG_STAT("ingress_data_volume_bytes") << numBytesSent;
+
+                        lastTotalDataBytes = telem.totalData;
+                        lastReceivedTime = now;
                     }
                 }
                 if (items[1].revents & ZMQ_POLLIN) { //egress telemetry received
-                    zmq::message_t zmqEgressTelemReceived;
-                    if (!zmqReqSock_connectingGuiToFromBoundEgressPtr->recv(zmqEgressTelemReceived, zmq::recv_flags::dontwait)) {
+                    EgressTelemetry_t telem;
+                    if (!zmqReqSock_connectingGuiToFromBoundEgressPtr->recv(zmq::mutable_buffer(&telem, sizeof(telem)), zmq::recv_flags::dontwait)) {
                         std::cerr << "error in WebSocketHandler::ReadZmqThreadFunc: cannot read egress telemetry" << std::endl;
                     }
                     else {
                         //process egress telemetry
                         moduleMask |= 0x2;
 
-                        //PrintSerializedTelemetry((const uint8_t*)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
-                        SendBinaryDataToActiveWebsockets((const char *)zmqEgressTelemReceived.data(), zmqEgressTelemReceived.size());
+                        static double lastTotalDataBytes = 0;
+                        static boost::posix_time::ptime lastReceivedTime = startTime;
+
+                        boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
+                        boost::posix_time::time_duration elapsedTime = now - lastReceivedTime;
+                        lastReceivedTime=now;
+
+                        boost::posix_time::time_duration totalTime = now - startTime; 
+                        double numBytesSent = telem.egressBundleData - lastTotalDataBytes;
+                        double mbpsRate = (8.0 * numBytesSent) / elapsedTime.total_microseconds();
+                        SendBinaryDataToActiveWebsockets((const char *) &telem, sizeof(telem));
+                        LOG_STAT("egress_data_rate_mbps") << mbpsRate;
+                        LOG_STAT("egress_data_volume_bytes") << numBytesSent; 
+
+                        lastTotalDataBytes = telem.egressBundleData;
+                        lastReceivedTime = now;
                     }
                 }
                 if (items[2].revents & ZMQ_POLLIN) { //storage telemetry received

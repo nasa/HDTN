@@ -879,3 +879,14 @@ BOOST_AUTO_TEST_CASE(Bpv6PrimaryFragmentTestCase)
     BOOST_REQUIRE_EQUAL(primary2.m_totalApplicationDataUnitLength, 10001);
     BOOST_REQUIRE(primary == primary2);
 }
+
+BOOST_AUTO_TEST_CASE(BundleViewSecondsSinceCreateTestCase) {
+    const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+    const boost::posix_time::ptime bundleCreateTime = nowTime - boost::posix_time::seconds(50);
+
+    Bpv6CbhePrimaryBlock primary;
+    primary.m_creationTimestamp.SetFromPtime(bundleCreateTime);
+    long s = primary.GetSecondsSinceCreate();
+    // Provide some buffer
+    BOOST_REQUIRE(s >= 50 && s <= 51);
+}

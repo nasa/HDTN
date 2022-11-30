@@ -118,6 +118,14 @@ else()
 	set(libzmq_LIB zmq)
 endif()
 
+#Stats option
+OPTION(DO_STATS_LOGGING "Should stats be logged to files" Off)
+#for now, if we want stats logged we need to also enable the web interface
+if (DO_STATS_LOGGING)
+	add_compile_definitions(DO_STATS_LOGGING)
+	set(USE_WEB_INTERFACE On)
+endif()
+
 OPTION(USE_WEB_INTERFACE "Use CivetWeb HDTN Web Interface" OFF)
 if(USE_WEB_INTERFACE)
 	#add_compile_definitions(USE_WEB_INTERFACE) #not needed globally, rather this is set specifically to HdtnOneProcessRunner.cpp in the one process CMakeLists.txt
@@ -157,6 +165,7 @@ add_subdirectory(common/tcpcl)
 add_subdirectory(common/ltp)
 add_subdirectory(common/stcp)
 add_subdirectory(common/udp)
+add_subdirectory(common/stats_logger)
 if(USE_WEB_INTERFACE)
 	add_subdirectory(module/gui)
 endif()

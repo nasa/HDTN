@@ -1129,3 +1129,14 @@ BOOST_AUTO_TEST_CASE(BundleViewV7ReadDtnMeRawDataTestCase)
         BOOST_REQUIRE(bv.m_backBuffer == bundleRawData);
     }
 }
+
+BOOST_AUTO_TEST_CASE(BundleViewGetMillisecondsSinceCreateTestCase) {
+    const boost::posix_time::ptime nowTime = boost::posix_time::microsec_clock::universal_time();
+    const boost::posix_time::ptime bundleCreateTime = nowTime - boost::posix_time::seconds(50);
+
+    Bpv7CbhePrimaryBlock primary;
+    primary.m_creationTimestamp.SetFromPtime(bundleCreateTime);
+    long ms = primary.GetMillisecondsSinceCreate();
+    // Provide some buffer
+    BOOST_REQUIRE(ms >= 50000 && ms <= 50100);
+}
