@@ -131,7 +131,7 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 //        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
         m_storagePtr->Stop();
         m_totalBundlesErasedFromStorage = m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorage;
+        m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorageReadFromDisk;
     }
     LOG_INFO(subprocess) << "StorageRunner: exited cleanly";
     return true;

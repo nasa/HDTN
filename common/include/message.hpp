@@ -73,7 +73,7 @@ struct ToEgressHdr {
     uint8_t hasCustody;
     uint8_t isCutThroughFromIngress;
     uint8_t isOpportunisticFromStorage;
-    uint8_t unused4;
+    uint8_t isCutThroughFromStorage;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     cbhe_eid_t nextHopEid;
@@ -89,10 +89,9 @@ struct EgressAckHdr {
     uint8_t error;
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
     uint8_t isToStorage;
-    uint8_t unused1;
+    uint8_t isResponseToStorageCutThrough;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
-    cbhe_eid_t nextHopEid;
     uint64_t outductIndex;
 
     //bool operator==(const EgressAckHdr & o) const {
@@ -102,11 +101,13 @@ struct EgressAckHdr {
 
 struct ToStorageHdr {
     CommonHdr base;
-    uint8_t unused1;
+    uint8_t dontStoreBundle;
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
     uint64_t ingressUniqueId;
+    uint64_t outductIndex; //for bundle pipeline limiting on a per outduct basis
+    cbhe_eid_t finalDestEid; //for assisting storage on cut-through so it doesn't have to 
 };
 
 struct StorageAckHdr {
@@ -115,12 +116,8 @@ struct StorageAckHdr {
     uint8_t unused1;
     uint8_t unused2;
     uint8_t unused3;
-    cbhe_eid_t finalDestEid;
     uint64_t ingressUniqueId;
-
-    //bool operator==(const EgressAckHdr & o) const {
-    //    return (base == o.base) && (custodyId == o.custodyId);
-    //}
+    uint64_t outductIndex; //for bundle pipeline limiting on a per outduct basis
 };
 
 struct TelemStorageHdr {

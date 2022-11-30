@@ -270,8 +270,9 @@ void OutductManager::GetAllOutductCapabilitiesTelemetry_ThreadSafe(AllOutductCap
         OutductCapabilityTelemetry_t& oct = octVec[i];
         std::shared_ptr<Outduct> & outductPtr = m_outductsVec[i];
         oct.maxBundlesInPipeline = outductPtr->GetOutductMaxBundlesInPipeline();
-        oct.maxBundleSizeBytesInPipeline = 0; //TODO
+        oct.maxBundleSizeBytesInPipeline = 1000000; //TODO
         oct.outductArrayIndex = i;
+        oct.nextHopNodeId = outductPtr->GetOutductNextHopNodeId();
         allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.emplace_back(std::move(oct));
     }
 }

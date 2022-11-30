@@ -81,7 +81,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
 
         LOG_INFO(subprocess) << "starting EgressAsync..";
         
-	hdtn::HegrManagerAsync egress;
+        hdtn::Egress egress;
         egress.Init(*hdtnConfig);
 
         LOG_DEBUG(subprocess) << "Announcing presence of egress...";

@@ -16,6 +16,9 @@ uint64_t Outduct::GetOutductUuid() const {
 uint64_t Outduct::GetOutductMaxBundlesInPipeline() const {
     return m_outductConfig.bundlePipelineLimit;
 }
+uint64_t Outduct::GetOutductNextHopNodeId() const {
+    return m_outductConfig.nextHopNodeId;
+}
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;
 }
