@@ -156,7 +156,9 @@ private:
 };
 
 Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t paramMaxBundlesInPipeline,
-    const uint64_t paramMaxBundleSizeBytesInPipeline, const uint64_t paramNextHopNodeId, bool paramLinkIsUp)
+    const uint64_t paramMaxBundleSizeBytesInPipeline, const uint64_t paramNextHopNodeId, bool paramLinkIsUp) :
+    m_egressBytesInPipeline(0),
+    m_storageBytesInPipeline(0)
 {
     Update(paramMaxBundlesInPipeline, paramMaxBundleSizeBytesInPipeline, paramNextHopNodeId, paramLinkIsUp);
 }
@@ -1026,7 +1028,6 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             bool reservedStorageCutThroughPipelineAvailability = false;
 
             
-
             if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
                 bool reservedEgressPipelineAvailability;
                 const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
