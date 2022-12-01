@@ -145,8 +145,9 @@ private:
 
     boost::mutex m_ingressToEgressZmqSocketMutex;
     boost::mutex m_ingressToStorageZmqSocketMutex;
-    std::size_t m_eventsTooManyInStorageQueue;
-    std::size_t m_eventsTooManyInEgressQueue;
+    std::size_t m_eventsTooManyInStorageCutThroughQueue;
+    std::size_t m_eventsTooManyInEgressCutThroughQueue;
+    std::size_t m_eventsTooManyInAllCutThroughQueues;
     volatile bool m_running;
     volatile bool m_egressFullyInitialized;
     boost::atomic_uint64_t m_nextBundleUniqueIdAtomic;
@@ -255,8 +256,9 @@ Ingress::Impl::Impl() :
     m_bundleData(0),
     m_elapsed(0),
     m_singleStorageBundlePipelineAckingSet(10, 10, UINT64_MAX, false), //initial don't cares for a deleted default constructor, set later
-    m_eventsTooManyInStorageQueue(0),
-    m_eventsTooManyInEgressQueue(0),
+    m_eventsTooManyInStorageCutThroughQueue(0),
+    m_eventsTooManyInEgressCutThroughQueue(0),
+    m_eventsTooManyInAllCutThroughQueues(0),
     m_running(false),
     m_egressFullyInitialized(false),
     m_nextBundleUniqueIdAtomic(0) {}
@@ -299,7 +301,9 @@ void Ingress::Impl::Stop() {
     }
 
 
-    LOG_INFO(subprocess) << "m_eventsTooManyInStorageQueue: " << m_eventsTooManyInStorageQueue;
+    LOG_DEBUG(subprocess) << "m_eventsTooManyInStorageCutThroughQueue: " << m_eventsTooManyInStorageCutThroughQueue;
+    LOG_DEBUG(subprocess) << "m_eventsTooManyInEgressCutThroughQueue: " << m_eventsTooManyInEgressCutThroughQueue;
+    LOG_DEBUG(subprocess) << "m_eventsTooManyInAllCutThroughQueues: " << m_eventsTooManyInAllCutThroughQueues;
 }
 
 bool Ingress::Init(const HdtnConfig& hdtnConfig, zmq::context_t* hdtnOneProcessZmqInprocContextPtr) {
@@ -1030,17 +1034,21 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             
             if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
                 bool reservedEgressPipelineAvailability;
+                const bool bufferRxToStorageOnLinkUpSaturation = true;
+                static const boost::posix_time::time_duration noDuration = boost::posix_time::seconds(0);
+                const boost::posix_time::time_duration& cutThroughTimeoutRef = (bufferRxToStorageOnLinkUpSaturation)
+                    ? noDuration : M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
                 const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
-                    M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),
+                    cutThroughTimeoutRef, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),
                     reservedEgressPipelineAvailability, reservedStorageCutThroughPipelineAvailability);
                 if (foundACutThroughPath) {
-                    if (!reservedEgressPipelineAvailability) { //pipeline limit exceeded for egress cut-through path
+                    if (reservedStorageCutThroughPipelineAvailability) { //pipeline limit exceeded for egress cut-through path
                         useStorage = true;
                         //storage should take on remaining other half of cut-through pipeline capability without actually storing the bundle
                         //pipeline limit may not have been exceeded for storage cut-through path depending on reservedStoragePipelineAvailability
-                        ++m_eventsTooManyInEgressQueue;
+                        ++m_eventsTooManyInEgressCutThroughQueue;
                     }
-                    else { //pipeline limits not exceeded for egress cut-through path, continue to send the bundle to egress
+                    else { //if(reservedEgressPipelineAvailability) //pipeline limits not exceeded for egress cut-through path, continue to send the bundle to egress
 
                         //force natural/64-bit alignment
                         hdtn::ToEgressHdr* toEgressHdr = new hdtn::ToEgressHdr();
@@ -1079,12 +1087,16 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                         }
                     }
                 }
+                else { //did not find a cut through path
+                    useStorage = true;
+                    ++m_eventsTooManyInAllCutThroughQueues;
+                }
             }
         
             if (useStorage) { //storage
                 bool storageModuleAvailable = true;
                 if (!reservedStorageCutThroughPipelineAvailability) { //cut through path was not available for egress or storage, time to store the bundle
-                    ++m_eventsTooManyInStorageQueue; //todo rename to storage cut through
+                    ++m_eventsTooManyInStorageCutThroughQueue;
                     static const boost::posix_time::time_duration twoSeconds = boost::posix_time::seconds(2);
                     storageModuleAvailable = m_singleStorageBundlePipelineAckingSet.WaitForStoragePipelineAvailabilityAndReserve(twoSeconds,
                         fromIngressUniqueId, zmqMessageToSendUniquePtr->size());

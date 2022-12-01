@@ -1037,9 +1037,10 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         storageAckHdr->base.flags = 0;
                         storageAckHdr->error = 0;
                         storageAckHdr->ingressUniqueId = toStorageHeader.ingressUniqueId;
+                        storageAckHdr->outductIndex = toStorageHeader.outductIndex;
 
                         if ((toStorageHeader.dontStoreBundle)
-                            && (toStorageHeader.outductIndex < m_vectorOutductInfo.size())
+                            && (toStorageHeader.outductIndex < m_vectorOutductInfo.size()) //if outductIndex is UINT64_MAX then bundle needs stored
                             && m_vectorOutductInfo[toStorageHeader.outductIndex]->linkIsUp)
                         {
                             OutductInfo_t& info = *(m_vectorOutductInfo[toStorageHeader.outductIndex]);
@@ -1347,6 +1348,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             }
         }
     }
+    LOG_DEBUG(subprocess) << "Storage bundles sent: FromDisk=" << m_totalBundlesSentToEgressFromStorageReadFromDisk
+        << "  FromCutThroughForward=" << m_totalBundlesSentToEgressFromStorageForwardCutThrough;
     LOG_DEBUG(subprocess) << "totalEventsNoDataInStorageForAvailableLinks: " << totalEventsNoDataInStorageForAvailableLinks;
     LOG_DEBUG(subprocess) << "totalEventsDataInStorageForCloggedLinks: " << totalEventsDataInStorageForCloggedLinks;
     LOG_DEBUG(subprocess) << "m_numRfc5050CustodyTransfers: " << m_numRfc5050CustodyTransfers;
