@@ -134,6 +134,7 @@ struct CscheduleHdr {
 };
 
 struct IreleaseChangeHdr {
+    uint64_t subscriptionBytes;
     CommonHdr base; //types ILINKDOWN or ILINKUP
     uint8_t unused1;
     uint8_t unused2;

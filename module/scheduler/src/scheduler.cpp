@@ -33,7 +33,6 @@ namespace opt = boost::program_options;
 const std::string Scheduler::DEFAULT_FILE = "contactPlan.json";
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
-
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
     if (contact == o.contact) {
         if (source == o.source) {
@@ -102,6 +101,7 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         running = true;
         m_runningFromSigHandler = true;
         m_egressFullyInitialized = false;
+        m_numOutductCapabilityTelemetriesReceived = 0;
 
         SignalHandler sigHandler(boost::bind(&Scheduler::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
@@ -175,16 +175,15 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
  
         //socket for receiving events from Egress
         m_zmqCtxPtr = boost::make_unique<zmq::context_t>();
-        m_zmqSubSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::sub);
-        const std::string connect_boundEgressPubSubPath(
+        m_zmqPullSock_boundEgressToConnectingSchedulerPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pull);
+        const std::string connect_connectingEgressToBoundSchedulerPath(
         std::string("tcp://") +
         m_hdtnConfig.m_zmqEgressAddress +
         std::string(":") +
         boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
         try {
-            m_zmqSubSock_boundEgressToConnectingSchedulerPtr->connect(connect_boundEgressPubSubPath);
-            m_zmqSubSock_boundEgressToConnectingSchedulerPtr->set(zmq::sockopt::subscribe, "");
-            LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_boundEgressPubSubPath;
+            m_zmqPullSock_boundEgressToConnectingSchedulerPtr->connect(connect_connectingEgressToBoundSchedulerPath);
+            LOG_INFO(subprocess) << "Scheduler connected and listening to events from Egress " << connect_connectingEgressToBoundSchedulerPath;
         }
         catch (const zmq::error_t & ex) {
             LOG_ERROR(subprocess) << "error: scheduler cannot connect to egress socket: " << ex.what();
@@ -211,17 +210,17 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         LOG_INFO(subprocess) << "Scheduler up and running";
 
         // Socket for sending events to Ingress and Storage
-        m_zmqPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pub);
+        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::xpub);
         const std::string bind_boundSchedulerPubSubPath(
         std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
 
         try {
-            m_zmqPubSock_boundSchedulerToConnectingSubsPtr->bind(bind_boundSchedulerPubSubPath);
-            LOG_INFO(subprocess) << "socket bound successfully to " << bind_boundSchedulerPubSubPath;
+            m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->bind(bind_boundSchedulerPubSubPath);
+            LOG_INFO(subprocess) << "XPub socket bound successfully to " << bind_boundSchedulerPubSubPath;
 
         }
         catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "socket failed to bind: " << ex.what();
+            LOG_ERROR(subprocess) << "XPub socket failed to bind: " << ex.what();
             return false;
         }
 
@@ -259,6 +258,7 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
     hdtn::IreleaseChangeHdr stopMsg;
 
     memset(&stopMsg, 0, sizeof(stopMsg));
+    memset(&stopMsg.subscriptionBytes, 'a', sizeof(stopMsg.subscriptionBytes));
     stopMsg.base.type = HDTN_MSGTYPE_ILINKDOWN;
     stopMsg.nextHopNodeId = dest;
     stopMsg.prevHopNodeId = src;
@@ -268,20 +268,21 @@ void Scheduler::SendLinkDown(uint64_t src, uint64_t dest, uint64_t outductArrayI
 
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-        m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&stopMsg,
+        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&stopMsg,
             sizeof(stopMsg)), zmq::send_flags::none);
     }
     
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    LOG_INFO(subprocess) << " -- LINK DOWN Event sent for Link " << src << " ===> " << dest << " at time "  << timeLocal ;
+    LOG_INFO(subprocess) << " -- LINK DOWN Event sent for outductArrayIndex=" << outductArrayIndex
+        << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
 void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayIndex, uint64_t time) {
 
     hdtn::IreleaseChangeHdr releaseMsg;
     memset(&releaseMsg, 0, sizeof(releaseMsg));
-
+    memset(&releaseMsg.subscriptionBytes, 'a', sizeof(releaseMsg.subscriptionBytes));
     releaseMsg.base.type = HDTN_MSGTYPE_ILINKUP;
     releaseMsg.nextHopNodeId = dest;
     releaseMsg.prevHopNodeId = src;
@@ -289,18 +290,19 @@ void Scheduler::SendLinkUp(uint64_t src, uint64_t dest, uint64_t outductArrayInd
     releaseMsg.time = time;
     {
         boost::mutex::scoped_lock lock(m_mutexZmqPubSock);
-        m_zmqPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)),
+        m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->send(zmq::const_buffer(&releaseMsg, sizeof(releaseMsg)),
             zmq::send_flags::none);
     }
 
     boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
-    LOG_INFO(subprocess) << " -- LINK UP Event sent for Link " << src << " ===> " << dest << " at time " << timeLocal;
+    LOG_INFO(subprocess) << " -- LINK UP Event sent for outductArrayIndex=" << outductArrayIndex
+        << "  src(" << src << ") == = > dest(" << dest << ") at time " << timeLocal;
 }
 
 void Scheduler::EgressEventsHandler() {
     //force this hdtn message struct to be aligned on a 64-byte boundary using zmq::mutable_buffer
     hdtn::LinkStatusHdr linkStatusHdr;
-    const zmq::recv_buffer_result_t res = m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&linkStatusHdr, sizeof(linkStatusHdr)), zmq::recv_flags::none);
+    const zmq::recv_buffer_result_t res = m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(zmq::mutable_buffer(&linkStatusHdr, sizeof(linkStatusHdr)), zmq::recv_flags::none);
     if (!res) {
         LOG_ERROR(subprocess) << "[EgressEventHandler] message not received";
         return;
@@ -365,7 +367,7 @@ void Scheduler::EgressEventsHandler() {
 
         zmq::message_t zmqMessageOutductTelem;
         //message guaranteed to be there due to the zmq::send_flags::sndmore
-        if (!m_zmqSubSock_boundEgressToConnectingSchedulerPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
+        if (!m_zmqPullSock_boundEgressToConnectingSchedulerPtr->recv(zmqMessageOutductTelem, zmq::recv_flags::none)) {
             LOG_ERROR(subprocess) << "error receiving AllOutductCapabilitiesTelemetry";
         }
         else if (!aoct.DeserializeFromLittleEndian((uint8_t*)zmqMessageOutductTelem.data(), numBytesTakenToDecode, zmqMessageOutductTelem.size())) {
@@ -393,12 +395,7 @@ void Scheduler::EgressEventsHandler() {
                     m_mapFinalDestNodeIdToOutductArrayIndex[nodeId] = oct.outductArrayIndex;
                 }
             }
-
-            if (!m_egressFullyInitialized) { //first time this outduct capabilities telemetry received, start remaining scheduler threads
-                m_egressFullyInitialized = true;
-                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactsFile;
-                ProcessContactsFile(m_contactsFile, false); //false => don't use unix timestamps
-            }
+            ++m_numOutductCapabilityTelemetriesReceived;
         }
     }
 }
@@ -432,13 +429,16 @@ void Scheduler::UisEventsHandler() {
 
 void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
 
-    static constexpr unsigned int NUM_SOCKETS = 2;
+    static constexpr unsigned int NUM_SOCKETS = 3;
 
     zmq::pollitem_t items[NUM_SOCKETS] = {
-        {m_zmqSubSock_boundEgressToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqSubSock_boundUisToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqPullSock_boundEgressToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqSubSock_boundUisToConnectingSchedulerPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     std::size_t totalAcksFromEgress = 0;
+    bool ingressSubscribed = false;
+    bool storageSubscribed = false;
 
     static const long DEFAULT_BIG_TIMEOUT_POLL = 250;
 
@@ -457,6 +457,37 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
             }
             if (items[1].revents & ZMQ_POLLIN) { //events from UIS
                 UisEventsHandler();
+            }
+            if (items[2].revents & ZMQ_POLLIN) { //subscriber events from xsub sockets for release messages
+                zmq::message_t zmqSubscriberDataReceived;
+                //Subscription message is a byte 1 (for subscriptions) or byte 0 (for unsubscriptions) followed by the subscription body.
+                //All release messages shall be prefixed by "aaaaaaaa" before the common header
+                //Ingress unique subscription shall be "a"
+                //Storage unique subscription shall be "aa"
+                if (!m_zmqXPubSock_boundSchedulerToConnectingSubsPtr->recv(zmqSubscriberDataReceived, zmq::recv_flags::none)) {
+                    LOG_ERROR(subprocess) << "subscriber message not received";
+                }
+                else {
+                    const uint8_t* const dataSubscriber = (const uint8_t*)zmqSubscriberDataReceived.data();
+                    if ((zmqSubscriberDataReceived.size() == 2) && (dataSubscriber[1] == 'a')) {
+                        ingressSubscribed = (dataSubscriber[0] == 0x1);
+                        LOG_INFO(subprocess) << "Ingress " << ((ingressSubscribed) ? "subscribed" : "desubscribed");
+                    }
+                    else if ((zmqSubscriberDataReceived.size() == 3) && (dataSubscriber[1] == 'a') && (dataSubscriber[2] == 'a')) {
+                        storageSubscribed = (dataSubscriber[0] == 0x1);
+                        LOG_INFO(subprocess) << "Storage " << ((storageSubscribed) ? "subscribed" : "desubscribed");
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "invalid subscriber message received: length=" << zmqSubscriberDataReceived.size();
+                    }
+                }
+            }
+
+            if ((!m_egressFullyInitialized) && (ingressSubscribed) && (storageSubscribed) && (m_numOutductCapabilityTelemetriesReceived)) {
+                //first time this outduct capabilities telemetry received, start remaining scheduler threads
+                m_egressFullyInitialized = true;
+                LOG_INFO(subprocess) << "Now running and fully initialized and connected to egress.. reading contact file " << m_contactsFile;
+                ProcessContactsFile(m_contactsFile, false); //false => don't use unix timestamps
             }
         }
     }
@@ -510,7 +541,7 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
         m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = 0;
     }
     else {
-	LOG_INFO(subprocess) << "using now as epoch";
+        LOG_INFO(subprocess) << "using now as epoch";
         m_epoch = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration diff = (m_epoch - TimestampUtil::GetUnixEpoch());
         m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = static_cast<uint64_t>(diff.total_seconds());
@@ -518,7 +549,7 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
     
     const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
-	contactPlan_t linkEvent;
+        contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
         linkEvent.source = eventPt.second.get<int>("source", 0);
         linkEvent.dest = eventPt.second.get<int>("dest", 0);

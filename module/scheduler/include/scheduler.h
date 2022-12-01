@@ -103,9 +103,9 @@ private:
     std::unique_ptr<boost::thread> m_threadZmqAckReaderPtr;
 
     std::unique_ptr<zmq::context_t> m_zmqCtxPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundEgressToConnectingSchedulerPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPullSock_boundEgressToConnectingSchedulerPtr;
     std::unique_ptr<zmq::socket_t> m_zmqSubSock_boundUisToConnectingSchedulerPtr;
-    std::unique_ptr<zmq::socket_t> m_zmqPubSock_boundSchedulerToConnectingSubsPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqXPubSock_boundSchedulerToConnectingSubsPtr;
     boost::mutex m_mutexZmqPubSock;
 
     std::map<uint64_t, uint64_t> m_mapOutductArrayIndexToNextHopNodeId;
@@ -125,6 +125,7 @@ private:
     volatile bool m_egressFullyInitialized;
     boost::posix_time::ptime m_epoch;
     uint64_t m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds;
+    uint64_t m_numOutductCapabilityTelemetriesReceived;
 };
 
 

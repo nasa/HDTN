@@ -405,10 +405,21 @@ bool Ingress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOne
         boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqBoundSchedulerPubSubPortPath));
         try {
             m_zmqSubSock_boundSchedulerToConnectingIngressPtr->connect(connect_boundSchedulerPubSubPath);
-            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "");
-            LOG_INFO(subprocess) << "Ingress connected and listening to events from scheduler " << connect_boundSchedulerPubSubPath;
+            LOG_INFO(subprocess) << "Connected to scheduler at " << connect_boundSchedulerPubSubPath << " , subscribing...";
         } catch (const zmq::error_t & ex) {
-            LOG_ERROR(subprocess) << "ingress cannot connect to scheduler socket: " << ex.what();
+            LOG_ERROR(subprocess) << "Cannot connect to scheduler socket at " << connect_boundSchedulerPubSubPath << " : " << ex.what();
+            return false;
+        }
+        try {
+            //Sends one-byte 0x1 message to scheduler XPub socket plus strlen of subscription
+            //All release messages shall be prefixed by "aaaaaaaa" before the common header
+            //Ingress unique subscription shall be "a"
+            //Storage unique subscription shall be "aa"
+            m_zmqSubSock_boundSchedulerToConnectingIngressPtr->set(zmq::sockopt::subscribe, "a");
+            LOG_INFO(subprocess) << "Subscribed to all events from scheduler";
+        }
+        catch (const zmq::error_t& ex) {
+            LOG_ERROR(subprocess) << "Cannot subscribe to all events from scheduler: " << ex.what();
             return false;
         }
         
@@ -1021,7 +1032,6 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                 const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
                     M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),
                     reservedEgressPipelineAvailability, reservedStorageCutThroughPipelineAvailability);
-
                 if (foundACutThroughPath) {
                     if (!reservedEgressPipelineAvailability) { //pipeline limit exceeded for egress cut-through path
                         useStorage = true;
