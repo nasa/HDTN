@@ -261,7 +261,11 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
         LOG_ERROR(subprocess) << "inductConfigName must be defined and not empty string";
         return false;
     }
-    const boost::property_tree::ptree & inductElementConfigVectorPt = pt.get_child("inductVector", boost::property_tree::ptree()); //non-throw version
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree & inductElementConfigVectorPt = pt.get_child("inductVector", EMPTY_PTREE); //non-throw version
     m_inductElementConfigVector.resize(inductElementConfigVectorPt.size());
     unsigned int vectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductElementConfigPt, inductElementConfigVectorPt) {

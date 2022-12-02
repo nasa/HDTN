@@ -137,7 +137,11 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
         LOG_ERROR(subprocess) << "error parsing JSON Storage config: totalStorageCapacityBytes must be defined and non-zero";
         return false;
     }
-    const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", boost::property_tree::ptree()); //non-throw version
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", EMPTY_PTREE); //non-throw version
     m_storageDiskConfigVector.resize(storageDiskConfigVectorPt.size());
     unsigned int storageDiskConfigVectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & storageDiskConfigPt, storageDiskConfigVectorPt) {

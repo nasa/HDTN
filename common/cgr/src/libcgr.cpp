@@ -304,8 +304,11 @@ std::vector<Contact> cp_load(const std::string & filename, std::size_t max_conta
     
     boost::property_tree::ptree pt;
     boost::property_tree::read_json(filename, pt);
-    const boost::property_tree::ptree& contactsPt
-        = pt.get_child("contacts", boost::property_tree::ptree());
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
     contactsVector.reserve(contactsPt.size());
     for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
         contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1

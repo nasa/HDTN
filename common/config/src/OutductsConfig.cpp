@@ -313,7 +313,11 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
         LOG_ERROR(subprocess) << "outductConfigName must be defined and not empty string";
         return false;
     }
-    const boost::property_tree::ptree & outductElementConfigVectorPt = pt.get_child("outductVector", boost::property_tree::ptree()); //non-throw version
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree & outductElementConfigVectorPt = pt.get_child("outductVector", EMPTY_PTREE); //non-throw version
     m_outductElementConfigVector.resize(outductElementConfigVectorPt.size());
     unsigned int vectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & outductElementConfigPt, outductElementConfigVectorPt) {
@@ -347,7 +351,7 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
             }
             outductElementConfig.maxNumberOfBundlesInPipeline = outductElementConfigPt.second.get<uint32_t>("maxNumberOfBundlesInPipeline");
             outductElementConfig.maxSumOfBundleBytesInPipeline = outductElementConfigPt.second.get<uint64_t>("maxSumOfBundleBytesInPipeline");
-            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", boost::property_tree::ptree()); //non-throw version
+            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", EMPTY_PTREE); //non-throw version
             outductElementConfig.finalDestinationEidUris.clear();
             BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
                 const std::string uriStr = finalDestinationEidUriValuePt.second.get_value<std::string>();

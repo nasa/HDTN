@@ -292,18 +292,20 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         return false;
     }
 
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
 
-    const boost::property_tree::ptree & inductsConfigPt = pt.get_child("inductsConfig", boost::property_tree::ptree()); //non-throw version
+    const boost::property_tree::ptree & inductsConfigPt = pt.get_child("inductsConfig", EMPTY_PTREE); //non-throw version
     if (!m_inductsConfig.SetValuesFromPropertyTree(inductsConfigPt)) {
         LOG_ERROR(subprocess) << "inductsConfig must be defined inside an hdtnConfig";
         return false;
     }
-    const boost::property_tree::ptree & outductsConfigPt = pt.get_child("outductsConfig", boost::property_tree::ptree()); //non-throw version
+    const boost::property_tree::ptree & outductsConfigPt = pt.get_child("outductsConfig", EMPTY_PTREE); //non-throw version
     if (!m_outductsConfig.SetValuesFromPropertyTree(outductsConfigPt)) {
         LOG_ERROR(subprocess) << "outductsConfig must be defined inside an hdtnConfig";
         return false;
     }
-    const boost::property_tree::ptree & storageConfigPt = pt.get_child("storageConfig", boost::property_tree::ptree()); //non-throw version
+    const boost::property_tree::ptree & storageConfigPt = pt.get_child("storageConfig", EMPTY_PTREE); //non-throw version
     if (!m_storageConfig.SetValuesFromPropertyTree(storageConfigPt)) {
         LOG_ERROR(subprocess) << "storageConfig must be defined inside an hdtnConfig";
         return false;

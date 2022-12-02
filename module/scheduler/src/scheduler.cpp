@@ -546,8 +546,11 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
         const boost::posix_time::time_duration diff = (m_epoch - TimestampUtil::GetUnixEpoch());
         m_subtractMeFromUnixTimeSecondsToConvertToSchedulerTimeSeconds = static_cast<uint64_t>(diff.total_seconds());
     }
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
     
-    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", boost::property_tree::ptree());
+    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & eventPt, contactsPt) {
         contactPlan_t linkEvent;
         linkEvent.contact = eventPt.second.get<int>("contact", 0);
