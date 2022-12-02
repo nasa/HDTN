@@ -996,17 +996,30 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_ADD_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
                     
-                    OutductInfo_t& info = *(m_mapOpportunisticNextHopNodeIdToOutductInfo[nodeId]);
-                    info.eidVec.resize(1);
-                    const eid_plus_isanyserviceid_pair_t key(cbhe_eid_t(nodeId, 0), true); //true => any service id.. 0 is don't care
-                    info.eidVec[0] = key;
-                    info.nextHopNodeId = nodeId;
-                    info.linkIsUp = true;
-                    info.isOpportunisticLink = true;
-                    info.maxBundlesInPipeline = 5; //TODO
-                    info.maxBundleSizeBytesInPipeline = 0; //TODO
-                    RepopulateUpLinksVec();
-                    LOG_INFO(subprocess) << "Adding Opportunistic link from ingress connection.. " << info;
+                    std::pair<std::map<uint64_t, OutductInfoPtr_t>::iterator, bool> ret = m_mapOpportunisticNextHopNodeIdToOutductInfo.
+#if (__cplusplus >= 201703L) //try_emplace would be most ideal so it doesnt create and destroy element if exists
+                        try_emplace( 
+#else
+                        emplace(
+#endif
+                    nodeId, boost::make_unique<OutductInfo_t>());
+                    //(true if insertion happened, false if it did not).
+                    if (ret.second) {
+                        OutductInfo_t& info = *(ret.first->second);
+                        info.eidVec.resize(1);
+                        const eid_plus_isanyserviceid_pair_t key(cbhe_eid_t(nodeId, 0), true); //true => any service id.. 0 is don't care
+                        info.eidVec[0] = key;
+                        info.nextHopNodeId = nodeId;
+                        info.linkIsUp = true;
+                        info.isOpportunisticLink = true;
+                        info.maxBundlesInPipeline = 5; //TODO
+                        info.maxBundleSizeBytesInPipeline = 0; //TODO
+                        RepopulateUpLinksVec();
+                        LOG_INFO(subprocess) << "Adding Opportunistic link from ingress connection.. " << info;
+                    }
+                    else {
+                        LOG_ERROR(subprocess) << "Ignoring Duplicate Message for adding Opportunistic link from ingress connection.. ";
+                    }
                 }
                 else if (toStorageHeader.base.type == HDTN_MSGTYPE_STORAGE_REMOVE_OPPORTUNISTIC_LINK) {
                     const uint64_t nodeId = toStorageHeader.ingressUniqueId;
