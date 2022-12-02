@@ -166,7 +166,7 @@ void OutductManager::StopAllOutducts() {
 
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -181,7 +181,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bun
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -196,7 +196,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & m
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -269,8 +269,8 @@ void OutductManager::GetAllOutductCapabilitiesTelemetry_ThreadSafe(AllOutductCap
     for (std::size_t i = 0; i < octVec.size(); ++i) {
         OutductCapabilityTelemetry_t& oct = octVec[i];
         std::shared_ptr<Outduct> & outductPtr = m_outductsVec[i];
-        oct.maxBundlesInPipeline = outductPtr->GetOutductMaxBundlesInPipeline();
-        oct.maxBundleSizeBytesInPipeline = 1000000; //TODO
+        oct.maxBundlesInPipeline = outductPtr->GetOutductMaxNumberOfBundlesInPipeline();
+        oct.maxBundleSizeBytesInPipeline = outductPtr->GetOutductMaxSumOfBundleBytesInPipeline();
         oct.outductArrayIndex = i;
         oct.nextHopNodeId = outductPtr->GetOutductNextHopNodeId();
         allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.emplace_back(std::move(oct));

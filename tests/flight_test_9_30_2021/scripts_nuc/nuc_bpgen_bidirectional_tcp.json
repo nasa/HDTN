@@ -7,11 +7,12 @@
             "nextHopNodeId": 10,
             "remoteHostname": "localhost",
             "remotePort": 4556,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 5000000,
             "finalDestinationEidUris": [
-                "ipn:1.1",
-                "ipn:2.1",
-                "ipn:3.1"
+                "ipn:1.*",
+                "ipn:2.*",
+                "ipn:3.*"
             ],
             "keepAliveIntervalSeconds": 17,
             "tcpclV3MyMaxTxSegmentSizeBytes": 200000000,

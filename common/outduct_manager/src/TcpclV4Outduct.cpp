@@ -28,7 +28,7 @@ TcpclV4Outduct::TcpclV4Outduct(const outduct_element_config_t & outductConfig, c
         outductConfig.tryUseTls, outductConfig.tlsIsRequired,
         outductConfig.keepAliveIntervalSeconds, myNodeId,
         Uri::GetIpnUriString(outductConfig.nextHopNodeId, 0), //ion 3.7.2 source code tcpcli.c line 1199 uses service number 0 for contact header:
-        outductConfig.bundlePipelineLimit + 5, outductConfig.tcpclV4MyMaxRxSegmentSizeBytes, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
+        outductConfig.maxNumberOfBundlesInPipeline + 5, outductConfig.tcpclV4MyMaxRxSegmentSizeBytes, maxOpportunisticRxBundleSizeBytes, outductOpportunisticProcessReceivedBundleCallback)
 {
 #ifdef OPENSSL_SUPPORT_ENABLED
     if (outductConfig.tryUseTls) {

@@ -7,18 +7,14 @@
             "nextHopNodeId": 1,
             "remoteHostname": "localhost",
             "remotePort": 4556,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 5000000,
             "finalDestinationEidUris": [
-                "ipn:200.1",
-                "ipn:2.1",
-                "ipn:3.1",
-		"ipn:1.1",
-		"ipn:4.1",
-		"ipn:4.2047",
-                "ipn:3.2047",
-                "ipn:2.2047",
-	        "ipn:1.2047", 
-		"ipn:200.2047"
+                "ipn:200.*",
+                "ipn:2.*",
+                "ipn:3.*",
+                "ipn:1.*",
+                "ipn:4.*"
             ],
             "keepAliveIntervalSeconds": 17
         }

@@ -25,8 +25,6 @@
 #include <memory>
 #include "HdtnConfig.h"
 #include <boost/core/noncopyable.hpp>
-
-
 #include "storage_lib_export.h"
 
 //addresses for ZMQ IPC transport

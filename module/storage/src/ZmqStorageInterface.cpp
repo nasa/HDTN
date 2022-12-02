@@ -1256,8 +1256,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
         //bundles forwarded over the cut-through path from ingress, alternating/multiplexing between the two.
         //Maintain up to that outduct's own sending pipeline limit,
         //which shall not exceed, whatever comes first, either:
-        //1.) More bundles than bundlePipelineLimit
-        //2.) More total bytes of bundles than bundleTotalBytesPipelineLimit
+        //1.) More bundles than maxNumberOfBundlesInPipeline
+        //2.) More total bytes of bundles than maxSumOfBundleBytesInPipeline
         //Note: 
         // - For bundles read from disk, when a bundle is acked from egress using the custody id,
         //   the bundle is deleted from disk and a new bundle can be sent.

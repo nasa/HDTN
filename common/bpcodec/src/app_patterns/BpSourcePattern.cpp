@@ -126,7 +126,7 @@ void BpSourcePattern::Start(OutductsConfig_ptr & outductsConfigPtr, InductsConfi
 
     
     if (outductsConfigPtr) {
-        m_currentlySendingBundleIdSet.reserve(outductsConfigPtr->m_outductElementConfigVector[0].bundlePipelineLimit);
+        m_currentlySendingBundleIdSet.reserve(outductsConfigPtr->m_outductElementConfigVector[0].maxNumberOfBundlesInPipeline);
         m_useInductForSendingBundles = false;
         if (!m_outductManager.LoadOutductsFromConfig(*outductsConfigPtr, m_myEid.nodeId, UINT16_MAX,
             10000000, //todo 10MB max rx opportunistic bundle
@@ -188,7 +188,7 @@ void BpSourcePattern::BpSourcePatternThreadFunc(uint32_t bundleRate) {
     Outduct* outduct = m_outductManager.GetOutductByOutductUuid(0);
     uint64_t outductMaxBundlesInPipeline = 0;
     if (outduct) {
-        outductMaxBundlesInPipeline = outduct->GetOutductMaxBundlesInPipeline();
+        outductMaxBundlesInPipeline = outduct->GetOutductMaxNumberOfBundlesInPipeline();
     }
     if(bundleRate) {
         LOG_INFO(subprocess) << "Generating up to " << bundleRate << " bundles / second";

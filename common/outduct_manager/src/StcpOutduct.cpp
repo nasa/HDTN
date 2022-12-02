@@ -6,7 +6,7 @@
 
 StcpOutduct::StcpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     Outduct(outductConfig, outductUuid),
-    m_stcpBundleSource(outductConfig.keepAliveIntervalSeconds, outductConfig.bundlePipelineLimit + 5)
+    m_stcpBundleSource(outductConfig.keepAliveIntervalSeconds, outductConfig.maxNumberOfBundlesInPipeline + 5)
 {}
 StcpOutduct::~StcpOutduct() {}
 

@@ -12,6 +12,7 @@
     "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
@@ -28,7 +29,6 @@
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
@@ -52,9 +52,10 @@
                 "nextHopNodeId": 2,
                 "remoteHostname": "localhost",
                 "remotePort": 4556,
-                "bundlePipelineLimit": 50,
+                "maxNumberOfBundlesInPipeline": 50,
+                "maxSumOfBundleBytesInPipeline": 5000000,
                 "finalDestinationEidUris": [
-                    "ipn:2.1"
+                    "ipn:2.*"
                 ],
                 "keepAliveIntervalSeconds": 15
             }

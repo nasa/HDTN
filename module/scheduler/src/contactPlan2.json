@@ -5,15 +5,15 @@
             "source": 10,
             "dest": 1,
             "finalDestination": 1,
-	    "startTime": 10,
+            "startTime": 10,
             "endTime": 20,
             "rate": 1000
         },
-	{
+        {
             "contact": 1,
             "source": 10,
             "dest": 2,
-	    "finalDestination": 2,
+            "finalDestination": 2,
             "startTime": 25,
             "endTime": 38,
             "rate": 1000

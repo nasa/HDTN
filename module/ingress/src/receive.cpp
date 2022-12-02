@@ -917,24 +917,22 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     /*
     Config file changes:
     remove: zmqMaxMessagesPerPath, zmqMaxMessageSizeBytes, zmqRegistrationServerAddress, and zmqRegistrationServerPortPath from hdtn global configs
-    add: bundleTotalBytesPipelineLimit (uint64_t) to the outducts
-    keep: bundlePipelineLimit in the outducts
-    add: highRxRateCanBufferToStorage (boolean default=false) to the inducts
-    checks: an error shall be thrown if zmqMaxMessagesPerPath (deprecated) is found in the config files
-    checks: an error shall be thrown if (maxBundleSizeBytes * 2) > bundleTotalBytesPipelineLimit
-    for consideration: rename bundlePipelineLimit to something like maxNumberOfBundlesPipelineLimit
+    add: bufferRxToStorageOnLinkUpSaturation (boolean default=false) to the hdtn global configs
+    add: maxSumOfBundleBytesInPipeline (uint64_t) to the outducts
+    rename: bundlePipelineLimit to maxNumberOfBundlesInPipeline in the outducts
+    checks: an error shall be thrown if (maxBundleSizeBytes * 2) > maxSumOfBundleBytesInPipeline
 
     Context:
     It is the responsibility of Storage and Ingress, working together, to not overwhelm Egress and exceed the bundle pipeline limits of the Egress outducts.
     Egress can only pop bundles off the zeromq receive queue and throw them into an outduct, but if all components are working together,
-    a bundlePipelineLimit exceeded error message should never happen along with its associated link-down event.
+    a maxNumberOfBundlesInPipeline exceeded error message should never happen along with its associated link-down event.
 
     Ingress now knows the capability of the egress outducts via a telemetry message from egress,
-    such as bundle pipeline limits in terms of max number of bundles (bundlePipelineLimit) and
-    max bundle size bytes (bundleTotalBytesPipelineLimit). For a particular outduct,
+    such as bundle pipeline limits in terms of max number of bundles (maxNumberOfBundlesInPipeline) and
+    max bundle size bytes (maxSumOfBundleBytesInPipeline). For a particular outduct,
     the max data it can hold in its sending pipeline shall not exceed, whatever comes first, either:
-      1.) More bundles than bundlePipelineLimit
-      2.) More total bytes of bundles than bundleTotalBytesPipelineLimit 
+      1.) More bundles than maxNumberOfBundlesInPipeline
+      2.) More total bytes of bundles than maxSumOfBundleBytesInPipeline 
 
     For bundles that are cut-through eligible (i.e. custody not requested and an outduct is available):
     Because ingress is agnostic of what data may be released from storage to that same outduct,
@@ -973,7 +971,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
     disk write acknowledgements are received by ingress. Natural flow control is achieved (explained above in previous paragraph),
     and hdtn shall never exhaust system memory.
 
-    Worst case ram memory usage is given by summation of all outduct bundleTotalBytesPipelineLimit,
+    Worst case ram memory usage is given by summation of all outduct maxSumOfBundleBytesInPipeline,
     plus maxBundleSizeBytes for the single "zmq-path-to-storage".  Until a better implementation for TCPCL opportunistic links is defined,
     if one or more TCPCL outducts are used, the worst case ram memory usage must add (5 x maxBundleSizeBytes) in the event that
     a TCPCL outduct suddenly starts receiving bundles. The 5x value for TCPCL comes from a zeromq high-water-mark setting hardcoded into HDTN.
@@ -1034,9 +1032,8 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             
             if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
                 bool reservedEgressPipelineAvailability;
-                const bool bufferRxToStorageOnLinkUpSaturation = true;
                 static const boost::posix_time::time_duration noDuration = boost::posix_time::seconds(0);
-                const boost::posix_time::time_duration& cutThroughTimeoutRef = (bufferRxToStorageOnLinkUpSaturation)
+                const boost::posix_time::time_duration& cutThroughTimeoutRef = (m_hdtnConfig.m_bufferRxToStorageOnLinkUpSaturation)
                     ? noDuration : M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
                 const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
                     cutThroughTimeoutRef, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),

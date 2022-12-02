@@ -78,6 +78,7 @@ public:
     uint64_t m_retransmitBundleAfterNoCustodySignalMilliseconds;
     uint64_t m_maxBundleSizeBytes;
     uint64_t m_maxIngressBundleWaitOnEgressMilliseconds;
+    bool m_bufferRxToStorageOnLinkUpSaturation;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
 
     std::string m_zmqIngressAddress;
@@ -102,7 +103,6 @@ public:
 //#define HDTN_SCHEDULER_PATH "tcp://0.0.0.0:10200"
     uint16_t m_zmqBoundSchedulerPubSubPortPath; //#define HDTN_BOUND_SCHEDULER_PUBSUB_PATH "tcp://127.0.0.1:10200"
     uint16_t m_zmqBoundRouterPubSubPortPath; //#define HDTN_BOUND_ROUTER_PUBSUB_PATH "tcp://127.0.0.1:10210"
-    uint64_t m_zmqMaxMessageSizeBytes;
 
     InductsConfig m_inductsConfig;
     OutductsConfig m_outductsConfig;

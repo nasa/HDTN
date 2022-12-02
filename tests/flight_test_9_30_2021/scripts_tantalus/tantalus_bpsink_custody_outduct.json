@@ -7,7 +7,8 @@
             "nextHopNodeId": 20,
             "remoteHostname": "localhost",
             "remotePort": 4558,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 5000000,
             "finalDestinationEidUris": [
                 "ipn:20.0"
             ],

@@ -38,7 +38,8 @@ struct outduct_element_config_t {
     uint64_t nextHopNodeId;
     std::string remoteHostname;
     uint16_t remotePort;
-    uint32_t bundlePipelineLimit;
+    uint32_t maxNumberOfBundlesInPipeline;
+    uint64_t maxSumOfBundleBytesInPipeline;
     std::set<std::string> finalDestinationEidUris;
     
 
