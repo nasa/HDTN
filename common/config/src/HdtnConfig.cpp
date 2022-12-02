@@ -17,6 +17,9 @@
 #include <memory>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <sstream>
+#include <set>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -315,9 +318,44 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
     return true;
 }
 
+static bool HasUnusedJsonVariables(const HdtnConfig & hdtnConfig, const boost::property_tree::ptree& fromOriginalJsonPt, std::string & returnedErrorMessage) {
+    returnedErrorMessage.clear();
+    const std::string hdtnJsonNoUnusedVars = hdtnConfig.ToJson();
+    const std::string hdtnJsonHasPotentiallyUnusedVars = JsonSerializable::PtToJsonString(fromOriginalJsonPt); //rewrite to pretty format in case it was minified json
+    std::istringstream hdtnJsonNoUnusedVarsSs(hdtnJsonNoUnusedVars);
+    std::istringstream hdtnJsonHasPotentiallyUnusedVarsSs(hdtnJsonHasPotentiallyUnusedVars);
+    std::string lineNoUnused;
+    std::set<std::string> validLinesSet; //support out of order
+    while (std::getline(hdtnJsonNoUnusedVarsSs, lineNoUnused).good()) {
+        boost::algorithm::trim(lineNoUnused);
+        validLinesSet.emplace(std::move(lineNoUnused));
+    }
+    std::string linePotentiallyUnused;
+    unsigned int lineNumber = 0;
+    while (std::getline(hdtnJsonHasPotentiallyUnusedVarsSs, linePotentiallyUnused).good()) {
+        ++lineNumber;
+        boost::algorithm::trim(linePotentiallyUnused);
+        if (validLinesSet.count(linePotentiallyUnused) == 0) {
+            returnedErrorMessage = "line " + boost::lexical_cast<std::string>(lineNumber) + ": unused variable: " + linePotentiallyUnused;
+            return true;
+        }
+    }
+    return false;
+}
+
 HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
     try {
-        return HdtnConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
+        const boost::property_tree::ptree fromOriginalJsonPt = JsonSerializable::GetPropertyTreeFromJsonString(jsonString);
+        HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromPtree(fromOriginalJsonPt);
+        //verify that there are no unused variables within the original json
+        if (hdtnConfig) {
+            std::string returnedErrorMessage;
+            if (HasUnusedJsonVariables(*hdtnConfig, fromOriginalJsonPt, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << "Json string, " << returnedErrorMessage;
+                return HdtnConfig_ptr(); //NULL
+            }
+        }
+        return hdtnConfig;
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJson. Error: " + std::string(e.what());
@@ -329,7 +367,17 @@ HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
 
 HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName) {
     try {
-        return HdtnConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
+        const boost::property_tree::ptree fromOriginalJsonPt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName);
+        HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromPtree(fromOriginalJsonPt);
+        //verify that there are no unused variables within the original json
+        if (hdtnConfig) {
+            std::string returnedErrorMessage;
+            if (HasUnusedJsonVariables(*hdtnConfig, fromOriginalJsonPt, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << "Json file " << jsonFileName << ", " << returnedErrorMessage;
+                return HdtnConfig_ptr(); //NULL
+            }
+        }
+        return hdtnConfig;
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJsonFile. Error: " + std::string(e.what());
@@ -347,6 +395,8 @@ HdtnConfig_ptr HdtnConfig::CreateFromPtree(const boost::property_tree::ptree & p
     }
     return ptrHdtnConfig;
 }
+
+
 
 boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;

@@ -35,13 +35,17 @@ static const boost::regex regexMatchInQuotes("\\\"(-?\\d*\\.{0,1}\\d+|true|false
 JsonSerializable::JsonSerializable() {
 }
 
-std::string JsonSerializable::ToJson(bool pretty) {
+std::string JsonSerializable::PtToJsonString(const boost::property_tree::ptree& pt, bool pretty) {
     std::ostringstream oss;
-    boost::property_tree::write_json(oss, GetNewPropertyTree(), pretty);
+    boost::property_tree::write_json(oss, pt, pretty);
     return boost::regex_replace(oss.str(), regexMatchInQuotes, "$1");
 }
 
-bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) {
+std::string JsonSerializable::ToJson(bool pretty) const {
+    return PtToJsonString(GetNewPropertyTree(), pretty);
+}
+
+bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) const {
     std::ofstream out(fileName);
     if (!out.good()) {
         const std::string message = "In JsonSerializable::ToJsonFile. Error opening file for writing: " + fileName;
@@ -93,14 +97,17 @@ boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromJsonFile(const 
     return pt;
 }
 
-std::string JsonSerializable::ToXml() {
+std::string JsonSerializable::PtToXmlString(const boost::property_tree::ptree& pt) {
     std::ostringstream oss;
     static const boost::property_tree::xml_writer_settings<std::string> settings = boost::property_tree::xml_writer_make_settings<std::string>(' ', 2);
-    boost::property_tree::write_xml(oss, GetNewPropertyTree(), settings);
+    boost::property_tree::write_xml(oss, pt, settings);
     return oss.str();
 }
+std::string JsonSerializable::ToXml() const {
+    return PtToXmlString(GetNewPropertyTree());
+}
 
-bool JsonSerializable::ToXmlFile(const std::string & fileName, char indentCharacter, int indentCount) {
+bool JsonSerializable::ToXmlFile(const std::string & fileName, char indentCharacter, int indentCount) const {
     static const boost::property_tree::xml_writer_settings<std::string> settings = boost::property_tree::xml_writer_make_settings<std::string>(indentCharacter, indentCount);
     try {
         boost::property_tree::write_xml(fileName, GetNewPropertyTree(), std::locale(), settings);

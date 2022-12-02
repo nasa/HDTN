@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE(LtpTimerManagerTestCase)
                 m_serialNumbersInCallback.push_back(serialNumber);
                 ++m_numCallbacks;
             }
-            else if (m_testNumber = 2) {
+            else if (m_testNumber == 2) {
                 BOOST_REQUIRE(userData == std::vector<uint8_t>({ 1,2,3 }));
                 m_serialNumbersInCallback.push_back(serialNumber);
                 //std::cout << "sn " << serialNumber << std::endl;

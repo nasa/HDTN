@@ -39,14 +39,16 @@
 
 class HDTN_UTIL_EXPORT JsonSerializable {
 public:
-    std::string ToJson(bool pretty = true);
-    bool ToJsonFile(const std::string & fileName, bool pretty = true);
+    static std::string PtToJsonString(const boost::property_tree::ptree& pt, bool pretty = true);
+    std::string ToJson(bool pretty = true) const;
+    bool ToJsonFile(const std::string & fileName, bool pretty = true) const;
     static boost::property_tree::ptree GetPropertyTreeFromCharArray(char* data, const std::size_t size);
     static boost::property_tree::ptree GetPropertyTreeFromJsonString(const std::string & jsonStr);
     static boost::property_tree::ptree GetPropertyTreeFromJsonFile(const std::string & jsonFileName);
 
-    std::string ToXml();
-    bool ToXmlFile(const std::string & fileName, char indentCharacter = ' ', int indentCount = 2);
+    static std::string PtToXmlString(const boost::property_tree::ptree& pt);
+    std::string ToXml() const;
+    bool ToXmlFile(const std::string & fileName, char indentCharacter = ' ', int indentCount = 2) const;
     static boost::property_tree::ptree GetPropertyTreeFromXmlString(const std::string & jsonStr);
     static boost::property_tree::ptree GetPropertyTreeFromXmlFile(const std::string & xmlFileName);
 
