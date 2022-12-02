@@ -51,7 +51,7 @@
                 "remoteHostname": "node4",
                 "remotePort": 4559,
                 "maxNumberOfBundlesInPipeline": 500,
-                "maxSumOfBundleBytesInPipeline": 5000000,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
                     "ipn:200.*",
                     "ipn:4.*",

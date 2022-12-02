@@ -73,7 +73,7 @@
                 "remoteHostname": "tantalus",
                 "remotePort": 1113,
                 "maxNumberOfBundlesInPipeline": 50,
-                "maxSumOfBundleBytesInPipeline": 5000000,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
                     "ipn:2.*"
                 ],
@@ -99,7 +99,7 @@
                 "remoteHostname": "localhost",
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 50,
-                "maxSumOfBundleBytesInPipeline": 5000000,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
                     "ipn:1.*"
                 ],

@@ -67,7 +67,7 @@
                 "remoteHostname": "node2",
                 "remotePort": 4558,
                 "maxNumberOfBundlesInPipeline": 500,
-                "maxSumOfBundleBytesInPipeline": 5000000,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
                 ],
                 "keepAliveIntervalSeconds": 17

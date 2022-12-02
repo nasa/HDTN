@@ -37,6 +37,18 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         const outduct_element_config_t & thisOutductConfig = *it;
         std::shared_ptr<Outduct> outductSharedPtr;
         const uint64_t uuidIndex = nextOutductUuidIndex;
+        //an error shall be thrown if (maxBundleSizeBytes * 2) > maxSumOfBundleBytesInPipeline
+        //to prevent a large bundle from being unable to be sent, since hdtn cannot fragment bundles as of now
+        //note: function parameter maxOpportunisticRxBundleSizeBytes is set from m_hdtnConfig.m_maxBundleSizeBytes, so use that
+        const uint64_t maxBundleSizeBytes = maxOpportunisticRxBundleSizeBytes;
+        if ((maxBundleSizeBytes * 2) > thisOutductConfig.maxSumOfBundleBytesInPipeline) {
+            LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: maxBundleSizeBytes("
+                << maxBundleSizeBytes
+                << ") x 2 > maxSumOfBundleBytesInPipeline("
+                << thisOutductConfig.maxSumOfBundleBytesInPipeline
+                << ") for outduct index " << uuidIndex;
+            return false;
+        }
         if (thisOutductConfig.convergenceLayer == "tcpcl_v3") {
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
                 outductSharedPtr = std::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
@@ -48,8 +60,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
 #ifndef OPENSSL_SUPPORT_ENABLED
             if (thisOutductConfig.tlsIsRequired) {
-                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.. this outduct shall be disabled.";
-                continue;
+                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.";
+                return false;
             }
 #endif
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {

@@ -8,7 +8,7 @@
             "remoteHostname": "localhost",
             "remotePort": 4556,
             "maxNumberOfBundlesInPipeline": 60,
-            "maxSumOfBundleBytesInPipeline": 5000000,
+            "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
                 "ipn:1.*",
                 "ipn:2.*",
