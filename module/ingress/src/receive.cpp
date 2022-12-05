@@ -797,7 +797,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             if (isEcho) {
                 primary.m_destinationEid = primary.m_sourceNodeId;
                 finalDestEid = primary.m_destinationEid;
-                LOG_ERROR(subprocess) << "Sending Ping for destination " << primary.m_destinationEid;
+                LOG_INFO(subprocess) << "Sending Ping for destination " << primary.m_destinationEid;
                 primary.m_sourceNodeId = M_HDTN_EID_ECHO;
                 bv.m_primaryBlockView.SetManuallyModified();
                 bv.Render(bundleCurrentSize + 10);
