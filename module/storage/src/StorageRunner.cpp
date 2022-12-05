@@ -34,10 +34,7 @@ StorageRunner::~StorageRunner() {}
 
 
 std::size_t StorageRunner::GetCurrentNumberOfBundlesDeletedFromStorage() {
-    if (!m_storagePtr) {
-        return 0;
-    }
-    return m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
+    return m_totalBundlesErasedFromStorage;
 }
 
 
@@ -95,9 +92,9 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
         //config.releaseWorker = HDTN_BOUND_SCHEDULER_PUBSUB_PATH;
         //telem(HDTN_STORAGE_TELEM_PATH), worker(HDTN_STORAGE_WORKER_PATH), releaseWorker(HDTN_BOUND_SCHEDULER_PUBSUB_PATH) {}
         //config.storePath = storePath;
-        m_storagePtr = boost::make_unique<ZmqStorageInterface>();
+        ZmqStorageInterface storage;
         LOG_INFO(subprocess) << "Initializing storage manager ...";
-        if (!m_storagePtr->Init(*hdtnConfig)) {
+        if (!storage.Init(*hdtnConfig)) {
             return false;
         }
 
@@ -111,6 +108,8 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
             if (useSignalHandler) {
                 sigHandler.PollOnce();
             }
+            m_totalBundlesErasedFromStorage = storage.GetCurrentNumberOfBundlesDeletedFromStorage();
+            m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorageReadFromDisk;
             //gettimeofday(&tv, NULL);
             //double curr = (tv.tv_sec + (tv.tv_usec / 1000000.0));
             /*if (curr - last > 1) {
@@ -129,9 +128,9 @@ bool StorageRunner::Run(int argc, const char* const argv[], volatile bool & runn
 //        store.Stop();
 //        m_totalBundlesErasedFromStorage = store.m_totalBundlesErasedFromStorage;
 //        m_totalBundlesSentToEgressFromStorage = store.m_totalBundlesSentToEgressFromStorage;
-        m_storagePtr->Stop();
-        m_totalBundlesErasedFromStorage = m_storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = m_storagePtr->m_totalBundlesSentToEgressFromStorageReadFromDisk;
+        storage.Stop();
+        m_totalBundlesErasedFromStorage = storage.GetCurrentNumberOfBundlesDeletedFromStorage();
+        m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorageReadFromDisk;
     }
     LOG_INFO(subprocess) << "StorageRunner: exited cleanly";
     return true;

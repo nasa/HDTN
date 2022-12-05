@@ -138,17 +138,12 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
             return false;
         }
 
-        LOG_INFO(subprocess) << "Announcing presence of egress...";
-        
-
         LOG_INFO(subprocess) << "starting ingress..";
         hdtn::Ingress ingress;
         if (!ingress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
-
-        //create on heap with unique_ptr to prevent stack overflows
         ZmqStorageInterface storage;
         LOG_INFO(subprocess) << "Initializing storage manager ...";
         if (!storage.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {

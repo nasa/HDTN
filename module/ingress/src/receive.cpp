@@ -87,6 +87,7 @@ private:
         bool WaitForStoragePipelineAvailabilityAndReserve(const boost::posix_time::time_duration& timeoutDuration,
             const uint64_t uniqueId, const uint64_t bundleSizeBytes);
         void NotifyAll();
+        uint64_t GetNextHopNodeId() const;
     private:
         
         boost::mutex m_mutex;
@@ -96,11 +97,11 @@ private:
         uint64_t m_egressBytesInPipeline;
         uint64_t m_storageBytesInPipeline;
 
-        uint64_t maxBundlesInPipeline;
-        uint64_t maxBundleSizeBytesInPipeline;
-        uint64_t nextHopNodeId;
+        uint64_t m_maxBundlesInPipeline;
+        uint64_t m_maxBundleSizeBytesInPipeline;
+        uint64_t m_nextHopNodeId;
     public:
-        bool linkIsUp;
+        bool m_linkIsUp;
     };
     typedef std::unique_ptr<BundlePipelineAckingSet> BundlePipelineAckingSetPtr;
 
@@ -166,13 +167,13 @@ Ingress::Impl::BundlePipelineAckingSet::BundlePipelineAckingSet(const uint64_t p
 void Ingress::Impl::BundlePipelineAckingSet::Update(const uint64_t paramMaxBundlesInPipeline,
     const uint64_t paramMaxBundleSizeBytesInPipeline, const uint64_t paramNextHopNodeId, bool paramLinkIsUp)
 {
-    maxBundlesInPipeline = paramMaxBundlesInPipeline;
-    maxBundleSizeBytesInPipeline = paramMaxBundleSizeBytesInPipeline;
-    nextHopNodeId = paramNextHopNodeId;
-    linkIsUp = paramLinkIsUp;
+    m_maxBundlesInPipeline = paramMaxBundlesInPipeline;
+    m_maxBundleSizeBytesInPipeline = paramMaxBundleSizeBytesInPipeline;
+    m_nextHopNodeId = paramNextHopNodeId;
+    m_linkIsUp = paramLinkIsUp;
     //By default, unordered_set containers have a max_load_factor of 1.0.
-    m_mapEgressBundleUniqueIdToBundleSizeBytes.reserve(maxBundlesInPipeline); //maxBundlesInPipeline is double of half
-    m_mapStorageBundleUniqueIdToBundleSizeBytes.reserve(maxBundlesInPipeline);
+    m_mapEgressBundleUniqueIdToBundleSizeBytes.reserve(m_maxBundlesInPipeline); //maxBundlesInPipeline is double of half
+    m_mapStorageBundleUniqueIdToBundleSizeBytes.reserve(m_maxBundlesInPipeline);
 }
 
 bool Ingress::Impl::BundlePipelineAckingSet::CompareAndPop_ThreadSafe(const uint64_t uniqueId, const bool isEgress) {
@@ -200,8 +201,8 @@ bool Ingress::Impl::BundlePipelineAckingSet::WaitForPipelineAvailabilityAndReser
 {
     reservedEgressPipelineAvailability = false;
     reservedStoragePipelineAvailability = false;
-    const uint64_t halfOfMaxBundlesInPipeline = maxBundlesInPipeline >> 1;
-    const uint64_t halfOfMaxBytesInPipeline = maxBundleSizeBytesInPipeline >> 1;
+    const uint64_t halfOfMaxBundlesInPipeline = m_maxBundlesInPipeline >> 1;
+    const uint64_t halfOfMaxBytesInPipeline = m_maxBundleSizeBytesInPipeline >> 1;
     const boost::posix_time::ptime timeoutExpiry(boost::posix_time::microsec_clock::universal_time() + timeoutDuration);
     boost::mutex::scoped_lock lock(m_mutex);
     //timed_wait Returns: false if the call is returning because the time specified by abs_time was reached, true otherwise. (false=>timeout)
@@ -247,6 +248,9 @@ bool Ingress::Impl::BundlePipelineAckingSet::WaitForStoragePipelineAvailabilityA
 }
 void Ingress::Impl::BundlePipelineAckingSet::NotifyAll() {
     m_conditionVariable.notify_all();
+}
+uint64_t Ingress::Impl::BundlePipelineAckingSet::GetNextHopNodeId() const {
+    return m_nextHopNodeId;
 }
 
 Ingress::Impl::Impl() : 
@@ -480,8 +484,8 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                     if (receivedEgressAckHdr.error) {
                         //trigger a link down event in ingress more quickly than waiting for scheduler.
                         //egress shall send the failed bundle to storage.
-                        if (bundlePipelineAckingSetObj.linkIsUp) {
-                            bundlePipelineAckingSetObj.linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+                        if (bundlePipelineAckingSetObj.m_linkIsUp) {
+                            bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
                             LOG_INFO(subprocess) << "Got a link down notification from egress for outductIndex " 
                                 << receivedEgressAckHdr.outductIndex;
                         }
@@ -550,7 +554,7 @@ void Ingress::Impl::ReadZmqAcksThreadFunc() {
                                         LOG_INFO(subprocess) << "Received updated outduct telemetries from egress";
                                         BundlePipelineAckingSet& ackingSet = *(m_vectorBundlePipelineAckingSet[oct.outductArrayIndex]);
                                         ackingSet.Update(oct.maxBundlesInPipeline,
-                                            oct.maxBundleSizeBytesInPipeline, oct.nextHopNodeId, ackingSet.linkIsUp);
+                                            oct.maxBundleSizeBytesInPipeline, oct.nextHopNodeId, ackingSet.m_linkIsUp);
                                     }
                                     m_mapNextHopNodeIdToOutductArrayIndex[oct.nextHopNodeId] = oct.outductArrayIndex;
                                     for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin(); it != oct.finalDestinationEidList.cend(); ++it) {
@@ -717,8 +721,8 @@ void Ingress::Impl::SchedulerEventHandler() {
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKUP) {
         ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
         BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
-        if (!bundlePipelineAckingSetObj.linkIsUp) {
-            bundlePipelineAckingSetObj.linkIsUp = true; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+        if (!bundlePipelineAckingSetObj.m_linkIsUp) {
+            bundlePipelineAckingSetObj.m_linkIsUp = true; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
             LOG_INFO(subprocess) << "Ingress sending bundles to egress for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
                 << " outductArrayIndex=" << releaseChangeHdr.outductArrayIndex;
         }
@@ -726,8 +730,8 @@ void Ingress::Impl::SchedulerEventHandler() {
     else if (releaseChangeHdr.base.type == HDTN_MSGTYPE_ILINKDOWN) {
         ingress_shared_lock_t lockShared(m_sharedMutexFinalDestsToOutductArrayIndexMaps);
         BundlePipelineAckingSet& bundlePipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[releaseChangeHdr.outductArrayIndex]);
-        if (bundlePipelineAckingSetObj.linkIsUp) {
-            bundlePipelineAckingSetObj.linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
+        if (bundlePipelineAckingSetObj.m_linkIsUp) {
+            bundlePipelineAckingSetObj.m_linkIsUp = false; //no mutex needed as this flag is only set from ReadZmqAcksThreadFunc
             LOG_INFO(subprocess) << "Sending bundles to storage for nextHopNodeId: " << releaseChangeHdr.nextHopNodeId
                 << " since outductArrayIndex=" << releaseChangeHdr.outductArrayIndex << " is down";
         }
@@ -1028,7 +1032,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
             if (outductIndex != UINT64_MAX) {
                 BundlePipelineAckingSet& bundleCutThroughPipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[outductIndex]);
 
-                const bool shouldTryToUseCustThrough = ((bundleCutThroughPipelineAckingSetObj.linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+                const bool shouldTryToUseCustThrough = ((bundleCutThroughPipelineAckingSetObj.m_linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
                 useStorage = !shouldTryToUseCustThrough;
 
                 if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
@@ -1055,6 +1059,7 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                             //memset 0 not needed because all values set below
                             toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
                             toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
+                            toEgressHdr->nextHopNodeId = bundleCutThroughPipelineAckingSetObj.GetNextHopNodeId();
                             toEgressHdr->finalDestEid = finalDestEid;
                             toEgressHdr->hasCustody = requestsCustody;
                             toEgressHdr->isCutThroughFromIngress = 1;

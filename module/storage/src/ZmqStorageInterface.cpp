@@ -609,7 +609,7 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
 
     //IF YOU DECIDE YOU DON'T WANT TO READ THE BUNDLE AFTER PEEKING AT IT (MAYBE IT'S TOO BIG RIGHT NOW)
     if (bytesToReadFromDisk > maxBundleSizeToRead) {
-        LOG_DEBUG(subprocess) << "bundle to read from disk is too large right now";
+        LOG_DEBUG(subprocess) << "bundle to read from disk (size=" << bytesToReadFromDisk << " bytes) is too large right now, exceeds " << maxBundleSizeToRead << " bytes";
         m_bsmPtr->ReturnTop(m_sessionRead);
         return false;
         //bytesToReadFromDisk = bsm.PopTop(sessionRead, availableDestLinks); //get it back
@@ -632,6 +632,7 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
     //memset 0 not needed because all values set below
     toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
     toEgressHdr->base.flags = 0;
+    toEgressHdr->nextHopNodeId = info.nextHopNodeId;
     toEgressHdr->finalDestEid = m_sessionRead.catalogEntryPtr->destEid;
     toEgressHdr->hasCustody = m_sessionRead.catalogEntryPtr->HasCustody();
     toEgressHdr->isCutThroughFromIngress = 0;
@@ -808,69 +809,86 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 }
                 else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
                     if (egressFullyInitialized) {
-                        OutductInfo_t& info = *(m_vectorOutductInfo[egressAckHdr.outductIndex]);
-                        if (egressAckHdr.isResponseToStorageCutThrough) {
-                            map_id_to_ackdata_t& mapIdToAckData = info.mapIngressUniqueIdToIngressAckData;
-                            map_id_to_ackdata_t::iterator it = mapIdToAckData.find(egressAckHdr.custodyId);
-                            if (it != mapIdToAckData.end()) {
-                                if (egressAckHdr.error) {
-                                    //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
-                                    //error flag set because egress could not send the bundle.
-                                    //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
-                                    //Since ingress holds the bundle, the error flag will let ingress determine the action for the bundle.
-                                    LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
-                                        << egressAckHdr.outductIndex << " for final dest "
-                                        << egressAckHdr.finalDestEid 
-                                        << " because storage forwarding cut-through bundles to egress failed";
-
-                                    SetLinkDown(info);
-                                    hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)it->second.ackToIngress.data();
-                                    storageAckHdr->error = 1;
-                                }
-                                if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(it->second.ackToIngress), zmq::send_flags::dontwait)) {
-                                    LOG_ERROR(subprocess) << "zmq could not send ingress a cut-through ack from storage";
-                                }
-                                info.bytesInPipeline -= it->second.bundleSizeBytes;
-                                mapIdToAckData.erase(it);
+                        OutductInfo_t* outductInfoRawPtr = NULL;
+                        if (egressAckHdr.isOpportunisticFromStorage) {
+                            std::map<uint64_t, OutductInfoPtr_t>::iterator it = m_mapOpportunisticNextHopNodeIdToOutductInfo.find(egressAckHdr.nextHopNodeId);
+                            if (it == m_mapOpportunisticNextHopNodeIdToOutductInfo.end()) {
+                                LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find opportunistic link nextHopNodeId "
+                                    << egressAckHdr.nextHopNodeId;
                             }
                             else {
-                                LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find Ingress Unique Id " << egressAckHdr.custodyId;
+                                outductInfoRawPtr = it->second.get();
                             }
                         }
                         else {
-                            custodyid_to_size_map_t & mapCustodyIdToSize = info.mapOpenCustodyIdToBundleSizeBytes;
-                            custodyid_to_size_map_t::iterator it = mapCustodyIdToSize.find(egressAckHdr.custodyId);
-                            if (it != mapCustodyIdToSize.end()) {
-                                if (egressAckHdr.error) {
-                                    //A bundle that was sent from storage to egress gets an ack back from egress with the error flag set because egress could not send the bundle.
-                                    //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
-                                    //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
-                                    //but the bundle won't be immediately released again from storage because of the immediate link down event.
-                                    LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
-                                        << egressAckHdr.outductIndex << " for final dest "
-                                        << egressAckHdr.finalDestEid
-                                        << " because storage to egress failed";
+                            outductInfoRawPtr = m_vectorOutductInfo[egressAckHdr.outductIndex].get();
+                            
+                        }
+                        if (outductInfoRawPtr) {
+                            OutductInfo_t& info = *outductInfoRawPtr;
+                            if (egressAckHdr.isResponseToStorageCutThrough) {
+                                map_id_to_ackdata_t& mapIdToAckData = info.mapIngressUniqueIdToIngressAckData;
+                                map_id_to_ackdata_t::iterator it = mapIdToAckData.find(egressAckHdr.custodyId);
+                                if (it != mapIdToAckData.end()) {
+                                    if (egressAckHdr.error) {
+                                        //A bundle that was forwarded without store from storage to egress gets an ack back from egress with the
+                                        //error flag set because egress could not send the bundle.
+                                        //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
+                                        //Since ingress holds the bundle, the error flag will let ingress determine the action for the bundle.
+                                        LOG_WARNING(subprocess) << "Got a link down notification from egress on cut-through path for outduct index "
+                                            << egressAckHdr.outductIndex << " for final dest "
+                                            << egressAckHdr.finalDestEid
+                                            << " because storage forwarding cut-through bundles to egress failed";
 
-                                    SetLinkDown(info);
-                                    if (!m_bsmPtr->ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
-                                        LOG_ERROR(subprocess) << "error returning custody id " << egressAckHdr.custodyId << " to awaiting send";
+                                        SetLinkDown(info);
+                                        hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)it->second.ackToIngress.data();
+                                        storageAckHdr->error = 1;
                                     }
-                                    m_custodyTimersPtr->CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
+                                    if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(it->second.ackToIngress), zmq::send_flags::dontwait)) {
+                                        LOG_ERROR(subprocess) << "zmq could not send ingress a cut-through ack from storage";
+                                    }
+                                    info.bytesInPipeline -= it->second.bundleSizeBytes;
+                                    mapIdToAckData.erase(it);
                                 }
-                                else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
-                                    bool successRemoveBundle = m_bsmPtr->RemoveReadBundleFromDisk(egressAckHdr.custodyId);
-                                    if (!successRemoveBundle) {
-                                        LOG_ERROR(subprocess) << "error freeing bundle from disk";
-                                    }
-                                    else {
-                                        ++m_totalBundlesErasedFromStorageNoCustodyTransfer;
-                                    }
+                                else {
+                                    LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find Ingress Unique Id " << egressAckHdr.custodyId;
                                 }
-                                info.bytesInPipeline -= it->second;
-                                mapCustodyIdToSize.erase(it);
                             }
                             else {
-                                LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find custody id " << egressAckHdr.custodyId;
+                                custodyid_to_size_map_t& mapCustodyIdToSize = info.mapOpenCustodyIdToBundleSizeBytes;
+                                custodyid_to_size_map_t::iterator it = mapCustodyIdToSize.find(egressAckHdr.custodyId);
+                                if (it != mapCustodyIdToSize.end()) {
+                                    if (egressAckHdr.error) {
+                                        //A bundle that was sent from storage to egress gets an ack back from egress with the error flag set because egress could not send the bundle.
+                                        //This will allow storage to trigger a link down event more quickly than waiting for scheduler.
+                                        //Since storage already has the bundle, the error flag will prevent deletion and move the bundle back to the "awaiting send" state,
+                                        //but the bundle won't be immediately released again from storage because of the immediate link down event.
+                                        LOG_WARNING(subprocess) << "Got a link down notification from egress for outduct index "
+                                            << egressAckHdr.outductIndex << " for final dest "
+                                            << egressAckHdr.finalDestEid
+                                            << " because storage to egress failed";
+
+                                        SetLinkDown(info);
+                                        if (!m_bsmPtr->ReturnCustodyIdToAwaitingSend(egressAckHdr.custodyId)) {
+                                            LOG_ERROR(subprocess) << "error returning custody id " << egressAckHdr.custodyId << " to awaiting send";
+                                        }
+                                        m_custodyTimersPtr->CancelCustodyTransferTimer(egressAckHdr.finalDestEid, egressAckHdr.custodyId);
+                                    }
+                                    else if (egressAckHdr.deleteNow) { //custody not requested, so don't wait on a custody signal to delete the bundle
+                                        bool successRemoveBundle = m_bsmPtr->RemoveReadBundleFromDisk(egressAckHdr.custodyId);
+                                        if (!successRemoveBundle) {
+                                            LOG_ERROR(subprocess) << "error freeing bundle from disk";
+                                        }
+                                        else {
+                                            ++m_totalBundlesErasedFromStorageNoCustodyTransfer;
+                                        }
+                                    }
+                                    info.bytesInPipeline -= it->second;
+                                    mapCustodyIdToSize.erase(it);
+                                }
+                                else {
+                                    LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find custody id " << egressAckHdr.custodyId;
+                                }
                             }
                         }
                     }
@@ -1015,7 +1033,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         info.linkIsUp = true;
                         info.isOpportunisticLink = true;
                         info.maxBundlesInPipeline = 5; //TODO
-                        info.maxBundleSizeBytesInPipeline = 0; //TODO
+                        info.maxBundleSizeBytesInPipeline = info.maxBundlesInPipeline * m_hdtnConfig.m_maxBundleSizeBytes;
                         RepopulateUpLinksVec();
                         LOG_INFO(subprocess) << "Adding Opportunistic link from ingress connection.. " << info;
                     }
@@ -1304,6 +1322,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     //memset 0 not needed because all values set below
                     toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
                     toEgressHdr->base.flags = 0;
+                    toEgressHdr->nextHopNodeId = info.nextHopNodeId;
                     toEgressHdr->finalDestEid = qd.finalDestEid;
                     toEgressHdr->hasCustody = 0;
                     toEgressHdr->isCutThroughFromIngress = 0;

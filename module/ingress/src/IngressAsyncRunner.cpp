@@ -89,7 +89,9 @@ bool IngressAsyncRunner::Run(int argc, const char* const argv[], volatile bool &
 
         LOG_INFO(subprocess) << "starting ingress..";
         hdtn::Ingress ingress;
-        ingress.Init(*hdtnConfig);
+        if (!ingress.Init(*hdtnConfig)) {
+            return false;
+        }
 
         if (useSignalHandler) {
             sigHandler.Start(false);

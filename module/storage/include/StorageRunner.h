@@ -41,7 +41,6 @@ public:
 
 private:
     void MonitorExitKeypressThreadFunction();
-    std::unique_ptr<ZmqStorageInterface> m_storagePtr;
     volatile bool m_runningFromSigHandler;
 };
 

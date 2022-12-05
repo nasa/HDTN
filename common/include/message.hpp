@@ -74,6 +74,7 @@ struct ToEgressHdr {
     uint8_t isCutThroughFromIngress;
     uint8_t isOpportunisticFromStorage;
     uint8_t isCutThroughFromStorage;
+    uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     uint64_t outductIndex;
@@ -89,6 +90,9 @@ struct EgressAckHdr {
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
     uint8_t isToStorage;
     uint8_t isResponseToStorageCutThrough;
+    uint8_t isOpportunisticFromStorage;
+    uint8_t unusedPadding[7];
+    uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     uint64_t outductIndex;
