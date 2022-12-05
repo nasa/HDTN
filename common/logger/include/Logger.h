@@ -38,7 +38,6 @@
 #include <boost/smart_ptr/shared_ptr.hpp>
 #include <boost/config/detail/suffix.hpp>
 #include "log_lib_export.h"
-#include "NoOpStream.h"
 
 namespace hdtn{
 
@@ -53,40 +52,46 @@ namespace hdtn{
 #define LOG_LEVEL_FATAL 5
 
 /**
+ * _NO_OP_STREAM_LOGGER is a macro to efficiently discard a streaming expression. Since the "else"
+ * branch is never taken, the compiler should optimize it out.
+ */
+#define _NO_OP_STREAM_LOGGER if (true) {} else std::cout
+
+/**
  * The following macros provide access for logging at various levels
  */
 #if LOG_LEVEL > LOG_LEVEL_TRACE
-    #define LOG_TRACE(subprocess) _NO_OP_STREAM
+    #define LOG_TRACE(subprocess) _NO_OP_STREAM_LOGGER
 #else
     #define LOG_TRACE(subprocess) _LOG_INTERNAL(subprocess, trace)
 #endif
    
 #if LOG_LEVEL > LOG_LEVEL_DEBUG
-    #define LOG_DEBUG(subprocess) _NO_OP_STREAM
+    #define LOG_DEBUG(subprocess) _NO_OP_STREAM_LOGGER
 #else
     #define LOG_DEBUG(subprocess) _LOG_INTERNAL(subprocess, debug)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_INFO
-    #define LOG_INFO(subprocess) _NO_OP_STREAM
+    #define LOG_INFO(subprocess) _NO_OP_STREAM_LOGGER
 #else
     #define LOG_INFO(subprocess) _LOG_INTERNAL(subprocess, info)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_WARNING
-    #define LOG_WARNING(subprocess) _NO_OP_STREAM
+    #define LOG_WARNING(subprocess) _NO_OP_STREAM_LOGGER
 #else
     #define LOG_WARNING(subprocess) _LOG_INTERNAL(subprocess, warning)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_ERROR
-    #define LOG_ERROR(subprocess) _NO_OP_STREAM
+    #define LOG_ERROR(subprocess) _NO_OP_STREAM_LOGGER
 #else
     #define LOG_ERROR(subprocess) _LOG_INTERNAL(subprocess, error)
 #endif
 
 #if LOG_LEVEL > LOG_LEVEL_FATAL
-    #define LOG_FATAL(subprocess) _NO_OP_STREAM
+    #define LOG_FATAL(subprocess) _NO_OP_STREAM_LOGGER
 #else
     #define LOG_FATAL(subprocess) _LOG_INTERNAL(subprocess, fatal)
 #endif

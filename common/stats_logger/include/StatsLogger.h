@@ -21,10 +21,15 @@
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/phoenix/function.hpp>
-#include "NoOpStream.h"
 #include "stats_lib_export.h"
 
 namespace hdtn{
+
+/**
+ * _NO_OP_STREAM_STATS is a macro to efficiently discard a streaming expression. Since the "else"
+ * branch is never taken, the compiler should optimize it out.
+ */
+#define _NO_OP_STREAM_STATS if (true) {} else std::cout
 
 /**
  * Macro that supports logging a stat value via
@@ -33,7 +38,7 @@ namespace hdtn{
 #ifdef DO_STATS_LOGGING
     #define LOG_STAT(metricName) _LOG_STAT(metricName)
 #else
-    #define LOG_STAT(metricName) _NO_OP_STREAM
+    #define LOG_STAT(metricName) _NO_OP_STREAM_STATS
 #endif
 
 #define _LOG_STAT(metricName)\
