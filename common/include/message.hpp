@@ -76,7 +76,6 @@ struct ToEgressHdr {
     uint8_t isCutThroughFromStorage;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
-    cbhe_eid_t nextHopEid;
     uint64_t outductIndex;
 
     //bool operator==(const ToEgressHdr & o) const {
@@ -102,7 +101,7 @@ struct EgressAckHdr {
 struct ToStorageHdr {
     CommonHdr base;
     uint8_t dontStoreBundle;
-    uint8_t unused2;
+    uint8_t isCustodyOrAdminRecord; //if no custody, storage just needs to decode primary header because ingress already verified the bundle
     uint8_t unused3;
     uint8_t unused4;
     uint64_t ingressUniqueId;

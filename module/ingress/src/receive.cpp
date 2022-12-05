@@ -1023,70 +1023,72 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     outductIndex = itNodeId->second;
                 }
             }
-            BundlePipelineAckingSet& bundleCutThroughPipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[outductIndex]);
-
-            const bool shouldTryToUseCustThrough = ((bundleCutThroughPipelineAckingSetObj.linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
-            useStorage = !shouldTryToUseCustThrough;
-            bool reservedStorageCutThroughPipelineAvailability = false;
-
             
-            if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
-                bool reservedEgressPipelineAvailability;
-                static const boost::posix_time::time_duration noDuration = boost::posix_time::seconds(0);
-                const boost::posix_time::time_duration& cutThroughTimeoutRef = (m_hdtnConfig.m_bufferRxToStorageOnLinkUpSaturation)
-                    ? noDuration : M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
-                const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
-                    cutThroughTimeoutRef, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),
-                    reservedEgressPipelineAvailability, reservedStorageCutThroughPipelineAvailability);
-                if (foundACutThroughPath) {
-                    if (reservedStorageCutThroughPipelineAvailability) { //pipeline limit exceeded for egress cut-through path
-                        useStorage = true;
-                        //storage should take on remaining other half of cut-through pipeline capability without actually storing the bundle
-                        //pipeline limit may not have been exceeded for storage cut-through path depending on reservedStoragePipelineAvailability
-                        ++m_eventsTooManyInEgressCutThroughQueue;
-                    }
-                    else { //if(reservedEgressPipelineAvailability) //pipeline limits not exceeded for egress cut-through path, continue to send the bundle to egress
+            bool reservedStorageCutThroughPipelineAvailability = false;
+            if (outductIndex != UINT64_MAX) {
+                BundlePipelineAckingSet& bundleCutThroughPipelineAckingSetObj = *(m_vectorBundlePipelineAckingSet[outductIndex]);
 
-                        //force natural/64-bit alignment
-                        hdtn::ToEgressHdr* toEgressHdr = new hdtn::ToEgressHdr();
-                        zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+                const bool shouldTryToUseCustThrough = ((bundleCutThroughPipelineAckingSetObj.linkIsUp && (!requestsCustody) && (!isAdminRecordForHdtnStorage)));
+                useStorage = !shouldTryToUseCustThrough;
 
-                        //memset 0 not needed because all values set below
-                        toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
-                        toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
-                        toEgressHdr->finalDestEid = finalDestEid;
-                        toEgressHdr->hasCustody = requestsCustody;
-                        toEgressHdr->isCutThroughFromIngress = 1;
-                        toEgressHdr->isOpportunisticFromStorage = 0;
-                        toEgressHdr->isCutThroughFromStorage = 0;
-                        toEgressHdr->custodyId = fromIngressUniqueId;
-                        toEgressHdr->outductIndex = outductIndex;
-                        {
-                            //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
-                            boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
-                            if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
-                                LOG_ERROR(subprocess) << "can't send toEgressHdr to egress";
-                                bundleCutThroughPipelineAckingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, true);
-                                useStorage = true;
-                            }
-                            else {
-                                
-                                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
-                                    LOG_ERROR(subprocess) << "can't send bundle to egress";
+                if (shouldTryToUseCustThrough) { //type egress cut through ("while loop" instead of "if statement" to support breaking to storage)
+                    bool reservedEgressPipelineAvailability;
+                    static const boost::posix_time::time_duration noDuration = boost::posix_time::seconds(0);
+                    const boost::posix_time::time_duration& cutThroughTimeoutRef = (m_hdtnConfig.m_bufferRxToStorageOnLinkUpSaturation)
+                        ? noDuration : M_MAX_INGRESS_BUNDLE_WAIT_ON_EGRESS_TIME_DURATION;
+                    const bool foundACutThroughPath = bundleCutThroughPipelineAckingSetObj.WaitForPipelineAvailabilityAndReserve(true, true,
+                        cutThroughTimeoutRef, fromIngressUniqueId, zmqMessageToSendUniquePtr->size(),
+                        reservedEgressPipelineAvailability, reservedStorageCutThroughPipelineAvailability);
+                    if (foundACutThroughPath) {
+                        if (reservedStorageCutThroughPipelineAvailability) { //pipeline limit exceeded for egress cut-through path
+                            useStorage = true;
+                            //storage should take on remaining other half of cut-through pipeline capability without actually storing the bundle
+                            //pipeline limit may not have been exceeded for storage cut-through path depending on reservedStoragePipelineAvailability
+                            ++m_eventsTooManyInEgressCutThroughQueue;
+                        }
+                        else { //if(reservedEgressPipelineAvailability) //pipeline limits not exceeded for egress cut-through path, continue to send the bundle to egress
+
+                            //force natural/64-bit alignment
+                            hdtn::ToEgressHdr* toEgressHdr = new hdtn::ToEgressHdr();
+                            zmq::message_t zmqMessageToEgressHdrWithDataStolen(toEgressHdr, sizeof(hdtn::ToEgressHdr), CustomCleanupToEgressHdr, toEgressHdr);
+
+                            //memset 0 not needed because all values set below
+                            toEgressHdr->base.type = HDTN_MSGTYPE_EGRESS;
+                            toEgressHdr->base.flags = 0; //flags not used by egress // static_cast<uint16_t>(primary.flags);
+                            toEgressHdr->finalDestEid = finalDestEid;
+                            toEgressHdr->hasCustody = requestsCustody;
+                            toEgressHdr->isCutThroughFromIngress = 1;
+                            toEgressHdr->isOpportunisticFromStorage = 0;
+                            toEgressHdr->isCutThroughFromStorage = 0;
+                            toEgressHdr->custodyId = fromIngressUniqueId;
+                            toEgressHdr->outductIndex = outductIndex;
+                            {
+                                //zmq::message_t messageWithDataStolen(hdrPtr.get(), sizeof(hdtn::BlockHdr), CustomIgnoreCleanupBlockHdr); //cleanup will occur in the queue below
+                                boost::mutex::scoped_lock lock(m_ingressToEgressZmqSocketMutex);
+                                if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
+                                    LOG_ERROR(subprocess) << "can't send toEgressHdr to egress";
                                     bundleCutThroughPipelineAckingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, true);
                                     useStorage = true;
                                 }
                                 else {
-                                    //success                            
-                                    m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+
+                                    if (!m_zmqPushSock_boundIngressToConnectingEgressPtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
+                                        LOG_ERROR(subprocess) << "can't send bundle to egress";
+                                        bundleCutThroughPipelineAckingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, true);
+                                        useStorage = true;
+                                    }
+                                    else {
+                                        //success                            
+                                        m_bundleCountEgress.fetch_add(1, boost::memory_order_relaxed);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                else { //did not find a cut through path
-                    useStorage = true;
-                    ++m_eventsTooManyInAllCutThroughQueues;
+                    else { //did not find a cut through path
+                        useStorage = true;
+                        ++m_eventsTooManyInAllCutThroughQueues;
+                    }
                 }
             }
         
@@ -1100,6 +1102,9 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     outductIndex = UINT64_MAX;
                 }
                 if (storageModuleAvailable) {
+
+                    BundlePipelineAckingSet& ackingSetObj = (outductIndex == UINT64_MAX) ?
+                        m_singleStorageBundlePipelineAckingSet : (*(m_vectorBundlePipelineAckingSet[outductIndex])); //only used to restore state if zmq fails
                     
                     //force natural/64-bit alignment
                     hdtn::ToStorageHdr* toStorageHdr = new hdtn::ToStorageHdr();
@@ -1111,22 +1116,19 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                     toStorageHdr->ingressUniqueId = fromIngressUniqueId;
                     toStorageHdr->outductIndex = outductIndex;
                     toStorageHdr->dontStoreBundle = reservedStorageCutThroughPipelineAvailability;
+                    toStorageHdr->isCustodyOrAdminRecord = (requestsCustody || isAdminRecordForHdtnStorage);
                     toStorageHdr->finalDestEid = finalDestEid;
 
                     //zmq threads not thread safe but protected by mutex below
                     boost::mutex::scoped_lock lock(m_ingressToStorageZmqSocketMutex);
                     if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(zmqMessageToStorageHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
                         LOG_ERROR(subprocess) << "can't send toStorageHdr to storage, this bundle will be lost";
-                        if (reservedStorageCutThroughPipelineAvailability) {
-                            bundleCutThroughPipelineAckingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, false);
-                        }
+                        ackingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, false);
                     }
                     else {
                         if (!m_zmqPushSock_boundIngressToConnectingStoragePtr->send(std::move(*zmqMessageToSendUniquePtr), zmq::send_flags::dontwait)) {
                             LOG_ERROR(subprocess) << "can't send bundle to storage, this bundle will be lost";
-                            if (reservedStorageCutThroughPipelineAvailability) {
-                                bundleCutThroughPipelineAckingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, false);
-                            }
+                            ackingSetObj.CompareAndPop_ThreadSafe(fromIngressUniqueId, false);
                         }
                         else {
                             //success                            
