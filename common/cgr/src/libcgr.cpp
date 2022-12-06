@@ -74,7 +74,7 @@ Contact::Contact()
 
 Contact::~Contact() {}
 
-Route::Route()
+Route::Route() : parent(NULL)
 {
 }
 

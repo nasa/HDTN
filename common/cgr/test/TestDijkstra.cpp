@@ -332,7 +332,7 @@ BOOST_AUTO_TEST_CASE(DijkstraRoutingNoPathTestCase)
 	std::cout << "Finding best path using dijkstra's..." << std::endl;
 	cgr::Route bestRoute = cgr::dijkstra(&rootContact, 1, contactPlan);
 
-	//BOOST_CHECK(&bestRoute);
+	BOOST_CHECK(bestRoute.get_hops().size() == 0);
 
 	std::cout << "No path found for 4->1. Dijkstra's returned nullptr." << std::endl;
 }
@@ -459,7 +459,7 @@ BOOST_AUTO_TEST_CASE(CMR_DijkstraPyCGRTutorialTestCase)
 
 // Ad hoc timing tests
 
-BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
+BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest, *boost::unit_test::disabled())
 {
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
 	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();
@@ -492,7 +492,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_RoutingTest)
 
 }
 
-BOOST_AUTO_TEST_CASE(TimingTest_10nodesTest)
+BOOST_AUTO_TEST_CASE(TimingTest_10nodesTest, *boost::unit_test::disabled())
 {
         const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
         const std::string contactFile = (contactRootDir / "10nodes.json").string();
@@ -526,7 +526,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_10nodesTest)
 }
 
 
-BOOST_AUTO_TEST_CASE(TimingTest_50nodesTest)
+BOOST_AUTO_TEST_CASE(TimingTest_50nodesTest, *boost::unit_test::disabled())
 {
         const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
         const std::string contactFile = (contactRootDir / "50nodes.json").string();
@@ -559,7 +559,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_50nodesTest)
 
 }
 
-BOOST_AUTO_TEST_CASE(TimingTest_100nodesTest)
+BOOST_AUTO_TEST_CASE(TimingTest_100nodesTest, *boost::unit_test::disabled())
 {
         const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
         const std::string contactFile = (contactRootDir / "100nodes.json").string();
@@ -593,7 +593,7 @@ BOOST_AUTO_TEST_CASE(TimingTest_100nodesTest)
 }
 
 
-BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction)
+BOOST_AUTO_TEST_CASE(TimingTest_CMConstruction, *boost::unit_test::disabled())
 {
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "module" / "scheduler" / "src";
 	const std::string contactFile = (contactRootDir / "contactPlan_RoutingTest.json").string();

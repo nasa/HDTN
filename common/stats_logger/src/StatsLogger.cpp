@@ -43,7 +43,7 @@ void StatsLogger::registerAttributes()
     StatsLogger::logger_.add_attribute("MetricName", StatsLogger::metric_name_attr);
 }
 
-long StatsLogger::timestampMs_t::operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const {
+int64_t StatsLogger::timestampMs_t::operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const {
     static const boost::posix_time::ptime start = boost::posix_time::microsec_clock::local_time();
     return (date.get() - start).total_milliseconds();
 }
