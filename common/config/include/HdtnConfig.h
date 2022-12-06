@@ -1,3 +1,22 @@
+/**
+ * @file HdtnConfig.h
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
+ * Released under the NASA Open Source Agreement (NOSA)
+ * See LICENSE.md in the source root directory for more information.
+ *
+ * @section DESCRIPTION
+ *
+ * The HdtnConfig class contains all the config parameters to run HDTN and
+ * provides JSON serialization and deserialization capability.
+ */
+
 #ifndef HDTN_CONFIG_H
 #define HDTN_CONFIG_H 1
 
@@ -59,12 +78,12 @@ public:
     uint64_t m_retransmitBundleAfterNoCustodySignalMilliseconds;
     uint64_t m_maxBundleSizeBytes;
     uint64_t m_maxIngressBundleWaitOnEgressMilliseconds;
+    bool m_bufferRxToStorageOnLinkUpSaturation;
     uint64_t m_maxLtpReceiveUdpPacketSizeBytes;
 
     std::string m_zmqIngressAddress;
     std::string m_zmqEgressAddress;
     std::string m_zmqStorageAddress;
-    std::string m_zmqRegistrationServerAddress;
     std::string m_zmqSchedulerAddress;
     std::string m_zmqRouterAddress;
     uint16_t m_zmqBoundIngressToConnectingEgressPortPath; //#define HDTN_BOUND_INGRESS_TO_CONNECTING_EGRESS_PATH "tcp://127.0.0.1:10100"
@@ -80,14 +99,10 @@ public:
 //#define HDTN_RELEASE_PATH "tcp://0.0.0.0:10120"
     uint16_t m_zmqConnectingStorageToBoundEgressPortPath; //#define HDTN_CONNECTING_STORAGE_TO_BOUND_EGRESS_PATH "tcp://127.0.0.1:10120"
     uint16_t m_zmqBoundEgressToConnectingStoragePortPath; //#define HDTN_BOUND_EGRESS_TO_CONNECTING_STORAGE_PATH "tcp://127.0.0.1:10130"
-//req-reply to reg server
-    uint16_t m_zmqRegistrationServerPortPath; //#define HDTN_REG_SERVER_PATH "tcp://127.0.0.1:10140"
 //pub-sub from scheduler to modules
 //#define HDTN_SCHEDULER_PATH "tcp://0.0.0.0:10200"
     uint16_t m_zmqBoundSchedulerPubSubPortPath; //#define HDTN_BOUND_SCHEDULER_PUBSUB_PATH "tcp://127.0.0.1:10200"
     uint16_t m_zmqBoundRouterPubSubPortPath; //#define HDTN_BOUND_ROUTER_PUBSUB_PATH "tcp://127.0.0.1:10210"
-    uint64_t m_zmqMaxMessagesPerPath;
-    uint64_t m_zmqMaxMessageSizeBytes;
 
     InductsConfig m_inductsConfig;
     OutductsConfig m_outductsConfig;

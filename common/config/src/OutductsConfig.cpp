@@ -1,8 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file OutductsConfig.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
  */
 
 #include "OutductsConfig.h"
@@ -25,7 +32,8 @@ outduct_element_config_t::outduct_element_config_t() :
     nextHopNodeId(0),
     remoteHostname(""),
     remotePort(0),
-    bundlePipelineLimit(0),
+    maxNumberOfBundlesInPipeline(0),
+    maxSumOfBundleBytesInPipeline(0),
     finalDestinationEidUris(),
     
     thisLtpEngineId(0),
@@ -67,7 +75,8 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     nextHopNodeId(o.nextHopNodeId),
     remoteHostname(o.remoteHostname),
     remotePort(o.remotePort),
-    bundlePipelineLimit(o.bundlePipelineLimit),
+    maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
+    maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
     finalDestinationEidUris(o.finalDestinationEidUris),
     
     thisLtpEngineId(o.thisLtpEngineId),
@@ -106,7 +115,8 @@ outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o)
     nextHopNodeId(o.nextHopNodeId),
     remoteHostname(std::move(o.remoteHostname)),
     remotePort(o.remotePort),
-    bundlePipelineLimit(o.bundlePipelineLimit),
+    maxNumberOfBundlesInPipeline(o.maxNumberOfBundlesInPipeline),
+    maxSumOfBundleBytesInPipeline(o.maxSumOfBundleBytesInPipeline),
     finalDestinationEidUris(std::move(o.finalDestinationEidUris)),
     
     thisLtpEngineId(o.thisLtpEngineId),
@@ -145,7 +155,8 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
     nextHopNodeId = o.nextHopNodeId;
     remoteHostname = o.remoteHostname;
     remotePort = o.remotePort;
-    bundlePipelineLimit = o.bundlePipelineLimit;
+    maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
+    maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
     finalDestinationEidUris = o.finalDestinationEidUris;
     
     thisLtpEngineId = o.thisLtpEngineId;
@@ -187,7 +198,8 @@ outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_co
     nextHopNodeId = o.nextHopNodeId;
     remoteHostname = std::move(o.remoteHostname);
     remotePort = o.remotePort;
-    bundlePipelineLimit = o.bundlePipelineLimit;
+    maxNumberOfBundlesInPipeline = o.maxNumberOfBundlesInPipeline;
+    maxSumOfBundleBytesInPipeline = o.maxSumOfBundleBytesInPipeline;
     finalDestinationEidUris = std::move(o.finalDestinationEidUris);
 
     thisLtpEngineId = o.thisLtpEngineId;
@@ -228,7 +240,8 @@ bool outduct_element_config_t::operator==(const outduct_element_config_t & o) co
         (nextHopNodeId == o.nextHopNodeId) &&
         (remoteHostname == o.remoteHostname) &&
         (remotePort == o.remotePort) &&
-        (bundlePipelineLimit == o.bundlePipelineLimit) &&
+        (maxNumberOfBundlesInPipeline == o.maxNumberOfBundlesInPipeline) &&
+        (maxSumOfBundleBytesInPipeline == o.maxSumOfBundleBytesInPipeline) &&
         (finalDestinationEidUris == o.finalDestinationEidUris) &&
         
         (thisLtpEngineId == o.thisLtpEngineId) &&
@@ -300,7 +313,11 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
         LOG_ERROR(subprocess) << "outductConfigName must be defined and not empty string";
         return false;
     }
-    const boost::property_tree::ptree & outductElementConfigVectorPt = pt.get_child("outductVector", boost::property_tree::ptree()); //non-throw version
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree & outductElementConfigVectorPt = pt.get_child("outductVector", EMPTY_PTREE); //non-throw version
     m_outductElementConfigVector.resize(outductElementConfigVectorPt.size());
     unsigned int vectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & outductElementConfigPt, outductElementConfigVectorPt) {
@@ -332,8 +349,9 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
                 LOG_ERROR(subprocess) << "error parsing JSON outductVector[" << (vectorIndex - 1) << "]: " << "invalid remotePort, must be non-zero";
                 return false;
             }
-            outductElementConfig.bundlePipelineLimit = outductElementConfigPt.second.get<uint32_t>("bundlePipelineLimit");
-            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", boost::property_tree::ptree()); //non-throw version
+            outductElementConfig.maxNumberOfBundlesInPipeline = outductElementConfigPt.second.get<uint32_t>("maxNumberOfBundlesInPipeline");
+            outductElementConfig.maxSumOfBundleBytesInPipeline = outductElementConfigPt.second.get<uint64_t>("maxSumOfBundleBytesInPipeline");
+            const boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.second.get_child("finalDestinationEidUris", EMPTY_PTREE); //non-throw version
             outductElementConfig.finalDestinationEidUris.clear();
             BOOST_FOREACH(const boost::property_tree::ptree::value_type & finalDestinationEidUriValuePt, finalDestinationEidUrisPt) {
                 const std::string uriStr = finalDestinationEidUriValuePt.second.get_value<std::string>();
@@ -509,7 +527,8 @@ boost::property_tree::ptree OutductsConfig::GetNewPropertyTree() const {
         outductElementConfigPt.put("nextHopNodeId", outductElementConfig.nextHopNodeId);
         outductElementConfigPt.put("remoteHostname", outductElementConfig.remoteHostname);
         outductElementConfigPt.put("remotePort", outductElementConfig.remotePort);
-        outductElementConfigPt.put("bundlePipelineLimit", outductElementConfig.bundlePipelineLimit);
+        outductElementConfigPt.put("maxNumberOfBundlesInPipeline", outductElementConfig.maxNumberOfBundlesInPipeline);
+        outductElementConfigPt.put("maxSumOfBundleBytesInPipeline", outductElementConfig.maxSumOfBundleBytesInPipeline);
         boost::property_tree::ptree & finalDestinationEidUrisPt = outductElementConfigPt.put_child("finalDestinationEidUris", outductElementConfig.finalDestinationEidUris.empty() ? boost::property_tree::ptree("[]") : boost::property_tree::ptree());
         for (std::set<std::string>::const_iterator finalDestinationEidUriIt = outductElementConfig.finalDestinationEidUris.cbegin(); finalDestinationEidUriIt != outductElementConfig.finalDestinationEidUris.cend(); ++finalDestinationEidUriIt) {
             finalDestinationEidUrisPt.push_back(std::make_pair("", boost::property_tree::ptree(*finalDestinationEidUriIt))); //using "" as key creates json array

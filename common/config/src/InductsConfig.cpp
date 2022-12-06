@@ -1,8 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file InductsConfig.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
  */
 
 #include "InductsConfig.h"
@@ -254,7 +261,11 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
         LOG_ERROR(subprocess) << "inductConfigName must be defined and not empty string";
         return false;
     }
-    const boost::property_tree::ptree & inductElementConfigVectorPt = pt.get_child("inductVector", boost::property_tree::ptree()); //non-throw version
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree & inductElementConfigVectorPt = pt.get_child("inductVector", EMPTY_PTREE); //non-throw version
     m_inductElementConfigVector.resize(inductElementConfigVectorPt.size());
     unsigned int vectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & inductElementConfigPt, inductElementConfigVectorPt) {

@@ -12,11 +12,11 @@
     "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 10000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 1500,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
-    "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
@@ -27,11 +27,8 @@
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
-    "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 500,
-    "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
@@ -53,11 +50,12 @@
                 "nextHopNodeId": 20,
                 "remoteHostname": "xi",
                 "remotePort": 1114,
-                "bundlePipelineLimit": 6000,
+                "maxNumberOfBundlesInPipeline": 6000,
+                "maxSumOfBundleBytesInPipeline": 500000000,
                 "finalDestinationEidUris": [
-                    "ipn:1.1",
-                    "ipn:2.1",
-                    "ipn:3.1"
+                    "ipn:1.*",
+                    "ipn:2.*",
+                    "ipn:3.*"
                 ],
                 "thisLtpEngineId": 10,
                 "remoteLtpEngineId": 20,

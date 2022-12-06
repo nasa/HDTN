@@ -1,6 +1,7 @@
 /**
  * @file Telemetry.h
  * @author  Blake LaFuente
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
  *
  * @copyright Copyright © 2021 United States Government as represented by
  * the National Aeronautics and Space Administration.
@@ -21,6 +22,8 @@
 
 #include <cstdint>
 #include <map>
+#include <list>
+#include "codec/Cbhe.h"
 #include "telemetry_definitions_export.h"
 
 struct IngressTelemetry_t{
@@ -119,6 +122,48 @@ struct LtpOutductTelemetry_t : public OutductTelemetry_t {
     uint64_t countTxUdpPacketsLimitedByRate;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+};
+
+struct OutductCapabilityTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t();
+
+    
+    uint64_t type;
+    uint64_t outductArrayIndex; //outductUuid
+    uint64_t maxBundlesInPipeline;
+    uint64_t maxBundleSizeBytesInPipeline;
+    uint64_t nextHopNodeId;
+    std::list<cbhe_eid_t> finalDestinationEidList;
+    std::list<uint64_t> finalDestinationNodeIdList;
+
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(const OutductCapabilityTelemetry_t& o); //a copy constructor: X(const X&)
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t(OutductCapabilityTelemetry_t&& o); //a move constructor: X(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(const OutductCapabilityTelemetry_t& o); //a copy assignment: operator=(const X&)
+    TELEMETRY_DEFINITIONS_EXPORT OutductCapabilityTelemetry_t& operator=(OutductCapabilityTelemetry_t&& o); //a move assignment: operator=(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSerializationSize() const;
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize);
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const OutductCapabilityTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const OutductCapabilityTelemetry_t& o) const; //operator !=
+    TELEMETRY_DEFINITIONS_EXPORT friend std::ostream& operator<<(std::ostream& os, const OutductCapabilityTelemetry_t& o);
+};
+
+struct AllOutductCapabilitiesTelemetry_t {
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t();
+
+    uint64_t type;
+    std::list<OutductCapabilityTelemetry_t> outductCapabilityTelemetryList;
+
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(const AllOutductCapabilitiesTelemetry_t& o); //a copy constructor: X(const X&)
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t(AllOutductCapabilitiesTelemetry_t&& o); //a move constructor: X(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(const AllOutductCapabilitiesTelemetry_t& o); //a copy assignment: operator=(const X&)
+    TELEMETRY_DEFINITIONS_EXPORT AllOutductCapabilitiesTelemetry_t& operator=(AllOutductCapabilitiesTelemetry_t&& o); //a move assignment: operator=(X&&)
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t GetSerializationSize() const;
+    TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
+    TELEMETRY_DEFINITIONS_EXPORT bool DeserializeFromLittleEndian(const uint8_t* serialization, uint64_t& numBytesTakenToDecode, uint64_t bufferSize);
+    TELEMETRY_DEFINITIONS_EXPORT bool operator==(const AllOutductCapabilitiesTelemetry_t& o) const; //operator ==
+    TELEMETRY_DEFINITIONS_EXPORT bool operator!=(const AllOutductCapabilitiesTelemetry_t& o) const; //operator !=
+    TELEMETRY_DEFINITIONS_EXPORT friend std::ostream& operator<<(std::ostream& os, const AllOutductCapabilitiesTelemetry_t& o);
 };
 
 TELEMETRY_DEFINITIONS_EXPORT bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size);

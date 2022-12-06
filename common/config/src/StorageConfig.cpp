@@ -1,8 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file StorageConfig.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
  */
 
 #include "StorageConfig.h"
@@ -130,7 +137,11 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
         LOG_ERROR(subprocess) << "error parsing JSON Storage config: totalStorageCapacityBytes must be defined and non-zero";
         return false;
     }
-    const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", boost::property_tree::ptree()); //non-throw version
+
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
+
+    const boost::property_tree::ptree & storageDiskConfigVectorPt = pt.get_child("storageDiskConfigVector", EMPTY_PTREE); //non-throw version
     m_storageDiskConfigVector.resize(storageDiskConfigVectorPt.size());
     unsigned int storageDiskConfigVectorIndex = 0;
     BOOST_FOREACH(const boost::property_tree::ptree::value_type & storageDiskConfigPt, storageDiskConfigVectorPt) {

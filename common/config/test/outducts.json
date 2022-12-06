@@ -7,7 +7,8 @@
             "nextHopNodeId": 50,
             "remoteHostname": "localhost",
             "remotePort": 1113,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
                 "ipn:1.1",
                 "ipn:2.1",
@@ -34,7 +35,8 @@
             "nextHopNodeId": 51,
             "remoteHostname": "localhost",
             "remotePort": 4557,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
                 "ipn:4.1",
                 "ipn:6.1"
@@ -47,7 +49,8 @@
             "nextHopNodeId": 52,
             "remoteHostname": "localhost",
             "remotePort": 4558,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
                 "ipn:10.1",
                 "ipn:26.1"
@@ -62,7 +65,8 @@
             "nextHopNodeId": 1,
             "remoteHostname": "localhost",
             "remotePort": 4560,
-            "bundlePipelineLimit": 50,
+            "maxNumberOfBundlesInPipeline": 50,
+            "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
                 "ipn:3.1"
             ],
@@ -82,7 +86,8 @@
             "nextHopNodeId": 53,
             "remoteHostname": "localhost",
             "remotePort": 4559,
-            "bundlePipelineLimit": 5,
+            "maxNumberOfBundlesInPipeline": 5,
+            "maxSumOfBundleBytesInPipeline": 50000000,
             "finalDestinationEidUris": [
                 "ipn:100.1",
                 "ipn:200.1",

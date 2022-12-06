@@ -121,7 +121,7 @@ bool BpSinkPattern::Init(InductsConfig_ptr & inductsConfigPtr, OutductsConfig_pt
             LOG_INFO(subprocess) << "waiting for outduct to be ready...";
             boost::this_thread::sleep(boost::posix_time::milliseconds(500));
         }
-        m_currentlySendingBundleIdSet.reserve(outductsConfigPtr->m_outductElementConfigVector[0].bundlePipelineLimit);
+        m_currentlySendingBundleIdSet.reserve(outductsConfigPtr->m_outductElementConfigVector[0].maxNumberOfBundlesInPipeline);
     }
     else if ((inductsConfigPtr) && ((inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v3") || (inductsConfigPtr->m_inductElementConfigVector[0].convergenceLayer == "tcpcl_v4"))) {
         m_hasSendCapability = true;
@@ -506,7 +506,7 @@ void BpSinkPattern::SenderReaderThreadFunc() {
     if (!m_hasSendCapabilityOverTcpclBidirectionalInduct) { //outduct
         outduct = m_outductManager.GetOutductByOutductUuid(0);
         if (outduct) {
-            outductMaxBundlesInPipeline = outduct->GetOutductMaxBundlesInPipeline();
+            outductMaxBundlesInPipeline = outduct->GetOutductMaxNumberOfBundlesInPipeline();
         }
     }
     while (m_runningSenderThread) {

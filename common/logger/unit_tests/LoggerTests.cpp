@@ -23,8 +23,8 @@
 static int countLines(std::string filePath)
 {
     std::ifstream in(filePath);
-    int count = std::count(std::istreambuf_iterator<char>(in), 
-            std::istreambuf_iterator<char>(), '\n');
+    int count = static_cast<int>(std::count(std::istreambuf_iterator<char>(in), 
+            std::istreambuf_iterator<char>(), '\n'));
     in.close();
     return count;
 }

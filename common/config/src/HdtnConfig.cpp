@@ -1,8 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file HdtnConfig.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
  */
 
 #include "HdtnConfig.h"
@@ -10,6 +17,9 @@
 #include <memory>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <sstream>
+#include <set>
 
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::none;
 
@@ -27,11 +37,11 @@ HdtnConfig::HdtnConfig() :
     m_retransmitBundleAfterNoCustodySignalMilliseconds(10000),
     m_maxBundleSizeBytes(10000000), //10MB
     m_maxIngressBundleWaitOnEgressMilliseconds(2000),
+    m_bufferRxToStorageOnLinkUpSaturation(false),
     m_maxLtpReceiveUdpPacketSizeBytes(65536),
     m_zmqIngressAddress("localhost"),
     m_zmqEgressAddress("localhost"),
     m_zmqStorageAddress("localhost"),
-    m_zmqRegistrationServerAddress("localhost"),
     m_zmqSchedulerAddress("localhost"),
     m_zmqRouterAddress("localhost"),
     m_zmqBoundIngressToConnectingEgressPortPath(10100),
@@ -42,11 +52,8 @@ HdtnConfig::HdtnConfig() :
     m_zmqConnectingStorageToBoundIngressPortPath(10150),
     m_zmqConnectingStorageToBoundEgressPortPath(10120),
     m_zmqBoundEgressToConnectingStoragePortPath(10130),
-    m_zmqRegistrationServerPortPath(10140),
     m_zmqBoundSchedulerPubSubPortPath(10200),
     m_zmqBoundRouterPubSubPortPath(10210),
-    m_zmqMaxMessagesPerPath(5),
-    m_zmqMaxMessageSizeBytes(100000000),
     m_inductsConfig(),
     m_outductsConfig(),
     m_storageConfig() 
@@ -70,11 +77,11 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_retransmitBundleAfterNoCustodySignalMilliseconds(o.m_retransmitBundleAfterNoCustodySignalMilliseconds),
     m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
+    m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
     m_zmqIngressAddress(o.m_zmqIngressAddress),
     m_zmqEgressAddress(o.m_zmqEgressAddress),
     m_zmqStorageAddress(o.m_zmqStorageAddress),
-    m_zmqRegistrationServerAddress(o.m_zmqRegistrationServerAddress),
     m_zmqSchedulerAddress(o.m_zmqSchedulerAddress),
     m_zmqRouterAddress(o.m_zmqRouterAddress),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
@@ -85,11 +92,8 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
     m_zmqConnectingStorageToBoundEgressPortPath(o.m_zmqConnectingStorageToBoundEgressPortPath),
     m_zmqBoundEgressToConnectingStoragePortPath(o.m_zmqBoundEgressToConnectingStoragePortPath),
-    m_zmqRegistrationServerPortPath(o.m_zmqRegistrationServerPortPath),
     m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
     m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
-    m_zmqMaxMessagesPerPath(o.m_zmqMaxMessagesPerPath),
-    m_zmqMaxMessageSizeBytes(o.m_zmqMaxMessageSizeBytes),
     m_inductsConfig(o.m_inductsConfig),
     m_outductsConfig(o.m_outductsConfig),
     m_storageConfig(o.m_storageConfig)
@@ -110,11 +114,11 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_retransmitBundleAfterNoCustodySignalMilliseconds(o.m_retransmitBundleAfterNoCustodySignalMilliseconds),
     m_maxBundleSizeBytes(o.m_maxBundleSizeBytes),
     m_maxIngressBundleWaitOnEgressMilliseconds(o.m_maxIngressBundleWaitOnEgressMilliseconds),
+    m_bufferRxToStorageOnLinkUpSaturation(o.m_bufferRxToStorageOnLinkUpSaturation),
     m_maxLtpReceiveUdpPacketSizeBytes(o.m_maxLtpReceiveUdpPacketSizeBytes),
     m_zmqIngressAddress(std::move(o.m_zmqIngressAddress)),
     m_zmqEgressAddress(std::move(o.m_zmqEgressAddress)),
     m_zmqStorageAddress(std::move(o.m_zmqStorageAddress)),
-    m_zmqRegistrationServerAddress(std::move(o.m_zmqRegistrationServerAddress)),
     m_zmqSchedulerAddress(std::move(o.m_zmqSchedulerAddress)),
     m_zmqRouterAddress(std::move(o.m_zmqRouterAddress)),
     m_zmqBoundIngressToConnectingEgressPortPath(o.m_zmqBoundIngressToConnectingEgressPortPath),
@@ -125,11 +129,8 @@ HdtnConfig::HdtnConfig(HdtnConfig&& o) :
     m_zmqConnectingStorageToBoundIngressPortPath(o.m_zmqConnectingStorageToBoundIngressPortPath),
     m_zmqConnectingStorageToBoundEgressPortPath(o.m_zmqConnectingStorageToBoundEgressPortPath),
     m_zmqBoundEgressToConnectingStoragePortPath(o.m_zmqBoundEgressToConnectingStoragePortPath),
-    m_zmqRegistrationServerPortPath(o.m_zmqRegistrationServerPortPath),
     m_zmqBoundSchedulerPubSubPortPath(o.m_zmqBoundSchedulerPubSubPortPath),
     m_zmqBoundRouterPubSubPortPath(o.m_zmqBoundRouterPubSubPortPath),
-    m_zmqMaxMessagesPerPath(o.m_zmqMaxMessagesPerPath),
-    m_zmqMaxMessageSizeBytes(o.m_zmqMaxMessageSizeBytes),
     m_inductsConfig(std::move(o.m_inductsConfig)),
     m_outductsConfig(std::move(o.m_outductsConfig)),
     m_storageConfig(std::move(o.m_storageConfig))
@@ -150,11 +151,11 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_retransmitBundleAfterNoCustodySignalMilliseconds = o.m_retransmitBundleAfterNoCustodySignalMilliseconds;
     m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
+    m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
     m_zmqIngressAddress = o.m_zmqIngressAddress;
     m_zmqEgressAddress = o.m_zmqEgressAddress;
     m_zmqStorageAddress = o.m_zmqStorageAddress;
-    m_zmqRegistrationServerAddress = o.m_zmqRegistrationServerAddress;
     m_zmqSchedulerAddress = o.m_zmqSchedulerAddress;
     m_zmqRouterAddress = o.m_zmqRouterAddress;
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
@@ -165,11 +166,8 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
     m_zmqConnectingStorageToBoundIngressPortPath = o.m_zmqConnectingStorageToBoundIngressPortPath;
     m_zmqConnectingStorageToBoundEgressPortPath = o.m_zmqConnectingStorageToBoundEgressPortPath;
     m_zmqBoundEgressToConnectingStoragePortPath = o.m_zmqBoundEgressToConnectingStoragePortPath;
-    m_zmqRegistrationServerPortPath = o.m_zmqRegistrationServerPortPath;
     m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
     m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
-    m_zmqMaxMessagesPerPath = o.m_zmqMaxMessagesPerPath;
-    m_zmqMaxMessageSizeBytes = o.m_zmqMaxMessageSizeBytes;
     m_inductsConfig = o.m_inductsConfig;
     m_outductsConfig = o.m_outductsConfig;
     m_storageConfig = o.m_storageConfig;
@@ -191,11 +189,11 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_retransmitBundleAfterNoCustodySignalMilliseconds = o.m_retransmitBundleAfterNoCustodySignalMilliseconds;
     m_maxBundleSizeBytes = o.m_maxBundleSizeBytes;
     m_maxIngressBundleWaitOnEgressMilliseconds = o.m_maxIngressBundleWaitOnEgressMilliseconds;
+    m_bufferRxToStorageOnLinkUpSaturation = o.m_bufferRxToStorageOnLinkUpSaturation;
     m_maxLtpReceiveUdpPacketSizeBytes = o.m_maxLtpReceiveUdpPacketSizeBytes;
     m_zmqIngressAddress = std::move(o.m_zmqIngressAddress);
     m_zmqEgressAddress = std::move(o.m_zmqEgressAddress);
     m_zmqStorageAddress = std::move(o.m_zmqStorageAddress);
-    m_zmqRegistrationServerAddress = std::move(o.m_zmqRegistrationServerAddress);
     m_zmqSchedulerAddress = std::move(o.m_zmqSchedulerAddress);
     m_zmqRouterAddress = std::move(o.m_zmqRouterAddress);
     m_zmqBoundIngressToConnectingEgressPortPath = o.m_zmqBoundIngressToConnectingEgressPortPath;
@@ -206,11 +204,8 @@ HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
     m_zmqConnectingStorageToBoundIngressPortPath = o.m_zmqConnectingStorageToBoundIngressPortPath;
     m_zmqConnectingStorageToBoundEgressPortPath = o.m_zmqConnectingStorageToBoundEgressPortPath;
     m_zmqBoundEgressToConnectingStoragePortPath = o.m_zmqBoundEgressToConnectingStoragePortPath;
-    m_zmqRegistrationServerPortPath = o.m_zmqRegistrationServerPortPath;
     m_zmqBoundSchedulerPubSubPortPath = o.m_zmqBoundSchedulerPubSubPortPath;
     m_zmqBoundRouterPubSubPortPath = o.m_zmqBoundRouterPubSubPortPath;
-    m_zmqMaxMessagesPerPath = o.m_zmqMaxMessagesPerPath;
-    m_zmqMaxMessageSizeBytes = o.m_zmqMaxMessageSizeBytes;
     m_inductsConfig = std::move(o.m_inductsConfig);
     m_outductsConfig = std::move(o.m_outductsConfig);
     m_storageConfig = std::move(o.m_storageConfig);
@@ -234,23 +229,20 @@ bool HdtnConfig::operator==(const HdtnConfig & o) const {
         (m_retransmitBundleAfterNoCustodySignalMilliseconds == o.m_retransmitBundleAfterNoCustodySignalMilliseconds) &&
         (m_maxBundleSizeBytes == o.m_maxBundleSizeBytes) &&
         (m_maxIngressBundleWaitOnEgressMilliseconds == o.m_maxIngressBundleWaitOnEgressMilliseconds) &&
+        (m_bufferRxToStorageOnLinkUpSaturation == o.m_bufferRxToStorageOnLinkUpSaturation) &&
         (m_maxLtpReceiveUdpPacketSizeBytes == o.m_maxLtpReceiveUdpPacketSizeBytes) &&
-        (m_zmqRegistrationServerAddress == o.m_zmqRegistrationServerAddress) &&
         (m_zmqSchedulerAddress == o.m_zmqSchedulerAddress) &&
         (m_zmqRouterAddress == o.m_zmqRouterAddress) &&
-	(m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
+        (m_zmqBoundIngressToConnectingEgressPortPath == o.m_zmqBoundIngressToConnectingEgressPortPath) &&
         (m_zmqConnectingEgressToBoundIngressPortPath == o.m_zmqConnectingEgressToBoundIngressPortPath) &&
-	(m_zmqConnectingEgressToBoundSchedulerPortPath == o.m_zmqConnectingEgressToBoundSchedulerPortPath) &&
+        (m_zmqConnectingEgressToBoundSchedulerPortPath == o.m_zmqConnectingEgressToBoundSchedulerPortPath) &&
         (m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath == o.m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath) &&
         (m_zmqBoundIngressToConnectingStoragePortPath == o.m_zmqBoundIngressToConnectingStoragePortPath) &&
         (m_zmqConnectingStorageToBoundIngressPortPath == o.m_zmqConnectingStorageToBoundIngressPortPath) &&
         (m_zmqConnectingStorageToBoundEgressPortPath == o.m_zmqConnectingStorageToBoundEgressPortPath) &&
         (m_zmqBoundEgressToConnectingStoragePortPath == o.m_zmqBoundEgressToConnectingStoragePortPath) &&
-        (m_zmqRegistrationServerPortPath == o.m_zmqRegistrationServerPortPath) &&
         (m_zmqBoundSchedulerPubSubPortPath == o.m_zmqBoundSchedulerPubSubPortPath) &&
         (m_zmqBoundRouterPubSubPortPath == o.m_zmqBoundRouterPubSubPortPath) &&
-	(m_zmqMaxMessagesPerPath == o.m_zmqMaxMessagesPerPath) &&
-        (m_zmqMaxMessageSizeBytes == o.m_zmqMaxMessageSizeBytes) &&
         (m_inductsConfig == o.m_inductsConfig) &&
         (m_outductsConfig == o.m_outductsConfig) &&
         (m_storageConfig == o.m_storageConfig);
@@ -279,45 +271,44 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
         m_retransmitBundleAfterNoCustodySignalMilliseconds = pt.get<uint64_t>("retransmitBundleAfterNoCustodySignalMilliseconds");
         m_maxBundleSizeBytes = pt.get<uint64_t>("maxBundleSizeBytes");
         m_maxIngressBundleWaitOnEgressMilliseconds = pt.get<uint64_t>("maxIngressBundleWaitOnEgressMilliseconds");
+        m_bufferRxToStorageOnLinkUpSaturation = pt.get<bool>("bufferRxToStorageOnLinkUpSaturation");
         m_maxLtpReceiveUdpPacketSizeBytes = pt.get<uint64_t>("maxLtpReceiveUdpPacketSizeBytes");
 
         m_zmqIngressAddress = pt.get<std::string>("zmqIngressAddress");
         m_zmqEgressAddress = pt.get<std::string>("zmqEgressAddress");
         m_zmqStorageAddress = pt.get<std::string>("zmqStorageAddress");
-        m_zmqRegistrationServerAddress = pt.get<std::string>("zmqRegistrationServerAddress");
         m_zmqSchedulerAddress = pt.get<std::string>("zmqSchedulerAddress");
         m_zmqRouterAddress = pt.get<std::string>("zmqRouterAddress");
         m_zmqBoundIngressToConnectingEgressPortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingEgressPortPath");
         m_zmqConnectingEgressToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundIngressPortPath");
         m_zmqConnectingEgressToBoundSchedulerPortPath = pt.get<uint16_t>("zmqConnectingEgressToBoundSchedulerPortPath");
-	m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath");
+        m_zmqConnectingEgressBundlesOnlyToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingEgressBundlesOnlyToBoundIngressPortPath");
         m_zmqBoundIngressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundIngressToConnectingStoragePortPath");
         m_zmqConnectingStorageToBoundIngressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundIngressPortPath");
         m_zmqConnectingStorageToBoundEgressPortPath = pt.get<uint16_t>("zmqConnectingStorageToBoundEgressPortPath");
         m_zmqBoundEgressToConnectingStoragePortPath = pt.get<uint16_t>("zmqBoundEgressToConnectingStoragePortPath");
-        m_zmqRegistrationServerPortPath = pt.get<uint16_t>("zmqRegistrationServerPortPath");
         m_zmqBoundSchedulerPubSubPortPath = pt.get<uint16_t>("zmqBoundSchedulerPubSubPortPath");
         m_zmqBoundRouterPubSubPortPath = pt.get<uint16_t>("zmqBoundRouterPubSubPortPath");
-        m_zmqMaxMessagesPerPath = pt.get<uint64_t>("zmqMaxMessagesPerPath");
-        m_zmqMaxMessageSizeBytes = pt.get<uint64_t>("zmqMaxMessageSizeBytes");
     }
     catch (const boost::property_tree::ptree_error & e) {
         LOG_ERROR(subprocess) << "parsing JSON HDTN config: " << e.what();
         return false;
     }
 
+    //for non-throw versions of get_child which return a reference to the second parameter
+    static const boost::property_tree::ptree EMPTY_PTREE;
 
-    const boost::property_tree::ptree & inductsConfigPt = pt.get_child("inductsConfig", boost::property_tree::ptree()); //non-throw version
+    const boost::property_tree::ptree & inductsConfigPt = pt.get_child("inductsConfig", EMPTY_PTREE); //non-throw version
     if (!m_inductsConfig.SetValuesFromPropertyTree(inductsConfigPt)) {
         LOG_ERROR(subprocess) << "inductsConfig must be defined inside an hdtnConfig";
         return false;
     }
-    const boost::property_tree::ptree & outductsConfigPt = pt.get_child("outductsConfig", boost::property_tree::ptree()); //non-throw version
+    const boost::property_tree::ptree & outductsConfigPt = pt.get_child("outductsConfig", EMPTY_PTREE); //non-throw version
     if (!m_outductsConfig.SetValuesFromPropertyTree(outductsConfigPt)) {
         LOG_ERROR(subprocess) << "outductsConfig must be defined inside an hdtnConfig";
         return false;
     }
-    const boost::property_tree::ptree & storageConfigPt = pt.get_child("storageConfig", boost::property_tree::ptree()); //non-throw version
+    const boost::property_tree::ptree & storageConfigPt = pt.get_child("storageConfig", EMPTY_PTREE); //non-throw version
     if (!m_storageConfig.SetValuesFromPropertyTree(storageConfigPt)) {
         LOG_ERROR(subprocess) << "storageConfig must be defined inside an hdtnConfig";
         return false;
@@ -327,9 +318,44 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
     return true;
 }
 
+static bool HasUnusedJsonVariables(const HdtnConfig & hdtnConfig, const boost::property_tree::ptree& fromOriginalJsonPt, std::string & returnedErrorMessage) {
+    returnedErrorMessage.clear();
+    const std::string hdtnJsonNoUnusedVars = hdtnConfig.ToJson();
+    const std::string hdtnJsonHasPotentiallyUnusedVars = JsonSerializable::PtToJsonString(fromOriginalJsonPt); //rewrite to pretty format in case it was minified json
+    std::istringstream hdtnJsonNoUnusedVarsSs(hdtnJsonNoUnusedVars);
+    std::istringstream hdtnJsonHasPotentiallyUnusedVarsSs(hdtnJsonHasPotentiallyUnusedVars);
+    std::string lineNoUnused;
+    std::set<std::string> validLinesSet; //support out of order
+    while (std::getline(hdtnJsonNoUnusedVarsSs, lineNoUnused).good()) {
+        boost::algorithm::trim(lineNoUnused);
+        validLinesSet.emplace(std::move(lineNoUnused));
+    }
+    std::string linePotentiallyUnused;
+    unsigned int lineNumber = 0;
+    while (std::getline(hdtnJsonHasPotentiallyUnusedVarsSs, linePotentiallyUnused).good()) {
+        ++lineNumber;
+        boost::algorithm::trim(linePotentiallyUnused);
+        if (validLinesSet.count(linePotentiallyUnused) == 0) {
+            returnedErrorMessage = "line " + boost::lexical_cast<std::string>(lineNumber) + ": unused variable: " + linePotentiallyUnused;
+            return true;
+        }
+    }
+    return false;
+}
+
 HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
     try {
-        return HdtnConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
+        const boost::property_tree::ptree fromOriginalJsonPt = JsonSerializable::GetPropertyTreeFromJsonString(jsonString);
+        HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromPtree(fromOriginalJsonPt);
+        //verify that there are no unused variables within the original json
+        if (hdtnConfig) {
+            std::string returnedErrorMessage;
+            if (HasUnusedJsonVariables(*hdtnConfig, fromOriginalJsonPt, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << "Json string, " << returnedErrorMessage;
+                return HdtnConfig_ptr(); //NULL
+            }
+        }
+        return hdtnConfig;
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJson. Error: " + std::string(e.what());
@@ -341,7 +367,17 @@ HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
 
 HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName) {
     try {
-        return HdtnConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
+        const boost::property_tree::ptree fromOriginalJsonPt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName);
+        HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromPtree(fromOriginalJsonPt);
+        //verify that there are no unused variables within the original json
+        if (hdtnConfig) {
+            std::string returnedErrorMessage;
+            if (HasUnusedJsonVariables(*hdtnConfig, fromOriginalJsonPt, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << "Json file " << jsonFileName << ", " << returnedErrorMessage;
+                return HdtnConfig_ptr(); //NULL
+            }
+        }
+        return hdtnConfig;
     }
     catch (boost::property_tree::json_parser::json_parser_error & e) {
         const std::string message = "In HdtnConfig::CreateFromJsonFile. Error: " + std::string(e.what());
@@ -360,6 +396,8 @@ HdtnConfig_ptr HdtnConfig::CreateFromPtree(const boost::property_tree::ptree & p
     return ptrHdtnConfig;
 }
 
+
+
 boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     boost::property_tree::ptree pt;
     pt.put("hdtnConfigName", m_hdtnConfigName);
@@ -375,12 +413,12 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("retransmitBundleAfterNoCustodySignalMilliseconds", m_retransmitBundleAfterNoCustodySignalMilliseconds);
     pt.put("maxBundleSizeBytes", m_maxBundleSizeBytes);
     pt.put("maxIngressBundleWaitOnEgressMilliseconds", m_maxIngressBundleWaitOnEgressMilliseconds);
+    pt.put("bufferRxToStorageOnLinkUpSaturation", m_bufferRxToStorageOnLinkUpSaturation);
     pt.put("maxLtpReceiveUdpPacketSizeBytes", m_maxLtpReceiveUdpPacketSizeBytes);
 
     pt.put("zmqIngressAddress", m_zmqIngressAddress);
     pt.put("zmqEgressAddress", m_zmqEgressAddress);
     pt.put("zmqStorageAddress", m_zmqStorageAddress);
-    pt.put("zmqRegistrationServerAddress", m_zmqRegistrationServerAddress);
     pt.put("zmqSchedulerAddress", m_zmqSchedulerAddress);
     pt.put("zmqRouterAddress", m_zmqRouterAddress);
     pt.put("zmqBoundIngressToConnectingEgressPortPath", m_zmqBoundIngressToConnectingEgressPortPath);
@@ -391,11 +429,8 @@ boost::property_tree::ptree HdtnConfig::GetNewPropertyTree() const {
     pt.put("zmqConnectingStorageToBoundIngressPortPath", m_zmqConnectingStorageToBoundIngressPortPath);
     pt.put("zmqConnectingStorageToBoundEgressPortPath", m_zmqConnectingStorageToBoundEgressPortPath);
     pt.put("zmqBoundEgressToConnectingStoragePortPath", m_zmqBoundEgressToConnectingStoragePortPath);
-    pt.put("zmqRegistrationServerPortPath", m_zmqRegistrationServerPortPath);
     pt.put("zmqBoundSchedulerPubSubPortPath", m_zmqBoundSchedulerPubSubPortPath);
     pt.put("zmqBoundRouterPubSubPortPath", m_zmqBoundRouterPubSubPortPath);
-    pt.put("zmqMaxMessagesPerPath", m_zmqMaxMessagesPerPath);
-    pt.put("zmqMaxMessageSizeBytes", m_zmqMaxMessageSizeBytes);
 
     pt.put_child("inductsConfig", m_inductsConfig.GetNewPropertyTree());
     pt.put_child("outductsConfig", m_outductsConfig.GetNewPropertyTree());

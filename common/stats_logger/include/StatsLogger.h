@@ -77,25 +77,25 @@ public:
 
     STATS_LIB_EXPORT ~StatsLogger();
 private:
-    STATS_LIB_EXPORT StatsLogger();
-    STATS_LIB_EXPORT StatsLogger(StatsLogger const&) = delete;
-    STATS_LIB_EXPORT StatsLogger& operator=(StatsLogger const&) = delete;
+    STATS_LIB_NO_EXPORT StatsLogger();
+    STATS_LIB_NO_EXPORT StatsLogger(StatsLogger const&) = delete;
+    STATS_LIB_NO_EXPORT StatsLogger& operator=(StatsLogger const&) = delete;
 
     /**
      * Registers attributes used for log messages
      */
-    STATS_LIB_EXPORT void registerAttributes();
+    STATS_LIB_NO_EXPORT void registerAttributes();
 
     /**
      * Creates a file sink for the given metric name. Used
      * to split stats into separate files. 
      */
-    STATS_LIB_EXPORT void createFileSinkForMetric(std::string metricName);
+    STATS_LIB_NO_EXPORT void createFileSinkForMetric(std::string metricName);
 
     /**
      * Follows the boost open handler interface. Writes a header to the csv file on open.
      */
-    STATS_LIB_EXPORT static void writeHeader(boost::log::sinks::text_file_backend::stream_type& file);
+    STATS_LIB_NO_EXPORT static void writeHeader(boost::log::sinks::text_file_backend::stream_type& file);
 
     /**
      * Attributes for managing singleton instance 
@@ -109,7 +109,7 @@ private:
      * Log formatters 
      */
     struct timestampMs_t {
-        long operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const;
+        int64_t operator()(boost::log::value_ref<boost::posix_time::ptime> const & date) const;
     };
     static boost::phoenix::function<StatsLogger::timestampMs_t> timestampMsFormatter;
 };

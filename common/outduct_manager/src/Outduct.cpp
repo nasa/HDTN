@@ -13,8 +13,14 @@ Outduct::~Outduct() {}
 uint64_t Outduct::GetOutductUuid() const {
     return m_outductUuid;
 }
-uint64_t Outduct::GetOutductMaxBundlesInPipeline() const {
-    return m_outductConfig.bundlePipelineLimit;
+uint64_t Outduct::GetOutductMaxNumberOfBundlesInPipeline() const {
+    return m_outductConfig.maxNumberOfBundlesInPipeline;
+}
+uint64_t Outduct::GetOutductMaxSumOfBundleBytesInPipeline() const {
+    return m_outductConfig.maxSumOfBundleBytesInPipeline;
+}
+uint64_t Outduct::GetOutductNextHopNodeId() const {
+    return m_outductConfig.nextHopNodeId;
 }
 std::string Outduct::GetConvergenceLayerName() const {
     return m_outductConfig.convergenceLayer;

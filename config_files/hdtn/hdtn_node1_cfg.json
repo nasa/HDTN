@@ -12,11 +12,11 @@
     "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
-    "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
@@ -27,11 +27,8 @@
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
-    "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 100,
-    "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
@@ -42,7 +39,7 @@
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
             }
-  	]
+        ]
     },
     "outductsConfig": {
         "outductConfigName": "myconfig",
@@ -53,18 +50,15 @@
                 "nextHopNodeId": 3,
                 "remoteHostname": "node3",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 500,
+                "maxNumberOfBundlesInPipeline": 500,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
-                    "ipn:200.1",
-		    "ipn:200.2047", 
-		    "ipn:3.1",
-		    "ipn:3.2047",
-		    "ipn:4.1",
-		    "ipn:4.2047",
-		    "ipn:1.1",
-		    "ipn:1.2047"
-		],
-		"keepAliveIntervalSeconds": 17
+                    "ipn:200.*",
+                    "ipn:3.*",
+                    "ipn:4.*",
+                    "ipn:1.*"
+                ],
+                "keepAliveIntervalSeconds": 17
             },
             {
                 "name": "stcp egress2",
@@ -72,10 +66,11 @@
                 "nextHopNodeId": 2,
                 "remoteHostname": "node2",
                 "remotePort": 4558,
-                "bundlePipelineLimit": 500,
+                "maxNumberOfBundlesInPipeline": 500,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
-		],
-		"keepAliveIntervalSeconds": 17
+                ],
+                "keepAliveIntervalSeconds": 17
             }
         ]
     },

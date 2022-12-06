@@ -49,7 +49,9 @@ public:
     OUTDUCT_MANAGER_LIB_EXPORT virtual uint64_t GetOutductTelemetry(uint8_t* data, uint64_t bufferSize);
 
     OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductUuid() const;
-    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxBundlesInPipeline() const;
+    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxNumberOfBundlesInPipeline() const;
+    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductMaxSumOfBundleBytesInPipeline() const;
+    OUTDUCT_MANAGER_LIB_EXPORT uint64_t GetOutductNextHopNodeId() const;
     OUTDUCT_MANAGER_LIB_EXPORT std::string GetConvergenceLayerName() const;
 
 protected:

@@ -54,6 +54,7 @@
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE (0x5555)
 #define HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS (0x5556)
 #define HDTN_MSGTYPE_STORAGE_ACK_TO_INGRESS (0x5557)
+#define HDTN_MSGTYPE_ALL_OUTDUCT_CAPABILITIES_TELEMETRY (0x5558)
 
 namespace hdtn {
 //#pragma pack (push, 1)
@@ -71,11 +72,12 @@ struct ToEgressHdr {
     CommonHdr base;
     uint8_t hasCustody;
     uint8_t isCutThroughFromIngress;
-    uint8_t unused3;
-    uint8_t unused4;
+    uint8_t isOpportunisticFromStorage;
+    uint8_t isCutThroughFromStorage;
+    uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
-    cbhe_eid_t nextHopEid;
+    uint64_t outductIndex;
 
     //bool operator==(const ToEgressHdr & o) const {
     //    return (base == o.base) && (custodyId == o.custodyId);
@@ -87,10 +89,13 @@ struct EgressAckHdr {
     uint8_t error;
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
     uint8_t isToStorage;
-    uint8_t unused1;
+    uint8_t isResponseToStorageCutThrough;
+    uint8_t isOpportunisticFromStorage;
+    uint8_t unusedPadding[7];
+    uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
-    cbhe_eid_t nextHopEid;
+    uint64_t outductIndex;
 
     //bool operator==(const EgressAckHdr & o) const {
     //    return (base == o.base) && (custodyId == o.custodyId);
@@ -99,11 +104,13 @@ struct EgressAckHdr {
 
 struct ToStorageHdr {
     CommonHdr base;
-    uint8_t unused1;
-    uint8_t unused2;
+    uint8_t dontStoreBundle;
+    uint8_t isCustodyOrAdminRecord; //if no custody, storage just needs to decode primary header because ingress already verified the bundle
     uint8_t unused3;
     uint8_t unused4;
     uint64_t ingressUniqueId;
+    uint64_t outductIndex; //for bundle pipeline limiting on a per outduct basis
+    cbhe_eid_t finalDestEid; //for assisting storage on cut-through so it doesn't have to 
 };
 
 struct StorageAckHdr {
@@ -112,12 +119,8 @@ struct StorageAckHdr {
     uint8_t unused1;
     uint8_t unused2;
     uint8_t unused3;
-    cbhe_eid_t finalDestEid;
     uint64_t ingressUniqueId;
-
-    //bool operator==(const EgressAckHdr & o) const {
-    //    return (base == o.base) && (custodyId == o.custodyId);
-    //}
+    uint64_t outductIndex; //for bundle pipeline limiting on a per outduct basis
 };
 
 struct TelemStorageHdr {
@@ -133,31 +136,20 @@ struct CscheduleHdr {
     uint64_t duration;  // msec
 };
 
-struct IreleaseStartHdr {
-    CommonHdr base;
+struct IreleaseChangeHdr {
+    uint64_t subscriptionBytes;
+    CommonHdr base; //types ILINKDOWN or ILINKUP
     uint8_t unused1;
     uint8_t unused2;
     uint8_t unused3;
     uint8_t unused4;
-    uint64_t finalDestinationNodeId;   // formerly flow ID
-    uint64_t rate;      // bytes / sec
-    uint64_t duration;  // msec
+    uint64_t outductArrayIndex; //outductUuid
+    uint64_t rate;      // bytes / sec (start events only)
+    uint64_t duration;  // msec (start events only)
     uint64_t prevHopNodeId;
     uint64_t nextHopNodeId;
     uint64_t time;
-};
-
-struct IreleaseStopHdr {
-    CommonHdr base;
-    uint8_t unused1;
-    uint8_t unused2;
-    uint8_t unused3;
-    uint8_t unused4;
-    uint64_t finalDestinationNodeId;
-    uint64_t prevHopNodeId;
-    uint64_t nextHopNodeId;
-    uint64_t time;
-    uint64_t contact;
+    uint64_t contact; //stop events only
 };
 
 struct RouteUpdateHdr {

@@ -5,29 +5,6 @@ add_executable(hdtn-storage
 install(TARGETS hdtn-storage DESTINATION ${CMAKE_INSTALL_BINDIR})
 target_link_libraries(hdtn-storage storage_lib)
 
-	
-add_executable(hdtn-release-message-sender
-	src/test/release_message_sender.cpp
-)
-install(TARGETS hdtn-release-message-sender DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_link_libraries(hdtn-release-message-sender config_lib bpcodec Boost::program_options)
-target_include_directories(hdtn-release-message-sender
-	PUBLIC
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/test>
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for message.hpp
-)
-
-add_executable(hdtn-multiple-release-message-sender
-    src/test/ReleaseSender.cpp
-    src/test/multiple_release_message_sender.cpp
-)
-install(TARGETS hdtn-multiple-release-message-sender DESTINATION ${CMAKE_INSTALL_BINDIR})
-target_link_libraries(hdtn-multiple-release-message-sender config_lib hdtn_util bpcodec Boost::program_options)
-target_include_directories(hdtn-multiple-release-message-sender
-    PUBLIC
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/test>
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../common/include> # for message.hpp
-)
 
 add_library(storage_lib
         src/MemoryManagerTreeArray.cpp

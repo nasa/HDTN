@@ -12,11 +12,11 @@
     "retransmitBundleAfterNoCustodySignalMilliseconds": 10000,
     "maxBundleSizeBytes": 10000000,
     "maxIngressBundleWaitOnEgressMilliseconds": 2000,
+    "bufferRxToStorageOnLinkUpSaturation": false,
     "maxLtpReceiveUdpPacketSizeBytes": 65536,
     "zmqIngressAddress": "localhost",
     "zmqEgressAddress": "localhost",
     "zmqStorageAddress": "localhost",
-    "zmqRegistrationServerAddress": "localhost",
     "zmqSchedulerAddress": "localhost",
     "zmqRouterAddress": "localhost",
     "zmqBoundIngressToConnectingEgressPortPath": 10100,
@@ -27,11 +27,8 @@
     "zmqConnectingStorageToBoundIngressPortPath": 10150,
     "zmqConnectingStorageToBoundEgressPortPath": 10120,
     "zmqBoundEgressToConnectingStoragePortPath": 10130,
-    "zmqRegistrationServerPortPath": 10140,
     "zmqBoundSchedulerPubSubPortPath": 10200,
     "zmqBoundRouterPubSubPortPath": 10210,
-    "zmqMaxMessagesPerPath": 100,
-    "zmqMaxMessageSizeBytes": 100000000,
     "inductsConfig": {
         "inductConfigName": "myconfig",
         "inductVector": [
@@ -42,7 +39,7 @@
                 "numRxCircularBufferElements": 200,
                 "keepAliveIntervalSeconds": 15
             }, 
-	    {
+            {
                 "name": "i1",
                 "convergenceLayer": "ltp_over_udp",
                 "boundPort": 1113,
@@ -73,32 +70,25 @@
                 "nextHopNodeId": 35,
                 "remoteHostname": "ION_Space_Node",
                 "remotePort": 4557,
-                "bundlePipelineLimit": 500,
+                "maxNumberOfBundlesInPipeline": 500,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
-                    "ipn:35.1",
-                     "ipn:35.64",
-                     "ipn:35.65",
-		     "ipn:35.2047"
+                    "ipn:35.*"
                 ],
-		"keepAliveIntervalSeconds": 17
+                "keepAliveIntervalSeconds": 17
             },
             
-	    {
+            {
                 "name": "for egress",
                 "convergenceLayer": "ltp_over_udp",
                 "nextHopNodeId": 68,
                 "remoteHostname": "DTNME_Ground_Node",
                 "remotePort": 1113,
-                "bundlePipelineLimit": 500,
+                "maxNumberOfBundlesInPipeline": 500,
+                "maxSumOfBundleBytesInPipeline": 50000000,
                 "finalDestinationEidUris": [
-                    "ipn:68.1",
-                    "ipn:52.1",
-                    "ipn:68.64",
-                    "ipn:52.64",
-                    "ipn:68.65",
-                    "ipn:52.65",
-                    "ipn:68.2047",
-                    "ipn:52.2047"
+                    "ipn:68.*",
+                    "ipn:52.*"
                 ],
                 "thisLtpEngineId": 69,
                 "remoteLtpEngineId": 68,

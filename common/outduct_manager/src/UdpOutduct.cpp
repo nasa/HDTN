@@ -6,7 +6,7 @@
 
 UdpOutduct::UdpOutduct(const outduct_element_config_t & outductConfig, const uint64_t outductUuid) :
     Outduct(outductConfig, outductUuid),
-    m_udpBundleSource(outductConfig.udpRateBps, outductConfig.bundlePipelineLimit + 5)
+    m_udpBundleSource(outductConfig.udpRateBps, outductConfig.maxNumberOfBundlesInPipeline + 5)
 {}
 UdpOutduct::~UdpOutduct() {}
 

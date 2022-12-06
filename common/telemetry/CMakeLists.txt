@@ -15,6 +15,7 @@ set_target_properties(telemetry_definitions PROPERTIES PUBLIC_HEADER "${MY_PUBLI
 target_link_libraries(telemetry_definitions
 	PUBLIC
 		log_lib
+		bpcodec
 		Boost::boost #boost headers
 )
 target_include_directories(telemetry_definitions

@@ -37,6 +37,18 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         const outduct_element_config_t & thisOutductConfig = *it;
         std::shared_ptr<Outduct> outductSharedPtr;
         const uint64_t uuidIndex = nextOutductUuidIndex;
+        //an error shall be thrown if (maxBundleSizeBytes * 2) > maxSumOfBundleBytesInPipeline
+        //to prevent a large bundle from being unable to be sent, since hdtn cannot fragment bundles as of now
+        //note: function parameter maxOpportunisticRxBundleSizeBytes is set from m_hdtnConfig.m_maxBundleSizeBytes, so use that
+        const uint64_t maxBundleSizeBytes = maxOpportunisticRxBundleSizeBytes;
+        if ((maxBundleSizeBytes * 2) > thisOutductConfig.maxSumOfBundleBytesInPipeline) {
+            LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: maxBundleSizeBytes("
+                << maxBundleSizeBytes
+                << ") x 2 > maxSumOfBundleBytesInPipeline("
+                << thisOutductConfig.maxSumOfBundleBytesInPipeline
+                << ") for outduct index " << uuidIndex;
+            return false;
+        }
         if (thisOutductConfig.convergenceLayer == "tcpcl_v3") {
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
                 outductSharedPtr = std::make_shared<TcpclOutduct>(thisOutductConfig, myNodeId, uuidIndex, outductOpportunisticProcessReceivedBundleCallback);
@@ -48,8 +60,8 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
         else if (thisOutductConfig.convergenceLayer == "tcpcl_v4") {
 #ifndef OPENSSL_SUPPORT_ENABLED
             if (thisOutductConfig.tlsIsRequired) {
-                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.. this outduct shall be disabled.";
-                continue;
+                LOG_ERROR(subprocess) << "OutductManager::LoadOutductsFromConfig: TLS is required for this tcpcl v4 outduct but HDTN is not compiled with OpenSSL support.";
+                return false;
             }
 #endif
             if (thisOutductConfig.tcpclAllowOpportunisticReceiveBundles) {
@@ -166,7 +178,7 @@ void OutductManager::StopAllOutducts() {
 
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bundleData, const std::size_t size, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -181,7 +193,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, const uint8_t* bun
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & movableDataZmq, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -196,7 +208,7 @@ bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, zmq::message_t & m
 }
 bool OutductManager::Forward(const cbhe_eid_t & finalDestEid, std::vector<uint8_t> & movableDataVec, std::vector<uint8_t>&& userData) {
     if (Outduct * const outductPtr = GetOutductByFinalDestinationEid_ThreadSafe(finalDestEid)) {
-        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxBundlesInPipeline()) {
+        if (outductPtr->GetTotalDataSegmentsUnacked() > outductPtr->GetOutductMaxNumberOfBundlesInPipeline()) {
             LOG_ERROR(subprocess) << "bundle pipeline limit exceeded";
             return false;
         }
@@ -244,6 +256,37 @@ bool OutductManager::Reroute_ThreadSafe(const uint64_t finalDestNodeId, const ui
         }
     }
     return success;
+}
+
+void OutductManager::GetAllOutductCapabilitiesTelemetry_ThreadSafe(AllOutductCapabilitiesTelemetry_t& allOutductCapabilitiesTelemetry) {
+    std::vector<OutductCapabilityTelemetry_t> octVec(m_outductsVec.size());
+    allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.clear();
+    {
+        boost::mutex::scoped_lock lock(m_finalDestNodeIdToOutductMapMutex);
+        boost::mutex::scoped_lock lock2(m_finalDestEidToOutductMapMutex);
+        for (std::map<uint64_t, std::shared_ptr<Outduct> >::const_iterator it = m_finalDestNodeIdToOutductMap.cbegin(); it != m_finalDestNodeIdToOutductMap.cend(); ++it) {
+            const uint64_t nodeId = it->first;
+            const uint64_t outductIndex = it->second->GetOutductUuid();
+            OutductCapabilityTelemetry_t& oct = octVec[outductIndex];
+            oct.finalDestinationNodeIdList.emplace_back(nodeId);
+        }
+        for (std::map<cbhe_eid_t, std::shared_ptr<Outduct> >::const_iterator it = m_finalDestEidToOutductMap.cbegin(); it != m_finalDestEidToOutductMap.cend(); ++it) {
+            const cbhe_eid_t& eid = it->first;
+            const uint64_t outductIndex = it->second->GetOutductUuid();
+            OutductCapabilityTelemetry_t& oct = octVec[outductIndex];
+            oct.finalDestinationEidList.emplace_back(eid);
+        }
+    }
+    //convert vector to list
+    for (std::size_t i = 0; i < octVec.size(); ++i) {
+        OutductCapabilityTelemetry_t& oct = octVec[i];
+        std::shared_ptr<Outduct> & outductPtr = m_outductsVec[i];
+        oct.maxBundlesInPipeline = outductPtr->GetOutductMaxNumberOfBundlesInPipeline();
+        oct.maxBundleSizeBytesInPipeline = outductPtr->GetOutductMaxSumOfBundleBytesInPipeline();
+        oct.outductArrayIndex = i;
+        oct.nextHopNodeId = outductPtr->GetOutductNextHopNodeId();
+        allOutductCapabilitiesTelemetry.outductCapabilityTelemetryList.emplace_back(std::move(oct));
+    }
 }
 
 Outduct * OutductManager::GetOutductByFinalDestinationEid_ThreadSafe(const cbhe_eid_t & finalDestEid) {

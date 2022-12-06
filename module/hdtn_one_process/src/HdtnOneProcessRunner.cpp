@@ -1,8 +1,15 @@
-/***************************************************************************
- * NASA Glenn Research Center, Cleveland, OH
+/**
+ * @file HdtnOneProcessRunner.cpp
+ * @author  Brian Tomko <brian.j.tomko@nasa.gov>
+ *
+ * @copyright Copyright © 2021 United States Government as represented by
+ * the National Aeronautics and Space Administration.
+ * No copyright is claimed in the United States under Title 17, U.S.Code.
+ * All Other Rights Reserved.
+ *
+ * @section LICENSE
  * Released under the NASA Open Source Agreement (NOSA)
- * May  2021
- ****************************************************************************
+ * See LICENSE.md in the source root directory for more information.
  */
 
 #include "ingress.h"
@@ -125,23 +132,21 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         LOG_INFO(subprocess) << "starting EgressAsync..";
 
-        //create on heap with unique_ptr to prevent stack overflows
-        std::unique_ptr<hdtn::HegrManagerAsync> egressPtr = boost::make_unique<hdtn::HegrManagerAsync>();
-        egressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
-
-        LOG_INFO(subprocess) << "Announcing presence of egress...";
-        
+        //No need to create Egress, Ingress, and Storage on heap with unique_ptr to prevent stack overflows because they use the pimpl pattern
+        hdtn::Egress egress;
+        if (!egress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+            return false;
+        }
 
         LOG_INFO(subprocess) << "starting ingress..";
-        //create on heap with unique_ptr to prevent stack overflows
-        std::unique_ptr<hdtn::Ingress> ingressPtr = boost::make_unique<hdtn::Ingress>();
-        ingressPtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get());
+        hdtn::Ingress ingress;
+        if (!ingress.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+            return false;
+        }
 
-
-        //create on heap with unique_ptr to prevent stack overflows
-        std::unique_ptr<ZmqStorageInterface> storagePtr = boost::make_unique<ZmqStorageInterface>();
+        ZmqStorageInterface storage;
         LOG_INFO(subprocess) << "Initializing storage manager ...";
-        if (!storagePtr->Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
+        if (!storage.Init(*hdtnConfig, hdtnOneProcessZmqInprocContextPtr.get())) {
             return false;
         }
 
@@ -172,30 +177,30 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
 
         LOG_INFO(subprocess) << "Elapsed, Bundle Count (M), Rate (Mbps), Bundles/sec, Bundle Data (MB) ";
         //Possibly out of Date
-        double rate = 8 * ((ingressPtr->m_bundleData / (double)(1024 * 1024)) / ingressPtr->m_elapsed);
-        LOG_INFO(subprocess) << ingressPtr->m_elapsed << "," << ingressPtr->m_bundleCount / 1000000.0f << "," << rate << ","
-            << ingressPtr->m_bundleCount / ingressPtr->m_elapsed << ", " << ingressPtr->m_bundleData / (double)(1024 * 1024);
+        double rate = 8 * ((ingress.m_bundleData / (double)(1024 * 1024)) / ingress.m_elapsed);
+        LOG_INFO(subprocess) << ingress.m_elapsed << "," << ingress.m_bundleCount / 1000000.0f << "," << rate << ","
+            << ingress.m_bundleCount / ingress.m_elapsed << ", " << ingress.m_bundleData / (double)(1024 * 1024);
 
         boost::posix_time::ptime timeLocal = boost::posix_time::second_clock::local_time();
         LOG_INFO(subprocess) << "IngressAsyncRunner currentTime  " << timeLocal;
 
         LOG_INFO(subprocess) << "IngressAsyncRunner: exiting cleanly..";
-        ingressPtr->Stop();
-        m_ingressBundleCountStorage = ingressPtr->m_bundleCountStorage;
-        m_ingressBundleCountEgress = ingressPtr->m_bundleCountEgress;
-        m_ingressBundleCount = ingressPtr->m_bundleCount;
-        m_ingressBundleData = ingressPtr->m_bundleData;
+        ingress.Stop();
+        m_ingressBundleCountStorage = ingress.m_bundleCountStorage;
+        m_ingressBundleCountEgress = ingress.m_bundleCountEgress;
+        m_ingressBundleCount = ingress.m_bundleCount;
+        m_ingressBundleData = ingress.m_bundleData;
 
         LOG_INFO(subprocess) << "StorageRunner: exiting cleanly..";
-        storagePtr->Stop();
-        m_totalBundlesErasedFromStorage = storagePtr->GetCurrentNumberOfBundlesDeletedFromStorage();
-        m_totalBundlesSentToEgressFromStorage = storagePtr->m_totalBundlesSentToEgressFromStorage;
+        storage.Stop();
+        m_totalBundlesErasedFromStorage = storage.GetCurrentNumberOfBundlesDeletedFromStorage();
+        m_totalBundlesSentToEgressFromStorage = storage.m_totalBundlesSentToEgressFromStorageReadFromDisk;
 
         LOG_INFO(subprocess) << "EgressAsyncRunner: exiting cleanly..";
-        egressPtr->Stop();
-        m_egressBundleCount = egressPtr->m_telemetry.egressBundleCount;
-        m_egressBundleData = static_cast<uint64_t>(egressPtr->m_telemetry.egressBundleData);
-        m_egressMessageCount = egressPtr->m_telemetry.egressMessageCount;
+        egress.Stop();
+        m_egressBundleCount = egress.m_telemetry.egressBundleCount;
+        m_egressBundleData = static_cast<uint64_t>(egress.m_telemetry.egressBundleData);
+        m_egressMessageCount = egress.m_telemetry.egressMessageCount;
     }
     LOG_INFO(subprocess) << "HDTN one process: exited cleanly";
     return true;
