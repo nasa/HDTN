@@ -1136,7 +1136,7 @@ BOOST_AUTO_TEST_CASE(BundleViewGetMillisecondsSinceCreateTestCase) {
 
     Bpv7CbhePrimaryBlock primary;
     primary.m_creationTimestamp.SetFromPtime(bundleCreateTime);
-    long ms = primary.GetMillisecondsSinceCreate();
+    uint64_t ms = primary.GetMillisecondsSinceCreate();
     // Provide some buffer
     BOOST_REQUIRE(ms >= 50000 && ms <= 50100);
 }

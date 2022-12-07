@@ -272,7 +272,7 @@ void Egress::Impl::DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid
     {
         boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
         if (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)), zmq::send_flags::dontwait)) {
-            LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingSchedulerPtr could not send outduct capabilities";
+            LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingSchedulerPtr could not send LinkStatus update event to Scheduler";
             return;
         }        
     }

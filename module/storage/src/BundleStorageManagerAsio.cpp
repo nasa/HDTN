@@ -69,7 +69,8 @@ BundleStorageManagerAsio::~BundleStorageManagerAsio() {
 void BundleStorageManagerAsio::Start() {
     if (m_storageConfigPtr) {
         for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
-            const char * const filePath = m_filePathsAsStringVec[diskId].c_str();
+            const boost::filesystem::path& filePath = m_filePathsVec[diskId];
+            const boost::filesystem::path::value_type* filePathCstr = filePath.c_str();
             LOG_INFO(subprocess) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
 #ifdef _WIN32
             //
@@ -79,7 +80,7 @@ void BundleStorageManagerAsio::Start() {
             //If the request is accepted by the kernel, the calling thread continues processing another job until the kernel signals to
             //the thread that the I/O operation is complete. It then interrupts its current job and processes the data from the I/O operation as necessary.
             //Asynchronous I/O is also referred to as overlapped I/O.
-            HANDLE hFile = CreateFile(filePath,                // name of the file
+            HANDLE hFile = CreateFileW(filePathCstr,                // name of the file
                 GENERIC_READ | GENERIC_WRITE,          // open for reading and writing
                 0,                      // do not share
                 NULL,                   // default security
@@ -97,7 +98,7 @@ void BundleStorageManagerAsio::Start() {
             //FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
             m_asioHandlePtrsVec[diskId] = boost::make_unique<boost::asio::windows::random_access_handle>(m_ioService, hFile);
 #else
-            int file_desc = open(filePath, (m_successfullyRestoredFromDisk) ? (O_RDWR|O_LARGEFILE) : (O_CREAT|O_RDWR|O_TRUNC|O_LARGEFILE), DEFFILEMODE);
+            int file_desc = open(filePathCstr, (m_successfullyRestoredFromDisk) ? (O_RDWR|O_LARGEFILE) : (O_CREAT|O_RDWR|O_TRUNC|O_LARGEFILE), DEFFILEMODE);
             if(file_desc < 0) {
                 LOG_ERROR(subprocess) << "error opening " << filePath;
                 return;

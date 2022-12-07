@@ -79,9 +79,18 @@ void BundleStorageManagerMT::ThreadFunc(const unsigned int threadIndex) {
     boost::condition_variable & cv = cvMutexPairRef.first;
     boost::mutex & localMutex = cvMutexPairRef.second;
     CircularIndexBufferSingleProducerSingleConsumerConfigurable & cb = m_circularIndexBuffersVec[threadIndex];
-    const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
+    //const char * const filePath = m_storageConfigPtr->m_storageDiskConfigVector[threadIndex].storeFilePath.c_str();
+    const boost::filesystem::path& filePath = m_filePathsVec[threadIndex];
+    const boost::filesystem::path::value_type* filePathCstr = filePath.c_str();
     LOG_INFO(subprocess) << ((m_successfullyRestoredFromDisk) ? "reopening " : "creating ") << filePath;
-    FILE * fileHandle = (m_successfullyRestoredFromDisk) ? fopen(filePath, "r+bR") : fopen(filePath, "w+bR");
+    FILE * fileHandle = (m_successfullyRestoredFromDisk) ? 
+#ifdef _WIN32
+        _wfopen(filePathCstr, L"r+bR") : _wfopen(filePathCstr, L"w+bR");
+#else
+        fopen(filePathCstr, "r+bR") : fopen(filePathCstr, "w+bR");
+#endif // _WIN32
+
+        
     boost::uint8_t * const circularBufferBlockDataPtr = &m_circularBufferBlockDataPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE * SEGMENT_SIZE];
     segment_id_t * const circularBufferSegmentIdsPtr = &m_circularBufferSegmentIdsPtr[threadIndex * CIRCULAR_INDEX_BUFFER_SIZE];
 

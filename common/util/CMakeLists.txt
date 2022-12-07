@@ -16,6 +16,7 @@ add_library(hdtn_util
 	src/UdpBatchSender.cpp
 	src/LtpClientServiceDataToSend.cpp
 	src/DirectoryScanner.cpp
+	src/MemoryInFiles.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -59,6 +60,7 @@ set(MY_PUBLIC_HEADERS
 	include/FragmentSet.h
 	include/JsonSerializable.h
 	include/LtpClientServiceDataToSend.h
+	include/MemoryInFiles.h
 	include/PaddedVectorUint8.h
 	#include/RateManagerAsync.h
 	include/Sdnv.h

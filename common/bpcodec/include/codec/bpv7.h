@@ -310,7 +310,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv7CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT uint64_t SerializeBpv7(uint8_t * serialization); //modifies m_computedCrcXX
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT bool DeserializeBpv7(uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize); //serialization must be temporarily modifyable to zero crc and restore it
-    BPCODEC_EXPORT long GetMillisecondsSinceCreate() const;
+    BPCODEC_EXPORT uint64_t GetMillisecondsSinceCreate() const;
 
     BPCODEC_EXPORT virtual bool HasCustodyFlagSet() const;
     BPCODEC_EXPORT virtual bool HasFragmentationFlagSet() const;
