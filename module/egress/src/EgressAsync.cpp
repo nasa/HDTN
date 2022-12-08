@@ -28,7 +28,6 @@
 #include "Logger.h"
 #include "Uri.h"
 #include "TimestampUtil.h"
-#include <queue>
 
 namespace hdtn {
 
@@ -49,14 +48,6 @@ private:
     void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
     void ResendOutductCapabilities();
-
-    struct LinkStatusUpdateQueueItem {
-        LinkStatusUpdateQueueItem() = default;
-        LinkStatusUpdateQueueItem(bool isLinkDownEvent, uint64_t outductUuid);
-
-        bool m_isLinkDownEvent;
-        uint64_t m_outductUuid;
-    };
 
 public:
     //telemetry
@@ -89,10 +80,6 @@ private:
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
     volatile bool m_running;
 };
-
-Egress::Impl::LinkStatusUpdateQueueItem::LinkStatusUpdateQueueItem(bool isLinkDownEvent, uint64_t outductUuid) :
-    m_isLinkDownEvent(isLinkDownEvent),
-    m_outductUuid(outductUuid) {}
 
 Egress::Impl::Impl() : m_running(false) {
     //m_flags = 0;
