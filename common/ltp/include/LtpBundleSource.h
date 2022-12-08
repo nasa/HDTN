@@ -33,10 +33,11 @@
 #include "BundleCallbackFunctionDefines.h"
 #include <zmq.hpp>
 #include <atomic>
+#include <boost/core/noncopyable.hpp>
 
-class LtpBundleSource {
+class LtpBundleSource : private boost::noncopyable {
 private:
-    LtpBundleSource();
+    LtpBundleSource() = delete;
 public:
     /*
     const LtpWholeBundleReadyCallback_t & ltpWholeBundleReadyCallback,

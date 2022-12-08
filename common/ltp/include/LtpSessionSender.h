@@ -30,7 +30,7 @@
 #include "LtpTimerManager.h"
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
-
+#include <boost/core/noncopyable.hpp>
 
 
 
@@ -39,9 +39,9 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancel
 
 typedef boost::function<void(const uint64_t sessionNumber)> NotifyEngineThatThisSenderHasProducibleDataFunction_t;
 
-class LtpSessionSender {
+class LtpSessionSender : private boost::noncopyable {
 private:
-    LtpSessionSender();
+    LtpSessionSender() = delete;
     LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
     LTP_LIB_EXPORT ~LtpSessionSender();

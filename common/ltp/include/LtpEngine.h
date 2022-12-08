@@ -34,8 +34,9 @@
 #include <unordered_map>
 #include <queue>
 #include <memory>
+#include <boost/core/noncopyable.hpp>
 
-class CLASS_VISIBILITY_LTP_LIB LtpEngine {
+class CLASS_VISIBILITY_LTP_LIB LtpEngine : private boost::noncopyable {
 private:
     LtpEngine();
 public:

@@ -27,10 +27,11 @@
 #include <vector>
 #include <unordered_set>
 #include "ltp_lib_export.h"
+#include <boost/core/noncopyable.hpp>
 
-class LtpSessionRecreationPreventer {
+class LtpSessionRecreationPreventer : private boost::noncopyable {
 private:
-    LtpSessionRecreationPreventer();
+    LtpSessionRecreationPreventer() = delete;
 public:
     
     LTP_LIB_EXPORT LtpSessionRecreationPreventer(const uint64_t numReceivedSessionsToRemember);

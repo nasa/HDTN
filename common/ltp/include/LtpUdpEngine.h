@@ -34,7 +34,7 @@
 
 class CLASS_VISIBILITY_LTP_LIB LtpUdpEngine : public LtpEngine {
 private:
-    LtpUdpEngine();
+    LtpUdpEngine() = delete;
 public:
     
     LTP_LIB_EXPORT LtpUdpEngine(boost::asio::io_service & ioServiceUdpRef, boost::asio::ip::udp::socket & udpSocketRef, const uint64_t thisEngineId,

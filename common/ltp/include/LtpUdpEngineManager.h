@@ -29,12 +29,13 @@
 #include <vector>
 #include <map>
 #include "LtpUdpEngine.h"
+#include <boost/core/noncopyable.hpp>
 
 //Every "link" should have a unique engine ID, managed by using the remote eid that the link will be connecting to as the engine id for LTP
 //We track a link as a paired induct/outduct and for each link there is one engine id
-class LtpUdpEngineManager {
+class LtpUdpEngineManager : private boost::noncopyable {
 private:
-    LtpUdpEngineManager();
+    LtpUdpEngineManager() = delete;
     LTP_LIB_EXPORT LtpUdpEngineManager(const uint16_t myBoundUdpPort, const bool autoStart); //LtpUdpEngineManager can only be created by the GetOrCreateInstance() function
 public:
     LTP_LIB_EXPORT ~LtpUdpEngineManager();
