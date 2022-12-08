@@ -148,6 +148,27 @@ bool OutductManager::LoadOutductsFromConfig(const OutductsConfig & outductsConfi
             outductSharedPtr->SetOnSuccessfulBundleSendCallback(onSuccessfulBundleSendCallback);
             outductSharedPtr->SetOnOutductLinkStatusChangedCallback(onOutductLinkStatusChangedCallback);
             outductSharedPtr->SetUserAssignedUuid(uuidIndex);
+
+            //for any connection-oriented convergence layer, initially send link down event,
+            // and when connection completes, the convergence layer will send a link up event
+            if ((thisOutductConfig.convergenceLayer == "tcpcl_v3") || (thisOutductConfig.convergenceLayer == "tcpcl_v4") || (thisOutductConfig.convergenceLayer == "stcp")) {
+                if (onOutductLinkStatusChangedCallback) { //send initial link down event
+                    LOG_DEBUG(subprocess) << "Outduct index(" << uuidIndex
+                        << ") with connection-oriented convergence layer " << thisOutductConfig.convergenceLayer
+                        << " setting link down before calling Connect()";
+                    onOutductLinkStatusChangedCallback(true, uuidIndex);
+                }
+            }
+            /* the following has issues with bpgen
+            else if ((thisOutductConfig.convergenceLayer == "ltp_over_udp") && (thisOutductConfig.ltpSenderPingSecondsOrZeroToDisable != 0)) {
+                if (onOutductLinkStatusChangedCallback) { //send initial link down event
+                    LOG_DEBUG(subprocess) << "Outduct index(" << uuidIndex
+                        << ") with ltp convergence layer (WITH ltp ping enabled) setting link down before calling Connect()";
+                    onOutductLinkStatusChangedCallback(true, uuidIndex);
+                }
+            }
+            */
+
             outductSharedPtr->Connect();
             m_outductsVec.push_back(std::move(outductSharedPtr)); //uuid will be the array index
         }

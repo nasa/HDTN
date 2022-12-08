@@ -28,6 +28,7 @@
 #include "Logger.h"
 #include "Uri.h"
 #include "TimestampUtil.h"
+#include <queue>
 
 namespace hdtn {
 
@@ -48,7 +49,14 @@ private:
     void OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData, uint64_t outductUuid);
     void OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid);
     void ResendOutductCapabilities();
-    void DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid);
+
+    struct LinkStatusUpdateQueueItem {
+        LinkStatusUpdateQueueItem() = default;
+        LinkStatusUpdateQueueItem(bool isLinkDownEvent, uint64_t outductUuid);
+
+        bool m_isLinkDownEvent;
+        uint64_t m_outductUuid;
+    };
 
 public:
     //telemetry
@@ -69,6 +77,9 @@ private:
 
     std::unique_ptr<zmq::socket_t> m_zmqRepSock_connectingGuiToFromBoundEgressPtr;
 
+    std::unique_ptr<zmq::socket_t> m_zmqPairSock_LinkStatusWaitPtr;
+    std::unique_ptr<zmq::socket_t> m_zmqPairSock_LinkStatusNotifyOnePtr;
+
     OutductManager m_outductManager;
     HdtnConfig m_hdtnConfig;
 
@@ -78,6 +89,10 @@ private:
     std::unique_ptr<boost::thread> m_threadZmqReaderPtr;
     volatile bool m_running;
 };
+
+Egress::Impl::LinkStatusUpdateQueueItem::LinkStatusUpdateQueueItem(bool isLinkDownEvent, uint64_t outductUuid) :
+    m_isLinkDownEvent(isLinkDownEvent),
+    m_outductUuid(outductUuid) {}
 
 Egress::Impl::Impl() : m_running(false) {
     //m_flags = 0;
@@ -121,17 +136,7 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
 
     m_hdtnConfig = hdtnConfig;
 
-    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
-        boost::bind(&Egress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1),
-        OnFailedBundleVecSendCallback_t(), //egress only sends zmq bundles (not vec8) so this will never be needed
-        //boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-        boost::bind(&Egress::Impl::OnFailedBundleZmqSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-        boost::bind(&Egress::Impl::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
-        boost::bind(&Egress::Impl::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)
-    ))
-    {
-        return false;
-    }
+    
 
     
     m_telemetry.egressBundleCount = 0;
@@ -211,6 +216,13 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
             std::string("tcp://*:") + boost::lexical_cast<std::string>(m_hdtnConfig.m_zmqConnectingEgressToBoundSchedulerPortPath));
         m_zmqPushSock_boundEgressToConnectingSchedulerPtr->bind(bind_boundEgressToConnectingSchedulerPath);
 
+        //an inproc to make sure link status sent from within the zmq polling loop
+        static const std::string zmqLinkStatusAddress = "inproc://egress_ls";
+        m_zmqPairSock_LinkStatusWaitPtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
+        m_zmqPairSock_LinkStatusNotifyOnePtr = boost::make_unique<zmq::socket_t>(*m_zmqCtxPtr, zmq::socket_type::pair);
+        m_zmqPairSock_LinkStatusWaitPtr->bind(zmqLinkStatusAddress);
+        m_zmqPairSock_LinkStatusNotifyOnePtr->connect(zmqLinkStatusAddress);
+
         //Caution: All options, with the exception of ZMQ_SUBSCRIBE, ZMQ_UNSUBSCRIBE and ZMQ_LINGER, only take effect for subsequent socket bind/connects.
         //The value of 0 specifies no linger period. Pending messages shall be discarded immediately when the socket is closed with zmq_close().
         m_zmqRepSock_connectingGuiToFromBoundEgressPtr->set(zmq::sockopt::linger, 0); //prevent hang when deleting the zmqCtxPtr
@@ -250,6 +262,21 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
         LOG_ERROR(subprocess) << "egress cannot set up zmq socket: " << ex.what();
         return false;
     }
+
+    //load outducts after all zmq sockets created (in case an outduct link status changed callback is called which uses them)
+    if (!m_outductManager.LoadOutductsFromConfig(m_hdtnConfig.m_outductsConfig, m_hdtnConfig.m_myNodeId, m_hdtnConfig.m_maxLtpReceiveUdpPacketSizeBytes, m_hdtnConfig.m_maxBundleSizeBytes,
+        boost::bind(&Egress::Impl::WholeBundleReadyCallback, this, boost::placeholders::_1),
+        OnFailedBundleVecSendCallback_t(), //egress only sends zmq bundles (not vec8) so this will never be needed
+        //boost::bind(&hdtn::HegrManagerAsync::OnFailedBundleVecSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+        boost::bind(&Egress::Impl::OnFailedBundleZmqSendCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
+        boost::bind(&Egress::Impl::OnSuccessfulBundleSendCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        boost::bind(&Egress::Impl::OnOutductLinkStatusChangedCallback, this, boost::placeholders::_1, boost::placeholders::_2)
+    ))
+    {
+        return false;
+    }
+
+
     if (!m_running) {
         m_running = true;
         m_threadZmqReaderPtr = boost::make_unique<boost::thread>(
@@ -258,26 +285,7 @@ bool Egress::Impl::Init(const HdtnConfig & hdtnConfig, zmq::context_t * hdtnOneP
     return true;
 }
 
-void Egress::Impl::DoLinkStatusUpdate(bool isLinkDownEvent, uint64_t outductUuid) {
-    //TODO PREVENT DUPLICATE MESSAGES
-    LOG_INFO(subprocess) << "Sending LinkStatus update event to Scheduler";
 
-    hdtn::LinkStatusHdr linkStatusMsg;
-    memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
-    linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
-    linkStatusMsg.event = (isLinkDownEvent) ? 0 : 1;
-    linkStatusMsg.uuid = outductUuid;
-    linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
-
-    {
-        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
-        if (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(hdtn::LinkStatusHdr)), zmq::send_flags::dontwait)) {
-            LOG_FATAL(subprocess) << "m_zmqPubSock_boundEgressToConnectingSchedulerPtr could not send LinkStatus update event to Scheduler";
-            return;
-        }        
-    }
-    
-}
 
 static void CustomCleanupEgressAckHdrNoHint(void *data, void *hint) {
     (void)hint;
@@ -317,6 +325,7 @@ void Egress::Impl::RouterEventHandler() {
 
 void Egress::Impl::ReadZmqThreadFunc() {
 
+#if 0 //not needed because scheduler will alert when link available
     while (m_running) {
         LOG_INFO(subprocess) << "Waiting for Outduct to become ready to forward...";
         boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
@@ -325,16 +334,19 @@ void Egress::Impl::ReadZmqThreadFunc() {
             break;
         }
     }
+
+
     if (!m_running) {
         LOG_INFO(subprocess) << "Egress terminated before all outducts could connect";
         return;
     }
+#endif
 
     std::set<uint64_t> availableDestOpportunisticNodeIdsSet;
 
     // Use a form of receive that times out so we can terminate cleanly.
     static const int timeout = 250;  // milliseconds
-    static constexpr unsigned int NUM_SOCKETS = 4;
+    static constexpr unsigned int NUM_SOCKETS = 5;
 
     //THIS PROBABLY DOESNT WORK SINCE IT HAPPENED AFTER BIND/CONNECT BUT NOT USED ANYWAY BECAUSE OF POLLITEMS
     //m_zmqPullSock_boundIngressToConnectingEgressPtr->set(zmq::sockopt::rcvtimeo, timeout);
@@ -344,7 +356,8 @@ void Egress::Impl::ReadZmqThreadFunc() {
         {m_zmqPullSock_boundIngressToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqPullSock_connectingStorageToBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
         {m_zmqSubSock_boundRouterToConnectingEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
-        {m_zmqRepSock_connectingGuiToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0}
+        {m_zmqRepSock_connectingGuiToFromBoundEgressPtr->handle(), 0, ZMQ_POLLIN, 0},
+        {m_zmqPairSock_LinkStatusWaitPtr->handle(), 0, ZMQ_POLLIN, 0}
     };
     zmq::socket_t * const firstTwoSockets[2] = {
         m_zmqPullSock_boundIngressToConnectingEgressPtr.get(),
@@ -526,6 +539,19 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     }
                 }
             }
+
+            if (items[4].revents & ZMQ_POLLIN) { //zmq inproc from link changes
+                zmq::message_t linkStatusMessage;
+                if (!m_zmqPairSock_LinkStatusWaitPtr->recv(linkStatusMessage, zmq::recv_flags::none)) {
+                    LOG_ERROR(subprocess) << "cannot read inproc link status message";
+                }
+                //TODO PREVENT DUPLICATE MESSAGES
+                LOG_INFO(subprocess) << "Sending LinkStatus update event to Scheduler";
+                while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(linkStatusMessage, zmq::send_flags::dontwait)) {
+                    LOG_INFO(subprocess) << "waiting for scheduler to become available to send a link status change from an outduct";
+                    boost::this_thread::sleep(boost::posix_time::seconds(1));
+                }
+            }
         }
     }
 
@@ -534,6 +560,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
     LOG_DEBUG(subprocess) << "m_totalCustodyTransfersSentToIngress: " << m_totalCustodyTransfersSentToIngress;
 }
 
+//must be called from within ReadZmqThreadFunc to protect m_zmqPushSock_boundEgressToConnectingSchedulerPtr
 void Egress::Impl::ResendOutductCapabilities() {
     AllOutductCapabilitiesTelemetry_t allOutductCapabilitiesTelemetry;
     m_outductManager.GetAllOutductCapabilitiesTelemetry_ThreadSafe(allOutductCapabilitiesTelemetry);
@@ -602,7 +629,6 @@ void Egress::Impl::ResendOutductCapabilities() {
     }
 
     { //scheduler
-        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
         while (m_running && !m_zmqPushSock_boundEgressToConnectingSchedulerPtr->send(headerMessageLinkStatus, zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
             LOG_INFO(subprocess) << "waiting for scheduler to become available to send outduct capabilities header";
             boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -644,7 +670,19 @@ void Egress::Impl::WholeBundleReadyCallback(padded_vector_uint8_t & wholeBundleV
 }
 
 void Egress::Impl::OnFailedBundleZmqSendCallback(zmq::message_t& movableBundle, std::vector<uint8_t>& userData, uint64_t outductUuid) {
-    DoLinkStatusUpdate(true, outductUuid);
+
+    hdtn::LinkStatusHdr linkStatusMsg;
+    memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+    linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+    linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
+    linkStatusMsg.event = 0; //(isLinkDownEvent) ? 0 : 1; => (true) ? 0 : 1; => 0
+    linkStatusMsg.uuid = outductUuid;
+    {
+        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
+        if (!m_zmqPairSock_LinkStatusNotifyOnePtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "zmq could not send inproc link status";
+        }
+    }
 
     std::vector<uint8_t>* vecUint8RawPointerToUserData = new std::vector<uint8_t>(std::move(userData));
     zmq::message_t zmqUserDataMessageWithDataStolen(vecUint8RawPointerToUserData->data(), vecUint8RawPointerToUserData->size(), CustomCleanupStdVecUint8, vecUint8RawPointerToUserData);
@@ -727,7 +765,21 @@ void Egress::Impl::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData
     }
 }
 void Egress::Impl::OnOutductLinkStatusChangedCallback(bool isLinkDownEvent, uint64_t outductUuid) {
-    DoLinkStatusUpdate(isLinkDownEvent, outductUuid);
+    
+    hdtn::LinkStatusHdr linkStatusMsg;
+    memset(&linkStatusMsg, 0, sizeof(hdtn::LinkStatusHdr));
+    linkStatusMsg.base.type = HDTN_MSGTYPE_LINKSTATUS;
+    linkStatusMsg.unixTimeSecondsSince1970 = TimestampUtil::GetSecondsSinceEpochUnix();
+    linkStatusMsg.event = (isLinkDownEvent) ? 0 : 1;
+    linkStatusMsg.uuid = outductUuid;
+
+    {
+        boost::mutex::scoped_lock lock(m_mutexLinkStatusUpdate);
+        if (!m_zmqPairSock_LinkStatusNotifyOnePtr->send(zmq::const_buffer(&linkStatusMsg, sizeof(linkStatusMsg)), zmq::send_flags::dontwait)) {
+            LOG_FATAL(subprocess) << "zmq could not send CV_CONST_BUFFER";
+        }
+    }
+    
 }
 
 }  // namespace hdtn
