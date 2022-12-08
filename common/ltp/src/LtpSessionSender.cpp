@@ -58,7 +58,9 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
 {
     m_timerExpiredCallback = boost::bind(&LtpSessionSender::LtpCheckpointTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
     m_delayedDataSegmentsTimerExpiredCallback = boost::bind(&LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
-    m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //to trigger first pass of red data
+    
+    //after creation by a transmission request, the transmission request function shall add this to a "first pass needing data sent" queue
+    //m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber); //(old behavior) to trigger first pass of red data 
 }
 
 LtpSessionSender::~LtpSessionSender() {
@@ -166,7 +168,7 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
     }
 }
 
-bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
+bool LtpSessionSender::NextTimeCriticalDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
     std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
     std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
 {
@@ -189,7 +191,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             m_resendFragmentsQueue.pop();
             continue;
         }
-        LtpSessionSender::resend_fragment_t & resendFragment = m_resendFragmentsQueue.front();
+        LtpSessionSender::resend_fragment_t& resendFragment = m_resendFragmentsQueue.front();
         Ltp::data_segment_metadata_t meta;
         meta.clientServiceId = M_CLIENT_SERVICE_ID;
         meta.offset = resendFragment.offset;
@@ -209,7 +211,7 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
             //the remote LTP engine has ceased transmission(Section 6.5), then
             //this timer is immediately suspended, because the computed expected
             //arrival time may require an adjustment that cannot yet be computed.
-            
+
 
             // within a session would normally be LtpTimerManager<uint64_t, std::hash<uint64_t> > m_timeManagerOfCheckpointSerialNumbers;
             // but now sharing a single LtpTimerManager among all sessions, so use a
@@ -249,6 +251,13 @@ bool LtpSessionSender::NextDataToSend(std::vector<boost::asio::const_buffer>& co
         return true;
     }
 
+    return false;
+}
+
+bool LtpSessionSender::NextFirstPassDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
+    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
+{
     if (m_dataIndexFirstPass < m_dataToSendSharedPtr->size()) {
         if (m_dataIndexFirstPass < M_LENGTH_OF_RED_PART) { //first pass of red data send
             uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, M_MTU);

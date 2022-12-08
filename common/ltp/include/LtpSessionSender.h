@@ -55,10 +55,12 @@ public:
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
         const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
-    LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
+    LTP_LIB_EXPORT bool NextTimeCriticalDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
-    
+    LTP_LIB_EXPORT bool NextFirstPassDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
 
     
     LTP_LIB_EXPORT void ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
