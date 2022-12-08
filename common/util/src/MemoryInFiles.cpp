@@ -40,6 +40,7 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
     ~Impl();
     void Stop();
     uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);
+    bool DeleteMemoryBlock(const uint64_t memoryBlockId);
     bool WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler);
     bool ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler);
 
@@ -52,18 +53,21 @@ private:
 #endif
     struct FileInfo : private boost::noncopyable {
         FileInfo() = delete;
-        FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service & ioServiceRef);
+        FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service & ioServiceRef, uint64_t& countTotalFilesActiveRef);
         ~FileInfo();
         bool WriteMemoryAsync(const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler);
         bool ReadMemoryAsync(const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler);
+        bool HasDiskOperationInProgress() const;
     private:
         void HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
             const write_memory_handler_t& handler);
         void HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred,
             const read_memory_handler_t& handler);
+        
 
         std::unique_ptr<file_handle_t> m_fileHandlePtr;
         boost::filesystem::path m_filePath;
+        uint64_t & m_countTotalFilesActiveRef;
         bool m_diskOperationInProgress;
         bool m_valid;
     };
@@ -74,6 +78,10 @@ private:
         const uint64_t m_baseOffsetWithinFile;
         const std::size_t m_length;
     };
+
+    void TryRestartNewFileAggregationTimer();
+    void OnNewFileAggregation_TimerExpired(const boost::system::error_code& e);
+
     typedef std::unordered_map<uint64_t, MemoryBlockInfo> id_to_memoryblockinfo_map_t;
 
     
@@ -83,15 +91,22 @@ private:
     std::shared_ptr<FileInfo> m_currentWritingFileInfoPtr;
 
     boost::asio::io_service& m_ioServiceRef;
+    boost::asio::deadline_timer m_newFileAggregationTimer;
     const boost::filesystem::path m_rootStorageDirectory;
     const uint64_t m_newFileAggregationTimeMs;
+    const boost::posix_time::time_duration m_newFileAggregationTimeDuration;
+    bool m_newFileAggregationTimerIsRunning;
     uint64_t m_nextMemoryBlockId;
     uint64_t m_nextFileId;
     uint64_t m_nextOffsetOfCurrentFile;
+public: //stats
+    uint64_t m_countTotalFilesCreated;
+    uint64_t m_countTotalFilesActive;
 };
 
-MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service& ioServiceRef) :
+MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath, boost::asio::io_service& ioServiceRef, uint64_t& countTotalFilesActiveRef) :
     m_filePath(filePath),
+    m_countTotalFilesActiveRef(countTotalFilesActiveRef),
     m_diskOperationInProgress(false),
     m_valid(false)
 {
@@ -130,6 +145,8 @@ MemoryInFiles::Impl::FileInfo::FileInfo(const boost::filesystem::path& filePath,
     m_valid = true;
 }
 MemoryInFiles::Impl::FileInfo::~FileInfo() {
+    //last shared_ptr to delete calls this destructor
+    --m_countTotalFilesActiveRef;
     if (m_fileHandlePtr) {
         m_fileHandlePtr->close();
         m_fileHandlePtr.reset(); //delete it
@@ -207,6 +224,26 @@ void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system:
         handler(success);
     }
 }
+bool MemoryInFiles::Impl::FileInfo::HasDiskOperationInProgress() const {
+    return m_diskOperationInProgress;
+}
+
+//restarts the token refresh timer if it is not running from now
+void MemoryInFiles::Impl::TryRestartNewFileAggregationTimer() {
+    if (!m_newFileAggregationTimerIsRunning) {
+        const boost::posix_time::ptime nowPtime = boost::posix_time::microsec_clock::universal_time();
+        m_newFileAggregationTimer.expires_at(nowPtime + m_newFileAggregationTimeDuration);
+        m_newFileAggregationTimer.async_wait(boost::bind(&MemoryInFiles::Impl::OnNewFileAggregation_TimerExpired, this, boost::asio::placeholders::error));
+        m_newFileAggregationTimerIsRunning = true;
+    }
+}
+void MemoryInFiles::Impl::OnNewFileAggregation_TimerExpired(const boost::system::error_code& e) {
+    if (e != boost::asio::error::operation_aborted) {
+        // Timer was not cancelled, take necessary action.
+        m_currentWritingFileInfoPtr.reset();
+        m_newFileAggregationTimerIsRunning = false;
+    }
+}
 
 MemoryInFiles::Impl::MemoryBlockInfo::MemoryBlockInfo(
     const std::shared_ptr<FileInfo>& fileInfoPtr,
@@ -221,11 +258,16 @@ MemoryInFiles::Impl::MemoryBlockInfo::MemoryBlockInfo(
 MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
     const boost::filesystem::path& workingDirectory, const uint64_t newFileAggregationTimeMs) :
     m_ioServiceRef(ioServiceRef),
+    m_newFileAggregationTimer(ioServiceRef),
     m_rootStorageDirectory(workingDirectory / boost::filesystem::unique_path()),
     m_newFileAggregationTimeMs(newFileAggregationTimeMs),
+    m_newFileAggregationTimeDuration(boost::posix_time::milliseconds(newFileAggregationTimeMs)),
+    m_newFileAggregationTimerIsRunning(false),
     m_nextMemoryBlockId(1), //0 reserved for error
     m_nextFileId(0),
-    m_nextOffsetOfCurrentFile(0)
+    m_nextOffsetOfCurrentFile(0),
+    m_countTotalFilesCreated(0),
+    m_countTotalFilesActive(0)
 {
     if (boost::filesystem::is_directory(workingDirectory)) {
         if (!boost::filesystem::is_directory(m_rootStorageDirectory)) {
@@ -242,6 +284,7 @@ MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
     }
 }
 MemoryInFiles::Impl::~Impl() {
+    m_newFileAggregationTimer.cancel();
     m_mapIdToMemoryBlockInfo.clear();
     m_currentWritingFileInfoPtr.reset();
 
@@ -264,7 +307,10 @@ uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(std::size_t totalSize)
             LOG_ERROR(subprocess) << "MemoryInFiles::Impl::WriteMemoryAsync: " << fullFilePath << " already exists";
             return 0;
         }
-        m_currentWritingFileInfoPtr = std::make_shared<FileInfo>(fullFilePath, m_ioServiceRef);
+        m_currentWritingFileInfoPtr = std::make_shared<FileInfo>(fullFilePath, m_ioServiceRef, m_countTotalFilesActive);
+        TryRestartNewFileAggregationTimer(); //only start timer on new write allocation to prevent periodic empty files from being created
+        ++m_countTotalFilesCreated;
+        ++m_countTotalFilesActive;
     }
     const uint64_t memoryBlockId = m_nextMemoryBlockId++;
 
@@ -282,6 +328,18 @@ uint64_t MemoryInFiles::Impl::AllocateNewWriteMemoryBlock(std::size_t totalSize)
         //LOG_ERROR(subprocess) << "Unable to insert memoryBlockId " << memoryBlockId;
         return 0;
     }
+}
+bool MemoryInFiles::Impl::DeleteMemoryBlock(const uint64_t memoryBlockId) {
+    id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(memoryBlockId);
+    if (it == m_mapIdToMemoryBlockInfo.end()) {
+        return false;
+    }
+    MemoryBlockInfo& mbi = it->second;
+    if (mbi.m_fileInfoPtr->HasDiskOperationInProgress()) {
+        return false;
+    }
+    m_mapIdToMemoryBlockInfo.erase(it);
+    return true;
 }
 bool MemoryInFiles::Impl::WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler) {
     
@@ -301,6 +359,9 @@ bool MemoryInFiles::Impl::ReadMemoryAsync(const uint64_t memoryBlockId, const ui
         return false;
     }
     MemoryBlockInfo& mbi = it->second;
+    if ((offset + size) > mbi.m_length) {
+        return false;
+    }
     return mbi.m_fileInfoPtr->ReadMemoryAsync(offset, data, size, std::move(handler));
 }
 
@@ -313,6 +374,9 @@ MemoryInFiles::~MemoryInFiles() {}
 
 uint64_t MemoryInFiles::AllocateNewWriteMemoryBlock(std::size_t totalSize) {
     return m_pimpl->AllocateNewWriteMemoryBlock(totalSize);
+}
+bool MemoryInFiles::DeleteMemoryBlock(const uint64_t memoryBlockId) {
+    return m_pimpl->DeleteMemoryBlock(memoryBlockId);
 }
 
 bool MemoryInFiles::WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, const write_memory_handler_t& handler) {
@@ -329,3 +393,9 @@ bool MemoryInFiles::ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t
     return m_pimpl->ReadMemoryAsync(memoryBlockId, offset, data, size, std::move(handler));
 }
 
+uint64_t MemoryInFiles::GetCountTotalFilesCreated() const {
+    return m_pimpl->m_countTotalFilesCreated;
+}
+uint64_t MemoryInFiles::GetCountTotalFilesActive() const {
+    return m_pimpl->m_countTotalFilesActive;
+}

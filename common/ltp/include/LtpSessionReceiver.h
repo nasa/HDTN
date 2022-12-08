@@ -37,7 +37,7 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId)> NotifyEngineT
 
 class LtpSessionReceiver : private boost::noncopyable {
 private:
-    LtpSessionReceiver();
+    LtpSessionReceiver() = delete;
 
     LTP_LIB_NO_EXPORT void LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
     LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);

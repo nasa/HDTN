@@ -16,7 +16,7 @@
  * This MemoryInFiles class is used for asynchronous reads of memory from storage
  * and writes of memory to storage.  The intention is to allow LTP to use this as
  * a storage mechanism for long delays and high rates which would require too
- * much RAM otherwise.
+ * much RAM otherwise.  It is single threaded and must be run by the thread running ioServiceRef.
  */
 
 #ifndef _MEMORY_IN_FILES_H
@@ -42,12 +42,16 @@ public:
     HDTN_UTIL_EXPORT ~MemoryInFiles();
 
     HDTN_UTIL_EXPORT uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);
+    HDTN_UTIL_EXPORT bool DeleteMemoryBlock(const uint64_t memoryBlockId);
     //returns memoryBlockId (key) assigned to the written data, use that key to read it back
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, const write_memory_handler_t& handler);
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, const void* data, std::size_t size, write_memory_handler_t&& handler);
 
     HDTN_UTIL_EXPORT bool ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, const read_memory_handler_t& handler);
     HDTN_UTIL_EXPORT bool ReadMemoryAsync(const uint64_t memoryBlockId, const uint64_t offset, void* data, std::size_t size, read_memory_handler_t&& handler);
+
+    HDTN_UTIL_EXPORT uint64_t GetCountTotalFilesCreated() const;
+    HDTN_UTIL_EXPORT uint64_t GetCountTotalFilesActive() const;
     
 private:
     // Internal implementation class

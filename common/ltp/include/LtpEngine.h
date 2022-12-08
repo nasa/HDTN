@@ -38,7 +38,7 @@
 
 class CLASS_VISIBILITY_LTP_LIB LtpEngine : private boost::noncopyable {
 private:
-    LtpEngine();
+    LtpEngine() = delete;
 public:
     struct transmission_request_t {
         uint64_t destinationClientServiceId;
