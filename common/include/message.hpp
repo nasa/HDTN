@@ -71,9 +71,9 @@ struct CommonHdr {
 struct ToEgressHdr {
     CommonHdr base;
     uint8_t hasCustody;
-    uint8_t isCutThroughFromIngress;
     uint8_t isOpportunisticFromStorage;
     uint8_t isCutThroughFromStorage;
+    uint8_t unused1;
     uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
@@ -88,10 +88,8 @@ struct EgressAckHdr {
     CommonHdr base;
     uint8_t error;
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
-    uint8_t isToStorage;
     uint8_t isResponseToStorageCutThrough;
     uint8_t isOpportunisticFromStorage;
-    uint8_t unusedPadding[7];
     uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;

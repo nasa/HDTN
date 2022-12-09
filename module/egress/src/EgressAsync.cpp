@@ -366,9 +366,12 @@ void Egress::Impl::ReadZmqThreadFunc() {
         }
         if (rc > 0) {
             for (unsigned int itemIndex = 0; itemIndex < 2; ++itemIndex) { //skip m_zmqPullSignalInprocSockPtr in this loop
+                
                 if ((items[itemIndex].revents & ZMQ_POLLIN) == 0) {
                     continue;
                 }
+
+                const bool isCutThroughFromIngress = (itemIndex == 0);
 
                 hdtn::ToEgressHdr toEgressHeader;
                 const zmq::recv_buffer_result_t res = firstTwoSockets[itemIndex]->recv(zmq::mutable_buffer(&toEgressHeader, sizeof(hdtn::ToEgressHdr)), zmq::recv_flags::none);
@@ -395,14 +398,6 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     LOG_ERROR(subprocess) << "toEgressHeader.base.type != HDTN_MSGTYPE_EGRESS";
                     continue;
                 }
-                else if ((itemIndex == 1) && (toEgressHeader.isCutThroughFromIngress)) {
-                    LOG_ERROR(subprocess) << "received on storage socket but cut through flag set";
-                    continue;
-                }
-                else if ((itemIndex == 0) && (!toEgressHeader.isCutThroughFromIngress)) {
-                    LOG_ERROR(subprocess) << "received on ingress socket but cut through flag not set";
-                    continue;
-                }
                 ++m_telemetry.egressMessageCount;
                 
                 zmq::message_t zmqMessageBundle;
@@ -426,7 +421,6 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     egressAckPtr->finalDestEid = finalDestEid;
                     egressAckPtr->error = 0; //can set later before sending this ack if error
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0);
-                    egressAckPtr->isToStorage = 1;
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
                     egressAckPtr->isOpportunisticFromStorage = toEgressHeader.isOpportunisticFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
@@ -456,13 +450,12 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     std::vector<uint8_t> userData(sizeof(hdtn::EgressAckHdr));
                     hdtn::EgressAckHdr* egressAckPtr = (hdtn::EgressAckHdr*)userData.data();
                     //memset 0 not needed because all values set below
-                    egressAckPtr->base.type = (toEgressHeader.isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
+                    egressAckPtr->base.type = (isCutThroughFromIngress) ? HDTN_MSGTYPE_EGRESS_ACK_TO_INGRESS : HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
                     egressAckPtr->base.flags = 0;
                     egressAckPtr->nextHopNodeId = toEgressHeader.nextHopNodeId;
                     egressAckPtr->finalDestEid = finalDestEid;
                     egressAckPtr->error = 0; //can set later before sending this ack if error
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0);
-                    egressAckPtr->isToStorage = (toEgressHeader.isCutThroughFromIngress == 0);
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
                     egressAckPtr->isOpportunisticFromStorage = toEgressHeader.isOpportunisticFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
@@ -734,8 +727,7 @@ void Egress::Impl::OnSuccessfulBundleSendCallback(std::vector<uint8_t>& userData
     std::vector<uint8_t>* vecUint8RawPointerToUserData = new std::vector<uint8_t>(std::move(userData));
     zmq::message_t zmqUserDataMessageWithDataStolen(vecUint8RawPointerToUserData->data(), vecUint8RawPointerToUserData->size(), CustomCleanupStdVecUint8, vecUint8RawPointerToUserData);
     hdtn::EgressAckHdr* egressAckPtr = (hdtn::EgressAckHdr*)vecUint8RawPointerToUserData->data();
-    const bool isToStorage = egressAckPtr->isToStorage;
-    if (isToStorage) {
+    if (egressAckPtr->base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
         boost::mutex::scoped_lock lock(m_mutex_zmqPushSock_boundEgressToConnectingStorage);
         if (!m_zmqPushSock_boundEgressToConnectingStoragePtr->send(std::move(zmqUserDataMessageWithDataStolen), zmq::send_flags::dontwait)) {
             LOG_ERROR(subprocess) << "m_zmqPushSock_boundEgressToConnectingStoragePtr could not send";

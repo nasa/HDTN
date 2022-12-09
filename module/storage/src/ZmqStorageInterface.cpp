@@ -63,8 +63,8 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
     typedef std::unordered_map<uint64_t, CutThroughMapAckData> map_id_to_ackdata_t;
     struct OutductInfo_t : private boost::noncopyable {
         OutductInfo_t() : linkIsUp(false), stateTryCutThrough(false), bytesInPipeline(0) {}
-        uint64_t maxBundlesInPipeline;
-        uint64_t maxBundleSizeBytesInPipeline;
+        uint64_t halfOfMaxBundlesInPipeline_StorageToEgressPath;
+        uint64_t halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath;
         uint64_t nextHopNodeId;
         bool linkIsUp;
         bool isOpportunisticLink;
@@ -635,7 +635,6 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
     toEgressHdr->nextHopNodeId = info.nextHopNodeId;
     toEgressHdr->finalDestEid = m_sessionRead.catalogEntryPtr->destEid;
     toEgressHdr->hasCustody = m_sessionRead.catalogEntryPtr->HasCustody();
-    toEgressHdr->isCutThroughFromIngress = 0;
     toEgressHdr->isOpportunisticFromStorage = info.isOpportunisticLink;
     toEgressHdr->isCutThroughFromStorage = 0;
     toEgressHdr->custodyId = m_sessionRead.custodyId;
@@ -706,7 +705,8 @@ void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
     if (info.linkIsUp) {
         info.linkIsUp = false;
         if (!info.cutThroughQueue.empty()) {
-            LOG_INFO(subprocess) << "Link down event dumping " << info.cutThroughQueue.size() << " queued cut-through bundles to disk";
+            LOG_INFO(subprocess) << "Link down event (nextHopNodeId=" << info.nextHopNodeId
+                << ") dumping " << info.cutThroughQueue.size() << " queued cut - through bundles to disk";
             while (!info.cutThroughQueue.empty()) {
                 cbhe_eid_t finalDestEidReturnedFromWrite;
                 Write(&info.cutThroughQueue.front().bundleToEgress, finalDestEidReturnedFromWrite, this, true, true); //last true because if cut through then definitely no custody or not admin record
@@ -948,10 +948,10 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin(); itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct) {
                                 const OutductCapabilityTelemetry_t& oct = *itAoct;
                                 OutductInfo_t& outductInfo = *(m_vectorOutductInfo[oct.outductArrayIndex]);
-                                outductInfo.maxBundlesInPipeline = oct.maxBundlesInPipeline;
-                                outductInfo.mapIngressUniqueIdToIngressAckData.reserve(oct.maxBundlesInPipeline * 2);
-                                outductInfo.mapOpenCustodyIdToBundleSizeBytes.reserve(oct.maxBundlesInPipeline * 2);
-                                outductInfo.maxBundleSizeBytesInPipeline = oct.maxBundleSizeBytesInPipeline;
+                                outductInfo.halfOfMaxBundlesInPipeline_StorageToEgressPath = oct.maxBundlesInPipeline >> 1;
+                                outductInfo.mapIngressUniqueIdToIngressAckData.reserve(oct.maxBundlesInPipeline);
+                                outductInfo.mapOpenCustodyIdToBundleSizeBytes.reserve(oct.maxBundlesInPipeline);
+                                outductInfo.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath = oct.maxBundleSizeBytesInPipeline >> 1;
                                 outductInfo.nextHopNodeId = oct.nextHopNodeId;
                                 //outductInfo.linkIsUp = false; set by constructor
                                 //outductInfo.bytesInPipeline set to zero by constructor (initialized when vector.resize()
@@ -1032,8 +1032,8 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         info.nextHopNodeId = nodeId;
                         info.linkIsUp = true;
                         info.isOpportunisticLink = true;
-                        info.maxBundlesInPipeline = 5; //TODO
-                        info.maxBundleSizeBytesInPipeline = info.maxBundlesInPipeline * m_hdtnConfig.m_maxBundleSizeBytes;
+                        info.halfOfMaxBundlesInPipeline_StorageToEgressPath = 5; //TODO
+                        info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath = info.halfOfMaxBundlesInPipeline_StorageToEgressPath * m_hdtnConfig.m_maxBundleSizeBytes;
                         RepopulateUpLinksVec();
                         LOG_INFO(subprocess) << "Adding Opportunistic link from ingress connection.. " << info;
                     }
@@ -1307,9 +1307,9 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
             }
             OutductInfo_t& info = *(m_vectorUpLinksOutductInfoPtrs[lastIndexToUpLinkVectorOutductInfoRoundRobin]);
             const std::size_t totalInPipelineStorageToEgressThisLink = info.mapOpenCustodyIdToBundleSizeBytes.size() + info.mapIngressUniqueIdToIngressAckData.size();
-            const uint64_t maxBundleSizeToRead = info.maxBundleSizeBytesInPipeline - info.bytesInPipeline;
+            const uint64_t maxBundleSizeToRead = info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath - info.bytesInPipeline;
             uint64_t returnedBundleSizeReadFromDisk;
-            if (totalInPipelineStorageToEgressThisLink < info.maxBundlesInPipeline) { //not clogged by bundle count in pipeline
+            if (totalInPipelineStorageToEgressThisLink < info.halfOfMaxBundlesInPipeline_StorageToEgressPath) { //not clogged by bundle count in pipeline
                 if (info.stateTryCutThrough && (!info.cutThroughQueue.empty())
                     && (info.cutThroughQueue.front().bundleToEgress.size() <= maxBundleSizeToRead))
                 { //not clogged by bundle total bytes in pipeline
@@ -1325,7 +1325,6 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     toEgressHdr->nextHopNodeId = info.nextHopNodeId;
                     toEgressHdr->finalDestEid = qd.finalDestEid;
                     toEgressHdr->hasCustody = 0;
-                    toEgressHdr->isCutThroughFromIngress = 0;
                     toEgressHdr->isOpportunisticFromStorage = info.isOpportunisticLink;
                     toEgressHdr->isCutThroughFromStorage = 1;
                     toEgressHdr->custodyId = qd.ingressUniqueId;
