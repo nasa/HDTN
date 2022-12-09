@@ -412,7 +412,7 @@ void Egress::Impl::ReadZmqThreadFunc() {
 
                 const cbhe_eid_t & finalDestEid = toEgressHeader.finalDestEid;
                 //TODO DERMINE IF availableDestOpportunisticNodeIdsSet IS NEEDED
-                if ((itemIndex == 1) && (availableDestOpportunisticNodeIdsSet.count(finalDestEid.nodeId) || toEgressHeader.isOpportunisticFromStorage)) { //from storage and opportunistic link available in ingress
+                if ((itemIndex == 1) && (availableDestOpportunisticNodeIdsSet.count(finalDestEid.nodeId) || toEgressHeader.IsOpportunisticLink())) { //from storage and opportunistic link available in ingress
                     hdtn::EgressAckHdr * egressAckPtr = new hdtn::EgressAckHdr();
                     //memset 0 not needed because all values set below
                     egressAckPtr->base.type = HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE;
@@ -422,7 +422,6 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     egressAckPtr->error = 0; //can set later before sending this ack if error
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0);
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
-                    egressAckPtr->isOpportunisticFromStorage = toEgressHeader.isOpportunisticFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
                     egressAckPtr->outductIndex = toEgressHeader.outductIndex;
 
@@ -457,7 +456,6 @@ void Egress::Impl::ReadZmqThreadFunc() {
                     egressAckPtr->error = 0; //can set later before sending this ack if error
                     egressAckPtr->deleteNow = (toEgressHeader.hasCustody == 0);
                     egressAckPtr->isResponseToStorageCutThrough = toEgressHeader.isCutThroughFromStorage;
-                    egressAckPtr->isOpportunisticFromStorage = toEgressHeader.isOpportunisticFromStorage;
                     egressAckPtr->custodyId = toEgressHeader.custodyId;
                     egressAckPtr->outductIndex = toEgressHeader.outductIndex;
                     outduct->Forward(zmqMessageBundle, std::move(userData));

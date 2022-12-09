@@ -65,9 +65,9 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
         OutductInfo_t() : linkIsUp(false), stateTryCutThrough(false), bytesInPipeline(0) {}
         uint64_t halfOfMaxBundlesInPipeline_StorageToEgressPath;
         uint64_t halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath;
+        uint64_t outductIndex;
         uint64_t nextHopNodeId;
         bool linkIsUp;
-        bool isOpportunisticLink;
         bool stateTryCutThrough;
         std::vector<eid_plus_isanyserviceid_pair_t> eidVec;
         custodyid_to_size_map_t mapOpenCustodyIdToBundleSizeBytes;
@@ -75,6 +75,10 @@ struct ZmqStorageInterface::Impl : private boost::noncopyable {
         cut_through_queue_t cutThroughQueue;
         uint64_t bytesInPipeline;
         friend std::ostream& operator<<(std::ostream& os, const OutductInfo_t& o);
+
+        bool IsOpportunisticLink() const noexcept {
+            return (outductIndex == UINT64_MAX);
+        }
         
     };
     typedef std::unique_ptr<OutductInfo_t> OutductInfoPtr_t;
@@ -93,10 +97,11 @@ private:
     bool WriteBundle(const PrimaryBlock& bundlePrimaryBlock,
         const uint64_t newCustodyId, const uint8_t* allData, const std::size_t allDataSize);
     uint64_t PeekOne(const std::vector<eid_plus_isanyserviceid_pair_t>& availableDestLinks);
-    bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t outductIndex, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
+    bool ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize);
     void RepopulateUpLinksVec();
     void SetLinkDown(OutductInfo_t & info);
     void ThreadFunc();
+    static std::string SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m);
 
 public:
     std::size_t m_totalBundlesErasedFromStorageNoCustodyTransfer;
@@ -597,7 +602,7 @@ static void CustomCleanupStdVecUint8(void *data, void *hint) {
     delete static_cast<std::vector<uint8_t>*>(hint);
 }
 
-bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t outductIndex, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize)
+bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, const uint64_t maxBundleSizeToRead, uint64_t& returnedBundleSize)
 {
     const uint64_t bytesToReadFromDisk = m_bsmPtr->PopTop(m_sessionRead, info.eidVec);
     if (bytesToReadFromDisk == 0) { //no more of these links to read
@@ -635,10 +640,9 @@ bool ZmqStorageInterface::Impl::ReleaseOne_NoBlock(const OutductInfo_t& info, co
     toEgressHdr->nextHopNodeId = info.nextHopNodeId;
     toEgressHdr->finalDestEid = m_sessionRead.catalogEntryPtr->destEid;
     toEgressHdr->hasCustody = m_sessionRead.catalogEntryPtr->HasCustody();
-    toEgressHdr->isOpportunisticFromStorage = info.isOpportunisticLink;
     toEgressHdr->isCutThroughFromStorage = 0;
     toEgressHdr->custodyId = m_sessionRead.custodyId;
-    toEgressHdr->outductIndex = outductIndex;
+    toEgressHdr->outductIndex = info.outductIndex;
     
     if (!m_zmqPushSock_connectingStorageToBoundEgressPtr->send(std::move(zmqMessageToEgressHdrWithDataStolen), zmq::send_flags::sndmore | zmq::send_flags::dontwait)) {
         LOG_ERROR(subprocess) << "zmq could not send";
@@ -701,6 +705,16 @@ void ZmqStorageInterface::Impl::RepopulateUpLinksVec() {
     }
 }
 
+std::string ZmqStorageInterface::Impl::SprintCustodyidToSizeMap(const custodyid_to_size_map_t& m) {
+    std::string message = "custodyid_to_size_map_t totalelements=";
+    message += boost::lexical_cast<std::string>(m.size()) + " [";
+    for (custodyid_to_size_map_t::const_iterator it = m.cbegin(); it != m.cend(); ++it) {
+        message += "cid=" + boost::lexical_cast<std::string>(it->first) + " size=" + boost::lexical_cast<std::string>(it->second) + " ; ";
+    }
+    message += "]";
+    return message;
+}
+
 void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
     if (info.linkIsUp) {
         info.linkIsUp = false;
@@ -708,11 +722,12 @@ void ZmqStorageInterface::Impl::SetLinkDown(OutductInfo_t & info) {
             LOG_INFO(subprocess) << "Link down event (nextHopNodeId=" << info.nextHopNodeId
                 << ") dumping " << info.cutThroughQueue.size() << " queued cut - through bundles to disk";
             while (!info.cutThroughQueue.empty()) {
+                CutThroughQueueData& qd = info.cutThroughQueue.front();
                 cbhe_eid_t finalDestEidReturnedFromWrite;
-                Write(&info.cutThroughQueue.front().bundleToEgress, finalDestEidReturnedFromWrite, this, true, true); //last true because if cut through then definitely no custody or not admin record
-                hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)info.cutThroughQueue.front().ackToIngress.data();
+                Write(&qd.bundleToEgress, finalDestEidReturnedFromWrite, this, true, true); //last true because if cut through then definitely no custody or not admin record
+                hdtn::StorageAckHdr* storageAckHdr = (hdtn::StorageAckHdr*)qd.ackToIngress.data();
                 storageAckHdr->error = 1;
-                if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(info.cutThroughQueue.front().ackToIngress), zmq::send_flags::dontwait)) {
+                if (!m_zmqPushSock_connectingStorageToBoundIngressPtr->send(std::move(qd.ackToIngress), zmq::send_flags::dontwait)) {
                     LOG_ERROR(subprocess) << "zmq could not send ingress an ack from storage";
                 }
                 info.cutThroughQueue.pop();
@@ -810,7 +825,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                 else if (egressAckHdr.base.type == HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE) {
                     if (egressFullyInitialized) {
                         OutductInfo_t* outductInfoRawPtr = NULL;
-                        if (egressAckHdr.isOpportunisticFromStorage) {
+                        if (egressAckHdr.IsOpportunisticLink()) { //isOpportunisticFromStorage
                             std::map<uint64_t, OutductInfoPtr_t>::iterator it = m_mapOpportunisticNextHopNodeIdToOutductInfo.find(egressAckHdr.nextHopNodeId);
                             if (it == m_mapOpportunisticNextHopNodeIdToOutductInfo.end()) {
                                 LOG_ERROR(subprocess) << "Got an HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find opportunistic link nextHopNodeId "
@@ -887,7 +902,14 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                     mapCustodyIdToSize.erase(it);
                                 }
                                 else {
-                                    LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE but could not find custody id " << egressAckHdr.custodyId;
+                                    //std::string message = egressAckHdr.custodyId
+                                    LOG_ERROR(subprocess) << "Storage got a HDTN_MSGTYPE_EGRESS_ACK_TO_STORAGE for outductIndex=" 
+                                        << egressAckHdr.outductIndex << " but could not find custody id " << egressAckHdr.custodyId
+                                        << " .. error=" << (int)egressAckHdr.error 
+                                        << " isResponseToStorageCutThrough=" << (int)egressAckHdr.isResponseToStorageCutThrough
+                                        << " isOpportunisticFromStorage=" << egressAckHdr.IsOpportunisticLink()
+                                        << " nextHopNodeId=" << egressAckHdr.nextHopNodeId;
+                                    LOG_ERROR(subprocess) << SprintCustodyidToSizeMap(mapCustodyIdToSize);
                                 }
                             }
                         }
@@ -944,7 +966,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                             LOG_ERROR(subprocess) << "vectorOutductInfo.size() != aoct.outductCapabilityTelemetryList.size()";
                         }
                         else {
-                            
+                            uint64_t outductIndex = 0;
                             for (std::list<OutductCapabilityTelemetry_t>::const_iterator itAoct = aoct.outductCapabilityTelemetryList.cbegin(); itAoct != aoct.outductCapabilityTelemetryList.cend(); ++itAoct) {
                                 const OutductCapabilityTelemetry_t& oct = *itAoct;
                                 OutductInfo_t& outductInfo = *(m_vectorOutductInfo[oct.outductArrayIndex]);
@@ -952,10 +974,10 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                                 outductInfo.mapIngressUniqueIdToIngressAckData.reserve(oct.maxBundlesInPipeline);
                                 outductInfo.mapOpenCustodyIdToBundleSizeBytes.reserve(oct.maxBundlesInPipeline);
                                 outductInfo.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath = oct.maxBundleSizeBytesInPipeline >> 1;
+                                outductInfo.outductIndex = outductIndex++;
                                 outductInfo.nextHopNodeId = oct.nextHopNodeId;
                                 //outductInfo.linkIsUp = false; set by constructor
                                 //outductInfo.bytesInPipeline set to zero by constructor (initialized when vector.resize()
-                                outductInfo.isOpportunisticLink = false;
                                 outductInfo.eidVec.clear();
                                 outductInfo.eidVec.reserve(oct.finalDestinationEidList.size() + oct.finalDestinationNodeIdList.size());
                                 for (std::list<cbhe_eid_t>::const_iterator it = oct.finalDestinationEidList.cbegin(); it != oct.finalDestinationEidList.cend(); ++it) {
@@ -1031,7 +1053,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                         info.eidVec[0] = key;
                         info.nextHopNodeId = nodeId;
                         info.linkIsUp = true;
-                        info.isOpportunisticLink = true;
+                        info.outductIndex = UINT64_MAX;
                         info.halfOfMaxBundlesInPipeline_StorageToEgressPath = 5; //TODO
                         info.halfOfMaxBundleSizeBytesInPipeline_StorageToEgressPath = info.halfOfMaxBundlesInPipeline_StorageToEgressPath * m_hdtnConfig.m_maxBundleSizeBytes;
                         RepopulateUpLinksVec();
@@ -1325,10 +1347,9 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     toEgressHdr->nextHopNodeId = info.nextHopNodeId;
                     toEgressHdr->finalDestEid = qd.finalDestEid;
                     toEgressHdr->hasCustody = 0;
-                    toEgressHdr->isOpportunisticFromStorage = info.isOpportunisticLink;
                     toEgressHdr->isCutThroughFromStorage = 1;
                     toEgressHdr->custodyId = qd.ingressUniqueId;
-                    toEgressHdr->outductIndex = lastIndexToUpLinkVectorOutductInfoRoundRobin;
+                    toEgressHdr->outductIndex = info.outductIndex;
 
                     const uint64_t bundleSizeBytes = qd.bundleToEgress.size(); //capture before move
 
@@ -1353,7 +1374,7 @@ void ZmqStorageInterface::Impl::ThreadFunc() {
                     }
                     info.cutThroughQueue.pop();
                 }
-                else if (ReleaseOne_NoBlock(info, lastIndexToUpLinkVectorOutductInfoRoundRobin, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
+                else if (ReleaseOne_NoBlock(info, maxBundleSizeToRead, returnedBundleSizeReadFromDisk)) { //true => (successfully sent to egress)
                     if (info.mapOpenCustodyIdToBundleSizeBytes.emplace(m_sessionRead.custodyId, returnedBundleSizeReadFromDisk).second) {
                         if (m_sessionRead.catalogEntryPtr->HasCustody()) {
                             m_custodyTimersPtr->StartCustodyTransferTimer(m_sessionRead.catalogEntryPtr->destEid, m_sessionRead.custodyId);

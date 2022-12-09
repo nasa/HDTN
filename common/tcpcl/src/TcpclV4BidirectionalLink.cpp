@@ -566,11 +566,11 @@ void TcpclV4BidirectionalLink::BaseClass_CloseAndDeleteSockets() {
     }
 
 #ifdef OPENSSL_SUPPORT_ENABLED
-    boost::asio::ip::tcp::socket & socketRef = m_base_sslStreamSharedPtr->next_layer();
     if (m_base_sslStreamSharedPtr) {
+        boost::asio::ip::tcp::socket& socketRef = m_base_sslStreamSharedPtr->next_layer();
 #else
-    boost::asio::ip::tcp::socket & socketRef = *m_base_tcpSocketPtr;
     if (m_base_tcpSocketPtr) {
+        boost::asio::ip::tcp::socket& socketRef = *m_base_tcpSocketPtr;
 #endif
     
         if (socketRef.is_open()) {
