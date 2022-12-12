@@ -165,7 +165,7 @@ bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(const uint64_t offset, cons
 #ifdef _WIN32
     boost::asio::async_write_at(*m_fileHandlePtr, offset,
 #else
-    lseek64(m_asioHandlePtrsVec[diskId]->native_handle(), offset, SEEK_SET);
+    lseek64(m_fileHandlePtr->native_handle(), offset, SEEK_SET);
     boost::asio::async_write(*m_fileHandlePtr,
 #endif
         boost::asio::buffer(data, size),
@@ -200,7 +200,7 @@ bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(const uint64_t offset, void*
 #ifdef _WIN32
     boost::asio::async_read_at(*m_fileHandlePtr, offset,
 #else
-    lseek64(m_asioHandlePtrsVec[diskId]->native_handle(), offset, SEEK_SET);
+    lseek64(m_fileHandlePtr->native_handle(), offset, SEEK_SET);
     boost::asio::async_read(*m_fileHandlePtr,
 #endif
         boost::asio::buffer(data, size),
