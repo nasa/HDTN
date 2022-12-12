@@ -2,15 +2,8 @@
 
 #include <queue>
 #include "Logger.h"
-
-//since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
-//and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
-//the following fixes warning:  The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated....
-//this fixes the warning caused by boost/property_tree/json_parser/detail/parser.hpp
-#if (BOOST_VERSION < 107600) && (BOOST_VERSION >= 107300) && !defined(BOOST_BIND_GLOBAL_PLACEHOLDERS)
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
-#endif
-#include <boost/property_tree/json_parser.hpp>
+#include "JsonSerializable.h"
+#include <boost/format.hpp>
 
 namespace cgr {
 
@@ -299,30 +292,31 @@ ContactMultigraph::CmrMapData::CmrMapData() { LOG_WARNING(subprocess) << "defaul
 /*
  * Library function implementations, e.g. loading, routing algorithms, etc.
  */
-std::vector<Contact> cp_load(const std::string & filename, std::size_t max_contacts) {
+std::vector<Contact> cp_load(const boost::filesystem::path& filePath, std::size_t max_contacts) {
     std::vector<Contact> contactsVector;
     
     boost::property_tree::ptree pt;
-    boost::property_tree::read_json(filename, pt);
+    if (JsonSerializable::GetPropertyTreeFromJsonFilePath(filePath, pt)) { //prints error if can't find
 
-    //for non-throw versions of get_child which return a reference to the second parameter
-    static const boost::property_tree::ptree EMPTY_PTREE;
+        //for non-throw versions of get_child which return a reference to the second parameter
+        static const boost::property_tree::ptree EMPTY_PTREE;
 
-    const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
-    contactsVector.reserve(contactsPt.size());
-    for (const boost::property_tree::ptree::value_type &eventPt : contactsPt) {
-        contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
-            eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
-            eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
-            eventPt.second.get<time_t>("startTime", 0), //time_t start
-            eventPt.second.get<time_t>("endTime", 0), //time_t end
-            eventPt.second.get<uint64_t>("rate", 0), //uint64_t rate
-            1.f, //float confidence=1
-            eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
-        contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
-        if (contactsVector.size() == max_contacts) {
-            LOG_WARNING(subprocess) << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!";
-            break;
+        const boost::property_tree::ptree& contactsPt = pt.get_child("contacts", EMPTY_PTREE);
+        contactsVector.reserve(contactsPt.size());
+        for (const boost::property_tree::ptree::value_type& eventPt : contactsPt) {
+            contactsVector.emplace_back( //nodeId_t frm, nodeId_t to, time_t start, time_t end, uint64_t rate, float confidence=1, time_t owlt=1
+                eventPt.second.get<nodeId_t>("source", 0), //nodeId_t frm
+                eventPt.second.get<nodeId_t>("dest", 0), //nodeId_t to
+                eventPt.second.get<time_t>("startTime", 0), //time_t start
+                eventPt.second.get<time_t>("endTime", 0), //time_t end
+                eventPt.second.get<uint64_t>("rate", 0), //uint64_t rate
+                1.f, //float confidence=1
+                eventPt.second.get<time_t>("owlt", 0)); //time_t owlt=1
+            contactsVector.back().id = eventPt.second.get<uint64_t>("contact", 0);
+            if (contactsVector.size() == max_contacts) {
+                LOG_WARNING(subprocess) << "HIT MAX CONTACTS!!!!!!!!!!!!!!!!!!!";
+                break;
+            }
         }
     }
     return contactsVector;

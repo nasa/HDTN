@@ -373,10 +373,11 @@ void WebsocketServer::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false; //do this first
 }
 
-bool WebsocketServer::Init(const std::string & documentRoot, const std::string & portNumberAsString, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+bool WebsocketServer::Init(const boost::filesystem::path& documentRoot, const std::string & portNumberAsString, zmq::context_t * hdtnOneProcessZmqInprocContextPtr) {
+    const std::string documentRootAsString = documentRoot.string(); //TODO
     std::cout << "starting websocket server\n";
     const char *options[] = {
-    "document_root", documentRoot.c_str(), "listening_ports", portNumberAsString.c_str(), 0 };
+    "document_root", documentRootAsString.c_str(), "listening_ports", portNumberAsString.c_str(), 0 };
 
     std::vector<std::string> cpp_options;
     for (int i = 0; i < (sizeof(options) / sizeof(options[0]) - 1); i++) {
@@ -403,15 +404,15 @@ bool WebsocketServer::Run(int argc, const char* const argv[], volatile bool & ru
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&WebsocketServer::MonitorExitKeypressThreadFunction, this));
 
-        std::string DOCUMENT_ROOT;
-        const std::string HTML_FILE_NAME = "web_gui.html";
+        boost::filesystem::path DOCUMENT_ROOT;
+        const boost::filesystem::path HTML_FILE_NAME = "web_gui.html";
         std::string PORT_NUMBER_AS_STRING;
 
         boost::program_options::options_description desc("Allowed options");
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("document-root", boost::program_options::value<std::string>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src" ).string()), "Document Root.")
+                ("document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src"), "Document Root.")
                 ("port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Port number.")
                 ;
 
@@ -424,16 +425,16 @@ bool WebsocketServer::Run(int argc, const char* const argv[], volatile bool & ru
                 return false;
             }
 
-            DOCUMENT_ROOT = vm["document-root"].as<std::string>();
+            DOCUMENT_ROOT = vm["document-root"].as<boost::filesystem::path>();
             const uint16_t portNumberAsUi16 = vm["port-number"].as<uint16_t>();
             PORT_NUMBER_AS_STRING = boost::lexical_cast<std::string>(portNumberAsUi16);
 
-            const boost::filesystem::path htmlMainFilePath = boost::filesystem::path(DOCUMENT_ROOT) / boost::filesystem::path(HTML_FILE_NAME);
+            const boost::filesystem::path htmlMainFilePath = DOCUMENT_ROOT / HTML_FILE_NAME;
             if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
-                std::cout << "found " << htmlMainFilePath.string() << std::endl;
+                std::cout << "found " << htmlMainFilePath << std::endl;
             }
             else {
-                std::cout << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml" << std::endl;
+                std::cout << "Cannot find " << htmlMainFilePath << " : make sure document_root is set properly" << std::endl;
                 return false;
             }
             

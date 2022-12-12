@@ -77,6 +77,7 @@ add_executable(unit-tests-from-install
 	../../common/util/test/TestTokenRateLimiter.cpp
 	../../common/util/test/TestUdpBatchSender.cpp
 	../../common/util/test/TestJsonSerializable.cpp
+	../../common/util/test/TestMemoryInFiles.cpp
 	../../common/telemetry/test/TestTelemetry.cpp
 	#note: Logger unit tests not added due to specific COMPILE_DEFINITIONS used
 	../../common/bpcodec/test/TestAggregateCustodySignal.cpp

@@ -17,7 +17,6 @@
 #include <memory>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
 #include <sstream>
 #include <set>
 
@@ -100,7 +99,7 @@ HdtnConfig::HdtnConfig(const HdtnConfig& o) :
 { }
 
 //a move constructor: X(X&&)
-HdtnConfig::HdtnConfig(HdtnConfig&& o) :
+HdtnConfig::HdtnConfig(HdtnConfig&& o) noexcept :
     m_hdtnConfigName(std::move(o.m_hdtnConfigName)),
     m_userInterfaceOn(o.m_userInterfaceOn),
     m_mySchemeName(std::move(o.m_mySchemeName)),
@@ -175,7 +174,7 @@ HdtnConfig& HdtnConfig::operator=(const HdtnConfig& o) {
 }
 
 //a move assignment: operator=(X&&)
-HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) {
+HdtnConfig& HdtnConfig::operator=(HdtnConfig&& o) noexcept {
     m_hdtnConfigName = std::move(o.m_hdtnConfigName);
     m_userInterfaceOn = o.m_userInterfaceOn;
     m_mySchemeName = std::move(o.m_mySchemeName);
@@ -318,73 +317,40 @@ bool HdtnConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree & p
     return true;
 }
 
-static bool HasUnusedJsonVariables(const HdtnConfig & hdtnConfig, const boost::property_tree::ptree& fromOriginalJsonPt, std::string & returnedErrorMessage) {
-    returnedErrorMessage.clear();
-    const std::string hdtnJsonNoUnusedVars = hdtnConfig.ToJson();
-    const std::string hdtnJsonHasPotentiallyUnusedVars = JsonSerializable::PtToJsonString(fromOriginalJsonPt); //rewrite to pretty format in case it was minified json
-    std::istringstream hdtnJsonNoUnusedVarsSs(hdtnJsonNoUnusedVars);
-    std::istringstream hdtnJsonHasPotentiallyUnusedVarsSs(hdtnJsonHasPotentiallyUnusedVars);
-    std::string lineNoUnused;
-    std::set<std::string> validLinesSet; //support out of order
-    while (std::getline(hdtnJsonNoUnusedVarsSs, lineNoUnused).good()) {
-        boost::algorithm::trim(lineNoUnused);
-        validLinesSet.emplace(std::move(lineNoUnused));
-    }
-    std::string linePotentiallyUnused;
-    unsigned int lineNumber = 0;
-    while (std::getline(hdtnJsonHasPotentiallyUnusedVarsSs, linePotentiallyUnused).good()) {
-        ++lineNumber;
-        boost::algorithm::trim(linePotentiallyUnused);
-        if (validLinesSet.count(linePotentiallyUnused) == 0) {
-            returnedErrorMessage = "line " + boost::lexical_cast<std::string>(lineNumber) + ": unused variable: " + linePotentiallyUnused;
-            return true;
-        }
-    }
-    return false;
-}
 
-HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString) {
-    try {
-        const boost::property_tree::ptree fromOriginalJsonPt = JsonSerializable::GetPropertyTreeFromJsonString(jsonString);
-        HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromPtree(fromOriginalJsonPt);
+
+HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    HdtnConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonString(jsonString, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
         //verify that there are no unused variables within the original json
-        if (hdtnConfig) {
+        if (config && verifyNoUnusedJsonKeys) {
             std::string returnedErrorMessage;
-            if (HasUnusedJsonVariables(*hdtnConfig, fromOriginalJsonPt, returnedErrorMessage)) {
-                LOG_ERROR(subprocess) << "Json string, " << returnedErrorMessage;
-                return HdtnConfig_ptr(); //NULL
+            if (JsonSerializable::HasUnusedJsonVariablesInString(*config, jsonString, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
             }
         }
-        return hdtnConfig;
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In HdtnConfig::CreateFromJson. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return HdtnConfig_ptr(); //NULL
+    return config;
 }
 
-HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName) {
-    try {
-        const boost::property_tree::ptree fromOriginalJsonPt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName);
-        HdtnConfig_ptr hdtnConfig = HdtnConfig::CreateFromPtree(fromOriginalJsonPt);
+HdtnConfig_ptr HdtnConfig::CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    HdtnConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonFilePath(jsonFilePath, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
         //verify that there are no unused variables within the original json
-        if (hdtnConfig) {
+        if (config && verifyNoUnusedJsonKeys) {
             std::string returnedErrorMessage;
-            if (HasUnusedJsonVariables(*hdtnConfig, fromOriginalJsonPt, returnedErrorMessage)) {
-                LOG_ERROR(subprocess) << "Json file " << jsonFileName << ", " << returnedErrorMessage;
-                return HdtnConfig_ptr(); //NULL
+            if (JsonSerializable::HasUnusedJsonVariablesInFilePath(*config, jsonFilePath, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
             }
         }
-        return hdtnConfig;
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In HdtnConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return HdtnConfig_ptr(); //NULL
+    return config;
 }
 
 HdtnConfig_ptr HdtnConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {

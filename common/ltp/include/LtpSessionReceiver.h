@@ -29,14 +29,15 @@
 #include <map>
 #include <boost/asio.hpp>
 #include "LtpNoticesToClientService.h"
+#include <boost/core/noncopyable.hpp>
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId)> NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t;
 
-class LtpSessionReceiver {
+class LtpSessionReceiver : private boost::noncopyable {
 private:
-    LtpSessionReceiver();
+    LtpSessionReceiver() = delete;
 
     LTP_LIB_NO_EXPORT void LtpDelaySendReportSegmentTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t>& userData);
     LTP_LIB_NO_EXPORT void LtpReportSegmentTimerExpiredCallback(const Ltp::session_id_t & reportSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);

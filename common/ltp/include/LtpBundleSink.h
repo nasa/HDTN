@@ -28,10 +28,11 @@
 #include <boost/function.hpp>
 #include "LtpUdpEngineManager.h"
 #include "PaddedVectorUint8.h"
+#include <boost/core/noncopyable.hpp>
 
-class LtpBundleSink {
+class LtpBundleSink : private boost::noncopyable {
 private:
-    LtpBundleSink();
+    LtpBundleSink() = delete;
 public:
     typedef boost::function<void(padded_vector_uint8_t & wholeBundleVec)> LtpWholeBundleReadyCallback_t;
 

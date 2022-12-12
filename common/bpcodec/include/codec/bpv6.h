@@ -99,7 +99,7 @@ struct CLASS_VISIBILITY_BPCODEC Bpv6CbhePrimaryBlock : public PrimaryBlock {
     BPCODEC_EXPORT uint64_t SerializeBpv6(uint8_t * serialization); //not const as it needs to modify m_blockLength
     BPCODEC_EXPORT uint64_t GetSerializationSize() const;
     BPCODEC_EXPORT bool DeserializeBpv6(const uint8_t * serialization, uint64_t & numBytesTakenToDecode, uint64_t bufferSize);
-    BPCODEC_EXPORT long GetSecondsSinceCreate() const;
+    BPCODEC_EXPORT uint64_t GetSecondsSinceCreate() const;
     
     /**
      * Dumps a primary block to stdout in a human-readable way

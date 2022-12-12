@@ -195,16 +195,15 @@ bool TestSchedulerTcpcl() {
 
     //scheduler
     Scheduler scheduler;
-    std::string contactsFile = "contactPlan.json";
-    static const std::string eventFileArg = "--contact-plan-file=" + contactsFile;
-
-    std::string jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
+    const boost::filesystem::path contactsFile = "contactPlan.json";
+    const boost::filesystem::path jsonFileName =  Scheduler::GetFullyQualifiedFilename(contactsFile);
     if ( !boost::filesystem::exists( jsonFileName ) ) {
         std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
         return false;
     }
 
-    static const char * argsScheduler[] = { "scheduler", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
+    const std::string eventFileArg = "--contact-plan-file=" + contactsFile.string();
+    const char * argsScheduler[] = { "scheduler", eventFileArg.c_str(), hdtnConfigArg.c_str(), NULL };
     std::thread threadScheduler(&Scheduler::Run, &scheduler, 3, argsScheduler, std::ref(runningScheduler), true);
     Delay(1);
 

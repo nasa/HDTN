@@ -31,12 +31,12 @@
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 #include "ltp_lib_export.h"
-
+#include <boost/core/noncopyable.hpp>
 
 template <typename idType, typename hashType>
-class LtpTimerManager {
+class LtpTimerManager : private boost::noncopyable {
 private:
-    LtpTimerManager();
+    LtpTimerManager() = delete;
 public:
     typedef boost::function<void(const idType & serialNumber, std::vector<uint8_t> & userData)> LtpTimerExpiredCallback_t;
     LTP_LIB_EXPORT LtpTimerManager(boost::asio::deadline_timer & deadlineTimerRef,

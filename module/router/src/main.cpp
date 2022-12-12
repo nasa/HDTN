@@ -13,10 +13,9 @@
 int main(int argc, char *argv[]) {
     hdtn::Logger::initializeWithProcess(hdtn::Logger::Process::router);
     Router router;
-    std::string jsonFileName;
     volatile bool running;
 	
-    int   returnCode = router.Run(argc, argv, running, jsonFileName, true); 
+    int   returnCode = router.Run(argc, argv, running, true); 
 
     return returnCode;
 }

@@ -90,13 +90,13 @@ struct outduct_element_config_t {
     CONFIG_LIB_EXPORT outduct_element_config_t(const outduct_element_config_t& o);
 
     //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT outduct_element_config_t(outduct_element_config_t&& o);
+    CONFIG_LIB_EXPORT outduct_element_config_t(outduct_element_config_t&& o) noexcept;
 
     //a copy assignment: operator=(const X&)
     CONFIG_LIB_EXPORT outduct_element_config_t& operator=(const outduct_element_config_t& o);
 
     //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT outduct_element_config_t& operator=(outduct_element_config_t&& o);
+    CONFIG_LIB_EXPORT outduct_element_config_t& operator=(outduct_element_config_t&& o) noexcept;
 };
 
 typedef std::vector<outduct_element_config_t> outduct_element_config_vector_t;
@@ -117,19 +117,19 @@ public:
     CONFIG_LIB_EXPORT OutductsConfig(const OutductsConfig& o);
 
     //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT OutductsConfig(OutductsConfig&& o);
+    CONFIG_LIB_EXPORT OutductsConfig(OutductsConfig&& o) noexcept;
 
     //a copy assignment: operator=(const X&)
     CONFIG_LIB_EXPORT OutductsConfig& operator=(const OutductsConfig& o);
 
     //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT OutductsConfig& operator=(OutductsConfig&& o);
+    CONFIG_LIB_EXPORT OutductsConfig& operator=(OutductsConfig&& o) noexcept;
 
     CONFIG_LIB_EXPORT bool operator==(const OutductsConfig & other) const;
 
     CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-    CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromJson(const std::string & jsonString);
-    CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys = true);
+    CONFIG_LIB_EXPORT static OutductsConfig_ptr CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys = true);
     CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
     CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
 

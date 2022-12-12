@@ -16,6 +16,7 @@
 #include "Logger.h"
 #include <sstream>
 #include <boost/regex.hpp>
+#include <boost/filesystem/fstream.hpp>
 //since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
 //and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
 //the following fixes warning:  The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated....
@@ -32,6 +33,81 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 //regex to match "number", "true", "false", "{}", or "[]" (that do not precede a colon) and remove the quotes around them
 static const boost::regex regexMatchInQuotes("\\\"(-?\\d*\\.{0,1}\\d+|true|false|\\{\\}|\\[\\])\\\"(?!:)"); //, boost::regex_constants::icase); //json boolean is lower case only
 
+//https://stackoverflow.com/questions/43778916/regex-to-find-keys-in-json
+//Regex to match any word character that may be between quotes(" ") succeed by a : (ignoring whitespaces).
+//"([^"]+?)"\s*:
+static const boost::regex regexMatchAllJsonKeys("\\\"([^\"]+?)\\\"\\s*:");
+void JsonSerializable::GetAllJsonKeys(const std::string& jsonText, std::set<std::string>& jsonKeysNoQuotesSetToAppend) {
+    for (boost::sregex_iterator it(jsonText.begin(), jsonText.end(), regexMatchAllJsonKeys), words_end; it != words_end; ++it) {
+        const boost::smatch & match = *it;
+        jsonKeysNoQuotesSetToAppend.emplace(match[1].str());
+    }
+}
+void JsonSerializable::GetAllJsonKeysLineByLine(std::istream& stream, std::set<std::string>& jsonKeysNoQuotesSetToAppend) {
+    std::string lineOfJsonText;
+    while (std::getline(stream, lineOfJsonText)) {
+        GetAllJsonKeys(lineOfJsonText, jsonKeysNoQuotesSetToAppend);
+    }
+}
+bool JsonSerializable::HasUnusedJsonVariablesInFilePath(const JsonSerializable& config, const boost::filesystem::path& originalUserJsonFilePath, std::string& returnedErrorMessage) {
+    boost::filesystem::ifstream ifs(originalUserJsonFilePath);
+    if (!ifs.good()) {
+        returnedErrorMessage = "cannot load originalUserJsonFileName: " + originalUserJsonFilePath.string();
+        return false;
+    }
+    return HasUnusedJsonVariablesInStream(config, ifs, returnedErrorMessage);
+}
+bool JsonSerializable::HasUnusedJsonVariablesInString(const JsonSerializable& config, const std::string& originalUserJsonString, std::string& returnedErrorMessage) {
+    std::istringstream iss(originalUserJsonString);
+    return HasUnusedJsonVariablesInStream(config, iss, returnedErrorMessage);
+}
+bool JsonSerializable::HasUnusedJsonVariablesInStream(const JsonSerializable& config, std::istream& originalUserJsonStream, std::string& returnedErrorMessage) {
+    returnedErrorMessage.clear();
+
+    //get a set of only valid keys
+    const std::string jsonNoUnusedVars = config.ToJson();
+    std::set<std::string> validKeysSet; //support out of order
+    JsonSerializable::GetAllJsonKeys(jsonNoUnusedVars, validKeysSet);
+
+
+    std::string linePotentiallyUnused;
+    unsigned int lineNumber = 0;
+    while (std::getline(originalUserJsonStream, linePotentiallyUnused).good()) {
+        ++lineNumber;
+
+        //get a set of the json keys on the current line of text of the user's json file
+        std::set<std::string> jsonKeysOnThisLineSet; //support out of order
+        JsonSerializable::GetAllJsonKeys(linePotentiallyUnused, jsonKeysOnThisLineSet);
+
+        //interate through the keys on this line, check them against the "all valid keys set"
+        for (std::set<std::string>::const_iterator it = jsonKeysOnThisLineSet.cbegin(); it != jsonKeysOnThisLineSet.cend(); ++it) {
+            const std::string& thisKeyPotentiallyNotNeeded = *it;
+            if (validKeysSet.count(thisKeyPotentiallyNotNeeded) == 0) {
+                returnedErrorMessage = "line " + boost::lexical_cast<std::string>(lineNumber) + ": unused JSON key: " + thisKeyPotentiallyNotNeeded;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool JsonSerializable::LoadTextFileIntoString(const boost::filesystem::path& filePath, std::string& fileContentsAsString) {
+    boost::filesystem::ifstream ifs(filePath);
+
+    if (!ifs.good()) {
+        return false;
+    }
+
+    // get length of file:
+    ifs.seekg(0, ifs.end);
+    std::size_t length = ifs.tellg();
+    ifs.seekg(0, ifs.beg);
+    fileContentsAsString.resize(length, ' ');
+    ifs.read(&fileContentsAsString[0], length);
+    ifs.close();
+    return true;
+}
+
 JsonSerializable::JsonSerializable() {
 }
 
@@ -45,11 +121,10 @@ std::string JsonSerializable::ToJson(bool pretty) const {
     return PtToJsonString(GetNewPropertyTree(), pretty);
 }
 
-bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) const {
-    std::ofstream out(fileName);
+bool JsonSerializable::ToJsonFile(const boost::filesystem::path& filePath, bool pretty) const {
+    boost::filesystem::ofstream out(filePath);
     if (!out.good()) {
-        const std::string message = "In JsonSerializable::ToJsonFile. Error opening file for writing: " + fileName;
-        LOG_ERROR(subprocess) << message;
+        LOG_ERROR(subprocess) << "In JsonSerializable::ToJsonFile. Error opening file for writing: " << filePath;
         return false;
     }
     out << ToJson(pretty);
@@ -59,7 +134,7 @@ bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) con
     return true;
 }
 
-boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromCharArray(char * data, const std::size_t size) {
+bool JsonSerializable::GetPropertyTreeFromJsonCharArray(char * data, const std::size_t size, boost::property_tree::ptree& pt) {
     //https://stackoverflow.com/questions/7781898/get-an-istream-from-a-char
     struct membuf : std::streambuf
     {
@@ -69,32 +144,34 @@ boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromCharArray(char 
     };
     membuf sbuf(data, data + size);
     std::istream is(&sbuf);
-    boost::property_tree::ptree pt;
-    try {
-        boost::property_tree::read_json(is, pt);
-    }
-    catch (boost::property_tree::json_parser::json_parser_error e) {
-        LOG_ERROR(subprocess) << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << data;
-    }
-    return pt;
+    return GetPropertyTreeFromJsonStream(is, pt);
 }
 
-boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromJsonString(const std::string & jsonStr) {
+bool JsonSerializable::GetPropertyTreeFromJsonStream(std::istream& jsonStream, boost::property_tree::ptree& pt) {
+    try {
+        boost::property_tree::read_json(jsonStream, pt);
+    }
+    catch (boost::property_tree::json_parser::json_parser_error e) {
+        LOG_ERROR(subprocess) << "Error parsing JSON: " << e.what();
+        return false;
+    }
+    return true;
+}
+
+bool JsonSerializable::GetPropertyTreeFromJsonString(const std::string & jsonStr, boost::property_tree::ptree& pt) {
     std::istringstream iss(jsonStr);
-    boost::property_tree::ptree pt;
-    try {
-        boost::property_tree::read_json(iss, pt);
-    }
-    catch (boost::property_tree::json_parser::json_parser_error e) {
-        LOG_ERROR(subprocess) << "In " << __FUNCTION__ << ": Error parsing JSON String.  jsonStr: " << jsonStr;
-    }
-    return pt;
+    return GetPropertyTreeFromJsonStream(iss, pt);
 }
 
-boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromJsonFile(const std::string & jsonFileName) {
-    boost::property_tree::ptree pt;
-    boost::property_tree::read_json(jsonFileName, pt);
-    return pt;
+bool JsonSerializable::GetPropertyTreeFromJsonFilePath(const boost::filesystem::path& jsonFilePath, boost::property_tree::ptree& pt) {
+    boost::filesystem::ifstream ifs(jsonFilePath);
+
+    if (!ifs.good()) {
+        LOG_ERROR(subprocess) << "Error loading JSON file: " << jsonFilePath;
+        return false;
+    }
+
+    return GetPropertyTreeFromJsonStream(ifs, pt);
 }
 
 std::string JsonSerializable::PtToXmlString(const boost::property_tree::ptree& pt) {
@@ -104,7 +181,7 @@ std::string JsonSerializable::PtToXmlString(const boost::property_tree::ptree& p
     return oss.str();
 }
 std::string JsonSerializable::ToXml() const {
-    return PtToXmlString(GetNewPropertyTree());
+    return PtToXmlString(GetNewPropertyTree()); //virtual function call
 }
 
 bool JsonSerializable::ToXmlFile(const std::string & fileName, char indentCharacter, int indentCount) const {
@@ -135,12 +212,9 @@ boost::property_tree::ptree JsonSerializable::GetPropertyTreeFromXmlFile(const s
 }
 
 bool JsonSerializable::SetValuesFromJson(const std::string & jsonString) {
-    try {
-        return SetValuesFromPropertyTree(GetPropertyTreeFromJsonString(jsonString));
+    boost::property_tree::ptree pt;
+    if (!GetPropertyTreeFromJsonString(jsonString, pt)) {
+        return false; //prints message
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In JsonSerializable::SetValuesFromJson. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-    return false;
+    return SetValuesFromPropertyTree(pt); //virtual function call
 }

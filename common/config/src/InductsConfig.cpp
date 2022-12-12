@@ -92,7 +92,7 @@ induct_element_config_t::induct_element_config_t(const induct_element_config_t& 
     diffieHellmanParametersPemFile(o.diffieHellmanParametersPemFile) { }
 
 //a move constructor: X(X&&)
-induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) :
+induct_element_config_t::induct_element_config_t(induct_element_config_t&& o) noexcept :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
     boundPort(o.boundPort),
@@ -158,7 +158,7 @@ induct_element_config_t& induct_element_config_t::operator=(const induct_element
 }
 
 //a move assignment: operator=(X&&)
-induct_element_config_t& induct_element_config_t::operator=(induct_element_config_t&& o) {
+induct_element_config_t& induct_element_config_t::operator=(induct_element_config_t&& o) noexcept {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
     boundPort = o.boundPort;
@@ -234,7 +234,7 @@ InductsConfig::InductsConfig(const InductsConfig& o) :
     m_inductConfigName(o.m_inductConfigName), m_inductElementConfigVector(o.m_inductElementConfigVector) { }
 
 //a move constructor: X(X&&)
-InductsConfig::InductsConfig(InductsConfig&& o) :
+InductsConfig::InductsConfig(InductsConfig&& o) noexcept :
     m_inductConfigName(std::move(o.m_inductConfigName)), m_inductElementConfigVector(std::move(o.m_inductElementConfigVector)) { }
 
 //a copy assignment: operator=(const X&)
@@ -245,7 +245,7 @@ InductsConfig& InductsConfig::operator=(const InductsConfig& o) {
 }
 
 //a move assignment: operator=(X&&)
-InductsConfig& InductsConfig::operator=(InductsConfig&& o) {
+InductsConfig& InductsConfig::operator=(InductsConfig&& o) noexcept {
     m_inductConfigName = std::move(o.m_inductConfigName);
     m_inductElementConfigVector = std::move(o.m_inductElementConfigVector);
     return *this;
@@ -397,28 +397,38 @@ bool InductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
     return true;
 }
 
-InductsConfig_ptr InductsConfig::CreateFromJson(const std::string & jsonString) {
-    try {
-        return InductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
+InductsConfig_ptr InductsConfig::CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    InductsConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonString(jsonString, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
+        //verify that there are no unused variables within the original json
+        if (config && verifyNoUnusedJsonKeys) {
+            std::string returnedErrorMessage;
+            if (JsonSerializable::HasUnusedJsonVariablesInString(*config, jsonString, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
+            }
+        }
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In InductsConfig::CreateFromJson. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return InductsConfig_ptr(); //NULL
+    return config;
 }
 
-InductsConfig_ptr InductsConfig::CreateFromJsonFile(const std::string & jsonFileName) {
-    try {
-        return InductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
+InductsConfig_ptr InductsConfig::CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    InductsConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonFilePath(jsonFilePath, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
+        //verify that there are no unused variables within the original json
+        if (config && verifyNoUnusedJsonKeys) {
+            std::string returnedErrorMessage;
+            if (JsonSerializable::HasUnusedJsonVariablesInFilePath(*config, jsonFilePath, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
+            }
+        }
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In InductsConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return InductsConfig_ptr(); //NULL
+    return config;
 }
 
 InductsConfig_ptr InductsConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {

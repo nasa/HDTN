@@ -44,7 +44,7 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
                 ;
 
             boost::program_options::variables_map vm;
@@ -56,9 +56,9 @@ bool EgressAsyncRunner::Run(int argc, const char* const argv[], volatile bool & 
                 return false;
             }
 
-            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+            const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
-            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+            hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;

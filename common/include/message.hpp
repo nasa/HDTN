@@ -1,7 +1,7 @@
 #ifndef _HDTN_MSG_H
 #define _HDTN_MSG_H
 
-#include <stdint.h>
+#include <cstdint>
 
 #include "stats.hpp"
 #include "codec/bpv6.h"
@@ -71,35 +71,33 @@ struct CommonHdr {
 struct ToEgressHdr {
     CommonHdr base;
     uint8_t hasCustody;
-    uint8_t isCutThroughFromIngress;
-    uint8_t isOpportunisticFromStorage;
     uint8_t isCutThroughFromStorage;
+    uint8_t unused1;
+    uint8_t unused2;
     uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     uint64_t outductIndex;
 
-    //bool operator==(const ToEgressHdr & o) const {
-    //    return (base == o.base) && (custodyId == o.custodyId);
-    //}
+    bool IsOpportunisticLink() const noexcept {
+        return (outductIndex == UINT64_MAX);
+    }
 };
 
 struct EgressAckHdr {
     CommonHdr base;
     uint8_t error;
     uint8_t deleteNow; //set if message does not request custody (can be deleted after egress sends it)
-    uint8_t isToStorage;
     uint8_t isResponseToStorageCutThrough;
-    uint8_t isOpportunisticFromStorage;
-    uint8_t unusedPadding[7];
+    uint8_t unused1;
     uint64_t nextHopNodeId;
     cbhe_eid_t finalDestEid;
     uint64_t custodyId;
     uint64_t outductIndex;
 
-    //bool operator==(const EgressAckHdr & o) const {
-    //    return (base == o.base) && (custodyId == o.custodyId);
-    //}
+    bool IsOpportunisticLink() const noexcept {
+        return (outductIndex == UINT64_MAX);
+    }
 };
 
 struct ToStorageHdr {

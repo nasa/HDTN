@@ -23,6 +23,10 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
 static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
 
+LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_t* data) {
+    memcpy(this, data, sizeof(cancel_segment_timer_info_t));
+}
+
 LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEncodingIntoRandomSessionNumber, 
     const uint64_t mtuClientServiceData, uint64_t mtuReportSegment,
     const boost::posix_time::time_duration & oneWayLightTime, const boost::posix_time::time_duration & oneWayMarginTime,
@@ -155,7 +159,8 @@ void LtpEngine::Reset() {
 
     m_queueCancelSegmentTimerInfo = std::queue<cancel_segment_timer_info_t>();
     m_queueSendersNeedingDeleted = std::queue<uint64_t>();
-    m_queueSendersNeedingDataSent = std::queue<uint64_t>();
+    m_queueSendersNeedingTimeCriticalDataSent = std::queue<uint64_t>();
+    m_queueSendersNeedingFirstPassDataSent = std::queue<uint64_t>();
     m_queueReceiversNeedingDeleted = std::queue<Ltp::session_id_t>();
     m_queueReceiversNeedingDataSent = std::queue<Ltp::session_id_t>();
 
@@ -304,7 +309,7 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
     while (!m_queueSendersNeedingDeleted.empty()) {
         map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingDeleted.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+            if (txSessionIt->second->NextTimeCriticalDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
                 sessionOriginatorEngineId = M_THIS_ENGINE_ID;
                 return true;
             }
@@ -421,21 +426,21 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
         return true;
     }
 
-    while (!m_queueSendersNeedingDataSent.empty()) {
-        map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingDataSent.front());
+    while (!m_queueSendersNeedingTimeCriticalDataSent.empty()) { //note that m_queueSendersNeedingDeleted from above may empty the data by the time it reaches this point
+        map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingTimeCriticalDataSent.front());
         if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
-            if (txSessionIt->second->NextDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) { //if the session to be deleted still has data to send, send it before deletion
+            if (txSessionIt->second->NextTimeCriticalDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) {
                 sessionOriginatorEngineId = M_THIS_ENGINE_ID;
                 return true;
             }
             else {
                 //remove from queue (only when this sender is completely done sending data)
-                m_queueSendersNeedingDataSent.pop();
+                m_queueSendersNeedingTimeCriticalDataSent.pop();
             }
         }
         else {
             //remove from queue (if the session number no longer exists do to deletion)
-            m_queueSendersNeedingDataSent.pop();
+            m_queueSendersNeedingTimeCriticalDataSent.pop();
         }
     }
 
@@ -454,6 +459,26 @@ bool LtpEngine::GetNextPacketToSend(std::vector<boost::asio::const_buffer>& cons
         else {
             //remove from queue (if the session number no longer exists do to deletion)
             m_queueReceiversNeedingDataSent.pop();
+        }
+    }
+
+    //first pass data is lowest priority compared to time-critical data above,
+    //so put it last to prevent long first passes from starving and expiring the time-critical data
+    while (!m_queueSendersNeedingFirstPassDataSent.empty()) {
+        map_session_number_to_session_sender_t::iterator txSessionIt = m_mapSessionNumberToSessionSender.find(m_queueSendersNeedingFirstPassDataSent.front());
+        if (txSessionIt != m_mapSessionNumberToSessionSender.end()) { //found
+            if (txSessionIt->second->NextFirstPassDataToSend(constBufferVec, underlyingDataToDeleteOnSentCallback, underlyingCsDataToDeleteOnSentCallback)) {
+                sessionOriginatorEngineId = M_THIS_ENGINE_ID;
+                return true;
+            }
+            else {
+                //remove from queue (only when this sender is completely done sending data)
+                m_queueSendersNeedingFirstPassDataSent.pop();
+            }
+        }
+        else {
+            //remove from queue (if the session number no longer exists do to deletion)
+            m_queueSendersNeedingFirstPassDataSent.pop();
         }
     }
 
@@ -503,10 +528,13 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         boost::bind(&LtpEngine::NotifyEngineThatThisSenderHasProducibleData, this, boost::placeholders::_1),
         boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2), m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber);
 
+    m_queueSendersNeedingFirstPassDataSent.emplace(randomSessionNumberGeneratedBySender);
+
     if (m_sessionStartCallback) {
         //At the sender, the session start notice informs the client service of the initiation of the transmission session.
         m_sessionStartCallback(senderSessionId);
     }
+    TrySendPacketIfAvailable(); //because added to m_queueSendersNeedingFirstPassDataSent
 }
 void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
     const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart)
@@ -530,7 +558,6 @@ void LtpEngine::TransmissionRequest(std::shared_ptr<transmission_request_t> & tr
         std::move(transmissionRequest->userDataPtr),
         transmissionRequest->lengthOfRedPart
     );
-    TrySendPacketIfAvailable();
 }
 void LtpEngine::TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest) {
     //The arguments to bind are copied or moved, and are never passed by reference unless wrapped in std::ref or std::cref.
@@ -769,12 +796,12 @@ void LtpEngine::CancelAcknowledgementSegmentReceivedCallback(const Ltp::session_
 }
 
 void LtpEngine::CancelSegmentTimerExpiredCallback(Ltp::session_id_t cancelSegmentTimerSerialNumber, std::vector<uint8_t> & userData) {
-    cancel_segment_timer_info_t info;
-    if (userData.size() != sizeof(info)) {
+    
+    if (userData.size() != sizeof(cancel_segment_timer_info_t)) {
         LOG_ERROR(subprocess) << "LtpEngine::CancelSegmentTimerExpiredCallback: userData.size() != sizeof(info)";
         return;
     }
-    memcpy(&info, userData.data(), sizeof(info));
+    cancel_segment_timer_info_t info(userData.data());
 
     if (info.retryCount <= m_maxRetriesPerSerialNumber) {
         //resend Cancel Segment to receiver (GetNextPacketToSend() will create the packet and start the timer)
@@ -834,7 +861,7 @@ void LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback(const Ltp::sessio
 }
 
 void LtpEngine::NotifyEngineThatThisSenderHasProducibleData(const uint64_t sessionNumber) {
-    m_queueSendersNeedingDataSent.push(sessionNumber);
+    m_queueSendersNeedingTimeCriticalDataSent.push(sessionNumber);
     SignalReadyForSend_ThreadSafe(); //posts the TrySendPacketIfAvailable(); so this won't be deleteted during execution
 }
 

@@ -1062,8 +1062,6 @@ bool Ingress::Impl::ProcessPaddedData(uint8_t * bundleDataBegin, std::size_t bun
                             toEgressHdr->nextHopNodeId = bundleCutThroughPipelineAckingSetObj.GetNextHopNodeId();
                             toEgressHdr->finalDestEid = finalDestEid;
                             toEgressHdr->hasCustody = requestsCustody;
-                            toEgressHdr->isCutThroughFromIngress = 1;
-                            toEgressHdr->isOpportunisticFromStorage = 0;
                             toEgressHdr->isCutThroughFromStorage = 0;
                             toEgressHdr->custodyId = fromIngressUniqueId;
                             toEgressHdr->outductIndex = outductIndex;

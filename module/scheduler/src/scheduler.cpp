@@ -30,7 +30,7 @@
 
 namespace opt = boost::program_options;
 
-const std::string Scheduler::DEFAULT_FILE = "contactPlan.json";
+const boost::filesystem::path Scheduler::DEFAULT_FILE = "contactPlan.json";
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
@@ -110,8 +110,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
+                ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
 
             opt::variables_map vm;
             opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -122,9 +122,9 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+            const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
-            if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
+            if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFilePath(configFileName)) {
                 m_hdtnConfig = *ptrConfig;
             }
             else {
@@ -134,8 +134,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
             //int src = m_hdtnConfig.m_myNodeId;
 
-            m_contactsFile = vm["contact-plan-file"].as<std::string>();
-            if (m_contactsFile.length() < 1) {
+            m_contactsFile = vm["contact-plan-file"].as<boost::filesystem::path>();
+            if (m_contactsFile.empty()) {
                 LOG_INFO(subprocess) << desc;
                 return false;
             }
@@ -416,7 +416,11 @@ void Scheduler::UisEventsHandler() {
             LOG_ERROR(subprocess) << "[UisEventsHandler] message not received";
             return;
         }
-        std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(JsonSerializable::GetPropertyTreeFromCharArray((char*)message.data(), message.size()));
+        boost::property_tree::ptree pt;
+        if (!JsonSerializable::GetPropertyTreeFromJsonCharArray((char*)message.data(), message.size(), pt)) {
+            LOG_ERROR(subprocess) << "[UisEventsHandler] JSON message invalid";
+        }
+        std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(pt);
         boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), hdr.using_unix_timestamp));
         LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
     }
@@ -493,23 +497,32 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
     }
 }
 
-int Scheduler::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps) {
+bool Scheduler::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps) {
     return ProcessContacts(*contactsPtPtr, useUnixTimestamps);
 }
-int Scheduler::ProcessContactsJsonText(char * jsonText, bool useUnixTimestamps) {
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromCharArray(jsonText, strlen(jsonText));
+bool Scheduler::ProcessContactsJsonText(char * jsonText, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonCharArray(jsonText, strlen(jsonText), pt)) {
+        return false;
+    }
     return ProcessContacts(pt, useUnixTimestamps);
 }
-int Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps) {
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonString(jsonText);
+bool Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonString(jsonText, pt)) {
+        return false;
+    }
     return ProcessContacts(pt, useUnixTimestamps);
 }
-int Scheduler::ProcessContactsFile(const std::string& jsonEventFileName, bool useUnixTimestamps) {
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName);
+bool Scheduler::ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonFilePath(jsonEventFilePath, pt)) {
+        return false;
+    }
     return ProcessContacts(pt, useUnixTimestamps);
 }
 
-int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUnixTimestamps) {
+bool Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUnixTimestamps) {
     
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
@@ -570,7 +583,7 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
     m_contactPlanTimerIsRunning = false;
     TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
 
-    return 0;
+    return true;
 }
 
 

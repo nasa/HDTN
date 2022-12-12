@@ -109,7 +109,7 @@ outduct_element_config_t::outduct_element_config_t(const outduct_element_config_
     certificationAuthorityPemFileForVerification(o.certificationAuthorityPemFileForVerification) { }
 
 //a move constructor: X(X&&)
-outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) :
+outduct_element_config_t::outduct_element_config_t(outduct_element_config_t&& o) noexcept :
     name(std::move(o.name)),
     convergenceLayer(std::move(o.convergenceLayer)),
     nextHopNodeId(o.nextHopNodeId),
@@ -192,7 +192,7 @@ outduct_element_config_t& outduct_element_config_t::operator=(const outduct_elem
 }
 
 //a move assignment: operator=(X&&)
-outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_config_t&& o) {
+outduct_element_config_t& outduct_element_config_t::operator=(outduct_element_config_t&& o) noexcept {
     name = std::move(o.name);
     convergenceLayer = std::move(o.convergenceLayer);
     nextHopNodeId = o.nextHopNodeId;
@@ -286,7 +286,7 @@ OutductsConfig::OutductsConfig(const OutductsConfig& o) :
     m_outductConfigName(o.m_outductConfigName), m_outductElementConfigVector(o.m_outductElementConfigVector) { }
 
 //a move constructor: X(X&&)
-OutductsConfig::OutductsConfig(OutductsConfig&& o) :
+OutductsConfig::OutductsConfig(OutductsConfig&& o) noexcept :
     m_outductConfigName(std::move(o.m_outductConfigName)), m_outductElementConfigVector(std::move(o.m_outductElementConfigVector)) { }
 
 //a copy assignment: operator=(const X&)
@@ -297,7 +297,7 @@ OutductsConfig& OutductsConfig::operator=(const OutductsConfig& o) {
 }
 
 //a move assignment: operator=(X&&)
-OutductsConfig& OutductsConfig::operator=(OutductsConfig&& o) {
+OutductsConfig& OutductsConfig::operator=(OutductsConfig&& o) noexcept {
     m_outductConfigName = std::move(o.m_outductConfigName);
     m_outductElementConfigVector = std::move(o.m_outductElementConfigVector);
     return *this;
@@ -482,28 +482,38 @@ bool OutductsConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree
     return true;
 }
 
-OutductsConfig_ptr OutductsConfig::CreateFromJson(const std::string & jsonString) {
-    try {
-        return OutductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
+OutductsConfig_ptr OutductsConfig::CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    OutductsConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonString(jsonString, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
+        //verify that there are no unused variables within the original json
+        if (config && verifyNoUnusedJsonKeys) {
+            std::string returnedErrorMessage;
+            if (JsonSerializable::HasUnusedJsonVariablesInString(*config, jsonString, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
+            }
+        }
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In OutductsConfig::CreateFromJson. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return OutductsConfig_ptr(); //NULL
+    return config;
 }
 
-OutductsConfig_ptr OutductsConfig::CreateFromJsonFile(const std::string & jsonFileName) {
-    try {
-        return OutductsConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
+OutductsConfig_ptr OutductsConfig::CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    OutductsConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonFilePath(jsonFilePath, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
+        //verify that there are no unused variables within the original json
+        if (config && verifyNoUnusedJsonKeys) {
+            std::string returnedErrorMessage;
+            if (JsonSerializable::HasUnusedJsonVariablesInFilePath(*config, jsonFilePath, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
+            }
+        }
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In OutductsConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return OutductsConfig_ptr(); //NULL
+    return config;
 }
 
 OutductsConfig_ptr OutductsConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {

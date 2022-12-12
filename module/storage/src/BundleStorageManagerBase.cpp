@@ -56,9 +56,11 @@ BundleStorageManagerSession_ReadFromDisk::~BundleStorageManagerSession_ReadFromD
 
 BundleStorageManagerBase::BundleStorageManagerBase() : BundleStorageManagerBase("storageConfig.json") {}
 
-BundleStorageManagerBase::BundleStorageManagerBase(const std::string & jsonConfigFileName) : BundleStorageManagerBase(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
+BundleStorageManagerBase::BundleStorageManagerBase(const boost::filesystem::path& jsonConfigFilePath) :
+    BundleStorageManagerBase(StorageConfig::CreateFromJsonFilePath(jsonConfigFilePath))
+{
     if (!m_storageConfigPtr) {
-        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFileName;
+        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFilePath;
         return;
     }
 }
@@ -70,7 +72,6 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
     M_MAX_SEGMENTS(M_TOTAL_STORAGE_CAPACITY_BYTES / SEGMENT_SIZE),
     m_memoryManager(M_MAX_SEGMENTS),
     m_filePathsVec(M_NUM_STORAGE_DISKS),
-    m_filePathsAsStringVec(M_NUM_STORAGE_DISKS),
     m_circularIndexBuffersVec(M_NUM_STORAGE_DISKS, CircularIndexBufferSingleProducerSingleConsumerConfigurable(CIRCULAR_INDEX_BUFFER_SIZE)),
     m_autoDeleteFilesOnExit((m_storageConfigPtr) ? m_storageConfigPtr->m_autoDeleteFilesOnExit : false),
     m_successfullyRestoredFromDisk(false),
@@ -89,7 +90,6 @@ BundleStorageManagerBase::BundleStorageManagerBase(const StorageConfig_ptr & sto
 
     for (unsigned int diskId = 0; diskId < M_NUM_STORAGE_DISKS; ++diskId) {
         m_filePathsVec[diskId] = boost::filesystem::path(m_storageConfigPtr->m_storageDiskConfigVector[diskId].storeFilePath);
-        m_filePathsAsStringVec[diskId] = m_filePathsVec[diskId].string();
     }
 
 
@@ -113,8 +113,12 @@ BundleStorageManagerBase::~BundleStorageManagerBase() {
         const boost::filesystem::path & p = m_filePathsVec[diskId];
 
         if (m_autoDeleteFilesOnExit && boost::filesystem::exists(p)) {
-            boost::filesystem::remove(p);
-            LOG_DEBUG(subprocess) << "deleted " << p.string();
+            if (boost::filesystem::remove(p)) {
+                LOG_DEBUG(subprocess) << "deleted " << p;
+            }
+            else {
+                LOG_ERROR(subprocess) << "unable to delete " << p;
+            }
         }
     }
 }

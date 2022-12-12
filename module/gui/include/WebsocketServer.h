@@ -5,6 +5,7 @@
 #include <cstring>
 #include <memory>
 #include <boost/thread.hpp>
+#include <boost/filesystem.hpp>
 #include <set>
 #include "gui_lib_export.h"
 #include "zmq.hpp"
@@ -52,7 +53,7 @@ private:
 class CLASS_VISIBILITY_GUI_LIB WebsocketServer {
 public:
     GUI_LIB_EXPORT WebsocketServer();
-    GUI_LIB_EXPORT bool Init(const std::string & documentRoot, const std::string & portNumberAsString, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
+    GUI_LIB_EXPORT bool Init(const boost::filesystem::path& documentRoot, const std::string & portNumberAsString, zmq::context_t * hdtnOneProcessZmqInprocContextPtr = NULL);
     GUI_LIB_EXPORT bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
     GUI_LIB_EXPORT bool RequestsExit();
     GUI_LIB_EXPORT void SendNewBinaryData(const char* data, std::size_t size);

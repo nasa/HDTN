@@ -487,8 +487,9 @@ void LtpSessionReceiver::DataSegmentReceivedCallback(uint8_t segmentTypeFlags,
                     const std::size_t initialSetSize = m_mapReportSegmentsPendingGeneration.size();
                     rs_pending_map_t::iterator itRsPending =
                         m_mapReportSegmentsPendingGeneration.emplace_hint(m_mapReportSegmentsPendingGeneration.end(), //hint may be wrong for secondary reception reports
-                        FragmentSet::data_fragment_no_overlap_allow_abut_t(lowerBound, upperBound - 1),
-                        csn_issecondary_pair_t(*dataSegmentMetadata.checkpointSerialNumber, checkpointIsResponseToReportSegment));
+                        std::piecewise_construct,
+                        std::forward_as_tuple(lowerBound, upperBound - 1),
+                        std::forward_as_tuple(*dataSegmentMetadata.checkpointSerialNumber, checkpointIsResponseToReportSegment));
                     if (initialSetSize == m_mapReportSegmentsPendingGeneration.size()) { //failedInsertion
                         LOG_ERROR(subprocess) << "LtpSessionReceiver::DataSegmentReceivedCallback: unable to insert " 
                             << ((checkpointIsResponseToReportSegment) ? "secondary" : "primary") << " reception into m_mapReportSegmentsPendingGeneration";

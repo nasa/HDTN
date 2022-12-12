@@ -339,7 +339,7 @@ uint64_t Bpv6CbhePrimaryBlock::GetSequenceForMillisecondsScale() const {
     return m_creationTimestamp.sequenceNumber;
 }
 
-long Bpv6CbhePrimaryBlock::GetSecondsSinceCreate() const {
+uint64_t Bpv6CbhePrimaryBlock::GetSecondsSinceCreate() const {
     return TimestampUtil::GetSecondsSinceEpochRfc5050() - 
         m_creationTimestamp.secondsSinceStartOfYear2000;
 }

@@ -52,8 +52,8 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BpGen Source Node Id.")
                     ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpGen sends to this final destination Eid.")
                     ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
-                    ("outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File.")
-                    ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                    ("outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File.")
+                    ("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                     ("skip-upload-existing-files", "Do not upload existing files in the directory if and only if file-or-folder-path is a directory.")
                     ("upload-new-files", "Upload new files copied or moved into the directory if and only if file-or-folder-path is a directory.")
                     ("recurse-directories-depth", boost::program_options::value<unsigned int>()->default_value(3), "Upload all files within max specified depth of subdirectories if file-or-folder-path is a directory (0->no recursion).")
@@ -90,10 +90,10 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                     return false;
                 }
 
-                const std::string outductsConfigFileName = vm["outducts-config-file"].as<std::string>();
+                const boost::filesystem::path outductsConfigFileName = vm["outducts-config-file"].as<boost::filesystem::path>();
 
-                if (outductsConfigFileName.length()) {
-                    outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
+                if (!outductsConfigFileName.empty()) {
+                    outductsConfigPtr = OutductsConfig::CreateFromJsonFilePath(outductsConfigFileName);
                     if (!outductsConfigPtr) {
                         LOG_ERROR(subprocess) << "error loading outducts config file: " << outductsConfigFileName;
                         return false;
@@ -108,9 +108,9 @@ bool BpSendFileRunner::Run(int argc, const char* const argv[], volatile bool & r
                 }
 
                 //create induct for custody signals
-                const std::string inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<std::string>();
-                if (inductsConfigFileName.length()) {
-                    inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
+                const boost::filesystem::path inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<boost::filesystem::path>();
+                if (!inductsConfigFileName.empty()) {
+                    inductsConfigPtr = InductsConfig::CreateFromJsonFilePath(inductsConfigFileName);
                     if (!inductsConfigPtr) {
                         LOG_ERROR(subprocess) << "error loading induct config file: " << inductsConfigFileName;
                         return false;

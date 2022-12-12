@@ -529,7 +529,7 @@ uint64_t Bpv7CbhePrimaryBlock::GetExpirationMilliseconds() const {
 uint64_t Bpv7CbhePrimaryBlock::GetSequenceForMillisecondsScale() const {
     return m_creationTimestamp.sequenceNumber;
 }
-long Bpv7CbhePrimaryBlock::GetMillisecondsSinceCreate() const {
+uint64_t Bpv7CbhePrimaryBlock::GetMillisecondsSinceCreate() const {
     return TimestampUtil::GetMillisecondsSinceEpochRfc5050() - 
         m_creationTimestamp.millisecondsSinceStartOfYear2000;
 }

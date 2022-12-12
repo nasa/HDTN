@@ -8,7 +8,7 @@ BOOST_AUTO_TEST_CASE(YenPyCGRTutorialTestCase)
 {
 	std::cout << "Reading contact plan..." << std::endl;
 	const boost::filesystem::path contactRootDir = Environment::GetPathHdtnSourceRoot() / "common" / "cgr" / "test";
-	const std::string contactFile = (contactRootDir / "cgrTutorial.json").string();
+	const boost::filesystem::path contactFile = contactRootDir / "cgrTutorial.json";
 
 	std::vector<cgr::Contact> contactPlan = cgr::cp_load(contactFile);
 	int numContacts = contactPlan.size();

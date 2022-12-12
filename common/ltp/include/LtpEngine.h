@@ -34,10 +34,11 @@
 #include <unordered_map>
 #include <queue>
 #include <memory>
+#include <boost/core/noncopyable.hpp>
 
-class CLASS_VISIBILITY_LTP_LIB LtpEngine {
+class CLASS_VISIBILITY_LTP_LIB LtpEngine : private boost::noncopyable {
 private:
-    LtpEngine();
+    LtpEngine() = delete;
 public:
     struct transmission_request_t {
         uint64_t destinationClientServiceId;
@@ -47,6 +48,9 @@ public:
         std::shared_ptr<LtpTransmissionRequestUserData> userDataPtr;
     };
     struct cancel_segment_timer_info_t {
+        cancel_segment_timer_info_t() = default;
+        cancel_segment_timer_info_t(const uint8_t * data); //for queue emplace of user data
+
         Ltp::session_id_t sessionId;
         CANCEL_SEGMENT_REASON_CODES reasonCode;
         bool isFromSender;
@@ -188,7 +192,8 @@ private:
     std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
     std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
     std::queue<uint64_t> m_queueSendersNeedingDeleted;
-    std::queue<uint64_t> m_queueSendersNeedingDataSent;
+    std::queue<uint64_t> m_queueSendersNeedingTimeCriticalDataSent;
+    std::queue<uint64_t> m_queueSendersNeedingFirstPassDataSent;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDeleted;
     std::queue<Ltp::session_id_t> m_queueReceiversNeedingDataSent;
 

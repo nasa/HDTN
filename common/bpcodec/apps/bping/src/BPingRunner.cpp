@@ -59,8 +59,8 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                     ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:1.1"), "BPing Source Node Id.")
                     ("dest-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BPing sends to this final destination Eid.")
                     ("my-custodian-service-id", boost::program_options::value<uint64_t>()->default_value(0), "Custodian service ID is always 0.")
-                    ("outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File.")
-                    ("custody-transfer-inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
+                    ("outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File.")
+                    ("custody-transfer-inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File for custody transfer (use custody if present).")
                     ("custody-transfer-use-acs", "Custody transfer should use Aggregate Custody Signals instead of RFC5050.")
                     ("use-bp-version-7", "Send bundles using bundle protocol version 7.")
                     ("bundle-send-timeout-seconds", boost::program_options::value<unsigned int>()->default_value(3), "Max time to send a bundle and get acknowledgement.")
@@ -90,10 +90,10 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                     return false;
                 }
 
-                const std::string outductsConfigFileName = vm["outducts-config-file"].as<std::string>();
+                const boost::filesystem::path outductsConfigFileName = vm["outducts-config-file"].as<boost::filesystem::path>();
 
-                if (outductsConfigFileName.length()) {
-                    outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
+                if (!outductsConfigFileName.empty()) {
+                    outductsConfigPtr = OutductsConfig::CreateFromJsonFilePath(outductsConfigFileName);
                     if (!outductsConfigPtr) {
                         LOG_ERROR(subprocess) << "error loading outduct config file: " << outductsConfigFileName;
                         return false;
@@ -108,9 +108,9 @@ bool BPingRunner::Run(int argc, const char* const argv[], volatile bool & runnin
                 }
 
                 //create induct for custody signals
-                const std::string inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<std::string>();
-                if (inductsConfigFileName.length()) {
-                    inductsConfigPtr = InductsConfig::CreateFromJsonFile(inductsConfigFileName);
+                const boost::filesystem::path inductsConfigFileName = vm["custody-transfer-inducts-config-file"].as<boost::filesystem::path>();
+                if (!inductsConfigFileName.empty()) {
+                    inductsConfigPtr = InductsConfig::CreateFromJsonFilePath(inductsConfigFileName);
                     if (!inductsConfigPtr) {
                         LOG_ERROR(subprocess) << "error loading induct config file: " << inductsConfigFileName;
                         return false;

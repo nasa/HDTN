@@ -47,19 +47,19 @@ public:
     CONFIG_LIB_EXPORT HdtnConfig(const HdtnConfig& o);
 
     //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT HdtnConfig(HdtnConfig&& o);
+    CONFIG_LIB_EXPORT HdtnConfig(HdtnConfig&& o) noexcept;
 
     //a copy assignment: operator=(const X&)
     CONFIG_LIB_EXPORT HdtnConfig& operator=(const HdtnConfig& o);
 
     //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT HdtnConfig& operator=(HdtnConfig&& o);
+    CONFIG_LIB_EXPORT HdtnConfig& operator=(HdtnConfig&& o) noexcept;
 
     CONFIG_LIB_EXPORT bool operator==(const HdtnConfig & other) const;
 
     CONFIG_LIB_EXPORT static HdtnConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-    CONFIG_LIB_EXPORT static HdtnConfig_ptr CreateFromJson(const std::string & jsonString);
-    CONFIG_LIB_EXPORT static HdtnConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    CONFIG_LIB_EXPORT static HdtnConfig_ptr CreateFromJson(const std::string & jsonString, bool verifyNoUnusedJsonKeys = true);
+    CONFIG_LIB_EXPORT static HdtnConfig_ptr CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys = true);
     CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
     CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
 

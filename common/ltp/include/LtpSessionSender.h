@@ -30,7 +30,7 @@
 #include "LtpTimerManager.h"
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
-
+#include <boost/core/noncopyable.hpp>
 
 
 
@@ -39,9 +39,9 @@ typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancel
 
 typedef boost::function<void(const uint64_t sessionNumber)> NotifyEngineThatThisSenderHasProducibleDataFunction_t;
 
-class LtpSessionSender {
+class LtpSessionSender : private boost::noncopyable {
 private:
-    LtpSessionSender();
+    LtpSessionSender() = delete;
     LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
     LTP_LIB_EXPORT ~LtpSessionSender();
@@ -55,10 +55,12 @@ public:
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
         const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
-    LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
+    LTP_LIB_EXPORT bool NextTimeCriticalDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
         std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
-    
+    LTP_LIB_EXPORT bool NextFirstPassDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
 
     
     LTP_LIB_EXPORT void ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,

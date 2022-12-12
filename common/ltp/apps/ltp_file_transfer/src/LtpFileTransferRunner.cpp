@@ -53,8 +53,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         running = true;
         m_runningFromSigHandler = true;
         SignalHandler sigHandler(boost::bind(&LtpFileTransferRunner::MonitorExitKeypressThreadFunction, this));
-        std::string sendFilePath;
-        std::string receiveFilePath;
+        boost::filesystem::path sendFilePath;
+        boost::filesystem::path receiveFilePath;
         bool useSendFile = false;
         bool useReceiveFile = false;
         bool dontSaveFile = false;
@@ -81,8 +81,8 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("receive-file", boost::program_options::value<std::string>(), "Receive a file to this file name.")
-                ("send-file", boost::program_options::value<std::string>(), "Send this file name.")
+                ("receive-file", boost::program_options::value<boost::filesystem::path>(), "Receive a file to this file name.")
+                ("send-file", boost::program_options::value<boost::filesystem::path>(), "Send this file name.")
                 ("dont-save-file", "When receiving, don't write file to disk.")
                 ("remote-udp-hostname", boost::program_options::value<std::string>()->default_value("localhost"), "Ltp destination UDP hostname. (receivers when remote port !=0)")
                 ("remote-udp-port", boost::program_options::value<uint16_t>()->default_value(1113), "Remote UDP port.")
@@ -126,12 +126,12 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
             }
             if (vm.count("receive-file")) {
                 useReceiveFile = true;
-                receiveFilePath = vm["receive-file"].as<std::string>();
+                receiveFilePath = vm["receive-file"].as<boost::filesystem::path>();
                 dontSaveFile = (vm.count("dont-save-file") != 0);
             }
             else {
                 useSendFile = true;
-                sendFilePath = vm["send-file"].as<std::string>();
+                sendFilePath = vm["send-file"].as<boost::filesystem::path>();
             }
             remoteUdpHostname = vm["remote-udp-hostname"].as<std::string>();
             remoteUdpPort = vm["remote-udp-port"].as<boost::uint16_t>();
@@ -188,7 +188,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
         if (useSendFile) {
             LOG_INFO(subprocess) << "loading file " << sendFilePath;
             std::vector<uint8_t> fileContentsInMemory;
-            std::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
+            boost::filesystem::ifstream ifs(sendFilePath, std::ifstream::in | std::ifstream::binary);
 
             if (ifs.good()) {
                 // get length of file:
@@ -368,7 +368,7 @@ bool LtpFileTransferRunner::Run(int argc, const char* const argv[], volatile boo
                 GetSha1(receiverHelper.receivedFileContents.data(), receiverHelper.receivedFileContents.size(), sha1Str);
                 LOG_INFO(subprocess) << "SHA1: " << sha1Str;
                 if (!dontSaveFile) {
-                    std::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);
+                    boost::filesystem::ofstream ofs(receiveFilePath, std::ofstream::out | std::ofstream::binary);
                     if (!ofs.good()) {
                         LOG_ERROR(subprocess) << "unable to open file " << receiveFilePath << " for writing";
                         return false;

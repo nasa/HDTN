@@ -19,19 +19,37 @@
 
 BOOST_AUTO_TEST_CASE(JsonSerializableTestCase)
 {
-    const char* jsonText =
+    static const char* jsonText =
     "{"
         "\"mybool1\":true,"
         "\"mybool2\":false,"
         "\"mystr\":\"test\","
-        "\"myint\":-3,"
-        "\"myuint\":10"
+        "\"myint\":-3,\"myuint\"  :  10,"
+        "\"myurl\":    \"https://www.nasa.gov/\""
     "}\n";
 
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromCharArray((char*)jsonText, strlen(jsonText));
-    BOOST_REQUIRE_EQUAL(pt.get<bool>("mybool1", false), true);
-    BOOST_REQUIRE_EQUAL(pt.get<bool>("mybool2", true), false);
-    BOOST_REQUIRE_EQUAL(pt.get<std::string>("mystr", ""), "test");
-    BOOST_REQUIRE_EQUAL(pt.get<int>("myint", 100), -3);
-    BOOST_REQUIRE_EQUAL(pt.get<unsigned int>("myuint", 100), 10);
+    static const std::string jsonTextStr(jsonText);
+
+    {
+        boost::property_tree::ptree pt;
+        BOOST_REQUIRE(JsonSerializable::GetPropertyTreeFromJsonCharArray((char*)jsonText, strlen(jsonText), pt));
+        BOOST_REQUIRE_EQUAL(pt.get<bool>("mybool1", false), true);
+        BOOST_REQUIRE_EQUAL(pt.get<bool>("mybool2", true), false);
+        BOOST_REQUIRE_EQUAL(pt.get<std::string>("mystr", ""), "test");
+        BOOST_REQUIRE_EQUAL(pt.get<int>("myint", 100), -3);
+        BOOST_REQUIRE_EQUAL(pt.get<unsigned int>("myuint", 100), 10);
+        BOOST_REQUIRE_EQUAL(pt.get<std::string>("myurl", ""), "https://www.nasa.gov/");
+    }
+
+    //test GetAllJsonKeys regex, a precondition to finding duplicates
+    {
+        std::set<std::string> jsonKeys; //support out of order
+        JsonSerializable::GetAllJsonKeys(jsonTextStr, jsonKeys);
+        BOOST_REQUIRE(jsonKeys == std::set<std::string>({ "mybool1", "mybool2", "mystr", "myint", "myuint", "myurl" }));
+        //test without having to load entire file
+        std::set<std::string> jsonKeys2;
+        std::istringstream iss(jsonTextStr);
+        JsonSerializable::GetAllJsonKeysLineByLine(iss, jsonKeys2);
+        BOOST_REQUIRE(jsonKeys == jsonKeys2);
+    }
 }
