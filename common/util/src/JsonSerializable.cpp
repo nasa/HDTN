@@ -58,7 +58,8 @@ bool JsonSerializable::HasUnusedJsonVariablesInFilePath(const JsonSerializable& 
     return HasUnusedJsonVariablesInStream(config, ifs, returnedErrorMessage);
 }
 bool JsonSerializable::HasUnusedJsonVariablesInString(const JsonSerializable& config, const std::string& originalUserJsonString, std::string& returnedErrorMessage) {
-    return HasUnusedJsonVariablesInStream(config, std::istringstream(originalUserJsonString), returnedErrorMessage);
+    std::istringstream iss(originalUserJsonString);
+    return HasUnusedJsonVariablesInStream(config, iss, returnedErrorMessage);
 }
 bool JsonSerializable::HasUnusedJsonVariablesInStream(const JsonSerializable& config, std::istream& originalUserJsonStream, std::string& returnedErrorMessage) {
     returnedErrorMessage.clear();
