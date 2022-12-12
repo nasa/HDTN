@@ -32,7 +32,7 @@ storage_disk_config_t::storage_disk_config_t(const storage_disk_config_t& o) :
     name(o.name), storeFilePath(o.storeFilePath) { }
 
 //a move constructor: X(X&&)
-storage_disk_config_t::storage_disk_config_t(storage_disk_config_t&& o) :
+storage_disk_config_t::storage_disk_config_t(storage_disk_config_t&& o) noexcept :
     name(std::move(o.name)), storeFilePath(std::move(o.storeFilePath)) { }
 
 //a copy assignment: operator=(const X&)
@@ -43,7 +43,7 @@ storage_disk_config_t& storage_disk_config_t::operator=(const storage_disk_confi
 }
 
 //a move assignment: operator=(X&&)
-storage_disk_config_t& storage_disk_config_t::operator=(storage_disk_config_t&& o) {
+storage_disk_config_t& storage_disk_config_t::operator=(storage_disk_config_t&& o) noexcept {
     name = std::move(o.name);
     storeFilePath = std::move(o.storeFilePath);
     return *this;
@@ -72,7 +72,7 @@ StorageConfig::StorageConfig(const StorageConfig& o) :
     m_storageDiskConfigVector(o.m_storageDiskConfigVector) { }
 
 //a move constructor: X(X&&)
-StorageConfig::StorageConfig(StorageConfig&& o) :
+StorageConfig::StorageConfig(StorageConfig&& o) noexcept :
     m_storageImplementation(std::move(o.m_storageImplementation)),
     m_tryToRestoreFromDisk(o.m_tryToRestoreFromDisk),
     m_autoDeleteFilesOnExit(o.m_autoDeleteFilesOnExit),
@@ -90,7 +90,7 @@ StorageConfig& StorageConfig::operator=(const StorageConfig& o) {
 }
 
 //a move assignment: operator=(X&&)
-StorageConfig& StorageConfig::operator=(StorageConfig&& o) {
+StorageConfig& StorageConfig::operator=(StorageConfig&& o) noexcept {
     m_storageImplementation = std::move(o.m_storageImplementation);
     m_tryToRestoreFromDisk = o.m_tryToRestoreFromDisk;
     m_autoDeleteFilesOnExit = o.m_autoDeleteFilesOnExit;
@@ -163,30 +163,38 @@ bool StorageConfig::SetValuesFromPropertyTree(const boost::property_tree::ptree 
     return true;
 }
 
-StorageConfig_ptr StorageConfig::CreateFromJson(const std::string & jsonString) {
-    try {
-        return StorageConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonString(jsonString));
+StorageConfig_ptr StorageConfig::CreateFromJson(const std::string& jsonString, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    StorageConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonString(jsonString, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
+        //verify that there are no unused variables within the original json
+        if (config && verifyNoUnusedJsonKeys) {
+            std::string returnedErrorMessage;
+            if (JsonSerializable::HasUnusedJsonVariablesInString(*config, jsonString, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
+            }
+        }
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In StorageConfig::CreateFromJson. Error: " + std::string(e.what());
-        hdtn::Logger::getInstance()->logError("storage", message);
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return StorageConfig_ptr(); //NULL
+    return config;
 }
 
-StorageConfig_ptr StorageConfig::CreateFromJsonFile(const std::string & jsonFileName) {
-    try {
-        return StorageConfig::CreateFromPtree(JsonSerializable::GetPropertyTreeFromJsonFile(jsonFileName));
+StorageConfig_ptr StorageConfig::CreateFromJsonFile(const std::string& jsonFileName, bool verifyNoUnusedJsonKeys) {
+    boost::property_tree::ptree pt;
+    StorageConfig_ptr config; //NULL
+    if (GetPropertyTreeFromJsonFile(jsonFileName, pt)) { //prints message if failed
+        config = CreateFromPtree(pt);
+        //verify that there are no unused variables within the original json
+        if (config && verifyNoUnusedJsonKeys) {
+            std::string returnedErrorMessage;
+            if (JsonSerializable::HasUnusedJsonVariablesInFile(*config, jsonFileName, returnedErrorMessage)) {
+                LOG_ERROR(subprocess) << returnedErrorMessage;
+                config.reset(); //NULL
+            }
+        }
     }
-    catch (boost::property_tree::json_parser::json_parser_error & e) {
-        const std::string message = "In StorageConfig::CreateFromJsonFile. Error: " + std::string(e.what());
-        hdtn::Logger::getInstance()->logError("storage", message);
-        LOG_ERROR(subprocess) << message;
-    }
-
-    return StorageConfig_ptr(); //NULL
+    return config;
 }
 
 StorageConfig_ptr StorageConfig::CreateFromPtree(const boost::property_tree::ptree & pt) {

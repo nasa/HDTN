@@ -69,11 +69,11 @@ public:
     Scheduler();
     ~Scheduler();
     bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
-    int ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps);
-    int ProcessContacts(const boost::property_tree::ptree & pt, bool useUnixTimestamps);
-    int ProcessContactsJsonText(char* jsonText, bool useUnixTimestamps);
-    int ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
-    int ProcessContactsFile(const std::string & jsonEventFileName, bool useUnixTimestamps);
+    bool ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps);
+    bool ProcessContacts(const boost::property_tree::ptree & pt, bool useUnixTimestamps);
+    bool ProcessContactsJsonText(char* jsonText, bool useUnixTimestamps);
+    bool ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
+    bool ProcessContactsFile(const std::string & jsonEventFileName, bool useUnixTimestamps);
 
     static std::string GetFullyQualifiedFilename(std::string filename) {
         return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/").string() + filename;

@@ -416,7 +416,11 @@ void Scheduler::UisEventsHandler() {
             LOG_ERROR(subprocess) << "[UisEventsHandler] message not received";
             return;
         }
-        std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(JsonSerializable::GetPropertyTreeFromCharArray((char*)message.data(), message.size()));
+        boost::property_tree::ptree pt;
+        if (!JsonSerializable::GetPropertyTreeFromJsonCharArray((char*)message.data(), message.size(), pt)) {
+            LOG_ERROR(subprocess) << "[UisEventsHandler] JSON message invalid";
+        }
+        std::shared_ptr<boost::property_tree::ptree> ptPtr = std::make_shared<boost::property_tree::ptree>(pt);
         boost::asio::post(m_ioService, boost::bind(&Scheduler::ProcessContactsPtPtr, this, std::move(ptPtr), hdr.using_unix_timestamp));
         LOG_INFO(subprocess) << "received Reload contact Plan event with data " << (char*)message.data();
     }
@@ -493,23 +497,32 @@ void Scheduler::ReadZmqAcksThreadFunc(volatile bool & running) {
     }
 }
 
-int Scheduler::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps) {
+bool Scheduler::ProcessContactsPtPtr(std::shared_ptr<boost::property_tree::ptree>& contactsPtPtr, bool useUnixTimestamps) {
     return ProcessContacts(*contactsPtPtr, useUnixTimestamps);
 }
-int Scheduler::ProcessContactsJsonText(char * jsonText, bool useUnixTimestamps) {
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromCharArray(jsonText, strlen(jsonText));
+bool Scheduler::ProcessContactsJsonText(char * jsonText, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonCharArray(jsonText, strlen(jsonText), pt)) {
+        return false;
+    }
     return ProcessContacts(pt, useUnixTimestamps);
 }
-int Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps) {
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonString(jsonText);
+bool Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonString(jsonText, pt)) {
+        return false;
+    }
     return ProcessContacts(pt, useUnixTimestamps);
 }
-int Scheduler::ProcessContactsFile(const std::string& jsonEventFileName, bool useUnixTimestamps) {
-    boost::property_tree::ptree pt = JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName);
+bool Scheduler::ProcessContactsFile(const std::string& jsonEventFileName, bool useUnixTimestamps) {
+    boost::property_tree::ptree pt;
+    if (!JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName, pt)) {
+        return false;
+    }
     return ProcessContacts(pt, useUnixTimestamps);
 }
 
-int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUnixTimestamps) {
+bool Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUnixTimestamps) {
     
 
     m_contactPlanTimer.cancel(); //cancel any running contacts in the timer
@@ -570,7 +583,7 @@ int Scheduler::ProcessContacts(const boost::property_tree::ptree& pt, bool useUn
     m_contactPlanTimerIsRunning = false;
     TryRestartContactPlanTimer(); //wait for next event (do this after all sockets initialized)
 
-    return 0;
+    return true;
 }
 
 

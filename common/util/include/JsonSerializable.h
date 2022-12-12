@@ -24,6 +24,7 @@
 #define JSON_SERIALIZABLE_H 1
 
 #include <string>
+#include <set>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser/error.hpp>
 #include <boost/version.hpp>
@@ -39,12 +40,22 @@
 
 class HDTN_UTIL_EXPORT JsonSerializable {
 public:
+    static bool LoadTextFileIntoString(const std::string& fileName, std::string& fileContentsAsString);
+    static void GetAllJsonKeys(const std::string& jsonText, std::set<std::string> & jsonKeysNoQuotesSetToAppend);
+    static void GetAllJsonKeysLineByLine(std::istream& stream, std::set<std::string>& jsonKeysNoQuotesSetToAppend);
+    static bool HasUnusedJsonVariablesInFile(const JsonSerializable& config, const std::string& originalUserJsonFileName, std::string& returnedErrorMessage);
+    static bool HasUnusedJsonVariablesInString(const JsonSerializable& config, const std::string& originalUserJsonString, std::string& returnedErrorMessage);
+    static bool HasUnusedJsonVariablesInStream(const JsonSerializable& config, std::istream& originalUserJsonStream, std::string& returnedErrorMessage);
+    
+    //warning: reading [] from Json then writing back out using this function will replace the [] with "", example: "inductVector": ""
     static std::string PtToJsonString(const boost::property_tree::ptree& pt, bool pretty = true);
+
     std::string ToJson(bool pretty = true) const;
     bool ToJsonFile(const std::string & fileName, bool pretty = true) const;
-    static boost::property_tree::ptree GetPropertyTreeFromCharArray(char* data, const std::size_t size);
-    static boost::property_tree::ptree GetPropertyTreeFromJsonString(const std::string & jsonStr);
-    static boost::property_tree::ptree GetPropertyTreeFromJsonFile(const std::string & jsonFileName);
+    static bool GetPropertyTreeFromJsonCharArray(char* data, const std::size_t size, boost::property_tree::ptree& pt);
+    static bool GetPropertyTreeFromJsonStream(std::istream& jsonStream, boost::property_tree::ptree& pt);
+    static bool GetPropertyTreeFromJsonString(const std::string & jsonStr, boost::property_tree::ptree& pt);
+    static bool GetPropertyTreeFromJsonFile(const std::string & jsonFileName, boost::property_tree::ptree& pt);
 
     static std::string PtToXmlString(const boost::property_tree::ptree& pt);
     std::string ToXml() const;

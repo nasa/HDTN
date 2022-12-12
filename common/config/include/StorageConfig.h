@@ -47,13 +47,13 @@ struct storage_disk_config_t {
     CONFIG_LIB_EXPORT storage_disk_config_t(const storage_disk_config_t& o);
 
     //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT storage_disk_config_t(storage_disk_config_t&& o);
+    CONFIG_LIB_EXPORT storage_disk_config_t(storage_disk_config_t&& o) noexcept;
 
     //a copy assignment: operator=(const X&)
     CONFIG_LIB_EXPORT storage_disk_config_t& operator=(const storage_disk_config_t& o);
 
     //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT storage_disk_config_t& operator=(storage_disk_config_t&& o);
+    CONFIG_LIB_EXPORT storage_disk_config_t& operator=(storage_disk_config_t&& o) noexcept;
 };
 
 typedef std::vector<storage_disk_config_t> storage_disk_config_vector_t;
@@ -74,19 +74,19 @@ public:
     CONFIG_LIB_EXPORT StorageConfig(const StorageConfig& o);
 
     //a move constructor: X(X&&)
-    CONFIG_LIB_EXPORT StorageConfig(StorageConfig&& o);
+    CONFIG_LIB_EXPORT StorageConfig(StorageConfig&& o) noexcept;
 
     //a copy assignment: operator=(const X&)
     CONFIG_LIB_EXPORT StorageConfig& operator=(const StorageConfig& o);
 
     //a move assignment: operator=(X&&)
-    CONFIG_LIB_EXPORT StorageConfig& operator=(StorageConfig&& o);
+    CONFIG_LIB_EXPORT StorageConfig& operator=(StorageConfig&& o) noexcept;
 
     CONFIG_LIB_EXPORT bool operator==(const StorageConfig & other) const;
 
     CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromPtree(const boost::property_tree::ptree & pt);
-    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromJson(const std::string & jsonString);
-    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromJsonFile(const std::string & jsonFileName);
+    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromJson(const std::string & jsonString, bool verifyNoUnusedJsonKeys = true);
+    CONFIG_LIB_EXPORT static StorageConfig_ptr CreateFromJsonFile(const std::string & jsonFileName, bool verifyNoUnusedJsonKeys = true);
     CONFIG_LIB_EXPORT virtual boost::property_tree::ptree GetNewPropertyTree() const;
     CONFIG_LIB_EXPORT virtual bool SetValuesFromPropertyTree(const boost::property_tree::ptree & pt);
 
