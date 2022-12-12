@@ -159,7 +159,8 @@ bool JsonSerializable::GetPropertyTreeFromJsonStream(std::istream& jsonStream, b
 }
 
 bool JsonSerializable::GetPropertyTreeFromJsonString(const std::string & jsonStr, boost::property_tree::ptree& pt) {
-    return GetPropertyTreeFromJsonStream(std::istringstream(jsonStr), pt);
+    std::istringstream iss(jsonStr);
+    return GetPropertyTreeFromJsonStream(iss, pt);
 }
 
 bool JsonSerializable::GetPropertyTreeFromJsonFilePath(const boost::filesystem::path& jsonFilePath, boost::property_tree::ptree& pt) {
