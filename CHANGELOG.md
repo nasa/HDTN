@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* Separate the LtpSessionSender data into high-priority-time-critical and low-priority-first-pass queues.  First pass data is lowest priority compared to time-critical data (e.g. report acks), so this priority separation prevents long first passes from starving and expiring the time-critical data.
 * Static analysis fix for non-throw versions of `boost::property_tree::ptree::get_child` which return a reference to a destroyed second parameter.
 
 ### Added
@@ -16,13 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Config file additions:
     - add: `bufferRxToStorageOnLinkUpSaturation` (boolean default=`false`) to the hdtn global configs
     - add: `maxSumOfBundleBytesInPipeline` (`uint64_t`) to the outducts
-* Add check for unused variables when loading hdtn config json files. Prevent hdtn from starting until unused variable is removed.
+* Add check for unused variables when loading hdtn config json files (uses regex). Prevent hdtn from starting until unused variable is removed.
 * An error is thrown on startup `if (maxBundleSizeBytes * 2) > maxSumOfBundleBytesInPipeline`
 * Add `AllOutductCapabilitiesTelemetry_t` to Telemetry.h and send it from egress to ingress, storage, and scheduler
 
 
 ### Changed
 
+* All config files now use boost::filesystem::path instead of std::string.
 * Config file changes:
     - rename: `bundlePipelineLimit` to `maxNumberOfBundlesInPipeline` in the outducts
     - In the example config files, the `finalDestinationEidUris` were simplified by using ipn wildcard service numbers instead of fully-qualified (although fully-qualified ipn still supported)
