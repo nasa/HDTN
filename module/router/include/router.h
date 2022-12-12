@@ -19,16 +19,15 @@ typedef std::unique_ptr<boost::asio::deadline_timer> SmartDeadlineTimer;
 
 class Router {
 public:
-    static const std::string DEFAULT_FILE;
+    static const boost::filesystem::path DEFAULT_FILE;
     Router();
     ~Router();
-    bool Run(int argc, const char* const argv[], volatile bool & running,
-                    std::string jsonEventFileName, bool useSignalHandler);
-    int ComputeOptimalRoute(std::string* jsonEventFileName,
+    bool Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler);
+    int ComputeOptimalRoute(const boost::filesystem::path & jsonEventFilePath,
                             uint64_t sourceNode, uint64_t finalDestNodeId);
 
-    static std::string GetFullyQualifiedFilename(std::string filename) {
-        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/").string() + filename;
+    static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path& filename) {
+        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
     }
     volatile bool m_timersFinished;
 private:

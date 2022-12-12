@@ -37,9 +37,9 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             desc.add_options()
                 ("help", "Produce help message.")
                 ("save-directory", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Directory to save file(s) to.  Empty=>DoNotSaveToDisk")
-                ("inducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Inducts Configuration File.")
+                ("inducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Inducts Configuration File.")
                 ("my-uri-eid", boost::program_options::value<std::string>()->default_value("ipn:2.1"), "BpReceiveFile Eid.")
-                ("custody-transfer-outducts-config-file", boost::program_options::value<std::string>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
+                ("custody-transfer-outducts-config-file", boost::program_options::value<boost::filesystem::path>()->default_value(""), "Outducts Configuration File for custody transfer (use custody if present).")
                 ("acs-aware-bundle-agent", "Custody transfer should support Aggregate Custody Signals if valid CTEB present.")
                 ("max-rx-bundle-size-bytes", boost::program_options::value<uint64_t>()->default_value(10000000), "Max bundle size bytes to receive (default=10MB).")
                 ;
@@ -58,9 +58,9 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
                 return false;
             }
 
-            const std::string configFileNameInducts = vm["inducts-config-file"].as<std::string>();
-            if (configFileNameInducts.length()) {
-                inductsConfigPtr = InductsConfig::CreateFromJsonFile(configFileNameInducts);
+            const boost::filesystem::path configFileNameInducts = vm["inducts-config-file"].as<boost::filesystem::path>();
+            if (!configFileNameInducts.empty()) {
+                inductsConfigPtr = InductsConfig::CreateFromJsonFilePath(configFileNameInducts);
                 if (!inductsConfigPtr) {
                     LOG_ERROR(subprocess) << "error loading config file: " << configFileNameInducts;
                     return false;
@@ -75,9 +75,9 @@ bool BpReceiveFileRunner::Run(int argc, const char* const argv[], volatile bool 
             }
 
             //create outduct for custody signals
-            const std::string outductsConfigFileName = vm["custody-transfer-outducts-config-file"].as<std::string>();
-            if (outductsConfigFileName.length()) {
-                outductsConfigPtr = OutductsConfig::CreateFromJsonFile(outductsConfigFileName);
+            const boost::filesystem::path outductsConfigFileName = vm["custody-transfer-outducts-config-file"].as<boost::filesystem::path>();
+            if (!outductsConfigFileName.empty()) {
+                outductsConfigPtr = OutductsConfig::CreateFromJsonFilePath(outductsConfigFileName);
                 if (!outductsConfigPtr) {
                     LOG_ERROR(subprocess) << "error loading config file: " << outductsConfigFileName;
                     return false;

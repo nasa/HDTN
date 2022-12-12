@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAllTestCase)
 
 
         std::unique_ptr<BundleStorageManagerBase> bsmPtr;
-        StorageConfig_ptr ptrStorageConfig = StorageConfig::CreateFromJsonFile((Environment::GetPathHdtnSourceRoot() / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
+        StorageConfig_ptr ptrStorageConfig = StorageConfig::CreateFromJsonFilePath(Environment::GetPathHdtnSourceRoot() / "config_files" / "storage" / "storageConfigRelativePaths.json");
         ptrStorageConfig->m_tryToRestoreFromDisk = false; //manually set this json entry
         ptrStorageConfig->m_autoDeleteFilesOnExit = true; //manually set this json entry
         if (whichBsm == 0) {
@@ -311,7 +311,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
 
             {
                 std::unique_ptr<BundleStorageManagerBase> bsmPtr;
-                StorageConfig_ptr ptrStorageConfig = StorageConfig::CreateFromJsonFile((Environment::GetPathHdtnSourceRoot() / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
+                StorageConfig_ptr ptrStorageConfig = StorageConfig::CreateFromJsonFilePath(Environment::GetPathHdtnSourceRoot() / "config_files" / "storage" / "storageConfigRelativePaths.json");
                 ptrStorageConfig->m_tryToRestoreFromDisk = false; //manually set this json entry
                 ptrStorageConfig->m_autoDeleteFilesOnExit = false; //manually set this json entry
                 if (whichBsm == 0) {
@@ -406,7 +406,7 @@ BOOST_AUTO_TEST_CASE(BundleStorageManagerAll_RestoreFromDisk_TestCase)
             std::cout << "restoring...\n";
             {
                 std::unique_ptr<BundleStorageManagerBase> bsmPtr;
-                StorageConfig_ptr ptrStorageConfig = StorageConfig::CreateFromJsonFile((Environment::GetPathHdtnSourceRoot() / "config_files" / "storage" / "storageConfigRelativePaths.json").string());
+                StorageConfig_ptr ptrStorageConfig = StorageConfig::CreateFromJsonFilePath(Environment::GetPathHdtnSourceRoot() / "config_files" / "storage" / "storageConfigRelativePaths.json");
                 ptrStorageConfig->m_tryToRestoreFromDisk = true; //manually set this json entry
                 ptrStorageConfig->m_autoDeleteFilesOnExit = true; //manually set this json entry
                 if (whichBsm == 0) {

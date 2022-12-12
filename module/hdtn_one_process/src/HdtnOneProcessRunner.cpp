@@ -61,8 +61,8 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         SignalHandler sigHandler(boost::bind(&HdtnOneProcessRunner::MonitorExitKeypressThreadFunction, this));
 
 #ifdef USE_WEB_INTERFACE
-        std::string DOCUMENT_ROOT;
-        const std::string HTML_FILE_NAME = "web_gui.html";
+        boost::filesystem::path DOCUMENT_ROOT;
+        static const boost::filesystem::path HTML_FILE_NAME = "web_gui.html";
         std::string PORT_NUMBER_AS_STRING;
 #endif //USE_WEB_INTERFACE
 
@@ -72,9 +72,9 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", boost::program_options::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("hdtn-config-file", boost::program_options::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
 #ifdef USE_WEB_INTERFACE
-                ("gui-document-root", boost::program_options::value<std::string>()->default_value((Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src").string()), "Web Interface Document Root.")
+                ("gui-document-root", boost::program_options::value<boost::filesystem::path>()->default_value(Environment::GetPathHdtnSourceRoot() / "module" / "gui" / "src"), "Web Interface Document Root.")
                 ("gui-port-number", boost::program_options::value<uint16_t>()->default_value(8086), "Web Interface Port number.")
 #endif //USE_WEB_INTERFACE
     	        ;
@@ -88,25 +88,25 @@ bool HdtnOneProcessRunner::Run(int argc, const char* const argv[], volatile bool
                 return false;
             }
 
-            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+            const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
-            hdtnConfig = HdtnConfig::CreateFromJsonFile(configFileName);
+            hdtnConfig = HdtnConfig::CreateFromJsonFilePath(configFileName);
             if (!hdtnConfig) {
                 LOG_ERROR(subprocess) << "error loading config file: " << configFileName;
                 return false;
             }
 
 #ifdef USE_WEB_INTERFACE
-            DOCUMENT_ROOT = vm["gui-document-root"].as<std::string>();
+            DOCUMENT_ROOT = vm["gui-document-root"].as<boost::filesystem::path>();
             const uint16_t portNumberAsUi16 = vm["gui-port-number"].as<uint16_t>();
             PORT_NUMBER_AS_STRING = boost::lexical_cast<std::string>(portNumberAsUi16);
 
-            const boost::filesystem::path htmlMainFilePath = boost::filesystem::path(DOCUMENT_ROOT) / boost::filesystem::path(HTML_FILE_NAME);
+            const boost::filesystem::path htmlMainFilePath = DOCUMENT_ROOT / HTML_FILE_NAME;
             if (boost::filesystem::is_regular_file(htmlMainFilePath)) {
-                LOG_INFO(subprocess) << "found " << htmlMainFilePath.string();
+                LOG_INFO(subprocess) << "found " << htmlMainFilePath;
             }
             else {
-                LOG_INFO(subprocess) << "Cannot find " << htmlMainFilePath.string() << " : make sure document_root is set properly in allconfig.xml";
+                LOG_INFO(subprocess) << "Cannot find " << htmlMainFilePath << " : make sure document_root is set properly";
                 return false;
             }
 #endif //USE_WEB_INTERFACE

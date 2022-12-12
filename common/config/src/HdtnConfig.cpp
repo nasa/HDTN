@@ -336,15 +336,15 @@ HdtnConfig_ptr HdtnConfig::CreateFromJson(const std::string & jsonString, bool v
     return config;
 }
 
-HdtnConfig_ptr HdtnConfig::CreateFromJsonFile(const std::string & jsonFileName, bool verifyNoUnusedJsonKeys) {
+HdtnConfig_ptr HdtnConfig::CreateFromJsonFilePath(const boost::filesystem::path& jsonFilePath, bool verifyNoUnusedJsonKeys) {
     boost::property_tree::ptree pt;
     HdtnConfig_ptr config; //NULL
-    if (GetPropertyTreeFromJsonFile(jsonFileName, pt)) { //prints message if failed
+    if (GetPropertyTreeFromJsonFilePath(jsonFilePath, pt)) { //prints message if failed
         config = CreateFromPtree(pt);
         //verify that there are no unused variables within the original json
         if (config && verifyNoUnusedJsonKeys) {
             std::string returnedErrorMessage;
-            if (JsonSerializable::HasUnusedJsonVariablesInFile(*config, jsonFileName, returnedErrorMessage)) {
+            if (JsonSerializable::HasUnusedJsonVariablesInFilePath(*config, jsonFilePath, returnedErrorMessage)) {
                 LOG_ERROR(subprocess) << returnedErrorMessage;
                 config.reset(); //NULL
             }

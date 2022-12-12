@@ -30,7 +30,7 @@
 
 namespace opt = boost::program_options;
 
-const std::string Scheduler::DEFAULT_FILE = "contactPlan.json";
+const boost::filesystem::path Scheduler::DEFAULT_FILE = "contactPlan.json";
 static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::scheduler;
 
 bool contactPlan_t::operator<(const contactPlan_t& o) const {
@@ -110,8 +110,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-                ("contact-plan-file", opt::value<std::string>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
+                ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(Scheduler::DEFAULT_FILE), "Contact Plan file that scheudler relies on for link availability.");
 
             opt::variables_map vm;
             opt::store(opt::parse_command_line(argc, argv, desc, opt::command_line_style::unix_style | opt::command_line_style::case_insensitive), vm);
@@ -122,9 +122,9 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+            const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
 
-            if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
+            if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFilePath(configFileName)) {
                 m_hdtnConfig = *ptrConfig;
             }
             else {
@@ -134,8 +134,8 @@ bool Scheduler::Run(int argc, const char* const argv[], volatile bool & running,
 
             //int src = m_hdtnConfig.m_myNodeId;
 
-            m_contactsFile = vm["contact-plan-file"].as<std::string>();
-            if (m_contactsFile.length() < 1) {
+            m_contactsFile = vm["contact-plan-file"].as<boost::filesystem::path>();
+            if (m_contactsFile.empty()) {
                 LOG_INFO(subprocess) << desc;
                 return false;
             }
@@ -514,9 +514,9 @@ bool Scheduler::ProcessContactsJsonText(const std::string& jsonText, bool useUni
     }
     return ProcessContacts(pt, useUnixTimestamps);
 }
-bool Scheduler::ProcessContactsFile(const std::string& jsonEventFileName, bool useUnixTimestamps) {
+bool Scheduler::ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath, bool useUnixTimestamps) {
     boost::property_tree::ptree pt;
-    if (!JsonSerializable::GetPropertyTreeFromJsonFile(jsonEventFileName, pt)) {
+    if (!JsonSerializable::GetPropertyTreeFromJsonFilePath(jsonEventFilePath, pt)) {
         return false;
     }
     return ProcessContacts(pt, useUnixTimestamps);

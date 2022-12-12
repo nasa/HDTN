@@ -91,7 +91,7 @@ bool BpSendFile::CopyPayload_Step2(uint8_t * destinationBuffer) {
     memcpy(destinationBuffer, &m_currentSendFileMetadata, sizeof(m_currentSendFileMetadata));
     m_currentSendFileMetadata.ToNativeEndianInplace();
     destinationBuffer += sizeof(m_currentSendFileMetadata);
-    const std::string pRelativeStr = m_currentFilePathRelative.string();
+    const std::string pRelativeStr = m_currentFilePathRelative.string(); //TODO ALLOW NON US CHARACTERS IN FILENAME
     memcpy(destinationBuffer, pRelativeStr.data(), pRelativeStr.size());
     destinationBuffer += m_currentSendFileMetadata.pathLen;
     // read data as a block:

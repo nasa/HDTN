@@ -27,7 +27,7 @@
 class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerMT : public BundleStorageManagerBase {
 public:
     STORAGE_LIB_EXPORT BundleStorageManagerMT();
-    STORAGE_LIB_EXPORT BundleStorageManagerMT(const std::string & jsonConfigFileName);
+    STORAGE_LIB_EXPORT BundleStorageManagerMT(const boost::filesystem::path& jsonConfigFilePath);
     STORAGE_LIB_EXPORT BundleStorageManagerMT(const StorageConfig_ptr & storageConfigPtr);
     STORAGE_LIB_EXPORT virtual ~BundleStorageManagerMT();
     STORAGE_LIB_EXPORT virtual void Start();

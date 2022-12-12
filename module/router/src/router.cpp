@@ -26,7 +26,7 @@ using namespace std;
 
 namespace opt = boost::program_options;
 
-const std::string Router::DEFAULT_FILE = "contactPlan_RoutingTest.json";
+const boost::filesystem::path Router::DEFAULT_FILE = "contactPlan_RoutingTest.json";
 
 Router::Router() {
     m_timersFinished = false;
@@ -42,15 +42,14 @@ void Router::MonitorExitKeypressThreadFunction() {
     m_runningFromSigHandler = false;
 }
 
-bool Router::Run(int argc, const char* const argv[], volatile bool & running, 
-		    std::string jsonEventFileName, bool useSignalHandler) {
+bool Router::Run(int argc, const char* const argv[], volatile bool & running, bool useSignalHandler) {
     //Scope to ensure clean exit before return
     {
         running = true;
         m_runningFromSigHandler = true;
         m_timersFinished = false;
-        jsonEventFileName = "";
-        std::string contactsFile = Router::DEFAULT_FILE;
+        boost::filesystem::path jsonEventFileName;
+        boost::filesystem::path contactsFile = Router::DEFAULT_FILE;
 
         SignalHandler sigHandler(boost::bind(&Router::MonitorExitKeypressThreadFunction, this));
         HdtnConfig_ptr hdtnConfig;
@@ -60,8 +59,8 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
         try {
             desc.add_options()
                 ("help", "Produce help message.")
-                ("hdtn-config-file", opt::value<std::string>()->default_value("hdtn.json"), "HDTN Configuration File.")
-		("contact-plan-file", opt::value<std::string>()->default_value(Router::DEFAULT_FILE),
+                ("hdtn-config-file", opt::value<boost::filesystem::path>()->default_value("hdtn.json"), "HDTN Configuration File.")
+                ("contact-plan-file", opt::value<boost::filesystem::path>()->default_value(Router::DEFAULT_FILE),
                 "Contact Plan file needed by CGR to compute the optimal route")
                 ("dest-uri-eid", opt::value<std::string>()->default_value("ipn:2.1"), "final destination Eid")
 		;
@@ -75,28 +74,26 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
                 return false;
             }
 
-            const std::string configFileName = vm["hdtn-config-file"].as<std::string>();
+            const boost::filesystem::path configFileName = vm["hdtn-config-file"].as<boost::filesystem::path>();
    
-	    if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFile(configFileName)) {
+	    if(HdtnConfig_ptr ptrConfig = HdtnConfig::CreateFromJsonFilePath(configFileName)) {
                 m_hdtnConfig = *ptrConfig;
             } else {
                 std::cerr << "error loading config file: " << configFileName << std::endl;
                 return false;
             }
 	    
-	    contactsFile = vm["contact-plan-file"].as<std::string>();
-            if (contactsFile.length() < 1) {
+	    contactsFile = vm["contact-plan-file"].as<boost::filesystem::path>();
+            if (contactsFile.empty()) {
                 std::cout << desc << "\n";
                 return false;
             }
 
-           std::string jsonFileName =  Router::GetFullyQualifiedFilename(contactsFile);
-           if ( !boost::filesystem::exists( jsonFileName ) ) {
-               std::cerr << "ContactPlan File not found: " << jsonFileName << std::endl << std::flush;
+            jsonEventFileName =  Router::GetFullyQualifiedFilename(contactsFile);
+           if ( !boost::filesystem::exists(jsonEventFileName) ) {
+               std::cerr << "ContactPlan File not found: " << jsonEventFileName << std::endl << std::flush;
                return false;
             }
-            
-	    jsonEventFileName = jsonFileName;
 
             std::cout << "ContactPlan file: " << jsonEventFileName << std::endl;
 	 
@@ -130,7 +127,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
 
         //std::cout << "***srcNode****" << srcNode << std::endl;
 
-	router.ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid.nodeId);
+	router.ComputeOptimalRoute(jsonEventFileName, srcNode, finalDestEid.nodeId);
 
         const std::string connect_boundSchedulerPubSubPath(
         std::string("tcp://") +
@@ -190,7 +187,7 @@ bool Router::Run(int argc, const char* const argv[], volatile bool & running,
                         std::cout << "[Router] contact down: " << releaseChangeHdr.contact << std::endl;
                        // for (cbhe_eid_t& node : finalDestEids) {
                             if (m_routeTable[releaseChangeHdr.contact] == finalDestEid.nodeId) {
-                                ComputeOptimalRoute(&jsonEventFileName, srcNode, finalDestEid.nodeId);
+                                ComputeOptimalRoute(jsonEventFileName, srcNode, finalDestEid.nodeId);
                             }
                         //}
                             std::cout << "[Router] updated time to " << m_latestTime << std::endl;
@@ -243,12 +240,12 @@ void Router::RouteUpdate(const boost::system::error_code& e, uint64_t nextHopNod
     }
 }
 
-int Router::ComputeOptimalRoute(std::string* jsonEventFileName, uint64_t sourceNode, uint64_t finalDestNodeId)
+int Router::ComputeOptimalRoute(const boost::filesystem::path& jsonEventFilePath, uint64_t sourceNode, uint64_t finalDestNodeId)
 {
     m_timersFinished = false;
 
     std::cout << "[Router] Reading contact plan and computing next hop" << std::endl;
-    std::vector<cgr::Contact> contactPlan = cgr::cp_load(*jsonEventFileName);
+    std::vector<cgr::Contact> contactPlan = cgr::cp_load(jsonEventFilePath);
 
     cgr::Contact rootContact = cgr::Contact(sourceNode, sourceNode, 0, cgr::MAX_TIME_T, 100, 1.0, 0);
     rootContact.arrival_time = m_latestTime;

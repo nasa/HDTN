@@ -73,13 +73,13 @@ public:
     bool ProcessContacts(const boost::property_tree::ptree & pt, bool useUnixTimestamps);
     bool ProcessContactsJsonText(char* jsonText, bool useUnixTimestamps);
     bool ProcessContactsJsonText(const std::string& jsonText, bool useUnixTimestamps);
-    bool ProcessContactsFile(const std::string & jsonEventFileName, bool useUnixTimestamps);
+    bool ProcessContactsFile(const boost::filesystem::path& jsonEventFilePath, bool useUnixTimestamps);
 
-    static std::string GetFullyQualifiedFilename(std::string filename) {
-        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/").string() + filename;
+    static boost::filesystem::path GetFullyQualifiedFilename(const boost::filesystem::path & filename) {
+        return (Environment::GetPathHdtnSourceRoot() / "module/scheduler/src/") / filename;
     }
 
-    static const std::string DEFAULT_FILE;
+    static const boost::filesystem::path DEFAULT_FILE;
 
 private:
     void Stop();
@@ -114,7 +114,7 @@ private:
     std::map<cbhe_eid_t, uint64_t> m_mapFinalDestEidToOutductArrayIndex;
     boost::mutex m_mutexFinalDestsToOutductArrayIndexMaps;
 
-    std::string m_contactsFile;
+    boost::filesystem::path m_contactsFile;
     
     ptime_to_contactplan_bimap_t m_ptimeToContactPlanBimap;
     boost::asio::io_service m_ioService;

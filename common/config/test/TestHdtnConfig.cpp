@@ -26,22 +26,22 @@ BOOST_AUTO_TEST_CASE(HdtnConfigTestCase)
     hdtnConfig.m_hdtnConfigName = "my hdtn config";
     hdtnConfig.m_myNodeId = 10;
 
-    const std::string jsonFileNameInducts = (jsonRootDir / "inducts.json").string();
-    InductsConfig_ptr ic1 = InductsConfig::CreateFromJsonFile(jsonFileNameInducts);
+    const boost::filesystem::path jsonFileNameInducts = jsonRootDir / "inducts.json";
+    InductsConfig_ptr ic1 = InductsConfig::CreateFromJsonFilePath(jsonFileNameInducts);
     BOOST_REQUIRE(ic1);
     hdtnConfig.m_inductsConfig = std::move(*ic1);
 
-    const std::string jsonFileNameOutducts = (jsonRootDir / "outducts.json").string();
-    OutductsConfig_ptr oc1 = OutductsConfig::CreateFromJsonFile(jsonFileNameOutducts);
+    const boost::filesystem::path jsonFileNameOutducts = jsonRootDir / "outducts.json";
+    OutductsConfig_ptr oc1 = OutductsConfig::CreateFromJsonFilePath(jsonFileNameOutducts);
     BOOST_REQUIRE(oc1);
     hdtnConfig.m_outductsConfig = std::move(*oc1);
 
-    const std::string jsonFileNameStorage = (jsonRootDir / "storage.json").string();
-    StorageConfig_ptr s1 = StorageConfig::CreateFromJsonFile(jsonFileNameStorage);
+    const boost::filesystem::path jsonFileNameStorage = jsonRootDir / "storage.json";
+    StorageConfig_ptr s1 = StorageConfig::CreateFromJsonFilePath(jsonFileNameStorage);
     BOOST_REQUIRE(s1);
     hdtnConfig.m_storageConfig = std::move(*s1);
 
-    BOOST_REQUIRE(hdtnConfig.ToJsonFile((jsonRootDir / "hdtn.json").string()));
+    BOOST_REQUIRE(hdtnConfig.ToJsonFile(jsonRootDir / "hdtn.json"));
     std::string hdtnJson = hdtnConfig.ToJson();
     HdtnConfig_ptr hdtnConfigFromJsonPtr = HdtnConfig::CreateFromJson(hdtnJson);
     BOOST_REQUIRE(hdtnConfigFromJsonPtr);

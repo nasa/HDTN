@@ -56,9 +56,11 @@ BundleStorageManagerSession_ReadFromDisk::~BundleStorageManagerSession_ReadFromD
 
 BundleStorageManagerBase::BundleStorageManagerBase() : BundleStorageManagerBase("storageConfig.json") {}
 
-BundleStorageManagerBase::BundleStorageManagerBase(const std::string & jsonConfigFileName) : BundleStorageManagerBase(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
+BundleStorageManagerBase::BundleStorageManagerBase(const boost::filesystem::path& jsonConfigFilePath) :
+    BundleStorageManagerBase(StorageConfig::CreateFromJsonFilePath(jsonConfigFilePath))
+{
     if (!m_storageConfigPtr) {
-        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFileName;
+        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFilePath;
         return;
     }
 }

@@ -74,7 +74,7 @@ struct BundleStorageManagerSession_ReadFromDisk {
 class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerBase {
 protected:
     STORAGE_LIB_EXPORT BundleStorageManagerBase();
-    STORAGE_LIB_EXPORT BundleStorageManagerBase(const std::string & jsonConfigFileName);
+    STORAGE_LIB_EXPORT BundleStorageManagerBase(const boost::filesystem::path& jsonConfigFilePath);
     STORAGE_LIB_EXPORT BundleStorageManagerBase(const StorageConfig_ptr & storageConfigPtr);
 public:
 

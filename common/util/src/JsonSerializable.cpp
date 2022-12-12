@@ -16,7 +16,7 @@
 #include "Logger.h"
 #include <sstream>
 #include <boost/regex.hpp>
-#include <fstream>
+#include <boost/filesystem/fstream.hpp>
 //since boost versions below 1.76 use deprecated bind.hpp in its property_tree/json_parser/detail/parser.hpp,
 //and since BOOST_BIND_GLOBAL_PLACEHOLDERS was introduced in 1.73
 //the following fixes warning:  The practice of declaring the Bind placeholders (_1, _2, ...) in the global namespace is deprecated....
@@ -49,10 +49,10 @@ void JsonSerializable::GetAllJsonKeysLineByLine(std::istream& stream, std::set<s
         GetAllJsonKeys(lineOfJsonText, jsonKeysNoQuotesSetToAppend);
     }
 }
-bool JsonSerializable::HasUnusedJsonVariablesInFile(const JsonSerializable& config, const std::string& originalUserJsonFileName, std::string& returnedErrorMessage) {
-    std::ifstream ifs(originalUserJsonFileName);
+bool JsonSerializable::HasUnusedJsonVariablesInFilePath(const JsonSerializable& config, const boost::filesystem::path& originalUserJsonFilePath, std::string& returnedErrorMessage) {
+    boost::filesystem::ifstream ifs(originalUserJsonFilePath);
     if (!ifs.good()) {
-        returnedErrorMessage = "cannot load originalUserJsonFileName: " + originalUserJsonFileName;
+        returnedErrorMessage = "cannot load originalUserJsonFileName: " + originalUserJsonFilePath.string();
         return false;
     }
     return HasUnusedJsonVariablesInStream(config, ifs, returnedErrorMessage);
@@ -90,8 +90,8 @@ bool JsonSerializable::HasUnusedJsonVariablesInStream(const JsonSerializable& co
     return false;
 }
 
-bool JsonSerializable::LoadTextFileIntoString(const std::string& fileName, std::string& fileContentsAsString) {
-    std::ifstream ifs(fileName);
+bool JsonSerializable::LoadTextFileIntoString(const boost::filesystem::path& filePath, std::string& fileContentsAsString) {
+    boost::filesystem::ifstream ifs(filePath);
 
     if (!ifs.good()) {
         return false;
@@ -120,11 +120,10 @@ std::string JsonSerializable::ToJson(bool pretty) const {
     return PtToJsonString(GetNewPropertyTree(), pretty);
 }
 
-bool JsonSerializable::ToJsonFile(const std::string & fileName, bool pretty) const {
-    std::ofstream out(fileName);
+bool JsonSerializable::ToJsonFile(const boost::filesystem::path& filePath, bool pretty) const {
+    boost::filesystem::ofstream out(filePath);
     if (!out.good()) {
-        const std::string message = "In JsonSerializable::ToJsonFile. Error opening file for writing: " + fileName;
-        LOG_ERROR(subprocess) << message;
+        LOG_ERROR(subprocess) << "In JsonSerializable::ToJsonFile. Error opening file for writing: " << filePath;
         return false;
     }
     out << ToJson(pretty);
@@ -162,11 +161,11 @@ bool JsonSerializable::GetPropertyTreeFromJsonString(const std::string & jsonStr
     return GetPropertyTreeFromJsonStream(std::istringstream(jsonStr), pt);
 }
 
-bool JsonSerializable::GetPropertyTreeFromJsonFile(const std::string & jsonFileName, boost::property_tree::ptree& pt) {
-    std::ifstream ifs(jsonFileName);
+bool JsonSerializable::GetPropertyTreeFromJsonFilePath(const boost::filesystem::path& jsonFilePath, boost::property_tree::ptree& pt) {
+    boost::filesystem::ifstream ifs(jsonFilePath);
 
     if (!ifs.good()) {
-        LOG_ERROR(subprocess) << "Error loading JSON file: " << jsonFileName;
+        LOG_ERROR(subprocess) << "Error loading JSON file: " << jsonFilePath;
         return false;
     }
 

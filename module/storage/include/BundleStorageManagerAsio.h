@@ -29,7 +29,7 @@
 class CLASS_VISIBILITY_STORAGE_LIB BundleStorageManagerAsio : public BundleStorageManagerBase {
 public:
     STORAGE_LIB_EXPORT BundleStorageManagerAsio();
-    STORAGE_LIB_EXPORT BundleStorageManagerAsio(const std::string & jsonConfigFileName);
+    STORAGE_LIB_EXPORT BundleStorageManagerAsio(const boost::filesystem::path& jsonConfigFilePath);
     STORAGE_LIB_EXPORT BundleStorageManagerAsio(const StorageConfig_ptr & storageConfigPtr);
     STORAGE_LIB_EXPORT virtual ~BundleStorageManagerAsio();
     STORAGE_LIB_EXPORT virtual void Start();

@@ -31,9 +31,11 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 
 BundleStorageManagerAsio::BundleStorageManagerAsio() : BundleStorageManagerAsio("storageConfig.json") {}
 
-BundleStorageManagerAsio::BundleStorageManagerAsio(const std::string & jsonConfigFileName) : BundleStorageManagerAsio(StorageConfig::CreateFromJsonFile(jsonConfigFileName)) {
+BundleStorageManagerAsio::BundleStorageManagerAsio(const boost::filesystem::path& jsonConfigFilePath) :
+    BundleStorageManagerAsio(StorageConfig::CreateFromJsonFilePath(jsonConfigFilePath))
+{
     if (!m_storageConfigPtr) {
-        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFileName;
+        LOG_ERROR(subprocess) << "cannot open storage json config file: " << jsonConfigFilePath;
         return;
     }
 }
