@@ -115,7 +115,7 @@ LtpEngine::LtpEngine(const uint64_t thisEngineId, const uint8_t engineIndexForEn
 
     //start memory in files for keeping session data on disk instead of RAM
     if (USE_MEMORY_IN_FILES && startIoServiceThread) { //startIoServiceThread needed to skip using memoryInFiles when under TestLtpEngine
-        m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine, "./", memoryInFilesNewFileAggregationTimeMs);
+        m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine, "./", memoryInFilesNewFileAggregationTimeMs, M_MAX_SIMULTANEOUS_SESSIONS * 2);
     }
 
     if (startIoServiceThread) {
@@ -255,10 +255,17 @@ void LtpEngine::TrySendPacketIfAvailable() {
                     TryRestartTokenRefreshTimer(); //tokens were taken, so make sure this is running so that tokens can be replenished
                 }
                 if (udpSendPacketInfo.deferredRead.memoryBlockId) {
-                    m_memoryInFilesPtr->ReadMemoryAsync(udpSendPacketInfo.deferredRead,
+                    if (!m_memoryInFilesPtr->ReadMemoryAsync(udpSendPacketInfo.deferredRead,
                         boost::bind(&LtpEngine::OnDeferredReadCompleted,
                             this, boost::placeholders::_1, std::move(udpSendPacketInfo.constBufferVec),
-                            std::move(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback), std::move(udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback)));
+                            std::move(udpSendPacketInfo.underlyingDataToDeleteOnSentCallback), std::move(udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback))))
+                    {
+                        LOG_ERROR(subprocess) << "cannot start async read from disk for memoryBlockId="
+                            << udpSendPacketInfo.deferredRead.memoryBlockId
+                            << " length=" << udpSendPacketInfo.deferredRead.length
+                            << " offset=" << udpSendPacketInfo.deferredRead.offset
+                            << " ptr=" << udpSendPacketInfo.deferredRead.readToThisLocationPtr;
+                    }
                 }
                 else {
                     SendPacket(udpSendPacketInfo.constBufferVec, udpSendPacketInfo.underlyingDataToDeleteOnSentCallback, udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback); // , sessionOriginatorEngineId); //virtual call to child implementation
@@ -542,17 +549,28 @@ void LtpEngine::TransmissionRequest(uint64_t destinationClientServiceId, uint64_
         const std::size_t size = clientServiceDataToSend.size();
         const void* dataPtr = clientServiceDataToSend.data();
         const uint64_t memoryBlockId = m_memoryInFilesPtr->AllocateNewWriteMemoryBlock(size);
+        if (memoryBlockId == 0) {
+            LOG_ERROR(subprocess) << "cannot allocate new memoryBlockId in LtpEngine::TransmissionRequest";
+            return;
+        }
         std::shared_ptr<LtpClientServiceDataToSend> clientServiceDataToSendSharedPtr = std::make_shared<LtpClientServiceDataToSend>(std::move(clientServiceDataToSend));
         MemoryInFiles::deferred_write_t deferredWrite;
         deferredWrite.memoryBlockId = memoryBlockId;
         deferredWrite.offset = 0;
         deferredWrite.writeFromThisLocationPtr = dataPtr;
         deferredWrite.length = size;
-        m_memoryInFilesPtr->WriteMemoryAsync(deferredWrite,
+        if (!m_memoryInFilesPtr->WriteMemoryAsync(deferredWrite,
             boost::bind(&LtpEngine::OnTransmissionRequestDataWrittenToDisk, this,
                 destinationClientServiceId, destinationLtpEngineId,
                 std::move(clientServiceDataToSendSharedPtr), std::move(userDataPtrToTake),
-                lengthOfRedPart, memoryBlockId));
+                lengthOfRedPart, memoryBlockId)))
+        {
+            LOG_ERROR(subprocess) << "cannot start async write to disk for memoryBlockId="
+                << deferredWrite.memoryBlockId
+                << " length=" << deferredWrite.length
+                << " offset=" << deferredWrite.offset
+                << " ptr=" << deferredWrite.writeFromThisLocationPtr;
+        }
     }
     else {
         DoTransmissionRequest(destinationClientServiceId, destinationLtpEngineId,

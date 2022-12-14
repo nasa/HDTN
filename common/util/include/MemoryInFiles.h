@@ -52,7 +52,8 @@ public:
     };
     
     HDTN_UTIL_EXPORT MemoryInFiles(boost::asio::io_service & ioServiceRef,
-        const boost::filesystem::path & rootStorageDirectory, const uint64_t newFileAggregationTimeMs);
+        const boost::filesystem::path & rootStorageDirectory, const uint64_t newFileAggregationTimeMs,
+        const uint64_t estimatedMaxAllocatedBlocks);
     HDTN_UTIL_EXPORT ~MemoryInFiles();
 
     HDTN_UTIL_EXPORT uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);

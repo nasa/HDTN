@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
         Test(const fs::path & paramRootPath) :
             rootPath(paramRootPath),
             newFileAggregationTimeMs(2000),
-            mf(ioService, rootPath, newFileAggregationTimeMs) {}
+            mf(ioService, rootPath, newFileAggregationTimeMs, 10) {}
 
         void DoTest() {
             uint64_t memoryBlockId;

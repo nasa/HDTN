@@ -38,7 +38,9 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
 
     Impl() = delete;
     Impl(boost::asio::io_service& ioServiceRef,
-        const boost::filesystem::path& workingDirectory, const uint64_t newFileAggregationTimeMs);
+        const boost::filesystem::path& workingDirectory,
+        const uint64_t newFileAggregationTimeMs,
+        const uint64_t estimatedMaxAllocatedBlocks);
     ~Impl();
     void Stop();
     uint64_t AllocateNewWriteMemoryBlock(std::size_t totalSize);
@@ -60,10 +62,27 @@ private:
     struct FileInfo : private boost::noncopyable {
         struct io_operation_t : private boost::noncopyable {
             io_operation_t() = delete;
-            io_operation_t(uint64_t paramOffset, std::size_t paramLength, const void* paramWriteLocationPtr, std::shared_ptr<write_memory_handler_t>& paramWriteHandlerPtr) :
-                offset(paramOffset), length(paramLength), readToThisLocationPtr(NULL), writeFromThisLocationPtr(paramWriteLocationPtr), writeHandlerPtr(paramWriteHandlerPtr) {}
-            io_operation_t(std::shared_ptr<read_memory_handler_t>& paramReadHandlerPtr, uint64_t paramOffset, std::size_t paramLength, void* paramReadLocationPtr) :
-                offset(paramOffset), length(paramLength), readToThisLocationPtr(paramReadLocationPtr), writeFromThisLocationPtr(NULL), readHandlerPtr(paramReadHandlerPtr) {}
+            io_operation_t(uint64_t paramOffset,
+                std::size_t paramLength,
+                const void* paramWriteLocationPtr,
+                std::shared_ptr<write_memory_handler_t>& paramWriteHandlerPtr) :
+                ///
+                offset(paramOffset),
+                length(paramLength),
+                readToThisLocationPtr(NULL),
+                writeFromThisLocationPtr(paramWriteLocationPtr),
+                writeHandlerPtr(paramWriteHandlerPtr) {}
+
+            io_operation_t(std::shared_ptr<read_memory_handler_t>& paramReadHandlerPtr,
+                uint64_t paramOffset,
+                std::size_t paramLength,
+                void* paramReadLocationPtr) :
+                ///
+                offset(paramOffset),
+                length(paramLength),
+                readToThisLocationPtr(paramReadLocationPtr),
+                writeFromThisLocationPtr(NULL),
+                readHandlerPtr(paramReadHandlerPtr) {}
 
             uint64_t offset;
             std::size_t length;
@@ -213,9 +232,7 @@ bool MemoryInFiles::Impl::FileInfo::WriteMemoryAsync(const uint64_t offset, cons
     }
     return m_valid;
 }
-void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred)
-{
-    m_diskOperationInProgress = false;
+void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
     io_operation_t& op = m_queueIoOperations.front();
     if (error) {
         LOG_ERROR(subprocess) << "HandleDiskWriteCompleted: " << error.message();
@@ -229,20 +246,18 @@ void MemoryInFiles::Impl::FileInfo::HandleDiskWriteCompleted(const boost::system
         }
     }
     m_queueIoOperations.pop();
+    m_diskOperationInProgress = false;
     TryStartNextQueuedIoOperation();
 }
 
-bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(const uint64_t offset, void* data, std::size_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr)
-{
+bool MemoryInFiles::Impl::FileInfo::ReadMemoryAsync(const uint64_t offset, void* data, std::size_t length, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
     if (m_valid) {
         m_queueIoOperations.emplace(handlerPtr, offset, length, data);
         TryStartNextQueuedIoOperation();
     }
     return m_valid;
 }
-void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred)
-{
-    m_diskOperationInProgress = false;
+void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system::error_code& error, std::size_t bytes_transferred) {
     io_operation_t& op = m_queueIoOperations.front();
     bool success = true;
     if (error) {
@@ -257,6 +272,7 @@ void MemoryInFiles::Impl::FileInfo::HandleDiskReadCompleted(const boost::system:
     }
 
     m_queueIoOperations.pop();
+    m_diskOperationInProgress = false;
     TryStartNextQueuedIoOperation();
 }
 
@@ -292,7 +308,8 @@ MemoryInFiles::Impl::MemoryBlockInfo::MemoryBlockInfo(
 }
 
 MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
-    const boost::filesystem::path& workingDirectory, const uint64_t newFileAggregationTimeMs) :
+    const boost::filesystem::path& workingDirectory,
+    const uint64_t newFileAggregationTimeMs, const uint64_t estimatedMaxAllocatedBlocks) :
     m_ioServiceRef(ioServiceRef),
     m_newFileAggregationTimer(ioServiceRef),
     m_rootStorageDirectory(workingDirectory / boost::filesystem::unique_path()),
@@ -305,6 +322,7 @@ MemoryInFiles::Impl::Impl(boost::asio::io_service& ioServiceRef,
     m_countTotalFilesCreated(0),
     m_countTotalFilesActive(0)
 {
+    m_mapIdToMemoryBlockInfo.reserve(estimatedMaxAllocatedBlocks);
     if (boost::filesystem::is_directory(workingDirectory)) {
         if (!boost::filesystem::is_directory(m_rootStorageDirectory)) {
             if (!boost::filesystem::create_directory(m_rootStorageDirectory)) {
@@ -372,6 +390,7 @@ bool MemoryInFiles::Impl::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     }
     MemoryBlockInfo& mbi = it->second;
     if (mbi.m_fileInfoPtr->HasDiskOperationInProgress()) {
+        std::cout << "diskop!!!!!!!!!!!!!!!!\n";
         return false;
     }
     m_mapIdToMemoryBlockInfo.erase(it);
@@ -419,8 +438,9 @@ bool MemoryInFiles::Impl::ReadMemoryAsync(const std::vector<deferred_read_t>& de
 
 
 MemoryInFiles::MemoryInFiles(boost::asio::io_service& ioServiceRef,
-    const boost::filesystem::path& rootStorageDirectory, const uint64_t newFileAggregationTimeMs) :
-    m_pimpl(boost::make_unique<MemoryInFiles::Impl>(ioServiceRef, rootStorageDirectory, newFileAggregationTimeMs))
+    const boost::filesystem::path& rootStorageDirectory,
+    const uint64_t newFileAggregationTimeMs, const uint64_t estimatedMaxAllocatedBlocks) :
+    m_pimpl(boost::make_unique<MemoryInFiles::Impl>(ioServiceRef, rootStorageDirectory, newFileAggregationTimeMs, estimatedMaxAllocatedBlocks))
 {}
 MemoryInFiles::~MemoryInFiles() {}
 

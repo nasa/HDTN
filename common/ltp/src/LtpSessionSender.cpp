@@ -234,17 +234,30 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPack
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
         }
-        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
+        const bool needsToReadClientServiceDataFromDisk = (m_dataToSendSharedPtr->data() == NULL);
+        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
         Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
             M_SESSION_ID, meta, NULL, 0);
         udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
         udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
-        udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + resendFragment.offset, resendFragment.length);
+        if (needsToReadClientServiceDataFromDisk) {
+            std::vector<uint8_t>& readLocation = (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[1];
+            readLocation.resize(resendFragment.length);
+            udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), resendFragment.length);
+            udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
+            udpSendPacketInfo.deferredRead.length = static_cast<std::size_t>(resendFragment.length);
+            udpSendPacketInfo.deferredRead.offset = resendFragment.offset;
+            udpSendPacketInfo.deferredRead.readToThisLocationPtr = readLocation.data();
+        }
+        else {
+            udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + resendFragment.offset, resendFragment.length);
+        }
+        
         //Increase the reference count of the LtpClientServiceDataToSend shared_ptr
         //so that the LtpClientServiceDataToSend won't get deleted before the UDP send operation completes.
         //This event would be caused by the LtpSessionSender getting deleted before the UDP send operation completes,
         //which would almost always happen with green data and could happen with red data.
-        if (m_dataToSendSharedPtr->data()) { //clientServiceDataIsFromMemory (no disk read needed)
+        if (!needsToReadClientServiceDataFromDisk) {
             udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
         }
         m_resendFragmentsQueue.pop();
@@ -322,8 +335,8 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 readLocation.resize(bytesToSendRed);
                 udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), bytesToSendRed);
                 udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
-                udpSendPacketInfo.deferredRead.length = bytesToSendRed;
-                udpSendPacketInfo.deferredRead.offset = static_cast<std::size_t>(m_dataIndexFirstPass);
+                udpSendPacketInfo.deferredRead.length = static_cast<std::size_t>(bytesToSendRed);
+                udpSendPacketInfo.deferredRead.offset = m_dataIndexFirstPass;
                 udpSendPacketInfo.deferredRead.readToThisLocationPtr = readLocation.data();
             }
             else {
@@ -354,8 +367,8 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 readLocation.resize(bytesToSendGreen);
                 udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), bytesToSendGreen);
                 udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
-                udpSendPacketInfo.deferredRead.length = bytesToSendGreen;
-                udpSendPacketInfo.deferredRead.offset = static_cast<std::size_t>(m_dataIndexFirstPass);
+                udpSendPacketInfo.deferredRead.length = static_cast<std::size_t>(bytesToSendGreen);
+                udpSendPacketInfo.deferredRead.offset = m_dataIndexFirstPass;
                 udpSendPacketInfo.deferredRead.readToThisLocationPtr = readLocation.data();
             }
             else {
