@@ -63,10 +63,10 @@ public:
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, const write_memory_handler_t& handler);
     HDTN_UTIL_EXPORT bool WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, write_memory_handler_t&& handler);
 
-    HDTN_UTIL_EXPORT bool ReadMemoryAsync(deferred_read_t& deferredRead, const read_memory_handler_t& handler);
-    HDTN_UTIL_EXPORT bool ReadMemoryAsync(deferred_read_t& deferredRead, read_memory_handler_t&& handler);
-    HDTN_UTIL_EXPORT bool ReadMemoryAsync(std::vector<deferred_read_t>& deferredReadsVec, const read_memory_handler_t& handler);
-    HDTN_UTIL_EXPORT bool ReadMemoryAsync(std::vector<deferred_read_t>& deferredReadsVec, read_memory_handler_t&& handler);
+    HDTN_UTIL_EXPORT bool ReadMemoryAsync(const deferred_read_t& deferredRead, const read_memory_handler_t& handler);
+    HDTN_UTIL_EXPORT bool ReadMemoryAsync(const deferred_read_t& deferredRead, read_memory_handler_t&& handler);
+    HDTN_UTIL_EXPORT bool ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, const read_memory_handler_t& handler);
+    HDTN_UTIL_EXPORT bool ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, read_memory_handler_t&& handler);
 
     HDTN_UTIL_EXPORT uint64_t GetCountTotalFilesCreated() const;
     HDTN_UTIL_EXPORT uint64_t GetCountTotalFilesActive() const;

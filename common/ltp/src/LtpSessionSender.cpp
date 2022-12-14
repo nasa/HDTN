@@ -29,7 +29,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
     const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
     const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
-    const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber) :
+    const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber, const uint64_t memoryBlockId) :
     m_timeManagerOfCheckpointSerialNumbersRef(timeManagerOfCheckpointSerialNumbersRef),
     m_timeManagerOfSendingDelayedDataSegmentsRef(timeManagerOfSendingDelayedDataSegmentsRef),
     m_receptionClaimIndex(0),
@@ -46,6 +46,7 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_CHECKPOINT_EVERY_NTH_DATA_PACKET(checkpointEveryNthDataPacket),
     m_checkpointEveryNthDataPacketCounter(checkpointEveryNthDataPacket),
     M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
+    MEMORY_BLOCK_ID(memoryBlockId),
     //m_numActiveTimers(0),
     m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
     m_notifyEngineThatThisSenderHasProducibleDataFunction(notifyEngineThatThisSenderHasProducibleDataFunction),
@@ -168,17 +169,14 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
     }
 }
 
-bool LtpSessionSender::NextTimeCriticalDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
-    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
-{
+bool LtpSessionSender::NextTimeCriticalDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
     if (!m_nonDataToSend.empty()) { //includes report ack segments
         //highest priority
-        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
-        (*underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSend.front());
+        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1);
+        (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0] = std::move(m_nonDataToSend.front());
         m_nonDataToSend.pop();
-        constBufferVec.resize(1);
-        constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
+        udpSendPacketInfo.constBufferVec.resize(1);
+        udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
         return true;
     }
 
@@ -236,17 +234,19 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(std::vector<boost::asio::const
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
         }
-        underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
-        Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
+        udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
+        Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], resendFragment.flags,
             M_SESSION_ID, meta, NULL, 0);
-        constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
-        constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-        constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + resendFragment.offset, resendFragment.length);
+        udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
+        udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
+        udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + resendFragment.offset, resendFragment.length);
         //Increase the reference count of the LtpClientServiceDataToSend shared_ptr
         //so that the LtpClientServiceDataToSend won't get deleted before the UDP send operation completes.
         //This event would be caused by the LtpSessionSender getting deleted before the UDP send operation completes,
         //which would almost always happen with green data and could happen with red data.
-        underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
+        if (m_dataToSendSharedPtr->data()) { //clientServiceDataIsFromMemory (no disk read needed)
+            udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
+        }
         m_resendFragmentsQueue.pop();
         return true;
     }
@@ -254,13 +254,11 @@ bool LtpSessionSender::NextTimeCriticalDataToSend(std::vector<boost::asio::const
     return false;
 }
 
-bool LtpSessionSender::NextFirstPassDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
-    std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-    std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback)
-{
+bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketInfo) {
     if (m_dataIndexFirstPass < m_dataToSendSharedPtr->size()) {
+        const bool needsToReadClientServiceDataFromDisk = (m_dataToSendSharedPtr->data() == NULL);
         if (m_dataIndexFirstPass < M_LENGTH_OF_RED_PART) { //first pass of red data send
-            uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, M_MTU);
+            const uint64_t bytesToSendRed = std::min(M_LENGTH_OF_RED_PART - m_dataIndexFirstPass, M_MTU);
             const bool isEndOfRedPart = ((bytesToSendRed + m_dataIndexFirstPass) == M_LENGTH_OF_RED_PART);
             bool isPeriodicCheckpoint = false;
             if (M_CHECKPOINT_EVERY_NTH_DATA_PACKET && (--m_checkpointEveryNthDataPacketCounter == 0)) {
@@ -314,12 +312,23 @@ bool LtpSessionSender::NextFirstPassDataToSend(std::vector<boost::asio::const_bu
             meta.length = bytesToSendRed;
             meta.checkpointSerialNumber = checkpointSerialNumber;
             meta.reportSerialNumber = reportSerialNumber;
-            underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
-            Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], flags,
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+            Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
-            constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
-            constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-            constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendRed);
+            udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
+            udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
+            if (needsToReadClientServiceDataFromDisk) {
+                std::vector<uint8_t>& readLocation = (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[1];
+                readLocation.resize(bytesToSendRed);
+                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), bytesToSendRed);
+                udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
+                udpSendPacketInfo.deferredRead.length = bytesToSendRed;
+                udpSendPacketInfo.deferredRead.offset = static_cast<std::size_t>(m_dataIndexFirstPass);
+                udpSendPacketInfo.deferredRead.readToThisLocationPtr = readLocation.data();
+            }
+            else {
+                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendRed);
+            }
             m_dataIndexFirstPass += bytesToSendRed;
         }
         else { //first pass of green data send
@@ -335,12 +344,23 @@ bool LtpSessionSender::NextFirstPassDataToSend(std::vector<boost::asio::const_bu
             meta.length = bytesToSendGreen;
             meta.checkpointSerialNumber = NULL;
             meta.reportSerialNumber = NULL;
-            underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1); //2 would be needed in case of trailer extensions (but not used here)
-            Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*underlyingDataToDeleteOnSentCallback)[0], flags,
+            udpSendPacketInfo.underlyingDataToDeleteOnSentCallback = std::make_shared<std::vector<std::vector<uint8_t> > >(1 + needsToReadClientServiceDataFromDisk); //2 would be needed in case of trailer extensions (but not used here)
+            Ltp::GenerateLtpHeaderPlusDataSegmentMetadata((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0], flags,
                 M_SESSION_ID, meta, NULL, 0);
-            constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
-            constBufferVec[0] = boost::asio::buffer((*underlyingDataToDeleteOnSentCallback)[0]);
-            constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendGreen);
+            udpSendPacketInfo.constBufferVec.resize(2); //3 would be needed in case of trailer extensions (but not used here)
+            udpSendPacketInfo.constBufferVec[0] = boost::asio::buffer((*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[0]);
+            if (needsToReadClientServiceDataFromDisk) {
+                std::vector<uint8_t>& readLocation = (*udpSendPacketInfo.underlyingDataToDeleteOnSentCallback)[1];
+                readLocation.resize(bytesToSendGreen);
+                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(readLocation.data(), bytesToSendGreen);
+                udpSendPacketInfo.deferredRead.memoryBlockId = MEMORY_BLOCK_ID;
+                udpSendPacketInfo.deferredRead.length = bytesToSendGreen;
+                udpSendPacketInfo.deferredRead.offset = static_cast<std::size_t>(m_dataIndexFirstPass);
+                udpSendPacketInfo.deferredRead.readToThisLocationPtr = readLocation.data();
+            }
+            else {
+                udpSendPacketInfo.constBufferVec[1] = boost::asio::buffer(m_dataToSendSharedPtr->data() + m_dataIndexFirstPass, bytesToSendGreen);
+            }
             m_dataIndexFirstPass += bytesToSendGreen;
         }
         if (m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) { //only ever enters here once
@@ -348,7 +368,9 @@ bool LtpSessionSender::NextFirstPassDataToSend(std::vector<boost::asio::const_bu
             //so that the LtpClientServiceDataToSend won't get deleted before the UDP send operation completes.
             //This event would be caused by the LtpSessionSender getting deleted before the UDP send operation completes,
             //which would almost always happen with green data and could happen with red data.
-            underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
+            if (!needsToReadClientServiceDataFromDisk) {
+                udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
+            }
 
             m_initialTransmissionCompletedCallback(M_SESSION_ID, m_userDataPtr);
             if (M_LENGTH_OF_RED_PART == 0) { //fully green case complete (notify engine for deletion)

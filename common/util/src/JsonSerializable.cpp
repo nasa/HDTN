@@ -151,7 +151,7 @@ bool JsonSerializable::GetPropertyTreeFromJsonStream(std::istream& jsonStream, b
     try {
         boost::property_tree::read_json(jsonStream, pt);
     }
-    catch (boost::property_tree::json_parser::json_parser_error e) {
+    catch (const boost::property_tree::json_parser::json_parser_error & e) {
         LOG_ERROR(subprocess) << "Error parsing JSON: " << e.what();
         return false;
     }
@@ -189,9 +189,8 @@ bool JsonSerializable::ToXmlFile(const std::string & fileName, char indentCharac
     try {
         boost::property_tree::write_xml(fileName, GetNewPropertyTree(), std::locale(), settings);
     }
-    catch (boost::property_tree::xml_parser_error & e) {
-        const std::string message = "In JsonSerializable::ToXmlFile. Error: " + std::string(e.what());
-        LOG_ERROR(subprocess) << message;
+    catch (const boost::property_tree::xml_parser_error & e) {
+        LOG_ERROR(subprocess) << "In JsonSerializable::ToXmlFile. Error: " << e.what();
         return false;
     }
 

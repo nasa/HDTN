@@ -45,8 +45,8 @@ struct MemoryInFiles::Impl : private boost::noncopyable {
     bool DeleteMemoryBlock(const uint64_t memoryBlockId);
     bool WriteMemoryAsync(const deferred_write_t& deferredWrite, std::shared_ptr<write_memory_handler_t>& handlerPtr);
     bool WriteMemoryAsync(const std::vector<deferred_write_t>& deferredWritesVec, std::shared_ptr<write_memory_handler_t>& handlerPtr);
-    bool ReadMemoryAsync(deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr);
-    bool ReadMemoryAsync(std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr);
+    bool ReadMemoryAsync(const deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr);
+    bool ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr);
 
     
 
@@ -397,7 +397,7 @@ bool MemoryInFiles::Impl::WriteMemoryAsync(const std::vector<deferred_write_t>& 
     }
     return true;
 }
-bool MemoryInFiles::Impl::ReadMemoryAsync(deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
+bool MemoryInFiles::Impl::ReadMemoryAsync(const deferred_read_t& deferredRead, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
     id_to_memoryblockinfo_map_t::iterator it = m_mapIdToMemoryBlockInfo.find(deferredRead.memoryBlockId);
     if (it == m_mapIdToMemoryBlockInfo.end()) {
         return false;
@@ -408,7 +408,7 @@ bool MemoryInFiles::Impl::ReadMemoryAsync(deferred_read_t& deferredRead, std::sh
     }
     return mbi.m_fileInfoPtr->ReadMemoryAsync(deferredRead.offset, deferredRead.readToThisLocationPtr, deferredRead.length, handlerPtr);
 }
-bool MemoryInFiles::Impl::ReadMemoryAsync(std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
+bool MemoryInFiles::Impl::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, std::shared_ptr<read_memory_handler_t>& handlerPtr) {
     for (std::size_t i = 0; i < deferredReadsVec.size(); ++i) {
         if (!ReadMemoryAsync(deferredReadsVec[i], handlerPtr)) {
             return false;
@@ -444,16 +444,16 @@ bool MemoryInFiles::WriteMemoryAsync(const std::vector<deferred_write_t>& deferr
     return m_pimpl->WriteMemoryAsync(deferredWritesVec, std::make_shared<write_memory_handler_t>(std::move(handler)));
 }
 
-bool MemoryInFiles::ReadMemoryAsync(deferred_read_t& deferredRead, const read_memory_handler_t& handler) {
+bool MemoryInFiles::ReadMemoryAsync(const deferred_read_t& deferredRead, const read_memory_handler_t& handler) {
     return m_pimpl->ReadMemoryAsync(deferredRead, std::make_shared<read_memory_handler_t>(handler));
 }
-bool MemoryInFiles::ReadMemoryAsync(deferred_read_t& deferredRead, read_memory_handler_t&& handler) {
+bool MemoryInFiles::ReadMemoryAsync(const deferred_read_t& deferredRead, read_memory_handler_t&& handler) {
     return m_pimpl->ReadMemoryAsync(deferredRead, std::make_shared<read_memory_handler_t>(std::move(handler)));
 }
-bool MemoryInFiles::ReadMemoryAsync(std::vector<deferred_read_t>& deferredReadsVec, const read_memory_handler_t& handler) {
+bool MemoryInFiles::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, const read_memory_handler_t& handler) {
     return m_pimpl->ReadMemoryAsync(deferredReadsVec, std::make_shared<read_memory_handler_t>(handler));
 }
-bool MemoryInFiles::ReadMemoryAsync(std::vector<deferred_read_t>& deferredReadsVec, read_memory_handler_t&& handler) {
+bool MemoryInFiles::ReadMemoryAsync(const std::vector<deferred_read_t>& deferredReadsVec, read_memory_handler_t&& handler) {
     return m_pimpl->ReadMemoryAsync(deferredReadsVec, std::make_shared<read_memory_handler_t>(std::move(handler)));
 }
 

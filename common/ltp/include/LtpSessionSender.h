@@ -28,6 +28,7 @@
 #include <boost/asio.hpp>
 #include <memory>
 #include "LtpTimerManager.h"
+#include "MemoryInFiles.h"
 #include "LtpNoticesToClientService.h"
 #include "LtpClientServiceDataToSend.h"
 #include <boost/core/noncopyable.hpp>
@@ -44,6 +45,7 @@ private:
     LtpSessionSender() = delete;
     LTP_LIB_NO_EXPORT void LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t& checkpointSerialNumberPlusSessionNumber, std::vector<uint8_t> & userData);
 public:
+    
     LTP_LIB_EXPORT ~LtpSessionSender();
     LTP_LIB_EXPORT LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialNumber, LtpClientServiceDataToSend && dataToSend,
         std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart, const uint64_t MTU,
@@ -54,13 +56,9 @@ public:
         const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
         const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
         const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
-        const uint64_t checkpointEveryNthDataPacket = 0, const uint32_t maxRetriesPerSerialNumber = 5);
-    LTP_LIB_EXPORT bool NextTimeCriticalDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
-    LTP_LIB_EXPORT bool NextFirstPassDataToSend(std::vector<boost::asio::const_buffer>& constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
+        const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber, const uint64_t memoryBlockId);
+    LTP_LIB_EXPORT bool NextTimeCriticalDataToSend(UdpSendPacketInfo & udpSendPacketInfo);
+    LTP_LIB_EXPORT bool NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
 
     
     LTP_LIB_EXPORT void ReportSegmentReceivedCallback(const Ltp::report_segment_t & reportSegment,
@@ -118,6 +116,9 @@ private:
     const uint64_t M_CHECKPOINT_EVERY_NTH_DATA_PACKET;
     uint64_t m_checkpointEveryNthDataPacketCounter;
     const uint32_t M_MAX_RETRIES_PER_SERIAL_NUMBER;
+public:
+    const uint64_t MEMORY_BLOCK_ID;
+private:
     const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
     const NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
     const InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;

@@ -29,6 +29,7 @@
 #include <map>
 #include <boost/asio.hpp>
 #include "LtpNoticesToClientService.h"
+#include "LtpClientServiceDataToSend.h"
 #include <boost/core/noncopyable.hpp>
 
 typedef boost::function<void(const Ltp::session_id_t & sessionId, bool wasCancelled, CANCEL_SEGMENT_REASON_CODES reasonCode)> NotifyEngineThatThisReceiverNeedsDeletedCallback_t;
@@ -57,7 +58,7 @@ public:
         const uint32_t maxRetriesPerSerialNumber = 5);
 
     LTP_LIB_EXPORT ~LtpSessionReceiver();
-    LTP_LIB_EXPORT bool NextDataToSend(std::vector<boost::asio::const_buffer> & constBufferVec, std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback);
+    LTP_LIB_EXPORT bool NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
     
     LTP_LIB_EXPORT std::size_t GetNumActiveTimers() const; //stagnant rx session detection in ltp engine with periodic housekeeping timer
     LTP_LIB_EXPORT void ReportAcknowledgementSegmentReceivedCallback(uint64_t reportSerialNumberBeingAcknowledged,

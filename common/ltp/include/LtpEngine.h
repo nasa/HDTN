@@ -31,6 +31,7 @@
 #include "LtpSessionRecreationPreventer.h"
 #include "TokenRateLimiter.h"
 #include "BundleCallbackFunctionDefines.h"
+#include "MemoryInFiles.h"
 #include <unordered_map>
 #include <queue>
 #include <memory>
@@ -79,6 +80,13 @@ public:
         const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, std::shared_ptr<LtpTransmissionRequestUserData> && userDataPtrToTake, uint64_t lengthOfRedPart);
     LTP_LIB_EXPORT void TransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
         const uint8_t * clientServiceDataToCopyAndSend, uint64_t length, uint64_t lengthOfRedPart);
+private:
+    LTP_LIB_NO_EXPORT void DoTransmissionRequest(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+        LtpClientServiceDataToSend&& clientServiceDataToSend, std::shared_ptr<LtpTransmissionRequestUserData>&& userDataPtrToTake, uint64_t lengthOfRedPart, uint64_t memoryBlockId);
+    LTP_LIB_NO_EXPORT void OnTransmissionRequestDataWrittenToDisk(uint64_t destinationClientServiceId, uint64_t destinationLtpEngineId,
+        std::shared_ptr<LtpClientServiceDataToSend>& clientServiceDataToSendPtrToTake, std::shared_ptr<LtpTransmissionRequestUserData>& userDataPtrToTake,
+        uint64_t lengthOfRedPart, uint64_t memoryBlockId);
+public:
 
     LTP_LIB_EXPORT bool CancellationRequest(const Ltp::session_id_t & sessionId);
     LTP_LIB_EXPORT void CancellationRequest_ThreadSafe(const Ltp::session_id_t & sessionId);
@@ -105,10 +113,7 @@ public:
 
     LTP_LIB_EXPORT void PostExternalLinkDownEvent_ThreadSafe();
 
-    LTP_LIB_EXPORT bool GetNextPacketToSend(std::vector<boost::asio::const_buffer> & constBufferVec,
-        std::shared_ptr<std::vector<std::vector<uint8_t> > > & underlyingDataToDeleteOnSentCallback,
-        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback,
-        uint64_t & sessionOriginatorEngineId);
+    LTP_LIB_EXPORT bool GetNextPacketToSend(UdpSendPacketInfo& udpSendPacketInfo);
 
     LTP_LIB_EXPORT std::size_t NumActiveReceivers() const;
     LTP_LIB_EXPORT std::size_t NumActiveSenders() const;
@@ -131,6 +136,12 @@ protected:
         std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallback);
 private:
     LTP_LIB_NO_EXPORT void TrySendPacketIfAvailable();
+    LTP_LIB_NO_EXPORT void OnDeferredReadCompleted(bool success, std::vector<boost::asio::const_buffer>& constBufferVec,
+        std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
+        std::shared_ptr<LtpClientServiceDataToSend>& underlyingCsDataToDeleteOnSentCallback);
+    LTP_LIB_NO_EXPORT void OnDeferredMultiReadCompleted(bool success, std::vector<std::vector<boost::asio::const_buffer> >& constBufferVecs,
+        std::vector<std::shared_ptr<std::vector<std::vector<uint8_t> > > >& underlyingDataToDeleteOnSentCallbackVec,
+        std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec);
 
     LTP_LIB_NO_EXPORT void CancelSegmentReceivedCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, bool isFromSender,
         Ltp::ltp_extensions_t & headerExtensions, Ltp::ltp_extensions_t & trailerExtensions);
@@ -188,6 +199,8 @@ private:
     typedef std::unordered_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
+    LTP_LIB_NO_EXPORT void EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt);
+    LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
 
     std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
     std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
@@ -268,6 +281,9 @@ private:
 
     //session re-creation prevention
     std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> > m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
+
+    //memory in files
+    std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
 
 public:
     //stats
