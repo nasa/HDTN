@@ -1,0 +1,14 @@
+version: '3.7'
+services: 
+    alpha:
+      image: hdtn
+        container_name: hdtn-receiver
+        hostname: hdtn-receiver
+        shm_size: 2gb
+    bravo:
+      image: hdtn
+        container_name: hdtn-sender
+        hostname: hdtn-sender
+        shm_size: 2gb
+
+
