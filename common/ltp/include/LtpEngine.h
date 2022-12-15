@@ -284,6 +284,7 @@ private:
 
     //memory in files
     std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
+    std::queue<uint64_t> m_memoryBlockIdsPendingDeletionQueue;
 
 public:
     //stats

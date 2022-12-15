@@ -307,10 +307,14 @@ void LtpEngine::TrySendPacketIfAvailable() {
                 }
             }
             if (deferredReadsVec.size()) {
-                m_memoryInFilesPtr->ReadMemoryAsync(deferredReadsVec,
+                LOG_DEBUG(subprocess) << "CALL multi read mem async " << deferredReadsVec.size();
+                if (!m_memoryInFilesPtr->ReadMemoryAsync(deferredReadsVec,
                     boost::bind(&LtpEngine::OnDeferredMultiReadCompleted,
                         this, boost::placeholders::_1, std::move(constBufferVecs),
-                        std::move(underlyingDataToDeleteOnSentCallbackVec), std::move(underlyingCsDataToDeleteOnSentCallbackVec)));
+                        std::move(underlyingDataToDeleteOnSentCallbackVec), std::move(underlyingCsDataToDeleteOnSentCallbackVec))))
+                {
+                    LOG_ERROR(subprocess) << "cannot start multi async read from disk of size " << deferredReadsVec.size();
+                }
             }
             else if (constBufferVecs.size()) { //data to batch send
                 if (m_maxSendRateBitsPerSecOrZeroToDisable) { //if rate limiting enabled
@@ -320,6 +324,20 @@ void LtpEngine::TrySendPacketIfAvailable() {
                 SendPackets(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //virtual call to child implementation
             }
         }
+        
+        if (m_memoryInFilesPtr) {
+            //GetNextPacketToSend will immediately delete session in fully green case.
+            //Memory block id is queued for deletion on session deletion to prevent memory block deletion before a call to ReadMemoryAsync.
+            //Now that ReadMemoryAsync has been safely called, check if there are any queued memory block deletion requests.
+            while (m_memoryBlockIdsPendingDeletionQueue.size()) {
+                const uint64_t memoryBlockId = m_memoryBlockIdsPendingDeletionQueue.front();
+                if (!m_memoryInFilesPtr->DeleteMemoryBlock(memoryBlockId)) {
+                    LOG_INFO(subprocess) << "LTP write to disk support enabled for session but cannot erase memoryBlockId=" << memoryBlockId;
+                }
+                m_memoryBlockIdsPendingDeletionQueue.pop();
+            }
+        }
+        
     }
 }
 
@@ -341,6 +359,7 @@ void LtpEngine::OnDeferredMultiReadCompleted(bool success, std::vector<std::vect
     std::vector<std::shared_ptr<LtpClientServiceDataToSend> >& underlyingCsDataToDeleteOnSentCallbackVec)
 {
     if (success) {
+        LOG_DEBUG(subprocess) << "CALL SEND PACKETS " << constBufferVecs.size();
         SendPackets(constBufferVecs, underlyingDataToDeleteOnSentCallbackVec, underlyingCsDataToDeleteOnSentCallbackVec); //virtual call to child implementation
     }
     else {
@@ -1315,9 +1334,7 @@ void LtpEngine::EraseTxSession(map_session_number_to_session_sender_t::iterator&
     m_numDiscretionaryCheckpointsNotResent += txSessionIt->second->m_numDiscretionaryCheckpointsNotResent;
     m_numDeletedFullyClaimedPendingReports += txSessionIt->second->m_numDeletedFullyClaimedPendingReports;
     if (m_memoryInFilesPtr) {
-        if (!m_memoryInFilesPtr->DeleteMemoryBlock(txSessionIt->second->MEMORY_BLOCK_ID)) {
-            LOG_INFO(subprocess) << "LTP write to disk support enabled for session but cannot erase memoryBlockId=" << txSessionIt->second->MEMORY_BLOCK_ID;
-        }
+        m_memoryBlockIdsPendingDeletionQueue.push(txSessionIt->second->MEMORY_BLOCK_ID);
     }
     m_mapSessionNumberToSessionSender.erase(txSessionIt);
 }

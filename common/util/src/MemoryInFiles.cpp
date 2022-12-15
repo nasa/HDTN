@@ -434,9 +434,12 @@ bool MemoryInFiles::Impl::DeleteMemoryBlock(const uint64_t memoryBlockId) {
     }
     MemoryBlockInfo& mbi = it->second;
     if (mbi.m_queuedOperationsReferenceCount) {
+        if (mbi.m_markedForDeletion) { //already marked for deletion (double call to DeleteMemoryBlock)
+            return false;
+        }
         mbi.m_markedForDeletion = true;
         LOG_DEBUG(subprocess) << "DeleteMemoryBlock called while i/o operations in progress. Deferring deletion of memoryBlockId=" << memoryBlockId;
-        return false;
+        return true;
     }
     m_mapIdToMemoryBlockInfo.erase(it);
     return true;
@@ -449,6 +452,7 @@ bool MemoryInFiles::Impl::WriteMemoryAsync(const deferred_write_t& deferredWrite
     }
     MemoryBlockInfo& mbi = it->second;
     if (mbi.m_markedForDeletion) {
+        LOG_ERROR(subprocess) << "WriteMemoryAsync called on marked for deletion block with memoryBlockId=" << deferredWrite.memoryBlockId;
         return false;
     }
     if ((deferredWrite.offset + deferredWrite.length) > mbi.m_length) {
@@ -471,6 +475,7 @@ bool MemoryInFiles::Impl::ReadMemoryAsync(const deferred_read_t& deferredRead, s
     }
     MemoryBlockInfo& mbi = it->second;
     if (mbi.m_markedForDeletion) {
+        LOG_ERROR(subprocess) << "ReadMemoryAsync called on marked for deletion block with memoryBlockId=" << deferredRead.memoryBlockId;
         return false;
     }
     if ((deferredRead.offset + deferredRead.length) > mbi.m_length) {

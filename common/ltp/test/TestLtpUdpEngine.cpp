@@ -17,6 +17,9 @@
 #include <boost/bind/bind.hpp>
 #include "UdpDelaySim.h"
 #include <boost/lexical_cast.hpp>
+#include "Logger.h"
+
+static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess::unittest;
 
 BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
 {
@@ -147,11 +150,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 if (removeCallbackCalled) { //lock mutex (above) before checking condition
                     break;
                 }
-                std::cout << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+                LOG_INFO(subprocess) << "waiting to remove ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000));
             }
             BOOST_CHECK(removeCallbackCalled);
-            std::cout << "removed ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID << std::endl;
+            LOG_INFO(subprocess) << "removed ltp dest (induct) for remote engine id " << EXPECTED_SESSION_ORIGINATOR_ENGINE_ID;
 
             removeCallbackCalled = false;
             ltpUdpEngineManagerSrcPtr->RemoveLtpUdpEngineByRemoteEngineId_ThreadSafe(ENGINE_ID_DEST, false, boost::bind(&Test::RemoveCallback, this));
@@ -160,11 +163,11 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                 if (removeCallbackCalled) { //lock mutex (above) before checking condition
                     break;
                 }
-                std::cout << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST << std::endl;
+                LOG_INFO(subprocess) << "waiting to remove ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
                 cv.timed_wait(cvLock, boost::posix_time::milliseconds(2000));
             }
             BOOST_CHECK(removeCallbackCalled);
-            std::cout << "removed ltp src (outduct) for remote engine id " << ENGINE_ID_DEST << std::endl;
+            LOG_INFO(subprocess) << "removed ltp src (outduct) for remote engine id " << ENGINE_ID_DEST;
         }
 
         void SessionStartSenderCallback(const Ltp::session_id_t & sessionId) {
@@ -192,7 +195,6 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             }
             cv.notify_one();
             //std::cout << "receivedMessage: " << receivedMessage << std::endl;
-            //std::cout << "here\n";
         }
         void GreenPartSegmentArrivalCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t offsetStartOfBlock, uint64_t clientServiceId, bool isEndOfBlock) {
             {
@@ -656,7 +658,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                     if (type == LTP_SEGMENT_TYPE_FLAGS::REDDATA_CHECKPOINT) { //skip only non-EORP-EOB checkpoints
                         ++count;
                         if (count == 2) {
-                            std::cout << "drop\n";
+                            LOG_INFO(subprocess) << "drop";
                             return true;
                         }
                     }
@@ -807,7 +809,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
                     if ((type == LTP_SEGMENT_TYPE_FLAGS::REPORT_ACK_SEGMENT)) {
                         ++count;
                         if (count == 1) {
-                            std::cout << "drop\n";
+                            LOG_INFO(subprocess) << "drop";
                             return true;
                         }
                     }
@@ -1501,7 +1503,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     };
 
     //TEST WITH 1 maxUdpPacketsToSendPerSystemCall (NO BATCH SEND)
-    std::cout << "+++START 1 PACKET PER SYSTEM CALL+++\n";
+    LOG_INFO(subprocess) << "+++START 1 PACKET PER SYSTEM CALL+++";
     {
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
         Test t(1); //1 => maxUdpPacketsToSendPerSystemCall
@@ -1519,25 +1521,25 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         t.DoTest();
         t.DoTestRedAndGreenData();
         t.DoTestFullyGreenData();
-        std::cout << "-----START LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
+        LOG_INFO(subprocess) << "-----START LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------";
         t.DoTestDropGreenEobSrcToDest();
-        std::cout << "-----END LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------\n";
+        LOG_INFO(subprocess) << "-----END LONG TEST (STAGNANT GREEN LTP DROPS EOB)---------";
         t.DoTestOneDropDataSegmentSrcToDest();
         t.DoTestTwoDropDataSegmentSrcToDest();
         t.DoTestTwoDropDataSegmentSrcToDestRegularCheckpoints();
         t.DoTestDropOneCheckpointDataSegmentSrcToDest();
         t.DoTestDropEOBCheckpointDataSegmentSrcToDest();
         t.DoTestDropRaSrcToDest();
-        std::cout << "-----START LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
+        LOG_INFO(subprocess) << "-----START LONG TEST (RED LTP ALWAYS DROPS EOB)---------";
         t.DoTestDropEOBAlwaysCheckpointDataSegmentSrcToDest();
-        std::cout << "-----END LONG TEST (RED LTP ALWAYS DROPS EOB)---------\n";
+        LOG_INFO(subprocess) << "-----END LONG TEST (RED LTP ALWAYS DROPS EOB)---------";
         t.DoTestDropRaAlwaysSrcToDest();
         t.DoTestReceiverCancelSession();
         t.DoTestSenderCancelSession();
         t.DoTestDropOddDataSegmentWithRsMtu();
     }
-    std::cout << "+++END 1 PACKET PER SYSTEM CALL+++\n";
-    std::cout << "+++START 500 PACKETS PER SYSTEM CALL+++\n";
+    LOG_INFO(subprocess) << "+++END 1 PACKET PER SYSTEM CALL+++";
+    LOG_INFO(subprocess) << "+++START 500 PACKETS PER SYSTEM CALL+++";
     {
         LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
         Test t(500); //500 => maxUdpPacketsToSendPerSystemCall
@@ -1545,5 +1547,5 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         t.DoTestRedAndGreenData();
         t.DoTestFullyGreenData();
     }
-    std::cout << "+++END 500 PACKETS PER SYSTEM CALL+++\n";
+    LOG_INFO(subprocess) << "+++END 500 PACKETS PER SYSTEM CALL+++";
 }
