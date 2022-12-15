@@ -131,8 +131,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         }
 
         void RemoveCallback() {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 removeCallbackCalled = true;
             }
             cv.notify_one();
@@ -175,8 +175,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             lastSessionId_sessionStartSenderCallback = sessionId;
         }
         void SessionStartReceiverCallback(const Ltp::session_id_t & sessionId) {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numSessionStartReceiverCallbacks;
                 BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
             }
@@ -184,8 +184,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         }
         void RedPartReceptionCallback(const Ltp::session_id_t & sessionId, padded_vector_uint8_t & movableClientServiceDataVec, uint64_t lengthOfRedPart, uint64_t clientServiceId, bool isEndOfBlock) {
             std::string receivedMessage(movableClientServiceDataVec.data(), movableClientServiceDataVec.data() + movableClientServiceDataVec.size());
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numRedPartReceptionCallbacks;
                 BOOST_REQUIRE_EQUAL(receivedMessage, DESIRED_RED_DATA_TO_SEND);
                 BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
@@ -195,8 +195,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //std::cout << "here\n";
         }
         void GreenPartSegmentArrivalCallback(const Ltp::session_id_t & sessionId, std::vector<uint8_t> & movableClientServiceDataVec, uint64_t offsetStartOfBlock, uint64_t clientServiceId, bool isEndOfBlock) {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numGreenPartReceptionCallbacks;
                 BOOST_REQUIRE_EQUAL(movableClientServiceDataVec.size(), 1);
                 BOOST_REQUIRE_EQUAL(movableClientServiceDataVec[0], (isEndOfBlock) ? 'E' : 'G');
@@ -206,8 +206,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
         void ReceptionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode) {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numReceptionSessionCancelledCallbacks;
                 lastReasonCode_receptionSessionCancelledCallback = reasonCode;
                 BOOST_REQUIRE(sessionId == lastSessionId_sessionStartSenderCallback);
@@ -215,8 +215,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
         void TransmissionSessionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 ++numTransmissionSessionCompletedCallbacks;
                 BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
                 MyTransmissionUserData* myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
@@ -227,8 +227,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
         void InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
                 MyTransmissionUserData* myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
                 BOOST_REQUIRE(myUserData);
@@ -239,8 +239,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             cv.notify_one();
         }
         void TransmissionSessionCancelledCallback(const Ltp::session_id_t & sessionId, CANCEL_SEGMENT_REASON_CODES reasonCode, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-            boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
             {
+                boost::mutex::scoped_lock cvLock(cvMutex); //boost unit test assertions are not thread safe
                 BOOST_REQUIRE_EQUAL(userDataPtr.use_count(), 2); //ltp session sender copy + user copy
                 MyTransmissionUserData* myUserData = dynamic_cast<MyTransmissionUserData*>(userDataPtr.get());
                 BOOST_REQUIRE(myUserData);
