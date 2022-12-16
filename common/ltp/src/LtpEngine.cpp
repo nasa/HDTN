@@ -71,7 +71,22 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_tokenRefreshTimerIsRunning(false),
     m_lastTimeTokensWereRefreshed(boost::posix_time::special_values::neg_infin)
 {
-    m_cancelSegmentTimerExpiredCallback = boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback, this, boost::placeholders::_1, boost::placeholders::_2);
+    m_cancelSegmentTimerExpiredCallback = boost::bind(&LtpEngine::CancelSegmentTimerExpiredCallback,
+        this, boost::placeholders::_1, boost::placeholders::_2);
+
+    //session receiver functions to be passed in AS REFERENCES
+    m_notifyEngineThatThisReceiverNeedsDeletedCallback = boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback,
+        this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3);
+    m_notifyEngineThatThisSendersTimersHasProducibleDataFunction = boost::bind(&LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData,
+        this, boost::placeholders::_1);
+
+    //session sender functions to be passed in AS REFERENCES
+    m_notifyEngineThatThisSenderNeedsDeletedCallback = boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback,
+        this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4);
+    m_notifyEngineThatThisSenderHasProducibleDataFunction = boost::bind(&LtpEngine::NotifyEngineThatThisSenderHasProducibleData,
+        this, boost::placeholders::_1);
+    m_initialTransmissionCompletedCallbackCalledBySender = boost::bind(&LtpEngine::InitialTransmissionCompletedCallback,
+        this, boost::placeholders::_1, boost::placeholders::_2);
 
     m_ltpRxStateMachine.SetCancelSegmentContentsReadCallback(boost::bind(&LtpEngine::CancelSegmentReceivedCallback, this,
         boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3,
@@ -615,9 +630,9 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
         randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), std::move(userDataPtrToTake),
         lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
         m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
-        boost::bind(&LtpEngine::NotifyEngineThatThisSenderNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::placeholders::_4),
-        boost::bind(&LtpEngine::NotifyEngineThatThisSenderHasProducibleData, this, boost::placeholders::_1),
-        boost::bind(&LtpEngine::InitialTransmissionCompletedCallback, this, boost::placeholders::_1, boost::placeholders::_2),
+        m_notifyEngineThatThisSenderNeedsDeletedCallback, //reference stored, so must not be destroyed until after all sessions destroyed
+        m_notifyEngineThatThisSenderHasProducibleDataFunction, //reference stored, so must not be destroyed until after all sessions destroyed
+        m_initialTransmissionCompletedCallbackCalledBySender, //reference stored, so must not be destroyed until after all sessions destroyed
         m_checkpointEveryNthDataPacketSender, m_maxRetriesPerSerialNumber, memoryBlockId);
 
     m_queueSendersNeedingFirstPassDataSent.emplace(randomSessionNumberGeneratedBySender);
@@ -962,8 +977,8 @@ void LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData(const Ltp::
 }
 
 void LtpEngine::InitialTransmissionCompletedCallback(const Ltp::session_id_t & sessionId, std::shared_ptr<LtpTransmissionRequestUserData> & userDataPtr) {
-    if (m_initialTransmissionCompletedCallback) {
-        m_initialTransmissionCompletedCallback(sessionId, userDataPtr);
+    if (m_initialTransmissionCompletedCallbackForUser) {
+        m_initialTransmissionCompletedCallbackForUser(sessionId, userDataPtr);
     }
 }
 
@@ -1058,8 +1073,9 @@ void LtpEngine::DataSegmentReceivedCallback(uint8_t segmentTypeFlags, const Ltp:
         std::unique_ptr<LtpSessionReceiver> session = boost::make_unique<LtpSessionReceiver>(randomNextReportSegmentReportSerialNumber, m_maxReceptionClaims,
             M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION, M_MAX_RED_RX_BYTES_PER_SESSION,
             sessionId, dataSegmentMetadata.clientServiceId, m_timeManagerOfReportSerialNumbers, m_timeManagerOfSendingDelayedReceptionReports,
-            boost::bind(&LtpEngine::NotifyEngineThatThisReceiverNeedsDeletedCallback, this, boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3),
-            boost::bind(&LtpEngine::NotifyEngineThatThisReceiversTimersHasProducibleData, this, boost::placeholders::_1), m_maxRetriesPerSerialNumber);
+            m_notifyEngineThatThisReceiverNeedsDeletedCallback, //reference stored, so must not be destroyed until after all sessions destroyed
+            m_notifyEngineThatThisSendersTimersHasProducibleDataFunction, //reference stored, so must not be destroyed until after all sessions destroyed
+            m_maxRetriesPerSerialNumber);
 
         std::pair<map_session_id_to_session_receiver_t::iterator, bool> res = m_mapSessionIdToSessionReceiver.emplace(sessionId, std::move(session));
         if (res.second == false) { //fragment key was not inserted
@@ -1093,7 +1109,7 @@ void LtpEngine::SetTransmissionSessionCompletedCallback(const TransmissionSessio
     m_transmissionSessionCompletedCallback = callback;
 }
 void LtpEngine::SetInitialTransmissionCompletedCallback(const InitialTransmissionCompletedCallback_t & callback) {
-    m_initialTransmissionCompletedCallback = callback;
+    m_initialTransmissionCompletedCallbackForUser = callback;
 }
 void LtpEngine::SetTransmissionSessionCancelledCallback(const TransmissionSessionCancelledCallback_t & callback) {
     m_transmissionSessionCancelledCallback = callback;

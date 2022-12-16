@@ -188,12 +188,22 @@ private:
     const uint64_t M_MAX_RX_DATA_SEGMENT_HISTORY_OR_ZERO_DISABLE;//rxDataSegmentSessionNumberRecreationPreventerHistorySizeOrZeroToDisable
     boost::random_device m_randomDevice;
 
+    //session receiver functions to be passed in AS REFERENCES (note declared before m_mapSessionIdToSessionReceiver so destroyed after map)
+    NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
+    NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
+
+    //session sender functions to be passed in AS REFERENCES (note declared before m_mapSessionNumberToSessionSender so destroyed after map)
+    NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
+    NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
+    InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallbackCalledBySender; //which then calls m_initialTransmissionCompletedCallbackForUser
+
     typedef std::unordered_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
     typedef std::unordered_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
     LTP_LIB_NO_EXPORT void EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt);
     LTP_LIB_NO_EXPORT void EraseRxSession(map_session_id_to_session_receiver_t::iterator& rxSessionIt);
+    
 
     std::queue<std::pair<uint64_t, std::vector<uint8_t> > > m_queueClosedSessionDataToSend; //sessionOriginatorEngineId, data
     std::queue<cancel_segment_timer_info_t> m_queueCancelSegmentTimerInfo;
@@ -208,7 +218,7 @@ private:
     GreenPartSegmentArrivalCallback_t m_greenPartSegmentArrivalCallback;
     ReceptionSessionCancelledCallback_t m_receptionSessionCancelledCallback;
     TransmissionSessionCompletedCallback_t m_transmissionSessionCompletedCallback;
-    InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
+    InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallbackForUser;
     TransmissionSessionCancelledCallback_t m_transmissionSessionCancelledCallback;
 
     OnFailedBundleVecSendCallback_t m_onFailedBundleVecSendCallback;

@@ -52,9 +52,9 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t> & timeManagerOfReportSerialNumbersRef,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfSendingDelayedReceptionReportsRef,
-        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallback,
-        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunction,
-        const uint32_t maxRetriesPerSerialNumber = 5);
+        const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & notifyEngineThatThisReceiverNeedsDeletedCallbackRef,
+        const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef,
+        const uint32_t maxRetriesPerSerialNumber);
 
     LTP_LIB_EXPORT ~LtpSessionReceiver();
     LTP_LIB_EXPORT bool NextDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
@@ -108,8 +108,8 @@ private:
     bool m_didRedPartReceptionCallback;
     bool m_didNotifyForDeletion;
     bool m_receivedEobFromGreenOrRed;
-    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t m_notifyEngineThatThisReceiverNeedsDeletedCallback;
-    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t m_notifyEngineThatThisSendersTimersHasProducibleDataFunction;
+    const NotifyEngineThatThisReceiverNeedsDeletedCallback_t & m_notifyEngineThatThisReceiverNeedsDeletedCallbackRef;
+    const NotifyEngineThatThisReceiversTimersHasProducibleDataFunction_t & m_notifyEngineThatThisSendersTimersHasProducibleDataFunctionRef;
 
 public:
     //stagnant rx session detection in ltp engine with periodic housekeeping timer

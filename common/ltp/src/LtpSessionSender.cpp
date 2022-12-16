@@ -25,9 +25,9 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     uint64_t lengthOfRedPart, const uint64_t MTU, const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
     LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
     LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
-    const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
-    const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
-    const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback, 
+    const NotifyEngineThatThisSenderNeedsDeletedCallback_t& notifyEngineThatThisSenderNeedsDeletedCallbackRef,
+    const NotifyEngineThatThisSenderHasProducibleDataFunction_t& notifyEngineThatThisSenderHasProducibleDataFunctionRef,
+    const InitialTransmissionCompletedCallback_t& initialTransmissionCompletedCallbackRef,
     const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber, const uint64_t memoryBlockId) :
     m_timeManagerOfCheckpointSerialNumbersRef(timeManagerOfCheckpointSerialNumbersRef),
     m_timeManagerOfSendingDelayedDataSegmentsRef(timeManagerOfSendingDelayedDataSegmentsRef),
@@ -47,9 +47,9 @@ LtpSessionSender::LtpSessionSender(uint64_t randomInitialSenderCheckpointSerialN
     M_MAX_RETRIES_PER_SERIAL_NUMBER(maxRetriesPerSerialNumber),
     MEMORY_BLOCK_ID(memoryBlockId),
     //m_numActiveTimers(0),
-    m_notifyEngineThatThisSenderNeedsDeletedCallback(notifyEngineThatThisSenderNeedsDeletedCallback),
-    m_notifyEngineThatThisSenderHasProducibleDataFunction(notifyEngineThatThisSenderHasProducibleDataFunction),
-    m_initialTransmissionCompletedCallback(initialTransmissionCompletedCallback),
+    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(notifyEngineThatThisSenderNeedsDeletedCallbackRef),
+    m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(notifyEngineThatThisSenderHasProducibleDataFunctionRef),
+    m_initialTransmissionCompletedCallbackRef(initialTransmissionCompletedCallbackRef),
     m_numCheckpointTimerExpiredCallbacks(0),
     m_numDiscretionaryCheckpointsNotResent(0),
     m_numDeletedFullyClaimedPendingReports(0),
@@ -140,14 +140,14 @@ void LtpSessionSender::LtpCheckpointTimerExpiredCallback(const Ltp::session_id_t
             //resend 
             ++(resendFragment.retryCount);
             m_resendFragmentsQueue.push(resendFragment);
-            m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
+            m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
         }
     }
     else {
         if (!m_didNotifyForDeletion) {
             m_isFailedSession = true;
             m_didNotifyForDeletion = true;
-            m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
+            m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, true, CANCEL_SEGMENT_REASON_CODES::RLEXC, m_userDataPtr);
         }
     }
 }
@@ -164,7 +164,7 @@ void LtpSessionSender::LtpDelaySendDataSegmentsTimerExpiredCallback(const uint64
     }
     m_mapRsBoundsToRsnPendingGeneration.clear(); //also flag that signifies timer stopped
     if (!m_didNotifyForDeletion) {
-        m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
+        m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
     }
 }
 
@@ -384,11 +384,11 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 udpSendPacketInfo.underlyingCsDataToDeleteOnSentCallback = m_dataToSendSharedPtr;
             }
 
-            m_initialTransmissionCompletedCallback(M_SESSION_ID, m_userDataPtr);
+            m_initialTransmissionCompletedCallbackRef(M_SESSION_ID, m_userDataPtr);
             if (M_LENGTH_OF_RED_PART == 0) { //fully green case complete (notify engine for deletion)
                 if (!m_didNotifyForDeletion) {
                     m_didNotifyForDeletion = true;
-                    m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+                    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                 }
             }
             else if (m_dataFragmentsAckedByReceiver.size() == 1) { //in case red data already acked before green data send completes
@@ -396,7 +396,7 @@ bool LtpSessionSender::NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketI
                 if ((it->beginIndex == 0) && (it->endIndex >= (M_LENGTH_OF_RED_PART - 1))) { //>= in case some green data was acked
                     if (!m_didNotifyForDeletion) {
                         m_didNotifyForDeletion = true;
-                        m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+                        m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                     }
                 }
             }
@@ -485,7 +485,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
             if ((m_dataIndexFirstPass == m_dataToSendSharedPtr->size()) && m_allRedDataReceivedByRemote) { //if red and green fully sent and all red data acked
                 if (!m_didNotifyForDeletion) {
                     m_didNotifyForDeletion = true;
-                    m_notifyEngineThatThisSenderNeedsDeletedCallback(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
+                    m_notifyEngineThatThisSenderNeedsDeletedCallbackRef(M_SESSION_ID, false, CANCEL_SEGMENT_REASON_CODES::RESERVED, m_userDataPtr);
                 }
             }
 
@@ -582,7 +582,7 @@ void LtpSessionSender::ReportSegmentReceivedCallback(const Ltp::report_segment_t
         }
     }
     if (!m_didNotifyForDeletion) {
-        m_notifyEngineThatThisSenderHasProducibleDataFunction(M_SESSION_ID.sessionNumber);
+        m_notifyEngineThatThisSenderHasProducibleDataFunctionRef(M_SESSION_ID.sessionNumber);
     }
 }
 

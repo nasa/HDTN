@@ -52,9 +52,9 @@ public:
         const Ltp::session_id_t & sessionId, const uint64_t clientServiceId,
         LtpTimerManager<Ltp::session_id_t, Ltp::hash_session_id_t>& timeManagerOfCheckpointSerialNumbersRef,
         LtpTimerManager<uint64_t, std::hash<uint64_t> >& timeManagerOfSendingDelayedDataSegmentsRef,
-        const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallback,
-        const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunction,
-        const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallback,
+        const NotifyEngineThatThisSenderNeedsDeletedCallback_t & notifyEngineThatThisSenderNeedsDeletedCallbackRef,
+        const NotifyEngineThatThisSenderHasProducibleDataFunction_t & notifyEngineThatThisSenderHasProducibleDataFunctionRef,
+        const InitialTransmissionCompletedCallback_t & initialTransmissionCompletedCallbackRef,
         const uint64_t checkpointEveryNthDataPacket, const uint32_t maxRetriesPerSerialNumber, const uint64_t memoryBlockId);
     LTP_LIB_EXPORT bool NextTimeCriticalDataToSend(UdpSendPacketInfo & udpSendPacketInfo);
     LTP_LIB_EXPORT bool NextFirstPassDataToSend(UdpSendPacketInfo& udpSendPacketInfo);
@@ -118,9 +118,9 @@ private:
 public:
     const uint64_t MEMORY_BLOCK_ID;
 private:
-    const NotifyEngineThatThisSenderNeedsDeletedCallback_t m_notifyEngineThatThisSenderNeedsDeletedCallback;
-    const NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
-    const InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallback;
+    const NotifyEngineThatThisSenderNeedsDeletedCallback_t & m_notifyEngineThatThisSenderNeedsDeletedCallbackRef;
+    const NotifyEngineThatThisSenderHasProducibleDataFunction_t & m_notifyEngineThatThisSenderHasProducibleDataFunctionRef;
+    const InitialTransmissionCompletedCallback_t & m_initialTransmissionCompletedCallbackRef;
 
 public:
     //stats
