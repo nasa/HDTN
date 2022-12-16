@@ -17,6 +17,7 @@ add_library(hdtn_util
 	src/LtpClientServiceDataToSend.cpp
 	src/DirectoryScanner.cpp
 	src/MemoryInFiles.cpp
+	src/DeadlineTimer.cpp
 )
 target_compile_options(hdtn_util PRIVATE ${NON_WINDOWS_HARDWARE_ACCELERATION_FLAGS})
 GENERATE_EXPORT_HEADER(hdtn_util)
@@ -54,6 +55,7 @@ set(MY_PUBLIC_HEADERS
 	include/CborUint.h
 	include/CircularIndexBufferSingleProducerSingleConsumerConfigurable.h
 	include/CpuFlagDetection.h
+	include/DeadlineTimer.h
 	include/DirectoryScanner.h
 	include/EnumAsFlagsMacro.h
     include/Environment.h

@@ -135,7 +135,7 @@ public:
         bpsink,
         ltpfiletransfer,
         egress,
-        gui,
+        telem,
         hdtnoneprocess,
         ingress,
         router,
@@ -158,6 +158,7 @@ public:
         router,
         scheduler,
         storage,
+        telem,
         gui,
         unittest,
         none

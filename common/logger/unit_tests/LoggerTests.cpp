@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::bpsink), "bpsink");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::ltpfiletransfer), "ltpfiletransfer");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::egress), "egress");
-    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::gui), "gui");
+    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::telem), "telem");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::unittest), "unittest");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::ingress), "ingress");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::Process::router), "router");
@@ -117,6 +117,7 @@ BOOST_AUTO_TEST_CASE(LoggerToStringTestCase)
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::router), "router");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::scheduler), "scheduler");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::storage), "storage");
+    BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::telem), "telem");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::gui), "gui");
     BOOST_REQUIRE_EQUAL(hdtn::Logger::toString(hdtn::Logger::SubProcess::none), "");
 }

@@ -100,6 +100,9 @@ add_executable(unit-tests-from-install
 	../../module/storage/unit_tests/TestBundleUuidToUint64HashMap.cpp
 	../../module/storage/unit_tests/TestCustodyTimers.cpp
     #../../module/storage/unit_tests/BundleStorageManagerMtAsFifoTests.cpp
+	../../module/telem_command_interface/unit_tests/WebsocketServerTests.cpp
+	../../module/telem_command_interface/unit_tests/TelemetryRunnerTests.cpp
+	../../module/telem_command_interface/unit_tests/TelemetryConnectionTests.cpp
 )
 
 target_link_libraries(unit-tests-from-install
@@ -120,6 +123,7 @@ target_link_libraries(unit-tests-from-install
 	HDTN::TcpclLib
 	HDTN::UdpLib
 	HDTN::UdpDelaySimLib
+	HDTN::HdtnTelemLib
 	Boost::unit_test_framework
 	Boost::timer
 )

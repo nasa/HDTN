@@ -27,12 +27,7 @@
 #include "telemetry_definitions_export.h"
 
 struct IngressTelemetry_t{
-    TELEMETRY_DEFINITIONS_EXPORT IngressTelemetry_t();
-
-    uint64_t type;
-    double bundleDataRate;
-    double averageDataRate;
-    double totalData;
+    double totalDataBytes;
     uint64_t bundleCountEgress;
     uint64_t bundleCountStorage;
 
@@ -40,11 +35,8 @@ struct IngressTelemetry_t{
 };
 
 struct EgressTelemetry_t{
-    TELEMETRY_DEFINITIONS_EXPORT EgressTelemetry_t();
-
-    uint64_t type;
     uint64_t egressBundleCount;
-    double egressBundleData;
+    double totalDataBytes;
     uint64_t egressMessageCount;
 
     TELEMETRY_DEFINITIONS_EXPORT uint64_t SerializeToLittleEndian(uint8_t* data, uint64_t bufferSize) const;
@@ -52,9 +44,6 @@ struct EgressTelemetry_t{
 };
 
 struct StorageTelemetry_t{
-    TELEMETRY_DEFINITIONS_EXPORT StorageTelemetry_t();
-
-    uint64_t type;
     uint64_t totalBundlesErasedFromStorage;
     uint64_t totalBundlesSentToEgressFromStorage;
     uint64_t usedSpaceBytes;
@@ -169,5 +158,7 @@ struct AllOutductCapabilitiesTelemetry_t {
 };
 
 TELEMETRY_DEFINITIONS_EXPORT bool PrintSerializedTelemetry(const uint8_t* serialized, uint64_t size);
+
+TELEMETRY_DEFINITIONS_EXPORT const uint8_t GUI_REQ_MSG = 1;
 
 #endif // HDTN_TELEMETRY_H
