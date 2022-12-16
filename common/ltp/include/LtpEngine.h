@@ -197,8 +197,8 @@ private:
     NotifyEngineThatThisSenderHasProducibleDataFunction_t m_notifyEngineThatThisSenderHasProducibleDataFunction;
     InitialTransmissionCompletedCallback_t m_initialTransmissionCompletedCallbackCalledBySender; //which then calls m_initialTransmissionCompletedCallbackForUser
 
-    typedef std::unordered_map<uint64_t, std::unique_ptr<LtpSessionSender> > map_session_number_to_session_sender_t;
-    typedef std::unordered_map<Ltp::session_id_t, std::unique_ptr<LtpSessionReceiver>, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
+    typedef std::unordered_map<uint64_t, LtpSessionSender> map_session_number_to_session_sender_t;
+    typedef std::unordered_map<Ltp::session_id_t, LtpSessionReceiver, Ltp::hash_session_id_t > map_session_id_to_session_receiver_t;
     map_session_number_to_session_sender_t m_mapSessionNumberToSessionSender;
     map_session_id_to_session_receiver_t m_mapSessionIdToSessionReceiver;
     LTP_LIB_NO_EXPORT void EraseTxSession(map_session_number_to_session_sender_t::iterator& txSessionIt);
@@ -283,7 +283,7 @@ private:
     std::unique_ptr<boost::thread> m_ioServiceLtpEngineThreadPtr;
 
     //session re-creation prevention
-    std::map<uint64_t, std::unique_ptr<LtpSessionRecreationPreventer> > m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
+    std::map<uint64_t, LtpSessionRecreationPreventer> m_mapSessionOriginatorEngineIdToLtpSessionRecreationPreventer;
 
     //memory in files
     std::unique_ptr<MemoryInFiles> m_memoryInFilesPtr;
