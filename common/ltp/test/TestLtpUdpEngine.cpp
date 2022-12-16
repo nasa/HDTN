@@ -1515,6 +1515,8 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
     ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_REPORT_SEGMENTS_TIME_MS; 
     ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0) 
+    ltpRxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //unused for inducts (must be set to 0)
+    ltpRxCfg.senderWriteSessionDataToFilesPath = "./"; //unused for inducts
 
     LtpEngineConfig ltpTxCfg;
     ltpTxCfg.thisEngineId = ENGINE_ID_SRC;
@@ -1540,7 +1542,9 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
     ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1;
     ltpTxCfg.senderPingSecondsOrZeroToDisable = 0;
     ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts 
-    ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS; 
+    ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = DELAY_SENDING_OF_DATA_SEGMENTS_TIME_MS;
+    ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
+    ltpTxCfg.senderWriteSessionDataToFilesPath = "./";
 
     //TEST WITH 1 maxUdpPacketsToSendPerSystemCall (NO BATCH SEND)
     LOG_INFO(subprocess) << "+++START 1 PACKET PER SYSTEM CALL+++";
@@ -1592,4 +1596,28 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
         t.DoTestFullyGreenData();
     }
     LOG_INFO(subprocess) << "+++END 500 PACKETS PER SYSTEM CALL+++";
+    LOG_INFO(subprocess) << "+++START SESSION ON DISK AND 1 PACKET PER SYSTEM CALL+++";
+    {
+        LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
+        ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 1;
+        ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 1;
+        ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 2000;
+        Test t(ltpRxCfg, ltpTxCfg);
+        t.DoTest();
+        t.DoTestRedAndGreenData();
+        t.DoTestFullyGreenData();
+    }
+    LOG_INFO(subprocess) << "+++END SESSION ON DISK AND 1 PACKET PER SYSTEM CALL+++";
+    LOG_INFO(subprocess) << "+++START SESSION ON DISK AND 500 PACKETS PER SYSTEM CALL+++";
+    {
+        LtpUdpEngineManager::SetMaxUdpRxPacketSizeBytesForAllLtp(UINT16_MAX); //MUST BE CALLED BEFORE Test Constructor
+        ltpRxCfg.maxUdpPacketsToSendPerSystemCall = 500;
+        ltpTxCfg.maxUdpPacketsToSendPerSystemCall = 500;
+        ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 2000;
+        Test t(ltpRxCfg, ltpTxCfg);
+        t.DoTest();
+        t.DoTestRedAndGreenData();
+        t.DoTestFullyGreenData();
+    }
+    LOG_INFO(subprocess) << "+++END SESSION ON DISK AND 500 PACKETS PER SYSTEM CALL+++";
 }

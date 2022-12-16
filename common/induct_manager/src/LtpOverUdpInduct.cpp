@@ -32,6 +32,8 @@ LtpOverUdpInduct::LtpOverUdpInduct(const InductProcessBundleCallback_t & inductP
     ltpRxCfg.senderPingSecondsOrZeroToDisable = 0; //unused for inducts
     ltpRxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 20; //todo const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable
     ltpRxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 0; //unused for inducts (must be set to 0)
+    ltpRxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //unused for inducts
+    ltpRxCfg.senderWriteSessionDataToFilesPath = "./";
 
     m_ltpBundleSinkPtr = boost::make_unique<LtpBundleSink>(m_inductProcessBundleCallback, ltpRxCfg); 
 

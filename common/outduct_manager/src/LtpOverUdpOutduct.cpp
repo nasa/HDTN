@@ -34,6 +34,10 @@ LtpOverUdpOutduct::LtpOverUdpOutduct(const outduct_element_config_t& outductConf
     ltpTxCfg.senderPingSecondsOrZeroToDisable = m_outductConfig.ltpSenderPingSecondsOrZeroToDisable;
     ltpTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable = 0; //unused for outducts
     ltpTxCfg.delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 20; //todo delaySendingOfDataSegmentsTimeMsOrZeroToDisable
+    ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0; //todo
+    ltpTxCfg.senderWriteSessionDataToFilesPath = "./";
+    //ltpTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 2000; //todo
+    //ltpTxCfg.senderWriteSessionDataToFilesPath = "W:\\";
 
     m_ltpBundleSourcePtr = boost::make_unique<LtpBundleSource>(ltpTxCfg);
 }

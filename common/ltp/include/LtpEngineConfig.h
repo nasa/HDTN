@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <string>
 #include <boost/date_time.hpp>
+#include <boost/filesystem.hpp>
 
 struct LtpEngineConfig {
 
@@ -191,6 +192,27 @@ struct LtpEngineConfig {
      * This parameter should be set to zero for a receiver.
      */
     uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable = 20;
+
+    /**
+     * If non-zero, makes LTP keep session data on disk instead of in memory,
+     * which is useful for high rate data with extremely long delays.
+     * This value is the number of milliseconds the ltp engine
+     * should create a new file for storing new LTP session data for
+     * this period of time.  Once all sessions contained in a file are closed,
+     * the file is automatically deleted.  Files are stored in
+     * "senderWriteSessionDataToFilesPath/randomly_generated_directory/ltp_%09d.bin"
+     * If zero, makes LTP keep session data in memory (default behavior).
+     * This parameter should be set to zero for a receiver.
+     */
+    uint64_t senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
+
+    /**
+     * If and only if senderNewFileDurationMsToStoreSessionDataOrZeroToDisable is non-zero,
+     * then this is the base directory for which LTP keeps session data on disk instead of in memory,
+     * which is useful for high rate data with extremely long delays.
+     * This path should point to a directory that is mounted on a solid state drive.
+     */
+    boost::filesystem::path senderWriteSessionDataToFilesPath = "./";
 };
 
     

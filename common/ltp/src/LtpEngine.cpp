@@ -23,9 +23,6 @@ static constexpr hdtn::Logger::SubProcess subprocess = hdtn::Logger::SubProcess:
 static const boost::posix_time::time_duration static_tokenMaxLimitDurationWindow(boost::posix_time::milliseconds(100));
 static const boost::posix_time::time_duration static_tokenRefreshTimeDurationWindow(boost::posix_time::milliseconds(20));
 
-static const bool USE_MEMORY_IN_FILES = false;
-static const uint64_t memoryInFilesNewFileAggregationTimeMs = 3000;
-
 LtpEngine::cancel_segment_timer_info_t::cancel_segment_timer_info_t(const uint8_t* data) {
     memcpy(this, data, sizeof(cancel_segment_timer_info_t));
 }
@@ -120,8 +117,13 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     m_housekeepingTimer.async_wait(boost::bind(&LtpEngine::OnHousekeeping_TimerExpired, this, boost::asio::placeholders::error));
 
     //start memory in files for keeping session data on disk instead of RAM
-    if (USE_MEMORY_IN_FILES && startIoServiceThread) { //startIoServiceThread needed to skip using memoryInFiles when under TestLtpEngine
-        m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine, "./", memoryInFilesNewFileAggregationTimeMs, M_MAX_SIMULTANEOUS_SESSIONS * 2);
+    /*ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable = 0;
+    ltpRxOrTxCfg.senderWriteSessionDataToFilesPath = "./";*/
+    if (ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable && startIoServiceThread) { //startIoServiceThread needed to ensure skip using memoryInFiles when under TestLtpEngine
+        m_memoryInFilesPtr = boost::make_unique<MemoryInFiles>(m_ioServiceLtpEngine,
+            ltpRxOrTxCfg.senderWriteSessionDataToFilesPath,
+            ltpRxOrTxCfg.senderNewFileDurationMsToStoreSessionDataOrZeroToDisable,
+            M_MAX_SIMULTANEOUS_SESSIONS * 2);
     }
 
     if (startIoServiceThread) {
