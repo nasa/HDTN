@@ -346,3 +346,157 @@ BOOST_AUTO_TEST_CASE(MemoryInFilesTestCase)
     t.DoTest();
     LOG_INFO(subprocess) << "finished MemoryInFilesTestCase";
 }
+
+
+
+
+
+
+
+
+BOOST_AUTO_TEST_CASE(MemoryInFilesSpeedTestCase)
+{
+    namespace fs = boost::filesystem;
+    static constexpr uint64_t NUM_MEMORY_BLOCKS_TO_ALLOCATE = 10000;
+
+    struct Test {
+        boost::asio::io_service ioService;
+        std::unique_ptr<boost::asio::io_service::work> work =
+            boost::make_unique<boost::asio::io_service::work>(ioService); //prevent having to call ioService.reset()
+        const fs::path rootPath;
+        const uint64_t newFileAggregationTimeMs;
+        MemoryInFiles mf;
+        std::queue<std::vector<uint64_t> > expectedBlockReadsQueue;
+        std::size_t expectedUseCountWrite;
+        std::size_t expectedUseCountRead;
+
+        std::size_t writeUseCountCountsAt2;
+        std::size_t writeUseCountCountsAt1;
+        std::size_t readUseCountCountsAt2;
+        std::size_t readUseCountCountsAt1;
+        Test(const fs::path& paramRootPath) :
+            rootPath(paramRootPath),
+            newFileAggregationTimeMs(2000),
+            mf(ioService, rootPath, newFileAggregationTimeMs, 10) {}
+
+        void DoTest() {
+            static constexpr std::size_t BLOCK_NUM_VALUES = 10;
+            static constexpr std::size_t BLOCK_NUM_BYTES = BLOCK_NUM_VALUES * sizeof(uint64_t);
+            static constexpr std::size_t BLOCK_HALF_NUM_BYTES = BLOCK_NUM_BYTES / 2;
+            expectedUseCountWrite = 2;
+            expectedUseCountRead = 2;
+
+            writeUseCountCountsAt2 = 0;
+            writeUseCountCountsAt1 = 0;
+            readUseCountCountsAt2 = 0;
+            readUseCountCountsAt1 = 0;
+
+            uint64_t valueCounter = 0;
+            uint64_t lastMemoryBlockNeedingDeleted = 1;
+            uint64_t numDeleted = 0;
+            for (uint64_t memoryBlockId = 1; memoryBlockId <= NUM_MEMORY_BLOCKS_TO_ALLOCATE; ++memoryBlockId) {
+                std::vector<uint64_t> expectedVec(BLOCK_NUM_VALUES);
+                for (std::size_t i = 0; i < expectedVec.size(); ++i) {
+                    expectedVec[i] = ++valueCounter;
+                }
+                std::shared_ptr<std::vector<uint64_t> > dataToWriteSharedPtr = std::make_shared<std::vector<uint64_t> >(expectedVec);
+                expectedBlockReadsQueue.emplace(std::move(expectedVec));
+                std::shared_ptr<std::vector<uint64_t> > dataToReadBackSharedPtr = std::make_shared<std::vector<uint64_t> >(BLOCK_NUM_VALUES, 0);
+                BOOST_REQUIRE_EQUAL(mf.AllocateNewWriteMemoryBlock(BLOCK_NUM_BYTES), memoryBlockId);
+                { //write first half of bytes
+                    MemoryInFiles::deferred_write_t deferredWrite;
+                    deferredWrite.memoryBlockId = memoryBlockId;
+                    deferredWrite.offset = 0;
+                    deferredWrite.writeFromThisLocationPtr = dataToWriteSharedPtr->data();
+                    deferredWrite.length = BLOCK_HALF_NUM_BYTES;
+                    BOOST_REQUIRE(mf.WriteMemoryAsync(deferredWrite, boost::bind(&Test::WriteHandler, this, dataToWriteSharedPtr)));
+                }
+                { //write second half of bytes
+                    MemoryInFiles::deferred_write_t deferredWrite;
+                    deferredWrite.memoryBlockId = memoryBlockId;
+                    deferredWrite.offset = BLOCK_HALF_NUM_BYTES;
+                    deferredWrite.writeFromThisLocationPtr = ((const uint8_t*)(dataToWriteSharedPtr->data())) + BLOCK_HALF_NUM_BYTES;
+                    deferredWrite.length = BLOCK_HALF_NUM_BYTES;
+                    BOOST_REQUIRE(mf.WriteMemoryAsync(deferredWrite, boost::bind(&Test::WriteHandler, this, std::move(dataToWriteSharedPtr))));
+                }
+                { //read first half of bytes
+                    MemoryInFiles::deferred_read_t deferredRead;
+                    deferredRead.memoryBlockId = memoryBlockId;
+                    deferredRead.offset = 0;
+                    deferredRead.readToThisLocationPtr = dataToReadBackSharedPtr->data();
+                    deferredRead.length = BLOCK_HALF_NUM_BYTES;
+                    BOOST_REQUIRE(mf.ReadMemoryAsync(deferredRead, boost::bind(&Test::ReadHandler,
+                        this, boost::placeholders::_1, dataToReadBackSharedPtr)));
+                }
+                { //read second half of bytes
+                    MemoryInFiles::deferred_read_t deferredRead;
+                    deferredRead.memoryBlockId = memoryBlockId;
+                    deferredRead.offset = BLOCK_HALF_NUM_BYTES;
+                    deferredRead.readToThisLocationPtr = ((uint8_t*)(dataToReadBackSharedPtr->data())) + BLOCK_HALF_NUM_BYTES;
+                    deferredRead.length = BLOCK_HALF_NUM_BYTES;
+                    BOOST_REQUIRE(mf.ReadMemoryAsync(deferredRead, boost::bind(&Test::ReadHandler,
+                        this, boost::placeholders::_1, std::move(dataToReadBackSharedPtr))));
+                }
+                for (unsigned int r = 0; r < 4; ++r) {
+                    ioService.run_one();
+                }
+                if (memoryBlockId % 5 == 0) {
+                    for (; lastMemoryBlockNeedingDeleted <= memoryBlockId; ++lastMemoryBlockNeedingDeleted) {
+                        BOOST_REQUIRE(mf.DeleteMemoryBlock(lastMemoryBlockNeedingDeleted));
+                        ++numDeleted;
+                    }
+                    //LOG_DEBUG(subprocess) << "next needing deleted=" << lastMemoryBlockNeedingDeleted;
+                }
+            }
+            for (; lastMemoryBlockNeedingDeleted <= NUM_MEMORY_BLOCKS_TO_ALLOCATE; ++lastMemoryBlockNeedingDeleted) {
+                BOOST_REQUIRE(mf.DeleteMemoryBlock(lastMemoryBlockNeedingDeleted));
+                ++numDeleted;
+                //LOG_DEBUG(subprocess) << "finish delete=" << lastMemoryBlockNeedingDeleted;
+            }
+            BOOST_REQUIRE_EQUAL(numDeleted, NUM_MEMORY_BLOCKS_TO_ALLOCATE);
+        }
+
+        void ReadHandler(bool success, std::shared_ptr<std::vector<uint64_t> >& dataSharedPtr) {
+            BOOST_REQUIRE_EQUAL(dataSharedPtr.use_count(), expectedUseCountRead);
+            if (expectedUseCountRead == 2) {
+                //LOG_DEBUG(subprocess) << "u2";
+                expectedUseCountRead = 1; //next will decrement
+                ++readUseCountCountsAt2;
+            }
+            else { //use count was 1 (read complete)
+                std::vector<uint64_t>& vec = *dataSharedPtr;
+                BOOST_REQUIRE(vec == expectedBlockReadsQueue.front());
+                //LOG_DEBUG(subprocess) << "v " << expectedBlockReadsQueue.front()[0] << " " << expectedBlockReadsQueue.front()[10 - 1];
+                expectedBlockReadsQueue.pop();
+                expectedUseCountRead = 2;
+                ++readUseCountCountsAt1;
+            }
+        }
+        void WriteHandler(std::shared_ptr<std::vector<uint64_t> >& dataSharedPtr) {
+            BOOST_REQUIRE_EQUAL(dataSharedPtr.use_count(), expectedUseCountWrite);
+            if (expectedUseCountWrite == 2) {
+                expectedUseCountWrite = 1; //next will decrement
+                ++writeUseCountCountsAt2;
+            }
+            else { //use count was 1
+                expectedUseCountWrite = 2;
+                ++writeUseCountCountsAt1;
+            }
+        }
+    };
+
+    const fs::path rootPath = fs::temp_directory_path() / "MemoryInFilesSpeedTestCase";
+    if (boost::filesystem::is_directory(rootPath)) {
+        fs::remove_all(rootPath);
+    }
+    BOOST_REQUIRE(boost::filesystem::create_directory(rootPath));
+    LOG_INFO(subprocess) << "running MemoryInFilesSpeedTestCase with rootpath=" << rootPath;
+
+    Test t(rootPath);
+    t.DoTest();
+    BOOST_REQUIRE_EQUAL(t.writeUseCountCountsAt2, NUM_MEMORY_BLOCKS_TO_ALLOCATE);
+    BOOST_REQUIRE_EQUAL(t.writeUseCountCountsAt1, NUM_MEMORY_BLOCKS_TO_ALLOCATE);
+    BOOST_REQUIRE_EQUAL(t.readUseCountCountsAt2, NUM_MEMORY_BLOCKS_TO_ALLOCATE);
+    BOOST_REQUIRE_EQUAL(t.readUseCountCountsAt1, NUM_MEMORY_BLOCKS_TO_ALLOCATE);
+    LOG_INFO(subprocess) << "finished MemoryInFilesSpeedTestCase";
+}
