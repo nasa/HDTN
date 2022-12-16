@@ -34,7 +34,7 @@ LtpEngine::LtpEngine(const LtpEngineConfig& ltpRxOrTxCfg, const uint8_t engineIn
     M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION(ltpRxOrTxCfg.estimatedBytesToReceivePerSession),
     M_MAX_RED_RX_BYTES_PER_SESSION(ltpRxOrTxCfg.maxRedRxBytesPerSession),
     M_THIS_ENGINE_ID(ltpRxOrTxCfg.thisEngineId),
-    M_MTU_CLIENT_SERVICE_DATA(ltpRxOrTxCfg.mtuClientServiceData),
+    m_mtuClientServiceData(ltpRxOrTxCfg.mtuClientServiceData),
     M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL(ltpRxOrTxCfg.maxUdpPacketsToSendPerSystemCall),
     m_transmissionToAckReceivedTime((ltpRxOrTxCfg.oneWayLightTime * 2) + (ltpRxOrTxCfg.oneWayMarginTime * 2)),
     m_delaySendingOfReportSegmentsTime((ltpRxOrTxCfg.delaySendingOfReportSegmentsTimeMsOrZeroToDisable) ?
@@ -197,6 +197,9 @@ void LtpEngine::SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEve
     m_checkpointEveryNthDataPacketSender = checkpointEveryNthDataPacketSender;
 }
 
+void LtpEngine::SetMtuReportSegment_ThreadSafe(uint64_t mtuReportSegment) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetMtuReportSegment, this, mtuReportSegment));
+}
 void LtpEngine::SetMtuReportSegment(uint64_t mtuReportSegment) {
     //(5 * 10) + (receptionClaims.size() * (2 * 10)); //5 sdnvs * 10 bytes sdnv max + reception claims * 2sdnvs per claim
     //70 bytes worst case minimum for 1 claim
@@ -206,6 +209,13 @@ void LtpEngine::SetMtuReportSegment(uint64_t mtuReportSegment) {
     }
     m_maxReceptionClaims = (mtuReportSegment - 50) / 20;
     LOG_INFO(subprocess) << "max reception claims = " << m_maxReceptionClaims;
+}
+
+void LtpEngine::SetMtuDataSegment_ThreadSafe(uint64_t mtuDataSegment) {
+    boost::asio::post(m_ioServiceLtpEngine, boost::bind(&LtpEngine::SetMtuDataSegment, this, mtuDataSegment));
+}
+void LtpEngine::SetMtuDataSegment(uint64_t mtuDataSegment) {
+    m_mtuClientServiceData = mtuDataSegment;
 }
 
 bool LtpEngine::PacketIn(const uint8_t * data, const std::size_t size, Ltp::SessionOriginatorEngineIdDecodedCallback_t * sessionOriginatorEngineIdDecodedCallbackPtr) {
@@ -631,7 +641,7 @@ void LtpEngine::DoTransmissionRequest(uint64_t destinationClientServiceId, uint6
         std::forward_as_tuple(randomSessionNumberGeneratedBySender),
         std::forward_as_tuple(
             randomInitialSenderCheckpointSerialNumber, std::move(clientServiceDataToSend), std::move(userDataPtrToTake),
-            lengthOfRedPart, M_MTU_CLIENT_SERVICE_DATA, senderSessionId, destinationClientServiceId,
+            lengthOfRedPart, m_mtuClientServiceData, senderSessionId, destinationClientServiceId,
             m_timeManagerOfCheckpointSerialNumbers, m_timeManagerOfSendingDelayedDataSegments,
             m_notifyEngineThatThisSenderNeedsDeletedCallback, //reference stored, so must not be destroyed until after all sessions destroyed
             m_notifyEngineThatThisSenderHasProducibleDataFunction, //reference stored, so must not be destroyed until after all sessions destroyed

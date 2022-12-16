@@ -65,7 +65,7 @@ public:
 
     LTP_LIB_EXPORT virtual void Reset();
     LTP_LIB_EXPORT void SetCheckpointEveryNthDataPacketForSenders(uint64_t checkpointEveryNthDataPacketSender);
-    LTP_LIB_EXPORT void SetMtuReportSegment(uint64_t mtuReportSegment);
+    
 
     LTP_LIB_EXPORT void TransmissionRequest(std::shared_ptr<transmission_request_t> & transmissionRequest);
     LTP_LIB_EXPORT void TransmissionRequest_ThreadSafe(std::shared_ptr<transmission_request_t> && transmissionRequest);
@@ -118,9 +118,14 @@ public:
     
     LTP_LIB_EXPORT void SetDelays_ThreadSafe(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
     LTP_LIB_EXPORT void SetDeferDelays_ThreadSafe(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT void SetMtuReportSegment_ThreadSafe(uint64_t mtuReportSegment);
+    LTP_LIB_EXPORT void SetMtuDataSegment_ThreadSafe(uint64_t mtuDataSegment);
 protected:
     LTP_LIB_EXPORT void SetDelays(const boost::posix_time::time_duration& oneWayLightTime, const boost::posix_time::time_duration& oneWayMarginTime, bool updateRunningTimers);
     LTP_LIB_EXPORT void SetDeferDelays(const uint64_t delaySendingOfReportSegmentsTimeMsOrZeroToDisable, const uint64_t delaySendingOfDataSegmentsTimeMsOrZeroToDisable);
+    LTP_LIB_EXPORT void SetMtuReportSegment(uint64_t mtuReportSegment);
+    LTP_LIB_EXPORT void SetMtuDataSegment(uint64_t mtuDataSegment);
+
     LTP_LIB_EXPORT virtual void PacketInFullyProcessedCallback(bool success);
     LTP_LIB_EXPORT virtual void SendPacket(std::vector<boost::asio::const_buffer>& constBufferVec,
         std::shared_ptr<std::vector<std::vector<uint8_t> > >& underlyingDataToDeleteOnSentCallback,
@@ -170,7 +175,7 @@ private:
     const uint64_t M_ESTIMATED_BYTES_TO_RECEIVE_PER_SESSION;
     const uint64_t M_MAX_RED_RX_BYTES_PER_SESSION;
     const uint64_t M_THIS_ENGINE_ID;
-    const uint64_t M_MTU_CLIENT_SERVICE_DATA;
+    uint64_t m_mtuClientServiceData;
 protected:
     const uint64_t M_MAX_UDP_PACKETS_TO_SEND_PER_SYSTEM_CALL;
 private:

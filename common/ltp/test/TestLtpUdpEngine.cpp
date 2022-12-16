@@ -1173,7 +1173,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             //  drop odd (printed 15x)                
             //  splitting 1 report segment with 15 reception claims into 5 report segments with no more than 3 reception claims per report segment
             Reset();
-            ltpUdpEngineDestPtr->SetMtuReportSegment(110); // 110 bytes will result in 3 reception claims max
+            ltpUdpEngineDestPtr->SetMtuReportSegment_ThreadSafe(110); // 110 bytes will result in 3 reception claims max
             AssertNoActiveSendersAndReceivers();
             DropSimulation sim;
             udpDelaySimDataSegmentProxy.SetUdpDropSimulatorFunction_ThreadSafe(boost::bind(&DropSimulation::DoSim, &sim, boost::placeholders::_1));
@@ -1216,7 +1216,7 @@ BOOST_AUTO_TEST_CASE(LtpUdpEngineTestCase, *boost::unit_test::enabled())
             BOOST_REQUIRE_EQUAL(numInitialTransmissionCompletedCallbacks, 1);
             BOOST_REQUIRE_EQUAL(numTransmissionSessionCancelledCallbacks, 0);
 
-            ltpUdpEngineDestPtr->SetMtuReportSegment(UINT64_MAX); //restore to default unlimited reception claims
+            ltpUdpEngineDestPtr->SetMtuReportSegment_ThreadSafe(UINT64_MAX); //restore to default unlimited reception claims
         }
         
         //test receiver stagnant session timeout
